@@ -155,8 +155,8 @@ export class Run {
       if (this.sim.state === 'countdown') {
         this.streamer.update(P.s);
         // start once the ground exists AND the first dressing chunks are built and warm (no compile stutter during the fly-by)
-        if (P.held && this.streamer.groundReady(P.s) && !this.groundOk) {
-          this.startWaitT = (this.startWaitT || 0) + dt;
+        if (!this.groundOk && (this.groundSeen || (this.streamer.groundReady(P.s)))) {
+          this.groundSeen = true; this.startWaitT = (this.startWaitT || 0) + dt;
           const dr = this.dressing, ready = !dr || (dr.idle && !dr.pool.warming);
           if (ready || this.startWaitT > 6) { this.groundOk = true; g.fade(0, 0.8); }
         }
@@ -175,6 +175,7 @@ export class Run {
         Object.assign(cmds.driver, { throttle: v.vf < want ? 1 : 0, brake: v.vf > want + 4 ? 0.5 : 0, steer: clamp(err * 2.5, -1, 1), handbrake: false, nitro: false });
       }
       if (this.aiDriver) cmds.driver = this.aiDriver.update(dt);
+      if (this.sim.state === 'countdown') Object.assign(cmds.driver, { throttle: 0, brake: 0, steer: 0, handbrake: true, nitro: false }); // no false starts
       if (this.driverLocal) { P.veh.setInput(cmds.driver); this._driverActions(dt, cmds.driver); }
       if (cmds.gunner.medkit) this._medkit();
       else if (this.remoteDriverInput) P.veh.setInput(this.remoteDriverInput);
