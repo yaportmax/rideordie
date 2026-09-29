@@ -90,7 +90,7 @@ export class Hud {
   }
   setVisible(v) { this.el.style.display = v ? '' : 'none'; }
   hints(lines, ms = 9000) {
-    if (!this.hintEl) { this.hintEl = document.createElement('div'); this.hintEl.style.cssText = 'position:absolute;left:50%;bottom:120px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px;line-height:1.9;opacity:0;transition:opacity .6s;background:rgba(0,0,0,.35);padding:10px 22px;border-left:3px solid #ffc21a'; this.el.appendChild(this.hintEl); }
+    if (!this.hintEl) { this.hintEl = document.createElement('div'); this.hintEl.style.cssText = 'position:absolute;left:50%;bottom:120px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px;line-height:1.9;opacity:0;transition:opacity .6s;background:rgba(0,0,0,.35);padding:10px 22px;border-left:3px solid #ffc21a;white-space:nowrap'; this.el.appendChild(this.hintEl); }
     this.hintEl.innerHTML = lines.map((l) => `<div>${l}</div>`).join(''); this.hintEl.style.opacity = 1;
     clearTimeout(this._hintT); this._hintT = setTimeout(() => { this.hintEl.style.opacity = 0; }, ms);
   }

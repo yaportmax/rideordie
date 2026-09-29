@@ -169,6 +169,7 @@ export class Sim {
   }
 
   _crash(car, other, force, dir, dt) {
+    if (globalThis.__crashLog && car.kind === 'player') globalThis.__crashLog.push({ t: this.time, other: other ? other.id : -1, force: force | 0, dir: [dir.x, dir.y, dir.z].map((v) => +v.toFixed(2)), v: (car.veh.speed * 3.6) | 0, air: +car.veh.airTime.toFixed(2), s: car.s | 0 });
     if (car.dead && car.exploded) return;
     const dv = force * dt / car.veh.mass; // velocity change contributed this step
     if (dv < 0.35) return;
