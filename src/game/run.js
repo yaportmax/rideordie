@@ -96,7 +96,7 @@ export class Run {
       },
       raycastWorld: (o, d, max) => run._worldRay(o, d, max),
       emit: (e) => run._localEvent(e),
-      report: (h) => { run.hitsLanded++; if (run.sim) run.sim.applyHit(h); else run.net.sendJSON({ t: 'hit', h }); },
+      report: (h) => { run.hitsLanded++; if (run.sim) run.sim.applyHit(h); else { run.net.sendJSON({ t: 'hit', h }); (run.localFlash || (run.localFlash = new Map())).set(h.carId, 0.12); } },
       fireRocket: (o, d, w) => { const cfg = { ...w.rocket, direct: w.dmg }; if (run.sim) run.sim.projectiles.addRocket(o, d, cfg, 1); else run.net.sendJSON({ t: 'rocket', o: o.toArray(), d: d.toArray(), cfg }); },
       throwGrenade: (o, v, cfg) => { if (run.sim) run.sim.projectiles.addGrenade(run.sim, o, v, cfg, 1); else run.net.sendJSON({ t: 'grenade', o: o.toArray(), v: v.toArray(), cfg }); },
       kick: (pitch, yaw, kick) => { run.gcam.addRecoil(pitch, yaw); run.gcam.shake.add(kick * 1.2); },
@@ -198,6 +198,8 @@ export class Run {
         if (this.bossState) { const gb = this.ghostBoss || (this.ghostBoss = new GhostBoss()); gb.pos.copy(this.bossState.pos); gb.quat.copy(this.bossState.quat); gb.alive = this.bossState.alive; gb.exploded = this.bossState.exploded; } else this.ghostBoss = null;
       }
       this.events = this.netEvents || []; this.netEvents = [];
+      for (const st of this.states.values()) st.hitFlash = 0;
+      if (this.localFlash) for (const [id, t] of this.localFlash) { const st = this.states.get(id); if (st) st.hitFlash = t; const nt = t - dt; if (nt <= 0) this.localFlash.delete(id); else this.localFlash.set(id, nt); }
       for (const [id, st] of this.states) { let gh = this.ghosts.get(id); if (!gh) { gh = new GhostCar(st); this.ghosts.set(id, gh); } gh.sync(st); }
       for (const id of [...this.ghosts.keys()]) if (!this.states.has(id)) this.ghosts.delete(id);
       if (this.simState === 'over' && !this.over) { this.over = true; }

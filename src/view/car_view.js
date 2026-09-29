@@ -52,6 +52,7 @@ export class CarView {
       if (o.isMesh) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         for (const m of mats) {
+          if (m.name === 'paint' || m.name === 'paint2') (this.paintMats || (this.paintMats = [])).push(m);
           if (m.name === 'paint' && opts.paint !== undefined) m.color.setHex(opts.paint);
           if (m.name === 'paint2' && opts.paint2 !== undefined) m.color.setHex(opts.paint2);
           if (m.name === 'light_tail') this.taillights.push(m);
@@ -106,6 +107,12 @@ export class CarView {
       node.rotation.set(st.spin[i], steer, 0, 'YXZ');
     }
     this._syncLodWheels();
+    // hit flash: a quick hot glint on the bodywork when rounds land
+    const f = Math.max(0, st.hitFlash || 0) / 0.12;
+    if (this.paintMats && (f > 0.01 || this._flashOn)) {
+      this._flashOn = f > 0.01;
+      for (const m of this.paintMats) { m.emissive.setRGB(1, 0.55, 0.25); m.emissiveIntensity = f * 0.9; }
+    }
   }
 
   /** Switch between the full model and the far LOD. */
