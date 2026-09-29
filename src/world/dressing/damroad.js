@@ -20,7 +20,7 @@ const _G = {};
 /** Pylon k position (deterministic): s along the road, d on the left clifftop. */
 function pylonAt(seed, k) { return { s: k * PYLON_PITCH + (hash2(k, 61, seed) - 0.5) * 60, d: PYLON_D + (hash2(k, 62, seed) - 0.5) * 16 }; }
 
-function lattice(mb, F, h, w0, w1, panels) {
+export function lattice(mb, F, h, w0, w1, panels) {
   const lv = (i) => (h * i) / panels, hw = (y) => w0 + (w1 - w0) * (y / h);
   const C4 = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
   for (const [cx, cz] of C4) mb.beam(F, cx * w0, 0, cz * w0, cx * w1, h, cz * w1, 0.45, 0.45);
@@ -57,7 +57,7 @@ function pylon(mb, nb, F, rv) {
   return att;
 }
 
-function dotAt(nb, p, size, color, mode, rv) {
+export function dotAt(nb, p, size, color, mode, rv) {
   const [u0, v0, u1, v1] = NEON_DOT(color), uc = (u0 + u1) / 2, vc = (v0 + v1) / 2, h = size / 2;
   nb.pushFac().setFac(ST.NEON, rv, mode, 1.6);
   for (const [ax, az] of [[1, 0], [0, 1]]) {
@@ -69,7 +69,7 @@ function dotAt(nb, p, size, color, mode, rv) {
 }
 
 /** Sagging cable between two world points: a crossed pair of thin ribbons (reads from the side and from below). */
-function cable(mb, a, b, sag, w = 0.16, balls = 0) {
+export function cable(mb, a, b, sag, w = 0.16, balls = 0) {
   const n = 12, P = [];
   for (let i = 0; i <= n; i++) { const t = i / n; P.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - sag * 4 * t * (1 - t), z: a.z + (b.z - a.z) * t }); }
   let dx = b.x - a.x, dz = b.z - a.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;

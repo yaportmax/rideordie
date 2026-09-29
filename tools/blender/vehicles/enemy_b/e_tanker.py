@@ -20,7 +20,7 @@ m.bake_opts = dict(dirt_h=1.2, dens=165.0, wheels=[(HX, HUBY, z, R_W) for z in A
                    max_size={'paint': 2048, 'paint2': 1024, 'armor': 2048, 'metal_dark': 2048, 'metal_bare': 2048},
                    recipes={'metal_bare': 'alu'})                      # the tank shell: dented aluminium (not 'chrome': the game darkens chrome x0.3)
 m.alias.update({'plastic': 'interior', 'fabric': 'interior', 'leather': 'interior', 'spike': 'armor', 'brass': 'metal_dark',
-                'rust': 'armor', 'decal_white': 'decal_yellow', 'cloth_red': 'canvas', 'wood': 'canvas', 'rim': 'metal_dark'})
+                'rust': 'armor', 'decal_white': 'decal_yellow', 'cloth_red': 'canvas', 'wood': 'canvas', 'rim': 'metal_dark', 'chrome': 'metal_dark'})
 m.objs['body'].alias = {'rubber_tire': 'metal_dark', 'decal_yellow': 'decal_red'}
 PAN = dict(metal_dark='armor', interior='armor', decal_yellow='armor', decal_red='armor', rubber_tire='armor', canvas='armor', chrome='armor')
 
@@ -433,7 +433,7 @@ for sx, nm in ((1, 'panel_armor_L'), (-1, 'panel_armor_R')):
 # dual chrome stacks (detachable)
 for sx, nm in ((1, 'panel_stack_L'), (-1, 'panel_stack_R')):
     m.section('stacks')
-    m.panel(nm, (1.28 * sx, 1.4, 1.28), metal_dark='chrome', metal_bare='chrome', armor='chrome')
+    m.panel(nm, (1.28 * sx, 1.4, 1.28), chrome='armor', metal_dark='armor', metal_bare='armor')
     exhaust_stack2(m, (1.28 * sx, 1.32, 1.28), (1.28 * sx, 4.2, 1.28), r=0.095, mat='chrome', obj=nm, seg=10)
     for y in (1.9, 2.7, 3.5):
         m.box('chrome', (0.1, 0.05, 0.22), at=(1.2 * sx, y, 1.32), bevel=0, obj=nm)

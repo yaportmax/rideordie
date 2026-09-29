@@ -25,12 +25,11 @@ Public API used by the character builds:
     sock_pos, sock_rot = socket_frames(heads, clips)      -> pass to rig.add_skeleton(glb, heads, sock_pos, sock_rot)
     write_clips(glb, bone_nodes, clips)                   -> adds the glTF animations to a glb.Glb
 
-Clip semantics (all 30 fps; loop clips have T*30+1 frames, last == first, so they repeat seamlessly):
-    idle_stand 3.3 s loop | idle_sit_drive 3.0 s loop | sit_lean_L / _R 1.5 s loops holding the full lean (L = +X) |
-    flinch_a 0.67 s, flinch_b 0.73 s (start and end exactly on idle_stand frame 0) | throw_grenade 1.0 s (release at 0.55 s,
-    starts/ends on idle_stand frame 0) | celebrate 2.2 s one-shot (ends on idle_stand frame 0) | crouch_idle 3.0 s loop |
-    death_fall 1.2 s (lands ~0.72 s, ends lying on its back, head toward -Z, Hips translation keeps the body on the floor) |
-    pose_pistol / pose_rifle / pose_launcher: ONE frame at t = 0 (arms matter; feet/torso in a bladed stance).
+Clip library (all 30 fps; loop clips have T*30+1 frames, last == first): build_clips() keeps the first-generation one-frame
+pose_pistol / pose_rifle / pose_launcher from this file and takes every other clip from the second-generation libraries
+clips_gunner.py (standing), clips_react.py (hits, deaths, falls) and clips_driver.py (seated), authored with motion.py.
+role='gunner' | 'driver' trims the set per file (role_filter).  The full list with durations and intended use is in
+public/models/characters/README.md.
 """
 import copy
 

@@ -280,7 +280,7 @@ export function buildEliteKit(view, spec, index, carId) {
   const look = M0.look, build = KITS[look.kit]; if (!build) return null;
   const g = new THREE.Group(); g.name = 'elite_kit'; view.root.add(g);
   const k = build(g, spec, look);
-  bake(g, new Set(g.children.filter((c) => c.userData.horn || c.userData.bell)));
+  bake(g, new Set(g.children.filter((c) => c.userData.horn || c.userData.bell || k.flags.includes(c))));   // (flags keep waving)
   // the second twin swaps his colours
   const swap = look.kit === 'twins' && carId % 2 === 0;
   view.setTint(swap ? look.paint2 : look.paint, swap ? look.paint : look.paint2);

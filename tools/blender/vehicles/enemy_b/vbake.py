@@ -639,9 +639,9 @@ def r_rust(S):
 def r_chrome(S):
     n, ao, cav, dirt, dust, ew, streak, heat = _common(S)
     fine, mid = S['n_fine'], S['n_mid']
-    g = 0.6 + 0.08 * (mid - 0.5)
-    rgb = col((1.0, 0.99, 0.97), n) * g[:, None]
-    rough = 0.24 + 0.1 * (mid - 0.5) + 0.06 * fine
+    g = 0.46 + 0.08 * (mid - 0.5)
+    rgb = col((1.0, 0.98, 0.95), n) * g[:, None]
+    rough = 0.28 + 0.1 * (mid - 0.5) + 0.06 * fine
     metal = np.ones(n, np.float32)
     smudge = ss(0.45, 0.8, S['n_lo'] * 0.6 + mid * 0.4)
     rgb = mix(rgb, col((0.38, 0.35, 0.31), n), smudge * 0.55)
@@ -655,6 +655,9 @@ def r_chrome(S):
     metal *= (1 - 0.8 * rs)
     heat = S['heat']
     rgb = mix(rgb, col((0.55, 0.42, 0.3), n), ss(0.2, 1, heat) * 0.5)      # heat blued/golden pipes
+    tarnish = ss(0.35, 0.75, S['n_rc'] * 0.5 + S['n_lo2'] * 0.5)                    # bronze/blue heat tarnish + soot bloom
+    rgb = mix(rgb, col((0.36, 0.30, 0.24), n), tarnish * 0.45)
+    rgb = mix(rgb, col((0.10, 0.09, 0.08), n), ss(0.6, 0.9, S['n_mid']) * 0.35)
     rgb = mix(rgb, col((0.16, 0.13, 0.1), n), dirt * 0.75)
     rough = rough * (1 - dirt) + dirt * 0.8
     metal *= (1 - 0.7 * dirt)

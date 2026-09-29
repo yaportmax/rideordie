@@ -230,7 +230,8 @@ def tyre_flat(m, at, R=0.4, W=0.26, rim=True, obj=None, seg=20, tilt=(0, 0, 0)):
             with m.xf((R * math.cos(a), 0, R * math.sin(a)), (0, -(a / D2R), 0)):
                 m.box('rubber_tire', (0.02, W * 0.55, 2 * PI * R / seg * 0.8), at=(0.004, 0, 0), bevel=0, seg=1, obj=obj)
         if rim:
-            m.revolve('rim', [(Rr * 1.02, W * 0.3), (Rr * 0.9, W * 0.2), (Rr * 0.3, W * 0.22), (0, W * 0.24)], axis='y', seg=seg, closed=False, obj=obj)
+            m.revolve('rim', [(Rr * 1.02, W * 0.3), (Rr * 0.9, W * 0.2), (Rr * 0.3, W * 0.22), (0, W * 0.24), (0, W * 0.14), (Rr * 0.9, W * 0.1), (Rr * 1.02, W * 0.2)],
+                      axis='y', seg=seg, closed=True, obj=obj)
 
 
 def spike2(m, base, tip, r, mat='spike', obj=None, seg=6, weld=True):

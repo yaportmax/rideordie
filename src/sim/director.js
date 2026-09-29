@@ -164,6 +164,11 @@ export class Director {
       } else if (c.at === 'ahead') {
         const s = P.s + baseAhead + ai++ * 16;
         at = { s, d: c.role === 'flanker' ? side * 4.2 : r.pick([-1.7, 1.7]), speed: pv * 0.72 };
+      } else if (pv > 40 && r() < Math.min(1, (pv - 40) / 14)) {
+        // a fast truck outruns anything spawned behind it: at speed the squad comes from up the road instead (and adapts:
+        // rammers / chasers drop back through the next lane, flankers ease onto your flanks)
+        const s = P.s + baseAhead + ai++ * 16;
+        at = { s, d: side * r.range(1.7, 4.6), speed: pv * 0.8 };
       } else {
         const s = P.s - baseBehind - bi++ * 14;
         at = { s, d: c.role === 'flanker' || c.mode === 'overtake' ? side * 4.6 : r.pick(LANES), speed: pv + (c.role === 'chaser' && !c.mode ? 8 : 14) };
@@ -180,7 +185,9 @@ export class Director {
       if (c.kind !== 'enemy') continue;
       const behind = P.s - c.s;
       if (c.elite && !c.exploded && behind < 700) continue; // bosses stay while the fight is on
-      if ((c.exploded && c.wreckT > 14 && behind > 30) || behind > 300 || c.s - P.s > 640 || (c.veh.pos.y < -80)) sim.removeCar(c, 'cleanup');
+      // stragglers that can't keep up just clog the cap: cull them (the next squad will come)
+      const straggler = !c.exploded && behind > 170 && c.veh.vf < P.veh.vf - 3 && P.veh.vf > 30;
+      if ((c.exploded && c.wreckT > 14 && behind > 30) || behind > 300 || straggler || c.s - P.s > 640 || (c.veh.pos.y < -80)) sim.removeCar(c, 'cleanup');
     }
   }
 

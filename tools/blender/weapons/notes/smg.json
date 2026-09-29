@@ -1,7 +1,7 @@
 {
  "name": "smg",
- "tris": 30336,
- "glb_kb": 3064,
+ "tris": 16856,
+ "glb_kb": 417,
  "parts": {
   "body": {
    "pivot": [
@@ -10,11 +10,11 @@
     0.0
    ],
    "parent": null,
-   "tris": 17544,
+   "tris": 11400,
    "materials": [
     "gun_black",
-    "gun_metal",
     "gun_steel",
+    "gun_metal",
     "polymer",
     "rubber"
    ]
@@ -26,24 +26,22 @@
     -40.0
    ],
    "parent": null,
-   "tris": 660,
+   "tris": 256,
    "materials": [
-    "gun_metal",
     "gun_steel"
    ]
   },
   "charging_handle": {
    "pivot": [
-    22.0,
-    70.0,
-    58.0
+    11.0,
+    90.0,
+    240.0
    ],
    "parent": null,
-   "tris": 1072,
+   "tris": 408,
    "materials": [
-    "gun_metal",
-    "gun_black",
-    "gun_steel"
+    "gun_steel",
+    "gun_metal"
    ]
   },
   "trigger": {
@@ -53,7 +51,7 @@
     36.0
    ],
    "parent": null,
-   "tris": 708,
+   "tris": 600,
    "materials": [
     "gun_metal",
     "gun_steel"
@@ -66,26 +64,11 @@
     75.0
    ],
    "parent": null,
-   "tris": 8696,
+   "tris": 4192,
    "materials": [
     "gun_black",
-    "polymer",
     "brass",
     "gun_metal"
-   ]
-  },
-  "stock_fold": {
-   "pivot": [
-    0.0,
-    56.0,
-    -104.0
-   ],
-   "parent": null,
-   "tris": 1656,
-   "materials": [
-    "gun_metal",
-    "gun_steel",
-    "rubber"
    ]
   }
  },
@@ -158,7 +141,7 @@
   "sight": {
    "pos": [
     0.0,
-    98.6,
+    107.0,
     -150.0
    ],
    "rot_deg": [
@@ -171,7 +154,7 @@
   "stock": {
    "pos": [
     0.0,
-    44.0,
+    62.0,
     -322.0
    ],
    "rot_deg": [
@@ -213,7 +196,7 @@
     -1.0
    ],
    "amount": 52.0,
-   "note": "cocking: paddle on the LEFT side slides back in the receiver slot together with the bolt; return spring-loaded. Origin = base of the stem."
+   "note": "cocking: handle at the FRONT LEFT of the cocking tube (MP5 style) slides back 52 mm in its slot. Origin = stem base on the tube."
   },
   {
    "node": "trigger",
@@ -245,33 +228,18 @@
     0.0
    ],
    "amount": 190.0,
-   "note": "eject/insert straight down through the mag well (curved lower half swings out clear of the well). Origin = magazine top where the feed lips seat."
-  },
-  {
-   "node": "stock_fold",
-   "kind": "rotate",
-   "axis_g": [
-    0,
-    1,
-    0
-   ],
-   "axis_gltf": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "amount": -160.0,
-   "note": "optional fold: -160 deg about the node's +X (glTF) swings the wire stock down and forward under the receiver. Pivot = hinge bosses at the receiver rear."
+   "note": "eject/insert straight down through the mag well (the curved lower half swings clear). Origin = magazine top where the feed lips seat."
   }
  ],
  "remarks": [
-  "Reload: left hand drops the mag straight down (grip_L is under the ventilated handguard), fresh mag enters the well at mag_well from below, then slap the charging handle (left side) back 52 mm.",
-  "Right hand on the pistol grip, index on the trigger (blade at ~x=43 mm, z=28 mm from the origin). Wire stock is modelled EXTENDED; `stock` socket is the centre of the rubber butt pad.",
-  "Sights: drum rear aperture (z=98.6) and hooded front post on the same line; `sight` socket is the eye point 80 mm behind the rear sight."
+  "Reload: left hand drops the mag (paddle release behind it), inserts a new one at mag_well, then slaps the FRONT-LEFT cocking handle (charging_handle, on the cocking tube above the handguard) back 52 mm.",
+  "Right hand on the pistol grip; left hand on the tropical handguard at grip_L. Stock = A3 retractable (static, extended); `stock` = rubber pad centre. Sights: drum diopter rear (aperture centre z=107) + hooded front post; `sight` = eye point 150 mm behind the grip on that line."
  ],
  "style_keys": [
-  "decals",
-  "edge_gain",
+  "dust",
+  "engrave",
+  "polymer_color",
+  "rust",
   "wear"
  ]
 }

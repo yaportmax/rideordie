@@ -95,12 +95,12 @@ body.add(pad, "rubber", bevel=[(1.0, 2, None)], cut=[box_bm((6, 60, 3.0), c=(-31
 body.add(K.loop_bm((-270, 0, -34.0), (0, 0, -1), 8.0, 2.0), "gun_metal", bevel=0)
 
 # =========================================================================================== SIDE SADDLE (left) with 6 shells
-body.add(box_bm((150, 2.4, 44), c=(112, RW / 2 + 1.4, 52)), "polymer", bevel=1.0)
+body.add(box_bm((150, 2.4, 44), c=(112, RW / 2 + 1.4, 46)), "polymer", bevel=1.0)
 for k in range(6):
     x = 50 + k * 24.0
-    K.shotshell(body, (x, RW / 2 + 13.0, 26.0), (0, 0, 1), fired=False)
-    body.add(box_bm((20, 3.0, 12), c=(x, RW / 2 + 3.8, 62)), "polymer", bevel=0.8)
-body.add(box_bm((150, 3.0, 5), c=(112, RW / 2 + 3.6, 34)), "polymer", bevel=0.8)
+    K.shotshell(body, (x, RW / 2 + 13.0, 12.0), (0, 0, 1), fired=False)
+    body.add(box_bm((20, 3.0, 12), c=(x, RW / 2 + 3.8, 56)), "polymer", bevel=0.8)
+body.add(box_bm((150, 3.0, 5), c=(112, RW / 2 + 3.6, 28)), "polymer", bevel=0.8)
 for x in (46.0, 178.0):
     body.add(K.screw_head((x, RW / 2 + 2.6, 60), (0, 1, 0), 2.6), "gun_metal", bevel=0)
 

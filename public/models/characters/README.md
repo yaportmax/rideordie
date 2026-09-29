@@ -4,17 +4,19 @@ Rigged, skinned and animated humans.  Built by `tools/characters/build_all.py` (
 procedural garments and gear, procedurally keyed clips).  Metres, **Y up, faces +Z**, character LEFT = +X, feet
 (boot soles) at y = 0.
 
-| file | who | height | tris (visible) | size |
-|---|---|---|---|---|
-| `hero_gunner.glb` | player gunner: tank top, cargo pants, fingerless gloves, forearm wraps, goggles on the forehead, tattoos, brow scar | 1.83 m | 20.1k body + one armor tier (t1 3.3k, t2 5.9k, t3 6.5k) | 3.9 MB |
-| `hero_driver.glb` | player driver (woman): rust-orange leather bomber with crew emblem on the back, black tank, driving gloves, ponytail, pilot goggles on the head | 1.70 m | 25.3k | 3.8 MB |
-| `raider_a.glb` | bandana + round goggles grunt: open leather vest, bare tattooed chest, shell bandolier, cargo pants | 1.78 m | 9.9k | 1.2 MB |
-| `raider_b.glb` | mohawk punk: studded sleeveless vest, spiked leather pauldrons, spiked bracers, chains, torn jeans, face paint | 1.80 m (1.97 m incl. mohawk) | 10.2k | 1.3 MB |
-| `raider_c.glb` | masked heavy: hockey mask, riveted scrap plates, car-door left pauldron, tyre right shoulder, pipe forearm guards, chain belt | 1.92 m, bulky | 11.2k | 1.2 MB |
-| `raider_d.glb` | hooded bomber: hood up, scarf, bomber jacket, dynamite vest with detonator (red LED), trigger in the right hand | 1.75 m | 10.4k | 1.2 MB |
-| `raider_driver.glb` | cap + gold aviators, grizzled stubble beard, brown leather jacket with collar up, chain necklace, fingerless gloves | 1.78 m | 10.1k | 1.2 MB |
+| file | who | height | tris (visible) | size | clips |
+|---|---|---|---|---|---|
+| `hero_gunner.glb` | player gunner: tank top, cargo pants, fingerless gloves, forearm wraps, goggles on the forehead, tattoos, brow scar | 1.83 m | 20.1k body + one armor tier (t1 3.3k, t2 5.9k, t3 6.5k) | 4.25 MB | gunner set (46) |
+| `hero_driver.glb` | player driver (woman): rust-orange leather bomber with crew emblem on the back, black tank, driving gloves, ponytail, pilot goggles on the head | 1.70 m | 25.3k | 3.76 MB | driver set (22) |
+| `raider_a.glb` | grunt: red bandana + matching face scarf (both tintable), round goggles, open leather vest with a painted skull on the back, bare tattooed chest, shell bandolier, **layered scrap pauldron with spikes (left)**, **machete across the back**, knee pads, patched cargo pants | 1.78 m | 11.9k | 1.78 MB | gunner set |
+| `raider_b.glb` | mohawk punk: studded vest with a red kill tally on the back, spiked leather pauldrons, **spiked collar**, spiked bracers, **spiked knee guards**, chains, torn jeans, face paint | 1.80 m (1.97 m incl. mohawk) | 11.3k | 1.71 MB | gunner set |
+| `raider_c.glb` | masked heavy: hockey mask, riveted scrap plates, car-door left pauldron **with spikes**, tyre right shoulder, **two rusted exhaust stacks rising behind the shoulders**, skull on the belt, pipe forearm guards, chain belt | 1.92 m, bulky | 12.5k | 1.67 MB | gunner set |
+| `raider_d.glb` | hooded bomber: hood up, **gas mask with twin filters** + goggles, dynamite vest with detonator (red LED), **backpack with dynamite bundles**, **molotov satchel** on the left hip, trigger in the right hand | 1.75 m | 13.2k | 1.83 MB | gunner set |
+| `raider_driver.glb` | cap with flight goggles, gold aviators, stubble, leather jacket with collar up, **spiked scrap pauldron on the door side (left)**, chain necklace, fingerless gloves | 1.78 m | 11.2k | 1.16 MB | driver set (22) |
 
-Total: 14 MB.
+Total: 16.2 MB (was 14 MB with 13 clips per file).  Raiders stay at 3 draw calls (`body`, `hair`, `eyes`; raider_c has no hair).
+Trousers were repainted (folds gather at the waist and stack above the boots instead of full-length streaks; faded knees,
+seat/shin grime) and the crease darkening is softer.
 
 ## Scene structure and draw calls
 
@@ -104,28 +106,109 @@ Hips
 | `socket_back` | `Spine2` | upper-back centre, about 11 cm behind the spine, for a slung weapon. +Z forward. |
 | `socket_head` | `Head` | top centre of the head. |
 
-## Animation clips (30 fps, all 13 in every file)
+## Animation clips (30 fps)
 
-| clip | length | notes |
+Files carry the clip set of their ROLE (`anim.role_filter`):
+- **gunner set** (hero_gunner, raider_a..d): 46 clips = every clip in the first table.
+- **driver set** (hero_driver, raider_driver): 22 clips = the second table + `pose_pistol/_rifle/_launcher`, `idle_stand`,
+  `fall_flail`, `land_back`, `land_front`, `death_fall`, `death_blown_up` (for a driver thrown out of a wreck).
+
+Every clip the game already uses keeps its name and meaning (`idle_stand`, `idle_sit_drive`, `sit_lean_L/R`, `crouch_idle`,
+`pose_*`, `death_fall`, `throw_grenade`, `flinch_a/b`, `celebrate`).  The `pose_*` finger tracks and hand orientations are
+unchanged (they feed the viewmodel; the sockets derive from `pose_rifle`).
+
+### How they are made
+`tools/characters/clips_gunner.py`, `clips_react.py`, `clips_driver.py` on top of `motion.py`:
+- **Weapon prop**: every weapon clip authors a weapon frame; the right hand is solved onto its grip so that **a weapon GLB
+  parented to `socket_hand_R` at identity** (its `grip_R` = the socket) sits exactly where the clip wants it, and the left
+  hand is on the class's `grip_L` (rifle handguard, shotgun pump, pistol support hand, RPG front grip).  Aims put the
+  weapon's `sight` on the right eye with the `stock` in the shoulder pocket (optimised per body).  Weapon classes: rifle
+  (use for smg / rifle / lmg / sniper), pistol (pistol / revolver), shotgun, launcher (rpg).
+- **Overlap**: world-space springs on spine / neck / head, the weapon and free hands (follow-through and settle), 120 Hz.
+- **Ride layer**: standing clips ride a moving bed (suspension chatter absorbed by the knees, rocking, counter-leaning
+  spine, stabilised head); seated clips get road vibration.  Seamless in loops.
+- **Continuity + QA**: IK bend planes, hand frames and forearm roll are temporally continuous; a per-bone angular-speed
+  limiter removes any residual one-frame flip; `tools/characters/anim_check.py <glb>` reports loop seams, foot sliding,
+  flips and hips below the floor - **all 7 files report 0 issues**.
+- Deaths use world-space limbs, ballistic arcs (g = 9.81) for the airborne parts and mesh-accurate floor contact.
+
+### Standing / gunner set
+
+| clip | length | use |
 |---|---|---|
-| `idle_stand` | 3.3 s loop | braced wide stance, knees soft, rifle held at the chest (neutral, for the game's arm IK and spine aim), breathing and sway |
-| `idle_sit_drive` | 3.0 s loop | seated, hands at 10 and 2 on the wheel, micro-motion |
-| `sit_lean_L` / `sit_lean_R` | 1.5 s loops | hold the full steering lean (L = toward +X); crossfade them with `idle_sit_drive` by input |
-| `flinch_a` / `flinch_b` | 0.67 s / 0.73 s | torso recoil and head snap / side stagger and twist; start and end on `idle_stand` frame 0 |
-| `throw_grenade` | 1.0 s | right-hand overhand throw, **release at 0.55 s** |
-| `celebrate` | 2.2 s | jump with both fists pumped; ends on `idle_stand` frame 0 |
-| `crouch_idle` | 3.0 s loop | deep crouch with the rifle ready |
-| `death_fall` | 1.2 s | falls backward, lands about 0.72 s, ends lying on its back; the Hips track keeps the lowest point on the floor |
-| `pose_pistol` / `pose_rifle` / `pose_launcher` | 1 frame | two-handed pistol at eye level / shouldered rifle / RPG on the right shoulder (arms matter) |
+| `pose_pistol` | 0.00 s | one-frame pistol pose (weapon axis +Z, arms only) |
+| `pose_rifle` | 0.00 s | one-frame rifle pose (weapon axis +Z, arms only) |
+| `pose_launcher` | 0.00 s | one-frame launcher pose (weapon axis +Z, arms only) |
+| `idle_stand` | 4.00 s loop | loop 4 s; riding a vehicle bed: wide braced stance, knees soft absorbing bumps, rocking with the truck, head stabilised; rifle at a compressed low-ready (weapon on socket_hand_R, left hand on the handguard) |
+| `aim_rifle` | 3.00 s loop | loop 3 s; rifle shouldered/aimed along +Z (sight on the right eye), bladed stance, riding sway with the head and muzzle stabilised |
+| `aim_pistol` | 3.00 s loop | loop 3 s; pistol shouldered/aimed along +Z (sight on the right eye), bladed stance, riding sway with the head and muzzle stabilised |
+| `aim_launcher` | 3.00 s loop | loop 3 s; launcher shouldered/aimed along +Z (sight on the right eye), bladed stance, riding sway with the head and muzzle stabilised |
+| `aim_shotgun` | 3.00 s loop | loop 3 s; shotgun shouldered/aimed along +Z (sight on the right eye), bladed stance, riding sway with the head and muzzle stabilised |
+| `fire_rifle` | 0.30 s | one shot, rifle: recoil impulse at 0.033 s, recovers onto aim_rifle frame 0 by 0.30 s; starts/ends on aim_rifle frame 0 (additive-ready) |
+| `fire_pistol` | 0.37 s | one shot, pistol: recoil impulse at 0.033 s, recovers onto aim_pistol frame 0 by 0.36 s; starts/ends on aim_pistol frame 0 (additive-ready) |
+| `fire_shotgun` | 1.00 s | one shot, shotgun: recoil impulse at 0.033 s, recovers onto aim_shotgun frame 0 by 1.00 s, pump racked 0.40-0.60 s; starts/ends on aim_shotgun frame 0 (additive-ready) |
+| `fire_launcher` | 1.30 s | one shot, launcher: recoil impulse at 0.033 s, recovers onto aim_launcher frame 0 by 1.30 s; starts/ends on aim_launcher frame 0 (additive-ready) |
+| `fire_rifle_auto` | 0.50 s loop | loop 0.5 s: sustained full-auto, 5 kicks (600 rpm; set timeScale = rps/10); frame 0 = aim_rifle with a slight held recoil offset -> crossfade from aim_rifle while the trigger is held |
+| `reload_rifle` | 2.40 s | 2.4 s, rifle/smg/lmg: cant the rifle, strip the empty (0.40-0.55), flick it away, fresh mag from the chest pouch (0.86-0.96), rock it in + slap (1.24-1.30), rack the charging handle over the top (1.60-1.75), back to low-ready; starts/ends on idle_stand frame 0 |
+| `reload_pistol` | 1.60 s | 1.6 s, pistol/revolver: tip the pistol up, fresh mag from the left hip (0.40-0.50), insert + slap (0.76-0.88), overhand slide rack (1.00-1.14); starts/ends on idle_pistol frame 0 |
+| `reload_shotgun` | 2.30 s | 2.3 s, pump shotgun: roll the gun, thumb three shells from the belt into the loading port (0.22-1.54), rack the pump (1.76-1.96); starts/ends on the shotgun low-ready (idle_stand frame 0 hold) |
+| `reload_launcher` | 2.80 s | 2.8 s, RPG: lower the tube, draw a rocket from the back over the left shoulder (0.62-0.74), feed it into the muzzle (1.28-1.62), back to the front grip and re-shoulder; starts/ends on aim_launcher frame 0 |
+| `idle_pistol` | 4.00 s loop | loop 4 s; riding idle like idle_stand, pistol held low in both hands |
+| `idle_launcher` | 4.00 s loop | loop 4 s; riding idle like idle_stand, RPG on the right shoulder, muzzle raised |
+| `crouch_idle` | 3.00 s loop | loop 3 s; ducked behind the rail: deep crouch, back heel up, rifle low and ready, head up watching, riding sway |
+| `throw_grenade` | 1.30 s | 1.3 s overhand grenade throw with the RIGHT hand, RELEASE at 0.55 s. The rifle passes to the LEFT hand: parent the weapon to socket_hand_L (position = -grip_L of the weapon, identity rotation) from 0.08 s to 1.18 s, then back to socket_hand_R; show the grenade in socket_hand_R from 0.18 s to the release. Starts/ends on idle_stand frame 0 |
+| `throw_molotov` | 1.70 s | 1.7 s lobbed molotov throw with the RIGHT hand, RELEASE at 0.95 s. The rifle passes to the LEFT hand: parent the weapon to socket_hand_L (position = -grip_L of the weapon, identity rotation) from 0.08 s to 1.58 s, then back to socket_hand_R; show the bottle in socket_hand_R from 0.18 s to the release. Starts/ends on idle_stand frame 0 |
+| `taunt` | 2.40 s | 2.4 s taunt: dip, thrust the rifle overhead one-handed, roar with the chest out and head back, three fist/rifle pumps, back to ready; starts/ends on idle_stand frame 0 |
+| `shout` | 1.60 s | 1.6 s: lean in and jab the left index finger at the target three times (yelling), rifle one-handed at the hip; starts/ends on idle_stand frame 0 |
+| `celebrate` | 2.20 s | 2.2 s: gather, rifle hoisted overhead in both hands, three bouncing cheers, back to ready; starts/ends on idle_stand frame 0 |
+| `hit_front` | 0.63 s | 0.62 s light hit, shoved toward -Z (hit from the front): impact 0.05 s, flinch 0.16 s, recovered by ~0.5 s; starts/ends on idle_stand frame 0 (additive-ready) |
+| `hit_front_heavy` | 1.27 s | 1.25 s heavy hit from the front: big shove 0.06 s, stagger step with the left foot (0.20-0.36 s), buckle and clutch the wound (0.36-0.62 s), steps back and recovers by 1.1 s; starts/ends on idle_stand frame 0 |
+| `hit_back` | 0.63 s | 0.62 s light hit, shoved toward +Z (hit from the back): impact 0.05 s, flinch 0.16 s, recovered by ~0.5 s; starts/ends on idle_stand frame 0 (additive-ready) |
+| `hit_back_heavy` | 1.27 s | 1.25 s heavy hit from the back: big shove 0.06 s, stagger step with the right foot (0.20-0.36 s), buckle and throw the free arm out for balance (0.36-0.62 s), steps back and recovers by 1.1 s; starts/ends on idle_stand frame 0 |
+| `hit_left` | 0.63 s | 0.62 s light hit, shoved toward -X (hit from the left): impact 0.05 s, flinch 0.16 s, recovered by ~0.5 s; starts/ends on idle_stand frame 0 (additive-ready) |
+| `hit_left_heavy` | 1.27 s | 1.25 s heavy hit from the left: big shove 0.06 s, stagger step with the right foot (0.20-0.36 s), buckle and clutch the wound (0.36-0.62 s), steps back and recovers by 1.1 s; starts/ends on idle_stand frame 0 |
+| `hit_right` | 0.63 s | 0.62 s light hit, shoved toward +X (hit from the right): impact 0.05 s, flinch 0.16 s, recovered by ~0.5 s; starts/ends on idle_stand frame 0 (additive-ready) |
+| `hit_right_heavy` | 1.27 s | 1.25 s heavy hit from the right: big shove 0.06 s, stagger step with the left foot (0.20-0.36 s), buckle and throw the free arm out for balance (0.36-0.62 s), steps back and recovers by 1.1 s; starts/ends on idle_stand frame 0 |
+| `flinch_a` | 0.63 s | 0.62 s light hit, shoved toward -Z (hit from the front): impact 0.05 s, flinch 0.16 s, recovered by ~0.5 s; starts/ends on idle_stand frame 0 (additive-ready) |
+| `flinch_b` | 0.63 s | 0.62 s light hit, shoved toward +X (hit from the right): impact 0.05 s, flinch 0.16 s, recovered by ~0.5 s; starts/ends on idle_stand frame 0 (additive-ready) |
+| `death_fall` | 1.80 s | 1.8 s death: shot in the chest, knees buckle (0.24), sits down hard (0.58), back hits the floor (0.74), head knocks back (0.86), a knee falls outward; ends supine, head toward -Z. Hips keep the body on y = 0 |
+| `death_crumple` | 1.70 s | 1.7 s death (head shot): legs fold instantly, knees hit the floor (0.44), topples forward onto the face (0.84), legs slide out; ends prone, head toward +Z, face turned to the right |
+| `death_slump_rail` | 2.20 s | 2.2 s death: shot, lurches forward, belly hits a waist-high rail 0.29 m in front (top at 0.98 m, 0.48 s), folds over it and hangs, arms dangling outside the vehicle; toes stay on the bed. Needs a rail/side panel in front: turn the body to face the nearest rail (runtime) or use death_crumple |
+| `death_thrown_back` | 2.10 s | 2.1 s death: thrown BACKWARD off the vehicle: airborne 0.10-0.82 s on a ballistic arc (travels 2.2 m back), arms windmill, legs kick; slams onto the back at 0.82 s, bounces, slides, half-rolls, limp. Ends supine, head toward -Z |
+| `death_thrown_left` | 2.10 s | 2.1 s death: thrown to the character's LEFT (+X) off the vehicle: airborne 0.10-0.82 s (2.2 m sideways), flailing; lands on the left side at 0.82 s, rolls onto the front, limp. Ends prone |
+| `death_thrown_right` | 2.10 s | 2.1 s death: thrown to the character's RIGHT (-X) off the vehicle: airborne 0.10-0.82 s (2.2 m sideways), flailing; lands on the right side at 0.82 s, rolls onto the front, limp. Ends prone |
+| `death_blown_up` | 2.50 s | 2.5 s death: blast under the feet launches the body 1.4 m up (0.08 s), spread-eagled back-flip, lands face down at 1.24 s, bounces, limp. Ends prone |
+| `fall_flail` | 0.90 s loop | loop 0.9 s: airborne flailing (arms windmill, legs bicycle), Hips fixed at the standing height, root upright -> the runtime drives the ballistic flight and tumble of the root; switch to land_back / land_front on ground contact |
+| `land_back` | 1.30 s | 1.3 s: ground impact after a runtime-driven flight (lands on the back): frame 0 = body lying on its back just above the ground with limbs still up, slams at 0.07 s, bounces, limp; root must be upright (yaw only) when it starts |
+| `land_front` | 1.30 s | 1.3 s: ground impact after a runtime-driven flight (lands face down): frame 0 = body lying face down just above the ground with limbs still up, slams at 0.07 s, bounces, limp; root must be upright (yaw only) when it starts |
 
-Loops have last frame == first frame. Flinches and the throw start on `idle_stand` frame 0, so they blend in and out cleanly.
+### Seated / driver set
 
-**Seating:** in the sit clips the character's origin is on the floor plane directly below the hip joints, which are **0.56 m above
-the origin**. Place the root at `seat_driver − (0, 0.56, 0)`, same orientation (+Z forward).
+| clip | length | use |
+|---|---|---|
+| `idle_sit_drive` | 4.00 s loop | loop 4 s; seated at the wheel (hands at 10 and 2, micro steering corrections), road vibration, body rolling with the car, head stabilised. Root on the floor under the hip point, hip joints 0.56 m above it |
+| `sit_lean_L` | 1.50 s loop | loop that HOLDS the full lean into a left turn (body toward +X, head counter-tilted level, wheel turned 28 deg); crossfade idle_sit_drive <-> this by steering input |
+| `sit_glance_L` | 1.70 s | 1.7 s: glance over the left shoulder (head ~70 deg + chest) and back to the road; hands stay on the wheel; starts/ends on idle_sit_drive frame 0 |
+| `death_sit_jerk_L` | 2.10 s | 2.1 s seated death: shot (0.06), a convulsive yank of the wheel ~100 deg to the left with both hands (0.22-0.34), hands slip off, the body topples toward the door (+X) and the head lolls onto the shoulder. Use it when the car swerves left; fade the wheel IK out over 0.3-0.5 s (let the wheel itself spin with the car's steering) |
+| `sit_lean_R` | 1.50 s loop | loop that HOLDS the full lean into a right turn (body toward -X, head counter-tilted level, wheel turned 28 deg); crossfade idle_sit_drive <-> this by steering input |
+| `sit_glance_R` | 1.70 s | 1.7 s: glance over the right shoulder (head ~70 deg + chest) and back to the road; hands stay on the wheel; starts/ends on idle_sit_drive frame 0 |
+| `death_sit_jerk_R` | 2.10 s | 2.1 s seated death: shot (0.06), a convulsive yank of the wheel ~100 deg to the right with both hands (0.22-0.34), hands slip off, the body topples toward the passenger side (-X) and the head lolls onto the shoulder. Use it when the car swerves right; fade the wheel IK out over 0.3-0.5 s (let the wheel itself spin with the car's steering) |
+| `sit_brace` | 1.20 s loop | loop 1.2 s; braced for impact: arms locked on the wheel, back into the seat, chin tucked, shoulders up, trembling |
+| `sit_impact` | 1.00 s | 1.0 s crash jolt: thrown forward into the wheel (0.08 s, arms buckle, head whips), rebound into the seat (0.24 s), shakes it off; starts/ends on idle_sit_drive frame 0 (additive-ready; hands stay on the wheel) |
+| `sit_hit` | 0.73 s | 0.75 s: shot in the seat: torso jerks back and twists, head snaps, right hand flies off the wheel and grabs it again by 0.2 s (fade the right-hand wheel IK over 0.02-0.2 s); starts/ends on idle_sit_drive frame 0 |
+| `sit_shout` | 2.00 s | 2.0 s raider taunt: left hand off the wheel, fist shaken out of the window (+X side) four times, head turned to the target, yelling; fade the LEFT-hand wheel IK out over 0.05-0.22 s and back in over 1.55-2.0 s; starts/ends on idle_sit_drive frame 0 |
+| `death_sit_slump` | 1.90 s | 1.9 s seated death: head snaps back (0.07), shoulders sag, the body folds forward onto the wheel (0.62), head rests on the rim turned to the side, arms slide off to the lap and the door. Fade the wheel IK out over 0.2-0.6 s |
+| `death_sit_headback` | 1.60 s | 1.6 s seated death: head thrown back against the headrest, arms drop off the wheel and dangle beside the seat, head lolls to the side. Fade the wheel IK out over 0.06-0.3 s |
 
-- `hero_driver`: wheel baked for the player trucks (`steering_wheel ≈ seat_driver + (0, 0.37, 0.66)`, column tilted 25°). Her arms are near full reach.
-- `raider_driver` and every other file: wheel baked for the enemy cars (`seat_driver + (0, 0.36, 0.44)`).
-- If the game places hands on the wheel with IK, any file works.
+Notes
+- Loops have last frame == first frame.  "additive-ready" one-shots start and end on the pose of their base loop, so they
+  can be played full-weight over it or converted with `THREE.AnimationUtils.makeClipAdditive(clip, 0)`.
+- One-shots marked "starts/ends on idle_stand frame 0" crossfade cleanly in and out of `idle_stand` (0.1-0.15 s fades).
+- Standing `death_*` clips release the weapon at frame 0 (hide / drop it when the clip starts).  Their Hips track moves the
+  body (thrown deaths travel ~2.2 m): play them with the character detached from the vehicle (world space, root yaw =
+  vehicle yaw, root on the ground) - or keep the root on the car for `death_fall` / `death_crumple` / `death_slump_rail`.
+- Rotations are stored as normalized int16 quaternions (core glTF, three.js rescales on load) with per-track keyframe
+  reduction (0.25 deg body / 1 deg fingers / 1 mm hips); all animation data shares one bufferView.
 
 ## Rebuild / QA
 ```
@@ -143,14 +226,30 @@ Sources are in `tools/characters/`:
 - `atlas.py`: the material/atlas merge
 - `glb.py`: GLB writer
 
+Clip-only rebake (keeps meshes / textures / sockets, 1-4 min per file; `--only a,b` replaces just those clips):
+```
+C:/Dev/conduit/art_src/venv/Scripts/python.exe tools/characters/reanim.py [id ...] [--only clip1,clip2] [--out DIR]
+C:/Dev/conduit/art_src/venv/Scripts/python.exe tools/characters/anim_check.py public/models/characters/raider_b.glb
+C:/Dev/conduit/art_src/venv/Scripts/python.exe tools/characters/qa_strips.py /models/characters/raider_b.glb reload_rifle --weapon rifle --n 10
+C:/Dev/conduit/art_src/venv/Scripts/python.exe tools/characters/build_review.py raider_a   # fast model review build into shots/chars/mdl
+```
+Added in this pass: `motion.py` (weapon prop, springs, ride layer, 120 Hz bake, velocity limiter), `clips_gunner.py`,
+`clips_react.py`, `clips_driver.py`, `menace.py` (pauldrons, machete, respirator, knee pads, satchel, molotov, spiked
+collar, skull, painted back emblems), `reanim.py`, `anim_check.py`, `anim_diag.py`, `qa_strips.py`, `build_review.py`.
+
 Deterministic QA viewer: `/tools/characters/qa.html?model=/models/characters/hero_gunner.glb&anim=idle_stand&t=1.0&views=195:14,20:8&look=Spine2&dist=3&only=body,hair,eyes,armor_t2`. It supports exact clip time `t`, a grid of clip times via `times`, and hides `extras.hidden` nodes.
+Also: `weapon=rifle` (weapon GLB on `socket_hand_R` at identity - the runtime contract), `lik=1` (left-arm IK onto the
+weapon's `grip_L`), `wl=0.08-1.18` (weapon on `socket_hand_L` inside a clip-time window, for the throws),
+`vehicle=e_buggy&seat=gunner|driver`, `rail=0.98:0.29` (a rail prop for `death_slump_rail`), `labels=1`.
 
 ## Known flaws
 - Clothes are painted shells without cloth simulation. Folds are baked, and hems do not swing.
 - The hero_gunner tank top is sleeveless. At extreme arm raises its armhole edge shows the body beneath.
 - Hair is MakeHuman cards: short04 on the gunner, ponytail01 on the driver. The mohawk is solid tapered spikes. None of it has physics.
 - No facial rig; eyes do not blink.
-- The seated hero_driver's hands land about 4 cm short of the truck's rim at full reach.
+- The seated hero_driver's hands land about 4 cm short of the truck's rim at full reach (the runtime IK / seat shift covers it).
+- `sit_shout` puts the fist out of the left window; on cars with a closed side the runtime should skip it.
+- `death_slump_rail` assumes a waist-high rail 0.29 m in front; the runtime must face the body toward the nearest rail.
 - The "paint" tint needs the shader hook above.
 
 ## Credits

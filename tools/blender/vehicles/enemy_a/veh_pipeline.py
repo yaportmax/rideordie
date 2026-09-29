@@ -546,6 +546,26 @@ def unwrap_atlas(objs, tex_mats, res, margin=0.0018, angle=66.0):
     bpy.ops.uv.smart_project(angle_limit=angle * D2R, island_margin=0.0, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
     bpy.ops.uv.average_islands_scale()
     scale_islands(use)
+    # guard: a degenerate sliver island (zero UV area, finite 3D area) gets blown up by average_islands_scale and then
+    # pack_islands shrinks every other island to nothing -> collapse such faces to a point before packing
+    for o, idx in use:
+        bm = bmesh.from_edit_mesh(o.data)
+        uvl = bm.loops.layers.uv.active
+        worst = 0.0
+        fixed = 0
+        for f in bm.faces:
+            if not f.select:
+                continue
+            us = [l[uvl].uv for l in f.loops]
+            ext = max(max(u.x for u in us) - min(u.x for u in us), max(u.y for u in us) - min(u.y for u in us))
+            worst = max(worst, ext)
+            if not math.isfinite(ext) or ext > 50.0:
+                for l in f.loops:
+                    l[uvl].uv = (0.0, 0.0)
+                fixed += 1
+        if fixed or argv().get("debug"):
+            print("UVEXT %-22s max face extent %.3g  collapsed %d" % (o.name, worst, fixed))
+        bmesh.update_edit_mesh(o.data)
     try:
         bpy.ops.uv.pack_islands(margin=margin, rotate=True, shape_method="AABB")
     except TypeError:
@@ -616,6 +636,19 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
         bad = int((~np.isfinite(uv)).sum())
         if bad or (len(uv) and (uv.min() < -0.01 or uv.max() > 1.01)):
             print("BAD UVS in %s: nonfinite %d range %.3f..%.3f" % (o.name, bad, np.nanmin(uv), np.nanmax(uv)))
+        if argv().get("debug"):
+            me = o.data
+            me.calc_loop_triangles()
+            uvd = uv.reshape(-1, 2)
+            tot = 0.0
+            big = (0.0, -1)
+            for t in me.loop_triangles:
+                a, b, c = (uvd[l] for l in t.loops)
+                ar = abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2
+                tot += ar
+                if ar > big[0]:
+                    big = (ar, t.polygon_index)
+            print("UVAREA %-22s %.5f  biggest tri %.5f (poly %d)" % (o.name, tot, big[0], big[1]))
     if argv().get("debug"):
         uv_overlap_report(meshes)
     # triangulate now (UVs are kept): Cycles' baker mis-fills big concave / collinear n-gons left by the booleans

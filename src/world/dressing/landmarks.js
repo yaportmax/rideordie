@@ -9,6 +9,7 @@ import { need, useSpec } from './furniture.js';
 import { seaLevel } from '../terrain_gen.js';
 import { cityDens, cityExclusions, CITY_PROPS } from './city.js';
 import { rockExclusions } from './rocks.js';
+import { momentExclusions } from './moments.js';
 
 // ------------------------------------------------------------------------------------------------ tables
 // part: { a asset, u (metres along the road from the anchor; number or [min,max]), v (lateral distance from the road centre), yaw: 'face' | 'oncoming' | 'free' | 'along',
@@ -419,6 +420,7 @@ export function landmarkExclusions(ctx, sA, sB) {
   for (const p of list) if (p.s > sA - p.r - 60 && p.s < sB + p.r + 60) out.push([p.x, p.z, p.r]);
   for (const c of cityExclusions(ctx, sA, sB)) out.push(c);
   for (const c of rockExclusions(ctx, sA, sB)) out.push(c);
+  for (const c of momentExclusions(ctx, sA, sB)) out.push(c);
   return out;
 }
 
