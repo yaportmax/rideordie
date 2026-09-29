@@ -1119,4 +1119,8 @@ def build_clips(heads, only=None, bulk=1.0, mesh=None, foot_sole=0.0, seat=None)
     for kind in ("pistol", "rifle", "launcher"):
         if want("pose_" + kind):
             out["pose_" + kind] = clip_pose(rig, aim_pose(rig, base, kind), "one-frame %s pose (weapon axis +Z, arms only)" % kind)
+    # second-generation clip libraries (override the first-generation clips of the same name)
+    import clips_gunner
+    new, _ = clips_gunner.build(rig, bulk, only)
+    out.update(new)
     return out

@@ -35,6 +35,39 @@ void main() {
   gl_FragColor = vec4(c * (1.0 - uFade), 1.0);
 }`;
 
+const TEX_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'bumpMap'];
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+/**
+ * Compile every program of `scene` against the MenuPost target (the key it will really render with) using parallel compilation,
+ * then upload its textures a few per frame. Nothing compiles or uploads synchronously on the first visible frame.
+ */
+export async function warmScene(renderer, scene, camera, post) {
+  const r = renderer, prev = r.getRenderTarget();
+  r.setRenderTarget(post.rt);
+  let p; try { p = r.compileAsync(scene, camera); } catch { p = Promise.resolve(); }
+  r.setRenderTarget(prev);
+  try { await p; } catch { /* ignore */ }
+  const texs = new Set();
+  scene.traverse((o) => { if (o.material) for (const m of [].concat(o.material)) for (const k of TEX_KEYS) if (m[k] && m[k].isTexture && !m[k].__up) texs.add(m[k]); });
+  let n = 0;
+  for (const t of texs) { t.__up = true; try { r.initTexture(t); } catch { /* ignore */ } if (++n % 3 === 0) await nextFrame(); }
+  post.warm(scene, camera);
+}
+
+/** Compile a group that is not in `scene` yet with that scene's lights/fog/environment (then the caller adds it). */
+export async function warmGroup(renderer, group, camera, scene, post) {
+  const r = renderer, prev = r.getRenderTarget();
+  r.setRenderTarget(post.rt);
+  let p; try { p = r.compileAsync(group, camera, scene); } catch { p = Promise.resolve(); }
+  r.setRenderTarget(prev);
+  try { await p; } catch { /* ignore */ }
+  const texs = new Set();
+  group.traverse((o) => { if (o.material) for (const m of [].concat(o.material)) for (const k of TEX_KEYS) if (m[k] && m[k].isTexture && !m[k].__up) texs.add(m[k]); });
+  let n = 0;
+  for (const t of texs) { t.__up = true; try { r.initTexture(t); } catch { /* ignore */ } if (++n % 3 === 0) await nextFrame(); }
+}
+
 export class MenuPost {
   constructor(renderer) {
     this.renderer = renderer;

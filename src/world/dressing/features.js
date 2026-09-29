@@ -7,11 +7,14 @@ import { fbm2, smoothstep, clamp } from '../../core/util.js';
 import { roadFrame, groundAt, CHUNK_LEN, seedOf } from './util.js';
 import { need, useSpec } from './furniture.js';
 import { makePierGeometry } from './procedural.js';
+import { rbGapD, RB_SOFT } from '../../sim/hazards.js';
 
 export const FEATURE_SPECS = {
   jump_ramp: { far: 650, shadow: true, behind: true, showRoad: true },
   jump_ramp_small: { far: 600, shadow: true, behind: true, showRoad: true },
-  roadblock_wreck_line: { far: 650, shadow: true, behind: true },
+  rb_wreck_car: { far: 650, shadow: true, behind: true },
+  rb_wreck_van: { far: 650, shadow: true, behind: true },
+  rb_wreck_small: { far: 500, shadow: true, behind: true },
   bridge_span_20m: { far: 1400, shadow: true, behind: true },
   bridge_span_20m_damaged: { far: 1400, shadow: true, behind: true },
   overpass_concrete: { far: 900, shadow: true, behind: true, showRoad: true },
@@ -135,23 +138,58 @@ function buildBoost(ctx, chunk, f) {
   return true;
 }
 
+/** Roadblock wreck modules: road-aligned, centred on x=0, visuals + collision within |x| <= hw (see tools/blender/structures/roadside.py). */
+const RB_MODULES = [{ name: 'rb_wreck_car', hw: 2.4 }, { name: 'rb_wreck_van', hw: 2.8 }, { name: 'rb_wreck_small', hw: 1.2 }];
+const RB_EDGE = 9.6;          // fill the wreck line out to (a little past) the shoulder edge
+
+/**
+ * Wreck-line layout (pure): modules only where |d - gapD| >= RB_SOFT (the clean 4.4 m gap + the breakable-barricade strips of
+ * sim/hazards.js stay empty). Each side is filled from the strip boundary outward; modules may overhang past the shoulder, never inward.
+ */
+export function rbWreckLayout(f, seed) {
+  const g = rbGapD(f), out = [];
+  let h = seedOf(seed, Math.round(f.s0 * 10), 77);
+  const rnd = () => { h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0; h ^= h >>> 12; return (h >>> 0) / 4294967296; };
+  for (const side of [-1, 1]) {
+    const inner = g + side * (RB_SOFT + 0.15), W = RB_EDGE - side * inner;   // strip boundary (+15 cm for the curvature of the road under a straight module)
+    if (W < 0.5) continue;
+    let cov = 0;
+    while (cov < W - 0.35) {
+      const rem = W - cov;
+      const m = rem > 4.2 ? RB_MODULES[rnd() < 0.5 ? 0 : 1] : rem > 2.0 ? (rnd() < 0.6 ? RB_MODULES[2] : RB_MODULES[0]) : RB_MODULES[2];
+      out.push({ name: m.name, d: inner + side * (cov + m.hw), hw: m.hw, flip: rnd() < 0.5, dz: (rnd() - 0.5) * 1.2 });
+      cov += m.hw * 2;
+    }
+  }
+  return out;
+}
+
 function buildRoadblock(ctx, chunk, f) {
-  const a = need(ctx, 'roadblock_wreck_line'), cone = need(ctx, 'road_cone'), jb = need(ctx, 'jersey_barrier'), jl = need(ctx, 'jersey_lod'), brl = need(ctx, 'barrel');
-  if ([a, cone, jb, jl, brl].some((x) => x === undefined)) return false;
-  if (!a) return true;
+  const mods = RB_MODULES.map((m) => need(ctx, m.name)), cone = need(ctx, 'road_cone'), jb = need(ctx, 'jersey_barrier'), jl = need(ctx, 'jersey_lod'), brl = need(ctx, 'barrel');
+  if ([...mods, cone, jb, jl, brl].some((x) => x === undefined)) return false;
+  if (mods.some((x) => !x)) return true;
   const { road } = ctx;
-  useSpec(ctx, 'roadblock_wreck_line', FEATURE_SPECS.roadblock_wreck_line);
+  for (const m of RB_MODULES) useSpec(ctx, m.name, FEATURE_SPECS[m.name]);
   if (cone) useSpec(ctx, 'road_cone', FEATURE_SPECS.road_cone);
   if (jb) useSpec(ctx, 'jersey_barrier', FEATURE_SPECS.jersey_barrier);
   if (brl) useSpec(ctx, 'barrel', FEATURE_SPECS.barrel);
-  const dGap = clamp(f.gap * 2.2, -4.6, 4.6);
-  let fr;
-  if (dGap >= 0) { fr = roadFrame(road, f.s0, 9, dGap - 2.6, _fr); put(chunk, 'roadblock_wreck_line', fr, 1, 1, 1, 0.02, 14); }
-  else { fr = roadFrame(road, f.s0, 9, dGap + 2.6, _fr); putFlip(chunk, 'roadblock_wreck_line', fr, 9, 1, 0.02, 14); }
+  const dGap = rbGapD(f);
+  const cols = [];
+  for (const q of rbWreckLayout(f, ctx.seed)) {
+    const a = ctx.kit.get(q.name), L = 8.6;
+    const fr = roadFrame(road, f.s0 + q.dz, L, q.d, {});
+    if (!q.flip) { put(chunk, q.name, fr, 1, 1, 1, 0.02, 6); cols.push(worldMesh(a.collision, fr, 1, 1, 1, 0, 0.02, 0)); }
+    else {
+      // turned 180 deg about up with the origin at the far end (the module is symmetric in x, so it stays inside its lane slice)
+      putFlip(chunk, q.name, fr, L, 1, 0.02, 6);
+      const ff = frameOf(fr);
+      cols.push(worldMesh(a.collision, { ...ff, x: fr.x + fr.fx * L, y: fr.y + fr.fy * L, z: fr.z + fr.fz * L, lx: -fr.lx, ly: -fr.ly, lz: -fr.lz, fx: -fr.fx, fy: -fr.fy, fz: -fr.fz }, 1, 1, 1, 0, 0.02, 0));
+    }
+  }
+  const fr = roadFrame(road, f.s0, 9, dGap, _fr);
   const meshFr = frameOf(fr);
-  const collision = dGap >= 0 ? worldMesh(a.collision, fr, 1, 1, 1, 0, 0.02, 0)
-    : worldMesh(a.collision, { ...meshFr, x: fr.x + fr.fx * 9, y: fr.y + fr.fy * 9, z: fr.z + fr.fz * 9, lx: -fr.lx, ly: -fr.ly, lz: -fr.lz, fx: -fr.fx, fy: -fr.fy, fz: -fr.fz }, 1, 1, 1, 0, 0.02, 0);
-  // approach: taper of cones from both edges toward the gap, jersey barriers, a couple of barrels
+  const collision = mergeMeshes(cols);
+  // approach: taper of cones from both edges toward the gap, jersey barriers, a couple of barrels (all outside the barricade strips)
   const P = {};
   if (cone) {
     const L = chunk.list('road_cone');
@@ -166,7 +204,8 @@ function buildRoadblock(ctx, chunk, f) {
   }
   if (jb) {
     const L = chunk.list('jersey_barrier');
-    for (const [ds, d, ang] of [[-14, -6.4, 0.5], [-10, 6.2, -0.45], [-6.5, dGap - 4.0, 0.25], [-5.5, dGap + 4.4, -0.3]]) {
+    for (const [ds, d, ang] of [[-14, -6.4, 0.5], [-10, 6.2, -0.45], [-6.5, dGap - 6.0, 0.25], [-5.5, dGap + 6.0, -0.3]]) {
+      if (Math.abs(d - dGap) < RB_SOFT + 0.4 || Math.abs(d) > 8.6) continue;   // never in the gap approach / barricade strips
       const q = roadFrame(road, f.s0 + ds - 1.8, 3.7, d, {});
       const c = Math.cos(ang), s = Math.sin(ang);
       const lx = q.lx * c + q.fx * s, ly = q.ly * c + q.fy * s, lz = q.lz * c + q.fz * s, fx = q.fx * c - q.lx * s, fy = q.fy * c - q.ly * s, fz = q.fz * c - q.lz * s;
@@ -175,7 +214,7 @@ function buildRoadblock(ctx, chunk, f) {
   }
   if (brl) {
     const L = chunk.list('barrel');
-    for (const [ds, d] of [[-3.5, dGap - 3.4], [-2.6, dGap + 3.7], [-4.4, dGap + 3.2]]) { road.pointAt(f.s0 + ds, d, P); L.push(P.x, P.y, P.z, ds * 3, 1, 1, 1, 0, 1, 0, 0, 0.6); }
+    for (const [ds, d] of [[-3.5, dGap - 5.9], [-2.6, dGap + 6.1], [-4.4, dGap + 5.8]]) { if (Math.abs(d) > 8.8) continue; road.pointAt(f.s0 + ds, d, P); L.push(P.x, P.y, P.z, ds * 3, 1, 1, 1, 0, 1, 0, 0, 0.6); }
   }
   const id = `roadblock:${Math.round(f.s0 * 10)}`; chunk.hooks.push(id);
   ctx.hook({ type: 'roadblock', id, s0: f.s0, s1: f.s1, gap: dGap, gapLane: f.gap, width: 4.4, frame: meshFr, collision });

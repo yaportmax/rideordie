@@ -498,6 +498,83 @@ def roadblock():
     return p
 
 
+# =============================================================================================== roadblock modules
+# The game composes a roadblock from these modules: they fill the road only beyond RB_SOFT (5.2 m) from the gap centre
+# (the clean 4.4 m gap + the breakable-barricade strips stay empty). Each module is road-aligned, centred on x=0 with a hard
+# half-width `hw` (visuals and collision never exceed |x| <= hw), wreck line body around z 1..7 (barricade line at z=3.5).
+def _burn(p, x, z, r):
+    pts = [(x + r * math.cos(a) * (0.8 + 0.25 * math.sin(3 * a + x)), 0.012, z + r * math.sin(a) * (0.8 + 0.25 * math.cos(2 * a))) for a in [k * math.pi / 6 for k in range(12)]]
+    p.raw("metal_dark", pts + [(x, 0.012, z)], [(12, (i + 1) % 12, i) for i in range(12)], tint=(0.5, 0.5, 0.5), sg=-1)
+
+
+def _jersey(p, x, z, yaw, L=3.0, roll=0.0, yy=0.0, col=True):
+    with Xf(p, xf((x, yy, z), (0, yaw, roll))):
+        p.extrude("concrete", [(lat, y) for lat, y in JERSEY], -L / 2, L / 2, sub=1.5)
+        if col:
+            p.cbox((0, 0.42, 0), (0.6, 0.85, L))
+
+
+def _tyres(p, x, z, n, col=True):
+    for lv in range(n):
+        p.cyl("rubber", (x + 0.04 * (lv % 2), 0.19 + lv * 0.38, z), 0.52, 0.38, "y", sides=12)
+    if col:
+        p.cbox((x, n * 0.19, z), (1.05, n * 0.38, 1.05))
+
+
+def _wire(p, x, z, y=1.0, n=6):
+    for k in range(n):
+        a = k * 1.1
+        p.tube("spike", (x + 0.2 * math.cos(a), y + 0.05 * k, z + 0.2 * math.sin(a)), (x + 0.2 * math.cos(a + 1.1), y + 0.05 * (k + 1), z + 0.2 * math.sin(a + 1.1)), 0.02, sides=4, smooth=False)
+
+
+def rb_module_car():
+    """4.5 m module: burnt coupe lying across the road + jersey barrier behind + tyres + drums."""
+    hw = 2.4
+    p = Piece("rb_wreck_car", seed=81, ground_y=0.0, dirt_h=1.5, dirt_amt=0.5, ao_dist=2.5, streak_amt=0.3, noise_amt=0.35)
+    p.notes = dict(desc="Roadblock module (%.1f m wide, x -%.2f..%.2f, road-aligned, origin road level at the module centre line z=0). Burnt coupe across the road, jersey barrier, tyres, drums. Visuals + collision never exceed |x| <= hw." % (hw * 2, hw, hw), hw=hw)
+    _burn(p, 0.2, 3.4, 1.8)
+    wreck_car(p, 0.0, 3.3, 90, "coupe", mat="rust", burnt=0.9, missing_wheels=(0, 3), seed=11)
+    p.cbx((-hw + 0.05, hw - 0.05), (0.0, 1.35), (2.4, 4.2))
+    _jersey(p, -0.55, 6.3, 88, L=3.0)
+    _tyres(p, 1.55, 6.1, 3)
+    drum(p, -1.65, 1.5, tint=(0.45, 0.16, 0.08))
+    drum(p, 1.2, 1.2, fallen=True, tint=(0.36, 0.2, 0.1))
+    _wire(p, -0.55, 6.3, y=0.95)
+    p.socket("hw", (hw, 0, 0))
+    return p
+
+
+def rb_module_van():
+    """5.0 m module: van on its side lying across the road + sandbags + drums."""
+    hw = 2.8
+    p = Piece("rb_wreck_van", seed=82, ground_y=0.0, dirt_h=1.5, dirt_amt=0.5, ao_dist=2.5, streak_amt=0.3, noise_amt=0.35)
+    p.notes = dict(desc="Roadblock module (%.1f m wide, x -%.2f..%.2f, road-aligned). Overturned van on its side across the road, sandbags, drums, tyres. Visuals + collision never exceed |x| <= hw." % (hw * 2, hw, hw), hw=hw)
+    _burn(p, -0.4, 3.6, 2.1)
+    wreck_car(p, 0.0, 2.35, 90, "van", pitch=90, y=0.99, mat="paint", burnt=0.8, missing_wheels=(1,), seed=12)
+    p.cbx((-hw + 0.05, hw - 0.05), (0.0, 1.95), (2.35, 4.45))
+    sandbags(p, -0.9, 1.6, n=8, yaw=4)
+    p.cbx((-1.95, 0.4), (0, 0.6), (1.4, 1.8))
+    drum(p, 1.7, 1.5, tint=(0.4, 0.15, 0.08))
+    drum(p, 1.9, 6.0, tint=(0.3, 0.3, 0.12))
+    _tyres(p, -1.5, 6.2, 2)
+    p.socket("hw", (hw, 0, 0))
+    return p
+
+
+def rb_module_small():
+    """2.4 m module: short jersey barrier across + stacked tyres + drum + razor wire."""
+    hw = 1.2
+    p = Piece("rb_wreck_small", seed=83, ground_y=0.0, dirt_h=1.5, dirt_amt=0.5, ao_dist=2.5, streak_amt=0.3, noise_amt=0.35)
+    p.notes = dict(desc="Narrow roadblock module (%.1f m wide, x -%.2f..%.2f, road-aligned): jersey barrier across the road, tyre stack, drum, razor wire. Visuals + collision never exceed |x| <= hw." % (hw * 2, hw, hw), hw=hw)
+    _jersey(p, 0.0, 3.4, 90, L=2.3)
+    _wire(p, -0.3, 3.4, y=0.95)
+    _tyres(p, 0.45, 5.6, 3)
+    drum(p, -0.55, 5.9, tint=(0.42, 0.16, 0.08))
+    drum(p, -0.5, 1.6, fallen=True, tint=(0.33, 0.22, 0.1))
+    p.socket("hw", (hw, 0, 0))
+    return p
+
+
 if __name__ == "__main__":
     only = os.environ.get("ONLY", "")
     if only in ("", "road_gate"):
@@ -506,3 +583,7 @@ if __name__ == "__main__":
         toll_booth().build()
     if only in ("", "roadblock_wreck_line"):
         roadblock().build()
+    if only in ("", "rb_modules"):
+        rb_module_car().build()
+        rb_module_van().build()
+        rb_module_small().build()

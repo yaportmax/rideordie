@@ -76,6 +76,7 @@ PAL = {
     'light_tail': dict(base=(0.6, 0.02, 0.01), emit=(1.0, 0.04, 0.02), emit_strength=2.5, rough=0.25),
     'light_amber': dict(base=(0.9, 0.45, 0.05), emit=(1.0, 0.5, 0.06), emit_strength=3.0, rough=0.25),
     'glass_lens': dict(base=(0.85, 0.9, 0.95), alpha=0.25, metal=0.0, rough=0.03, double_sided=True),
+    'decal': dict(base=(1.0, 1.0, 1.0), metal=0.0, rough=0.55),
 }
 TEXTURED = {}      # material name -> bpy image (multiplied into base colour)
 import copy as _copy
@@ -254,15 +255,67 @@ def gauss(d, r):
 
 
 # ------------------------------------------------------------------------------------------------- Part
+DECALS = []            # decal specs: dict(rect=(u0,v0,u1,v1), solid=bool, o=Vector, u=Vector, v=Vector, w=, h=)  (Blender coords); face attr 'decal' = index+1
+_ATLAS = None
+
+
+def atlas_rects():
+    global _ATLAS
+    if _ATLAS is None:
+        import json
+        with open(os.path.join(HERE, 'tex', 'decal_atlas.json')) as fh:
+            _ATLAS = json.load(fh)
+    return _ATLAS
+
+
+def decal_spec(name, o=None, u=None, v=None, w=1.0, h=1.0, sub=None):
+    """Register a decal (atlas rect `name`); solid swatches (name 'sw_*') need no frame. Returns its id (>0).
+    sub=(a0,b0,a1,b1) picks a sub-rectangle of the atlas rect (0..1)."""
+    r = list(atlas_rects()[name])
+    if sub is not None:
+        du, dv = r[2] - r[0], r[3] - r[1]
+        r = [r[0] + du * sub[0], r[1] + dv * sub[1], r[0] + du * sub[2], r[1] + dv * sub[3]]
+    DECALS.append(dict(rect=r, solid=o is None, o=o, u=u, v=v, w=w, h=h))
+    return len(DECALS)
+
+
 class Part:
     def __init__(self, name, origin=(0, 0, 0), parent=None, mesh_name=None):
         self.name = name
         self.origin = P(*origin)
         self.bm = bmesh.new()
+        self.dl = self.bm.faces.layers.int.new('decal')
+        self.cur_decal = 0
         self.mats = []
         self.parent = parent
         self.mesh_name = mesh_name or (name + "_mesh")
         self.obj = None
+
+    # -- decals: faces added while a decal id is set carry it (UVs are assigned after box_uv, see post.decal_uv)
+    def swatch(self, name):
+        """set the solid-colour swatch (atlas 'sw_<name>') for following 'decal' geometry; None to clear"""
+        self.cur_decal = 0 if name is None else decal_spec('sw_' + name)
+        return self
+
+    def sticker(self, name, c, nrm, up, w, h, lift=0.0015, sub=None, rot=0.0):
+        """Flat quad sticker (atlas rect `name`) centred at c (game coords) on a surface with normal nrm, `up` = sticker up direction."""
+        n = PV(nrm).normalized()
+        upv = PV(up)
+        upv = (upv - n * upv.dot(n)).normalized()
+        rt = upv.cross(n).normalized()            # sticker +u (to the right when looking at it)
+        if rot:
+            q = Matrix.Rotation(rot * D2R, 3, n)
+            rt, upv = q @ rt, q @ upv
+        cc = P(*c) + n * lift
+        did = decal_spec(name, o=cc, u=rt, v=upv, w=w, h=h, sub=sub)
+        prev = self.cur_decal
+        self.cur_decal = did
+        vs = [cc - rt * w / 2 - upv * h / 2, cc + rt * w / 2 - upv * h / 2, cc + rt * w / 2 + upv * h / 2, cc - rt * w / 2 + upv * h / 2]
+        bm = bmesh.new()
+        bv = [bm.verts.new(v) for v in vs]
+        bm.faces.new(bv)
+        self.add_bm(bm, 'decal')
+        self.cur_decal = prev
 
     # -- low level
     def slot(self, m):
@@ -279,12 +332,15 @@ class Part:
         vmap = {}
         for v in src.verts:
             vmap[v] = bm.verts.new(xf @ v.co if xf is not None else v.co)
+        dl, cd = self.dl, self.cur_decal
         for f in src.faces:
             try:
                 nf = bm.faces.new([vmap[v] for v in f.verts])
             except ValueError:
                 continue
             nf.material_index = idx[min(f.material_index, len(idx) - 1)]
+            if cd:
+                nf[dl] = cd
         src.free()
 
     def raw(self, m, verts, faces, xf=None):
@@ -469,6 +525,30 @@ class Part:
         self.add_bm(bm, m, xf)
 
 
+    def loft_grid(self, m, rings, cyc_u=True, cyc_v=False, cap=True, flip=False):
+        """rings[i][j] game-space points. Ring points join cyclically when cyc_u; rings join cyclically when cyc_v (torus).
+        Open (not cyclic in v) grids get n-gon caps when cap and cyc_u.  Normals are made consistent (outward for closed shapes)."""
+        bm = bmesh.new()
+        R = [[bm.verts.new(PV(p)) for p in ring] for ring in rings]
+        nr, k = len(R), len(R[0])
+        for i in range(nr if cyc_v else nr - 1):
+            r0, r1 = R[i], R[(i + 1) % nr]
+            for j in range(k if cyc_u else k - 1):
+                try:
+                    bm.faces.new((r0[j], r0[(j + 1) % k], r1[(j + 1) % k], r1[j]))
+                except ValueError:
+                    pass
+        if cap and cyc_u and not cyc_v:
+            for ring in (R[0], R[-1]):
+                try:
+                    bm.faces.new(ring)
+                except ValueError:
+                    pass
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        if flip:
+            bmesh.ops.reverse_faces(bm, faces=bm.faces)
+        self.add_bm(bm, m)
+
     def lathe(self, m, prof, c, n=32, axis='x', fn=None, closed=False, flip=False, side=1.0, a0=0.0):
         """Revolve profile [(rad, ax)...] about an axis through c.  axis 'x' (wheel axle) only.  fn(i,j,rad,ax)->(rad,ax) tweaks
         each vertex (tread patterns).  side=-1 mirrors ax.  Faces run between consecutive profile points; closed joins the ends."""
@@ -515,12 +595,15 @@ class Part:
         xf = Matrix.Translation(P(*at)) @ (rotm(*rot) if rot else Matrix.Identity(4))
         bm = self.bm
         vmap = {v: bm.verts.new(xf @ v.co) for v in src.bm.verts}
+        sdl = src.dl
         for f in src.bm.faces:
             mname = src.mats[f.material_index]
             idx = self.slot(mat_map.get(mname, mname) if mat_map else mname)
             try:
                 nf = bm.faces.new([vmap[v] for v in f.verts])
                 nf.material_index = idx
+                if f[sdl]:
+                    nf[self.dl] = f[sdl]
             except ValueError:
                 pass
 
@@ -775,6 +858,7 @@ def new_scene():
     PAL.update(_copy.deepcopy(_PAL0))
     _SOCKETS.clear()
     TEXTURED.clear()
+    DECALS.clear()
 
 
 def tweak_mat(name, **kw):

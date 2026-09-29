@@ -14,7 +14,7 @@ def tlog(msg):
 
 # materials whose surfaces get baked wear (everything else keeps flat factors)
 TEXTURED = ["paint", "paint2", "metal_dark", "metal_bare", "rust", "armor", "rim", "interior", "fabric", "leather", "wood",
-            "canvas", "rubber", "rubber_tire", "plastic", "spike", "brass", "chrome", "cloth_red", "cloth_dark", "cloth_tan"]
+            "canvas", "rubber", "rubber_tire", "plastic", "spike", "brass", "chrome", "cloth_red", "cloth_dark", "cloth_tan", "gun_metal"]
 
 # ------------------------------------------------------------------------------------------ node graph helper
 class G:
@@ -171,104 +171,211 @@ class G:
 
 # ------------------------------------------------------------------------------------------ wear recipes
 # per material: base colour a, dust/dirt colour, rust colour, edge-wear colour, roughness, metallic, rustiness (0..1 how much rust shows on it)
+# bump: height recipe for the baked normal map (dist = bump distance in metres; the other keys weight height layers)
 RECIPES = {
-    "paint":       dict(a=(0.80, 0.80, 0.80), dust=(0.40, 0.36, 0.31), rustc=(0.20, 0.10, 0.045), edgec=(0.26, 0.19, 0.13), rough=0.62, metal=0.12, rusty=1.0, dirty=1.0, mottle=0.14),
-    "paint2":      dict(a=(0.80, 0.80, 0.80), dust=(0.40, 0.36, 0.31), rustc=(0.20, 0.10, 0.045), edgec=(0.26, 0.19, 0.13), rough=0.62, metal=0.12, rusty=1.0, dirty=1.0, mottle=0.14),
-    "rust":        dict(a=(0.30, 0.11, 0.045), dust=(0.14, 0.08, 0.05), rustc=(0.06, 0.022, 0.01), edgec=(0.45, 0.18, 0.06), rough=0.88, metal=0.1, rusty=0.0, dirty=0.8, mottle=0.9),
-    "metal_dark":  dict(a=(0.07, 0.07, 0.075), dust=(0.15, 0.125, 0.10), rustc=(0.18, 0.07, 0.03), edgec=(0.32, 0.32, 0.33), rough=0.7, metal=0.4, rusty=0.5, dirty=1.0, mottle=0.4),
-    "metal_bare":  dict(a=(0.40, 0.40, 0.42), dust=(0.16, 0.13, 0.10), rustc=(0.22, 0.09, 0.035), edgec=(0.6, 0.6, 0.62), rough=0.45, metal=1.0, rusty=0.5, dirty=0.8, mottle=0.5),
-    "armor":       dict(a=(0.10, 0.108, 0.098), dust=(0.20, 0.16, 0.11), rustc=(0.24, 0.09, 0.03), edgec=(0.42, 0.42, 0.42), rough=0.62, metal=0.85, rusty=0.8, dirty=1.0, mottle=0.5),
-    "rim":         dict(a=(0.13, 0.13, 0.135), dust=(0.20, 0.15, 0.10), rustc=(0.24, 0.10, 0.04), edgec=(0.45, 0.45, 0.47), rough=0.62, metal=0.6, rusty=1.0, dirty=1.0, mottle=0.4),
-    "interior":    dict(a=(0.07, 0.06, 0.05), dust=(0.16, 0.13, 0.10), rustc=(0.12, 0.06, 0.03), edgec=(0.2, 0.17, 0.14), rough=0.9, metal=0.0, rusty=0.2, dirty=1.0, mottle=0.4),
-    "fabric":      dict(a=(0.14, 0.10, 0.075), dust=(0.27, 0.21, 0.15), rustc=(0.05, 0.03, 0.02), edgec=(0.24, 0.19, 0.14), rough=0.95, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5),
-    "leather":     dict(a=(0.10, 0.045, 0.02), dust=(0.2, 0.15, 0.1), rustc=(0.05, 0.02, 0.01), edgec=(0.22, 0.12, 0.06), rough=0.7, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5),
-    "wood":        dict(a=(0.20, 0.11, 0.05), dust=(0.28, 0.2, 0.12), rustc=(0.08, 0.05, 0.03), edgec=(0.32, 0.22, 0.12), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.7),
-    "canvas":      dict(a=(0.36, 0.30, 0.20), dust=(0.38, 0.31, 0.22), rustc=(0.12, 0.09, 0.06), edgec=(0.44, 0.38, 0.28), rough=0.95, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.5),
-    "cloth_red":   dict(a=(0.32, 0.015, 0.01), dust=(0.30, 0.16, 0.10), rustc=(0.10, 0.02, 0.01), edgec=(0.4, 0.1, 0.06), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5),
-    "cloth_dark":  dict(a=(0.04, 0.035, 0.03), dust=(0.2, 0.16, 0.12), rustc=(0.05, 0.04, 0.03), edgec=(0.12, 0.1, 0.08), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5),
-    "cloth_tan":   dict(a=(0.30, 0.24, 0.15), dust=(0.30, 0.24, 0.17), rustc=(0.1, 0.08, 0.05), edgec=(0.4, 0.32, 0.22), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5),
-    "rubber":      dict(a=(0.02, 0.02, 0.02), dust=(0.08, 0.07, 0.06), rustc=(0.02, 0.02, 0.02), edgec=(0.09, 0.085, 0.08), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3),
-    "rubber_tire": dict(a=(0.030, 0.028, 0.026), dust=(0.13, 0.10, 0.075), rustc=(0.02, 0.02, 0.02), edgec=(0.12, 0.10, 0.08), rough=0.92, metal=0.0, rusty=0.0, dirty=1.6, mottle=0.3),
-    "plastic":     dict(a=(0.04, 0.04, 0.042), dust=(0.15, 0.13, 0.11), rustc=(0.04, 0.04, 0.04), edgec=(0.2, 0.2, 0.2), rough=0.6, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3),
-    "spike":       dict(a=(0.30, 0.30, 0.32), dust=(0.18, 0.14, 0.10), rustc=(0.22, 0.09, 0.035), edgec=(0.6, 0.6, 0.62), rough=0.35, metal=1.0, rusty=0.4, dirty=0.8, mottle=0.4),
-    "brass":       dict(a=(0.55, 0.38, 0.10), dust=(0.22, 0.16, 0.08), rustc=(0.10, 0.09, 0.04), edgec=(0.75, 0.55, 0.2), rough=0.4, metal=1.0, rusty=0.2, dirty=1.0, mottle=0.4),
-    "chrome":      dict(a=(0.46, 0.46, 0.49), dust=(0.20, 0.16, 0.12), rustc=(0.26, 0.11, 0.045), edgec=(0.80, 0.80, 0.83), rough=0.34, metal=0.95, rusty=1.5, dirty=1.3, mottle=0.6),
+    "paint":       dict(a=(0.80, 0.80, 0.80), dust=(0.52, 0.49, 0.45), rustc=(0.16, 0.13, 0.11), edgec=(0.60, 0.60, 0.60), rough=0.40, metal=0.10, rusty=1.0, dirty=1.0, mottle=0.10,
+                        bump=dict(dist=0.0022, rust=1.0, chip=1.0, scr=1.0, grain=0.10, dent=1.0)),
+    "paint2":      dict(a=(0.80, 0.80, 0.80), dust=(0.56, 0.53, 0.49), rustc=(0.16, 0.13, 0.11), edgec=(0.60, 0.60, 0.60), rough=0.46, metal=0.08, rusty=1.0, dirty=1.0, mottle=0.12,
+                        bump=dict(dist=0.0022, rust=1.0, chip=1.0, scr=1.0, grain=0.10, dent=1.0)),
+    "rust":        dict(a=(0.26, 0.095, 0.04), dust=(0.20, 0.13, 0.08), rustc=(0.07, 0.028, 0.014), edgec=(0.48, 0.21, 0.07), rough=0.9, metal=0.1, rusty=0.0, dirty=0.6, mottle=0.9,
+                        bump=dict(dist=0.004, crust=1.0, grain=0.6)),
+    "metal_dark":  dict(a=(0.055, 0.055, 0.058), dust=(0.20, 0.17, 0.14), rustc=(0.16, 0.065, 0.028), edgec=(0.30, 0.30, 0.31), rough=0.62, metal=0.55, rusty=0.6, dirty=1.0, mottle=0.4,
+                        bump=dict(dist=0.002, grain=0.5, rust=0.8, chip=0.4)),
+    "metal_bare":  dict(a=(0.26, 0.26, 0.27), dust=(0.22, 0.19, 0.15), rustc=(0.20, 0.08, 0.032), edgec=(0.55, 0.55, 0.57), rough=0.42, metal=1.0, rusty=0.6, dirty=0.8, mottle=0.45,
+                        bump=dict(dist=0.002, grain=0.5, rust=0.8, scr=1.0, pit=0.5)),
+    "armor":       dict(a=(0.085, 0.09, 0.083), dust=(0.26, 0.22, 0.17), rustc=(0.20, 0.075, 0.028), edgec=(0.40, 0.40, 0.40), rough=0.58, metal=0.8, rusty=0.9, dirty=1.0, mottle=0.5,
+                        bump=dict(dist=0.0035, grain=0.4, rust=1.0, chip=0.8, scr=1.0, hammer=1.0, dent=1.0)),
+    "rim":         dict(a=(0.10, 0.10, 0.105), dust=(0.24, 0.19, 0.14), rustc=(0.20, 0.08, 0.03), edgec=(0.40, 0.40, 0.42), rough=0.55, metal=0.55, rusty=1.0, dirty=1.2, mottle=0.4,
+                        bump=dict(dist=0.002, grain=0.4, rust=0.8, chip=0.6)),
+    "interior":    dict(a=(0.065, 0.057, 0.048), dust=(0.20, 0.17, 0.13), rustc=(0.12, 0.06, 0.03), edgec=(0.2, 0.17, 0.14), rough=0.85, metal=0.0, rusty=0.2, dirty=1.0, mottle=0.4,
+                        bump=dict(dist=0.0015, grain=0.8, crinkle=0.4)),
+    "fabric":      dict(a=(0.16, 0.115, 0.08), dust=(0.30, 0.24, 0.17), rustc=(0.05, 0.03, 0.02), edgec=(0.26, 0.21, 0.15), rough=0.95, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5,
+                        bump=dict(dist=0.002, weave=1.0, crinkle=0.6)),
+    "leather":     dict(a=(0.11, 0.05, 0.022), dust=(0.24, 0.18, 0.12), rustc=(0.05, 0.02, 0.01), edgec=(0.26, 0.15, 0.08), rough=0.62, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5,
+                        bump=dict(dist=0.0015, crinkle=1.0)),
+    "wood":        dict(a=(0.22, 0.13, 0.065), dust=(0.30, 0.23, 0.15), rustc=(0.08, 0.05, 0.03), edgec=(0.34, 0.24, 0.14), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.7,
+                        bump=dict(dist=0.003, wood=1.0)),
+    "canvas":      dict(a=(0.33, 0.29, 0.20), dust=(0.40, 0.34, 0.25), rustc=(0.12, 0.09, 0.06), edgec=(0.44, 0.38, 0.28), rough=0.95, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.5,
+                        bump=dict(dist=0.004, weave=0.6, crinkle=1.0)),
+    "cloth_red":   dict(a=(0.30, 0.018, 0.012), dust=(0.30, 0.16, 0.10), rustc=(0.10, 0.02, 0.01), edgec=(0.4, 0.1, 0.06), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5,
+                        bump=dict(dist=0.002, weave=1.0, crinkle=0.5)),
+    "cloth_dark":  dict(a=(0.04, 0.036, 0.032), dust=(0.2, 0.16, 0.12), rustc=(0.05, 0.04, 0.03), edgec=(0.12, 0.1, 0.08), rough=0.92, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5,
+                        bump=dict(dist=0.002, weave=1.0, crinkle=0.5)),
+    "cloth_tan":   dict(a=(0.33, 0.27, 0.17), dust=(0.34, 0.28, 0.20), rustc=(0.1, 0.08, 0.05), edgec=(0.4, 0.32, 0.22), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5,
+                        bump=dict(dist=0.002, weave=1.0, crinkle=0.5)),
+    "rubber":      dict(a=(0.02, 0.02, 0.02), dust=(0.10, 0.09, 0.07), rustc=(0.02, 0.02, 0.02), edgec=(0.09, 0.085, 0.08), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3,
+                        bump=dict(dist=0.0015, grain=0.8)),
+    "rubber_tire": dict(a=(0.026, 0.025, 0.024), dust=(0.17, 0.14, 0.105), rustc=(0.02, 0.02, 0.02), edgec=(0.10, 0.09, 0.08), rough=0.9, metal=0.0, rusty=0.0, dirty=1.5, mottle=0.3,
+                        bump=dict(dist=0.0015, grain=1.0)),
+    "plastic":     dict(a=(0.04, 0.04, 0.042), dust=(0.18, 0.16, 0.13), rustc=(0.04, 0.04, 0.04), edgec=(0.2, 0.2, 0.2), rough=0.6, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3,
+                        bump=dict(dist=0.001, grain=0.5)),
+    "spike":       dict(a=(0.24, 0.24, 0.25), dust=(0.20, 0.16, 0.12), rustc=(0.20, 0.08, 0.032), edgec=(0.55, 0.55, 0.57), rough=0.38, metal=1.0, rusty=0.5, dirty=0.7, mottle=0.4,
+                        bump=dict(dist=0.0015, grain=0.5, pit=0.6)),
+    "brass":       dict(a=(0.55, 0.38, 0.10), dust=(0.22, 0.16, 0.08), rustc=(0.10, 0.09, 0.04), edgec=(0.75, 0.55, 0.2), rough=0.4, metal=1.0, rusty=0.2, dirty=1.0, mottle=0.4,
+                        bump=dict(dist=0.001, grain=0.5)),
+    "chrome":      dict(a=(0.62, 0.62, 0.64), dust=(0.22, 0.18, 0.14), rustc=(0.22, 0.09, 0.035), edgec=(0.75, 0.75, 0.78), rough=0.16, metal=1.0, rusty=1.2, dirty=1.0, mottle=0.35,
+                        bump=dict(dist=0.0012, pit=1.0, rust=0.8)),
+    "gun_metal":   dict(a=(0.06, 0.06, 0.065), dust=(0.16, 0.13, 0.10), rustc=(0.20, 0.08, 0.032), edgec=(0.42, 0.42, 0.44), rough=0.42, metal=0.9, rusty=0.5, dirty=0.8, mottle=0.4,
+                        bump=dict(dist=0.0012, grain=0.4, chip=0.4)),
 }
 
 
+def _stable(s):
+    """Stable small hash (Python's str hash is salted per process -> builds would not be reproducible)."""
+    return sum((i + 1) * ord(c) for i, c in enumerate(s)) % 97
+
+
 def build_wear(m, S, img_hooks=None):
-    """Build the procedural graph for material m and return (albedo, rough, metal, ao) sockets."""
+    """Build the procedural graph for material m.  Returns dict(col, rough, metal, ao, height, bump_dist)."""
     R = dict(RECIPES[m.name])
     R.update(S.get("override", {}).get(m.name, {}))
+    B = dict(R.get("bump", {}))
     g = G(m)
-    seed = S.get("seed", 1) * 17.13 + hash(m.name) % 97
+    seed = S.get("seed", 1) * 17.13 + _stable(m.name)
     pos = g.geo("Position")
     nrm = g.geo("Normal")
     px, py, pz = g.sep(pos)
     P0 = g.vmap(pos, 1.0, (seed, seed * 0.7, seed * 1.3))
 
-    def nz(scale, detail=4.0, rough=0.5, distort=0.0, stretch=(1, 1, 1)):
-        return g.noise(g.vmap(P0, stretch), scale, detail, rough, distort)
+    def nz(scale, detail=4.0, rough=0.5, distort=0.0, stretch=(1, 1, 1), off=None):
+        v = P0 if off is None else g.vmap(P0, 1.0, off)
+        return g.noise(g.vmap(v, stretch), scale, detail, rough, distort)
 
     rustS = S.get("rust", 0.5) * R["rusty"]
     dirtS = S.get("dirt", 0.7) * R["dirty"]
     wearS = S.get("wear", 0.6)
     is_paint = m.name in ("paint", "paint2")
+    is_cloth = m.name in ("fabric", "canvas", "cloth_red", "cloth_dark", "cloth_tan", "leather", "interior")
     n_l = nz(0.9, 4.0, 0.55)
     n_m = nz(5.0, 6.0, 0.6)
     n_f = nz(70.0, 3.0, 0.5)
-    n_r1 = nz(2.2, 6.0, 0.55, 0.7)
-    n_r2 = nz(15.0, 4.0, 0.55)
     n_r3 = nz(60.0, 2.0, 0.5)
     streak = nz(1.0, 4.0, 0.6, 0.0, (9, 9, 1.0))
     scr = nz(1.0, 2.0, 0.5, 0.0, (75, 3, 55))
     ao = g.ao(0.5, 16)
-    cav = g.ao(0.09, 10)
-    bev = g.bevel(0.03, 6)
-    ed = g.clamp(g.mul(g.sub(1.0, g.dot(bev, g.geo("Normal"))), 9.0))
+    cav = g.ao(0.06, 10)
+    bev = g.bevel(0.012 if not is_paint else 0.02, 6)
+    ed = g.clamp(g.mul(g.sub(1.0, g.dot(bev, g.geo("Normal"))), 7.0))
     _, _, nzn = g.sep(nrm)
     top = g.new_map_range(nzn, 0.25, 0.95)
-    low = g.new_map_range(g.sub(0.9, pz), 0.0, 0.9)
-    # ---- dirt: grime low on the body, in crevices, streaks under ledges, dust on horizontals
-    dirt = g.add(g.mul(low, g.lin(n_m, 1.0, 0.25)), g.mul(g.sub(1.0, cav), 0.5))
-    dirt = g.add(dirt, g.mul(g.new_map_range(streak, 0.5, 0.75), g.mul(g.sub(1.0, top), g.mul(g.new_map_range(pz, 0.2, 0.9), 0.30))))
-    dirt = g.add(dirt, g.mul(top, g.mul(g.new_map_range(n_l, 0.4, 0.7), 0.16)))
-    dirt = g.clamp(g.mul(dirt, dirtS))
-    # ---- rust patches (blotches with pitted halo), concentrated low, in crevices and on sun-baked tops
-    r1 = g.lin(n_r1, 2.8, -0.9)
-    r2 = g.lin(n_r2, 2.8, -0.9)
-    field = g.add(g.mul(r1, 0.50), g.mul(r2, 0.22))
-    field = g.add(field, g.add(g.mul(g.sub(1.0, ao), 0.22), g.add(g.mul(low, 0.16), g.mul(top, 0.06))))
+    under = g.new_map_range(nzn, -0.35, -0.85)
+    low = g.new_map_range(g.sub(0.95, pz), 0.0, 0.85)
+
+    # ---- rust field: blotches concentrated low, in crevices and on sun-baked tops (evaluated also a bit ABOVE each point for streaks)
+    def rust_field(dz=0.0):
+        off = None if dz == 0.0 else (0.0, 0.0, dz)
+        r1 = g.lin(nz(2.2, 6.0, 0.55, 0.7, off=off), 2.8, -0.9)
+        r2 = g.lin(nz(15.0, 4.0, 0.55, off=off), 2.8, -0.9)
+        return g.add(g.mul(r1, 0.50), g.mul(r2, 0.22))
+    n_r2 = nz(15.0, 4.0, 0.55)
+    field0 = rust_field()
+    field = g.add(field0, g.add(g.mul(g.sub(1.0, ao), 0.22), g.add(g.mul(low, 0.16), g.mul(top, 0.06))))
     thr = 0.80 - 0.15 * min(rustS, 1.3)
-    rust = g.new_map_range(field, thr - 0.03, thr + 0.07)
-    halo = g.new_map_range(field, thr - 0.16, thr - 0.03)
-    pits = g.mul(halo, g.new_map_range(n_r3, 0.55, 0.68))
+    rust = g.new_map_range(field, thr - 0.025, thr + 0.05)
+    halo = g.new_map_range(field, thr - 0.14, thr - 0.025)
+    pits = g.mul(halo, g.new_map_range(n_r3, 0.56, 0.66))
     rustm = g.clamp(g.add(rust, g.mul(pits, 0.85)))
-    # ---- chipped edges + scratches
-    chip = g.mul(ed, g.new_map_range(n_f, 0.52 - 0.2 * wearS, 0.58 - 0.2 * wearS))
-    chip = g.clamp(g.add(chip, g.mul(g.new_map_range(scr, 0.80 - 0.1 * wearS, 0.88), 0.85 * S.get("scratch", 0.5))))
+    # rust run-off: streaks hanging BELOW rusty spots (sample the rust field above the point), only on vertical faces
+    run = None
+    if rustS > 0.05:
+        acc = None
+        for dz in (0.05, 0.12, 0.22):
+            f2 = g.new_map_range(rust_field(dz), thr - 0.02, thr + 0.08)
+            acc = f2 if acc is None else g.math("MAXIMUM", acc, f2)
+        vs = g.mul(g.sub(1.0, top), g.sub(1.0, under))
+        sn = nz(1.0, 3.0, 0.5, 0.0, (40, 40, 1.2))
+        run = g.clamp(g.mul(g.mul(acc, vs), g.new_map_range(sn, 0.42, 0.62)))
+    # ---- dirt: grime low on the body, in crevices, streaks under ledges, dust on horizontals, mud around the wheels
+    dirt = g.add(g.mul(low, g.lin(n_m, 1.1, 0.15)), g.mul(g.sub(1.0, cav), 0.45))
+    dirt = g.add(dirt, g.mul(g.new_map_range(streak, 0.5, 0.75), g.mul(g.sub(1.0, top), g.mul(g.new_map_range(pz, 0.2, 0.9), 0.28))))
+    dust_top = g.mul(top, g.mul(g.new_map_range(n_l, 0.35, 0.75), 0.45 * S.get("dust", 1.0)))
+    dirt = g.add(dirt, dust_top)
+    dirt = g.add(dirt, g.mul(under, 0.6))
+    mud = None
+    for (wf, wz, wr) in S.get("wheels", []):
+        dy = g.sub(py, -wf)
+        dzz = g.sub(pz, wz)
+        d = g.math("SQRT", g.add(g.mul(dy, dy), g.mul(dzz, dzz)))
+        w = g.new_map_range(d, wr + 0.42, wr + 0.03)
+        mud = w if mud is None else g.math("MAXIMUM", mud, w)
+    if mud is not None:
+        spat = g.new_map_range(nz(28.0, 3.0, 0.6), 0.40, 0.62)
+        mud = g.clamp(g.mul(mud, g.add(g.mul(spat, 0.7), 0.3)))
+        dirt = g.add(dirt, g.mul(mud, 0.75))
+    dirt = g.clamp(g.mul(dirt, dirtS))
+    # ---- chipped edges, random paint chips (primer ring + bare core) and scratches
+    chipn = n_f
+    chip = g.mul(ed, g.new_map_range(chipn, 0.54 - 0.2 * wearS, 0.57 - 0.2 * wearS))
+    fch = nz(9.0, 3.0, 0.55)
+    fchip = g.mul(g.new_map_range(fch, 0.70 - 0.05 * wearS, 0.715 - 0.05 * wearS), wearS)
+    fring = g.mul(g.new_map_range(fch, 0.655 - 0.05 * wearS, 0.67 - 0.05 * wearS), wearS)
+    scrl = g.mul(g.new_map_range(scr, 0.80 - 0.1 * wearS, 0.87), 0.85 * S.get("scratch", 0.5))
+    chip = g.clamp(g.add(g.add(chip, scrl), fchip if is_paint or m.name == "armor" else 0.0))
     # ---- colours
     nl = g.new_map_range(n_l, 0.30, 0.70)
     colr = g.mixc(nl, R["a"], tuple(x * (1.0 - R["mottle"]) for x in R["a"]))
     grain = g.new_map_range(n_f, 0.35, 0.65)
     colr = g.mixc(g.mul(grain, 0.10), colr, tuple(x * 0.7 for x in R["a"]))
-    colr = g.mixc(g.mul(dirt, 0.92), colr, R["dust"])
+    if is_paint:
+        # sun fade: tops bleached lighter + chalky; sides keep more depth
+        colr = g.mixc(g.mul(top, g.lin(n_l, 0.5, 0.25)), colr, (0.93, 0.93, 0.93))
+        # primer ring round the random chips
+        colr = g.mixc(g.clamp(fring), colr, (0.62, 0.62, 0.62))
+    colr = g.mixc(g.mul(dirt, 0.88), colr, R["dust"])
+    if mud is not None:
+        colr = g.mixc(g.mul(g.mul(mud, dirtS), 0.55), colr, tuple(x * 0.55 for x in R["dust"]))
     rc = g.mixc(n_r2, tuple(x * 0.55 for x in R["rustc"]), tuple(min(x * 1.5, 1.0) for x in R["rustc"]))
+    if run is not None:
+        colr = g.mixc(g.mul(run, 0.55 * min(rustS, 1.0)), colr, tuple(x * 1.2 for x in R["rustc"]))
     colr = g.mixc(rustm, colr, rc)
     colr = g.mixc(g.clamp(chip), colr, R["edgec"])
     hook = None if argv().get("nohook") else (S.get("hooks") or {}).get(m.name)
     ctx = dict(g=g, pos=pos, nrm=nrm, px=px, py=py, pz=pz, ao=ao, cav=cav, edge=ed, dirt=dirt, rust=rustm, top=top, n_l=n_l, n_m=n_m, n_f=n_f, nz=nz)
     if hook:
         colr = hook(ctx, colr)
-    colr = g.mixc(g.clamp(g.add(g.mul(g.sub(1.0, cav), 0.32), g.mul(g.sub(1.0, ao), 0.16))), colr, (0, 0, 0))
-    rough = g.add(g.add(R["rough"], g.mul(g.sub(n_m, 0.5), 0.3)), g.add(g.mul(dirt, 0.28), g.sub(g.mul(rustm, 0.32), g.mul(g.clamp(chip), 0.15))))
+    colr = g.mixc(g.clamp(g.add(g.mul(g.sub(1.0, cav), 0.26), g.mul(g.sub(1.0, ao), 0.12))), colr, (0, 0, 0))
+    rough = g.add(g.add(R["rough"], g.mul(g.sub(n_m, 0.5), 0.24)), g.add(g.mul(dirt, 0.42), g.sub(g.mul(rustm, 0.42), g.mul(g.clamp(chip), 0.10))))
     if is_paint:
-        rough = g.add(rough, g.mul(top, 0.14))
+        rough = g.add(rough, g.mul(top, 0.22))
     rough = g.clamp(rough)
-    metal = g.clamp(g.mul(g.sub(1.0, g.mul(g.add(dirt, rustm), 0.65)), R["metal"]))
+    metal = g.clamp(g.mul(g.sub(1.0, g.mul(g.add(dirt, rustm), 0.8)), R["metal"]))
     if is_paint:
-        metal = g.clamp(g.add(metal, g.mul(g.clamp(chip), 0.5)))
-    return colr, rough, metal, g.lin(ao, 0.6, 0.4)
+        metal = g.clamp(g.add(metal, g.mul(g.clamp(g.sub(chip, fchip)), 0.45)))
+    # ---- height for the normal-map bake
+    h = g.mul(g.sub(n_f, 0.5), B.get("grain", 0.0) * 0.5)
+    if B.get("dent"):
+        h = g.add(h, g.mul(g.sub(nz(3.0, 2.0, 0.5), 0.5), 2.2 * B["dent"]))
+    if B.get("rust"):
+        crust = g.add(g.mul(rustm, 0.55), g.mul(g.mul(rustm, n_r3), 0.9))
+        h = g.add(h, g.mul(crust, B["rust"]))
+    if B.get("chip"):
+        h = g.sub(h, g.mul(g.clamp(chip), 0.45 * B["chip"]))
+    if B.get("scr"):
+        h = g.sub(h, g.mul(scrl, 0.35 * B["scr"]))
+    if B.get("pit"):
+        pn = nz(140.0, 2.0, 0.5)
+        h = g.sub(h, g.mul(g.new_map_range(pn, 0.62, 0.75), 0.5 * B["pit"]))
+    if B.get("hammer"):
+        vo = g.new("ShaderNodeTexVoronoi", voronoi_dimensions="3D", feature="F1")
+        g.put(vo.inputs["Vector"], P0)
+        vo.inputs["Scale"].default_value = 22.0
+        dim = g.new_map_range(vo.outputs["Distance"], 0.0, 0.6)
+        h = g.add(h, g.mul(dim, 0.55 * B["hammer"]))
+    if B.get("crust"):
+        c1 = nz(35.0, 5.0, 0.7, 0.4)
+        c2 = nz(120.0, 2.0, 0.5)
+        h = g.add(h, g.add(g.mul(c1, 1.2 * B["crust"]), g.mul(c2, 0.5 * B["crust"])))
+    if B.get("weave"):
+        wv = nz(260.0, 1.0, 0.4)
+        h = g.add(h, g.mul(wv, 0.8 * B["weave"]))
+    if B.get("crinkle"):
+        ck = nz(18.0, 5.0, 0.65, 0.3)
+        h = g.add(h, g.mul(g.math("ABSOLUTE", g.sub(ck, 0.5)), -1.6 * B["crinkle"]))
+    if B.get("wood"):
+        wd = nz(1.0, 3.0, 0.5, 0.0, (4, 4, 90))
+        wd2 = nz(1.0, 3.0, 0.5, 0.0, (90, 4, 4))
+        h = g.add(h, g.mul(g.add(wd, wd2), 0.6 * B["wood"]))
+    return dict(col=colr, rough=rough, metal=metal, ao=g.lin(ao, 0.6, 0.4), height=h, bump_dist=B.get("dist", 0.0015))
 
 
 # ------------------------------------------------------------------------------------------ bake
@@ -507,6 +614,8 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
     _setup_cycles(samples)
     img_a = _new_img(name + "_albedo", res, True, (0.25, 0.25, 0.25))
     img_o = _new_img(name + "_orm", orm_res, False, (1.0, 0.7, 0.0))
+    nres = int(argv().get("nrm", res))
+    img_n = _new_img(name + "_normal", nres, False, (0.5, 0.5, 1.0)) if nres > 0 else None
     dummy = _new_img(name + "_dummy", 8, True, (0.2, 0.2, 0.2))
     # graphs
     rec = {}
@@ -516,7 +625,8 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
         m.use_nodes = True
         for nd in list(m.node_tree.nodes):
             m.node_tree.nodes.remove(nd)
-        col, rough, metal, ao = build_wear(m, S)
+        W = build_wear(m, S)
+        col, rough, metal, ao = W["col"], W["rough"], W["metal"], W["ao"]
         g = G(m)
         out = g.new("ShaderNodeOutputMaterial")
         emi = g.new("ShaderNodeEmission")
@@ -525,7 +635,7 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
         tgt.image = img_a
         m.node_tree.nodes.active = tgt
         pack = g.rgb(ao, rough, metal)
-        rec[mname] = (m, emi, tgt, col, pack)
+        rec[mname] = (m, emi, tgt, col, pack, W["height"], W["bump_dist"], out)
     for m in bpy.data.materials:
         if m.name in tex or m.name.startswith("_tmp"):
             continue
@@ -541,7 +651,7 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
 
     def run(kind, img, sm):
         _setup_cycles(sm)
-        for mname, (m, emi, tgt, col, pack) in rec.items():
+        for mname, (m, emi, tgt, col, pack, hgt, bd, out) in rec.items():
             for l in list(m.node_tree.links):
                 if l.to_node == emi:
                     m.node_tree.links.remove(l)
@@ -551,18 +661,44 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
         tlog("BAKE %s start" % kind)
         bpy.ops.object.bake(type="EMIT", margin=10, margin_type="EXTEND", use_clear=False, use_selected_to_active=False, use_cage=False)
 
+    def run_normal(img, sm):
+        _setup_cycles(sm)
+        for mname, (m, emi, tgt, col, pack, hgt, bd, out) in rec.items():
+            g = G(m)
+            dif = g.new("ShaderNodeBsdfDiffuse")
+            bump = g.new("ShaderNodeBump")
+            bump.inputs["Distance"].default_value = bd * float(argv().get("bumpk", 1.0))
+            bump.inputs["Strength"].default_value = 1.0
+            g.put(bump.inputs["Height"], hgt)
+            g.l.new(bump.outputs["Normal"], dif.inputs["Normal"])
+            for l in list(m.node_tree.links):
+                if l.to_node == out:
+                    m.node_tree.links.remove(l)
+            g.l.new(dif.outputs[0], out.inputs["Surface"])
+            tgt.image = img
+            m.node_tree.nodes.active = tgt
+        tlog("BAKE normal start")
+        bpy.ops.object.bake(type="NORMAL", normal_space="TANGENT", normal_r="POS_X", normal_g="POS_Y", normal_b="POS_Z",
+                            margin=10, margin_type="EXTEND", use_clear=False, use_selected_to_active=False, use_cage=False)
+
     run("albedo", img_a, samples)
     tlog("albedo done")
     run("orm", img_o, max(samples, 32))
     tlog("orm done")
+    if img_n is not None:
+        run_normal(img_n, 4)
+        tlog("normal done")
     if not argv().get("nofill"):
-        _fill_spots(img_a, img_o, tex, res, orm_res, S)
+        _fill_spots(img_a, img_o, tex, res, orm_res, S, img_n=img_n, nres=nres)
     if argv().get("debug"):
         _debug_atlas(meshes, img_o, orm_res)
         _debug_albedo(meshes, img_a, res)
     pa = os.path.join(SCRATCH, name + "_albedo.png")
     po = os.path.join(SCRATCH, name + "_orm.png")
-    for img, p in ((img_a, pa), (img_o, po)):
+    pn = os.path.join(SCRATCH, name + "_normal.png")
+    for img, p in ((img_a, pa), (img_o, po), (img_n, pn)):
+        if img is None:
+            continue
         img.filepath_raw = p
         img.file_format = "PNG"
         img.save()
@@ -574,6 +710,11 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
     io = bpy.data.images.load(po)
     io.colorspace_settings.name = "Non-Color"
     io.pack()
+    inn = None
+    if img_n is not None:
+        inn = bpy.data.images.load(pn)
+        inn.colorspace_settings.name = "Non-Color"
+        inn.pack()
     ao_grp = _occlusion_group()
     for mname in tex:
         m = bpy.data.materials[mname]
@@ -594,6 +735,12 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
         gn.node_tree = ao_grp
         g.l.new(sp.outputs[0], gn.inputs["Occlusion"])
         bsdf.inputs["Specular IOR Level"].default_value = 0.5
+        if inn is not None:
+            tn = g.image(inn, ext="REPEAT")
+            nm = g.new("ShaderNodeNormalMap", space="TANGENT")
+            nm.inputs["Strength"].default_value = 1.0
+            g.l.new(tn.outputs["Color"], nm.inputs["Color"])
+            g.l.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
     return pa, po
 
 
@@ -728,8 +875,15 @@ def _lin2srgb(c):
     return np.where(c <= 0.0031308, c * 12.92, 1.055 * np.power(np.maximum(c, 1e-6), 1 / 2.4) - 0.055)
 
 
-def _fill_spots(img_a, img_o, tex, res, orm_res, S):
+def _fill_spots(img_a, img_o, tex, res, orm_res, S, img_n=None, nres=0):
     """Fill the reserved colour cells (flat faces: bolts, rivets, tiny parts) with each material's average look."""
+    if img_n is not None:
+        arr = np.empty(nres * nres * 4, dtype=np.float32)
+        img_n.pixels.foreach_get(arr)
+        arr = arr.reshape(nres, nres, 4)
+        cell = max(int(SPOT_CELL * nres / res), 2)
+        arr[nres - cell:nres, 0:cell * len(TEXTURED), :] = np.array([0.5, 0.5, 1.0, 1.0], dtype=np.float32)
+        img_n.pixels.foreach_set(arr.ravel())
     for img, r, kind in ((img_a, res, "a"), (img_o, orm_res, "o")):
         arr = np.empty(r * r * 4, dtype=np.float32)
         img.pixels.foreach_get(arr)
@@ -799,8 +953,24 @@ class Vehicle:
         body_parts = list(REG.get("body", []))
         panels = {}
         wheels = {}
+        # 0. steering wheel rim/spokes/hub -> own mesh node `steering_wheel_mesh`, child of the `steering_wheel` socket,
+        #    geometry expressed in the socket frame (spinning it about local Z turns the wheel)
+        if REG.get("steer") and "steering_wheel" in SOCKETS:
+            sk = SOCKETS["steering_wheel"]
+            lst = REG["steer"]
+            for o in lst:
+                bake_transform(o)
+            sw = join(lst, "steering_wheel_mesh") if len(lst) > 1 else _rename(lst[0], "steering_wheel_mesh")
+            sw.name = "steering_wheel_mesh"
+            sw.data.name = "steering_wheel_mesh"
+            bpy.context.view_layer.update()
+            sw.data.transform(sk.matrix_world.inverted())
+            sw.parent = sk
+            sw.matrix_parent_inverse = Matrix.Identity(4)
+            sw.matrix_basis = Matrix.Identity(4)
+            smooth_by_angle(sw, 40)
         for gname, lst in REG.items():
-            if gname == "body":
+            if gname in ("body", "steer"):
                 continue
             if gname.startswith("panel_"):
                 panels[gname] = lst
@@ -837,9 +1007,8 @@ class Vehicle:
                 o.parent = em
         bpy.context.view_layer.update()
         for o in bpy.context.scene.objects:
-            if o.type == "MESH":
-                for me_p in o.data.polygons:
-                    pass
+            if o.type == "MESH" and not o.data.uv_layers:
+                o.data.uv_layers.new(name="UVMap")          # tangent export needs a UV map on every mesh
         tris = tri_count()
         print("TRIS(before bake)", tris)
         if bake and not args.get("nobake"):
@@ -907,7 +1076,7 @@ class Vehicle:
         bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True,
                                   export_materials="EXPORT", export_cameras=False, export_lights=False, export_extras=True,
                                   export_image_format="JPEG", export_jpeg_quality=int(self.args.get("jpeg", 90)), export_texcoords=True, export_normals=True,
-                                  export_tangents=False, export_animations=False, export_skins=False, export_vertex_color="NONE")
+                                  export_tangents=not self.args.get("notangents"), export_animations=False, export_skins=False, export_vertex_color="NONE")
         print("EXPORTED", path, "%.1f KB" % (os.path.getsize(path) / 1024))
 
 

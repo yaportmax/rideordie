@@ -363,12 +363,12 @@ export function makeRoadMaterial(tex) {
         {
           float kj = clamp(floor(d / 3.5 + 0.5), -1.0, 1.0);
           float jc = kj * 3.5 + 0.3 * sd + (nB.y - 0.5) * 0.5;
-          tar = max(tar, boxCov(d - jc, 0.02, fw.x + fw.y * 0.05) * smoothstep(0.55, 0.62, nA.x) * step(ad, 6.5));
+          tar = max(tar, boxCov(d - jc, 0.018, fw.x + fw.y * 0.05) * smoothstep(0.62, 0.68, nA.x) * step(ad, 6.5));
           float sn = texture(uMacroT, ruv * vec2(1.0 / 12.0, 1.0 / 24.0) + vec2(0.13, 0.71)).y;
           float fn = fwidth(sn);
           tar = max(tar, (1.0 - smoothstep(0.003, 0.003 + fn * 1.5, abs(sn - 0.5))) * smoothstep(0.64, 0.7, nA.y) * step(ad, 7.0) * 0.8);
         }
-        alb = mix(alb, vec3(0.03, 0.029, 0.027), tar * 0.85); rough = mix(rough, 0.5, tar); nxy *= 1.0 - 0.8 * tar;
+        alb = mix(alb, vec3(0.03, 0.029, 0.027), tar * 0.8); rough = mix(rough, 0.66, tar); nxy *= 1.0 - 0.8 * tar;
         // ---------------- tyre marks (swerves / skids)
         float skid = 0.0;
         float streakN = texture(uMacroT, vec2(d * 2.0, s / 12.0)).z;

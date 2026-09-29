@@ -9,7 +9,7 @@ const W = 30, D = 24, H = 8.6;                 // interior: x -15..15, z -11..13
 export const BACK_Z = -11, LEFT_X = -15, RIGHT_X = 15, FRONT_Z = 13;
 export const DOOR = { x0: -1, x1: 9.5, h: 6.2 };  // opening in the back wall
 export const BENCH = new THREE.Vector3(-11.9, 1.02, 4.2); // weapon display point on the workbench (x toward the wall)
-export const SUN_DIR = new THREE.Vector3(0.2, 0.2, -1).normalize();   // toward the sun (outside the door)
+export const SUN_DIR = new THREE.Vector3(0.28, 0.4, -1).normalize();   // toward the sun (outside the door)
 
 const tl = new THREE.TextureLoader();
 function pbr(set, rx, ry, opts = {}) {
@@ -193,7 +193,7 @@ export function buildGarageSet(scene) {
   // ---------------------------------------------------------------- god rays: additive sheets along the sun direction from the door
   const rayTex = canvasTex(64, 256, (g2, w2, h2) => { const gr = g2.createLinearGradient(0, 0, 0, h2); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.15, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g2.fillStyle = gr; g2.fillRect(0, 0, w2, h2); const gx = g2.createLinearGradient(0, 0, w2, 0); gx.addColorStop(0, 'rgba(0,0,0,1)'); gx.addColorStop(0.5, 'rgba(0,0,0,0)'); gx.addColorStop(1, 'rgba(0,0,0,1)'); g2.globalCompositeOperation = 'destination-out'; g2.fillStyle = gx; g2.fillRect(0, 0, w2, h2); });
   const rays = new THREE.Group(); S.add(rays);
-  const rayMat = new THREE.MeshBasicMaterial({ map: rayTex, color: new THREE.Color(0.55, 0.3, 0.13), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  const rayMat = new THREE.MeshBasicMaterial({ map: rayTex, color: new THREE.Color(0.16, 0.085, 0.035), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false });
   const dir = SUN_DIR.clone().negate();
   for (let i = 0; i < 7; i++) {
     const len = 16 + Math.random() * 6;

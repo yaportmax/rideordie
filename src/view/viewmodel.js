@@ -102,12 +102,12 @@ const SLEEVE_ALBEDO = /* glsl */`
 // when aiming; fov: viewmodel vertical FOV [hip, ads]; rec: [kick back m, climb deg, yaw deg, roll deg]; lRot/rRot: extra hand
 // rotation on the grip sockets (deg, socket axes); sh: shoulder-centre offset (camera space); blade: torso yaw (rad).
 export const TUNE = {
-  pistol: { hip: [0.12, -0.2, -0.42], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  revolver: { hip: [0.12, -0.2, -0.43], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_pistol', rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.03, fov: [62, 50], pose: 'pose_rifle', rec: [0.016, 1.6, 0.9, 1.5], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
-  shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_rifle', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
+  pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_pistol', rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.12, fov: [62, 54], pose: 'pose_rifle', rec: [0.016, 1.6, 0.9, 1.5], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
+  shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], pose: 'pose_rifle', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rec: [0.024, 2.2, 0.8, 1.6], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
-  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_rifle', rec: [0.026, 2.0, 1.1, 2.2], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
+  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_rifle', rec: [0.026, 2.0, 1.1, 2.2], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
   sniper: { hip: [0.165, -0.27, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_rifle', rec: [0.10, 9, 1.5, 4], reload: 'mag', bolt: true, blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rpg: { hip: [0.16, -0.24, -0.28], hipRot: [0, 2, -2], relief: 0.02, fov: [62, 50], pose: 'pose_launcher', rec: [0.10, 6, 1.5, 3], reload: 'rpg', blade: -0.45, sh: [0.02, -0.24, 0.04] },
 };
@@ -483,7 +483,7 @@ export class ViewModel {
     const L = s.local, cam = L.camera, G = L.gunner;
     if (!cam || !G) return;
     if (this.root.parent !== cam) cam.add(this.root);
-    this.setVisible(show);
+    this.setVisible(show); this.scopedNow = !!L.scoped;
     dt = Math.min(dt, 0.05);
     this.t += dt;
     const id = G.weaponId, W = G.weapon;
@@ -620,7 +620,7 @@ export class ViewModel {
   }
 
   _kick(T, ads, W) {
-    const r = T.rec, m = W.recoilMul ?? 1, ap = 1 - ads * 0.55, ar = 1 - ads * 0.62;
+    const r = T.rec, m = W.recoilMul ?? 1, ap = 1 - ads * 0.6, ar = 1 - ads * 0.72;
     const rnd = () => Math.random() * 2 - 1;
     this.recP.kick(2, r[0] * ap * m * (0.9 + Math.random() * 0.2));
     this.recP.kick(1, r[0] * 0.18 * ap * m);
@@ -673,7 +673,7 @@ export class ViewModel {
     const lh = R.lh;
     switch (kind) {
       case 'mag': {                      // rifle / smg / sniper
-        R.r[0] = tilt * 9; R.r[2] = -tilt * 24; R.p[0] = -tilt * 0.05; R.p[1] = tilt * 0.035; R.p[2] = tilt * 0.02;
+        R.r[0] = tilt * 16; R.r[1] = -tilt * 10; R.r[2] = -tilt * 30; R.p[0] = -tilt * 0.08; R.p[1] = tilt * 0.10; R.p[2] = tilt * 0.03;
         // mag: out 0.10-0.22, away 0.22-0.32 (hidden), new one up 0.40-0.50, in 0.50-0.56
         const out = seg(0.10, 0.22), away = seg(0.22, 0.32), back = 1 - seg(0.38, 0.5), ins = seg(0.5, 0.56);
         P.mag = r < 0.34 ? out * 1.25 : 1.25 * (1 - ins);
@@ -690,7 +690,7 @@ export class ViewModel {
         break;
       }
       case 'pistol': {
-        R.r[0] = tilt * 14; R.r[2] = -tilt * 18; R.p[0] = -tilt * 0.03; R.p[1] = tilt * 0.05; R.p[2] = tilt * 0.08;
+        R.r[0] = tilt * 22; R.r[1] = -tilt * 8; R.r[2] = -tilt * 26; R.p[0] = -tilt * 0.07; R.p[1] = tilt * 0.08; R.p[2] = tilt * 0.1;
         const out = seg(0.08, 0.2); P.mag = r < 0.34 ? out * 1.6 + seg(0.2, 0.3) * 2 : 1.3 * (1 - seg(0.5, 0.58));
         P.magOff = r < 0.34 ? 0 : 1 - seg(0.38, 0.5); P.magVisible = !(r > 0.28 && r < 0.39);
         tween(lh, 0.06, 0.2, 'grip', 'pocket', 0.02);
@@ -701,8 +701,8 @@ export class ViewModel {
         break;
       }
       case 'lmg': {
-        R.r[0] = tilt * 6; R.r[2] = -tilt * 14; R.p[0] = -tilt * 0.06; R.p[1] = tilt * 0.03; R.p[2] = tilt * 0.03;
-        P.cover = seg(0.04, 0.12) * (1 - seg(0.74, 0.8));
+        R.r[0] = -tilt * 4; R.r[1] = -tilt * 6; R.r[2] = tilt * 26; R.p[0] = -tilt * 0.09; R.p[1] = tilt * 0.02; R.p[2] = -tilt * 0.06;
+        P.cover = (seg(0.04, 0.12) * (1 - seg(0.74, 0.8))) * 0.75;
         const out = seg(0.14, 0.24); P.mag = r < 0.34 ? out * 1.5 : 1.5 * (1 - seg(0.44, 0.52));
         P.magOff = r < 0.34 ? seg(0.24, 0.32) : 1 - seg(0.36, 0.46); P.magVisible = !(r > 0.31 && r < 0.37);
         tween(lh, 0.0, 0.05, 'grip', 'cover');
@@ -862,8 +862,8 @@ export class ViewModel {
     const big = { pistol: 0.8, revolver: 1.3, smg: 0.75, shotgun: 1.6, rifle: 1.0, lmg: 1.15, sniper: 1.6, rpg: 1.8 }[W.id] || 1;
     const cells = [[0, 0.5], [0.25, 0.5], [0.5, 0.5], [0.5, 0]];
     const c = cells[(this.flashPick * cells.length) | 0];
-    const u = st.material.uniforms; u.uCell.value.set(c[0], c[1], 0.25, 0.5); u.uSize.value = 0.13 * big * (0.9 + 0.3 * (1 - k)); u.uRot.value = this.flashRot; u.uI.value = 7 * e * (1 - ads * 0.4);
-    const u2 = s2.material.uniforms; u2.uCell.value.set(0.5, 0, 0.25, 0.5); u2.uSize.value = 0.34 * big; u2.uRot.value = -this.flashRot; u2.uI.value = 1.6 * e * (1 - ads * 0.5);
+    const u = st.material.uniforms; u.uCell.value.set(c[0], c[1], 0.25, 0.5); u.uSize.value = 0.13 * big * (0.9 + 0.3 * (1 - k)) * (1 - ads * 0.45); u.uRot.value = this.flashRot; u.uI.value = 7 * e * (1 - ads * 0.65);
+    const u2 = s2.material.uniforms; u2.uCell.value.set(0.5, 0, 0.25, 0.5); u2.uSize.value = 0.34 * big * (1 - ads * 0.4); u2.uRot.value = -this.flashRot; u2.uI.value = 1.6 * e * (1 - ads * 0.7);
     const uc = co.material.uniforms; uc.uCell.value.set(this.flashPick > 0.5 ? 0 : 0.25, 0, 0.25, 0.5); uc.uLen.value = 0.34 * big; uc.uSize.value = 0.12 * big; uc.uI.value = 5 * e * (1 - ads * 0.5);
     st.position.set(0, 0, 0.02); s2.position.set(0, 0, 0.05); co.position.set(0, 0, -0.01);
   }

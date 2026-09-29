@@ -456,7 +456,7 @@ export class Fx {
     const d = this.dist(o[0], o[1], o[2]);
     if (d > (player ? 400 : boss ? 450 : 300)) return;
     const gy = this.groundAt(o[0], o[2], o[1] - 1.6);
-    const fp = player && !!evt.fp && !evt.remote;      // local first-person shooter: the viewmodel draws its own flash
+    const fp = player && !evt.remote ? (evt.fp | 0) : 0;   // local first-person shooter (2 = scoped): the viewmodel draws its own flash
     R.muzzle(this, evt.heavy && wid === 'enemy' ? 'heavy' : wid, o[0], o[1], o[2], dx, dy, dz, vx, vy, vz, gy, fp);
     if (evt.rocket) { this._launchRocket(o, dx, dy, dz, evt.speed || (WEAPONS.rpg.rocket && WEAPONS.rpg.rocket.speed) || 85); return; }
     if (player) {
@@ -523,7 +523,7 @@ export class Fx {
       const sp = r.range(2.4, 3.6), up = r.range(1.8, 2.8), back = r.range(0.3, 0.9);
       _v3.set(dx, 0, dz).applyQuaternion(_q);                                                  // gun forward (truck frame)
       return this.casings.spawn(_v.x, _v.y, _v.z, _v2.x * sp - _v3.x * back, up + _v2.y * sp * 0.5, _v2.z * sp - _v3.z * back,
-        c.rad * 0.8, c.len * 0.8, c.rad * 0.8, ax * 1.6, ay, az * 1.6, 1.4, c.hex, false, root, floorY);
+        c.rad * 0.5, c.len * 0.5, c.rad * 0.5, ax * 1.6, ay, az * 1.6, 1.4, c.hex, false, root, floorY);   // real size up close
     }
     _v.set(o[0] - root.position.x, o[1] - root.position.y, o[2] - root.position.z).applyQuaternion(_q);
     _v2.set(dx, dy, dz).applyQuaternion(_q);

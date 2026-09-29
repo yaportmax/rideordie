@@ -93,7 +93,7 @@ export class Input {
     c.mouseYaw = ml.yaw; c.mousePitch = ml.pitch;
     // keyboard
     let kSteer = (this.down('left') ? 1 : 0) - (this.down('right') ? 1 : 0);
-    this.steerSmooth = damp(this.steerSmooth, kSteer, kSteer !== 0 ? 9 : 14, dt);
+    this.steerSmooth = damp(this.steerSmooth, kSteer, kSteer !== 0 ? 12 : 15, dt);
     if (Math.abs(this.steerSmooth - kSteer) < 0.01) this.steerSmooth = kSteer;
     c.steer = this.steerSmooth;
     c.throttle = this.down('throttle') ? 1 : 0; c.brake = this.down('brake') ? 1 : 0;

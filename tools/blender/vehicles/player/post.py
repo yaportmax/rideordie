@@ -166,6 +166,141 @@ def box_uv(obj, scale=1.0, layer='UVMap'):
     uv.data.foreach_set('uv', uvs.ravel())
 
 
+def box_uv2(obj, scales, default=(0.8, 1.0)):
+    """World box projection per face with a per-material scale: UVMap (albedo/grunge, scale s0) and UV1 (detail normal, scale s1).
+    scales: {material name: (s0, s1)}.  uv = metres * scale."""
+    me = obj.data
+    for layer in ('UVMap', 'UV1'):
+        if layer not in me.uv_layers:
+            me.uv_layers.new(name=layer)
+    nl = len(me.loops)
+    if nl == 0:
+        return
+    nv = len(me.vertices)
+    co = np.empty(nv * 3, dtype=np.float64)
+    me.vertices.foreach_get('co', co)
+    co = co.reshape(-1, 3)
+    mw = np.array(obj.matrix_world)
+    co = co @ mw[:3, :3].T + mw[:3, 3]
+    lv = np.empty(nl, dtype=np.int32)
+    me.loops.foreach_get('vertex_index', lv)
+    npoly = len(me.polygons)
+    pn = np.empty(npoly * 3, dtype=np.float64)
+    me.polygons.foreach_get('normal', pn)
+    pn = pn.reshape(-1, 3) @ mw[:3, :3].T
+    pn = np.abs(pn)
+    lt = np.empty(npoly, dtype=np.int32)
+    me.polygons.foreach_get('loop_total', lt)
+    mi = np.empty(npoly, dtype=np.int32)
+    me.polygons.foreach_get('material_index', mi)
+    lp = np.repeat(np.arange(npoly), lt)
+    ax = np.argmax(pn, axis=1)[lp]
+    p = co[lv]
+    x, y, z = p[:, 0], -p[:, 1], p[:, 2]
+    u = np.where(ax == 0, y, x)
+    v = np.where(ax == 2, y, z)
+    names = [m.name if m else '' for m in me.materials]
+    s0 = np.array([scales.get(n, default)[0] for n in names] or [default[0]])[mi][lp]
+    s1 = np.array([scales.get(n, default)[1] for n in names] or [default[1]])[mi][lp]
+    off = (hash(obj.name) % 997) / 997.0
+    me.uv_layers['UVMap'].data.foreach_set('uv', np.stack([u * s0 + off, v * s0 + off * 0.7], axis=1).astype(np.float32).ravel())
+    me.uv_layers['UV1'].data.foreach_set('uv', np.stack([u * s1 + off * 0.3, v * s1 + off * 0.9], axis=1).astype(np.float32).ravel())
+    me.uv_layers.active = me.uv_layers['UVMap']
+    try:
+        me.uv_layers['UVMap'].active_render = True
+    except Exception:
+        pass
+
+
+def decal_uv(obj):
+    """Faces tagged with a decal id (face attribute 'decal', see vlib.Part.sticker/swatch) get atlas UVs (UVMap)."""
+    me = obj.data
+    at = me.attributes.get('decal')
+    if at is None or not vlib.DECALS:
+        return 0
+    npoly = len(me.polygons)
+    ids = np.empty(npoly, dtype=np.int32)
+    at.data.foreach_get('value', ids)
+    if not ids.any():
+        return 0
+    mw = obj.matrix_world
+    uvl = me.uv_layers['UVMap'].data
+    n = 0
+    for pi in np.nonzero(ids)[0]:
+        spec = vlib.DECALS[ids[pi] - 1]
+        r = spec['rect']
+        poly = me.polygons[int(pi)]
+        for li in poly.loop_indices:
+            if spec['solid']:
+                uvl[li].uv = ((r[0] + r[2]) / 2, (r[1] + r[3]) / 2)
+            else:
+                pw = mw @ me.vertices[me.loops[li].vertex_index].co
+                d = pw - spec['o']
+                a = d.dot(spec['u']) / spec['w'] + 0.5
+                b = d.dot(spec['v']) / spec['h'] + 0.5
+                uvl[li].uv = (r[0] + (r[2] - r[0]) * a, r[1] + (r[3] - r[1]) * b)
+        n += 1
+    return n
+
+
+TEXDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tex')
+_TEXC = {}
+
+
+def load_tex(name, noncolor=False):
+    if name in _TEXC and _TEXC[name].name in bpy.data.images:
+        return _TEXC[name]
+    img = bpy.data.images.load(os.path.join(TEXDIR, name), check_existing=True)
+    if noncolor:
+        img.colorspace_settings.name = 'Non-Color'
+    _TEXC[name] = img
+    return img
+
+
+def gray_array(name, size):
+    """grayscale texture from tex/ as a float array resampled (box / repeat) to size x size, row 0 = bottom (Blender)."""
+    img = load_tex(name, noncolor=True)
+    s = img.size[0]
+    px = np.empty(s * s * 4, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    g = px.reshape(s, s, 4)[..., 0]
+    if size < s:
+        k_ = s // size
+        g = g.reshape(size, k_, size, k_).mean(axis=(1, 3))
+    elif size > s:
+        g = np.kron(g, np.ones((size // s, size // s)))
+    return g
+
+
+def hook_normal(matname, img, strength=1.0, uv='UV1'):
+    """Tangent-space normal map on a palette material (glTF normalTexture; texCoord from the UV layer)."""
+    m = M(matname)
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    tex = nt.nodes.new('ShaderNodeTexImage')
+    tex.image = img
+    if uv:
+        uvn = nt.nodes.new('ShaderNodeUVMap')
+        uvn.uv_map = uv
+        nt.links.new(uvn.outputs['UV'], tex.inputs['Vector'])
+    nm = nt.nodes.new('ShaderNodeNormalMap')
+    nm.inputs['Strength'].default_value = strength
+    if uv:
+        nm.uv_map = uv
+    nt.links.new(tex.outputs['Color'], nm.inputs['Color'])
+    nt.links.new(nm.outputs['Normal'], bsdf.inputs['Normal'])
+
+
+def hook_image(matname, img):
+    """Base colour = image (decal atlas)."""
+    m = M(matname)
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    tex = nt.nodes.new('ShaderNodeTexImage')
+    tex.image = img
+    nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
+
+
 # ------------------------------------------------------------------------------------------------- vertex colours (AO + dirt)
 def ensure_col(obj):
     me = obj.data
@@ -286,8 +421,9 @@ def _srgb(c):
     return c ** (1 / 2.2) if c > 0 else 0.0
 
 
-def hook_colored(matname, grunge_img, strength=1.0, tint=None, tag='', size=None):
-    """Bake  material base colour x grunge  into its own image (exporter cannot export texture x factor)."""
+def hook_colored(matname, grunge_img, strength=1.0, tint=None, tag='', size=None, detail=None, detail_k=1.0):
+    """Bake  material base colour x grunge (x detail)  into its own image (exporter cannot export texture x factor).
+    detail: name of a grayscale tex/ image multiplied in (1 = unchanged), mixed by detail_k."""
     m = M(matname)
     nt = m.node_tree
     bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
@@ -303,6 +439,13 @@ def hook_colored(matname, grunge_img, strength=1.0, tint=None, tag='', size=None
         g = g.reshape(size, k_, size, k_).mean(axis=(1, 3))
         s = size
     g = 1.0 - (1.0 - g) * strength
+    if detail:
+        dimg = load_tex(detail, noncolor=True)
+        ds = max(s, dimg.size[0])
+        if ds > s:
+            g = np.kron(g, np.ones((ds // s, ds // s)))
+            s = ds
+        g = g * (1.0 - detail_k * (1.0 - gray_array(detail, s)))
     out = np.ones((s, s, 4), dtype=np.float32)
     for i in range(3):
         out[..., i] = np.clip(base[i] * g, 0, 1)

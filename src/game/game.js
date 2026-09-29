@@ -6,6 +6,7 @@ import * as Assets from '../core/assets.js';
 import { loadGroundArrays, makeTerrainMaterial, makeRoadMaterial, groundPrewarmMeshes } from '../world/terrain_material.js';
 import { SkyRig } from '../world/sky.js';
 import { Water } from '../world/water.js';
+import { NightLights } from '../world/night_lights.js';
 import { lookAt } from '../world/look.js';
 import { Hud } from '../ui/hud.js';
 import { Run } from './run.js';
@@ -32,6 +33,7 @@ export class Game {
     this.sky = new SkyRig(this.renderer, this.scene);
     this.hud = new Hud(); this.hud.setVisible(false);
     // player headlights: always in the scene (intensity 0 by day) so the light count never changes => no shader recompiles
+    this.lampLights = new NightLights(this.scene);   // pooled street-lamp point lights (constant light count)
     this.headlights = [0, 1].map(() => { const l = new THREE.SpotLight(0xfff1d6, 0, 90, 0.42, 0.55, 1.2); l.castShadow = false; this.scene.add(l, l.target); return l; });
     this.run = null; this.look = null; this.frames = 0; this.last = performance.now();
     this.fx = null; this.audio = null; this.post = null; this.ui = null; this.garage = null;
@@ -132,6 +134,7 @@ export class Game {
       await this.renderer.compileAsync(this.scene, this.camera);
     } catch (e) { console.warn('prewarm', e); }
     this.renderer.setRenderTarget(null); rt.dispose(); this._fxPrewarmDone?.();
+    this.post?.warm?.();
     this.scene.remove(g);
   }
 
@@ -190,8 +193,9 @@ export class Game {
     const p = run.states.get(1);
     this.sky.update(dt, this.camera, p ? p.pos : this.camera.position);
     run.dressing?.setShadowFocus?.(this.sky.shadowFocus);   // shadow casters are picked around the (camera-ahead) shadow box
-    this.post?.setLook?.(this.look);
+    this.post?.setLook?.(this.look, this.sky.sunDir);
     run.wv.night = this.look.night;
+    this.lampLights.update(this.camera, run.dressing, this.look.night);
     if (p) {
       const night = Math.max(0, (this.look.night - 0.05) / 0.6);
       this.headlights.forEach((l, i) => {

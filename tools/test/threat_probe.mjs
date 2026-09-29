@@ -4,6 +4,8 @@
 //   hits/min, dmg/min per distance band; fwd% = time with a live raider in the driver's windshield cone (±38°, <130 m);
 //   side% = in the side windows (38-100°, <60 m); ahead% = a raider ahead of the truck on the road; deaths by cause.
 //   node tools/test/threat_probe.mjs [--runs=6] [--start=40] [--secs=300] [--profile=fresh|mid|late|maxed] [--seed=1] [--driver=ai|bot] [--quiet]
+//   campaign mode (fresh save, runs back to back with the campaign_sim shopping list until the Leviathan dies or the cap):
+//   node tools/test/threat_probe.mjs --campaign=4 [--seed=1]
 import * as THREE from 'three';
 import { Sim, DT } from '../../src/sim/sim.js';
 import { SyncGround } from '../../src/sim/sync_ground.js';
@@ -11,6 +13,8 @@ import { RAY_SHOT } from '../../src/sim/physics.js';
 import { RAPIER } from '../../src/sim/physics.js';
 import { buildPlayerSpec, gunnerLoadout } from '../../src/game/run_setup.js';
 import { DEFAULT_PROFILE, UPGRADES } from '../../src/data/upgrades.js';
+import { ECONOMY, KILL_CASH } from '../../src/data/economy.js';
+import { buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, upgradeCost, creditRun } from '../../src/meta/profile.js';
 import { GunnerController } from '../../src/game/gunner.js';
 import { AIDriver } from '../../src/game/ai_driver.js';
 import { AIGunner } from '../../src/game/ai_gunner.js';
@@ -33,8 +37,8 @@ function profileFor(kind) {
 
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion();
 
-async function oneRun(k) {
-  const prof = profileFor(PROFILE);
+async function oneRun(k, profIn = null, maxSecs = SECS) {
+  const prof = profIn || profileFor(PROFILE);
   const { spec, effects } = buildPlayerSpec(prof);
   const sim = new Sim({ seed: SEED * 1000 + k }); await sim.init();
   const g = new SyncGround(sim); sim.setGround(g); g.update(START);
@@ -62,7 +66,8 @@ async function oneRun(k) {
   const origCrew = sim.damageCrew.bind(sim);
   sim.damageCrew = (car, role, dmg, info = {}) => { const d = origCrew(car, role, dmg, info); if (car === P && d > 0) crewDmgBy[info.cause || '?'] = (crewDmgBy[info.cause || '?'] || 0) + d; return d; };
   globalThis.__crashLog = [];
-  const steps = Math.round(SECS / DT);
+  const steps = Math.round(maxSecs / DT);
+  let cash = 0;
   for (let i = 0; i < steps; i++) {
     // partners at 60 Hz
     if ((i & 1) === 0) {
@@ -111,19 +116,64 @@ async function oneRun(k) {
         if (e.t === 'hit') { R.hits[b]++; if (R.tContact === null) R.tContact = sim.time; }
       }
       if (e.t === 'shot' && e.src !== 'player' && !e.fromGunner) { R.eshots = (R.eshots || 0) + (e.rays ? e.rays.length : 1); }
-      if (e.t === 'kill') { R.kills++; if (e.crash) R.crashKills++; }
+      if (e.t === 'kill') { R.kills++; if (e.crash) R.crashKills++; cash += Math.round((KILL_CASH[e.spec] || 60) * (1 + sim.director.level * ECONOMY.killLevel) * (e.crash ? ECONOMY.crashMul : 1) * effects.cashMul); }
+      if (e.t === 'minibossDown') { cash += Math.round(ECONOMY.minibossBounty[e.index] * effects.cashMul); R.mbDown = (R.mbDown || 0) + 1; }
+      if (e.t === 'minibossSpawn') { R.mbSeen = (R.mbSeen || 0) + 1; R.mbFight = { name: e.name, t0: sim.time, hp0: P.hp, crew0: P.crew.driver.hp + P.crew.gunner.hp }; }
+      if ((e.t === 'minibossDown' || e.t === 'minibossLost') && R.mbFight) { const F = R.mbFight; (R.mbLog || (R.mbLog = [])).push(`${F.name} ${e.t === 'minibossDown' ? 'DOWN' : 'LOST'} in ${(sim.time - F.t0).toFixed(0)}s, truck -${(F.hp0 - P.hp) | 0}`); R.mbFight = null; }
       if (e.t === 'crash' && e.id === 1 && e.other >= 0) { const o = sim.cars.get(e.other); const k = !o ? 'gone' : o.exploded ? 'wreck' : o.driverless ? 'runaway' : (o.ai?.atk ? o.ai.atk.kind + '.' + o.ai.atk.phase : o.ai?.behavior + (o.s > P.s + 2 ? '(ahead)' : o.s < P.s - 2 ? '(behind)' : '(beside)')); R.rams = R.rams || {}; R.rams[k] = (R.rams[k] || 0) + e.dv; }
       if (e.t === 'explode' && e.id !== 1) { const d = P.veh.pos.distanceTo({ x: e.pos[0], y: e.pos[1], z: e.pos[2] }); if (d < 14) R.closeBooms = (R.closeBooms || 0) + 1; }
       if (e.t === 'crewDead' && e.role === 'driver' && e.id !== 1 && e.cause !== 'explosion') { R.driverKills++; dkWatch.set(e.id, sim.time); }
       if (e.t === 'crash' && dkWatch.has(e.id) && e.other >= 0 && sim.time - dkWatch.get(e.id) < 6) { R.dkCrash++; dkWatch.delete(e.id); }
       if (e.t === 'explode' && e.cause === 'crash') R.chain++;
     }
-    if (sim.state === 'over') break;
+    if (sim.state === 'over') { if (R.mbFight) (R.mbLog || (R.mbLog = [])).push(`${R.mbFight.name} KILLED US after ${(sim.time - R.mbFight.t0).toFixed(0)}s`); break; }
   }
   const dmgNow = (sim.stats.damageTaken || 0) + Object.values(crewDmgBy).reduce((a, x) => a + x, 0);
   R.scenery = {}; for (const x of globalThis.__crashLog) if (x.other === -1 && x.force > 150000) R.scenery[x.what.replace(/\d+$/, '')] = (R.scenery[x.what.replace(/\d+$/, '')] || 0) + 1;
-  R.dmgTotal = dmgNow; R.why = sim.result?.why || (sim.state === 'over' ? '?' : 'alive'); R.dby = { ...(sim.stats.damageBy || {}) }; R.crewBy = crewDmgBy; R.dist = P.s - START; R.level = sim.director.level;
+  R.dmgTotal = dmgNow; R.won = sim.won; R.truck = spec.id; R.weapon = effects.weapons[0];
+  const dist = sim.stats.distance - START;
+  R.cash = cash + Math.round(dist * ECONOMY.perMeter * (1 + ECONOMY.perMeterLevel * sim.director.level) * effects.cashMul) + Math.round(sim.time * ECONOMY.perSecond * effects.cashMul) + (sim.won ? ECONOMY.bossBounty : 0); R.why = sim.result?.why || (sim.state === 'over' ? '?' : 'alive'); R.dby = { ...(sim.stats.damageBy || {}) }; R.crewBy = crewDmgBy; R.dist = P.s - START; R.level = sim.director.level;
   return R;
+}
+
+// ------------------------------------------------------------------------------------------------ campaign mode
+const PLAN = [
+  ['weapon', 'smg'], ['upgrade', 'armor'], ['upgrade', 'engine'], ['weapon', 'shotgun'], ['truck', 'truck_t2'], ['upgrade', 'vest'], ['upgrade', 'nitro'],
+  ['upgrade', 'armor'], ['weapon', 'rifle'], ['track', 'rifle', 'dmg'], ['upgrade', 'tires'], ['upgrade', 'engine'], ['upgrade', 'medkit'], ['truck', 'truck_t3'],
+  ['upgrade', 'armor'], ['upgrade', 'vest'], ['weapon', 'lmg'], ['track', 'lmg', 'dmg'], ['track', 'lmg', 'mag'], ['upgrade', 'engine'], ['upgrade', 'glass'],
+  ['weapon', 'rpg'], ['upgrade', 'scavenger'], ['track', 'lmg', 'dmg'], ['upgrade', 'armor'], ['truck', 'truck_t4'], ['upgrade', 'vest'], ['upgrade', 'medkit'],
+  ['track', 'lmg', 'dmg'], ['track', 'lmg', 'rel'], ['upgrade', 'armor'], ['upgrade', 'engine'], ['upgrade', 'glass'], ['upgrade', 'medkit'], ['upgrade', 'nitro'],
+];
+function shop(prof) {
+  const bought = [];
+  for (let k = 0; k < PLAN.length; k++) {
+    const [kind, id, track] = PLAN[k];
+    let r = { ok: false, reason: 'skip' };
+    if (kind === 'weapon') { if (prof.weapons[id]) { PLAN.splice(k--, 1); continue; } r = buyWeapon(prof, id); if (r.ok) prof.loadout = [id, ...prof.loadout.filter((x) => x !== id)].slice(0, 3); }
+    else if (kind === 'truck') { if (prof.trucks.includes(id)) { PLAN.splice(k--, 1); continue; } r = buyTruck(prof, id); if (r.ok) prof.truck = id; }
+    else if (kind === 'upgrade') { const c = upgradeCost(prof, id); if (c === null) { PLAN.splice(k--, 1); continue; } r = c <= prof.cash ? buyUpgrade(prof, id) : { ok: false, reason: 'cash' }; }
+    else if (kind === 'track') { if (!prof.weapons[id]) continue; r = buyWeaponTrack(prof, id, track); if (!r.ok && r.reason !== 'cash') { PLAN.splice(k--, 1); continue; } }
+    if (r.ok) { bought.push(kind === 'track' ? `${id}.${track}` : id); PLAN.splice(k--, 1); }
+    else if (r.reason === 'cash') break;
+  }
+  return bought;
+}
+if (opt.campaign) {
+  const cap = +opt.campaign * 3600, prof = DEFAULT_PROFILE();
+  let total = 0, n = 0, deathsRaiders = 0, deathsScenery = 0;
+  while (total < cap) {
+    const r = await oneRun(n++, prof, 3000);
+    total += r.t + 45;
+    creditRun(prof, { cash: r.cash, distance: r.dist, time: r.t, kills: r.kills, won: r.won });
+    const b = shop(prof);
+    const dby = r.dby, raider = (dby.ram || 0) + (dby.bullet || 0) + (dby.blast || 0) + (dby.rocket || 0) + (dby.fire || 0), scen = (dby.crash || 0) + (dby.flip || 0);
+    if (!r.won) { if (raider >= scen) deathsRaiders++; else deathsScenery++; }
+    if (r.mbLog) console.log('     warlords: ' + r.mbLog.join(' | '));
+    console.log(`run ${String(n).padStart(2)} | ${(r.t / 60).toFixed(1)} min ${(r.dist / 1000).toFixed(1)} km | ${r.truck} ${r.weapon} | kills ${r.kills} (chain ${r.chain}) mb ${r.mbDown || 0}/${r.mbSeen || 0} | +$${r.cash} ${r.won ? 'WON' : r.why} | raiders ${raider | 0} scenery ${scen | 0} crew ${Object.values(r.crewBy).reduce((a, x) => a + x, 0) | 0} | total ${(total / 60).toFixed(0)} min | bought ${b.join(',') || '-'} | bank $${prof.cash}`);
+    if (r.won) { console.log(`LEVIATHAN DOWN after ${(total / 3600).toFixed(2)} h (${n} runs)`); break; }
+  }
+  console.log(`deaths mostly to raiders: ${deathsRaiders}, mostly to scenery: ${deathsScenery}`);
+  process.exit(0);
 }
 
 const all = [];
@@ -132,6 +182,7 @@ for (let k = 0; k < RUNS; k++) {
   all.push(r);
   if (!opt.quiet) {
     const dby = Object.entries(r.dby).map(([a, b]) => `${a}:${b | 0}`).join(' '), cby = Object.entries(r.crewBy).map(([a, b]) => `${a}:${b | 0}`).join(' ');
+    if (r.mbLog) console.log('     warlords: ' + r.mbLog.join(' | '));
     console.log(`run ${k}: ${(r.t / 60).toFixed(1)} min ${(r.dist / 1000).toFixed(1)} km ${r.why} | contact ${r.tContact?.toFixed(1) ?? '-'}s near ${r.tNear?.toFixed(1) ?? '-'}s | hits/min ${(r.hits.reduce((a, x) => a + x, 0) / Math.max(r.t / 60, 0.01)).toFixed(1)} | fwd ${(100 * r.fwd / r.t).toFixed(0)}% side ${(100 * r.side / r.t).toFixed(0)}% ahead ${(100 * r.ahead / r.t).toFixed(0)}% | kills ${r.kills} crash ${r.crashKills} chain ${r.chain} drvKill ${r.driverKills}->crash ${r.dkCrash} | truck ${dby} | crew ${cby}`);
   }
 }

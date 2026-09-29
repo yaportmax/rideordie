@@ -35,6 +35,7 @@ import { makeBloom } from './post/bloom_threshold.js';
 import { ScenePass } from './post/scene_pass.js';
 import { TaaPass } from './post/taa_pass.js';
 import { GpuTimer } from './post/gpu_timer.js';
+import { ShaftsPass, ShaftsEffect } from './post/shafts.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -119,7 +120,7 @@ export class Post {
     this.renderer = renderer; this.scene = scene; this.camera = camera;
     this.cfg = defaultPostConfig();
     if (opts.tonemap) this.cfg.tonemap = opts.tonemap;
-    this.feat = { ao: true, bloom: true, mb: true, ca: true, vignette: true, grain: true, lines: true, dof: true, smaa: true, grade: true, sharpen: true };
+    this.feat = { ao: true, bloom: true, mb: true, ca: true, vignette: true, grain: true, lines: true, dof: true, smaa: true, grade: true, sharpen: true, shafts: true };
     this.quality = clamp(Math.round(opts.quality), 0, 3);
     this.resolutionScale = clamp(opts.resolutionScale, 0.5, 1);
     this._enabled = true;
@@ -160,11 +161,18 @@ export class Post {
     this.dofPass.enabled = false;
     this.composer.addPass(this.dofPass);
 
-    // 3. lens (MB + CA + shockwave) + bloom + tone/grade
+    // 2b. sun shafts (quarter res, only while the sun is in view)
+    this.shaftsPass = new ShaftsPass();
+    this.shaftsPass.getDepth = () => this.composer.stableDepthTexture;
+    this.composer.addPass(this.shaftsPass);
+    this.shafts = new ShaftsEffect(this.shaftsPass.texture);
+    this._sunDir = new THREE.Vector3(0, 1, 0); this._sunCol = new THREE.Color(1, 1, 1); this._shaftK = 0;
+
+    // 3. lens (MB + CA + shockwave) + sun shafts + bloom + tone/grade
     this.lens = new LensEffect({ mbTaps: P.mbTaps });
     this.bloom = makeBloom({ levels: P.bloomLevels, resolutionScale: P.bloomScale, intensity: this.cfg.bloom.intensity, radius: this.cfg.bloom.radius });
     this.grade = new GradeEffect({ tonemap: this.cfg.tonemap });
-    this.mainPass = new ProfEffectPass(cam, 'main', this.lens, this.bloom, this.grade);
+    this.mainPass = new ProfEffectPass(cam, 'main', this.lens, this.shafts, this.bloom, this.grade);
     this.composer.addPass(this.mainPass);
 
     // 4. SMAA on the display-referred image
@@ -302,11 +310,17 @@ export class Post {
   }
 
   /** Per-biome / time-of-day grade from a look (world/look.js): {grade:{con, sat, shT[3], hiT[3]}}. Call every frame (cheap). */
-  setLook(look) {
+  setLook(look, sunDir) {
+    if (sunDir) { this._sunDir.copy(sunDir); this._shaftK = look.shafts ?? 0; this._sunCol.copy(look.sunCol); }
     const g = look && look.grade; if (!g) return;
     const G = this.cfg.grade;
     G.contrast = g.con; G.saturation = g.sat;
     for (let i = 0; i < 3; i++) { G.shadowTint[i] = g.shT[i]; G.highTint[i] = g.hiT[i]; }
+  }
+
+  /** Compile the programs of passes that only render conditionally (sun shafts) so they never compile mid-run. */
+  warm() {
+    try { this.renderer.compile(this.shaftsPass.scene, this.shaftsPass.camera); } catch (e) { void e; }
   }
 
   /** Settings: speed blur at the screen edges on/off. */
@@ -507,6 +521,23 @@ export class Post {
       const rad = s.R * (1 - Math.pow(1 - k, 3));
       const att = clamp(70 / dist, 0.12, 1);
       v.set(_v3.x * 0.5 + 0.5, _v3.y * 0.5 + 0.5, rad / h, 0.038 * s.str * Math.pow(1 - k, 1.5) * att);
+    }
+
+    // ---- sun shafts: sun position on screen, fade out as it leaves the view / sets
+    {
+      const sp = this.shaftsPass, su = sp.fullscreenMaterial.uniforms, sd = this._sunDir;
+      let k = feat.shafts === false ? 0 : this._shaftK * smoothstep(-0.02, 0.06, sd.y);
+      if (k > 0.001) {
+        camera.getWorldDirection(_v3);
+        const facing = _v3.dot(sd);
+        _v3.copy(sd).multiplyScalar(1000).add(camera.position).project(camera);
+        const off = Math.max(Math.abs(_v3.x), Math.abs(_v3.y));
+        k *= smoothstep(0.25, 0.6, facing) * (1 - smoothstep(1.0, 1.7, off));
+        su.sunUv.value.set(_v3.x * 0.5 + 0.5, _v3.y * 0.5 + 0.5);
+      }
+      sp.active = k > 0.001;
+      const sc = this.shafts.uniforms.get('shaftCol').value;
+      sc.set(this._sunCol.r, this._sunCol.g, this._sunCol.b).multiplyScalar(k * 1.3);
     }
 
     // ---- bloom

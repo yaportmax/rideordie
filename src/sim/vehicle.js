@@ -143,7 +143,7 @@ export class Vehicle {
     this.reversing = false;
     if (brake > 0.05 && throttle < 0.05 && vfBody < 1.5) { this.reversing = true; }
     // steering smoothing (keyboard ramps, analogue passes straight through)
-    const rate = Math.abs(steerIn) > Math.abs(this.steerSmooth) ? (s.steerRise ?? 7) : (s.steerFall ?? 11);
+    const rate = Math.abs(steerIn) > Math.abs(this.steerSmooth) ? (s.steerRise ?? 10) : (s.steerFall ?? 12);
     this.steerSmooth = damp(this.steerSmooth, steerIn, rate, dt);
     if (Math.abs(this.steerSmooth - steerIn) < 0.002) this.steerSmooth = steerIn;
 
@@ -219,7 +219,9 @@ export class Vehicle {
     const aLatMax = 0.9 * Math.min(frontMu, rearMu) * avgSurfaceGrip * (grav + downforceN / this.mass) * (s.steerAssistK ?? 0.9);
     const rMaxLow = s.yawRateMax ?? 2.3;
     const vAbs = Math.max(Math.abs(vfBody), 1.0);
-    const rMax = Math.min(rMaxLow, aLatMax / vAbs);
+    // high speed: a bit calmer than the tyre limit (less twitchy on a keyboard, the truck feels its weight); the tightest bend
+    // on the route (r 126 m) still only needs ~65% of what is left at top speed
+    const rMax = Math.min(rMaxLow, aLatMax / vAbs) * lerp(1, s.hiSpeedYaw ?? 0.76, smoothstep(18, 45, vAbs));
     const lockRad = (s.steerLockDeg ?? 32) * Math.PI / 180;
     let rCmd = this.steerSmooth * rMax * (vfBody < -1 ? -1 : 1);
     let delta = Math.atan(rCmd * this.wheelbase / Math.max(Math.abs(vfBody), 3.0));

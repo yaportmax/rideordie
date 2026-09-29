@@ -707,3 +707,18 @@ Two-tier butte/mesa backdrop, ~112 m wide lower tier (62 m) + 48 m upper butte o
 * bbox min [-81.89, -3.0, -48.39] max [74.4, 110.75, 51.47]; 4552 tris (+166 collision tris)
 * nodes: `dirt_red`, `rock_red`, `sand`, `collision`
 
+
+## Other
+
+### `rb_wreck_car`
+Roadblock module (4.8 m wide, x -2.40..2.40, road-aligned, origin road level at the module centre line z=0). Burnt coupe across the road, jersey barrier, tyres, drums. Visuals + collision never exceed |x| <= hw.
+* 882 tris, dims [4.52, 1.6, 5.75]
+
+### `rb_wreck_small`
+Narrow roadblock module (2.4 m wide, x -1.20..1.20, road-aligned): jersey barrier across the road, tyre stack, drum, razor wire. Visuals + collision never exceed |x| <= hw.
+* 380 tris, dims [2.3, 1.27, 4.9]
+
+### `rb_wreck_van`
+Roadblock module (5.6 m wide, x -2.80..2.80, road-aligned). Overturned van on its side across the road, sandbags, drums, tyres. Visuals + collision never exceed |x| <= hw.
+* 1284 tris, dims [5.32, 2.63, 5.52]
+

@@ -1,0 +1,47 @@
+{
+ "id": "rb_wreck_car",
+ "file": "models/structures/rb_wreck_car.glb",
+ "tris": 882,
+ "collision_tris": 48,
+ "size_kb": 78.2,
+ "bbox_min": [
+  -2.35,
+  0.0,
+  0.9
+ ],
+ "bbox_max": [
+  2.17,
+  1.6,
+  6.65
+ ],
+ "dims": [
+  4.52,
+  1.6,
+  5.75
+ ],
+ "materials": [
+  "concrete",
+  "metal_dark",
+  "rubber",
+  "rust",
+  "spike"
+ ],
+ "nodes": {
+  "metal_dark": 262,
+  "rust": 296,
+  "rubber": 220,
+  "concrete": 32,
+  "spike": 72
+ },
+ "sockets": {
+  "hw": [
+   2.4,
+   0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Roadblock module (4.8 m wide, x -2.40..2.40, road-aligned, origin road level at the module centre line z=0). Burnt coupe across the road, jersey barrier, tyres, drums. Visuals + collision never exceed |x| <= hw.",
+  "hw": 2.4
+ }
+}

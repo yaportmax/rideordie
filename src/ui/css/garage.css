@@ -28,17 +28,17 @@
 .rod-ui .sbar .delta{background:repeating-linear-gradient(-45deg,var(--haz) 0 6px,#a87d0d 6px 12px); animation:deltaGlow 1s ease-in-out infinite alternate}
 .rod-ui .sbar .delta.down{background:repeating-linear-gradient(-45deg,#e2412f 0 6px,#7a231a 6px 12px)}
 @keyframes deltaGlow{from{filter:brightness(.95)}to{filter:brightness(1.3)}}
-.rod-ui .compact .stat{grid-template-columns:150px 1fr auto; column-gap:14px; margin-bottom:0; height:34px; align-items:center}
+.rod-ui .compact .stat{grid-template-columns:128px 1fr auto; column-gap:14px; margin-bottom:0; height:34px; align-items:center}
 .rod-ui .compact .slabel{grid-column:1; grid-row:1} .rod-ui .compact .sbar{grid-column:2; grid-row:1; height:12px} .rod-ui .compact .sval{grid-column:3; grid-row:1}
 .rod-ui .compact .slabel{font-size:16px; letter-spacing:.12em}
-.rod-ui .compact .sval{font-size:20px; min-width:130px}
+.rod-ui .compact .sval{font-size:20px; min-width:118px}
 
 /* ---------------------------------------------------------------- GARAGE */
 .rod-ui .garage .g-title{position:absolute; left:56px; top:26px}
 .rod-ui .garage .g-title h1{font-family:var(--disp); font-size:86px; line-height:.95; letter-spacing:.06em; transform:skewX(-9deg); transform-origin:left bottom; text-shadow:0 5px 0 rgba(0,0,0,.75),0 0 30px rgba(0,0,0,.6)}
 .rod-ui .garage .g-title .eyebrow{text-shadow:0 2px 6px #000}
 .rod-ui .garage .g-sub{margin-top:4px; font-size:18px; font-weight:700; letter-spacing:.2em; color:var(--bone-d); text-shadow:0 2px 6px #000}
-.rod-ui .garage .g-cash{position:absolute; right:56px; top:34px; width:520px; height:96px; display:flex; align-items:center; justify-content:space-between; padding:0 30px 0 34px; --pa:rgba(30,24,19,.96); --pb:rgba(16,12,9,.96)}
+.rod-ui .garage .g-cash{position:absolute; right:56px; top:30px; width:460px; height:92px; display:flex; align-items:center; justify-content:space-between; padding:0 30px 0 34px; --pa:rgba(30,24,19,.96); --pb:rgba(16,12,9,.96)}
 .rod-ui .g-cash .cl{font-size:19px; font-weight:800; letter-spacing:.34em; color:var(--rust)}
 .rod-ui .g-cash .cv{font-family:var(--disp); font-size:62px; letter-spacing:.05em; color:var(--haz); text-shadow:0 0 22px rgba(255,194,26,.35); transform:skewX(-8deg)}
 .rod-ui .g-cash.down .cv{animation:cashDown .7s} .rod-ui .g-cash.up .cv{animation:cashUp .7s}
@@ -59,7 +59,35 @@
 .rod-ui .tab.is-f{background:linear-gradient(90deg,#ffa447,#e8792b); color:#1a0e06; box-shadow:inset 0 0 0 3px var(--haz); animation:ringPulse 1.1s ease-in-out infinite}
 .rod-ui .tab .dot{position:absolute; right:14px; top:12px; width:13px; height:13px; border-radius:50%; background:var(--haz); box-shadow:0 0 10px var(--haz)}
 .rod-ui .tab.is-f .dot{background:#1a0e06; box-shadow:none}
-.rod-ui .g-list{position:absolute; left:226px; top:178px; bottom:104px; width:520px}
+/* garage left column: horizontal tab strip over the item list */
+.rod-ui .g-left{position:absolute; left:56px; top:164px; bottom:104px; width:520px; display:flex; flex-direction:column; gap:10px}
+.rod-ui .g-tabs{flex:none; height:98px; display:flex; align-items:stretch; padding:0 4px}
+.rod-ui .g-tabs .tk{flex:none; width:46px; display:flex; align-items:center; justify-content:center; opacity:.9}
+.rod-ui .g-tabs .tk kbd,.rod-ui .g-tabs .tk .pb{margin:0}
+.rod-ui .g-tabs .tk .pb-bump{min-width:40px; padding:0 6px; font-size:13px}
+.rod-ui .g-tabs .tabs{flex:1; display:flex}
+.rod-ui .g-tabs .tab{flex:1; height:auto; border-top:0; border-left:2px solid #2d261f; font-size:14px; letter-spacing:.1em; gap:7px}
+.rod-ui .g-tabs .tab:last-child{border-right:2px solid #2d261f}
+.rod-ui .g-tabs .tab .ic{width:38px; height:38px}
+.rod-ui .g-tabs .tab.on{background:linear-gradient(180deg,rgba(232,121,43,.08),rgba(232,121,43,.36))}
+.rod-ui .g-tabs .tab.on::before{left:0; right:0; top:auto; bottom:0; width:auto; height:6px}
+.rod-ui .g-tabs .tab.is-f{background:linear-gradient(180deg,#ffb45a,#e8792b)}
+.rod-ui .g-tabs .tab .dot{right:6px; top:7px; width:21px; height:21px; font:800 13px/21px var(--font); letter-spacing:0; text-align:center; font-style:normal; color:#1a0e06}
+.rod-ui .g-tabs .tab.is-f .dot{color:var(--haz)}
+.rod-ui .garage .g-list{position:relative; flex:1; min-height:0}
+.rod-ui .garage .lhead{padding:16px 26px 10px 30px}
+.rod-ui .garage .lhead h2{font-size:32px}
+.rod-ui .garage .g-rows{top:66px; padding:14px 22px 16px 18px}
+.rod-ui .garage .row{height:80px; margin-bottom:8px}
+/* scroll affordance: fades + "N MORE" chevron when rows are hidden */
+.rod-ui .g-list .more{position:absolute; left:2px; right:12px; pointer-events:none; opacity:0; transition:opacity .2s; z-index:3; display:flex; justify-content:center}
+.rod-ui .g-list .m-down{bottom:2px; height:84px; align-items:flex-end; padding-bottom:8px; background:linear-gradient(180deg,rgba(17,13,10,0),rgba(17,13,10,.92) 62%)}
+.rod-ui .g-list .m-up{top:73px; height:40px; background:linear-gradient(0deg,rgba(17,13,10,0),rgba(17,13,10,.9))}
+.rod-ui .g-list.has-below .m-down,.rod-ui .g-list.has-above .m-up{opacity:1}
+.rod-ui .g-list .m-down span{display:flex; align-items:center; gap:10px; padding:5px 14px; font-size:14px; font-weight:800; letter-spacing:.26em; color:#1a0e06; background:var(--haz); transform:skewX(-10deg); box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.rod-ui .g-list .m-down i{position:absolute; bottom:44px; width:18px; height:18px; border-right:4px solid var(--haz); border-bottom:4px solid var(--haz); transform:rotate(45deg); animation:moreBob 1s ease-in-out infinite}
+.rod-ui .g-list .m-up i{position:absolute; top:10px; width:14px; height:14px; border-left:3px solid var(--haz); border-top:3px solid var(--haz); transform:rotate(45deg); opacity:.8}
+@keyframes moreBob{50%{translate:0 5px}}
 .rod-ui .lhead{display:flex; align-items:baseline; justify-content:space-between; padding:22px 30px 14px 34px}
 .rod-ui .lhead h2{font-family:var(--disp); font-size:38px; letter-spacing:.09em; transform:skewX(-8deg)}
 .rod-ui .lcount{font-size:17px; font-weight:700; letter-spacing:.2em; color:var(--mute)}
@@ -103,10 +131,10 @@
 .rod-ui .sw.is-f{border-color:var(--haz); box-shadow:0 0 0 4px var(--haz),0 0 28px rgba(255,194,26,.5); transform:scale(1.06); z-index:2}
 .rod-ui .sw.is-f span{color:#fff}
 
-.rod-ui .g-detail{position:absolute; right:56px; top:178px; bottom:176px; width:520px}
+.rod-ui .g-detail{position:absolute; right:56px; top:164px; bottom:176px; width:460px}
 .rod-ui .g-detail.nofoot .d-scroll{bottom:0}
-.rod-ui .d-scroll{position:absolute; left:0; right:0; top:0; bottom:112px; overflow-y:auto; padding:26px 34px 8px 38px}
-.rod-ui .d-foot{position:absolute; left:0; right:0; bottom:0; height:112px; padding:10px 34px 24px 38px; display:flex; align-items:flex-end}
+.rod-ui .d-scroll{position:absolute; left:0; right:0; top:0; bottom:112px; overflow-y:auto; padding:24px 30px 8px 34px}
+.rod-ui .d-foot{position:absolute; left:0; right:0; bottom:0; height:112px; padding:10px 30px 24px 34px; display:flex; align-items:flex-end}
 .rod-ui .d-foot:empty{display:none}
 .rod-ui .d-head{position:relative}
 .rod-ui .d-head h2{font-family:var(--disp); font-size:54px; line-height:1; letter-spacing:.05em; margin-top:4px; transform:skewX(-8deg); transform-origin:left bottom; text-shadow:0 3px 0 rgba(0,0,0,.6)}
@@ -157,11 +185,27 @@
 .rod-ui .burst i{position:absolute; left:-4px; top:-4px; width:9px; height:9px; background:var(--haz); box-shadow:0 0 10px var(--rust); animation:spk .7s cubic-bezier(.1,.7,.3,1) forwards; animation-delay:var(--d)}
 .rod-ui .burst i:nth-child(3n){background:#fff} .rod-ui .burst i:nth-child(3n+1){background:var(--rust)}
 @keyframes spk{0%{transform:translate(0,0) scale(1.4); opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(0) rotate(180deg); opacity:0}}
-.rod-ui .g-tag{position:absolute; left:770px; right:590px; bottom:112px; display:flex; flex-direction:column; align-items:center; gap:2px; pointer-events:none}
-.rod-ui .g-tag b{font-family:var(--disp); font-size:72px; line-height:1; font-weight:400; letter-spacing:.09em; transform:skewX(-9deg); text-shadow:0 5px 0 rgba(0,0,0,.8),0 0 40px rgba(0,0,0,.9)}
-.rod-ui .g-tag .tk{font-size:19px; font-weight:800; letter-spacing:.34em; color:var(--rust); text-shadow:0 2px 6px #000; display:flex; align-items:center; gap:16px}
-.rod-ui .g-ready{position:absolute; right:56px; bottom:38px; width:520px}
-.rod-ui .g-party{position:absolute; right:56px; top:138px; width:520px; height:34px}
+/* equipped loadout bar (top centre) */
+.rod-ui .g-loadout{position:absolute; left:610px; right:560px; bottom:104px; height:88px; display:flex; align-items:stretch; justify-content:center; gap:0;
+  background:linear-gradient(180deg,rgba(20,16,13,.82),rgba(12,10,8,.7)); border:2px solid rgba(88,74,58,.7); transform:skewX(-8deg); pointer-events:auto}
+.rod-ui .g-loadout>*{transform:skewX(8deg)}
+.rod-ui .g-loadout.flash{animation:rowFlash .8s}
+.rod-ui .lo-k{display:block; font-size:12px; font-weight:800; letter-spacing:.3em; color:var(--rust); margin-bottom:6px}
+.rod-ui .lo-truck,.rod-ui .lo-slots,.rod-ui .lo-gear{display:flex; flex-direction:column; justify-content:center; padding:0 20px}
+.rod-ui .lo-truck{border-right:2px solid rgba(88,74,58,.6); min-width:170px}
+.rod-ui .lo-truck b{font:400 30px/1 var(--disp); letter-spacing:.07em; margin-bottom:7px; white-space:nowrap}
+.rod-ui .lo-truck .pips i{width:20px; height:8px}
+.rod-ui .lo-row{display:flex; gap:8px}
+.rod-ui .lo-slot{display:flex; align-items:center; gap:8px; height:40px; padding:0 10px 0 0; background:rgba(0,0,0,.35); border:1px solid #3b322a}
+.rod-ui .lo-slot b{display:flex; align-items:center; justify-content:center; width:26px; align-self:stretch; font:400 20px var(--disp); background:var(--rust); color:#1a0e06}
+.rod-ui .lo-slot .lo-w{width:62px; height:26px; color:var(--bone)} .rod-ui .lo-slot .lo-w .wic{width:62px; height:26px}
+.rod-ui .lo-slot em{font-style:normal; font-size:13px; font-weight:800; letter-spacing:.08em; color:var(--bone-d); white-space:nowrap; max-width:96px; overflow:hidden; text-overflow:ellipsis}
+.rod-ui .lo-slot.empty b{background:#3b322a; color:var(--mute)} .rod-ui .lo-slot.empty em{color:var(--mute); padding-left:6px}
+.rod-ui .lo-gear{border-left:2px solid rgba(88,74,58,.6)}
+.rod-ui .lo-gear b{display:flex; align-items:center; gap:8px; font-size:16px; font-weight:800; letter-spacing:.1em; white-space:nowrap}
+.rod-ui .lo-gear .ic{width:24px; height:24px; color:var(--rust)}
+.rod-ui .g-ready{position:absolute; right:56px; bottom:38px; width:460px}
+.rod-ui .g-party{position:absolute; right:56px; top:126px; width:460px; height:34px}
 .rod-ui .party{display:flex; align-items:center; gap:12px; margin:0 6px; font-size:19px; font-weight:800; letter-spacing:.16em; color:var(--bone-d); text-shadow:0 2px 6px #000}
 .rod-ui .party i{width:13px; height:13px; border-radius:50%; background:#7a2a20}
 .rod-ui .party b{margin-left:auto; color:#c4523f} .rod-ui .party.on i{background:var(--green); box-shadow:0 0 12px var(--green)} .rod-ui .party.on b{color:var(--green)}
@@ -176,3 +220,8 @@
 @keyframes readyIdle{0%,100%{box-shadow:0 0 0 0 rgba(255,194,26,0)}50%{box-shadow:0 0 30px 2px rgba(255,194,26,.4)}}
 
 .rod-ui .wrow .rn{font-size:24px; letter-spacing:.06em}
+
+.rod-ui .buy .bflash{position:absolute; inset:-4px; background:#fff; mix-blend-mode:overlay; opacity:0; animation:bflash .45s ease-out; pointer-events:none; transform:none}
+@keyframes bflash{0%{opacity:.9}100%{opacity:0}}
+.rod-ui .g-cash.deny{animation:shake .38s}
+.rod-ui .g-cash.deny .cv{animation:cashDown .7s}

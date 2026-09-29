@@ -15,7 +15,7 @@ const K = (h, i = 1) => new THREE.Color(h).multiplyScalar(i);
 //  cloudCov/cloudOp: coverage / opacity, cloudLit/cloudShade: radiance of the sunlit / shaded side. stars 0..1.
 //  fogD: distance extinction (1/m), fogH: height-fog density at its base (1/m), fogFall: height-fog scale height (m),
 //  fogBase: height-fog base relative to the truck (m), fogClear: fog-free radius (m), fogMax: max opacity,
-//  haze/hazeMix: ground-haze colour + how much the height fog takes it (dust, sea mist, smog).
+//  haze/hazeMix: ground-haze colour + how much the height fog takes it (dust, sea mist, smog). shafts: sun-shaft strength.
 //  hemiSky/hemiGnd/hemiI: hemisphere fill, envI: IBL intensity, gnd: ground albedo seen by the IBL (lower hemisphere).
 //  exp: exposure. grade: con (S-curve), sat, shT (additive shadow tint), hiT (highlight multiplier).
 export const LOOKS = {
@@ -23,7 +23,7 @@ export const LOOKS = {
     sun: 38, az: 120, moonEl: -30, moonAz: 30, sunCol: K(0xfff0dc), sunI: 3.4, moonCol: K(0x9fb4ff), moonI: 0,
     zen: K(0x2d74d8, 1.6), hor: K(0xd6dade, 1.25), zenExp: 0.42, horSharp: 7, glow: K(0xffdcb0, 0.35), glowSpread: 3, halo: K(0xfff0dc, 0.8), haloExp: 18, disc: 60,
     cloudCov: 0.30, cloudOp: 0.85, cloudLit: K(0xfff8f0, 2.1), cloudShade: K(0x8c9cba, 0.85), stars: 0,
-    fogD: 0.00017, fogH: 0.00028, fogFall: 40, fogBase: -3, fogClear: 20, fogMax: 0.985, haze: K(0xe0c29a, 1.05), hazeMix: 0.55,
+    fogD: 0.00017, fogH: 0.00028, fogFall: 40, fogBase: -3, fogClear: 20, fogMax: 0.985, haze: K(0xe0c29a, 1.05), hazeMix: 0.55, shafts: 0.25,
     hemiSky: K(0xbcd2ff), hemiGnd: K(0xb08a5e), hemiI: 0.15, envI: 0.7, gnd: K(0xc9a676),
     exp: 1.0, night: 0, grade: { con: 0.3, sat: 1.3, shT: [-0.008, 0.0, 0.014], hiT: [1.05, 1.0, 0.93] },
   },
@@ -31,23 +31,23 @@ export const LOOKS = {
     sun: 52, az: 250, moonEl: -30, moonAz: 20, sunCol: K(0xfff3e2), sunI: 3.6, moonCol: K(0x9fb4ff), moonI: 0,
     zen: K(0x2a6cd0, 1.75), hor: K(0xdcd6ce, 1.25), zenExp: 0.38, horSharp: 7, glow: K(0xffc890, 0.3), glowSpread: 2, halo: K(0xfff3e2, 0.7), haloExp: 20, disc: 60,
     cloudCov: 0.2, cloudOp: 0.8, cloudLit: K(0xffffff, 2.3), cloudShade: K(0x94a0bc, 0.85), stars: 0,
-    fogD: 0.0002, fogH: 0.0006, fogFall: 18, fogBase: -2, fogClear: 20, fogMax: 0.985, haze: K(0xdc9e70, 1.05), hazeMix: 0.8,
+    fogD: 0.0002, fogH: 0.0006, fogFall: 18, fogBase: -2, fogClear: 20, fogMax: 0.985, haze: K(0xdc9e70, 1.05), hazeMix: 0.8, shafts: 0.2,
     hemiSky: K(0xa8c0ff), hemiGnd: K(0xa0553a), hemiI: 0.15, envI: 0.68, gnd: K(0xb0694a),
     exp: 0.97, night: 0, grade: { con: 0.32, sat: 1.3, shT: [0.0, -0.004, 0.012], hiT: [1.07, 1.0, 0.9] },
   },
   coast: {
     sun: 14, az: 40, moonEl: -30, moonAz: 70, sunCol: K(0xffc68a), sunI: 4.0, moonCol: K(0x9fb4ff), moonI: 0,
-    zen: K(0x3a7ad0, 1.4), hor: K(0xd0d8e0, 1.1), zenExp: 0.5, horSharp: 7, glow: K(0xffb070, 1.1), glowSpread: 2.5, halo: K(0xffcc92, 1.2), haloExp: 14, disc: 55,
+    zen: K(0x3a7ad0, 1.4), hor: K(0xd0d8e0, 1.1), zenExp: 0.5, horSharp: 7, glow: K(0xffb070, 1.0), glowSpread: 2.5, halo: K(0xffcc92, 0.8), haloExp: 16, disc: 55,
     cloudCov: 0.38, cloudOp: 0.85, cloudLit: K(0xffdcb0, 2.0), cloudShade: K(0x8a92b4, 0.7), stars: 0,
-    fogD: 0.00022, fogH: 0.0005, fogFall: 45, fogBase: -25, fogClear: 20, fogMax: 0.985, haze: K(0xcbd6e2, 1.0), hazeMix: 0.5,
+    fogD: 0.00022, fogH: 0.0005, fogFall: 45, fogBase: -25, fogClear: 20, fogMax: 0.985, haze: K(0xcbd6e2, 1.0), hazeMix: 0.5, shafts: 0.4,
     hemiSky: K(0x9cb8f0), hemiGnd: K(0x8a6a55), hemiI: 0.15, envI: 0.72, gnd: K(0x7a8656),
     exp: 1.0, night: 0, grade: { con: 0.3, sat: 1.3, shT: [-0.012, 0.004, 0.02], hiT: [1.08, 1.0, 0.88] },
   },
   mountain: {
     sun: 4.5, az: 345, moonEl: 5, moonAz: 150, sunCol: K(0xff9a58), sunI: 3.4, moonCol: K(0x9fb4ff), moonI: 0.1,
-    zen: K(0x2c4a90, 0.95), hor: K(0xc0a8b8, 0.85), zenExp: 0.55, horSharp: 5, glow: K(0xff7030, 1.8), glowSpread: 2, halo: K(0xff9a58, 2.0), haloExp: 10, disc: 30,
-    cloudCov: 0.45, cloudOp: 0.85, cloudLit: K(0xff9868, 1.8), cloudShade: K(0x5a5078, 0.55), stars: 0,
-    fogD: 0.0002, fogH: 0.0008, fogFall: 60, fogBase: -40, fogClear: 20, fogMax: 0.985, haze: K(0x8890b0, 0.6), hazeMix: 0.7,
+    zen: K(0x243c80, 0.9), hor: K(0xb4a2b8, 0.78), zenExp: 0.5, horSharp: 5, glow: K(0xff7a30, 1.7), glowSpread: 3, halo: K(0xff9a58, 1.5), haloExp: 14, disc: 40,
+    cloudCov: 0.45, cloudOp: 0.9, cloudLit: K(0xffa060, 2.3), cloudShade: K(0x4a4470, 0.45), stars: 0,
+    fogD: 0.00016, fogH: 0.0008, fogFall: 60, fogBase: -40, fogClear: 20, fogMax: 0.985, haze: K(0x8890b0, 0.6), hazeMix: 0.7, shafts: 0.9,
     hemiSky: K(0x8a90d0), hemiGnd: K(0x5a4a48), hemiI: 0.2, envI: 0.85, gnd: K(0x5a5048),
     exp: 1.08, night: 0.1, grade: { con: 0.3, sat: 1.3, shT: [-0.01, 0.0, 0.03], hiT: [1.08, 0.98, 0.88] },
   },
@@ -55,15 +55,15 @@ export const LOOKS = {
     sun: -10, az: 340, moonEl: 34, moonAz: 110, sunCol: K(0xff7040), sunI: 0, moonCol: K(0x9cb4ff), moonI: 0.18,
     zen: K(0x10204a, 0.3), hor: K(0x2a3448, 0.3), zenExp: 0.5, horSharp: 10, glow: K(0xff8a40, 0.05), glowSpread: 0, halo: K(0x000000), haloExp: 10, disc: 0,
     cloudCov: 0.35, cloudOp: 0.8, cloudLit: K(0x8090b0, 0.06), cloudShade: K(0x5a4038, 0.05), stars: 1,
-    fogD: 0.0003, fogH: 0.001, fogFall: 30, fogBase: -3, fogClear: 15, fogMax: 0.985, haze: K(0x6a4a48, 0.05), hazeMix: 0.7,
+    fogD: 0.0003, fogH: 0.001, fogFall: 30, fogBase: -3, fogClear: 15, fogMax: 0.985, haze: K(0x6a4a48, 0.05), hazeMix: 0.7, shafts: 0,
     hemiSky: K(0x4a5a90), hemiGnd: K(0x3a3040), hemiI: 0.2, envI: 0.9, gnd: K(0x4a4448),
     exp: 2.3, night: 0.8, grade: { con: 0.22, sat: 1.25, shT: [0.0, 0.005, 0.02], hiT: [1.05, 1.0, 0.95] },
   },
   dam: {
     sun: 9, az: 318, moonEl: 20, moonAz: 150, sunCol: K(0xffb078), sunI: 3.6, moonCol: K(0x9fb4ff), moonI: 0.1,
-    zen: K(0x3464b0, 1.15), hor: K(0xc8ccd8, 1.0), zenExp: 0.5, horSharp: 6, glow: K(0xffa060, 1.4), glowSpread: 2, halo: K(0xffb078, 1.5), haloExp: 12, disc: 40,
-    cloudCov: 0.42, cloudOp: 0.85, cloudLit: K(0xffb89a, 1.9), cloudShade: K(0x6a6488, 0.6), stars: 0,
-    fogD: 0.00022, fogH: 0.001, fogFall: 25, fogBase: -35, fogClear: 20, fogMax: 0.985, haze: K(0xd8d4dc, 0.9), hazeMix: 0.8,
+    zen: K(0x2c5cb0, 1.1), hor: K(0xc4cad8, 0.95), zenExp: 0.45, horSharp: 6, glow: K(0xffa060, 1.1), glowSpread: 3, halo: K(0xffb078, 0.85), haloExp: 18, disc: 50,
+    cloudCov: 0.42, cloudOp: 0.88, cloudLit: K(0xffb890, 2.3), cloudShade: K(0x5a5a84, 0.5), stars: 0,
+    fogD: 0.00022, fogH: 0.001, fogFall: 25, fogBase: -35, fogClear: 20, fogMax: 0.985, haze: K(0xd8d4dc, 0.9), hazeMix: 0.8, shafts: 0.5,
     hemiSky: K(0x9fb6ee), hemiGnd: K(0x6a5a55), hemiI: 0.15, envI: 0.72, gnd: K(0x7a7068),
     exp: 1.05, night: 0.15, grade: { con: 0.3, sat: 1.28, shT: [-0.008, 0.0, 0.02], hiT: [1.07, 0.99, 0.92] },
   },
@@ -71,7 +71,7 @@ export const LOOKS = {
 const ANCHORS = BIOME_PLAN.map((b, i) => ({ id: b.id, s: BIOME_START[i] + (i === BIOME_PLAN.length - 1 ? 1500 : b.len / 2) }));
 
 const NUM = ['sun', 'az', 'moonEl', 'moonAz', 'sunI', 'moonI', 'zenExp', 'horSharp', 'glowSpread', 'haloExp', 'disc', 'cloudCov', 'cloudOp', 'stars',
-  'fogD', 'fogH', 'fogFall', 'fogBase', 'fogClear', 'fogMax', 'hazeMix', 'hemiI', 'envI', 'exp', 'night'];
+  'fogD', 'fogH', 'fogFall', 'fogBase', 'fogClear', 'fogMax', 'hazeMix', 'shafts', 'hemiI', 'envI', 'exp', 'night'];
 const COL = ['sunCol', 'moonCol', 'zen', 'hor', 'glow', 'halo', 'cloudLit', 'cloudShade', 'haze', 'hemiSky', 'hemiGnd', 'gnd'];
 const GNUM = ['con', 'sat'], GARR = ['shT', 'hiT'];
 

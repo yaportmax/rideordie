@@ -33,18 +33,10 @@ uniform float uStars;
 uniform vec3 uGround;      // env only: radiance of the lit ground below the horizon
 uniform float uTime;
 
-float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+uniform sampler2D uCloudTex;   // baked tileable fbm (r: shapes, g: detail), mip-mapped => no shimmer toward the horizon
 float hash13(vec3 p3) { p3 = fract(p3 * 0.1031); p3 += dot(p3, p3.zyx + 31.32); return fract((p3.x + p3.y) * p3.z); }
-float vnoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash12(i), hash12(i + vec2(1.0, 0.0)), u.x), mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), u.x), u.y);
-}
 float fbm(vec2 p) {
-  float s = 0.0, a = 0.5;
-  const mat2 R = mat2(0.8, -0.6, 0.6, 0.8);
-  for (int i = 0; i < 5; i++) { s += a * vnoise(p); p = R * p * 2.03 + 11.7; a *= 0.5; }
-  return s;
+  return texture2D(uCloudTex, p * 0.25).r * 0.72 + texture2D(uCloudTex, p * 0.9 + vec2(0.31, 0.77)).g * 0.28;
 }
 
 void main() {
@@ -103,6 +95,35 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+/** Tileable value-noise fbm baked into a small RGBA texture (r: 5 octaves from period 4, g: 5 octaves from period 8, other seed). */
+function makeCloudNoise(size = 256) {
+  const data = new Uint8Array(size * size * 4);
+  const lattice = (seed, per) => { const L = new Float32Array(per * per); let s = seed >>> 0; for (let i = 0; i < L.length; i++) { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; L[i] = s / 4294967296; } return L; };
+  const chan = (c, seed, base) => {
+    const oct = [];
+    for (let o = 0; o < 5; o++) oct.push({ per: base << o, L: lattice(seed + o * 7919, base << o), a: Math.pow(0.5, o) });
+    const out = new Float32Array(size * size); let mn = 1e9, mx = -1e9;
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      let v = 0;
+      for (const { per, L, a } of oct) {
+        const fx = (x / size) * per, fy = (y / size) * per, ix = Math.floor(fx), iy = Math.floor(fy);
+        let tx = fx - ix, ty = fy - iy; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+        const x0 = ix % per, x1 = (ix + 1) % per, y0 = iy % per, y1 = (iy + 1) % per;
+        const a0 = L[y0 * per + x0] + (L[y0 * per + x1] - L[y0 * per + x0]) * tx, a1 = L[y1 * per + x0] + (L[y1 * per + x1] - L[y1 * per + x0]) * tx;
+        v += (a0 + (a1 - a0) * ty) * a;
+      }
+      out[y * size + x] = v; if (v < mn) mn = v; if (v > mx) mx = v;
+    }
+    for (let i = 0; i < out.length; i++) data[i * 4 + c] = Math.round(((out[i] - mn) / (mx - mn)) * 255);
+  };
+  chan(0, 1337, 4); chan(1, 4242, 8);
+  for (let i = 0; i < size * size; i++) { data[i * 4 + 2] = 0; data[i * 4 + 3] = 255; }
+  const t = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true; t.anisotropy = 4; t.colorSpace = THREE.NoColorSpace; t.needsUpdate = true;
+  return t;
+}
+
 const _x = new THREE.Vector3(), _y = new THREE.Vector3(), _f = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 
@@ -116,7 +137,7 @@ export class SkyRig {
     this.U = {
       uDisc: { value: new THREE.Vector4(0, 0, 0, 0.99995) }, uCloud: { value: new THREE.Vector4(0.3, 0.85, 0.9, 0) },
       uCloudLit: { value: new THREE.Color() }, uCloudShade: { value: new THREE.Color() }, uMoon: { value: new THREE.Vector4(0, 1, 0, 0) },
-      uStars: { value: 0 }, uGround: { value: new THREE.Color() }, uTime: { value: 0 },
+      uStars: { value: 0 }, uGround: { value: new THREE.Color() }, uTime: { value: 0 }, uCloudTex: { value: makeCloudNoise() },
     };
     const mk = (env) => {
       const m = new THREE.ShaderMaterial({ name: env ? 'rod_sky_env' : 'rod_sky', uniforms: { ...ATMO, ...this.U, uEnv: { value: env ? 1 : 0 } }, vertexShader: VERT, fragmentShader: FRAG, side: THREE.BackSide, depthWrite: false, fog: false });

@@ -822,6 +822,9 @@ export class AudioSys {
     this.masterGain.connect(this.softclip); this.softclip.connect(this.analyser); this.softclip.connect(c.destination);
     const bus = (g) => { const b = c.createGain(); b.gain.value = g; b.connect(this.masterIn); return b; };
     this.buses = { sfx: bus(v.sfx), music: bus(v.music), ambience: bus(v.ambience), ui: bus(v.ui) };
+    // cabin: in the driver's cockpit the world is heard through the body shell (sfx gently darker, wind/road bed muffled)
+    const cab = (b, q) => { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 20000; f.Q.value = q; b.disconnect(); b.connect(f); f.connect(this.masterIn); return f; };
+    this.cabinSfx = cab(this.buses.sfx, 0.5); this.cabinAmb = cab(this.buses.ambience, 0.6); this._cabin = 0;
     this.musicDuck = c.createGain(); this.musicDuck.connect(this.buses.music);
     this.ambDuck = c.createGain(); this.ambDuck.connect(this.buses.ambience);
     this.stingerGain = c.createGain(); this.stingerGain.gain.value = 1.8; this.stingerGain.connect(this.buses.music); // stingers sit at sfx level; still follow the music slider
@@ -1156,6 +1159,13 @@ export class AudioSys {
   }
   /** 0..1: heartbeat (>0.25) + warning alarm (>0.55) loops. */
   setDanger(v) { this._danger = clamp01(v); }
+  /** 0 = open air (gunner in the bed), 1 = inside the cab (driver cockpit). Smoothly crossfaded. */
+  setCabin(k) {
+    k = clamp01(k); if (Math.abs(k - this._cabin) < 0.01) return; this._cabin = k;
+    const now = this.ctx.currentTime;
+    this.cabinSfx.frequency.setTargetAtTime(lerp(20000, 7500, k), now, 0.08);
+    this.cabinAmb.frequency.setTargetAtTime(lerp(20000, 1500, k), now, 0.08);
+  }
   _tickEffects(now, dt) {
     // ducking (music fully, ambience partly)
     let m = 1, a = 1;

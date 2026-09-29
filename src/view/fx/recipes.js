@@ -289,7 +289,7 @@ export function muzzle(fx, wid, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy, fp = fal
   const yaw = Math.atan2(dx, dz), pitch = Math.asin(Math.max(-1, Math.min(1, dy)));
   const h = cfg.hdr, c0 = cfg.col[0] * h, c1 = cfg.col[1] * h, c2 = cfg.col[2] * h;
   if (wid === 'rpg') return rocketBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy, fp);
-  if (fp) return fpMuzzle(fx, cfg, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy);
+  if (fp) return fpMuzzle(fx, cfg, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy, fp === 2);
   // star (camera facing)
   const cell = cfg.stars[r.int(cfg.stars.length)];
   p.reset(); p.pos(ox + dx * 0.1, oy + dy * 0.1, oz + dz * 0.1).vel(vx, vy, vz); p.spr = SPR.MUZZLE; p.f0 = cell; p.size(cfg.star * r.range(0.85, 1.15));
@@ -313,13 +313,16 @@ export function muzzle(fx, wid, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy, fp = fal
 }
 
 /** Local first-person shot: the viewmodel draws the flash itself; here only the world part (light, drifting smoke, hot sparks). */
-function fpMuzzle(fx, cfg, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy) {
+function fpMuzzle(fx, cfg, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy, scoped = false) {
   const r = fx.rng;
-  fx.flashLight(ox + dx * 0.4, oy + dy * 0.4, oz + dz * 0.4, cfg.col[0], cfg.col[1] * 0.92, cfg.col[2] * 0.8, 60 + cfg.glow * 55, 9 + cfg.glow * 3, 0.06, 0.3);
+  fx.flashLight(ox + dx * 1.3, oy + dy * 1.3 + 0.3, oz + dz * 1.3, cfg.col[0], cfg.col[1] * 0.9, cfg.col[2] * 0.75, 14 + cfg.glow * 14, 7 + cfg.glow * 3, 0.05, 0.3);
+  // powder smoke: starts clear of the camera (through a scope it would fill the whole view)
+  const o = scoped ? 4.5 : 0.6;
   for (let i = 0; i < cfg.smoke; i++) {
     const s = r.range(3, 6);
-    puff(fx, ox + dx * 0.45, oy + dy * 0.45, oz + dz * 0.45, vx * 0.85 + dx * s + r.sym(0.4), vy * 0.85 + dy * s + r.range(0.1, 0.7), vz * 0.85 + dz * s + r.sym(0.4), 0.14, 0.7 + cfg.star * 0.4, r.range(0.5, 0.9), 0.75, 0.72, 0.68, 0.22, 0.25, 0.3);
+    puff(fx, ox + dx * o, oy + dy * o, oz + dz * o, vx * 0.85 + dx * s + r.sym(0.4), vy * 0.85 + dy * s + r.range(0.1, 0.7), vz * 0.85 + dz * s + r.sym(0.4), 0.14, (0.7 + cfg.star * 0.4) * (scoped ? 0.6 : 1), r.range(0.5, 0.9), 0.75, 0.72, 0.68, scoped ? 0.12 : 0.22, 0.25, 0.3);
   }
+  if (scoped) return;
   for (let i = 0; i < cfg.sparks; i++) {
     coneDir(r, dx, dy, dz, 0.3); const sp = r.range(10, 26);
     spark(fx, ox + dx * 0.3, oy + dy * 0.3, oz + dz * 0.3, vx * 0.9 + D.x * sp, vy * 0.9 + D.y * sp, vz * 0.9 + D.z * sp, r.range(0.12, 0.3), gy, 0.7, 0.025);

@@ -5,6 +5,11 @@
 //   hide=armor_t2,armor_t3   only=armor_t1   (node names, comma separated; hide/only apply to nodes and their subtree)
 //   look=Head|Hips|...  target = world position of that bone/node (else bbox centre); ty= override target y
 //   wire=1  sun=28  sunaz=215  exp=0.9  bg=rrggbb  bones=1 (draw skeleton lines)   axes=1
+//   weapon=rifle      attach /models/weapons/<id>.glb to socket_hand_R (grip_R = socket, identity) - the runtime contract
+//   lik=1             + two-bone IK of the left arm onto the weapon's grip_L (what the runtime would add on top)
+//   vehicle=e_technical&seat=gunner|driver   load a vehicle at the origin and put the character on that seat socket
+//                     (gunner: feet on seat_gunner; driver: hip point on seat_driver, root 0.56 m below). vyaw= vehicle yaw deg
+//   labels=1          print the clip time in every grid cell
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Sky } from 'three/addons/objects/Sky.js';
@@ -58,7 +63,7 @@ const loader = new GLTFLoader();
 const modelUrl = q.get('model');
 const csv = (k) => (q.get(k) ? q.get(k).split(',') : []);
 
-function setTime(t) { if (mixer && clip) { action.time = 0; mixer.setTime(t); } root.updateMatrixWorld(true); }
+function setTime(t) { if (mixer && clip) { action.time = 0; mixer.setTime(t); } root.updateMatrixWorld(true); postPose(); root.updateMatrixWorld(true); }
 function findNode(name) { let r = null; root.traverse(o => { if (o.name === name && !r) r = o; }); return r; }
 
 function updateTarget() {
@@ -72,8 +77,55 @@ function updateTarget() {
   return box;
 }
 
-loader.load(modelUrl, (gltf) => {
+const _ia = new THREE.Vector3(), _ib = new THREE.Vector3(), _ic = new THREE.Vector3(), _it = new THREE.Vector3(), _ie = new THREE.Vector3(), _iu = new THREE.Vector3(), _ip = new THREE.Vector3(), _iw = new THREE.Vector3();
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _d1 = new THREE.Vector3(), _d2 = new THREE.Vector3(), _p1 = new THREE.Vector3();
+function aimBone(bone, from, to) {
+  bone.getWorldPosition(_p1); _d1.copy(from).sub(_p1).normalize(); _d2.copy(to).sub(_p1).normalize();
+  _q1.setFromUnitVectors(_d1, _d2); bone.getWorldQuaternion(_q2); _q2.premultiply(_q1);
+  bone.parent.getWorldQuaternion(_q3).invert(); bone.quaternion.copy(_q3.multiply(_q2)); bone.updateMatrixWorld(true);
+}
+function twoBoneIK(upper, lower, end, target, pole, la, lb) {
+  upper.getWorldPosition(_ia); _it.copy(target).sub(_ia); let d = _it.length();
+  d = Math.min(Math.max(d, Math.abs(la - lb) + 1e-3), la + lb - 1e-3); _it.normalize();
+  const cosA = (la * la + d * d - lb * lb) / (2 * la * d), sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
+  _ip.copy(pole).sub(_ia); _iu.copy(_ip).addScaledVector(_it, -_ip.dot(_it)); if (_iu.lengthSq() < 1e-8) _iu.set(0, -1, 0); _iu.normalize();
+  _ie.copy(_ia).addScaledVector(_it, la * cosA).addScaledVector(_iu, la * sinA);
+  lower.getWorldPosition(_ib); aimBone(upper, _ib, _ie);
+  end.getWorldPosition(_ic); _iw.copy(_ia).addScaledVector(_it, d); aimBone(lower, _ic, _iw);
+}
+let weaponRoot = null, likArm = null;
+function postPose() {
+  if (!likArm || !weaponRoot) return;
+  root.updateMatrixWorld(true);
+  const g = weaponRoot.getObjectByName('grip_L'); if (!g) return;
+  const t = g.getWorldPosition(new THREE.Vector3());
+  const { u, l, h, la, lb } = likArm;
+  const pole = u.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0.5, -0.6, -0.3).applyQuaternion(root.getObjectByName('Spine2').getWorldQuaternion(new THREE.Quaternion())));
+  twoBoneIK(u, l, h, t, pole, la, lb);
+}
+
+loader.load(modelUrl, async (gltf) => {
   root = gltf.scene; scene.add(root);
+  if (q.has('vehicle')) {
+    const vg = await loader.loadAsync('/models/vehicles/' + q.get('vehicle') + '.glb');
+    const veh = vg.scene; veh.rotation.y = THREE.MathUtils.degToRad(num('vyaw', 0)); scene.add(veh);
+    veh.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    veh.updateMatrixWorld(true);
+    const seat = q.get('seat') || 'gunner';
+    const s = veh.getObjectByName('seat_' + seat);
+    if (s) { s.getWorldPosition(root.position); if (seat === 'driver') root.position.y -= 0.56; root.rotation.y = veh.rotation.y; }
+  }
+  if (q.has('weapon')) {
+    const wg = await loader.loadAsync('/models/weapons/' + q.get('weapon') + '.glb');
+    weaponRoot = wg.scene; weaponRoot.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    const sock = root.getObjectByName('socket_hand_R'); if (sock) sock.add(weaponRoot);
+    if (q.has('lik')) {
+      const u = root.getObjectByName('LeftArm'), l = root.getObjectByName('LeftForeArm'), h = root.getObjectByName('LeftHand');
+      root.updateMatrixWorld(true);
+      const a = u.getWorldPosition(new THREE.Vector3()), b = l.getWorldPosition(new THREE.Vector3()), c = h.getWorldPosition(new THREE.Vector3());
+      likArm = { u, l, h, la: a.distanceTo(b), lb: b.distanceTo(c) };
+    }
+  }
   const only = csv('only'), hide = csv('hide');
   const mats = new Set();
   root.traverse((o) => {
@@ -116,6 +168,11 @@ loader.load(modelUrl, (gltf) => {
   else items.push({ t: num('t', 0), az: num('az', 35), el: num('el', 14) });
   const cols = num('cols', items.length <= 1 ? 1 : (items.length <= 3 ? items.length : (items.length === 4 ? 2 : 3)));
   const rows = Math.ceil(items.length / cols);
+  if (q.has('labels')) items.forEach((it, i) => {
+    const d = document.createElement('div'); d.textContent = it.t.toFixed(2) + 's';
+    d.style.cssText = `position:fixed;color:#fff;font:bold 13px monospace;text-shadow:0 0 3px #000;left:${(i % cols) * innerWidth / cols + 6}px;top:${Math.floor(i / cols) * innerHeight / rows + 4}px`;
+    document.body.appendChild(d);
+  });
   window.__ready = true;
   renderer.setAnimationLoop(() => {
     const W = innerWidth, Hh = innerHeight, w = W / cols, h = Hh / rows;

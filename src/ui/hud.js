@@ -1,5 +1,6 @@
 // DOM HUD overlay: speedometer, boost, HP bars, ammo, crosshair, damage vignette, radar arrows. Styled in hud.css (injected).
 import { clamp, fmtTime } from '../core/util.js';
+import { GunnerHud } from './gunner_hud.js';
 
 const CSS = `
 #hud{position:fixed;inset:0;pointer-events:none;font-family:'Bahnschrift','Segoe UI Semibold','Arial Narrow',Impact,sans-serif;color:#fff;user-select:none;text-shadow:0 1px 3px rgba(0,0,0,.8)}
@@ -79,13 +80,14 @@ export class Hud {
     this.q = { spd: $('.spd'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), hp: $('.hpbar'), dhp: $('.dhpbar'), ghp: $('.ghpbar'), dist: $('.dist'), time: $('.time'), biome: $('.biome'),
       vig: $('.vig'), msg: $('.msg'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], progbar: $('.progbar'), boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
     this.arrowPool = []; this.msgT = 0; this.vigT = 0; this.hitT = 0;
+    this.gh = new GunnerHud(el);   // first-person gunner layer (crosshair, hit markers, damage arcs, ammo, scope)
     this.show({ driver: true, gunner: true });
   }
   show(o) {
     const q = this.q;
     q.speedBox.style.display = o.driver ? '' : 'none'; q.rpmBox.style.display = o.driver ? '' : 'none'; q.nitroBox.style.display = o.driver ? '' : 'none';
-    q.cross.style.display = o.gunner ? '' : 'none'; q.ammo.style.display = o.gunner ? '' : 'none';
-    q.ammo.style.bottom = o.gunner && o.driver ? '156px' : '';
+    q.cross.style.display = 'none'; q.ammo.style.display = 'none';   // replaced by GunnerHud
+    this.gunnerOn = !!o.gunner; this.gh.setVisible(this.gunnerOn); this.gh.setDriverShown(!!(o.gunner && o.driver));
     if (o.gunner && !o.driver) { q.hpbox.style.left = '30px'; }
   }
   setVisible(v) { this.el.style.display = v ? '' : 'none'; }
@@ -95,7 +97,8 @@ export class Hud {
     clearTimeout(this._hintT); this._hintT = setTimeout(() => { this.hintEl.style.opacity = 0; }, ms);
   }
   message(text, ms = 1600, color = '#fff') { const m = this.q.msg; m.textContent = text; m.style.color = color; m.style.opacity = 1; this.msgT = ms / 1000; }
-  hitMarker(kill = false) { this.q.hitm.style.opacity = 1; this.q.hitm.style.filter = kill ? 'drop-shadow(0 0 4px #f33)' : ''; this.q.hitm.style.transform = kill ? 'scale(1.4) rotate(0deg)' : 'scale(1)'; this.hitT = kill ? 0.3 : 0.14; }
+  /** Hit / kill marker: only when the local human is the gunner (an AI gunner's hits never show on the driver's screen). */
+  hitMarker(kill = false, head = false) { if (this.gunnerOn) this.gh.hit(kill, head); }
   damageFlash(a = 0.6) { this.vigT = Math.max(this.vigT, a); }
   feed(text, color = '#fff') { const d = document.createElement('div'); d.textContent = text; d.style.color = color; this.q.kf.prepend(d); setTimeout(() => { d.style.opacity = 0; setTimeout(() => d.remove(), 400); }, 3200); while (this.q.kf.children.length > 6) this.q.kf.lastChild.remove(); }
 
@@ -111,15 +114,16 @@ export class Hud {
     if (d.spreadPx !== undefined) {
       const g = Math.max(4, Math.min(80, d.spreadPx));
       q.crossH[0].style.left = (-g - 9) + 'px'; q.crossH[1].style.left = g + 'px'; q.crossV[0].style.top = (-g - 9) + 'px'; q.crossV[1].style.top = g + 'px';
-      q.scope.style.display = d.scoped ? 'block' : 'none'; q.cross.style.opacity = d.scoped || d.hideCross ? 0 : 1;
+      q.scope.style.display = 'none';
     }
     if (d.weapon !== undefined) { q.wname.textContent = d.weapon; q.mag.textContent = d.reloading ? 'RELOAD' : d.mag; q.mag.style.fontSize = d.reloading ? '34px' : ''; }
     q.progbar.parentElement.parentElement.style.display = d.boss ? 'none' : ''; if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
     if (this.vigT > 0) { this.vigT = Math.max(0, this.vigT - dt * 1.4); }
-    const lowHp = d.hp01 < 0.3 ? (0.25 + 0.15 * Math.sin(performance.now() / 160)) : 0;
+    const hpLow = Math.min(d.hp01, this.gunnerOn ? d.ghp01 ?? 1 : 1);   // the gunner's own health counts too
+    const lowHp = hpLow < 0.3 ? (0.22 + 0.2 * (1 - hpLow / 0.3)) * (0.75 + 0.25 * Math.pow(Math.abs(Math.sin(performance.now() / 420)), 6)) : 0;
     q.vig.style.opacity = Math.max(this.vigT, lowHp);
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT < 0.4) q.msg.style.opacity = Math.max(0, this.msgT / 0.4); }
-    if (this.hitT > 0) { this.hitT -= dt; if (this.hitT <= 0) q.hitm.style.opacity = 0; }
+    if (this.gunnerOn) this.gh.update(dt, d);
     // radar arrows for off-screen threats
     const arr = d.arrows || [];
     while (this.arrowPool.length < arr.length) { const a = document.createElement('div'); a.className = 'arrow'; q.arrows.appendChild(a); this.arrowPool.push(a); }

@@ -1,5 +1,6 @@
-// GARAGE: tabs TRUCK | UPGRADES | WEAPONS | GUNNER | PAINT, item list, detail + stat preview + buy, cash, READY / START RUN.
-// The integrator renders the 3D garage behind this transparent overlay and calls ui.updateGarage(profile) after every purchase.
+// GARAGE: tab strip TRUCK | UPGRADES | WEAPONS | GUNNER | PAINT, item list, detail + stat preview + buy, cash, equipped loadout,
+// READY / START RUN. The integrator renders the 3D garage behind this transparent overlay (framing the subject inside frameRect()),
+// calls ui.updateGarage(profile) after every purchase and gets cb.onView(tab, selectedId) to drive the 3D camera + live previews.
 import { h, tween, pips, statRow } from '../comp.js';
 import { esc, money, icon, weaponIcon, hints } from '../glyphs.js';
 import { TRUCKS, UPGRADES, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, TRUCK_COLORS } from '../../data/upgrades.js';
@@ -15,6 +16,7 @@ const PAINT_NAMES = ['DUST TAN', 'BRICK RED', 'STEEL BLUE', 'OLIVE DRAB', 'ASH B
 const MODE_NAME = { semi: 'SEMI-AUTO', auto: 'FULL-AUTO', pump: 'PUMP ACTION', bolt: 'BOLT ACTION', launcher: 'LAUNCHER' };
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 const TAB_TITLE = { truck: 'CHOOSE YOUR RIDE', upgrades: 'DRIVER UPGRADES', weapons: 'ARMORY', gunner: 'GUNNER GEAR', paint: 'PAINT SHOP' };
+const ARMOR_NAME = ['NO ARMOR', 'VEST', 'PLATE CARRIER', 'HEAVY ARMOR'];
 
 export class GarageScreen {
   constructor(ui, profile, cb, extra = {}) {
@@ -28,23 +30,29 @@ export class GarageScreen {
     this.snap = this.snapshot(profile);
     this.fresh = {};
     this.cashShown = profile.cash;
+    const kq = '<span class="hk"><kbd>Q</kbd></span><span class="hg"><span class="pb pb-bump"><i class="xb">LB</i><i class="ps">L1</i></span></span>';
+    const ke = '<span class="hk"><kbd>E</kbd></span><span class="hg"><span class="pb pb-bump"><i class="xb">RB</i><i class="ps">R1</i></span></span>';
     this.el = h(`<div class="screen garage"><div class="safe">
       <div class="g-title stg" style="--i:0"><div class="eyebrow">BETWEEN RUNS</div><h1>GARAGE</h1><div class="g-sub"></div></div>
+      <div class="g-loadout stg" style="--i:1"></div>
       <div class="g-cash plate trans stg" style="--i:1"><span class="cl">CASH</span><span class="cv num"></span><span class="cf"></span></div>
-      <div class="g-rail plate trans stg" style="--i:2"><div class="rail-k top"><span class="hk">Q</span><span class="hg"></span></div><div class="tabs"></div><div class="rail-k bot"></div></div>
-      <div class="g-list plate trans stg" style="--i:3"><div class="lhead"><h2></h2><span class="lcount"></span></div><div class="hazbar"></div><div class="scroll g-rows"></div></div>
+      <div class="g-party stg" style="--i:2"></div>
+      <div class="g-left stg" style="--i:2">
+        <div class="g-tabs plate trans"><span class="tk">${kq}</span><div class="tabs"></div><span class="tk">${ke}</span></div>
+        <div class="g-list plate trans"><div class="lhead"><h2></h2><span class="lcount"></span></div><div class="hazbar"></div><div class="scroll g-rows"></div><div class="more m-up"><i></i></div><div class="more m-down"><i></i><span></span></div></div>
+      </div>
       <div class="g-detail plate trans stg" style="--i:4"><div class="scroll d-scroll"></div><div class="d-foot"></div></div>
-      <div class="g-party stg" style="--i:5"></div>
-      <div class="g-tag stg" style="--i:5"></div>
       <div class="g-ready stg" style="--i:6"></div>
       <div class="hints" data-hints></div>
     </div></div>`);
     const q = (s) => this.el.querySelector(s);
-    this.q = { sub: q('.g-sub'), cv: q('.cv'), cf: q('.cf'), tabs: q('.tabs'), rows: q('.g-rows'), lhead: q('.lhead h2'), lcount: q('.lcount'), det: q('.d-scroll'), foot: q('.d-foot'), tag: q('.g-tag'), party: q('.g-party'), ready: q('.g-ready'), hints: q('[data-hints]'), rail: q('.g-rail') };
+    this.q = { sub: q('.g-sub'), cv: q('.cv'), cf: q('.cf'), tabs: q('.tabs'), rows: q('.g-rows'), list: q('.g-list'), lhead: q('.lhead h2'), lcount: q('.lcount'), det: q('.d-scroll'), foot: q('.d-foot'), detail: q('.g-detail'), left: q('.g-left'), load: q('.g-loadout'), party: q('.g-party'), ready: q('.g-ready'), hints: q('[data-hints]'), mdown: q('.m-down span') };
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('navfocus', (e) => this.onNavFocus(e));
+    this.q.rows.addEventListener('scroll', () => this.updateMore(), { passive: true });
     this.renderAll();
   }
+  mounted() { requestAnimationFrame(() => { this.updateMore(); this.notifyView(); }); }
 
   // ---------------------------------------------------------------- data helpers
   snapshot(p) {
@@ -90,7 +98,7 @@ export class GarageScreen {
   }
 
   // ---------------------------------------------------------------- rendering
-  renderAll() { this.renderHeader(); this.renderRail(); this.renderList(); this.renderDetail(); this.renderTag(); this.renderReady(); this.renderHints(); this.renderCash(true); }
+  renderAll() { this.renderHeader(); this.renderTabs(); this.renderList(); this.renderDetail(); this.renderLoadout(); this.renderReady(); this.renderHints(); this.renderCash(true); }
   keepFocus(fn) {
     const nav = this.ui.nav, k = nav.cur && this.el.contains(nav.cur) ? nav.cur.dataset.k : null;
     fn();
@@ -108,14 +116,11 @@ export class GarageScreen {
     if (p.wins) parts.push(`${p.wins} VICTOR${p.wins > 1 ? 'IES' : 'Y'}`);
     this.q.sub.textContent = parts.join('  ·  ');
   }
-  renderRail() {
+  renderTabs() {
     this.q.tabs.innerHTML = TABS.map((t) => {
       const n = this.affordable(t.id);
-      return `<div class="f tab ${t.id === this.tab ? 'on' : ''}" role="button" data-tab="${t.id}" data-k="tab:${t.id}" data-snd="click">${icon(t.icon)}<span>${t.name}</span>${n ? `<i class="dot" title="${n} affordable"></i>` : ''}</div>`;
+      return `<div class="f tab ${t.id === this.tab ? 'on' : ''}" role="button" data-tab="${t.id}" data-k="tab:${t.id}" data-snd="click">${icon(t.icon)}<span>${t.name}</span>${n ? `<i class="dot" title="${n} affordable">${n}</i>` : ''}</div>`;
     }).join('');
-    const lb = '<span class="pb pb-bump"><i class="xb">LB</i><i class="ps">L1</i></span>', rb = '<span class="pb pb-bump"><i class="xb">RB</i><i class="ps">R1</i></span>';
-    this.q.rail.querySelector('.rail-k.top').innerHTML = `<span class="hk"><kbd>Q</kbd></span><span class="hg">${lb}</span>`;
-    this.q.rail.querySelector('.rail-k.bot').innerHTML = `<span class="hk"><kbd>E</kbd></span><span class="hg">${rb}</span>`;
   }
   renderList() {
     const t = this.tab, sel = this.sel();
@@ -133,7 +138,7 @@ export class GarageScreen {
     } else if (t === 'weapons') {
       html = ids.map((id) => {
         const s = this.weaponState(id);
-        const slot = s.slot >= 0 ? `<em class="slotb">${s.slot + 1}</em>` : '';
+        const slot = s.slot >= 0 ? `<em class="slotb" title="Loadout slot ${s.slot + 1}">${s.slot + 1}</em>` : '';
         const price = s.owned ? '' : `<span class="pc ${s.state}">${money(s.cost)}</span>`;
         const lv = this.p.weapons[id] ? Object.values(this.p.weapons[id]).reduce((a, b) => a + b, 0) : 0;
         return `<div class="f row wrow ${id === sel ? 'sel' : ''} st-${s.owned ? 'owned' : s.state} ${s.owned ? '' : 'locked'}" role="button" data-row="${id}" data-k="row:${id}"><span class="wicon">${weaponIcon(id)}${s.owned ? '' : icon('lock', 'lk')}</span><span class="rmain"><b class="rn">${esc(s.w.name)}</b><span class="rsub"><i class="lv">${MODE_NAME[s.w.mode] || ''}</i>${s.owned ? `<i class="lv up">+${lv}</i>` : ''}</span></span>${slot}${price ? `<span class="rprice">${price}</span>` : ''}</div>`;
@@ -148,6 +153,18 @@ export class GarageScreen {
     }
     this.q.rows.innerHTML = html;
     this.q.lcount.textContent = t === 'paint' ? `${ids.length} COLOURS` : t === 'weapons' ? `${WEAPON_ORDER.filter((id) => this.p.weapons[id]).length}/${WEAPON_ORDER.length} OWNED` : t === 'truck' ? `${this.p.trucks.length}/${TRUCKS.length} OWNED` : `${ids.filter((id) => this.upState(id).state === 'max').length}/${ids.length} MAXED`;
+    requestAnimationFrame(() => this.updateMore());
+  }
+  /** Scroll affordances on the item list: fades + "N MORE" when rows are hidden above / below. */
+  updateMore() {
+    const r = this.q.rows; if (!r.isConnected) return;
+    const below = r.scrollHeight - r.scrollTop - r.clientHeight, above = r.scrollTop;
+    this.q.list.classList.toggle('has-below', below > 6); this.q.list.classList.toggle('has-above', above > 6);
+    if (below > 6) {
+      const bottom = r.getBoundingClientRect().bottom;
+      const n = [...r.querySelectorAll('.row, .sw')].filter((x) => x.getBoundingClientRect().top > bottom - 20).length;
+      this.q.mdown.textContent = n > 0 ? `${n} MORE` : 'MORE';
+    }
   }
   buyBtn(state, cost, label, extraCls = '') {
     const need = cost - this.p.cash;
@@ -164,7 +181,7 @@ export class GarageScreen {
     if (t === 'truck') {
       const tr = TRUCKS.find((x) => x.id === id) || TRUCKS[0], s = this.truckState(tr);
       body = `<div class="d-head"><div class="eyebrow">${s.cur ? 'CURRENT TRUCK' : s.owned ? 'OWNED' : 'FOR SALE'}</div><h2>${esc(tr.name)}</h2><div class="d-tier">${pips(tr.tier, 4, -1, 'tier')} TIER ${tr.tier}</div></div>
-        <p class="d-desc">${esc(tr.blurb)}</p><div class="d-sec">VS CURRENT TRUCK</div><div class="stats">${truckStats(this.p, tr.id).map(statRow).join('')}</div>`;
+        <p class="d-desc">${esc(tr.blurb)}</p><div class="d-sec">${s.cur ? 'STATS' : 'VS CURRENT TRUCK'}</div><div class="stats">${truckStats(this.p, tr.id).map(statRow).join('')}</div>`;
       buy = s.owned ? this.buyBtn(s.cur ? 'active' : 'select', 0, 'SELECT') : this.buyBtn(s.state, tr.cost, 'BUY TRUCK');
     } else if (t === 'weapons') {
       const w = WEAPONS[id], s = this.weaponState(id);
@@ -174,15 +191,15 @@ export class GarageScreen {
         const price = ts.state === 'max' ? '<em class="chip max">MAX</em>' : ts.state === 'locked' ? icon('lock', 'lk') : `<span class="pc ${ts.state}">${money(ts.cost)}</span>`;
         return `<div class="f trk st-${ts.state} ${this.trackPrev === tr.id ? 'prev' : ''}" role="button" data-trk="${tr.id}" data-k="trk:${tr.id}" data-snd="none"><b>${tr.name}</b><span class="tp">${price}</span>${pips(ts.lv, 3, this.fresh['trk:' + id + ':' + tr.id] ?? -1)}</div>`;
       }).join('')}</div>`;
-      body = `<div class="d-head"><div class="eyebrow">${MODE_NAME[w.mode] || 'WEAPON'}${s.slot >= 0 ? ` · SLOT ${s.slot + 1}` : ''}</div><h2>${esc(w.name)}</h2></div>
-        <div class="d-wicon">${weaponIcon(id)}</div><p class="d-desc">${esc(w.desc || '')}</p>${slots}
-        <div class="stats compact">${weaponRows(this.p, id, s.owned ? this.trackPrev : null).map(statRow).join('')}</div>${tracks}`;
+      body = `<div class="d-head"><div class="eyebrow">${MODE_NAME[w.mode] || 'WEAPON'}${s.slot >= 0 ? ` · SLOT ${s.slot + 1}` : s.owned ? ' · OWNED' : ''}</div><h2>${esc(w.name)}</h2></div>
+        <p class="d-desc">${esc(w.desc || '')}</p>${slots}
+        <div class="d-sec">${this.trackPrev ? 'UPGRADE PREVIEW' : 'STATS'}</div><div class="stats compact">${weaponRows(this.p, id, s.owned ? this.trackPrev : null).map(statRow).join('')}</div>${tracks}`;
       buy = s.owned ? '' : this.buyBtn(s.state, w.cost, 'BUY WEAPON');
     } else if (t === 'paint') {
       const i = +id;
       body = `<div class="d-head"><div class="eyebrow">PAINT SHOP</div><h2>${PAINT_NAMES[i] || 'COLOUR'}</h2></div>
         <div class="paint-big" style="--pc:${hex(TRUCK_COLORS[i])}"><i></i></div>
-        <p class="d-desc">Fresh coat, no charge. Your co-driver sees it too.</p>`;
+        <p class="d-desc">Fresh coat, no charge. Previewed on the truck. Your co-driver sees it too.</p>`;
       buy = String(this.p.truckColor) === id ? '<div class="f buy max dis" role="button"><span class="bl">' + icon('check') + ' APPLIED</span></div>' : '<div class="f buy ok pressable" role="button" data-paint="1" data-k="buy" data-snd="none"><span class="bl">APPLY PAINT</span><span class="bp">FREE</span></div>';
     } else {
       const s = this.upState(id);
@@ -195,12 +212,20 @@ export class GarageScreen {
       buy = this.buyBtn(s.state, s.cost, s.lv === 0 ? 'BUY' : 'UPGRADE');
     }
     d.innerHTML = body; foot.innerHTML = buy;
-    this.q.det.parentElement.classList.toggle('nofoot', !buy);
+    this.q.detail.classList.toggle('nofoot', !buy);
     d.scrollTop = 0;
   }
-  renderTag() {
-    const spec = TRUCKS.find((x) => x.id === this.p.truck) || TRUCKS[0];
-    this.q.tag.innerHTML = `<span class="tk">TIER ${spec.tier} ${pips(spec.tier, 4, -1, 'tier')}</span><b>${esc(spec.name)}</b>`;
+  /** Always-visible loadout: truck + tier, the three equipped weapons, armour. */
+  renderLoadout() {
+    const p = this.p, spec = TRUCKS.find((x) => x.id === p.truck) || TRUCKS[0];
+    const slots = [0, 1, 2].map((i) => {
+      const id = p.loadout[i];
+      return id ? `<div class="lo-slot"><b>${i + 1}</b><span class="lo-w">${weaponIcon(id)}</span><em>${esc(WEAPONS[id].name)}</em></div>` : `<div class="lo-slot empty"><b>${i + 1}</b><em>EMPTY</em></div>`;
+    }).join('');
+    const vest = p.upgrades.vest || 0;
+    this.q.load.innerHTML = `<div class="lo-truck"><span class="lo-k">RIDE</span><b>${esc(spec.name)}</b>${pips(spec.tier, 4, -1, 'tier')}</div>
+      <div class="lo-slots"><span class="lo-k">LOADOUT</span><div class="lo-row">${slots}</div></div>
+      <div class="lo-gear"><span class="lo-k">GUNNER</span><b>${icon('vest')}${ARMOR_NAME[vest] || 'ARMOR'}</b></div>`;
   }
   renderReady() {
     const e = this.extra, pt = e.partner;
@@ -216,7 +241,7 @@ export class GarageScreen {
   renderHints() {
     const list = [['confirm', 'SELECT'], ['tabs', 'TAB']];
     if (this.tab === 'weapons') list.push(['<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>', '<span class="pb pb-x"><i class="xb">X</i><i class="ps">□</i></span>', 'EQUIP']);
-    list.push(['y', 'READY'], ['back', 'BACK']);
+    list.push(['<kbd class="mouse">DRAG</kbd>', '<span class="pb pb-stick"><i class="xb">RS</i><i class="ps">R</i></span>', 'SPIN'], ['y', this.extra.solo ? 'START' : 'READY'], ['back', 'BACK']);
     this.q.hints.innerHTML = hints(list);
   }
   renderCash(instant) {
@@ -231,6 +256,13 @@ export class GarageScreen {
     const f = document.createElement('span'); f.className = `cfl ${cls}`; f.textContent = (target < from ? '-' : '+') + money(Math.abs(target - from));
     this.q.cf.appendChild(f); setTimeout(() => f.remove(), 1300);
   }
+  /** Screen-space rect (CSS px) left free for the 3D subject: between the list and detail columns, below the loadout bar. */
+  frameRect() {
+    const L = this.q.left.getBoundingClientRect(), D = this.q.detail.getBoundingClientRect(), B = this.q.load.getBoundingClientRect();
+    if (!L.width || !D.width) return null;
+    return { l: L.right + 8, r: D.left - 8, t: L.top, b: B.top - 6 };
+  }
+  notifyView() { if (this.cb.onView) this.cb.onView(this.tab, this.sel()); }
 
   // ---------------------------------------------------------------- updates from the integrator
   update(profile, extra) {
@@ -249,29 +281,35 @@ export class GarageScreen {
     this.snap = after;
     if (bought) this.ui.snd('upgrade_unlock');
     if (after.cash !== before.cash) this.renderCash(false);
+    const st = this.q.rows.scrollTop;
     this.keepFocus(() => {
-      // keep the truck selection following the active truck when it changed elsewhere
-      this.renderHeader(); this.renderRail(); this.renderList(); this.renderDetail(); this.renderTag(); this.renderReady();
+      this.renderHeader(); this.renderTabs(); this.renderList(); this.renderDetail(); this.renderLoadout(); this.renderReady(); this.renderHints();
     });
+    this.q.rows.scrollTop = st;
     const nav = this.ui.nav;
     if (!nav.cur || !nav.cur.isConnected) nav.ensure();
     if (bought) this.flashNew();
+    this.notifyView();
   }
   flashNew() {
     this.el.querySelectorAll('.pips i.new').forEach((n) => { n.classList.remove('new'); void n.offsetWidth; n.classList.add('new'); });
     const d = this.q.det.querySelector('.d-lv'); if (d) { d.classList.remove('pulse'); void d.offsetWidth; d.classList.add('pulse'); }
     const row = this.el.querySelector('.row.sel'); if (row) { row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); }
+    const lo = this.q.load; lo.classList.remove('flash'); void lo.offsetWidth; lo.classList.add('flash');
   }
 
   // ---------------------------------------------------------------- interaction
   switchTab(id, opts = {}) {
     if (!TAB_IDS.includes(id) || id === this.tab) return;
     this.tab = id; this.trackPrev = null;
-    this.renderRail(); this.renderList(); this.renderDetail(); this.renderHints();
+    this.renderTabs(); this.renderList(); this.renderDetail(); this.renderHints();
     this.q.rows.scrollTop = 0;
     this.q.rows.animate([{ opacity: 0, transform: 'translateX(-14px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
+    this.q.det.animate([{ opacity: 0, transform: 'translateX(14px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'ease-out' });
     const nav = this.ui.nav;
     if (opts.focusTab !== false) { const tabEl = this.el.querySelector(`[data-tab="${id}"]`); if (tabEl) nav.focus(tabEl, { silent: true }); }
+    this.ui.snd('whoosh_transition');
+    this.notifyView();
   }
   tabStep(dir) {
     const nav = this.ui.nav, inRail = !nav.cur || !!nav.cur.dataset.tab;
@@ -285,10 +323,13 @@ export class GarageScreen {
     this.q.rows.querySelectorAll('.row.sel, .sw.sel').forEach((n) => n.classList.remove('sel'));
     const n = this.q.rows.querySelector(`[data-row="${id}"]`); if (n) n.classList.add('sel');
     this.renderDetail();
+    this.notifyView();
   }
   onNavFocus(e) {
     const el = e.detail.el;
     if (el.dataset.row != null) { this.select(el.dataset.row); return; }
+    // keyboard / pad focus on a tab switches to it (mouse hover only highlights; click switches)
+    if (el.dataset.tab && !e.detail.hover && el.dataset.tab !== this.tab) { this.switchTab(el.dataset.tab, { focusTab: false }); return; }
     if (el.dataset.trk) { if (this.trackPrev !== el.dataset.trk) { this.trackPrev = el.dataset.trk; this.refreshStatsOnly(); } return; }
     if (this.trackPrev) { this.trackPrev = null; this.refreshStatsOnly(); }
   }
@@ -297,6 +338,7 @@ export class GarageScreen {
     const id = this.sel(), s = this.weaponState(id);
     const box = this.q.det.querySelector('.stats'); if (!box) return;
     box.innerHTML = weaponRows(this.p, id, s.owned ? this.trackPrev : null).map(statRow).join('');
+    const sec = box.previousElementSibling; if (sec && sec.classList.contains('d-sec')) sec.textContent = this.trackPrev ? 'UPGRADE PREVIEW' : 'STATS';
     this.q.det.querySelectorAll('.trk').forEach((n) => n.classList.toggle('prev', n.dataset.trk === this.trackPrev));
   }
   onClick(e) {
@@ -310,7 +352,7 @@ export class GarageScreen {
       return;
     }
     if (t.dataset.buy) return this.doBuy(t);
-    if (t.dataset.select) { ui.snd('click'); cb.onSelectTruck && cb.onSelectTruck(this.sel()); return; }
+    if (t.dataset.select) { ui.snd('click'); ui.pressFx(t); cb.onSelectTruck && cb.onSelectTruck(this.sel()); return; }
     if (t.dataset.paint) return this.applyPaint(t);
     if (t.dataset.slot != null) { ui.snd('click'); const id = this.sel(); cb.onEquip && cb.onEquip(id, +t.dataset.slot); return; }
     if (t.dataset.trk) return this.doTrack(t);
@@ -324,16 +366,18 @@ export class GarageScreen {
   denied(el, need) {
     this.ui.snd('error');
     el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+    const c = this.q.cv.parentElement; c.classList.remove('deny'); void c.offsetWidth; c.classList.add('deny');
     this.ui.toast(`NOT ENOUGH CASH — NEED ${money(need)} MORE`, 'bad', 2200);
   }
   burst(el) {
     const b = document.createElement('span'); b.className = 'burst';
-    for (let i = 0; i < 14; i++) {
-      const s = document.createElement('i'), a = (i / 14) * Math.PI * 2 + Math.random() * 0.4, r = 70 + Math.random() * 90;
+    for (let i = 0; i < 18; i++) {
+      const s = document.createElement('i'), a = (i / 18) * Math.PI * 2 + Math.random() * 0.4, r = 80 + Math.random() * 110;
       s.style.setProperty('--dx', Math.cos(a) * r + 'px'); s.style.setProperty('--dy', Math.sin(a) * r * 0.7 - 20 + 'px'); s.style.setProperty('--d', (Math.random() * 60) + 'ms');
       b.appendChild(s);
     }
     el.appendChild(b); setTimeout(() => b.remove(), 800);
+    const f = document.createElement('span'); f.className = 'bflash'; el.appendChild(f); setTimeout(() => f.remove(), 500);
   }
   doBuy(btn) {
     const t = this.tab, id = this.sel();
@@ -366,17 +410,25 @@ export class GarageScreen {
     const nav = this.ui.nav;
     const selRow = () => this.q.rows.querySelector('.row.sel, .sw.sel') || this.q.rows.querySelector('.f');
     const inDetail = this.q.det.contains(el) || this.q.foot.contains(el);
-    if (el.dataset.tab && dir === 'right') return selRow();
-    if (el.closest('.g-rows') && this.tab !== 'paint' && dir === 'left') return this.el.querySelector(`[data-tab="${this.tab}"]`);
-    if (el.closest('.g-rows') && dir === 'right') {
+    const inRows = !!el.closest('.g-rows');
+    if (el.dataset.tab && dir === 'down') return selRow();
+    if (el.dataset.tab && dir === 'up') return false;
+    if (el.dataset.tab && dir === 'right' && el.dataset.tab === TAB_IDS[TAB_IDS.length - 1]) return false;
+    if (inRows && dir === 'up') {
+      if (this.tab === 'paint') { const sws = [...this.q.rows.querySelectorAll('.sw')]; if (sws.indexOf(el) >= 4) return undefined; }
+      else { const rows = [...this.q.rows.querySelectorAll('.row')]; if (rows.indexOf(el) > 0) return rows[rows.indexOf(el) - 1]; }
+      return this.el.querySelector(`[data-tab="${this.tab}"]`);
+    }
+    if (inRows && dir === 'down' && this.tab !== 'paint') { const rows = [...this.q.rows.querySelectorAll('.row')]; const i = rows.indexOf(el); return i < rows.length - 1 ? rows[i + 1] : false; }
+    if (inRows && dir === 'right') {
       if (this.tab === 'paint') { const sws = [...this.q.rows.querySelectorAll('.sw')]; const i = sws.indexOf(el); if (i % 4 !== 3) return undefined; }
       return this.q.foot.querySelector('.buy:not(.dis)') || this.q.det.querySelector('.slot.on, .slot, .trk') || nav.list().find((n) => n.dataset.ready);
     }
-    if (el.closest('.g-rows') && this.tab === 'paint' && dir === 'left') { const sws = [...this.q.rows.querySelectorAll('.sw')]; if (sws.indexOf(el) % 4 === 0) return this.el.querySelector(`[data-tab="${this.tab}"]`); }
+    if (inRows && dir === 'left') { if (this.tab === 'paint') { const sws = [...this.q.rows.querySelectorAll('.sw')]; if (sws.indexOf(el) % 4 !== 0) return undefined; } return false; }
     if (inDetail && dir === 'left') return selRow();
-    if (el.dataset.ready && dir === 'up') return this.q.foot.querySelector('.buy:not(.dis)') || selRow();
+    if (el.dataset.ready && dir === 'up') return this.q.foot.querySelector('.buy:not(.dis)') || this.q.det.querySelector('.trk:last-child, .slot') || selRow();
+    if (el.dataset.ready && dir === 'left') return selRow();
     if (inDetail && dir === 'down' && el.closest('.d-foot')) return this.q.ready.querySelector('.ready');
-    if (el.dataset.tab && dir === 'up' && el.dataset.tab === TAB_IDS[0]) return false;
     return undefined;
   }
   back() {

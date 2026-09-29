@@ -388,7 +388,7 @@ export class AudioBridge {
     // landing thump
     if (st.airborne) { c.airT += dt; c.wasAir = true; } else { if (c.wasAir && c.airT > 0.3) this._land(st.id, c.pos, clamp(c.airT - 0.2, 0.2, 1.6), null); c.wasAir = false; c.airT = 0; }
     if (player) {
-      A.ambience.wind(clamp01(st.speed / vmax) * (st.boosting ? 1.15 : 1) * (st.airborne ? 0.8 : 1));
+      A.ambience.wind(clamp01(st.speed / vmax) * (st.boosting ? 1.15 : 1) * (st.airborne ? 0.8 : 1), { gain: this.windGain ?? 1 });
       if (this.autoDanger) A.setDanger(st.exploded ? 0 : Math.max(smoothstep(0.35, 0.05, st.hp01), this.crewDanger));
     }
   }

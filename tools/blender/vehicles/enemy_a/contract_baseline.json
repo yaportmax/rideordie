@@ -1,0 +1,1682 @@
+{
+ "e_sedan": {
+  "nodes": {
+   "panel_hood": {
+    "parent": null,
+    "t": [
+     0,
+     0.99,
+     0.72
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_trunk": {
+    "parent": null,
+    "t": [
+     0,
+     0.99,
+     -1.365
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_L": {
+    "parent": null,
+    "t": [
+     0.9,
+     0.65,
+     0.66
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_R": {
+    "parent": null,
+    "t": [
+     -0.9,
+     0.65,
+     0.66
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_L2": {
+    "parent": null,
+    "t": [
+     0.9,
+     0.65,
+     -0.32
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_R2": {
+    "parent": null,
+    "t": [
+     -0.9,
+     0.65,
+     -0.32
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_F": {
+    "parent": null,
+    "t": [
+     0,
+     0.47,
+     2.55
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_R": {
+    "parent": null,
+    "t": [
+     0,
+     0.47,
+     -2.55
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "seat_driver": {
+    "parent": null,
+    "t": [
+     0.4,
+     0.56,
+     0.03
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "steering_wheel": {
+    "parent": null,
+    "t": [
+     0.4,
+     0.925,
+     0.46
+    ],
+    "r": [
+     0.208,
+     0,
+     0,
+     0.978
+    ],
+    "mesh": false
+   },
+   "seat_gunner": {
+    "parent": null,
+    "t": [
+     0,
+     0.555,
+     -0.86
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_head_L": {
+    "parent": null,
+    "t": [
+     0.64,
+     0.79,
+     2.5
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_head_R": {
+    "parent": null,
+    "t": [
+     -0.64,
+     0.79,
+     2.5
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_tail_L": {
+    "parent": null,
+    "t": [
+     0.56,
+     0.81,
+     -2.5
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "light_tail_R": {
+    "parent": null,
+    "t": [
+     -0.56,
+     0.81,
+     -2.5
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "exhaust_L": {
+    "parent": null,
+    "t": [
+     0.5,
+     0.27,
+     -2.68
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "exhaust_R": {
+    "parent": null,
+    "t": [
+     -0.5,
+     0.27,
+     -2.68
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "smoke_engine": {
+    "parent": null,
+    "t": [
+     0,
+     0.86,
+     1.85
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "fuel_cap": {
+    "parent": null,
+    "t": [
+     0.985,
+     0.8,
+     -2.05
+    ],
+    "r": [
+     0,
+     0.707,
+     0,
+     0.707
+    ],
+    "mesh": false
+   },
+   "roof_top": {
+    "parent": null,
+    "t": [
+     0,
+     1.46,
+     -0.1
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "camera_hood": {
+    "parent": null,
+    "t": [
+     0,
+     1.02,
+     1.35
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "body": {
+    "parent": null,
+    "t": [
+     0,
+     0,
+     0
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FL": {
+    "parent": null,
+    "t": [
+     0.79,
+     0.39,
+     1.62
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FR": {
+    "parent": null,
+    "t": [
+     -0.79,
+     0.39,
+     1.62
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RL": {
+    "parent": null,
+    "t": [
+     0.79,
+     0.39,
+     -1.42
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RR": {
+    "parent": null,
+    "t": [
+     -0.79,
+     0.39,
+     -1.42
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   }
+  },
+  "mats": [
+   "paint",
+   "armor",
+   "paint2",
+   "glass",
+   "chrome",
+   "interior",
+   "metal_dark",
+   "metal_bare",
+   "light_head",
+   "light_tail",
+   "fabric",
+   "cloth_red",
+   "rust",
+   "rim",
+   "rubber_tire"
+  ],
+  "bbox": {
+   "min": [
+    -1.087,
+    0,
+    -2.7
+   ],
+   "max": [
+    1.087,
+    2.024,
+    2.7
+   ],
+   "size": [
+    2.174,
+    2.024,
+    5.4
+   ]
+  },
+  "tris": 24452,
+  "size": 1284132
+ },
+ "e_muscle": {
+  "nodes": {
+   "panel_hood": {
+    "parent": null,
+    "t": [
+     0,
+     0.985,
+     0.7
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_trunk": {
+    "parent": null,
+    "t": [
+     0,
+     0.975,
+     -1.96
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_L": {
+    "parent": null,
+    "t": [
+     0.92,
+     0.65,
+     0.62
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_R": {
+    "parent": null,
+    "t": [
+     -0.92,
+     0.65,
+     0.62
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_F": {
+    "parent": null,
+    "t": [
+     0,
+     0.4,
+     2.35
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_R": {
+    "parent": null,
+    "t": [
+     0,
+     0.38,
+     -2.35
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "seat_driver": {
+    "parent": null,
+    "t": [
+     0.42,
+     0.53,
+     -0.04
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "steering_wheel": {
+    "parent": null,
+    "t": [
+     0.42,
+     0.895,
+     0.3
+    ],
+    "r": [
+     0.191,
+     0,
+     0,
+     0.982
+    ],
+    "mesh": false
+   },
+   "light_head_L": {
+    "parent": null,
+    "t": [
+     0.56,
+     0.78,
+     2.3
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_head_R": {
+    "parent": null,
+    "t": [
+     -0.56,
+     0.78,
+     2.3
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_tail_L": {
+    "parent": null,
+    "t": [
+     0.47,
+     0.76,
+     -2.3
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "light_tail_R": {
+    "parent": null,
+    "t": [
+     -0.47,
+     0.76,
+     -2.3
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "exhaust_L": {
+    "parent": null,
+    "t": [
+     0.42,
+     0.3,
+     -2.5
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "exhaust_R": {
+    "parent": null,
+    "t": [
+     -0.42,
+     0.3,
+     -2.5
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "smoke_engine": {
+    "parent": null,
+    "t": [
+     0,
+     0.8,
+     1.85
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "fuel_cap": {
+    "parent": null,
+    "t": [
+     0.972,
+     0.8,
+     -1.95
+    ],
+    "r": [
+     0,
+     0.707,
+     0,
+     0.707
+    ],
+    "mesh": false
+   },
+   "roof_top": {
+    "parent": null,
+    "t": [
+     0,
+     1.34,
+     -0.25
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "camera_hood": {
+    "parent": null,
+    "t": [
+     0,
+     1.01,
+     0.95
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "body": {
+    "parent": null,
+    "t": [
+     0,
+     0,
+     0
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FL": {
+    "parent": null,
+    "t": [
+     0.8,
+     0.355,
+     1.3
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FR": {
+    "parent": null,
+    "t": [
+     -0.8,
+     0.355,
+     1.3
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RL": {
+    "parent": null,
+    "t": [
+     0.79,
+     0.375,
+     -1.62
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RR": {
+    "parent": null,
+    "t": [
+     -0.79,
+     0.375,
+     -1.62
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   }
+  },
+  "mats": [
+   "paint2",
+   "metal_dark",
+   "armor",
+   "chrome",
+   "metal_bare",
+   "paint",
+   "glass",
+   "interior",
+   "spike",
+   "light_head",
+   "light_tail",
+   "rust",
+   "fabric",
+   "cloth_dark",
+   "rim",
+   "rubber_tire"
+  ],
+  "bbox": {
+   "min": [
+    -1.035,
+    0,
+    -2.485
+   ],
+   "max": [
+    1.035,
+    1.621,
+    2.708
+   ],
+   "size": [
+    2.07,
+    1.621,
+    5.193
+   ]
+  },
+  "tris": 24758,
+  "size": 1998812
+ },
+ "e_buggy": {
+  "nodes": {
+   "panel_hood": {
+    "parent": null,
+    "t": [
+     0,
+     0.88,
+     0.86
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_fender_L": {
+    "parent": null,
+    "t": [
+     0.78,
+     0.85,
+     1.2
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_fender_R": {
+    "parent": null,
+    "t": [
+     -0.78,
+     0.85,
+     1.2
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_trunk": {
+    "parent": null,
+    "t": [
+     0,
+     0.98,
+     -1.14
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_F": {
+    "parent": null,
+    "t": [
+     0,
+     0.4,
+     1.76
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_R": {
+    "parent": null,
+    "t": [
+     0,
+     0.42,
+     -1.76
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "seat_driver": {
+    "parent": null,
+    "t": [
+     0.36,
+     0.5,
+     0.14
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "steering_wheel": {
+    "parent": null,
+    "t": [
+     0.36,
+     0.88,
+     0.6
+    ],
+    "r": [
+     0.225,
+     0,
+     0,
+     0.974
+    ],
+    "mesh": false
+   },
+   "seat_gunner": {
+    "parent": null,
+    "t": [
+     0,
+     0.7,
+     -0.68
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "gun_mount": {
+    "parent": null,
+    "t": [
+     0,
+     1.995,
+     -0.24
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_head_L": {
+    "parent": null,
+    "t": [
+     0.3,
+     0.72,
+     1.645
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_head_R": {
+    "parent": null,
+    "t": [
+     -0.3,
+     0.72,
+     1.645
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_tail_L": {
+    "parent": null,
+    "t": [
+     0.36,
+     0.86,
+     -1.72
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "light_tail_R": {
+    "parent": null,
+    "t": [
+     -0.36,
+     0.86,
+     -1.72
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "exhaust_L": {
+    "parent": null,
+    "t": [
+     0.24,
+     0.38,
+     -1.84
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "exhaust_R": {
+    "parent": null,
+    "t": [
+     -0.24,
+     0.38,
+     -1.84
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "nitro_L": {
+    "parent": null,
+    "t": [
+     0.14,
+     0.52,
+     -1.84
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "nitro_R": {
+    "parent": null,
+    "t": [
+     -0.14,
+     0.52,
+     -1.84
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "smoke_engine": {
+    "parent": null,
+    "t": [
+     0,
+     0.9,
+     -1.36
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "fuel_cap": {
+    "parent": null,
+    "t": [
+     0.36,
+     0.5,
+     -0.55
+    ],
+    "r": [
+     0,
+     -0.707,
+     0,
+     0.707
+    ],
+    "mesh": false
+   },
+   "roof_top": {
+    "parent": null,
+    "t": [
+     0,
+     1.72,
+     0.22
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "camera_hood": {
+    "parent": null,
+    "t": [
+     0,
+     0.96,
+     1.22
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "body": {
+    "parent": null,
+    "t": [
+     0,
+     0,
+     0
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FL": {
+    "parent": null,
+    "t": [
+     0.78,
+     0.37,
+     1.2
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FR": {
+    "parent": null,
+    "t": [
+     -0.78,
+     0.37,
+     1.2
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RL": {
+    "parent": null,
+    "t": [
+     0.79,
+     0.46,
+     -1.1
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RR": {
+    "parent": null,
+    "t": [
+     -0.79,
+     0.46,
+     -1.1
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   }
+  },
+  "mats": [
+   "paint",
+   "metal_bare",
+   "metal_dark",
+   "paint2",
+   "armor",
+   "spike",
+   "glass",
+   "interior",
+   "rust",
+   "light_tail",
+   "light_amber",
+   "fabric",
+   "cloth_dark",
+   "light_head",
+   "rubber_tire",
+   "rim",
+   "cloth_red",
+   "cloth_tan"
+  ],
+  "bbox": {
+   "min": [
+    -1.008,
+    0,
+    -1.888
+   ],
+   "max": [
+    1.008,
+    2.551,
+    1.89
+   ],
+   "size": [
+    2.016,
+    2.551,
+    3.778
+   ]
+  },
+  "tris": 29060,
+  "size": 2186756
+ },
+ "e_technical": {
+  "nodes": {
+   "panel_hood": {
+    "parent": null,
+    "t": [
+     0,
+     1.06,
+     0.94
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_tailgate": {
+    "parent": null,
+    "t": [
+     0,
+     0.93,
+     -2.4
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_L": {
+    "parent": null,
+    "t": [
+     0.9,
+     0.7,
+     0.86
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_door_R": {
+    "parent": null,
+    "t": [
+     -0.9,
+     0.7,
+     0.86
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_F": {
+    "parent": null,
+    "t": [
+     0,
+     0.47,
+     2.44
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "panel_bumper_R": {
+    "parent": null,
+    "t": [
+     0,
+     0.47,
+     -2.53
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "seat_driver": {
+    "parent": null,
+    "t": [
+     0.38,
+     0.665,
+     -0.06
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "steering_wheel": {
+    "parent": null,
+    "t": [
+     0.38,
+     1.1,
+     0.44
+    ],
+    "r": [
+     0.242,
+     0,
+     0,
+     0.97
+    ],
+    "mesh": false
+   },
+   "seat_gunner": {
+    "parent": null,
+    "t": [
+     0,
+     0.944,
+     -1.42
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "gun_mg": {
+    "parent": "gun_mount",
+    "t": [
+     0,
+     0,
+     0
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": true
+   },
+   "gun_mount": {
+    "parent": null,
+    "t": [
+     0,
+     2.14,
+     -0.92
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_head_L": {
+    "parent": null,
+    "t": [
+     0.66,
+     0.8,
+     2.26
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_head_R": {
+    "parent": null,
+    "t": [
+     -0.66,
+     0.8,
+     2.26
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "light_tail_L": {
+    "parent": null,
+    "t": [
+     0.78,
+     0.72,
+     -2.42
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "light_tail_R": {
+    "parent": null,
+    "t": [
+     -0.78,
+     0.72,
+     -2.42
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "exhaust": {
+    "parent": null,
+    "t": [
+     0.62,
+     0.24,
+     -2.62
+    ],
+    "r": [
+     0,
+     -1,
+     0,
+     0
+    ],
+    "mesh": false
+   },
+   "smoke_engine": {
+    "parent": null,
+    "t": [
+     0,
+     0.88,
+     1.95
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "fuel_cap": {
+    "parent": null,
+    "t": [
+     0.935,
+     0.98,
+     -2.02
+    ],
+    "r": [
+     0,
+     0.707,
+     0,
+     0.707
+    ],
+    "mesh": false
+   },
+   "roof_top": {
+    "parent": null,
+    "t": [
+     0,
+     1.98,
+     -0.3
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "camera_hood": {
+    "parent": null,
+    "t": [
+     0,
+     1.1,
+     1.35
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "body": {
+    "parent": null,
+    "t": [
+     0,
+     0,
+     0
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FL": {
+    "parent": null,
+    "t": [
+     0.79,
+     0.4,
+     1.48
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_FR": {
+    "parent": null,
+    "t": [
+     -0.79,
+     0.4,
+     1.48
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RL": {
+    "parent": null,
+    "t": [
+     0.79,
+     0.4,
+     -1.33
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   },
+   "wheel_RR": {
+    "parent": null,
+    "t": [
+     -0.79,
+     0.4,
+     -1.33
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "mesh": false
+   }
+  },
+  "mats": [
+   "paint2",
+   "armor",
+   "metal_bare",
+   "paint",
+   "glass",
+   "chrome",
+   "light_head",
+   "gun_metal",
+   "metal_dark",
+   "wood",
+   "interior",
+   "canvas",
+   "light_tail",
+   "fabric",
+   "rubber_tire",
+   "rim"
+  ],
+  "bbox": {
+   "min": [
+    -1.18,
+    0,
+    -2.66
+   ],
+   "max": [
+    1.12,
+    2.39,
+    2.661
+   ],
+   "size": [
+    2.3,
+    2.39,
+    5.321
+   ]
+  },
+  "tris": 25668,
+  "size": 1848728
+ }
+}

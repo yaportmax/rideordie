@@ -24,7 +24,9 @@ const summary = (won) => `({ won: ${won}, cash: ${won ? 9400 : 2380}, breakdown:
   distance: ${won ? 60000 : 18400}, time: ${won ? 1510 : 742}, kills: ${won ? 212 : 64}, crashKills: ${won ? 38 : 11}, bestStreak: ${won ? 9 : 5}, shots: 1840, hits: 812, cause: '${won ? 'VICTORY' : 'TRUCK DESTROYED'}', biome: '${won ? 'THE DAM' : 'RED CANYON'}', minibosses: [] })`;
 
 const steps = [
-  ['title', `window.__app.title(); ${sleep(2600)}`],
+  ['title', `window.__app.title(); ${sleep(3200)}`],
+  ['title_shot1', `(() => { const T = window.__app.game.garage.title; T.shot = 1; T.shotT = 2.5; })(); ${sleep(900)}`],
+  ['title_shot2', `(() => { const T = window.__app.game.garage.title; T.shot = 2; T.shotT = 2.5; })(); ${sleep(900)}`],
   ['solo_pick', `document.querySelector('[data-act=solo]').click(); ${sleep(900)}`],
   ['garage_truck', `window.__app.ui.modalCancel?.(); ${richProfile} window.__app.soloRole = 'driver'; window.__app.mode = 'solo'; window.__app.garage(); ${sleep(3500)}`],
   ['garage_truck_t3', `${sel('truck_t3')} ${sleep(1500)}`],

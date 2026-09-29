@@ -261,6 +261,9 @@ export class CrewView {
         this.model.position.z += this.driverShift; this.model.updateMatrixWorld(true);
       }
       const rot = -this.steer * 2.6;
+      // the wheel itself turns with the hands (trucks whose wheel is a separate node under the socket)
+      if (this.wheelMesh === undefined) this.wheelMesh = wheel.getObjectByName('steering_wheel_mesh') || null;
+      if (this.wheelMesh) this.wheelMesh.rotation.z = rot;
       for (const [side, base] of [['Left', 0.84], ['Right', 2.3]]) {
         const a = base + rot, R = 0.18;
         _t.set(Math.cos(a) * R, Math.sin(a) * R, 0).applyMatrix4(wheel.matrixWorld);

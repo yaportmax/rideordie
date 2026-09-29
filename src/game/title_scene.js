@@ -8,6 +8,7 @@ import { makeCarState } from '../view/car_state.js';
 import { CrewView } from '../view/crew_view.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { PuffSystem, Tracers, MuzzleFlash, fxTex } from './menu_fx.js';
+import { warmScene, warmGroup } from './menu_post.js';
 
 const V = 24;                          // apparent road speed (m/s)
 const WRAP = 12;                       // ground/road texture period (m): the scroll wraps here
@@ -29,7 +30,7 @@ void main() {
   vec3 h = mix(horFar, hor, pow(sd, 3.0));
   vec3 c = mix(h, mid, smoothstep(0.0, 0.16, y));
   c = mix(c, zen, smoothstep(0.1, 0.6, y));
-  c += vec3(1.3, 0.55, 0.18) * pow(sd, 18.0) * 1.2 + vec3(1.0, 0.5, 0.2) * pow(sd, 4.0) * 0.35;
+  c += vec3(1.3, 0.55, 0.18) * pow(sd, 22.0) * 0.9 + vec3(1.0, 0.5, 0.2) * pow(sd, 5.0) * 0.25;
   // thin stratus bands lit from below near the sun
   vec2 cp = vec2(atan(d.x, -d.z) * 3.0, y * 26.0);
   float cl = smoothstep(0.52, 0.8, fbm(cp * vec2(1.0, 1.0) + vec2(uTime * 0.004, 0.0))) * smoothstep(0.015, 0.06, y) * (1.0 - smoothstep(0.1, 0.28, y));
@@ -37,7 +38,7 @@ void main() {
   c = mix(c, clc, cl * 0.85);
   // sun disc
   float disc = smoothstep(0.99955, 0.99975, sd);
-  c += vec3(30.0, 17.0, 7.0) * disc;
+  c += vec3(14.0, 8.0, 3.2) * disc;
   // below the horizon: haze colour (hidden by the ground anyway)
   c = mix(c, h * 0.6, smoothstep(0.0, -0.05, y));
   gl_FragColor = vec4(c * uHot, 1.0);
@@ -91,7 +92,8 @@ export class TitleScene {
     const road = new THREE.Mesh(new THREE.PlaneGeometry(9, L).rotateX(-Math.PI / 2), this.roadMat); road.receiveShadow = true; this.scroll.add(road);
     // fx
     this.dust = new PuffSystem(520, { tex: 'dust_puff' });
-    this.dust.setLight(SUN_DIR, new THREE.Color(2.6, 1.25, 0.55), new THREE.Color(0.42, 0.3, 0.3));
+    this.dust.setLight(SUN_DIR, new THREE.Color(1.5, 0.75, 0.36), new THREE.Color(0.34, 0.25, 0.25));
+    this.dust.mat.uniforms.uFwd.value = 1.4;
     this.dust.mat.uniforms.uTint.value.set(1.0, 0.86, 0.72);
     this.dust.wind.set(0, 0, -V * 0.8);
     s.add(this.dust.mesh);
@@ -135,20 +137,26 @@ float paint(vec2 r) {
     ];
   }
 
+  /** Core set (vehicles are preloaded at boot) is usable at once; roadside props + far landmarks stream in and are
+   *  compiled off-scene before they are added, so they never hitch the chase. */
   async load() {
     const urls = [...PROPS.map((p) => `/models/props/${p}.glb`), ...STRUCTS.map((p) => `/models/structures/${p}.glb`)];
-    await Assets.preload(urls);
-    this._buildProps();
+    this.propsLoaded = Assets.preload(urls).then(async () => {
+      const g = new THREE.Group();
+      this._buildProps(g);
+      if (this.post) await warmGroup(this.renderer, g, this.camera, this.scene, this.post);
+      this.scene.add(g);
+    });
     this.ready = true;
   }
 
-  _buildProps() {
+  _buildProps(root) {
     const put = (id, x, z, rot = Math.random() * 6.28, sc = 1, shadow = false) => {
       const kind = id.startsWith('mesa') || id.startsWith('hoodoo') ? 'structures' : 'props';
       const m = Assets.clone(`/models/${kind}/${id}.glb`); if (!m) return null;
       m.position.set(x, 0, z); m.rotation.y = rot; m.scale.setScalar(sc);
       m.traverse((o) => { if (o.isMesh) { o.castShadow = shadow; o.receiveShadow = true; } });
-      this.scene.add(m); return m;
+      root.add(m); return m;
     };
     // far landmarks (static; parallax at 500+ m is negligible)
     const far = [['mesa_a', -520, -900, 0.3, 1.6], ['mesa_b', 380, -1050, 2.2, 1.8], ['mesa_a', 900, -700, 1.2, 1.3], ['mesa_b', -1100, -600, 0.8, 1.5], ['hoodoo_a', 210, -420, 0.2, 1.4], ['hoodoo_b', -260, -380, 1.9, 1.2],
@@ -251,14 +259,14 @@ float paint(vec2 r) {
       cr.update(dt, { alive: true, aimYaw, aimPitch, fire: !!c.firing, crouch: false, reloading: false, quat, vel: st.vel, steer: 0 });
     }
     // dust from the rear wheels
-    const rate = 10 + 44 * c.sand;
+    const rate = 6 + 30 * c.sand;
     c.emit += dt * rate;
     while (c.emit >= 1) {
       c.emit -= 1;
       const w = c.spec.wheels[2 + ((Math.random() * 2) | 0)] || c.spec.wheels[0];
       _v.set(w.x * 1.05, 0.25, w.z - 0.3).applyQuaternion(quat).add(c.view.root.position);
       _v2.set((Math.random() - 0.5) * 2.4, 0.6 + Math.random() * 1.6, -V * (0.25 + Math.random() * 0.2));
-      this.dust.emit(_v, _v2, { size: 0.9 + c.sand * 0.9, grow: 3.6 + c.sand * 3, life: 1.8 + c.sand * 1.6, alpha: 0.22 + c.sand * 0.34, drag: 1.1, rise: 0.55 });
+      this.dust.emit(_v, _v2, { size: 0.8 + c.sand * 0.8, grow: 3.2 + c.sand * 2.6, life: 1.5 + c.sand * 1.4, alpha: 0.14 + c.sand * 0.26, drag: 1.1, rise: 0.55 });
     }
   }
 
@@ -323,10 +331,7 @@ float paint(vec2 r) {
   }
 
   /** Programs + textures uploaded before the first visible frame. */
-  async warm(post) {
-    try { await this.renderer.compileAsync(this.scene, this.camera, this.scene); } catch { /* ignore */ }
-    post?.warm(this.scene, this.camera);
-  }
+  async warm(post) { this.post = post; await warmScene(this.renderer, this.scene, this.camera, post); }
 }
 
 function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }

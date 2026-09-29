@@ -13,6 +13,8 @@ import { buildPlayerSpec, gunnerLoadout } from './run_setup.js';
 import { ChaseCam, GunnerCam } from '../view/camera_rig.js';
 import { Cockpit } from '../view/cockpit.js';
 import { ThreatHUD } from '../ui/threat_hud.js';
+import { Banner } from '../ui/banner.js';
+import { HazardMarks } from '../view/hazard_marks.js';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../net/snapshot.js';
 import { WEAPONS } from '../data/weapons.js';
 import { Road } from '../world/road.js';
@@ -266,21 +268,27 @@ export class Run {
       this.gunner.update(dt, cmds.gunner, aimCam, carYaw, { carVel: pst.vel });
     }
     // world view
-    const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
+    const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5 && !this.introOutside, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
     const evs = this.events.concat(this.localEvents.filter(() => !this.sim)); // in solo the local events already went through sim.emit
     this.localEvents.length = 0;
     { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) (window.__spikes || (window.__spikes = [])).push({ what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
     this.wv.updateBoss(this.bossState, dt);
+    // roadblock telegraphing (signs, flares, breakable barricades) + cinematic banners (warlord intro, roadblock countdown)
+    (this.hazMarks || (this.hazMarks = new HazardMarks(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)))))).update(dt, this.playerS || 0);
+    (this.banner || (this.banner = new Banner(g.hud.el))).update(dt, this.playerS || 0);
     if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
     g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
-    const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson } : null;
+    const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside } : null;
     this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
     this.allEvents = evs;
     // first-person cockpit (local human driver): mirrors, gauges, windshield damage
     if (this.role === 'driver' && !this.cockpit) { const v = this.wv.viewMap.get(1); if (v && v.model) { this.cockpit = new Cockpit(v); g.warmMeshes?.(this.cockpit.meshes); } }
     if (this.cockpit) for (const e of evs) this.cockpit.onEvent(e);
     for (const e of evs) {
-      if (e.t === 'minibossSpawn') { g.hud.message(e.name, 2600, '#ff5a2a'); }
+      if (e.t === 'minibossSpawn') { this.banner.miniboss(e); g.audio?.stinger('danger_riser'); }
+      else if (e.t === 'minibossLost') g.hud.message(`${e.name} FELL BEHIND`, 2200, '#bbbbbb');
+      else if (e.t === 'hazardWarn') { this.banner.hazard(e); g.audio?.ui('countdown_beep'); }
+      else if (e.t === 'barrierBreak') this.hazMarks.handleEvent(e);
       else if (e.t === 'minibossDown') { g.hud.message(`${e.name} WRECKED  +$${ECONOMY.minibossBounty[e.index] || ''}`, 2800, '#ffc21a'); }
       else if (e.t === 'bossSpawn') { g.hud.message('THE LEVIATHAN', 3500, '#ff3a1a'); this.abridge?.bossIntro(); }
       else if (e.t === 'bossPhase' && e.phase === 3) g.hud.message('REACTOR EXPOSED!', 2200, '#ffc21a');
@@ -399,25 +407,73 @@ export class Run {
     if (co) { const q = pst.quat; g.camera.position.set(...co.offset).applyQuaternion(q).add(pst.pos); _v.set(...co.look).applyQuaternion(q).add(pst.pos); g.camera.lookAt(_v); if (co.fov) { g.camera.fov = co.fov; g.camera.updateProjectionMatrix(); } return; }
     const dying = this.sim ? this.sim.state === 'dying' || this.sim.state === 'over' : this.simState === 'dying' || this.simState === 'over';
     if (dying && !this.sim?.won) {
+      // pulled out of your own eyes: the first-person pose at the moment of death blends into a slow orbit around the wreck
+      if (!this.deathFrom) {
+        this.deathFrom = { pos: g.camera.position.clone(), quat: g.camera.quaternion.clone(), fov: g.camera.fov };
+        _f.set(0, 0, 1).applyQuaternion(pst.quat); this.deathYaw = Math.atan2(-_f.x, -_f.z) + 0.6; // start behind-left of the truck
+      }
       this.deathCamT = (this.deathCamT || 0) + dt;
-      const a = (this.deathYaw ??= Math.atan2(g.camera.position.x - pst.pos.x, g.camera.position.z - pst.pos.z)) + this.deathCamT * 0.35;
+      const a = this.deathYaw + this.deathCamT * 0.3;
       const r = 9 + this.deathCamT * 1.2;
       g.camera.position.set(pst.pos.x + Math.sin(a) * r, pst.pos.y + 3.5 + this.deathCamT * 0.5, pst.pos.z + Math.cos(a) * r);
       g.camera.lookAt(pst.pos.x, pst.pos.y + 0.8, pst.pos.z);
+      const k = smooth01(this.deathCamT / 1.4);
+      if (k < 1) {
+        g.camera.position.lerpVectors(this.deathFrom.pos, g.camera.position, k);
+        g.camera.quaternion.slerpQuaternions(this.deathFrom.quat, g.camera.quaternion, k);
+      }
+      const fov = lerp(this.deathFrom.fov, 60, k); if (Math.abs(g.camera.fov - fov) > 0.05) { g.camera.fov = fov; g.camera.updateProjectionMatrix(); }
+      if (g.camera.near !== 0.15) { g.camera.near = 0.15; g.camera.updateProjectionMatrix(); }
+      this.introOutside = true; this.cockpit?.setActive(false); // show our own crew/truck from outside
       return;
     }
+    const intro = this._introK(dt);
     if (this.role === 'driver') {
       const cockpitEye = this._cockpitEye(dt, pst, _t2);
       const ck = this.cockpit, lookBackEye = ck && cmds.driver.lookBack && this.chase.mode === 0 ? ck.lookBackWorld(_t3) : null;
       this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, lookBack: !!lookBackEye, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
       if (cmds.driver.cameraToggle) this.chase.toggle();
-      if (ck) { ck.setActive(this.chase.mode === 0 && !lookBackEye); ck.update(dt, this.hud2, g.look?.night ?? 0); }
+      if (ck) { ck.setActive(this.chase.mode === 0 && !lookBackEye && !this.introOutside); ck.update(dt, this.hud2, g.look?.night ?? 0); }
+      g.audio?.setCabin?.(ck && ck.active ? 1 : 0);
       this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion);
     } else if (this.gunner) {
+      g.audio?.setCabin?.(0); if (this.abridge) this.abridge.windGain = this.gcam.firstPerson ? 1.3 : 1; // standing in the open bed: the wind roars
       const w = this.gunner.weapon;
       const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
       this.camDir.copy(dir);
     }
+    if (intro < 1) this._introCam(intro, pst);
+  }
+
+  /** 0..1 progress of the start-of-run camera move (1 = done / first person). */
+  _introK(dt) {
+    if (this.introDone) return 1;
+    const counting = this.sim ? this.sim.state === 'countdown' : !this.goSeen;
+    if (!counting) { this.introDone = true; this.introOutside = false; return 1; }
+    if (this.sim) return this.groundOk ? clamp(1 - this.countdown / 3.2, 0, 1) : 0;
+    this.introT = (this.introT || 0) + dt; return clamp(this.introT / 4, 0, 1);
+  }
+  /** Countdown fly-by: front-right low -> alongside -> behind the gunner -> into the first-person eye (the final pose is the
+   *  normal first-person camera computed just before, so the hand-off is seamless). */
+  _introCam(k, pst) {
+    const cam = this.g.camera;
+    const fpPos = _t3.copy(cam.position), fpQuat = _q2.copy(cam.quaternion), fpFov = cam.fov;
+    const L = this.spec.length || 5;
+    const keys = [[-4.8, 1.0, L * 0.5 + 4.5], [-5.6, 1.9, -0.8], [-1.2, 2.9, -L * 0.5 - 5.5]];
+    const looks = [[0, 1.0, 0.6], [0, 1.4, -0.2], [0, 1.9, 1.5]];
+    const u = clamp(k / 0.72, 0, 1), seg = Math.min(1, u * 2 | 0), f = smooth01(u * 2 - seg);
+    const a = keys[seg], b = keys[seg + 1], la = looks[seg], lb = looks[seg + 1];
+    const up = pst.ride.restComHeight;
+    _v.set(lerp(a[0], b[0], f), lerp(a[1], b[1], f) - up, lerp(a[2], b[2], f)).applyQuaternion(pst.quat).add(pst.pos);
+    _f.set(lerp(la[0], lb[0], f), lerp(la[1], lb[1], f) - up, lerp(la[2], lb[2], f)).applyQuaternion(pst.quat).add(pst.pos);
+    cam.position.copy(_v); cam.lookAt(_f);
+    this.introOutside = k < 0.86;
+    if (k > 0.72) {
+      const t = smooth01((k - 0.72) / 0.28);
+      cam.position.lerp(fpPos, t); cam.quaternion.slerp(fpQuat, t);
+      cam.fov = lerp(52, fpFov, t);
+    } else cam.fov = 52;
+    cam.updateProjectionMatrix();
   }
 
   /** Driver's eye: the (hidden) head of the seated driver, expressed in the truck frame and smoothed there (no lag, no judder). */
@@ -466,6 +522,7 @@ export class Run {
     if (P) { d.nitro01 = P.veh.nitro / Math.max(0.001, P.veh.nitroMax); d.dhp01 = P.crew.driver.hp / P.crew.driver.max; d.ghp01 = P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1; }
     else if (this.hud && this.hud.dhp01 !== undefined) { d.dhp01 = this.hud.dhp01; d.ghp01 = this.hud.ghp01; d.nitro01 = this.hud.nitro01; d.hp01 = this.hud.hp01; }
     d.arrows = this.threatHud ? [] : this._threatArrows(pst); // the ThreatHUD chevrons replace the old edge arrows
+    if (this.gunner && this.humanGunner && this.role !== 'driver') { d.gunner = this.gunner; d.events = this.allEvents; d.cam = this.g.camera; d.playerId = this.playerId; }   // GunnerHud
     return d;
   }
 
@@ -544,7 +601,7 @@ export class Run {
     if (m.t === 'events') { (this.netEvents || (this.netEvents = [])).push(...m.e); return; }
     if (m.t === 'feed') { this.g.hud.feed(m.text, m.crash ? '#ffc21a' : '#fff'); if (this.gunner) this.g.hud.hitMarker(true); return; }
     if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; return; }
-    if (m.t === 'go') { this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }
+    if (m.t === 'go') { this.goSeen = true; this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }
     if (this.sim) {
       if (m.t === 'g') { const r = this.gunnerRemote; r.yaw = m.y; r.pitch = m.p; r.fire = !!m.f; r.crouch = !!m.c; r.ads = !!m.a; r.weapon = m.w; r.reloading = !!m.r; r.x = m.x; r.z = m.z; }
       else if (m.t === 'hit') this.sim.applyHit(m.h);
@@ -570,6 +627,7 @@ export class Run {
 
   dispose() {
     this.cockpit?.dispose(); this.cockpit = null; this.threatHud?.dispose(); this.threatHud = null;
+    this.banner?.dispose(); this.banner = null; this.hazMarks?.dispose(); this.hazMarks = null;
     this.g.fx?.clear();
     try { this.dressing?.dispose(); } catch (e) { console.warn(e); }
     this.structures?.dispose();
@@ -598,3 +656,5 @@ function g_kill(run, e) {
   run.g.hud.hitMarker(true);
   if (run.net) run.net.sendJSON({ t: 'feed', text: label, crash: !!e.crash });
 }
+
+function smooth01(x) { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); }

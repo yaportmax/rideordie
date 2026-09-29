@@ -7,9 +7,24 @@ import { rng, clamp } from '../core/util.js';
 import { RAMP, ROADBLOCK } from '../data/features.js';
 
 const AHEAD = 420, BEHIND = 180;
+export const WARN_AT = 265; // metres: roadblocks are announced this far ahead
 /** Roadblock gap (same formula as the dressing's wreck line): lateral centre + width of the drivable gap. */
 export const RB_GAP_W = 4.4;
 export const rbGapD = (f) => clamp(f.gap * 2.2, -4.6, 4.6);
+/** Soft strips either side of the gap (|d - gapD| in [RB_GAP_W/2, RB_SOFT]) hold breakable barricades instead of wrecks. */
+export const RB_SOFT = 5.2;
+export const RB_BARRICADE_S = 3.5;   // along-road offset of the barricade line from f.s0
+/** Deterministic barricade layout for a roadblock: [{i, d (lateral centre), hw (half width), s}] (shared by sim + view). */
+export function rbBarricades(f) {
+  const out = [], g = rbGapD(f), inner = RB_GAP_W / 2 + 0.1;
+  for (const sd of [-1, 1]) {
+    const a = g + sd * inner, b = clamp(g + sd * RB_SOFT, -HALF_ROAD - 0.6, HALF_ROAD + 0.6);
+    const w = Math.abs(b - a); if (w < 0.8) continue;
+    const n = Math.max(1, Math.round(w / 1.55));
+    for (let k = 0; k < n; k++) { const d = a + (b - a) * ((k + 0.5) / n); out.push({ i: out.length, d, hw: w / n / 2, s: f.s0 + RB_BARRICADE_S }); }
+  }
+  return out;
+}
 const V = THREE.Vector3;
 
 export class Hazards {
@@ -17,6 +32,7 @@ export class Hazards {
     this.active = new Map();   // feature -> {bodies:[rb]}
     this.oil = []; this.mines = []; this.enemyMines = [];
     this.pending = []; this._t = 0;
+    this.warned = new Set();   // roadblocks already announced
   }
 
   update(dt, sim) {
@@ -24,6 +40,34 @@ export class Hazards {
     const P = sim.player; if (!P) return;
     this._t += dt;
     if (sim.tick % 30 === 0) this._sync(sim, P.s);
+    // roadblock ahead: announce it ~260 m out (HUD countdown with the side of the gap; signs/flares are drawn by the view)
+    if (sim.tick % 15 === 0 && sim.state === 'run') {
+      for (const f of sim.road.featuresIn(P.s + 20, P.s + WARN_AT, 'roadblock')) {
+        if (this.warned.has(f.s0) || f.s0 < P.s) continue;
+        this.warned.add(f.s0);
+        sim.emit({ t: 'hazardWarn', kind: 'roadblock', s0: f.s0, gapD: rbGapD(f), dist: f.s0 - P.s });
+      }
+    }
+    // breakable barricades: any car ploughing through one smashes it (speed + a little hull), no hard stop
+    if ((sim.tick & 1) === 0) for (const [f, rec] of this.active) {
+      if (f.type !== 'roadblock' || !rec.barricades) continue;
+      for (const b of rec.barricades) {
+        if (b.broken) continue;
+        for (const car of sim.cars.values()) {
+          if (car.held || car.exploded) continue;
+          const ds = car.s - b.s, half = car.spec.length / 2;
+          if (ds < -half - 0.6 || ds > half + 0.6 || Math.abs(car.d - b.d) > b.hw + car.spec.width / 2 - 0.1) continue;
+          b.broken = true;
+          const v = car.veh.vel, m = car.veh.mass, k = car.kind === 'player' ? 0.15 : 0.22;
+          car.veh.body.applyImpulse({ x: -v.x * m * k, y: m * 0.6, z: -v.z * m * k }, true);
+          car.veh.body.applyTorqueImpulse({ x: 0, y: (Math.random() - 0.5) * m * 1.2, z: 0 }, true);
+          if (car.kind === 'player') sim.damageCar(car, car.maxHp * 0.03, { cause: 'crash', src: -1 });
+          const p = sim.road.pointAt(b.s, b.d, {});
+          sim.emit({ t: 'barrierBreak', s0: f.s0, i: b.i, pos: [p.x, p.y + 0.6, p.z], vel: [v.x, v.y, v.z], id: car.id });
+          break;
+        }
+      }
+    }
     // boost pads
     for (const car of sim.cars.values()) {
       if (car.held || car.exploded) continue;
@@ -77,7 +121,7 @@ export class Hazards {
     sim.emit({ t: 'mineDrop', pos: p.toArray() });
   }
   roadblockNear(p) {
-    if (this.sim?.structures?.roadblockNear(p)) return true; for (const [f, rec] of this.active) if (rec.center) { const dx = p.x - rec.center.x, dz = p.z - rec.center.z; if (dx * dx + dz * dz < 18 * 18) return true; } return false; }
+    if (this.sim?.structures?.roadblockNear(p)) return true; for (const [, rec] of this.active) if (rec.center) { const dx = p.x - rec.center.x, dz = p.z - rec.center.z; if (dx * dx + dz * dz < 18 * 18) return true; } return false; }
   oilAt(x, z) {
     for (const o of this.oil) { const dx = x - o.pos.x, dz = z - o.pos.z; if (dx * dx + dz * dz < o.r * o.r) return true; }
     return false;
@@ -122,12 +166,13 @@ export class Hazards {
       return { bodies };
     }
     if (f.type === 'roadblock') {
-      if (sim.structures) return { bodies: [] }; // Dressing supplies the real wreck-line collision
+      const barricades = rbBarricades(f).map((b) => ({ ...b, broken: false }));
+      if (sim.structures) return { bodies: [], barricades }; // Dressing supplies the real wreck-line collision (solid only beyond RB_SOFT)
       // headless stand-in with the same layout as the dressing: a 4.4 m gap centred on clamp(gap * 2.2, ±4.6), wrecks either side
       const r = rng(f.seed >>> 0);
-      const gapD = rbGapD(f), hw = RB_GAP_W / 2;
+      const gapD = rbGapD(f);
       for (const side of [-1, 1]) {
-        for (let d = gapD + side * (hw + ROADBLOCK.half[0]); Math.abs(d) < HALF_ROAD + 1.5; d += side * 3.4) {
+        for (let d = gapD + side * (RB_SOFT + ROADBLOCK.half[0]); Math.abs(d) < HALF_ROAD + 1.5 + ROADBLOCK.half[0]; d += side * 3.4) {
           const s = f.s0 + 4 + r.range(-1.5, 1.5);
           const sm = road.sample(s);
           const yaw = sm.th + r.range(-0.2, 0.2);
@@ -136,7 +181,7 @@ export class Hazards {
         }
       }
       const c = road.sample(f.s0 + 5);
-      return { bodies, center: new V(c.x, c.y, c.z) };
+      return { bodies, center: new V(c.x, c.y, c.z), barricades };
     }
     if (f.type === 'guard') {
       const seg = 6;

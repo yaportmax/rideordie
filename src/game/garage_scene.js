@@ -6,12 +6,13 @@
 //   'title'  - TitleScene (the dusk highway chase behind the title menu).
 // Game renders this in its 'garage' mode (Game.showGarage); the App picks the stage.
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CarView } from '../view/car_view.js';
 import { makeCarState } from '../view/car_state.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { CrewView } from '../view/crew_view.js';
 import { WeaponView } from '../view/weapon_view.js';
-import { MenuPost } from './menu_post.js';
+import { MenuPost, warmScene } from './menu_post.js';
 import { TitleScene } from './title_scene.js';
 import { buildGarageSet, BENCH, SUN_DIR, DOOR, BACK_Z } from './garage_env.js';
 import { PuffSystem } from './menu_fx.js';
@@ -37,10 +38,13 @@ export class GarageScene {
   constructor(renderer) {
     this.renderer = renderer;
     this.post = new MenuPost(renderer);
-    this.post.setLook({ exposure: 1.0, vignette: 0.6, grain: 0.03, bloom: { strength: 0.5, radius: 0.55, threshold: 0.95 } });
+    this.post.setLook({ exposure: 0.8, vignette: 0.6, grain: 0.03, bloom: { strength: 0.38, radius: 0.5, threshold: 1.25 } });
     const s = this.scene = new THREE.Scene();
     s.background = new THREE.Color(0x0b0806);
-    s.fog = new THREE.FogExp2(0x6a3a22, 0.0042);
+    s.fog = new THREE.FogExp2(0x5a3a28, 0.0042);
+    // placeholder PMREM with the same size/defines as the captured one below: programs never recompile when it is swapped
+    const pm = new THREE.PMREMGenerator(renderer);
+    s.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; s.environmentIntensity = 0.25; pm.dispose();
     this.camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 1500);
     this.camera.layers.enable(REFL);
     this.stage = 'garage'; this.title = null; this.fade = 1; this.fadeTo = 0; this.pendingStage = null;
@@ -57,7 +61,7 @@ export class GarageScene {
     floor.position.set(0, 0, 1); floor.receiveShadow = true; s.add(floor);
     // ---------------------------------------------------------------- turntable: steel disc, amber LED ring
     const tt = new THREE.Group(); s.add(tt);
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.32, 0.14, 96), new THREE.MeshStandardMaterial({ color: 0x3a3632, metalness: 0.85, roughness: 0.42, map: diamondPlate(), bumpMap: diamondPlate(true), bumpScale: 2 }));
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.32, 0.14, 96), new THREE.MeshStandardMaterial({ color: 0x5a5650, metalness: 0.9, roughness: 0.38, map: discTex(), roughnessMap: discTex(true) }));
     disc.position.y = 0.07; disc.receiveShadow = true; disc.castShadow = false; tt.add(disc);
     this.ringMat = new THREE.MeshStandardMaterial({ color: 0x1a1206, emissive: 0xffa21a, emissiveIntensity: 4 });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(4.27, 0.028, 8, 160).rotateX(Math.PI / 2), this.ringMat); ring.position.y = 0.145; tt.add(ring);
@@ -77,13 +81,13 @@ export class GarageScene {
     this.preview = {};
     this.benchWeapon = null; this.benchId = null; this.benchDrop = 0;
     this.drop = 0;
-    this.ready = this.set.propsReady.then(() => this._envCapture()).then(() => this._warm());
+    this.ready = this.set.propsReady.then(() => this._warm()).then(() => this._envCapture());
   }
 
   _lights() {
     const s = this.scene;
     // low sun through the door: long golden patch across the floor, backlight on the truck
-    const sun = this.sun = new THREE.DirectionalLight(0xffa052, 6.5);
+    const sun = this.sun = new THREE.DirectionalLight(0xffb070, 3.6);
     sun.position.copy(SUN_DIR).multiplyScalar(60).add(new THREE.Vector3(3, 0, -4)); sun.target.position.set(3, 0, 2);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04;
     const c = sun.shadow.camera; c.left = -20; c.right = 20; c.top = 20; c.bottom = -20; c.near = 20; c.far = 110;
@@ -97,7 +101,7 @@ export class GarageScene {
     const lamp2 = new THREE.SpotLight(0xffb870, 160, 0, 0.75, 0.9, 2); lamp2.position.set(3.4, 6.2, 1.8); lamp2.target.position.set(3, 0, 2.5); s.add(lamp2, lamp2.target);
     const bench = this.benchLight = new THREE.SpotLight(0xffe0b8, 60, 0, 0.6, 0.7, 2); bench.position.set(BENCH.x + 0.3, 2.4, BENCH.z); bench.target.position.copy(BENCH); s.add(bench, bench.target);
     const neon = new THREE.PointLight(0xff7a3a, 26, 14, 2); neon.position.set(-14, 5.2, -4.2); s.add(neon);
-    s.add(new THREE.HemisphereLight(0x6a5a52, 0x1a120c, 0.55));
+    s.add(new THREE.HemisphereLight(0x6a5e58, 0x1a120c, 0.45));
   }
 
   /** Environment reflections from the finished set (cube capture -> PMREM), so paint and chrome reflect this room. */
@@ -109,8 +113,9 @@ export class GarageScene {
       this.scene.add(cc); cc.update(this.renderer, this.scene); this.scene.remove(cc);
       this.turntable.visible = tt;
       const pm = new THREE.PMREMGenerator(this.renderer);
-      this.scene.environment = pm.fromCubemap(rt.texture).texture; this.scene.environmentIntensity = 0.9;
-      pm.dispose(); rt.dispose();
+      const old = this.scene.environment;
+      this.scene.environment = pm.fromCubemap(rt.texture).texture; this.scene.environmentIntensity = 0.8;
+      pm.dispose(); rt.dispose(); old?.dispose();
     } catch (e) { console.warn('garage env capture', e); }
   }
 
@@ -122,12 +127,7 @@ export class GarageScene {
     for (const t of [0, 1, 2, 3]) g.add(new CrewView('hero_gunner', { role: 'gunner', weapon: 'rifle', armorTier: t }).root);
     g.add(new CrewView('hero_driver', { role: 'driver' }).root);
     this.scene.add(g);
-    const r = this.renderer, prev = r.getRenderTarget(), tm = r.toneMapping;
-    r.toneMapping = THREE.NoToneMapping; r.setRenderTarget(this.post.rt);
-    let p; try { p = r.compileAsync(this.scene, this.camera); } catch { p = Promise.resolve(); }
-    r.setRenderTarget(prev); r.toneMapping = tm;
-    try { await p; } catch { /* ignore */ }
-    this.post.warm(this.scene, this.camera);
+    await warmScene(this.renderer, this.scene, this.camera, this.post);
     this.scene.remove(g);
     this.warmed = true;
   }
@@ -135,13 +135,16 @@ export class GarageScene {
   // ------------------------------------------------------------------------------------------------ stages
   /** 'garage' | 'title'. Cross-fades through black. */
   setStage(stage) {
-    if (stage === 'title' && !this.title) {
-      this.title = new TitleScene(this.renderer);
-      this.titleReady = this.title.load().then(() => { this.title.setHero(this.base.truck, this.base.paint, this.base.weapon); return this.title.warm(this.post); });
-    }
+    if (stage === 'title') this._initTitle();
     if (stage === this.stage && !this.pendingStage) return;
     if (this.fade > 0.99 && !this.pendingStage) { this._enterStage(stage); return; }
     this.pendingStage = stage; this.fadeTo = 1;
+  }
+  /** The title chase is built (and its props start streaming) as early as possible: the first thing a player sees. */
+  _initTitle() {
+    if (this.title) return;
+    this.title = new TitleScene(this.renderer);
+    this.titleReady = this.title.load().then(() => { this.title.setHero(this.base.truck, this.base.paint, this.base.weapon); return this.title.warm(this.post); });
   }
   _enterStage(stage) {
     this.stage = stage; this.pendingStage = null;
@@ -152,7 +155,7 @@ export class GarageScene {
       this.fade = 1; this.fadeTo = 1;
       this.titleReady.then(() => { if (this.stage === 'title') this.fadeTo = 0; });
     } else {
-      this.post.setLook({ exposure: 1.0, vignette: 0.6, grain: 0.03, bloom: { strength: 0.5, radius: 0.55, threshold: 0.95 } });
+      this.post.setLook({ exposure: 0.8, vignette: 0.6, grain: 0.03, bloom: { strength: 0.38, radius: 0.5, threshold: 1.25 } });
       this.fadeTo = 0;
       this._snapCamera();
     }
@@ -208,7 +211,9 @@ export class GarageScene {
     this.state.pos.set(0, this.state.ride.restComHeight, 0);
     for (let i = 0; i < this.state.L.length; i++) this.state.L[i] = this.state.ride.restLen;
     this.view.update(this.state, 0);
-    this.view.setLights?.(false, 0.6);
+    this.view.setLights?.(false, 0);
+    for (const m of this.view.headlights || []) m.emissiveIntensity = 0.7;
+    for (const m of this.view.taillights || []) m.emissiveIntensity = 0.5;
     this.turntable.add(this.view.root);
     this.view.root.traverse((o) => o.layers.enable(REFL));
     this.paint = null; // re-tint below
@@ -295,7 +300,7 @@ export class GarageScene {
     }
     // ring pulse after purchases
     this.ringPulse = Math.max(0, (this.ringPulse || 0) - dt * 1.4);
-    this.ringMat.emissiveIntensity = 4 + Math.sin(this.t * 2) * 0.4 + this.ringPulse * 18;
+    this.ringMat.emissiveIntensity = 2.2 + Math.sin(this.t * 2) * 0.3 + this.ringPulse * 14;
     // set animation
     this.set.motes.mat.uniforms.uTime.value = this.t;
     this.set.motes.mat.uniforms.uPx.value = this.renderer.getPixelRatio() * innerHeight / 1080 * 2.2;
@@ -410,7 +415,7 @@ function makeFloorMaterial(refl) {
         vec3 rc = textureLod(uRefl, ruv, 1.0 + rough * 3.5).rgb;
         vec3 vdir = normalize(vViewPosition);
         float fres = 0.18 + 0.82 * pow(1.0 - abs(dot(normal, -vdir)), 4.0);
-        float k = (1.0 - smoothstep(0.35, 0.95, rough)) * 0.55 * fres;
+        float k = (1.0 - smoothstep(0.35, 0.95, rough)) * 0.4 * fres;
         outgoingLight = outgoingLight * (1.0 - k * 0.35) + rc * k;
       }
       #include <opaque_fragment>`);
@@ -419,15 +424,20 @@ function makeFloorMaterial(refl) {
   return m;
 }
 
-function diamondPlate(bump = false) {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = bump ? '#000' : '#5a5650'; g.fillRect(0, 0, 128, 128);
-  for (let y = 0; y < 128; y += 16) for (let x = 0; x < 128; x += 16) {
-    const o = (y / 16) % 2 ? 8 : 0;
-    g.save(); g.translate(x + o + 4, y + 8); g.rotate(((y / 16) % 2 ? 1 : -1) * 0.7);
-    g.fillStyle = bump ? '#fff' : '#7a766e'; g.fillRect(-5, -1.5, 10, 3); g.restore();
+/** Turntable top: dark steel with concentric machining rings, a darker inner disc and radial seams (no moire at a distance). */
+function discTex(rough = false) {
+  const n = 512, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'), m = n / 2;
+  g.fillStyle = rough ? '#8a8a8a' : '#6a655e'; g.fillRect(0, 0, n, n);
+  for (let r = 4; r < m; r += 3) {
+    const v = Math.random() < 0.5 ? 40 : 170;
+    g.strokeStyle = rough ? `rgba(${v},${v},${v},0.25)` : `rgba(${v},${v * 0.94},${v * 0.88},0.16)`;
+    g.lineWidth = 1.2; g.beginPath(); g.arc(m, m, r, 0, Math.PI * 2); g.stroke();
   }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10, 10); t.colorSpace = bump ? THREE.NoColorSpace : THREE.SRGBColorSpace; t.anisotropy = 8;
+  g.fillStyle = rough ? 'rgba(200,200,200,0.5)' : 'rgba(20,18,16,0.55)'; g.beginPath(); g.arc(m, m, m * 0.36, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = rough ? 'rgba(255,255,255,0.6)' : 'rgba(10,9,8,0.8)'; g.lineWidth = 3;
+  for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; g.beginPath(); g.moveTo(m + Math.cos(a) * m * 0.37, m + Math.sin(a) * m * 0.37); g.lineTo(m + Math.cos(a) * m * 0.99, m + Math.sin(a) * m * 0.99); g.stroke(); }
+  g.beginPath(); g.arc(m, m, m * 0.37, 0, Math.PI * 2); g.stroke();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = rough ? THREE.NoColorSpace : THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
 }

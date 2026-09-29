@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-29T09:54:14",
- "count": 64,
- "total_kb": 26935,
+ "generated": "2026-09-29T10:02:03",
+ "count": 67,
+ "total_kb": 27162,
  "conventions": "see README.md",
  "structures": [
   {
@@ -4042,6 +4042,153 @@
     "width": 112,
     "height": 110.0,
     "placement": "far backdrop, 60-400 m from the road"
+   }
+  },
+  {
+   "id": "rb_wreck_car",
+   "group": "other",
+   "file": "models/structures/rb_wreck_car.glb",
+   "tris": 882,
+   "collision_tris": 48,
+   "size_kb": 78.2,
+   "bbox_min": [
+    -2.35,
+    0.0,
+    0.9
+   ],
+   "bbox_max": [
+    2.17,
+    1.6,
+    6.65
+   ],
+   "dims": [
+    4.52,
+    1.6,
+    5.75
+   ],
+   "materials": [
+    "concrete",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike"
+   ],
+   "nodes": [
+    "concrete",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "collision"
+   ],
+   "sockets": {
+    "hw": [
+     2.4,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Roadblock module (4.8 m wide, x -2.40..2.40, road-aligned, origin road level at the module centre line z=0). Burnt coupe across the road, jersey barrier, tyres, drums. Visuals + collision never exceed |x| <= hw.",
+    "hw": 2.4
+   }
+  },
+  {
+   "id": "rb_wreck_small",
+   "group": "other",
+   "file": "models/structures/rb_wreck_small.glb",
+   "tris": 380,
+   "collision_tris": 24,
+   "size_kb": 35.9,
+   "bbox_min": [
+    -1.15,
+    0.0,
+    1.3
+   ],
+   "bbox_max": [
+    1.15,
+    1.27,
+    6.2
+   ],
+   "dims": [
+    2.3,
+    1.27,
+    4.9
+   ],
+   "materials": [
+    "concrete",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike"
+   ],
+   "nodes": [
+    "concrete",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "collision"
+   ],
+   "sockets": {
+    "hw": [
+     1.2,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Narrow roadblock module (2.4 m wide, x -1.20..1.20, road-aligned): jersey barrier across the road, tyre stack, drum, razor wire. Visuals + collision never exceed |x| <= hw.",
+    "hw": 1.2
+   }
+  },
+  {
+   "id": "rb_wreck_van",
+   "group": "other",
+   "file": "models/structures/rb_wreck_van.glb",
+   "tris": 1284,
+   "collision_tris": 48,
+   "size_kb": 113.3,
+   "bbox_min": [
+    -2.75,
+    -0.14,
+    1.19
+   ],
+   "bbox_max": [
+    2.57,
+    2.5,
+    6.72
+   ],
+   "dims": [
+    5.32,
+    2.63,
+    5.52
+   ],
+   "materials": [
+    "canvas",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust"
+   ],
+   "nodes": [
+    "canvas",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "hw": [
+     2.8,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Roadblock module (5.6 m wide, x -2.80..2.80, road-aligned). Overturned van on its side across the road, sandbags, drums, tyres. Visuals + collision never exceed |x| <= hw.",
+    "hw": 2.8
    }
   }
  ]

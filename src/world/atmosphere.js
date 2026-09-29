@@ -42,7 +42,7 @@ vec3 atmSky(vec3 dir) {
   float az = dot(dxz, sxz) * 0.5 + 0.5;
   col += uAtmGlow.rgb * pow(max(az, 1e-4), uAtmGlow.w) * exp(-h * uAtmHor.w);
   float cs = max(dot(dir, uAtmSun.xyz), 0.0);
-  col += uAtmHalo.rgb * (pow(cs, uAtmHalo.w) + 0.18 * pow(cs, max(uAtmHalo.w * 0.1, 1.0)));
+  col += uAtmHalo.rgb * (pow(cs, uAtmHalo.w) + 0.15 * pow(cs, max(uAtmHalo.w * 0.25, 2.0)));
   // below the horizon: the haze darkens slightly toward the ground
   col *= 1.0 - uAtmLow.w * smoothstep(0.0, -0.35, y);
   return col;
@@ -123,7 +123,7 @@ export function atmSkyCPU(dir, out) {
   const gk = Math.pow(az, G.w) * Math.exp(-h * H.w);
   _c.x += G.x * gk; _c.y += G.y * gk; _c.z += G.z * gk;
   const cs = Math.max(0, dir.x * S.x + dir.y * S.y + dir.z * S.z);
-  const hk = Math.pow(cs, A.w) + 0.18 * Math.pow(cs, Math.max(A.w * 0.1, 1));
+  const hk = Math.pow(cs, A.w) + 0.15 * Math.pow(cs, Math.max(A.w * 0.25, 2));
   _c.x += A.x * hk; _c.y += A.y * hk; _c.z += A.z * hk;
   const e = Math.min(1, Math.max(0, -y / 0.35)), dk = 1 - L.w * e * e * (3 - 2 * e);
   return out.setRGB(_c.x * dk, _c.y * dk, _c.z * dk);

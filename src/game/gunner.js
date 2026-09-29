@@ -61,6 +61,14 @@ export class GunnerController {
     this.yaw = wrapAngle(this.yaw);
     this.crouch = damp(this.crouch, cmd.crouch ? 1 : 0, 12, dt);
     this.ads = damp(this.ads, cmd.ads && !this.reloading && this.swapT <= 0 ? 1 : 0, 14, dt);
+    // scope breathing: a slow figure-eight drift of the aim while looking through a scope (applied as a delta, never accumulates)
+    this.swayT = (this.swayT || 0) + dt;
+    const sk = w.scope ? Math.max(0, (this.ads - 0.6) / 0.4) : 0, sA = (w.id === 'sniper' ? 0.0011 : 0.0008) * sk;
+    const sy = Math.sin(this.swayT * 0.85) * sA, sp = Math.sin(this.swayT * 1.7 + 0.6) * sA * 0.6;
+    this.yaw += sy - (this._swY || 0); this.pitch += sp - (this._swP || 0); this._swY = sy; this._swP = sp;
+    // crosshair target probe (the HUD crosshair turns red over an enemy); every other frame is plenty
+    this._probe = ((this._probe || 0) + 1) & 1;
+    if (this._probe === 0 && cam && cam.dir) this.aimAt(cam);
     // bed movement (small range)
     const bx = this.pos.x + cmd.moveX * dt * 2.2, bz = this.pos.z + cmd.moveZ * dt * 2.0;
     this.pos.x = clamp(bx, -0.55, 0.55); this.pos.z = clamp(bz, -0.45, 0.45);
@@ -170,7 +178,9 @@ export class GunnerController {
     const dirs = [];
     if (w.mode === 'launcher') {
       _d.copy(this.aimPoint).sub(M).normalize();
-      ctx.fireRocket && ctx.fireRocket(M.clone(), _d.clone(), w);
+      // first person: the rocket (and its trail) starts a little ahead so it never fills the view right at the camera
+      const R0 = this.fp ? M.clone().addScaledVector(_d, 1.6) : M.clone();
+      ctx.fireRocket && ctx.fireRocket(R0, _d.clone(), w);
       ctx.emit(this._fpTag({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), dir: _d.toArray(), rocket: true }));
     } else {
       const shotEvents = [];
@@ -200,7 +210,7 @@ export class GunnerController {
 
   /** First-person shots: the viewmodel draws its own muzzle flash; casings leave its (apparent) ejection port. */
   _fpTag(e) {
-    if (this.fp && this.vm) { e.fp = true; if (this.vm.ejectWorld(_e, _r)) { e.ej = _e.toArray(); e.ejd = _r.toArray(); } }
+    if (this.fp && this.vm) { e.fp = this.vm.scopedNow ? 2 : 1; if (this.vm.ejectWorld(_e, _r)) { e.ej = _e.toArray(); e.ejd = _r.toArray(); } }
     return e;
   }
 

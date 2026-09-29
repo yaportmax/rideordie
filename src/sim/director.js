@@ -38,7 +38,7 @@ export class Director {
     // how much the raiders hurt, by level: rounds (x the per-round growth in ai.shoot), rams, blasts next to you
     sim.enemyDamageMul = 0.55 + 0.6 * L;
     sim.enemyRamMul = 0.4 + 0.55 * Math.min(L, 1);
-    sim.playerBlastMul = 0.25 + 0.35 * Math.min(L, 1);
+    sim.playerBlastMul = 0.18 + 0.32 * Math.min(L, 1);
     // accumulate budget with a slow pulse (waves and lulls)
     this.pulse += dt * (0.45 + 0.2 * L);
     const wave = 0.55 + 0.75 * (0.5 + 0.5 * Math.sin(this.pulse));

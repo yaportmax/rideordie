@@ -64,7 +64,7 @@ export class TitleScreen {
     this.viewEl.innerHTML = `<div class="seats">
       <div class="eyebrow stg" style="--i:0">SINGLE PLAYER &middot; PICK YOUR SEAT</div>
       <div class="seatrow">${SEATS.map((s, i) => card(s, i + 1)).join('')}</div>
-      <div class="row"><div class="f btn back-btn" role="button" data-act="sback" data-k="sback"><span>BACK</span></div></div>
+      <div class="tt-actions"><div class="f btn back-btn" role="button" data-act="sback" data-k="sback"><span>BACK</span></div></div>
     </div>`;
     this.hintsEl.innerHTML = hints([['navh', 'CHOOSE'], ['confirm', 'RIDE'], ['back', 'BACK']]);
     const last = this.ui.settings?.soloSeat || 'driver';
@@ -77,7 +77,7 @@ export class TitleScreen {
       <div class="eyebrow">JOIN A FRIEND&rsquo;S ROOM</div>
       <div class="codebox interact"><input class="f code" data-submit=".jgo" maxlength="12" placeholder="ROOM CODE" spellcheck="false" autocomplete="off" autocapitalize="characters"></div>
       <div class="keypad">${keys}<div class="f key" role="button" data-key="0"><span>0</span></div><div class="f key w5" role="button" data-key="DEL"><span>&#9003; DELETE</span></div><div class="f key w4" role="button" data-key="CLR"><span>CLEAR</span></div></div>
-      <div class="row"><div class="f btn primary jgo" role="button" data-act="jgo"><span>JOIN</span></div><div class="f btn" role="button" data-act="jback"><span>BACK</span></div></div>
+      <div class="tt-actions"><div class="f btn primary jgo" role="button" data-act="jgo"><span>JOIN</span></div><div class="f btn" role="button" data-act="jback"><span>BACK</span></div></div>
     </div>`;
     this.hintsEl.innerHTML = hints([['nav', 'MOVE'], ['confirm', 'TYPE / SELECT'], ['back', 'BACK']]);
     this.input = this.viewEl.querySelector('.code');

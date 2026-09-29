@@ -116,6 +116,8 @@ export class EnemyBrain {
       case 'leader': case 'heavy': {
         // weave between the player's lane and the lanes either side of it: the gunner gets an angle, the driver has to watch it
         if (this.laneT <= 0) { this.laneT = this.r.range(3, 6.5); this.laneOff = this.r.pick(this.behavior === 'heavy' ? [0, 0, -2, 2] : [0, -3.4, 3.4, 0]); }
+        // he's closing on us fast in our lane and we're not brake-checking: get out of the way (no free rear-end damage)
+        if (!this.atk && gap > -12 && gap < 2 && Math.abs(car.d - P.d) < 2.4 && pv > speed + 2 && this.behavior === 'leader') { this.laneOff = car.d >= P.d ? 3.6 : -3.6; this.laneT = 1.5; }
         slotLat = this.laneOff; break;
       }
       case 'blocker': slotLat = 0; break;
@@ -380,7 +382,7 @@ export class EnemyBrain {
             st.mode = 'aim'; st.t = this.r.range(gun.react[0], gun.react[1]) * lerp(1.2, 0.8, this.skill);
             // far away they shoot at the truck; up close they go for the crew
             const u = this.r(), close = dist < 32;
-            st.aimAt = close ? (u < 0.36 ? 'body' : u < 0.66 ? 'cab' : u < 0.95 ? 'bed' : 'tire') : (u < 0.58 ? 'body' : u < 0.72 ? 'cab' : u < 0.84 ? 'bed' : 'tire');
+            st.aimAt = close ? (u < 0.5 ? 'body' : u < 0.72 ? 'cab' : u < 0.94 ? 'bed' : 'tire') : (u < 0.7 ? 'body' : u < 0.8 ? 'cab' : u < 0.9 ? 'bed' : 'tire');
           }
           break;
         case 'aim':
