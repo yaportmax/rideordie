@@ -353,6 +353,10 @@ export class Run {
       if (this.finaleT < 9) {
         const a = this.finaleT * 0.25 + 0.6, r = 42 - this.finaleT * 1.5;
         g.camera.position.set(B.pos.x + Math.sin(a) * r, B.pos.y + 9 + this.finaleT * 0.6, B.pos.z + Math.cos(a) * r);
+        // keep the camera out of bridges / cliffs: pull it in front of the first obstruction
+        const from = _t2.set(B.pos.x, B.pos.y + 5, B.pos.z), dir = _v.copy(g.camera.position).sub(from); const len = dir.length(); dir.multiplyScalar(1 / len);
+        const hit = this._worldRay(from, dir, len);
+        if (hit && hit.t < len) g.camera.position.copy(from).addScaledVector(dir, Math.max(6, hit.t - 1.5));
         g.camera.lookAt(B.pos.x, B.pos.y + 4, B.pos.z);
         return;
       }
