@@ -1,7 +1,7 @@
 {
  "name": "smg",
- "tris": 16856,
- "glb_kb": 417,
+ "tris": 17336,
+ "glb_kb": 1135,
  "parts": {
   "body": {
    "pivot": [
@@ -10,7 +10,7 @@
     0.0
    ],
    "parent": null,
-   "tris": 11400,
+   "tris": 11880,
    "materials": [
     "gun_black",
     "gun_steel",

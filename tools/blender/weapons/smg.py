@@ -21,14 +21,15 @@ body = G.part("body")
 
 # =========================================================================================== RECEIVER (stamped tube with the side channels)
 def rec_ring(k=1.0):
-    pts = fillet_poly([(17.5, 44), (17.5, 82), (0, 99), (-17.5, 82), (-17.5, 44)], [3, 14, 16, 14, 3], 5)
-    out = []
-    for y, z in pts:
-        # the pressed channel along each side (MP5 signature)
-        if abs(abs(y) - 17.5) < 0.2 and 58 < z < 74:
-            y -= math.copysign(2.2 * math.sin(math.pi * (z - 58) / 16.0), y)
-        out.append((y * k, z))
-    return out
+    """MP5 receiver section: round top (r 18 about z 82), straight sides with the pressed channel (z 56..74), flat bottom."""
+    R, ZC = 18.0, 82.0
+    right = [(-R, 44.0), (-R, 55.0), (-R + 3.0, 58.0), (-R + 3.0, 72.0), (-R, 75.0), (-R, ZC)]
+    arc = [(-R * math.cos(math.radians(a)), ZC + R * math.sin(math.radians(a))) for a in range(15, 180, 15)]
+    left = [(R, ZC), (R, 75.0), (R - 3.0, 72.0), (R - 3.0, 58.0), (R, 55.0), (R, 44.0)]
+    poly = right + arc + left
+    rad = [3, 0.8, 0.8, 0.8, 0.8, 0] + [0] * len(arc) + [0, 0.8, 0.8, 0.8, 0.8, 3]
+    pts = fillet_poly(poly, rad, 2)
+    return [(y * k, z) for y, z in pts]
 
 
 rec = loft_bm([(RX0, rec_ring(0.97)), (RX0 + 4, rec_ring()), (RX1 - 2, rec_ring()), (RX1, rec_ring(0.98))])

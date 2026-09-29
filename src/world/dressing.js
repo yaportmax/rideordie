@@ -42,7 +42,7 @@ import { SetPieces } from './dressing/setpieces.js';
 import { buildDamRoad } from './dressing/damroad.js';
 import { buildGalleries } from './dressing/gallery.js';
 import { buildRocks } from './dressing/rocks.js';
-import { buildMoments } from './dressing/moments.js';
+import { buildMoments, wreckNear } from './dressing/moments.js';
 import { createSetMaterials, warmSetMaterials } from './dressing/warm.js';
 
 const QUALITY = [
@@ -88,6 +88,7 @@ export class Dressing {
       hook: (req) => (this.hook ? this.hook(req) : undefined),
       exclusions: (a, b) => landmarkExclusions(this.ctx, a, b),
       tunnelsNear: (a, b) => road.featuresIn(a, b, 'tunnel'),
+      wreckNear: (s, d) => wreckNear(this.ctx, s, d),
     };
     this.stats = { chunksBuilt: 0, jobMs: 0, rebuilds: 0, rebuildMs: 0, rebuildMax: 0, stepMax: [0, 0, 0, 0, 0, 0, 0, 0, 0] };
   }

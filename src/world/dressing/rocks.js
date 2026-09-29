@@ -104,14 +104,16 @@ function column(rm, o) {
     const sp = h / strata, fr = sp - Math.floor(sp), hard = hash2(Math.floor(sp), 3, seed) > 0.55;
     let ledge = hard ? 0.06 * smoothstep(0.0, 0.2, fr) * (1 - smoothstep(0.75, 1.0, fr)) : -0.07 * Math.sin(fr * Math.PI);
     if (o.kind === 'butte') ledge *= 1.8;
+    if (o.kind === 'stack') ledge *= 0.3;
     let cap = 0;
     if (h > capAt) { const k = (h - capAt) / o.cap; cap = o.capFlare * Math.sin(Math.min(1, k * 1.6) * Math.PI * 0.5) - (k > 0.7 ? (k - 0.7) * 1.8 : 0); ledge = 0; }
     const top = o.kind === 'hoodoo' || o.kind === 'spire' ? 0 : smoothstep(H - 3, H, h) * 0.12;
     const cx = x + lx * Math.max(0, h), cz = z + lz * Math.max(0, h), ring = [];
     for (let i = 0; i < N; i++) {
       const a = (i / N) * TAU, ca = Math.cos(a), sa = Math.sin(a);
-      const n1 = fbm2(ca * 1.3 + seed * 0.01, h / 9 + sa * 1.3, 3, seed), n2 = fbm2(ca * 3 + 7, h / 3.2 + sa * 3, 2, seed + 5);
-      let r = R * (prof + ledge + cap - top) * (0.78 + 0.42 * n1 + 0.12 * (n2 - 0.5));
+      const st = o.kind === 'stack';
+      const n1 = fbm2(ca * (st ? 0.9 : 1.3) + seed * 0.01, h / (st ? 16 : 9) + sa * (st ? 0.9 : 1.3), 3, seed), n2 = fbm2(ca * 3 + 7, h / 3.2 + sa * 3, 2, seed + 5);
+      let r = R * (prof + ledge + cap - top) * (st ? 0.55 + 0.9 * n1 + 0.1 * (n2 - 0.5) : 0.78 + 0.42 * n1 + 0.12 * (n2 - 0.5));
       if (o.flat) r *= o.flat + (1 - o.flat) * ca * ca;             // fins: squashed across one axis
       r = Math.max(0.3, r);
       let px = ca * r, pz = sa * r;
@@ -248,6 +250,7 @@ function planSlot(ctx, id, k) {
     for (let i = 0; i < n; i++) {
       const d = 70 + r() * 360, s = sc + (r() - 0.5) * 120;
       if (groundAt(road, seed, s, d, _G).y > sea - 5) continue;
+      if (ctx.wreckNear && ctx.wreckNear(s, d)) continue;
       const H = 18 + r() * 26, R = 7 + r() * 9;
       out.push({ kind: 'stack', s, d, R, H, y: sea, strata: 2.6, dome: 0.8, grass: r() < 0.7, pierced: r() < 0.18 && R > 10 });
     }

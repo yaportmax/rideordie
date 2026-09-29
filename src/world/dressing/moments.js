@@ -46,6 +46,11 @@ function plan(ctx, want, biome, kind) {
   }
   return null;
 }
+/** Is (s, d) within 140 m of a planned shipwreck? (the sea-stack planner keeps clear of them) */
+export function wreckNear(ctx, s, d) {
+  for (const m of momentsNear(ctx, s - 400, s + 400)) if (m.kind === 'wreck' && Math.abs(m.s - s) < 160 && d > 60) return true;
+  return false;
+}
 export function momentsNear(ctx, sA, sB) {
   const cache = ctx.momentCache || (ctx.momentCache = new Map()), out = [];
   for (const [want, biome, kind] of WANT) {
@@ -164,7 +169,7 @@ function wreck(ctx, mb, m) {
   const base = { x: sm.x + sm.nx * d, z: sm.z + sm.nz * d };
   const yaw = sm.th + 0.5 + r() * 0.6;
   const fx = Math.sin(yaw), fz = Math.cos(yaw);
-  const hull = [0.38, 0.13, 0.08], hullDark = [0.12, 0.1, 0.09];
+  const hull = [0.2, 0.085, 0.05], hullDark = [0.07, 0.06, 0.055];
   const section = (cx, cz, L, B, H, roll, pitch, bowEnd, sternEnd, y0) => {
     const lx = fz, lz = -fx;                                                   // left of the heading
     const up = [Math.sin(roll) * lx - Math.sin(pitch) * fx, Math.cos(roll) * Math.cos(pitch), Math.sin(roll) * lz - Math.sin(pitch) * fz];
@@ -219,9 +224,13 @@ function cablecar(ctx, mb, cols, m) {
   const tops = [];
   for (const sd of [1, -1]) {
     let best = null;
-    for (let a = 55; a <= 130; a += 5) { const g = groundAt(road, seed, m.s + sd * a * cross, sd * a, _G); if (!best || g.y > best.y) best = { a, y: g.y }; }
+    for (let a = 40; a <= 140; a += 5) {
+      const g = groundAt(road, seed, m.s + sd * a * cross, sd * a, _G), h = g.y - sm.y;
+      if (h > 6 && h < 40) { best = { a, y: g.y }; break; }
+      if (!best || Math.abs(h - 20) < Math.abs(best.y - sm.y - 20)) best = { a, y: g.y };
+    }
     const s = m.s + sd * best.a * cross, d = sd * best.a; road.pointAt(s, d, P);
-    const H = Math.max(28, sm.y + 44 - best.y);
+    const H = Math.max(16, sm.y + 50 - best.y);
     const F = frameBasis(P.x, best.y - 1, P.z, [0, 1, 0], [-sd * sm.nx, 0, -sd * sm.nz], {});   // local z toward the road
     mb.col(0.3, 0.32, 0.34).setFac(ST.PLAIN, 1, 1, 0.3).setFac2(0, 0, 0, 0);
     lattice(mb, F, H, 2.4, 1.1, 7);
