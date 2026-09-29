@@ -2,7 +2,7 @@
 // COST_SCALE is the master economy knob (campaign target ~2-3 h across all runs).
 import { WEAPON_ORDER, WEAPONS } from './weapons.js';
 
-export const COST_SCALE = 1.0;
+export const COST_SCALE = 1.25;
 const C = (arr) => arr.map((c) => Math.round(c * COST_SCALE));
 
 /** Truck purchases (tier 1 owned from the start). */
