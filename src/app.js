@@ -199,6 +199,11 @@ export class App {
     if (owner) { creditRun(this.profile, sm); saveProfile(this.profile); this.session?.broadcastProfile(); }
     const newBest = { distance: sm.distance > before.distance, time: sm.time > before.time, kills: sm.kills > before.kills };
     this.game.audio?.music?.setState?.(sm.won ? 'victory' : 'garage');
-    this.ui.showResults({ ...sm, newBest }, this.profile, { onContinue: () => this.garage(), onTick: () => this.sound('coin') });
+    this.ui.showResults({ ...sm, newBest }, this.profile, { onContinue: () => (sm.won ? this._victoryModal() : this.garage()), onTick: () => this.sound('coin') });
+  }
+  async _victoryModal() {
+    const p = this.profile;
+    await this.ui.modal({ title: 'THE ROAD IS YOURS', text: `The Leviathan is scrap and the Warlord's convoy is broken. ${p.runs} runs, $${p.totalCash.toLocaleString()} earned. The highway still has raiders on it... keep riding for the high score, or start a new campaign from the title screen.`, buttons: [{ label: 'BACK TO THE GARAGE', kind: 'primary' }] });
+    this.garage();
   }
 }

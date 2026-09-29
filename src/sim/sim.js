@@ -359,7 +359,7 @@ export class Sim {
     if (this.state === 'countdown') return;
     if (this.state === 'run' && this.boss && this.boss.exploded) {
       this.wonT = (this.wonT || 0) + dt;
-      if (this.wonT > 5) { this.won = true; this.state = 'over'; this.result = { why: 'victory' }; this.emit({ t: 'runOver', why: 'victory' }); }
+      if (this.wonT > 3) { this.won = true; this.state = 'over'; this.result = { why: 'victory' }; this.emit({ t: 'runOver', why: 'victory' }); }
       return;
     }
     if (this.state === 'run') {

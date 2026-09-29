@@ -162,7 +162,7 @@ export class Game {
     }
     if (this.post && p) {
       const vmax = run.spec.engine.vmax;
-      this.post.setParams({ speed01: clamp(p.speed / vmax, 0, 1), boost: p.boosting ? 1 : 0, damage01: 1 - (run.hud2?.hp01 ?? 1), night01: this.look.night, dof: this.paused ? 0.8 : 0, slowmo: 0, anchor: run.wv.cars.get(1)?.view.root });
+      this.post.setParams({ speed01: clamp(p.speed / vmax, 0, 1), boost: p.boosting ? 1 : 0, damage01: 1 - (run.hud2?.hp01 ?? 1), night01: this.look.night, dof: this.paused ? 0.8 : 0, slowmo: run.slowmo ? 1 - run.slowmo : 0, anchor: run.wv.cars.get(1)?.view.root });
       for (const e of run.allEvents || []) {
         if (e.t === 'explode' || e.t === 'boom') this.post.shockwave?.(new THREE.Vector3(...e.pos), e.size || (e.radius || 8) / 10);
         if (e.t === 'crewHit' && e.id === 1) this.post.hit?.(0.8);

@@ -165,7 +165,10 @@ export class Run {
         gs.aimYaw = this.gunner.yaw; gs.aimPitch = this.gunner.pitch; gs.fire = this.gunner.trigger && this.gunner.magNow > 0; gs.crouch = this.gunner.crouch > 0.5; gs.ads = this.gunner.ads > 0.5;
         gs.weapon = this.gunner.cur; gs.reloading = this.gunner.reloading; gs.x = this.gunner.pos.x; gs.z = this.gunner.pos.z;
       } else { const r = this.gunnerRemote; gs.aimYaw = r.yaw; gs.aimPitch = r.pitch; gs.fire = r.fire; gs.crouch = r.crouch; gs.ads = r.ads; gs.weapon = r.weapon; gs.reloading = r.reloading; gs.x = r.x; gs.z = r.z; }
-      this.acc += dt;
+      const B = this.sim.boss;
+      this.slowmo = B && B.dead && B.deathT < 5.5 ? (B.deathT < 0.4 ? 0.2 : Math.min(1, 0.25 + (B.deathT - 0.4) * 0.12)) : (this.slowmo ? Math.min(1, this.slowmo + dt * 0.6) : 1);
+      if (this.slowmo >= 1) this.slowmo = 0;
+      this.acc += dt * (this.slowmo || 1);
       let steps = 0;
       while (this.acc >= DT && steps < 8) { this.sim.step(DT); this.acc -= DT; steps++; }
       if (steps === 8) this.acc = 0;
@@ -181,8 +184,8 @@ export class Run {
       if (this.role === 'driver' && this.net) this._sendNet(dt);
       this.playerS = P.s;
       this._simEventsToRun();
-      const B = this.sim.boss;
-      if (B) { const bs = this.bossState || (this.bossState = { pos: B.pos, quat: B.quat, vel: B.vel, v: 0, alive: B.alive, phase: 1, dead: false, exploded: false }); bs.v = B.v; bs.phase = B.phase; bs.dead = B.dead; bs.exploded = B.exploded; } else this.bossState = null;
+      const Bs = this.sim.boss;
+      if (Bs) { const B = Bs; const bs = this.bossState || (this.bossState = { pos: B.pos, quat: B.quat, vel: B.vel, v: 0, alive: B.alive, phase: 1, dead: false, exploded: false }); bs.v = B.v; bs.phase = B.phase; bs.dead = B.dead; bs.exploded = B.exploded; } else this.bossState = null;
       this.proj = [...this.sim.projectiles.rockets.map((r) => ({ k: 1, x: r.x, y: r.y, z: r.z })), ...this.sim.projectiles.grenades.map((q) => { const t = q.body.translation(); return { k: 2, x: t.x, y: t.y, z: t.z }; })];
     } else {
       // viewer peer: interpolate snapshots
@@ -243,7 +246,8 @@ export class Run {
       else if (e.t === 'bossSpawn') { g.hud.message('THE LEVIATHAN', 3500, '#ff3a1a'); this.abridge?.bossIntro(); }
       else if (e.t === 'bossPhase' && e.phase === 3) g.hud.message('REACTOR EXPOSED!', 2200, '#ffc21a');
       else if (e.t === 'bossPart' && e.label) g.hud.feed(`${e.label} DESTROYED`, '#ffc21a');
-      else if (e.t === 'bossDown') { g.hud.message('THE LEVIATHAN IS DOWN!', 4000, '#ffc21a'); this.abridge?.victory(); }
+      else if (e.t === 'bossDown') { g.hud.message('THE LEVIATHAN IS DOWN!', 5000, '#ffc21a'); this.abridge?.victory(); }
+      else if (e.t === 'bossDying') { g.hud.message('REACTOR CRITICAL', 2000, '#ff5a2a'); }
     }
     const fx = g.fx;
     if (fx) {
@@ -329,6 +333,17 @@ export class Run {
   _camera(dt, cmds, pst) {
     const g = this.g;
     if (!pst) return;
+    const B = this.bossState;
+    if (B && (B.dead || B.exploded) && !this.finaleDone) {
+      this.finaleT = (this.finaleT || 0) + dt;
+      if (this.finaleT < 9) {
+        const a = this.finaleT * 0.25 + 0.6, r = 42 - this.finaleT * 1.5;
+        g.camera.position.set(B.pos.x + Math.sin(a) * r, B.pos.y + 9 + this.finaleT * 0.6, B.pos.z + Math.cos(a) * r);
+        g.camera.lookAt(B.pos.x, B.pos.y + 4, B.pos.z);
+        return;
+      }
+      this.finaleDone = true;
+    }
     const co = window.__camOverride; // dev: {offset:[x,y,z] in truck frame, look:[x,y,z] in truck frame}
     if (co) { const q = pst.quat; g.camera.position.set(...co.offset).applyQuaternion(q).add(pst.pos); _v.set(...co.look).applyQuaternion(q).add(pst.pos); g.camera.lookAt(_v); if (co.fov) { g.camera.fov = co.fov; g.camera.updateProjectionMatrix(); } return; }
     const dying = this.sim ? this.sim.state === 'dying' || this.sim.state === 'over' : this.simState === 'dying' || this.simState === 'over';
