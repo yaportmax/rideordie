@@ -99,6 +99,36 @@ export class GunnerController {
     return this;
   }
 
+  /**
+   * Gamepad aim assist (console-style): slowdown over targets, gentle tracking of moving targets, snap toward the nearest target on ADS press.
+   * points: [{p: Vector3 (world), v: Vector3 (world velocity)}], cam: {position, dir}
+   */
+  assist(cmd, dt, cam, points, ownVel) {
+    if (!points.length) return;
+    let best = null, bestA = 0.12; // ~7 degrees cone
+    for (const t of points) {
+      _o.copy(t.p).sub(cam.position); const dist = _o.length(); if (dist < 3 || dist > 220) continue;
+      _o.multiplyScalar(1 / dist);
+      const a = Math.acos(Math.min(1, _o.dot(cam.dir)));
+      const cone = Math.max(0.035, Math.min(0.12, 2.2 / dist)); // bigger near, smaller far (angular size of a car)
+      if (a < cone && a < bestA) { bestA = a; best = { t, dist, a, cone }; }
+    }
+    if (!best) { this._assistT = null; return; }
+    // 1) slowdown near the target
+    const slow = 0.45 + 0.55 * (best.a / best.cone);
+    cmd.dYaw *= slow; cmd.dPitch *= slow;
+    // 2) tracking: follow the target's angular motion relative to us (70%)
+    const tYaw = Math.atan2(_o.copy(best.t.p).sub(cam.position).x, _o.z), tPitch = Math.asin(Math.max(-1, Math.min(1, _o.normalize().y)));
+    const futP = _e.copy(best.t.p).addScaledVector(best.t.v, 0.1).addScaledVector(ownVel || _r.set(0, 0, 0), -0.1).sub(cam.position);
+    const fYaw = Math.atan2(futP.x, futP.z), fPitch = Math.asin(Math.max(-1, Math.min(1, futP.normalize().y)));
+    const rate = 0.7 / 0.1;
+    cmd.dYaw += wrapAngle(fYaw - tYaw) * rate * dt * 0.7; cmd.dPitch += (fPitch - tPitch) * rate * dt * 0.7;
+    // 3) ADS snap: when sights come up, pull most of the way onto the target over ~0.15 s
+    if (cmd.ads && !this._adsPrev) this._snapT = 0.15;
+    this._adsPrev = !!cmd.ads;
+    if (this._snapT > 0) { this._snapT -= dt; const k = Math.min(1, dt / 0.15) * 0.8; cmd.dYaw += wrapAngle(tYaw - this.yaw) * k; cmd.dPitch += (tPitch - this.pitch) * k; }
+  }
+
   spreadNow() {
     const w = this.weapon, s = w.spread;
     const base = lerp(s.hip, s.ads, this.ads);

@@ -228,6 +228,18 @@ export class Run {
       this.gunner.crewAlive = pst.gunnerAlive;
       if (!pst.gunnerAlive || (this.sim && this.sim.state !== 'run')) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
       this.wv.muzzlePos(pst, this.gunner.muzzle);
+      if (g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
+        const pts = this._assistPts || (this._assistPts = []); pts.length = 0;
+        for (const st of this.states.values()) {
+          if (st.kind !== 'enemy' || st.exploded) continue;
+          const up = st.ride.restComHeight;
+          if (st.gunnerAlive && st.spec.seats.gunner) { const sg = st.spec.seats.gunner; pts.push({ p: new THREE.Vector3(sg[0], sg[1] + 1.2 - up, sg[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel }); }
+          if (st.driverAlive) { const sd = st.spec.seats.driver; pts.push({ p: new THREE.Vector3(sd[0], sd[1] + 0.5 - up, sd[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel }); }
+          pts.push({ p: st.pos, v: st.vel });
+        }
+        const bs = this.bossState; if (bs && !bs.dead) pts.push({ p: new THREE.Vector3(0, 5, -8).applyQuaternion(bs.quat).add(bs.pos), v: bs.vel });
+        this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, pts, pst.vel);
+      }
       this.gunner.update(dt, cmds.gunner, { position: g.camera.position, dir: this.camDir }, carYaw, { carVel: pst.vel });
     }
     // world view

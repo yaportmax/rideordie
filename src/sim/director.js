@@ -39,7 +39,7 @@ export class Director {
     this.cooldown -= dt;
     const alive = [];
     for (const c of sim.cars.values()) if (c.kind === 'enemy' && !c.exploded) alive.push(c);
-    const cap = Math.round(2 + 13 * Math.pow(L, 0.75)) + (this.opts.capBonus || 0) - (this.activeElite ? 3 : 0);
+    const cap = Math.round(2 + 10.5 * Math.pow(L, 0.8)) + (this.opts.capBonus || 0) - (this.activeElite ? 3 : 0);
     this._cleanup(sim, P);
     if (this.cooldown > 0 || alive.length >= cap) return;
     // pick an archetype we can afford and that has unlocked
