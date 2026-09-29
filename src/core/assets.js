@@ -40,7 +40,15 @@ export async function preload(urls, onProgress) {
     const g = await loadGLB(u);
     if (g && /\/models\/vehicles\//.test(u) && !g.__tuned) {
       g.__tuned = true; // chrome reflected the bright sky as flat white in the gunner's face: darker, slightly rougher
-      g.scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (m.name === 'chrome' && !m.__t) { m.__t = true; m.color.multiplyScalar(0.45); m.roughness = Math.max(m.roughness, 0.28); } });
+      g.scene.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of [].concat(o.material)) {
+          if (m.__t) continue;
+          if (m.name === 'chrome') { m.__t = true; m.color.multiplyScalar(0.45); m.roughness = Math.max(m.roughness, 0.28); }
+          // glass read as milky white and hid the crews: clearer, weaker reflections
+          if (m.name === 'glass') { m.__t = true; m.transparent = true; m.opacity = Math.min(m.opacity ?? 1, 0.22); m.depthWrite = false; m.envMapIntensity = 0.45; m.roughness = Math.min(m.roughness, 0.08); m.color.multiplyScalar(0.6); }
+        }
+      });
     }
     if (g && /\/models\/(vehicles|weapons)\//.test(u) && !g.__merged) { g.__merged = true; if (/weapons/.test(u)) unifyAtlasMaterials(g.scene); const r = mergeRigid(g.scene); mergeStats.push([u.split('/').pop(), r.before, r.after]); }
     loaded.set(u, g); n++; if (onProgress) onProgress(n, urls.length, u);
