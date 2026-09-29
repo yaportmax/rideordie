@@ -64,6 +64,8 @@ async function playRun() {
     }
     // medkits when hurt
     if (medkits > 0 && (P.crew.driver.hp < P.crew.driver.max * 0.35 || P.crew.gunner.hp < P.crew.gunner.max * 0.35)) { if (sim.useMedkit()) medkits--; }
+    // stuck / upside down: the player would hold R to flip (the game's unflip), do the same
+    if (v.up.y < 0.5 || (v.speed < 2 && sim.time > 5)) { P.stuckT = (P.stuckT || 0) + DT; if (P.stuckT > 2.5) { P.stuckT = 0; const yaw = Math.atan2(v.fwd.x, v.fwd.z); const sm = road.sample(P.s + 5); v.body.setTranslation({ x: sm.x, y: road.surfaceY(sm, 0) + 2, z: sm.z }, true); v.body.setRotation({ x: 0, y: Math.sin(sm.th / 2), z: 0, w: Math.cos(sm.th / 2) }, true); v.body.setAngvel({ x: 0, y: 0, z: 0 }, true); v.body.setLinvel({ x: 0, y: 0, z: 0 }, true); } } else P.stuckT = 0;
     sim.step(DT);
     for (const e of sim.drainEvents()) {
       if (e.t === 'kill') cash += Math.round((KILL_CASH[e.spec] || 60) * (1 + sim.director.level * ECONOMY.killLevel) * (e.crash ? ECONOMY.crashMul : 1) * E.cashMul);
