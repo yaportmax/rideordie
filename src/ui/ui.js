@@ -18,19 +18,27 @@
  *   showGarage(profile, cb, extra)  cb: onBuy(kind, id, track?)  kind = 'truck'|'upgrade'|'weapon'|'weaponTrack' (weaponTrack: id=weaponId, track='dmg'|'mag'|'rel'|'hnd'),
  *                                       onSelectTruck(id), onPaint(index), onEquip(weaponId, slot), onReady(), onMenu()*, sound(name)
  *   updateGarage(profile, extra)  extra = { solo?:bool (button says START RUN), ready?:bool, isHost?:bool, partner?:{ name, ready, connected, role } , runNo?:number }
+ *                                 (showGarage's extra also accepts tab:'truck'|'upgrades'|'weapons'|'gunner'|'paint' and select:<item id> for the initial view)
  *   showResults(run, profile, cb) cb: onContinue() (BACK TO GARAGE), onTick() (each count-up tick), sound(name)
  *                                 run = { won, cash, distance(m), time(s), kills, crashKills, bestStreak, shots, hits, cause, biome?, breakdown?:[{label, amount}], newBest?:{distance,time,kills} }
  *   showPause(cb)                 cb: onResume(), onSettings()*, onControls()*, onQuit(), sound(name)
- *   showSettings(settings, cb)    cb: onChange(settings, key), onClose()   (persisted to localStorage; sens/invertY/bindings are applied to `input` automatically)
+ *   showSettings(settings, cb)    cb: onChange(settings, key), onClose(), onBindingsChange(bindings), tab:'video'|'audio'|'input'|'keys'
+ *                                 settings = { quality 0-3, resScale, fov, shake, mouseSens, padSens, invertY, master, sfx, music, vibration } (all optional); persisted to
+ *                                 localStorage, sens/invertY/vibration are applied to `input` and key bindings are written to input.bindings automatically.
+ *                                 `ui.settings` holds the current values (loaded at construction) - read it at start-up; opts.onSettingsChange(settings, key) fires for every change.
  *   showControls(role)            role = 'driver' | 'gunner' | 'solo'
  *   hideAll(), toast(text, kind='info'|'good'|'warn'|'bad', ms), modal({title, text, buttons:[{label, id?, kind?, cancel?, onClick?}], kind?, dismiss?}) -> Promise<id|index|null>
  *   connectionLost(text) -> modal Promise                     (* = optional: if absent the Ui opens its built-in screen; ** = QUIT button only appears when provided)
  * Sound hooks (cb.sound / opts.sound): click hover buy error upgrade_unlock coin menu_open menu_close ready go
  */
-import cssText from './ui.css?inline';
+import baseCss from './ui.css?inline';
+import garageCss from './css/garage.css?inline';
+import lobbyCss from './css/lobby.css?inline';
+import resultsCss from './css/results.css?inline';
+import settingsCss from './css/settings.css?inline';
 import { Nav } from './nav.js';
 import { esc, icon } from './glyphs.js';
-import { loadSettings, saveSettings, applySettings, wrapRumble, loadBindings } from './settings_store.js';
+import { loadSettings, saveSettings, applySettings, wrapRumble, loadBindings, defaultBindings } from './settings_store.js';
 import { backdropSvg } from './backdrop.js';
 import { TitleScreen } from './screens/title.js';
 import { LobbyScreen } from './screens/lobby.js';
@@ -39,6 +47,8 @@ import { ResultsScreen } from './screens/results.js';
 import { PauseScreen } from './screens/pause.js';
 import { SettingsScreen } from './screens/settings.js';
 import { ControlsScreen } from './screens/controls.js';
+
+const cssText = [baseCss, garageCss, lobbyCss, resultsCss, settingsCss].join('\n');
 
 const noiseUri = (alpha, freq, size = 200, seed = 3) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="2" seed="${seed}" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 ${alpha} 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>`;
@@ -49,8 +59,13 @@ const grimeUri = (size = 240) => {
   return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
 };
 
+const grungeUri = (size = 256) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency=".2 .28" numOctaves="4" seed="21" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -12 8.8"/></filter><rect width="100%" height="100%" filter="url(#g)"/></svg>`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+};
+
 function stubInput() {
-  return { bindings: {}, sens: { mouse: 0.0022, padYaw: 3.1, padPitch: 2.3 }, invertY: false, lastDevice: 'kbm' };
+  return { bindings: defaultBindings(), sens: { mouse: 0.0022, padYaw: 3.1, padPitch: 2.3 }, invertY: false, lastDevice: 'kbm' };
 }
 
 let cssInjected = false;
@@ -73,6 +88,7 @@ export class Ui {
     el.style.setProperty('--noise-soft', noiseUri(0.16, 0.9, 200, 5));
     el.style.setProperty('--noise-hard', noiseUri(0.9, 0.7, 160, 11));
     el.style.setProperty('--grime', grimeUri());
+    el.style.setProperty('--grunge', grungeUri());
     const stage = this.stage = document.createElement('div');
     stage.className = 'rod-stage';
     stage.innerHTML = `<div class="bg" data-mode="none">${opts.backdrop === false ? '' : backdropSvg()}</div>
@@ -95,18 +111,20 @@ export class Ui {
     };
 
     // delegated pointer handling
-    stage.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && (Math.abs(e.movementX) + Math.abs(e.movementY) > 1 || !('movementX' in e))) { this._mmT = performance.now(); this._setDevice('kbm'); } }, true);
-    stage.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') { this._mmT = performance.now(); this._setDevice('kbm'); } }, true);
-    stage.addEventListener('pointerover', (e) => {
-      if (e.pointerType !== 'mouse' || performance.now() - this._mmT > 350) return;
+    stage.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      if ('movementX' in e && Math.abs(e.movementX) + Math.abs(e.movementY) < 1) return; // synthetic move after a layout change
+      this._mmT = performance.now(); this._setDevice('kbm');
       const f = e.target.closest && e.target.closest('.f');
-      if (f && this.nav.isFocusable(f) && this.nav.scope()?.contains(f)) this.nav.focus(f, { hover: true, reveal: false });
-    });
+      if (f && f !== this.nav.cur && this.nav.isFocusable(f) && this.nav.scope()?.contains(f) && !this.nav.capture) this.nav.focus(f, { hover: true, reveal: false });
+    }, true);
+    stage.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') { this._mmT = performance.now(); this._setDevice('kbm'); } }, true);
     stage.addEventListener('click', (e) => {
       const f = e.target.closest && e.target.closest('.f');
       if (!f || f.classList.contains('dis')) return;
       if (this.nav.scope()?.contains(f)) this.nav.focus(f, { silent: true, reveal: false });
       const s = f.dataset.snd; if (s !== 'none') this.snd(s || 'click');
+      if (f.classList.contains('btn') || f.classList.contains('pressable')) this.pressFx(f);
     });
     stage.addEventListener('focusin', (e) => { const f = e.target.closest && e.target.closest('.f'); if (f && f.tagName === 'INPUT') this.nav.focus(f, { silent: true }); });
 
@@ -130,8 +148,9 @@ export class Ui {
   device() { return this._dev; }
   blocked() { return performance.now() < this._blockUntil; }
   _block(ms = 220) { this._blockUntil = performance.now() + ms; }
+  _setPadType(id) { this.el.dataset.pad = /054c|dualshock|dualsense|playstation/i.test(id) ? 'ps' : 'xbox'; }
   _setDevice(d, padId) {
-    if (padId) this.el.dataset.pad = /054c|dualshock|dualsense|playstation|wireless controller/i.test(padId) ? 'ps' : 'xbox';
+    if (padId) this._setPadType(padId);
     if (this._dev === d) return;
     this._dev = d; this.el.dataset.dev = d; if (this.input) this.input.lastDevice = d;
   }
@@ -141,6 +160,7 @@ export class Ui {
     try { f(name); } catch { /* audio hook errors must never break the UI */ }
   }
   _use(cb) { if (cb && cb.sound) this._sound = cb.sound; }
+  pressFx(el) { el.classList.remove('press'); void el.offsetWidth; el.classList.add('press'); setTimeout(() => el.classList.remove('press'), 340); }
   edgeBump(el, dir) {
     el.classList.remove('bump-l', 'bump-r', 'bump-u', 'bump-d'); void el.offsetWidth;
     el.classList.add('bump-' + dir[0]); setTimeout(() => el.classList.remove('bump-' + dir[0]), 200);
@@ -152,7 +172,8 @@ export class Ui {
     if (run && !this._running) { this._running = true; this._last = performance.now(); this._raf = requestAnimationFrame(this._loop); }
     else if (!run && this._running) { this._running = false; cancelAnimationFrame(this._raf); }
     const s = this.screen();
-    this.bgEl.dataset.mode = s && this.opts.backdrop !== false ? (s.bg || 'none') : 'none';
+    const bg = s ? (s.bg || 'none') : 'none';
+    this.bgEl.dataset.mode = bg === 'veil' ? 'veil' : this.opts.backdrop !== false ? bg : (bg === 'title' || bg === 'dim' ? 'scrim' : 'none');
     this.el.classList.toggle('has-screen', !!s);
   }
 

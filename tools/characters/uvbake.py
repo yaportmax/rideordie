@@ -9,8 +9,8 @@ from scipy import ndimage
 
 # --- rasterisation -----------------------------------------------------------------------------
 
-def rasterize(uv, tris, attrs, size, fill=0.0):
-    """Barycentric rasterisation of triangles into a (size, size, K) float32 image.
+def rasterize(uv, tris, attrs, size, fill=0.0, chunk=3_000_000):
+    """Barycentric rasterisation of triangles into a (size, size, K) float32 image (vectorised over triangles).
     uv: (V, 2) glTF uv, tris: (T, 3) indices, attrs: (V, K). Returns (img, mask)."""
     W = H = int(size)
     attrs = np.asarray(attrs, np.float64)
@@ -19,30 +19,50 @@ def rasterize(uv, tris, attrs, size, fill=0.0):
     K = attrs.shape[1]
     img = np.full((H, W, K), fill, np.float32)
     mask = np.zeros((H, W), bool)
+    tris = np.asarray(tris, np.int64)
     px = np.stack([uv[:, 0] * W, uv[:, 1] * H], axis=1)
-    for t in tris:
-        p0, p1, p2 = px[t[0]], px[t[1]], px[t[2]]
-        x0 = int(max(np.floor(min(p0[0], p1[0], p2[0]) - 0.5), 0))
-        x1 = int(min(np.ceil(max(p0[0], p1[0], p2[0]) + 0.5), W - 1))
-        y0 = int(max(np.floor(min(p0[1], p1[1], p2[1]) - 0.5), 0))
-        y1 = int(min(np.ceil(max(p0[1], p1[1], p2[1]) + 0.5), H - 1))
-        if x1 < x0 or y1 < y0:
-            continue
-        den = (p1[1] - p2[1]) * (p0[0] - p2[0]) + (p2[0] - p1[0]) * (p0[1] - p2[1])
-        if abs(den) < 1e-12:
-            continue
-        xs, ys = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
-        l0 = ((p1[1] - p2[1]) * (xs - p2[0]) + (p2[0] - p1[0]) * (ys - p2[1])) / den
-        l1 = ((p2[1] - p0[1]) * (xs - p2[0]) + (p0[0] - p2[0]) * (ys - p2[1])) / den
+    p0, p1, p2 = px[tris[:, 0]], px[tris[:, 1]], px[tris[:, 2]]
+    lo = np.minimum(np.minimum(p0, p1), p2)
+    hi = np.maximum(np.maximum(p0, p1), p2)
+    minx = np.clip(np.floor(lo[:, 0] - 0.5), 0, W - 1).astype(np.int64)
+    maxx = np.clip(np.ceil(hi[:, 0] + 0.5), 0, W - 1).astype(np.int64)
+    miny = np.clip(np.floor(lo[:, 1] - 0.5), 0, H - 1).astype(np.int64)
+    maxy = np.clip(np.ceil(hi[:, 1] + 0.5), 0, H - 1).astype(np.int64)
+    w = np.maximum(maxx - minx + 1, 0)
+    h = np.maximum(maxy - miny + 1, 0)
+    n = w * h
+    den = (p1[:, 1] - p2[:, 1]) * (p0[:, 0] - p2[:, 0]) + (p2[:, 0] - p1[:, 0]) * (p0[:, 1] - p2[:, 1])
+    ok = (n > 0) & (np.abs(den) > 1e-12)
+    order = np.flatnonzero(ok)
+    # process in chunks of triangles whose candidate pixels sum to <= chunk
+    csum = np.cumsum(n[order])
+    start = 0
+    while start < len(order):
+        base = csum[start - 1] if start > 0 else 0
+        end = int(np.searchsorted(csum, base + chunk, side="right"))
+        end = max(end, start + 1)
+        sel = order[start:end]
+        start = end
+        nn = n[sel]
+        tid = np.repeat(sel, nn)
+        offs = np.cumsum(nn) - nn
+        loc = np.arange(nn.sum()) - np.repeat(offs, nn)
+        ww = w[tid]
+        xs = minx[tid] + loc % ww
+        ys = miny[tid] + loc // ww
+        cx, cy = xs + 0.5, ys + 0.5
+        q0, q1, q2, d = p0[tid], p1[tid], p2[tid], den[tid]
+        l0 = ((q1[:, 1] - q2[:, 1]) * (cx - q2[:, 0]) + (q2[:, 0] - q1[:, 0]) * (cy - q2[:, 1])) / d
+        l1 = ((q2[:, 1] - q0[:, 1]) * (cx - q2[:, 0]) + (q0[:, 0] - q2[:, 0]) * (cy - q2[:, 1])) / d
         l2 = 1.0 - l0 - l1
         eps = -0.02
-        inside = (l0 >= eps) & (l1 >= eps) & (l2 >= eps)
-        if not inside.any():
+        ins = (l0 >= eps) & (l1 >= eps) & (l2 >= eps)
+        if not ins.any():
             continue
-        val = l0[..., None] * attrs[t[0]] + l1[..., None] * attrs[t[1]] + l2[..., None] * attrs[t[2]]
-        sl = (slice(y0, y1 + 1), slice(x0, x1 + 1))
-        img[sl][inside] = val[inside]
-        mask[sl] |= inside
+        t_ = tris[tid[ins]]
+        val = l0[ins, None] * attrs[t_[:, 0]] + l1[ins, None] * attrs[t_[:, 1]] + l2[ins, None] * attrs[t_[:, 2]]
+        img[ys[ins], xs[ins]] = val
+        mask[ys[ins], xs[ins]] = True
     return img, mask
 
 
@@ -105,8 +125,15 @@ def flat_normal(size):
 
 def fbm(shape, scale=32.0, octaves=4, seed=0, gain=0.5, wrap=True):
     """Fractal noise in [0, 1]; `scale` = wavelength of the base octave in pixels."""
-    rng = np.random.default_rng(seed)
     H, W = shape
+    # big, smooth noise is computed at reduced resolution and upsampled (much faster on 2048^2 atlases)
+    f = 1
+    while scale / (f * 2) >= 24.0 and min(H, W) // (f * 2) >= 64 and octaves <= 4:
+        f *= 2
+    if f > 1:
+        small = fbm((H // f, W // f), scale / f, octaves, seed, gain, wrap)
+        return np.clip(ndimage.zoom(small, (H / small.shape[0], W / small.shape[1]), order=1), 0.0, 1.0).astype(np.float32)
+    rng = np.random.default_rng(seed)
     acc = np.zeros(shape, np.float32)
     amp, tot = 1.0, 0.0
     s = float(scale)

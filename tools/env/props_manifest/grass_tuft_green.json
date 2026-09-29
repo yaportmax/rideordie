@@ -2,17 +2,18 @@
  "name": "grass_tuft_green",
  "file": "grass_tuft_green.glb",
  "category": "grass",
- "height": 0.426,
- "radius": 0.293,
+ "height": 0.769,
+ "radius": 0.3,
  "size": [
-  0.586,
-  0.426,
-  0.507
+  0.601,
+  0.769,
+  0.601
  ],
- "tris": 54,
+ "tris": 102,
  "materials": [
-  "grass_green"
+  "grass_green",
+  "grass_stalks_green"
  ],
- "notes": "green grass tuft: 3 crossed vertical cards + 3 leaning fans (MASK, double-sided), ~0.42 m",
- "kb": 77.1
+ "notes": "green grass tuft: 5 crossed blade cards + 4 leaning fans + 2 taller seed-stalk cards (MASK, double-sided), ~0.42 m (stalks 0.80 m)",
+ "kb": 123.7
 }

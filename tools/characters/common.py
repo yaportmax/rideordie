@@ -12,17 +12,22 @@ import uvbake as U
 
 # --- body skin ----------------------------------------------------------------------------------------
 
-def cull_tris(ch, covers, keep_extra=None):
+def cull_tris(ch, covers, keep_extra=None, hide_bones=()):
     """Body triangles (ch.tv) minus those lying under garments (`covers`: list of (T,3) body-vertex triples)."""
     tv = ch.tv
     tt = ch.tt
-    if not covers:
+    if not covers and not hide_bones:
         return tv, tt
+    if not covers:
+        covers = [np.zeros((0, 3), np.int64)]
     key = np.sort(tv, axis=1)
     codes = key[:, 0] * 40000 * 40000 + key[:, 1] * 40000 + key[:, 2]
     cov = np.sort(np.concatenate(covers), axis=1)
     ccodes = cov[:, 0] * 40000 * 40000 + cov[:, 1] * 40000 + cov[:, 2]
     keep = ~np.isin(codes, ccodes)
+    if hide_bones:
+        ids = [mh.BONE_INDEX[b] for b in hide_bones]
+        keep &= ~np.all(np.isin(ch.top[tv], ids), axis=1)
     if keep_extra is not None:
         keep |= keep_extra
     return tv[keep], tt[keep]
@@ -36,7 +41,7 @@ def add_skin(ctx, tris, albedo, rough=0.78, normal=None):
     m = mh.split_seams(ch.pos, nrm, ch.vt, tv, tt)
     j, w = mh.top4(ch.W[m["src"]])
     tex = ctx.glb.texture_array("skin_albedo", albedo, "jpg", 90)
-    mat = ctx.material("skin", base_tex=tex, rough=rough, metallic=0.0,
+    mat = ctx.material("skin", base_tex=tex, rough=rough, metallic=0.0, spec=0.6,
                        normal_tex=None if normal is None else ctx.glb.texture_array("skin_normal", normal, "jpg", 92))
     ctx.add(dict(pos=mh.to_final(m["pos"]), nrm=mh.to_final(m["nrm"]), uv=m["uv"], joints=j, weights=w, idx=m["idx"]),
             mat, label="skin")
@@ -53,7 +58,7 @@ def add_eyes(ctx, colour="brown"):
 # --- cloth atlas groups -------------------------------------------------------------------------------
 
 def cloth_group(ctx, name, pieces, painter, ppm=500, extra=("depth", "ao"), group="main", color=(1, 1, 1, 1), rough=0.88,
-                tile_ppm_min=250):
+                tile_ppm_min=250, spec=0.3):
     """Pack finished pieces (from cloth.finish) into one atlas, bake attributes, paint albedo+height with `painter(bk)`
     -> (albedo float HxWx3, height metres HxW), write textures + material + skinned prims."""
     while True:
@@ -69,7 +74,7 @@ def cloth_group(ctx, name, pieces, painter, ppm=500, extra=("depth", "ao"), grou
     alb, normal = finish_maps(alb, h, ppm)
     tb = ctx.glb.texture_array(name + "_albedo", alb, "jpg", 90)
     tn = ctx.glb.texture_array(name + "_normal", normal, "jpg", 92)
-    mat = ctx.material(name, base_tex=tb, normal_tex=tn, rough=rough, metallic=0.0, double_sided=True, color=color)
+    mat = ctx.material(name, base_tex=tb, normal_tex=tn, rough=rough, metallic=0.0, double_sided=True, color=color, spec=spec)
     for pc in pieces:
         prim = dict(pos=mh.to_final(pc["pos"]), nrm=mh.to_final(pc["nrm"]), uv=pc["uv"], joints=pc["joints"], weights=pc["weights"],
                     idx=pc["idx"])
@@ -94,13 +99,18 @@ def gear_material(ctx, name, kind, color=(1, 1, 1), rough=None, metal=None, size
     """A tiled-texture material named `name` (color is the tint multiplied over a grey-scale albedo)."""
     if ctx.has_material(name):
         return ctx.mats[name]
+    seed = 1                                   # one texture set per kind (shared by every colour variant)
     t = texlib.make(kind, size, seed)
     glb = ctx.glb
     tb = glb.texture_array("%s_alb_%d" % (kind, seed), t["albedo"], "jpg", 88)
     tn = glb.texture_array("%s_nrm_%d" % (kind, seed), t["normal"], "jpg", 90)
-    orm = t.get("orm")
+    orm = t.get("orm") if kind in ("leather", "metal_dark", "armor") else None
     tm = glb.texture_array("%s_orm_%d" % (kind, seed), orm, "jpg", 88) if orm is not None else None
     kw = dict(base_tex=tb, normal_tex=tn, color=tuple(color) + (1.0,), normal_scale=normal_scale, double_sided=double_sided)
+    if kind in ("canvas", "webbing", "denim", "knit", "rubber"):
+        kw["spec"] = 0.3
+    elif kind == "leather":
+        kw["spec"] = 0.55
     if tm is not None:
         kw.update(mr_tex=tm, occ_tex=tm, rough=1.0 if rough is None else rough, metallic=1.0 if metal is None else metal)
     else:
@@ -174,3 +184,79 @@ def add_hair(ctx, name, colour, size=1024, rough=0.6, label="hair", strength=1.0
     mat = ctx.material("hair", base_tex=t, rough=rough, alpha_mode="MASK", alpha_cutoff=0.42, double_sided=True)
     ctx.add(d, mat, label=label)
     return d
+
+
+def add_brows(ctx, colour=(0.10, 0.07, 0.05), lashes=True, brows=True):
+    """Eyebrows (+ eyelashes) proxies as one alpha-tested `hair_face` material (texture atlas: brow | lash)."""
+    from PIL import Image
+    A = mh.ASSETS
+    items = []
+    if brows:
+        items.append(("brow", A + "/eyebrows/eyebrow001/eyebrow001.mhclo", A + "/eyebrows/eyebrow001/eyebrow001.png"))
+    if lashes:
+        items.append(("lash", A + "/eyelashes/eyelashes01/eyelashes01.mhclo", A + "/eyelashes/eyelashes01/eyelashes01.png"))
+    if not items:
+        return
+    atlas = np.zeros((512, 512 * len(items), 4), np.uint8)
+    col = np.array(colour, np.float32)
+    prims = []
+    for k, (nm, mhclo, png) in enumerate(items):
+        im = np.asarray(Image.open(png).convert("RGBA").resize((512, 512), Image.LANCZOS)).astype(np.float32) / 255.0
+        rgb = np.clip(col[None, None, :] * (0.55 + 0.9 * im[..., :3].mean(axis=-1, keepdims=True)), 0, 1)
+        atlas[:, k * 512:(k + 1) * 512, :3] = (rgb * 255).astype(np.uint8)
+        atlas[:, k * 512:(k + 1) * 512, 3] = (im[..., 3] * 255).astype(np.uint8)
+        d = parts.fit_asset(ctx.ch, mhclo)
+        uv = d["uv"].copy()
+        uv[:, 0] = (uv[:, 0] + k) / len(items)
+        d["uv"] = uv
+        prims.append(d)
+    t = ctx.glb.texture_array("hair_face", atlas, "png")
+    mat = ctx.material("hair_face", base_tex=t, rough=0.7, alpha_mode="MASK", alpha_cutoff=0.35, double_sided=True)
+    for d in prims:
+        ctx.add(d, mat, label="brows")
+
+
+def eye_texture(iris, size=128, sclera=(0.86, 0.83, 0.78), seed=1):
+    """Procedural eye texture for low-poly eyeballs: planar projection from the front (iris at the centre)."""
+    import uvbake as U_
+    y, x = np.mgrid[0:size, 0:size].astype(np.float32)
+    c = (size - 1) / 2.0
+    r = np.hypot(x - c, y - c) / c
+    img = np.ones((size, size, 3), np.float32) * np.asarray(sclera, np.float32)
+    n = U_.fbm((size, size), 6.0, 2, seed, wrap=False)
+    img *= (0.94 + 0.1 * n)[..., None]
+    iris = np.asarray(iris, np.float32)
+    ir = 0.40
+    ring = np.clip((r - ir * 0.55) / (ir * 0.45), 0, 1)
+    ic = iris[None, None, :] * (0.55 + 0.6 * ring[..., None] ** 0.8) * (0.85 + 0.3 * n[..., None])
+    limbal = np.clip((r - ir * 0.86) / (ir * 0.14), 0, 1)
+    ic = ic * (1 - 0.6 * limbal[..., None])
+    m = (r < ir).astype(np.float32)
+    m = U_.blur(m, 0.7)
+    img = img * (1 - m[..., None]) + ic * m[..., None]
+    pupil = U_.blur((r < ir * 0.36).astype(np.float32), 0.7)
+    img = img * (1 - pupil[..., None]) + np.array([0.01, 0.01, 0.012], np.float32) * pupil[..., None]
+    return (np.clip(img, 0, 1) * 255).astype(np.uint8)
+
+
+def add_eyes_lite(ctx, iris=(0.25, 0.14, 0.06), seg=10, rings=6):
+    """Two small ellipsoid eyeballs (~200 tris total) with a procedural iris texture."""
+    import kit as K
+    spheres = parts.eye_spheres(ctx.ch)
+    t = ctx.glb.texture_array("eye_lite", eye_texture(iris), "png")
+    mat = ctx.material("eye", base_tex=t, rough=0.3)
+    binder = K.Binder(ctx.ch)
+    for c, r in spheres:
+        m = K.ellipsoid([0, 0, 0], [r, r, r], seg=seg, rings=rings)
+        # planar uv from the front (+Z): u = x, v = y
+        uv = np.stack([0.5 + m["pos"][:, 0] / (2 * r), 0.5 - m["pos"][:, 1] / (2 * r)], axis=1)
+        m = dict(m, uv=uv)
+        # rotate so the pole faces forward: our ellipsoid poles are +-Y; use planar uv from XY with the sphere as is
+        # (iris drawn at the centre of the XY projection = the +Z side)
+        m = K.xform(m, t=c)
+        common_add(ctx, m, mat, binder)
+
+
+def common_add(ctx, m, mat, binder):
+    j, w = binder.bone(m["pos"], "Head")
+    ctx.add(dict(pos=m["pos"], nrm=m["nrm"], uv=m["uv"], joints=j, weights=w, idx=m["idx"]), mat, label="eyes")

@@ -227,37 +227,37 @@ def boss_defeated(v, r):
     return dsp.limit(dsp.normalize_peak(out, -1.6), -1.5)
 
 
-@reg("victory", 0, "short heroic C-major fanfare (stinger; full theme is music/victory), ~5 s")
+@reg("victory", 0, "short heroic C-major fanfare (2.6 s stinger; full theme is music/victory)")
 def victory(v, r):
-    dur = 3.4
+    dur = 2.2
     items = []
     t0 = 0.0
     for m in (55, 60, 64, 67):          # G3 C4 E4 G4
-        items.append((t0, brass(midi(m), 0.14, 0.01, 0.15, 800, 3400, 0.3, 1.0, 1.2), 0.04))
-        t0 += 0.11
-    tr = 0.2
-    while tr < 0.7:
+        items.append((t0, brass(midi(m), 0.13, 0.01, 0.12, 800, 3400, 0.3, 1.0, 1.2), 0.04))
+        t0 += 0.10
+    tr = 0.15
+    while tr < 0.55:
         items.append((tr, snare(r, 0.12), 0.012))
-        tr += 0.06
-    items.append((0.55, snare(r, 0.15), 0.03))
-    ch = 0.75
+        tr += 0.055
+    items.append((0.45, snare(r, 0.15), 0.03))
+    ch = 0.55
     for m in (48, 60, 64, 67, 72, 76):   # C major
-        items.append((ch, brass(midi(m), 1.5, 0.03, 1.0, 800, 4200, 0.25), 0.05))
-    items.append((ch, crash(r, 2.5), 0.12))
+        items.append((ch, brass(midi(m), 1.0, 0.03, 0.5, 800, 4200, 0.25), 0.05))
+    items.append((ch, crash(r, 1.6), 0.12))
     items.append((ch, kick(0.5, 140, 46), 0.06))
     for k, m in enumerate((84, 88, 91, 96)):
-        items.append((ch + 0.05 + 0.09 * k, fo.ring([midi(m), midi(m) * 2.0], [0.35, 0.2], [1, 0.4], 0.8), 0.03))
+        items.append((ch + 0.05 + 0.08 * k, fo.ring([midi(m), midi(m) * 2.0], [0.3, 0.16], [1, 0.4], 0.6), 0.03))
     mono = _mix(items, dur)
     mono = dsp.normalize_peak(mono, -3.0)
-    out = stereo_rev(mono, r, 1.8, 0.35)
-    out = dsp.trim_silence(out, -58, 0.05)
+    out = stereo_rev(mono, r, 1.0, 0.30)
+    out = dsp.trim_silence(out, -46, 0.05)
     return dsp.limit(dsp.normalize_peak(out, -1.6), -1.5)
 
 
-@reg("low_health_heartbeat_loop", -3, "heartbeat lub-dub at 60 BPM, seamless 1 s loop; loop while HP < 30 %, raise rate via playbackRate", loop=True,
+@reg("low_health_heartbeat_loop", -3, "heartbeat lub-dub-lub-dub at 60 BPM (2 beats, slight variation), seamless 2 s loop; loop while HP < 30 %, raise rate via playbackRate", loop=True,
      norm=("lufs", -21.0))
 def heartbeat(v, r):
-    L = secs(1.0)
+    L = secs(2.0)
     y = np.zeros(L)
 
     def beat(f0, f1, tau, level):
@@ -265,8 +265,11 @@ def heartbeat(v, r):
         b = np.tanh(1.6 * dsp.sweep(n, f0, f1, 0.03)) * dsp.ar_env(n, 0.006, tau)
         nz = dsp.lp(_w(r, n), 260, 2) * dsp.ar_env(n, 0.004, tau * 0.6)
         return (en(b) * 0.85 + en(nz) * 0.35) * level
-    dsp.place_wrap(y, beat(95, 52, 0.07, 1.0), 0)
-    dsp.place_wrap(y, beat(80, 46, 0.085, 0.7), secs(0.3))
+    for k in range(2):
+        t0 = k * 1.0
+        j = 1.0 + 0.04 * (k)
+        dsp.place_wrap(y, beat(95 * j, 52 * j, 0.07, 1.0 - 0.06 * k), secs(t0))
+        dsp.place_wrap(y, beat(80 * j, 46 * j, 0.085, 0.7 - 0.05 * k), secs(t0 + 0.3))
     st = np.stack([y, y], axis=1)
     return st
 
@@ -285,7 +288,7 @@ def warning_alarm(v, r):
     env = np.minimum(1, ph / 0.02) * np.minimum(1, (1 - ph) / 0.03)
     s = s * env
     s = np.tanh(1.3 * s)
-    return np.stack([s, np.roll(s, secs(0.0025))], axis=1)
+    return np.stack([s, s], axis=1)
 
 
 @reg("danger_riser", -1, "3 s tension riser (noise sweep + rising tone + accelerating tremolo); ends at peak, cut it with a hit", norm=("peak", -1.5))
@@ -303,6 +306,5 @@ def danger_riser(v, r):
     y = (en(nz) * 0.9 * trem + en(tone) * 0.6) * (u ** 1.7)
     y = np.tanh(1.5 * y)
     L = y * 1.0
-    R = np.roll(y, secs(0.0012))
-    st = np.stack([L, R], axis=1)
+    st = np.stack([L, L], axis=1)
     return dsp.fade(st, 0.0, 0.03)

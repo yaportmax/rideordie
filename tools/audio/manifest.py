@@ -9,11 +9,11 @@ import render as R
 
 # cross-category bus offsets (dB, <= 0) applied on top of the within-category loudness match
 BUS_DB = {
-    "gun_fire": -5.0, "gun_enemy": -8.0, "gun_foley": -12.0, "gun_loop": -8.0,
+    "gun_fire": -5.0, "gun_enemy": -5.0, "gun_foley": -12.0, "gun_loop": -8.0,
     "impact_bullet": -10.0, "impact_ui": -8.0, "impact_car": -3.0, "impact_misc": -8.0, "impact_loop": -14.0,
     "explosion": 0.0, "explosion_loop": -14.0,
     "engine": -14.0, "vehicle_loop": -16.0, "vehicle_fx": -8.0,
-    "ui": -14.0, "stinger": -3.0, "stinger_loop": -10.0, "ambience": -20.0, "music": -10.0, "music_stem": -10.0,
+    "ui": -14.0, "stinger": -5.0, "stinger_loop": -10.0, "ambience": -20.0, "music": -10.0, "music_stem": -10.0,
 }
 
 
@@ -117,6 +117,7 @@ def build_manifest():
                 total += os.path.getsize(os.path.join(root, f))
     man = dict(
         version=1,
+        basePath="/audio/",
         sampleRate=R.SR,
         format="ogg/vorbis q5; mono for positional sfx, stereo for music + ambience",
         conventions=dict(

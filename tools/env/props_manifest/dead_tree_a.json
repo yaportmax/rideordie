@@ -2,17 +2,17 @@
  "name": "dead_tree_a",
  "file": "dead_tree_a.glb",
  "category": "tree_dead",
- "height": 8.429,
- "radius": 1.959,
+ "height": 8.518,
+ "radius": 2.284,
  "size": [
-  3.312,
-  8.429,
-  3.806
+  3.904,
+  8.518,
+  3.884
  ],
- "tris": 2565,
+ "tris": 2383,
  "materials": [
   "bark_dead"
  ],
- "notes": "bare weathered snag, bark_dead texture (0.9 m/tile), origin at trunk base, no alpha cards",
- "kb": 521.9
+ "notes": "tall windswept dead spire: fluted twisted trunk, one-sided limbs, snapped stubs + jagged top, 4 exposed roots; bark_dead texture 0.9 m/tile, origin at trunk base, no alpha cards",
+ "kb": 484.5
 }

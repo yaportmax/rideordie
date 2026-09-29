@@ -76,6 +76,28 @@ function place(name, x, z, ry = 0, s = 1, y = 0) {
 }
 const rnd = (() => { let s = 12345; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
 
+
+function sprite(url, cols, rows, frame, x, y, z, size, additive = false, color = 0xffffff, opacity = 1) {
+  const t = texLoader.load(url); t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(1 / cols, 1 / rows);
+  t.offset.set((frame % cols) / cols, 1 - (Math.floor(frame / cols) + 1) / rows);
+  const m = new THREE.SpriteMaterial({ map: t, color, transparent: true, opacity, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, fog: true });
+  const sp = new THREE.Sprite(m); sp.position.set(x, y, z); sp.scale.set(size, size, 1); sp.center.set(0.5, additive && cols === 4 ? 0.03 : 0.5);
+  scene.add(sp); return sp;
+}
+function buildFx() {
+  // a burning barrel + smoke column + dust puffs + a muzzle flash, for judging the sprites in the lit scene
+  const P = '/textures/particles/';
+  for (let i = 0; i < 6; i++) sprite(P + 'smoke_sheet.png', 4, 4, (i % 4) + 4 * (i % 4), 6.2 + i * 0.9, 2.0 + i * 1.9, 30 + i * 1.2, 2.2 + i * 1.1, false, 0x585858, 0.85);
+  sprite(P + 'fire_sheet.png', 4, 4, 5, 6.2, 0.9, 30, 2.2, true);
+  sprite(P + 'fire_sheet.png', 4, 4, 11, 6.7, 0.7, 30.2, 1.5, true);
+  for (let i = 0; i < 5; i++) sprite(P + 'dust_puff.png', 4, 4, (i % 4) + 4 * ((i + 1) % 4), -3 + i * 1.3, 0.7 + i * 0.1, 18 + i * 1.6, 2.8 + i * 0.5, false, 0xffffff, 0.75);
+  sprite(P + 'muzzle_flash_sheet.png', 4, 2, 0, 1.0, 1.6, 12, 1.3, true);
+  sprite(P + 'muzzle_flash_sheet.png', 4, 2, 3, -0.6, 1.4, 14, 1.6, true);
+  sprite(P + 'spark.png', 1, 1, 0, 0.2, 1.0, 10, 0.5, true);
+  sprite(P + 'blast_flash.png', 1, 1, 0, -6, 1.5, 40, 4, true);
+  sprite(P + 'shockwave.png', 1, 1, 0, -6, 1.0, 40.2, 9, true, 0xffffff, 0.6);
+}
+
 async function buildRoad() {
   const terrain = q.get('terrain') || 'sand';
   const tm = num('tscale', 5);
@@ -120,20 +142,47 @@ async function buildRoad() {
     place('barrel', 6.2, 30, 0); place('barrel_explosive', 6.8, 31.2, 0.6); place('tire_stack', -7.6, 48, 0.4); place('crate_stack', 7.5, 60, 0.3);
     place('sign_warning', 6.2, 40, Math.PI); place('sign_speed', -6.6, 26, 0); place('utility_pole', 9, 90, 0); place('utility_pole', 9, 110, 0); place('street_lamp', -8.0, 70, Math.PI / 2);
     place('skeleton_car_frame', -13, 34, 1.2);
-    for (let i = 0; i < 60; i++) {
-      const side = rnd() < 0.5 ? -1 : 1, z = 8 + rnd() * 230, x = side * (9 + rnd() * 40);
-      const r = rnd();
-      if (r < 0.28) place('rock_0' + (1 + Math.floor(rnd() * 5)), x, z, rnd() * 6);
-      else if (r < 0.42) place('shrub_desert_scrub', x, z, rnd() * 6);
-      else if (r < 0.52) place('shrub_dry_bush', x, z, rnd() * 6);
-      else if (r < 0.62) place('cactus_saguaro', x, z, rnd() * 6);
-      else if (r < 0.70) place('cactus_barrel', x, z, rnd() * 6);
-      else if (r < 0.80) place('dead_tree_' + 'abc'[Math.floor(rnd() * 3)], x, z, rnd() * 6);
-      else if (r < 0.9) place('grass_tuft', x, z, rnd() * 6, 1.4);
-      else place('boulder_0' + (1 + Math.floor(rnd() * 3)), x + side * 10, z, rnd() * 6);
+    const scenery = q.get('scenery') || 'desert';
+    if (scenery === 'pines') {
+      for (let i = 0; i < 150; i++) {
+        const side = rnd() < 0.5 ? -1 : 1, z = 8 + rnd() * 260, x = side * (10 + rnd() * 70);
+        const r = rnd(), far = z > 150 || Math.abs(x) > 50;
+        const t = 'abc'[Math.floor(rnd() * 3)];
+        if (r < 0.62) place(far ? 'pine_' + t + '_lod' : 'pine_' + t, x, z, rnd() * 6, 0.85 + rnd() * 0.45);
+        else if (r < 0.72) place('rock_0' + (1 + Math.floor(rnd() * 6)), x, z, rnd() * 6);
+        else if (r < 0.82) place('fern', x, z, rnd() * 6, 1.3);
+        else if (r < 0.9) place('shrub_green_bush', x, z, rnd() * 6);
+        else place('dead_tree_' + 'abc'[Math.floor(rnd() * 3)], x, z, rnd() * 6);
+      }
+      for (let i = 0; i < 40; i++) place('pine_' + 'abc'[i % 3] + '_billboard', (rnd() < 0.5 ? -1 : 1) * (20 + rnd() * 120), 200 + rnd() * 200, rnd() * 3, 1.0);
+    } else if (scenery === 'coast') {
+      for (let i = 0; i < 70; i++) {
+        const side = rnd() < 0.5 ? -1 : 1, z = 8 + rnd() * 240, x = side * (9 + rnd() * 45);
+        const r = rnd();
+        if (r < 0.3) place('palm_coast', x, z, rnd() * 6, 0.85 + rnd() * 0.3);
+        else if (r < 0.5) place('shrub_green_bush', x, z, rnd() * 6);
+        else if (r < 0.62) place('fern', x, z, rnd() * 6, 1.4);
+        else if (r < 0.8) place('rock_0' + (1 + Math.floor(rnd() * 6)), x, z, rnd() * 6);
+        else place('grass_tuft_green', x, z, rnd() * 6, 1.6);
+      }
+      const cl = plane(300, 60, pbr(q.get('cliff') || 'cliff', 300, 60, num('cscale', 8)), -60, 30, 130); cl.rotation.set(0, Math.PI / 2, 0); cl.position.set(-40, 30, 130);
+    } else {
+      for (let i = 0; i < 60; i++) {
+        const side = rnd() < 0.5 ? -1 : 1, z = 8 + rnd() * 230, x = side * (9 + rnd() * 40);
+        const r = rnd();
+        if (r < 0.28) place('rock_0' + (1 + Math.floor(rnd() * 5)), x, z, rnd() * 6);
+        else if (r < 0.42) place('shrub_desert_scrub', x, z, rnd() * 6);
+        else if (r < 0.52) place('shrub_dry_bush', x, z, rnd() * 6);
+        else if (r < 0.62) place('cactus_saguaro', x, z, rnd() * 6);
+        else if (r < 0.70) place('cactus_barrel', x, z, rnd() * 6);
+        else if (r < 0.80) place('dead_tree_' + 'abc'[Math.floor(rnd() * 3)], x, z, rnd() * 6);
+        else if (r < 0.9) place('grass_tuft', x, z, rnd() * 6, 1.4);
+        else place('boulder_0' + (1 + Math.floor(rnd() * 3)), x + side * 10, z, rnd() * 6);
+      }
+      place('canyon_pillar_a', -55, 150, 0); place('canyon_pillar_b', 80, 260, 1); place('boulder_03', 30, 190, 0.5);
     }
-    place('canyon_pillar_a', -55, 150, 0); place('canyon_pillar_b', 80, 260, 1); place('boulder_03', 30, 190, 0.5);
   }
+  if (q.get('fx') === '1') buildFx();
   await Promise.all(props);
   cam.position.set(num('camx', 1.6), num('cam', 2.6), num('camz', -6)); cam.lookAt(num('lookx', 0), num('looky', 1.6), num('lookz', 60));
 }

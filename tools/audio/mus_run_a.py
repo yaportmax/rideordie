@@ -9,6 +9,7 @@ from music_lib import Grid, Scale, Human, parse_notes
 
 SPEC = dict(track="run_a", bpm=152, bars=16, key="A minor", tonic=69, mode="minor", kind="run",
             srcs=["music_lib.py", "mus_rock.py", "mus_run_a.py"], outputs=M.stem_outputs("run_a"),
+            sections=[(1, "riff"), (5, "variation"), (9, "lift"), (13, "peak")], fill_bars=[8, 16],
             notes="RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length")
 
 # chord root degree per bar (0 = A). Am G F G | Am G F G | Dm F C G | Am G F G
@@ -72,7 +73,8 @@ def build():
     base = bass + 0.42 * pad
 
     lanes = dict(kick=KICK, snare=SNARE, clap=CLAP, hat_c=HAT_C, hat_o=HAT_O, tom_h=TOM_H, tom_m=TOM_M, tom_l=TOM_L)
-    drums = R.drum_stem(g, r, lanes, crashes=[(0, 0.8), (4, 0.5), (8, 1.0), (12, 0.9)])
+    kit = dict(snare=dict(tune=M.mtof(55), room=0.16), tom_h=(M.mtof(57), 0.10), tom_m=(M.mtof(52), 0.13), tom_l=(M.mtof(45), 0.18))   # A3 E3 A2 toms, G3 snare
+    drums = R.drum_stem(g, r, lanes, kit=kit, crashes=[(0, 0.8), (4, 0.5), (8, 1.0), (12, 0.9)])
     M.dbg("drums", drums)
 
     lead = R.lead_stem(g, sc, r, hum, LEAD, ["a"] * 8 + ["b"] * 4 + ["a"] * 4, TIMBRES, low_bars=range(12, 16), counter=COUNTER,

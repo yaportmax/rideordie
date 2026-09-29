@@ -56,6 +56,7 @@ OVERRIDES = dict(
     dense=0.072,
     wear=0.5,
     rust_patches=5,
+    dent_k=0.5,
     frame_style='none',
     exhaust_style='rear',
 )

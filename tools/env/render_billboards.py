@@ -146,7 +146,7 @@ def shade_and_pack(rgb, got, dep, Hm):
     else:
         dn = np.zeros_like(dep)
     yy = 1.0 - (np.arange(H)[:, None] / H)
-    shade = (0.80 + 0.20 * dn ** 0.85) * (0.92 + 0.08 * yy) * 1.22
+    shade = (0.80 + 0.20 * dn ** 0.85) * (0.92 + 0.08 * yy) * 1.0
     out = rgb * shade[..., None]
     return out
 

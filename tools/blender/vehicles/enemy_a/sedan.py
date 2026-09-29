@@ -7,7 +7,7 @@ from veh_pipeline import *
 from veh_parts import *
 from veh_decals import *
 
-STYLE = dict(seed=5, rust=0.85, dirt=0.75, wear=0.8, scratch=0.6)
+STYLE = dict(seed=5, rust=1.1, dirt=0.85, wear=0.85, scratch=0.6)
 V = Vehicle("e_sedan", style=STYLE)
 M = V.M
 reset_wheel_cache()
@@ -19,7 +19,7 @@ XMARK = make_image("xmark", xmark_alpha(512))
 def hook_paint(ctx, col):
     g = ctx["g"]
     dark = (0.02, 0.02, 0.02)
-    m = stamp(ctx, SKULL, (-0.28, 1.50, 1.0), (1, 0, 0), (0, -1, 0), (0.64, 0.64), thick=0.09)     # hood skull (reads from the front)
+    m = stamp(ctx, SKULL, (-0.26, 1.50, 1.0), (1, 0, 0), (0, -1, 0), (0.86, 0.86), thick=0.09)     # hood skull (reads from the front)
     col = g.mixc(g.mul(m, 0.93), col, dark)
     m = stamp(ctx, TALLY, (0.28, -1.90, 1.0), (1, 0, 0), (0, 1, 0), (0.56, 0.56), thick=0.09)      # trunk tally marks (read from the rear)
     col = g.mixc(g.mul(m, 0.9), col, dark)
@@ -70,10 +70,11 @@ def build_shell():
         cp = duplicate(tub, name)
         cu = cutter(c, s, inner)
         bool_op(cp, cu, "INTERSECT")
-        if mat:
-            for sl in cp.material_slots:
-                if sl.material and sl.material.name == "paint":
-                    sl.material = M[mat]
+        for sl in cp.material_slots:
+            if sl.material and sl.material.name == "paint" and mat:
+                sl.material = M[mat]
+            elif sl.material and sl.material.name in ("metal_dark", "interior"):
+                sl.material = M[mat or "paint"]
         add_bevel(cp, 0.007, 1, 30)
         apply_modifiers(cp)
         return reg(cp, grp)
@@ -190,7 +191,7 @@ def door_extras(sd, grp, dmat, front, f0, f1):
         fh = f1 - 0.17
     bx("handle", (sd * (side_x(0.90) + 0.006), fh, 0.90), (0.022, 0.15, 0.022), "chrome", bevel=0.005, seg=1, g=grp)
     bx("handle_base", (sd * (side_x(0.90) + 0.003), fh, 0.90), (0.014, 0.19, 0.045), "chrome", bevel=0.004, seg=1, g=grp)
-    beam("rub", (sd * (side_x(0.62) + 0.004), f0 + 0.05, 0.62), (sd * (side_x(0.62) + 0.004), f1 - 0.05, 0.62), 0.018, 0.055, "interior", u=(1, 0, 0), g=grp)
+    beam("rub", (sd * (side_x(0.62) + 0.004), f0 + 0.05, 0.62), (sd * (side_x(0.62) + 0.004), f1 - 0.05, 0.62), 0.018, 0.055, "chrome", u=(1, 0, 0), g=grp)
 
 
 # ------------------------------------------------------------------------------------------- nose / tail
@@ -198,14 +199,13 @@ def build_nose_tail():
     poly = [(-0.80, 2.58), (0.80, 2.58), (0.93, 2.55), (1.00, 2.47), (1.005, 2.36), (0.90, 2.36), (0.86, 2.47), (0.80, 2.53),
             (-0.80, 2.53), (-0.86, 2.47), (-0.90, 2.36), (-1.005, 2.36), (-1.00, 2.47), (-0.93, 2.55)]
     prism("bumper_F", poly, "xf", 0.33, 0.60, "chrome", bevel=0.012, seg=2, g="panel_bumper_F")
-    bx("bF_strip", (0, 2.586, 0.47), (1.5, 0.014, 0.06), "interior", g="panel_bumper_F")
+    bx("bF_strip", (0, 2.586, 0.47), (1.5, 0.014, 0.06), "armor", g="panel_bumper_F")
     for sd in (1, -1):
         cyl("overrider", (sd * 0.50, 2.62, 0.47), 0.045, 0.16, "f", "chrome", sides=10, r2=0.035, g="panel_bumper_F")
-        bx("bF_amber", (sd * 0.86, 2.55, 0.47), (0.16, 0.025, 0.07), "light_head", g="panel_bumper_F")
     poly = [(-0.80, -2.58), (0.80, -2.58), (0.93, -2.55), (1.00, -2.47), (1.005, -2.36), (0.90, -2.36), (0.86, -2.47), (0.80, -2.53),
             (-0.80, -2.53), (-0.86, -2.47), (-0.90, -2.36), (-1.005, -2.36), (-1.00, -2.47), (-0.93, -2.55)]
     prism("bumper_R", poly[::-1], "xf", 0.33, 0.60, "chrome", bevel=0.012, seg=2, g="panel_bumper_R")
-    bx("bR_strip", (0, -2.586, 0.47), (1.5, 0.014, 0.06), "interior", g="panel_bumper_R")
+    bx("bR_strip", (0, -2.586, 0.47), (1.5, 0.014, 0.06), "chrome", g="panel_bumper_R")
     for sd in (1, -1):
         cyl("overrider", (sd * 0.62, -2.62, 0.47), 0.045, 0.16, "f", "chrome", sides=10, r2=0.035, g="panel_bumper_R")
     for sd in (1, -1):
@@ -231,7 +231,7 @@ def build_nose_tail():
         for dx, dz, sx, sz in ((0, 0.07, 0.56, 0.016), (0, -0.07, 0.56, 0.016), (-0.275, 0, 0.016, 0.14), (0.275, 0, 0.016, 0.14)):
             bx("tl_bezel", (x + dx, -2.505, 0.81 + dz), (sx, 0.022, sz), "chrome", g="body")
         bx("rev_lens", (sd * 0.30, -2.50, 0.81), (0.06, 0.02, 0.085), "light_head", g="body")
-    bx("plate", (0, -2.535, 0.66), (0.40, 0.012, 0.20), "metal_bare", bevel=0.004, seg=1, roll=3, g="panel_trunk")
+    bx("plate", (0, -2.535, 0.66), (0.40, 0.012, 0.20), "armor", bevel=0.004, seg=1, roll=3, g="panel_trunk")
     for sd in (1, -1):
         cyl("tip", (sd * 0.50, -2.56, 0.27), 0.045, 0.22, "f", "chrome", sides=12, g="body")
 
@@ -279,10 +279,10 @@ def build_cage():
         bx("hoop_plate", (sd * 0.75, -0.47, 0.99), (0.13, 0.13, 0.014), "armor", bevel=0.004, seg=1, g="body")
         bolts("hoop_bolts", [((sd * 0.75 + dx, -0.47 + df, 0.997), (0, 0, 1)) for dx in (-0.045, 0.045) for df in (-0.045, 0.045)], 0.011, 0.01, "metal_bare", g="body")
         prism("gusset", [(-0.47, 1.5), (-0.47, 1.36), (-0.62, 1.5)], "fz", sd * 0.72, sd * 0.78, "armor", g="body")
-    rail = [(0.86, -1.10, 1.0), (0.86, -1.22, 1.30), (-0.86, -1.22, 1.30), (-0.86, -1.10, 1.0)]
+    rail = [(0.86, -1.10, 1.0), (0.86, -1.22, 1.38), (-0.86, -1.22, 1.38), (-0.86, -1.10, 1.0)]
     tube("rail", rail, 0.024, "metal_bare", fillet=0.12, fn=5, g="body")
     for sd in (1, -1):
-        tube("rail_tie", [(sd * 0.86, -1.22, 1.30), (sd * 0.80, -0.78, 1.28), (sd * 0.75, -0.47, 1.28)], 0.02, "metal_bare", fillet=0.08, g="body")
+        tube("rail_tie", [(sd * 0.86, -1.22, 1.38), (sd * 0.80, -0.78, 1.34), (sd * 0.75, -0.47, 1.32)], 0.02, "metal_bare", fillet=0.08, g="body")
 
 
 def plate_side(sd, f, z, wf, hz, grp, seed, t=0.014):
@@ -290,6 +290,9 @@ def plate_side(sd, f, z, wf, hz, grp, seed, t=0.014):
     c = (sd * (x + t / 2 - 0.002), f, z)
     bx("plate", c, (t, wf, hz), "armor", bevel=0.004, seg=1, g=grp)
     bolts("rivets", rect_rivets((sd * (x + t - 0.002), f, z), "x", wf, hz, 0.022, 0.09, sign=sd), 0.0085, 0.008, "armor", g=grp, cap_dome=True)
+    xw = sd * (x + t + 0.001)
+    for (f0, z0, f1, z1) in ((f - wf / 2, z + hz / 2, f + wf / 2, z + hz / 2), (f - wf / 2, z - hz / 2, f + wf / 2, z - hz / 2)):
+        weld_line("weld", (xw, f0, z0), (xw, f1, z1), seed=seed * 5 + int(z0 * 100), m="armor", g=grp)
 
 
 def build_plates():
@@ -297,8 +300,8 @@ def build_plates():
     plate_side(1, -0.66, 0.60, 0.34, 0.26, "panel_door_L2", 2)
     plate_side(-1, -0.60, 0.72, 0.28, 0.20, "panel_door_R2", 3)
     fz = hood_z(1.55) - 0.001
-    bx("hplate", (0.36, 1.55, fz + 0.007), (0.52, 0.46, 0.014), "armor", bevel=0.004, seg=1, g="panel_hood")
-    bolts("hrivets", rect_rivets((0.36, 1.55, fz + 0.014), "z", 0.52, 0.46, 0.024, 0.09), 0.0085, 0.008, "armor", g="panel_hood", cap_dome=True)
+    bx("hplate", (0.55, 1.62, fz + 0.007), (0.40, 0.42, 0.014), "armor", bevel=0.004, seg=1, g="panel_hood")
+    bolts("hrivets", rect_rivets((0.55, 1.62, fz + 0.014), "z", 0.40, 0.42, 0.024, 0.09), 0.0085, 0.008, "armor", g="panel_hood", cap_dome=True)
     fz = deck_z(-1.85)
     bx("tplate", (-0.42, -1.85, fz + 0.007), (0.44, 0.38, 0.014), "armor", bevel=0.004, seg=1, g="panel_trunk")
     bolts("trivets", rect_rivets((-0.42, -1.85, fz + 0.014), "z", 0.44, 0.38, 0.024, 0.09), 0.0085, 0.008, "armor", g="panel_trunk", cap_dome=True)
@@ -312,6 +315,8 @@ def build_plates():
          0.004, "metal_bare", g="body")
     strip_wave("flag", (0.78, -2.085, 2.00), 0.42, 0.16, 0.06, 3.0, "cloth_red", direction=(0, -1, 0), nseg=9, droop=0.05, g="body")
     bx("ant_base", (0.80, -2.05, 1.0), (0.05, 0.05, 0.03), "metal_dark", bevel=0.006, seg=1, g="body")
+    cyl("fuelcap", (0.982, -2.05, 0.80), 0.048, 0.02, "x", "chrome", sides=12, g="body")
+    bx("fuelflap", (0.978, -2.05, 0.80), (0.012, 0.13, 0.13), "armor", bevel=0.004, seg=1, g="body")
 
 
 # ------------------------------------------------------------------------------------------- engine + underbody
@@ -320,7 +325,7 @@ def build_engine():
     for sd in (1, -1):
         bx("head", (sd * 0.24, 1.50, 0.64), (0.16, 0.60, 0.20), "metal_dark", bevel=0.012, seg=1, roll=sd * -12, g="body")
         bx("valvecover", (sd * 0.27, 1.50, 0.75), (0.13, 0.55, 0.05), "metal_bare", bevel=0.01, seg=1, roll=sd * -12, g="body")
-        tube("manifold", [(sd * 0.34, 1.32, 0.60), (sd * 0.38, 1.20, 0.50), (sd * 0.36, 1.05, 0.40)], 0.035, "rust", g="body", fillet=0.05)
+        tube("manifold", [(sd * 0.34, 1.32, 0.60), (sd * 0.38, 1.20, 0.50), (sd * 0.36, 1.05, 0.40)], 0.035, "metal_dark", g="body", fillet=0.05)
     cyl("aircleaner", (0, 1.50, 0.85), 0.20, 0.07, "z", "metal_dark", sides=20, g="body")
     cyl("aircleaner_lid", (0, 1.50, 0.895), 0.185, 0.02, "z", "metal_bare", sides=20, g="body")
     bx("intake", (0, 1.50, 0.75), (0.14, 0.42, 0.10), "metal_dark", bevel=0.01, seg=1, g="body")
@@ -336,15 +341,17 @@ def build_engine():
     bx("alternator", (0.27, 1.85, 0.52), (0.12, 0.14, 0.12), "metal_bare", bevel=0.01, seg=1, g="body")
     bx("brake_res", (0.45, 0.95, 0.56), (0.12, 0.07, 0.10), "metal_dark", g="body")
     bx("firewall", (0, 0.78, 0.62), (1.30, 0.02, 0.50), "metal_dark", g="body")
-    cyl("spare", (0.0, -1.95, 0.54), 0.31, 0.24, "z", "rubber_tire", sides=28, g="body")
-    cyl("spare_rim", (0.0, -1.95, 0.665), 0.2, 0.03, "z", "rim", sides=16, g="body")
-    bx("jerry", (-0.42, -2.12, 0.48), (0.34, 0.16, 0.36), "metal_dark", bevel=0.012, seg=1, g="body")
+    for jx, jf in ((0.30, -2.05), (-0.30, -1.85)):
+        bx("jerry", (jx, jf, 0.53), (0.34, 0.16, 0.36), "armor", bevel=0.012, seg=1, g="body")
+        bx("jerry_cap", (jx + 0.08, jf, 0.735), (0.07, 0.07, 0.05), "metal_bare", g="body")
+        tube("jerry_handle", [(jx - 0.1, jf, 0.71), (jx - 0.1, jf, 0.76), (jx + 0.0, jf, 0.77)], 0.012, "metal_bare", g="body")
+    bx("toolbox", (-0.30, -2.20, 0.46), (0.4, 0.22, 0.20), "armor", bevel=0.01, seg=1, g="body")
     bx("trunk_floor", (0, -1.9, 0.44), (1.3, 0.85, 0.02), "metal_dark", g="body")
 
 
 def build_underbody():
     for sd in (1, -1):
-        beam("rail", (sd * 0.62, 2.35, 0.20), (sd * 0.62, -2.35, 0.20), 0.08, 0.14, "metal_dark", u=(1, 0, 0), g="body", bevel=0.006, seg=1)
+        beam("rail", (sd * 0.60, 2.35, 0.19), (sd * 0.60, -2.35, 0.19), 0.07, 0.09, "metal_dark", u=(1, 0, 0), g="body", bevel=0.006, seg=1)
     for f in (2.0, 1.2, -0.95, -1.85):
         beam("xmem", (0.62, f, 0.24), (-0.62, f, 0.24), 0.10, 0.09, "metal_dark", u=(0, 1, 0), g="body", bevel=0.005, seg=1)
     for sd in (1, -1):
@@ -368,14 +375,37 @@ def build_underbody():
         beam("leaf", (sd * 0.58, AX_R + 0.95, 0.32), (sd * 0.58, AX_R - 0.55, 0.32), 0.07, 0.03, "metal_dark", u=(1, 0, 0), g="body")
         beam("leaf2", (sd * 0.58, AX_R + 0.75, 0.29), (sd * 0.58, AX_R - 0.45, 0.29), 0.065, 0.025, "metal_dark", u=(1, 0, 0), g="body")
         cyl("rshock", (sd * 0.66, AX_R - 0.14, 0.44), 0.024, 0.36, "z", "metal_dark", sides=8, roll=sd * 8, g="body")
-    tube("exh_L", [(0.35, 1.28, 0.20), (0.30, 0.6, 0.16), (0.30, -0.9, 0.15), (0.32, -1.5, 0.15)], 0.038, "rust", fillet=0.12, g="body")
-    tube("exh_R", [(-0.35, 1.28, 0.20), (-0.30, 0.6, 0.16), (-0.30, -0.9, 0.15), (-0.32, -1.5, 0.15)], 0.038, "rust", fillet=0.12, g="body")
+    tube("exh_L", [(0.35, 1.28, 0.20), (0.30, 0.6, 0.16), (0.30, -0.9, 0.15), (0.32, -1.5, 0.15)], 0.038, "metal_dark", fillet=0.12, g="body")
+    tube("exh_R", [(-0.35, 1.28, 0.20), (-0.30, 0.6, 0.16), (-0.30, -0.9, 0.15), (-0.32, -1.5, 0.15)], 0.038, "metal_dark", fillet=0.12, g="body")
     for sd in (1, -1):
-        cyl("muffler", (sd * 0.32, -1.98, 0.17), 0.085, 0.80, "f", "rust", sides=12, g="body")
-        tube("tailpipe", [(sd * 0.32, -2.38, 0.17), (sd * 0.50, -2.48, 0.24), (sd * 0.50, -2.55, 0.27)], 0.032, "rust", fillet=0.06, g="body")
+        cyl("muffler", (sd * 0.32, -1.98, 0.17), 0.085, 0.80, "f", "metal_dark", sides=12, g="body")
+        tube("tailpipe", [(sd * 0.32, -2.38, 0.17), (sd * 0.50, -2.48, 0.24), (sd * 0.50, -2.55, 0.27)], 0.032, "metal_dark", fillet=0.06, g="body")
     bx("fueltank", (0.0, -1.62, 0.32), (0.90, 0.50, 0.14), "metal_dark", bevel=0.02, seg=1, g="body")
     for f in (-1.45, -1.80):
         beam("strap", (0.5, f, 0.24), (-0.5, f, 0.24), 0.03, 0.01, "metal_bare", u=(0, 1, 0), g="body")
+
+
+def build_rust(tub):
+    """Fixed-colour rust: rocker bands, wheel-arch lips and organic blobs on the static body (independent of the paint tint)."""
+    for sd in (1, -1):
+        beam("sill_rust", (sd * (side_x(0.29) + 0.0), 0.66, 0.285), (sd * (side_x(0.29) + 0.0), -0.99, 0.285), 0.022, 0.05, "rust", u=(1, 0, 0), g="body")
+        for AX in (AX_F, AX_R):
+            pts = []
+            for a in range(8, 173, 11):
+                th = a * D2R
+                z = HUB_Z + 0.487 * math.sin(th)
+                pts.append((sd * (side_x(z) + 0.002), AX + 0.487 * math.cos(th), z))
+            tube("arch_lip", pts, 0.013, "rust", res=0, g="body")
+    ray = raycast_targets([tub])
+    rnd = random.Random(11)
+    spots = []
+    for sd in (1, -1):
+        for _ in range(7):
+            spots.append((sd, rnd.uniform(1.05, 2.3), rnd.uniform(0.36, 0.80)))
+        for _ in range(6):
+            spots.append((sd, rnd.uniform(-2.35, -1.88), rnd.uniform(0.36, 0.82)))
+    for i, (sd, f, z) in enumerate(spots):
+        decal_blob("rustblob", ray, (sd * 1.05, f, z), (-sd, 0, 0), rnd.uniform(0.04, 0.13), "rust", seed=i * 7 + 3, n=16, offset=0.004, irregular=0.6, g="body")
 
 
 def build_sockets():
@@ -389,7 +419,7 @@ def build_sockets():
     sock("exhaust_L", 0.50, -2.68, 0.27, yaw=180)
     sock("exhaust_R", -0.50, -2.68, 0.27, yaw=180)
     sock("smoke_engine", 0.0, 1.85, 0.86)
-    sock("fuel_cap", 0.965, -1.95, 0.80, yaw=-90)
+    sock("fuel_cap", 0.985, -2.05, 0.80, yaw=-90)
     sock("roof_top", 0.0, -0.10, 1.46)
     sock("camera_hood", 0.0, 1.35, 1.02)
 
@@ -407,6 +437,7 @@ build_cage()
 build_plates()
 build_engine()
 build_underbody()
+build_rust(tub)
 build_sockets()
 
 V.pivot("panel_hood", 0, 0.72, 0.99)

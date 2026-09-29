@@ -40,7 +40,7 @@ for (const v of views) {
   const spec = V[v] || { q: v, w: 1400, h: 800 };
   const page = await browser.newPage({ viewport: { width: spec.w, height: spec.h } });
   page.on('pageerror', e => console.log('[pageerror]', e.message));
-  const extra = opt.extra ? '&' + opt.extra : '';
+  const extra = (opt.extra ? '&' + opt.extra : '') + (opt.alltint && !/tint=/.test(spec.q) ? '&tint=' + tint : '');
   await page.goto(`${base}/viewer.html?model=${model}&${spec.q}${extra}&cb=${Date.now()}`, { waitUntil: 'load' });
   await page.waitForFunction('window.__ready === true', null, { timeout: 60000 }).catch(() => console.log('[warn] not ready'));
   await page.waitForTimeout(900);

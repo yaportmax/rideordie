@@ -26,6 +26,9 @@ class Baked:
         attrs = np.concatenate(attrs)
         img, mask = U.rasterize(uv, tris, attrs, atlas)
         self.mask = mask
+        from scipy import ndimage
+        dist = ndimage.distance_transform_edt(~mask)
+        self.active = dist <= 12
         img = U.dilate(img, mask, max_dist=12)
         self.P = img[..., 0:3]
         n = img[..., 3:6]

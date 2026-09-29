@@ -1,0 +1,12 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>FX dev</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{display:block}
+#hud{position:fixed;left:8px;top:8px;color:#fff;font:12px/1.35 monospace;white-space:pre;text-shadow:0 0 3px #000,0 0 3px #000;pointer-events:none}
+#ui{position:fixed;right:8px;top:8px;width:230px;max-height:96vh;overflow:auto;font:11px system-ui,sans-serif;color:#eee}
+#ui h4{margin:8px 0 3px;font-size:11px;letter-spacing:.08em;color:#ffc21a;text-transform:uppercase}
+#ui button{margin:1px;padding:3px 6px;background:#241c14cc;color:#ffd9a8;border:1px solid #e8792b88;border-radius:3px;font:11px system-ui;cursor:pointer}
+#ui button:hover{background:#e8792b;color:#111}
+#ui button.on{background:#e8792b;color:#111}
+</style>
+</head><body><div id="hud"></div><div id="ui"></div><script type="module" src="/src/dev_fx.js"></script></body></html>

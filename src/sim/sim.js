@@ -9,6 +9,7 @@ import { HALF_ROAD, biomeAt, BIOMES } from '../data/biomes.js';
 import { clamp, lerp, smoothstep, rng } from '../core/util.js';
 import { Projectiles } from './projectiles.js';
 import { Director } from './director.js';
+import { Hazards } from './hazards.js';
 
 export const DT = 1 / 120;
 const V3 = THREE.Vector3;
@@ -16,6 +17,7 @@ const _a = new V3(), _b = new V3(), _c = new V3();
 
 const SURFACE = {
   road: { grip: 1.0, drag: 0.0, kind: 'asphalt' },
+  oil: { grip: 0.22, drag: 0.01, kind: 'oil' },
   shoulder: { grip: 0.9, drag: 0.02, kind: 'gravel' },
   sand: { grip: 0.78, drag: 0.09, kind: 'sand' },
   dirt_red: { grip: 0.85, drag: 0.05, kind: 'dirt' },
@@ -52,6 +54,7 @@ export class Sim {
     this.enemyDamageMul = 1; this.playerDamageMul = 1;
     this.projectiles = this.use(new Projectiles());
     this.director = this.use(new Director(opts.director || {}));
+    this.hazards = this.use(new Hazards());
   }
 
   async init() {
@@ -99,6 +102,7 @@ export class Sim {
   surfaceFor(car) {
     const road = this.road;
     return (x, z) => {
+      if (this.hazards.oil.length && this.hazards.oilAt(x, z)) return SURFACE.oil;
       const n = road.nearest(x, z, car.s, 35, this._near || (this._near = {}));
       const ad = Math.abs(n.d);
       if (ad <= HALF_ROAD) return SURFACE.road;
@@ -172,6 +176,10 @@ export class Sim {
     let dmg = (dv - 0.25) * 9 * (car.spec.crashMul ?? 1);
     if (other) dmg *= clamp(other.veh.mass / car.veh.mass, 0.5, 2.0) ** 0.5;
     if (car.kind === 'player') dmg *= (this.playerCrashMul ?? 1);
+    if (!other) {
+      if (Math.abs(dir.y) > 0.72) dmg *= 0.25;                 // landing on the ground hurts far less than hitting a wall
+      else if (this.hazards.roadblockNear(car.veh.pos)) dmg *= 0.5; // wreck lines are meant to be survivable
+    }
     if (dmg <= 0) return;
     this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src: other ? other.id : -1, point: car.veh.pos });
     if (car.crashCooldown <= 0 && dv > 1.2) {
@@ -345,3 +353,12 @@ export class Sim {
     return out;
   }
 }
+
+Sim.prototype.useMedkit = function () {
+  const P = this.player; if (!P || P.exploded || this.state !== 'run') return false;
+  let used = false;
+  for (const role of ['driver', 'gunner']) { const c = P.crew[role]; if (c && c.alive && c.hp < c.max) { c.hp = Math.min(c.max, c.hp + c.max * 0.6); used = true; } }
+  if (P.hp < P.maxHp) { P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.12); used = true; }
+  if (used) this.emit({ t: 'medkit', id: P.id });
+  return used;
+};

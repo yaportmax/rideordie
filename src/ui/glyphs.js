@@ -12,7 +12,7 @@ const KEY_NAMES = {
   ShiftLeft: 'L-SHIFT', ShiftRight: 'R-SHIFT', ControlLeft: 'L-CTRL', ControlRight: 'R-CTRL', AltLeft: 'L-ALT', AltRight: 'R-ALT',
   ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
   Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Backquote: '`', Comma: ',', Period: '.', Slash: '/',
-  PageUp: 'PG UP', PageDown: 'PG DN', Home: 'HOME', End: 'END', Insert: 'INS', MouseLeft: 'LMB', MouseRight: 'RMB', MouseMiddle: 'MMB', Wheel: 'WHEEL',
+  PageUp: 'PG UP', PageDown: 'PG DN', Home: 'HOME', End: 'END', Insert: 'INS', MouseMove: 'MOUSE', MouseLeft: 'LMB', MouseRight: 'RMB', MouseMiddle: 'MMB', Wheel: 'WHEEL',
 };
 export function keyLabel(code) {
   if (!code) return '';

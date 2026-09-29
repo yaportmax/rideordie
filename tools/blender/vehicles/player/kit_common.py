@@ -67,7 +67,7 @@ def spare_wheel(T, pt, at, rot=None, seg=40):
     tmp.bm.free()
 
 
-def hazard_stripes(pt, x0, x1, z0, z1, f, n, m_yellow='paint2', facing=1, slant=0.6, thick=0.006, off=0.004):
+def hazard_stripes(pt, x0, x1, z0, z1, f, n, m_yellow='paint2', facing=1, slant=0.6, thick=0.006, off=0.007):
     """Diagonal hazard chevrons (yellow bars) on a vertical plane at forward position f, spanning x0..x1, z0..z1.
     Bars are slanted parallelograms clipped to the rectangle."""
     w = (x1 - x0) / n
@@ -109,7 +109,7 @@ def _clip_poly(poly, xmin, xmax):
     return pl
 
 
-def hazard_stripes_x(pt, f0, f1, z0, z1, x, n, facing=1, slant=0.6, thick=0.006, off=0.004, m_yellow='paint2'):
+def hazard_stripes_x(pt, f0, f1, z0, z1, x, n, facing=1, slant=0.6, thick=0.006, off=0.007, m_yellow='paint2'):
     """Diagonal hazard bars on a side plane (normal along x) at lateral position x, spanning f0..f1, z0..z1."""
     w = (f1 - f0) / n
     sl = (z1 - z0) * slant

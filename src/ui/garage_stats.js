@@ -1,0 +1,102 @@
+// Stat previews for the garage: "before -> after" rows computed from effects() / weaponStats() / the vehicle tables.
+import { effects, UPGRADE_BY_ID } from '../data/upgrades.js';
+import { VEHICLES } from '../data/vehicles.js';
+import { WEAPONS, weaponStats } from '../data/weapons.js';
+
+const r0 = (v) => String(Math.round(v));
+const r1 = (v) => (Math.round(v * 10) / 10).toFixed(1);
+const r2 = (v) => (Math.round(v * 100) / 100).toFixed(2);
+const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v)}%`;
+const pctPlain = (v) => `${Math.round(v)}%`;
+export const hullHp = (spec) => spec.hp ?? Math.round(spec.mass * 0.3);
+const specOf = (p) => VEHICLES[p.truck] || VEHICLES.truck_t1;
+
+/** Per-upgrade stat definitions: (spec, max levels) -> [{label, get(effects), max, unit, fmt, lowerBetter}]. */
+const level = (n, label = 'LEVEL') => ({ label, get: (_e, lv) => lv, max: n, fmt: (v) => (v === 0 ? 'NONE' : `LV ${v}`), byLevel: true });
+const UP_STATS = {
+  engine: (spec) => [
+    { label: 'TOP SPEED', get: (e) => spec.engine.vmax * e.engineMul * 3.6, max: 260, unit: 'KM/H', fmt: r0 },
+    { label: 'ACCELERATION', get: (e) => spec.engine.accel0 * (1 + (e.engineMul - 1) * 1.1), max: 10, unit: 'M/S²', fmt: r1 },
+  ],
+  armor: (spec) => [
+    { label: 'TRUCK HP', get: (e) => hullHp(spec) * e.hpMul, max: 1800, fmt: r0 },
+    { label: 'BULLET RESIST', get: (e) => (1 - e.bulletResist) * 100, max: 45, fmt: pctPlain },
+  ],
+  tires: () => [
+    { label: 'GRIP', get: (e) => (e.gripMul - 1) * 100, max: 20, fmt: pct },
+    { label: 'RUN-FLAT TIRES', get: (e) => (e.runFlat ? 1 : 0), max: 1, fmt: (v) => (v ? 'YES' : 'NO') },
+  ],
+  nitro: () => [
+    { label: 'NITRO TANK', get: (e) => e.nitroCap, max: 6, unit: 'SEC', fmt: r1 },
+    { label: 'REFILL RATE', get: (e) => e.nitroRegen * 100, max: 25, unit: '%/S', fmt: r0 },
+  ],
+  ram: (spec, n) => [level(n, 'RAM PLATE')],
+  spikes: (spec, n) => [level(n, 'SPIKED SKIRTS')],
+  glass: () => [{ label: 'DRIVER DAMAGE TAKEN', get: (e) => -e.driverArmor * 100, max: 60, fmt: (v) => (v === 0 ? 'NORMAL' : pct(v)), lowerBetter: true, invertBar: true, barBase: 0 }],
+  fueltank: (spec, n) => [level(n, 'SEALING')],
+  oil: (spec, n) => [level(n, 'OIL SLICK')],
+  mines: (spec, n) => [level(n, 'MINE LAYER')],
+  vest: () => [
+    { label: 'GUNNER HP', get: (e) => e.gunnerHp, max: 250, fmt: r0 },
+    { label: 'DAMAGE REDUCTION', get: (e) => e.gunnerArmor * 100, max: 45, fmt: pctPlain },
+  ],
+  grenades: () => [{ label: 'GRENADES PER RUN', get: (e) => e.grenades, max: 6, fmt: r0 }],
+  grenadeDmg: (spec, n) => [level(n, 'FRAG POWER')],
+  medkit: () => [{ label: 'MEDKITS PER RUN', get: (e) => e.medkits, max: 3, fmt: r0 }],
+  pouches: () => [{ label: 'RELOAD TIME', get: (e) => -(1 - e.reloadMul) * 100, max: 40, fmt: (v) => (v === 0 ? 'NORMAL' : pct(v)), lowerBetter: true, invertBar: true }],
+  steady: () => [{ label: 'RECOIL & SPREAD', get: (e) => -e.handling * 10, max: 30, fmt: (v) => (v === 0 ? 'NORMAL' : pct(v)), lowerBetter: true, invertBar: true }],
+  scavenger: () => [{ label: 'CASH BONUS', get: (e) => (e.cashMul - 1) * 100, max: 30, fmt: pct }],
+};
+
+/** Rows for a leveled upgrade: current level and (if not maxed) the level you would get. */
+export function upgradeStats(profile, id) {
+  const u = UPGRADE_BY_ID[id]; if (!u) return [];
+  const lv = profile.upgrades[id] || 0, n = u.costs.length;
+  const spec = specOf(profile);
+  const e0 = effects(profile);
+  const e1 = lv < n ? effects({ ...profile, upgrades: { ...profile.upgrades, [id]: lv + 1 } }) : null;
+  return (UP_STATS[id] ? UP_STATS[id](spec, n) : [level(n)]).map((d) => {
+    // "invertBar" rows are negative numbers (less damage taken): show the magnitude as a growing bar, text keeps the sign.
+    const before = d.get(e0, lv), after = e1 ? d.get(e1, lv + 1) : null;
+    const flip = d.invertBar ? -1 : 1;
+    return { label: d.label, before: before * flip, after: after == null ? null : after * flip, max: d.max, unit: d.unit, fmt: d.invertBar ? (v) => d.fmt(v * flip) : d.fmt, lowerBetter: false };
+  });
+}
+
+/** Rows comparing truck `id` with the currently selected truck (upgrades included). */
+export function truckStats(profile, id) {
+  const cur = specOf(profile), tgt = VEHICLES[id] || cur;
+  const e = effects(profile);
+  const f = (spec) => ({
+    speed: spec.engine.vmax * e.engineMul * 3.6,
+    accel: spec.engine.accel0 * (1 + (e.engineMul - 1) * 1.1),
+    hp: hullHp(spec) * e.hpMul, mass: spec.mass,
+    size: spec.length * spec.width,
+  });
+  const a = f(cur), b = f(tgt), same = cur.id === tgt.id;
+  const row = (label, k, max, fmt, unit, lowerBetter) => ({ label, before: a[k], after: same ? null : b[k], max, fmt, unit, lowerBetter });
+  return [
+    row('TOP SPEED', 'speed', 260, r0, 'KM/H'), row('ACCELERATION', 'accel', 10, r1, 'M/S²'),
+    row('HULL HP', 'hp', 1800, r0), { ...row('WEIGHT', 'mass', 3200, r0, 'KG'), },
+  ];
+}
+
+/** Rows for a weapon; `previewTrack` ('dmg'|'mag'|'rel'|'hnd') shows what buying that track would change. */
+export function weaponRows(profile, id, previewTrack) {
+  const w = WEAPONS[id]; if (!w) return [];
+  const lv = profile.weapons[id] || { dmg: 0, mag: 0, rel: 0, hnd: 0 };
+  const s0 = weaponStats(id, lv);
+  const s1 = previewTrack && (lv[previewTrack] || 0) < 3 ? weaponStats(id, { ...lv, [previewTrack]: (lv[previewTrack] || 0) + 1 }) : null;
+  const P = w.pellets || 1;
+  const val = (fn) => ({ before: fn(s0), after: s1 ? fn(s1) : null });
+  const only = (tr, o) => (previewTrack === tr ? o : { before: o.before, after: null });
+  return [
+    { label: 'DAMAGE', max: 320, fmt: (v) => (P > 1 ? `${Math.round(v / P)}×${P}` : r0(v)), ...only('dmg', val((s) => s.dmg * P)) },
+    { label: 'FIRE RATE', max: 850, unit: 'RPM', fmt: r0, before: s0.rpm, after: null },
+    { label: 'MAGAZINE', max: 200, fmt: r0, ...only('mag', val((s) => s.mag)) },
+    { label: 'RELOAD', max: 5, unit: 'SEC', fmt: r2, lowerBetter: true, ...only('rel', val((s) => s.reload)) },
+    { label: 'SPREAD', max: 5, unit: '°', fmt: r2, lowerBetter: true, ...only('hnd', val((s) => s.spread.hip * s.spreadMul)) },
+    { label: 'RECOIL', max: 8, fmt: r1, lowerBetter: true, ...only('hnd', val((s) => s.recoil.pitch * s.recoilMul)) },
+    { label: 'RANGE', max: 720, unit: 'M', fmt: r0, before: w.range, after: null },
+  ];
+}

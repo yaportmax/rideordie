@@ -286,7 +286,7 @@ def _srgb(c):
     return c ** (1 / 2.2) if c > 0 else 0.0
 
 
-def hook_colored(matname, grunge_img, strength=1.0, tint=None, tag=''):
+def hook_colored(matname, grunge_img, strength=1.0, tint=None, tag='', size=None):
     """Bake  material base colour x grunge  into its own image (exporter cannot export texture x factor)."""
     m = M(matname)
     nt = m.node_tree
@@ -298,10 +298,14 @@ def hook_colored(matname, grunge_img, strength=1.0, tint=None, tag=''):
     px = np.empty(s * s * 4, dtype=np.float32)
     grunge_img.pixels.foreach_get(px)
     g = px.reshape(s, s, 4)[..., 0]
+    if size and size < s:
+        k_ = s // size
+        g = g.reshape(size, k_, size, k_).mean(axis=(1, 3))
+        s = size
     g = 1.0 - (1.0 - g) * strength
     out = np.ones((s, s, 4), dtype=np.float32)
     for i in range(3):
-        out[..., i] = np.clip(_srgb(base[i]) * g, 0, 1)
+        out[..., i] = np.clip(base[i] * g, 0, 1)
     name = "tex_" + matname + tag
     img = bpy.data.images.new(name, s, s, alpha=False)
     img.pixels.foreach_set(out.ravel())
@@ -362,6 +366,17 @@ def finish_colors(objs, wheel_objs, wear=0.5, ao_dist=0.55, samples=40, dirt=0.3
         g = np.clip(a * n, 0.05, 1.0)
         return g, g * 0.97, g * 0.93
     shade_vcol(wheel_objs, wheel_fn)
+    # chrome / bright metal: keep reflections lively (AO floor)
+    for o in allo:
+        mask = vert_mask(o, ('chrome',))
+        if mask.any():
+            me = o.data
+            ca = me.color_attributes['Col']
+            col = np.empty(len(me.vertices) * 4, dtype=np.float32)
+            ca.data.foreach_get('color', col)
+            col = col.reshape(-1, 4)
+            col[mask, :3] = np.maximum(col[mask, :3], 0.78)
+            ca.data.foreach_set('color', col.ravel())
     # glass / emissive stay clean
     for o in allo:
         mask = vert_mask(o, ('glass', 'glass_lens', 'light_head', 'light_tail', 'light_amber'))
@@ -395,7 +410,7 @@ def remap_materials(o, mapping):
         if t not in new_names:
             new_names.append(t)
         idxmap[i] = new_names.index(t)
-    if len(new_names) == len(names):
+    if new_names == names:
         return
     pidx = np.empty(len(me.polygons), dtype=np.int32)
     me.polygons.foreach_get('material_index', pidx)

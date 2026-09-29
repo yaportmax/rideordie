@@ -143,9 +143,7 @@ def build_wheel(pt, hub, side, R, W, rimR, style='steel', tread='bald', seg=56, 
         pt.cyl('rust' if rust > 0.2 else 'metal_dark', (hx + side * 0.02, hf, hz), rimR - 0.10, 0.02, axis='x', n=16)
     else:
         pt.cyl('rust' if rust > 0.3 else 'metal_bare', (hx + side * 0.005, hf, hz), rimR - 0.052, 0.014, axis='x', n=20)
-        # caliper
-        pt.box('metal_dark', (hx + side * 0.0, hf + 0.0, hz + rimR - 0.09), (0.05, 0.085, 0.07), bev=0.0)
-        pt.box('metal_bare', (hx + side * 0.028, hf - 0.005, hz + rimR - 0.09), (0.012, 0.06, 0.05), bev=0.0)
+        # (no caliper: the wheel node spins in game)
     pt.cyl('metal_dark', (hx - side * 0.12, hf, hz), 0.05, 0.16, axis='x', n=8)
 
 
@@ -166,14 +164,13 @@ def rivet_row(pt, p0, p1, count, r=0.006, m='metal_bare', axis='x', dome=True):
 
 
 def weld_seam(pt, p0, p1, r=0.006, m='metal_bare', bumps=None):
-    """A bead of weld: chain of overlapping squashed spheres between two points."""
+    """A bead of weld: a thin tube whose radius alternates (ripple) between two points."""
     a, b = Vector(p0), Vector(p1)
     L = (b - a).length
-    n = max(2, int(L / (r * 1.4)))
-    d = (b - a).normalized()
-    for i in range(n):
-        c = a + (b - a) * (i / (n - 1))
-        pt.sph(m, tuple(c), r, n=5)
+    n = max(3, int(L * 9) + 1)
+    pts = [tuple(a + (b - a) * (i / (n - 1))) for i in range(n)]
+    sc = [1.0 if i % 2 == 0 else 0.7 for i in range(n)]
+    pt.sweep(m, pts, circle_prof(r, 5), scale=sc)
 
 
 def bolt_circle(pt, c, R, count, r, axis='f', m='metal_bare', h=0.008, plane='xz', n=6):

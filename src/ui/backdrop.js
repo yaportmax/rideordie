@@ -36,7 +36,7 @@ const SEDAN = `
 
 export function backdropSvg() {
   const stripes = Array.from({ length: 7 }, (_, i) => `<rect x="1100" y="${560 + i * 22 + i * i * 2.4}" width="500" height="${3 + i * 1.7}" fill="#0b0706"/>`).join('');
-  const dust = Array.from({ length: 7 }, (_, i) => `<circle class="pf pf${i % 4}" cx="${40 - i * 26}" cy="${-30 - (i % 3) * 14}" r="${36 + i * 9}" style="animation-delay:${i * 0.42}s"/>`).join('');
+  const dust = Array.from({ length: 7 }, (_, i) => `<circle class="pf pf${i % 4}" fill="url(#dustg)" cx="${40 - i * 26}" cy="${-30 - (i % 3) * 14}" r="${36 + i * 9}" style="animation-delay:${i * 0.42}s"/>`).join('');
   return `<svg class="bgsvg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
     <defs>
       <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#160d10"/><stop offset=".3" stop-color="#3d1a1c"/><stop offset=".55" stop-color="#9c3f1f"/><stop offset=".72" stop-color="#e8792b"/><stop offset=".84" stop-color="#ffb43a"/><stop offset="1" stop-color="#ffd76a"/></linearGradient>
@@ -44,6 +44,7 @@ export function backdropSvg() {
       <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffc21a" stop-opacity=".55"/><stop offset=".5" stop-color="#e8792b" stop-opacity=".18"/><stop offset="1" stop-color="#e8792b" stop-opacity="0"/></radialGradient>
       <linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1e19"/><stop offset="1" stop-color="#0d0908"/></linearGradient>
       <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb43a" stop-opacity="0"/><stop offset="1" stop-color="#ffb43a" stop-opacity=".55"/></linearGradient>
+      <radialGradient id="dustg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#e2b27a" stop-opacity=".9"/><stop offset="1" stop-color="#b87a48" stop-opacity="0"/></radialGradient>
       <mask id="sunmask"><rect width="1920" height="1080" fill="#fff"/>${stripes}</mask>
     </defs>
     <rect width="1920" height="1080" fill="url(#sky)"/>

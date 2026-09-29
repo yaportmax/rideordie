@@ -1,0 +1,57 @@
+/* ---------------------------------------------------------------- RESULTS */
+.rod-ui .rs-title{position:absolute; left:56px; top:26px}
+.rod-ui .rs-title h1{font-size:110px}
+.rod-ui .results.win .rs-title h1{background:linear-gradient(180deg,#fff6c8,#ffd23f 45%,#e8792b); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 6px 0 #000) drop-shadow(0 0 30px rgba(255,194,26,.5)); text-shadow:none}
+.rod-ui .results.lose .rs-title .eyebrow{color:#ff6a55}
+.rod-ui .rs-cause{margin-top:12px; display:flex; align-items:center; gap:14px; font-size:21px; font-weight:700; letter-spacing:.14em; color:var(--bone-d); text-shadow:0 2px 6px #000}
+.rod-ui .rs-cause b{color:var(--bone); font-weight:800}
+.rod-ui .rs-cause .ic{width:30px; height:30px; color:#ff6a55}
+.rod-ui .results.win .rs-cause .ic{color:var(--haz)}
+.rod-ui .rs-stats{position:absolute; left:56px; top:236px; width:980px; display:grid; grid-template-columns:1fr 1fr; gap:14px 18px}
+.rod-ui .tile{position:relative; display:flex; align-items:center; gap:20px; height:104px; padding:0 26px 0 30px; background:var(--noise-soft),linear-gradient(90deg,rgba(38,32,26,.96),rgba(22,18,14,.96)); border:2px solid #41372d; transform:skewX(-5deg)}
+.rod-ui .tile>*{transform:skewX(5deg)}
+.rod-ui .tile::before{content:''; position:absolute; left:-2px; top:-2px; bottom:-2px; width:8px; background:var(--rust)}
+.rod-ui .tile .ti{flex:none; width:54px; height:54px; color:var(--rust); opacity:.95}
+.rod-ui .tile label{display:flex; align-items:center; gap:12px; font-size:16px; font-weight:800; letter-spacing:.26em; color:var(--mute)}
+.rod-ui .tile b.tv{font:400 56px/1.05 var(--disp); letter-spacing:.05em; color:var(--bone)}
+.rod-ui .tile.txt b.tv{font-size:34px; letter-spacing:.08em; line-height:1.4}
+.rod-ui .tile small{margin-left:10px; font-size:20px; font-weight:800; letter-spacing:.14em; color:var(--bone-d)}
+.rod-ui .tile .nb{font-style:normal; font-size:13px; letter-spacing:.2em; padding:3px 9px; background:var(--haz); color:#1a1206; animation:nbBlink 1.2s infinite}
+@keyframes nbBlink{50%{filter:brightness(1.35)}}
+.rod-ui .rs-route{position:absolute; left:56px; top:744px; width:980px}
+.rod-ui .rt-head{display:flex; justify-content:space-between; font-size:17px; font-weight:800; letter-spacing:.28em; color:var(--mute); margin-bottom:22px}
+.rod-ui .rt-head em{font-style:normal; color:var(--bone-d)}
+.rod-ui .rt-bar{position:relative; height:26px; background:#0b0907; border:2px solid #41372d}
+.rod-ui .rt-segs{position:absolute; inset:0; display:flex}
+.rod-ui .rt-seg{position:relative; height:100%; background:color-mix(in srgb,var(--bc) 42%,#100d0b); border-right:2px solid #0b0907}
+.rod-ui .rt-seg b{position:absolute; left:0; top:100%; margin-top:9px; font-size:13px; font-weight:800; letter-spacing:.12em; color:var(--mute); white-space:nowrap}
+.rod-ui .rt-fill{position:absolute; left:0; top:0; bottom:0; background:repeating-linear-gradient(-45deg,rgba(255,194,26,.95) 0 8px,rgba(176,124,10,.95) 8px 16px); box-shadow:0 0 16px rgba(255,194,26,.55)}
+.rod-ui .rt-mini{position:absolute; top:-7px; width:5px; height:38px; background:#e9e2d0; opacity:.7; transform:skewX(-14deg)}
+.rod-ui .rt-boss{position:absolute; right:-22px; top:-20px; width:62px; height:62px; color:var(--red); filter:drop-shadow(0 2px 0 #000)}
+.rod-ui .rt-you{position:absolute; top:-18px; width:0; height:0; border-left:11px solid transparent; border-right:11px solid transparent; border-top:17px solid #fff; transform:translateX(-50%); filter:drop-shadow(0 2px 2px #000)}
+.rod-ui .rs-cash{position:absolute; right:56px; top:236px; width:760px; padding-bottom:26px}
+.rod-ui .rs-cash .rs-ch{display:flex; align-items:center; justify-content:space-between; padding:26px 34px 16px}
+.rod-ui .rs-cash .rs-ch span{font:400 38px var(--disp); letter-spacing:.1em; transform:skewX(-8deg)}
+.rod-ui .rs-cash .rs-ch .ico{width:44px; height:44px; color:var(--haz)}
+.rod-ui .rs-cls{padding:10px 0 4px; min-height:200px}
+.rod-ui .rs-l{display:flex; align-items:baseline; gap:16px; height:62px; padding:0 34px; opacity:0; transform:translateX(34px); transition:opacity .25s,transform .35s cubic-bezier(.2,.9,.3,1.2)}
+.rod-ui .rs-l.in{opacity:1; transform:none}
+.rod-ui .rs-l .rs-ln{font-size:24px; font-weight:700; letter-spacing:.12em; color:var(--bone-d)}
+.rod-ui .rs-l .rs-ld{flex:1; border-bottom:3px dotted #4a4036; transform:translateY(-7px)}
+.rod-ui .rs-l .rs-la{font:400 40px var(--disp); letter-spacing:.05em; color:var(--haz)}
+.rod-ui .rs-ct{display:flex; align-items:baseline; justify-content:space-between; margin:10px 34px 0; padding:18px 0 0; border-top:4px solid #57493a; opacity:0; transition:opacity .3s}
+.rod-ui .rs-ct.in{opacity:1}
+.rod-ui .rs-ct span{font-size:26px; font-weight:800; letter-spacing:.34em; color:var(--rust)}
+.rod-ui .rs-ct b{font:400 96px/1 var(--disp); letter-spacing:.04em; color:var(--haz); text-shadow:0 0 34px rgba(255,194,26,.45); transform:skewX(-8deg)}
+.rod-ui .rs-ct.pop b{animation:totalPop .7s cubic-bezier(.2,1.6,.4,1)}
+@keyframes totalPop{0%{transform:skewX(-8deg) scale(1.35); filter:brightness(2.2)}100%{transform:skewX(-8deg) scale(1)}}
+.rod-ui .rs-cb{display:flex; justify-content:space-between; align-items:baseline; margin:8px 34px 0; font-size:20px; font-weight:800; letter-spacing:.26em; color:var(--mute)}
+.rod-ui .rs-cb b{font:400 34px var(--disp); color:var(--bone-d); letter-spacing:.05em}
+.rod-ui .rs-actions{position:absolute; right:56px; bottom:38px}
+.rod-ui .rs-actions .btn{min-width:600px; height:96px; font-size:38px}
+.rod-ui .btn.pending{opacity:.55; filter:saturate(.6)}
+.rod-ui .btn.cont:not(.pending):not(.is-f){animation:readyIdle 2s ease-in-out infinite}
+.rod-ui .confetti{position:absolute; inset:0; overflow:hidden; pointer-events:none}
+.rod-ui .confetti i{position:absolute; bottom:-30px; width:10px; height:20px; background:var(--haz); opacity:0; animation:rise linear infinite}
+.rod-ui .confetti i:nth-child(3n){background:var(--rust)} .rod-ui .confetti i:nth-child(3n+1){background:var(--bone); width:7px}
+@keyframes rise{0%{transform:translateY(0) rotate(0); opacity:0}10%{opacity:.9}100%{transform:translateY(-1150px) rotate(560deg); opacity:0}}

@@ -504,7 +504,20 @@ class Model:
                 tris += sum(len(f) - 2 for f in Ff)
         return tris, meshes, prims
 
+    def below_ground(self, thr=-0.04):
+        for n in self.order:
+            o = self.objs[n]
+            if o.hidden:
+                continue
+            src = self.objs[o.share] if o.share else o
+            for mt, (Vv, Ff) in src.b.items():
+                ys = [v[1] + (o.origin[1] if o.share else 0) for v in Vv]
+                if ys and min(ys) < thr:
+                    k = ys.index(min(ys))
+                    print('   BELOW GROUND %s/%s min y %.3f at %s' % (n, mt, min(ys), tuple(round(c, 2) for c in Vv[k])))
+
     def report(self, top=25):
+        self.below_ground()
         rows = []
         for n in self.order:
             o = self.objs[n]

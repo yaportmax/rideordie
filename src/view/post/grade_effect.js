@@ -66,7 +66,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   // split toning: teal shadows, warm highlights
   float l = dot(c, W);
   float sh = 1.0 - smoothstep(0.0, 0.55, l);
-  float hi = smoothstep(0.35, 1.0, l);
+  float hi = smoothstep(0.4, 1.0, l);
+  float chroma = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+  hi *= mix(1.0, 0.3, smoothstep(0.08, 0.32, chroma));   // keep saturated colours (blue sky) out of the warm push
   c += shadowTint * sh;
   c *= mix(vec3(1.0), highTint, hi);
   // lift / gamma / gain
@@ -78,7 +80,8 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     vec3 nc = c * nightMul;
     nc *= l0 / max(dot(nc, W), 1e-3);
     c = mix(c, nc, n);
-    c += vec3(-0.004, 0.004, 0.022) * n * sh;
+    c += vec3(-0.004, 0.005, 0.016) * n * sh;
+    c = pow(max(c, vec3(0.0)), vec3(1.0 - 0.14 * n));   // moonlight: lift the darks a little so enemies stay readable
   }
   // saturation (+ damage / slow-mo desaturation)
   l = dot(c, W);

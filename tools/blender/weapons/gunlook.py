@@ -118,9 +118,9 @@ def _wear_common(c, st, edge_k=1.0, scuff_k=1.0, scr_k=1.0):
     wk = st.get("wear", 1.0)
     edge_w = smoothstep(0.22, 0.6, c.edge_cx * (0.35 + 1.15 * c.nH))                 # broken edge highlights
     scr = np.maximum(c.scr_a * 0.9, c.scr_b * 0.65)
-    hi = np.clip((edge_w * edge_k + scr * scr_k * 0.7) * wk, 0, 1)
+    hi = np.clip((edge_w * edge_k + scr * scr_k * 0.42) * wk, 0, 1)
     lo = smoothstep(0.60, 0.78, c.nL) * c.expo * (0.5 + 0.7 * c.nM) * scuff_k * wk   # dulled patches on exposed flats
-    lo = np.clip(lo * 1.2 + edge_w * 0.35 * wk, 0, 1)
+    lo = np.clip(lo * 0.55 + edge_w * 0.30 * wk, 0, 1)
     grime = np.clip(((1 - c.ao_s) * 1.25 + (1 - c.ao_b) * 0.6 + smoothstep(0.55, 0.85, c.nL2) * 0.22 + np.clip(-c.nz, 0, 1) * 0.25) * st.get("dirt", 1.0), 0, 1)
     grime = smoothstep(0.10, 0.85, grime) * (0.4 + 0.6 * c.nM)
     return hi, lo, grime
@@ -177,7 +177,13 @@ def recipe_polymer(c, style):
     alb = alb * (0.5 + 0.5 * c.ao_s[:, None])
     rough = 0.84 + 0.10 * (c.nM - 0.5) - 0.1 * wear + 0.08 * grime
     metal = np.zeros(N, np.float32)
-    h = (c.stip - 0.5) * 0.07 + (c.nH - 0.5) * 0.015 - 0.03 * np.maximum(c.scr_a, c.scr_b)
+    stipm = 1.0
+    if st.get("polymer_stip"):
+        stipm = np.zeros(N, np.float32)
+        for (bx, by, bz) in st["polymer_stip"]:
+            stipm = np.maximum(stipm, ((c.P[:, 0] >= bx[0]) & (c.P[:, 0] <= bx[1]) & (c.P[:, 1] >= by[0]) & (c.P[:, 1] <= by[1]) & (c.P[:, 2] >= bz[0]) & (c.P[:, 2] <= bz[1])).astype(np.float32))
+        stipm = 0.12 + 0.88 * stipm
+    h = (c.stip - 0.5) * 0.07 * stipm + (c.nH - 0.5) * 0.015 - 0.03 * np.maximum(c.scr_a, c.scr_b)
     return alb, np.clip(rough, 0.2, 1.0), metal, h
 
 
@@ -291,8 +297,8 @@ def compose(masks, size, style, log=print, dbg_save=None):
     posimg = np.zeros((size, size, 3), np.float32)
     posimg[ys, xs] = P
     dx = np.linalg.norm(posimg[:, 1:] - posimg[:, :-1], axis=2)
-    okx = valid[:, 1:] & valid[:, :-1] & (dx < 3.0)
-    texel = float(np.median(dx[okx])) if okx.any() else 0.3           # mm per texel
+    okx = valid[:, 1:] & valid[:, :-1] & (dx < 3.0) & (dx > 0.02)
+    texel = float(np.percentile(dx[okx], 45)) if okx.any() else 0.3           # mm per texel (of the visible, high-density faces)
     fmax = 0.34 / texel                       # highest noise frequency that still resolves (1/mm)
     log("  texel size %.3f mm  fmax %.2f/mm" % (texel, fmax))
     nrmB = masks["nrm"][ys, xs]
@@ -312,8 +318,8 @@ def compose(masks, size, style, log=print, dbg_save=None):
     c.brush = vnoise(P, (0.02, F(2.2), F(2.2)), 61)
     Ng = np.stack([-nrmB[:, 1], nrmB[:, 0], nrmB[:, 2]], 1).astype(np.float32)      # normal in gun frame
     fc = F(2.4)
-    c.scr_a = np.maximum(tri_scratch(P, Ng, 0.045, fc, 8.0, 71, 0.030, 0.56), tri_scratch(P, Ng, 0.06, fc, -32.0, 73, 0.028, 0.60))
-    c.scr_b = np.maximum(tri_scratch(P, Ng, 0.07, fc, 74.0, 83, 0.025, 0.62), tri_scratch(P, Ng, 0.08, fc, 112.0, 89, 0.025, 0.64))
+    c.scr_a = np.maximum(tri_scratch(P, Ng, 0.045, fc, 8.0, 71, 0.028, 0.66), tri_scratch(P, Ng, 0.06, fc, -32.0, 73, 0.026, 0.70))
+    c.scr_b = np.maximum(tri_scratch(P, Ng, 0.07, fc, 74.0, 83, 0.022, 0.72), tri_scratch(P, Ng, 0.08, fc, 112.0, 89, 0.022, 0.74))
     log("  noise fields %.1fs" % (time.time() - t0))
 
     alb = np.zeros((N, 3), np.float32) + 0.2

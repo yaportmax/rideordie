@@ -17,9 +17,20 @@ Clips are keyframed sets of parameters (PCHIP or periodic cubic interpolation) t
 (Rig.solve), so feet stay planted and hands stay on the gun / wheel while the torso moves.
 
 Public API used by the character builds:
-    clips = build_clips(heads)                      -> {name: dict(times, rot (T,B,4) xyzw, hips_t (T,3), loop, note)}
-    sock_pos, sock_rot = socket_frames(heads, clips)
-    write_clips(glb, bone_nodes, clips)             -> adds glTF animations to a glb.Glb
+    clips = build_clips(heads, bulk=1.0, mesh=None, foot_sole=0.0, seat=None)
+        -> {name: dict(times (T,), rot (T,B,4) local quaternions xyzw in mh.BONE_NAMES order, hips_t (T,3) Hips node
+            translation (world, root at the floor), loop, note)}   (also keeps _poses/_params for debugging)
+        heads: (B,3) rest bone heads in game space (B.Char(spec).heads_final).
+        mesh=(pos, joints, weights) of the skinned character gives exact ground contact for death_fall.
+    sock_pos, sock_rot = socket_frames(heads, clips)      -> pass to rig.add_skeleton(glb, heads, sock_pos, sock_rot)
+    write_clips(glb, bone_nodes, clips)                   -> adds the glTF animations to a glb.Glb
+
+Clip semantics (all 30 fps; loop clips have T*30+1 frames, last == first, so they repeat seamlessly):
+    idle_stand 3.3 s loop | idle_sit_drive 3.0 s loop | sit_lean_L / _R 1.5 s loops holding the full lean (L = +X) |
+    flinch_a 0.67 s, flinch_b 0.73 s (start and end exactly on idle_stand frame 0) | throw_grenade 1.0 s (release at 0.55 s,
+    starts/ends on idle_stand frame 0) | celebrate 2.2 s one-shot (ends on idle_stand frame 0) | crouch_idle 3.0 s loop |
+    death_fall 1.2 s (lands ~0.72 s, ends lying on its back, head toward -Z, Hips translation keeps the body on the floor) |
+    pose_pistol / pose_rifle / pose_launcher: ONE frame at t = 0 (arms matter; feet/torso in a bladed stance).
 """
 import copy
 
@@ -69,17 +80,6 @@ def frame(d, n):
 
 def rot_axis(axis, ang):
     return R.from_rotvec(unit(axis) * ang).as_matrix()
-
-
-def mirror_vec(v):
-    v = np.array(v, float)
-    v[..., 0] *= -1.0
-    return v
-
-
-def smoothstep(x):
-    x = np.clip(x, 0.0, 1.0)
-    return x * x * (3 - 2 * x)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -895,10 +895,6 @@ def clip_throw(rig, base):
     c = bake(rig, tr, T, False, note="overhand throw with the RIGHT hand; RELEASE at 0.55 s (55%%, frame %d); starts/ends at idle_stand frame 0" % int(round(0.55 * FPS)))
     c["release_time"] = 0.55
     return c
-
-
-def _fist(S):
-    return np.array(GRIP["fist"])
 
 
 def clip_celebrate(rig, base):

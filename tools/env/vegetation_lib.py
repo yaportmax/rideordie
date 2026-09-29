@@ -19,7 +19,7 @@ def rot_about(v, axis, ang):
     return Matrix.Rotation(ang, 3, axis) @ v
 
 
-def sweep(mb, m, pts, radii, seg=8, tile_m=1.0, u_repeat=None, rib=0.0, cap_end=True, cap_start=False, rib_profile=None):
+def sweep(mb, m, pts, radii, seg=8, tile_m=1.0, u_repeat=None, rib=0.0, cap_end=True, cap_start=False, rib_profile=None, shape=None):
     """Sweep a circle along a polyline with UVs (u around, v along; v in metres/tile_m, u scaled so texel density is constant).
        rib > 0 : alternate crest/groove radii (seg must be even; crest at even j).  u_repeat = number of u tiles around (ribbed cacti: one per rib).
        radii: float or list per point.  Returns [ring verts]."""
@@ -51,6 +51,8 @@ def sweep(mb, m, pts, radii, seg=8, tile_m=1.0, u_repeat=None, rib=0.0, cap_end=
             r = radii[i]
             if rib > 0:
                 r *= 1.0 + rib * (1.0 if j % 2 == 0 else -1.0)
+            if shape is not None:                       # shape(angle, t_along) -> radius factor (fluting / twisted buttresses)
+                r *= shape(a, i / max(1, n - 1))
             ring.append(bm.verts.new(p + (u * math.cos(a) + v * math.sin(a)) * r))
         rows.append(ring)
     for i in range(n - 1):
@@ -170,3 +172,24 @@ def wobble_path(p0, p1, n, amp, seed, freq=1.3, up_bias=0.0):
         q.z += up_bias * t * t
         pts.append(q)
     return pts
+
+
+def catmull(pts, n):
+    """Catmull-Rom spline through pts, n samples total (list of Vector)"""
+    P = [pts[0]] + list(pts) + [pts[-1]]
+    out = []
+    segs = len(pts) - 1
+    for i in range(n):
+        t = i / (n - 1) * segs
+        k = min(segs - 1, int(t))
+        u = t - k
+        p0, p1, p2, p3 = P[k], P[k + 1], P[k + 2], P[k + 3]
+        out.append(0.5 * ((2 * p1) + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (-p0 + 3 * p1 - 3 * p2 + p3) * u * u * u))
+    return out
+
+
+def fluted(depth=0.14, k=3, twist=1.6, fade=0.6, phase=0.0):
+    """radius shape function: k twisted buttress ridges, strongest near the base"""
+    def f(a, t):
+        return 1.0 + depth * (1.0 - t) ** fade * math.cos(k * a + twist * t * 3.0 + phase) + 0.04 * math.cos(2 * k * a - twist * t * 5.0 + 1.3)
+    return f

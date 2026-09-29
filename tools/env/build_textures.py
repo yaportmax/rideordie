@@ -74,7 +74,7 @@ def recipe(name, size=2048):
 def r_asphalt(N):
     a, n, arm, tile = src("asphalt_pit_lane", N)
     a = flatten(a, 0.07, 0.9)
-    a = tone(a, (60, 58, 56), sat=0.7, contrast=1.1)
+    a = tone(a, (64, 58, 53), sat=0.7, contrast=1.1)
     a = macro(a, 11, 0.035, hue=0.05)
     META["asphalt"] = dict(source="asphalt_pit_lane", tile=tile)
     return a, n, arm
@@ -85,7 +85,7 @@ def r_asphalt_worn(N):
     a, n, arm, tile = src("asphalt_01", N)
     a, n, arm = mirror2(a), dec_n(enc_n(mirror2(n, True))), mirror2(arm)
     a = flatten(a, 0.07, 0.9)
-    a = tone(a, (80, 77, 73), sat=0.6, contrast=1.15)     # sun-faded
+    a = tone(a, (86, 77, 69), sat=0.6, contrast=1.15)     # sun-faded
     a = sharpen(a, 0.6, 2.0)
     u = (np.arange(N)[None, :] / N) * np.ones((N, 1))
     v = (np.arange(N)[:, None] / N) * np.ones((1, N))
@@ -139,7 +139,7 @@ def r_asphalt_worn(N):
 def r_asphalt_cracked(N):
     a, n, arm, tile = src("asphalt_02", N)
     a = flatten(a, 0.07, 0.85)
-    a = tone(a, (74, 72, 69), sat=0.7, contrast=1.1)
+    a = tone(a, (80, 73, 66), sat=0.7, contrast=1.1)
     a = macro(a, 21, 0.035)
     META["asphalt_cracked"] = dict(source="asphalt_02", tile=tile)
     return a, n, arm
@@ -183,8 +183,8 @@ def r_dirt_red(N):
 @recipe("dry_grass")
 def r_dry_grass(N):
     a, n, arm, tile = src("withered_grass", N)
-    a = flatten(a, 0.07, 0.9)
-    a = tone(a, (176, 142, 84), sat=0.9, contrast=1.3)
+    a = flatten(a, 0.11, 1.0)
+    a = tone(a, (176, 142, 84), sat=0.6, contrast=1.3)
     a = macro(a, 51, 0.035, hue=0.08)
     META["dry_grass"] = dict(source="withered_grass", tile=tile)
     return a, n, arm
@@ -193,8 +193,8 @@ def r_dry_grass(N):
 @recipe("gravel")
 def r_gravel(N):
     a, n, arm, tile = src("gravel_floor_03", N)
-    a = flatten(a, 0.07, 0.9)
-    a = tone(a, (122, 114, 104), sat=0.9, contrast=1.5)
+    a = flatten(a, 0.11, 1.0)
+    a = tone(a, (130, 114, 98), sat=0.9, contrast=1.5)
     a = macro(a, 61, 0.035)
     META["gravel"] = dict(source="gravel_floor_03", tile=tile)
     return a, n, arm
@@ -215,7 +215,7 @@ def r_rock_red(N):
 def r_rock_grey(N):
     a, n, arm, tile = src("rock_face_03", N)
     a = flatten(a, 0.07, 0.7)
-    a = tone(a, (118, 111, 103), sat=0.35, contrast=1.15)
+    a = tone(a, (126, 112, 100), sat=0.35, contrast=1.15)
     a = macro(a, 81, 0.035)
     arm = rough_floor(arm, 0.74)
     META["rock_grey"] = dict(source="rock_face_03 (desaturated)", tile=tile)
@@ -224,19 +224,19 @@ def r_rock_grey(N):
 
 @recipe("cliff")
 def r_cliff(N):
-    a, n, arm, tile = src("dry_riverbed_rock", N)
+    a, n, arm, tile = src("cliff_side", N)          # same photoscan as rock_red, regraded to a warm grey-tan (coastal / mountain limestone-sandstone)
     a = flatten(a, 0.07, 0.5)
-    a = tone(a, (150, 132, 108), sat=0.9, contrast=1.15)
+    a = tone(a, (158, 140, 116), sat=0.55, contrast=1.1)
     a = macro(a, 91, 0.035)
     arm = rough_floor(arm, 0.74)
-    META["cliff"] = dict(source="dry_riverbed_rock", tile=tile, note="strata run horizontally (image X)")
+    META["cliff"] = dict(source="cliff_side (re-graded warm grey-tan)", tile=tile, note="strata run horizontally (image X)")
     return a, n, arm
 
 
 @recipe("snow")
 def r_snow(N):
     a, n, arm, tile = src("snow_02", N)
-    a = flatten(a, 0.07, 0.9)
+    a = flatten(a, 0.1, 0.9)
     a = tone(a, (236, 241, 248), sat=0.5, contrast=0.6, floor=0.8)
     META["snow"] = dict(source="snow_02", tile=tile)
     return a, n, arm
@@ -245,7 +245,7 @@ def r_snow(N):
 @recipe("forest_floor")
 def r_forest_floor(N):
     a, n, arm, tile = src("forest_leaves_04", N)
-    a = flatten(a, 0.07, 0.85)
+    a = flatten(a, 0.1, 0.9)
     a = tone(a, (92, 70, 50), sat=0.85, contrast=1.15)
     a = macro(a, 111, 0.035, hue=0.05)
     META["forest_floor"] = dict(source="forest_leaves_04", tile=tile)
@@ -265,7 +265,7 @@ def r_grass_green(N):
 @recipe("beach_sand")
 def r_beach_sand(N):
     a, n, arm, tile = src("coast_sand_03", N)
-    a = flatten(a, 0.07, 0.9)
+    a = flatten(a, 0.13, 1.0)
     a = tone(a, (172, 152, 118), sat=1.1, contrast=1.2)
     a = macro(a, 131, 0.035)
     META["beach_sand"] = dict(source="coast_sand_03", tile=tile)
@@ -285,7 +285,7 @@ def r_pebbles(N):
 def r_concrete(N):
     a, n, arm, tile = src("concrete_floor_03", N)
     a = flatten(a, 0.07, 0.9)
-    a = tone(a, (188, 184, 176), sat=0.5, contrast=1.2)
+    a = tone(a, (174, 162, 146), sat=0.5, contrast=1.2)
     a = macro(a, 141, 0.035)
     META["concrete"] = dict(source="concrete_floor_03 (bleached)", tile=tile)
     return a, n, arm
@@ -294,7 +294,7 @@ def r_concrete(N):
 @recipe("concrete_cracked", 1024)
 def r_concrete_cracked(N):
     a, n, arm, tile = src("cracked_concrete", N)
-    a = tone(a, (168, 164, 156), sat=0.5, contrast=1.15)
+    a = tone(a, (156, 146, 134), sat=0.5, contrast=1.15)
     META["concrete_cracked"] = dict(source="cracked_concrete (bleached)", tile=tile)
     return a, n, arm
 

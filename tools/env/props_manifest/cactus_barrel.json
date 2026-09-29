@@ -2,18 +2,18 @@
  "name": "cactus_barrel",
  "file": "cactus_barrel.glb",
  "category": "cactus",
- "height": 0.801,
- "radius": 0.461,
+ "height": 0.903,
+ "radius": 0.448,
  "size": [
-  0.922,
-  0.801,
-  0.922
+  0.897,
+  0.903,
+  0.897
  ],
- "tris": 804,
+ "tris": 868,
  "materials": [
   "cactus_flower",
   "cactus_skin"
  ],
- "notes": "barrel cactus 0.8 m, 16 ribs with spines on crests (texture), yellow flower ring; origin at base centre",
- "kb": 94.7
+ "notes": "barrel cactus ~0.85 m, 16 deep ribs with pale spine dots on crests (texture), dusty grey-green, dull flower ring; origin at base centre",
+ "kb": 82.1
 }

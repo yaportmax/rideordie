@@ -33,7 +33,7 @@ def wheel_mesh(m, meshname, R, W, side, rim_ratio=0.56, lugs=18, spl=3, tread_h=
             ph = ((j) % spl)
             blk = 1.0 if ph < spl - 1 else 0.0          # (spl-1)/spl of the circumference is block
             # soften: first/last step of a block is a ramp
-            rr = r + tread_h * lf * blk
+            rr = r - tread_h * lf * (1.0 - blk)          # outer radius of the lugs == R (grooves are cut below it)
             th = (j + sh * (1 if x >= 0 else 1)) * 2 * math.pi / S
             ring.append((x * side, rr * math.sin(th), rr * math.cos(th)))
         rings.append(ring)
@@ -209,7 +209,7 @@ def exhaust_stack(m, base, top, r=0.08, obj='body', mat='chrome', cap='metal_dar
             m.cyl('metal_dark', c - d * 0.012, c + d * 0.012, r * 1.4, seg=10, obj=obj)
 
 
-def skull(m, at, s=1.0, n=(0, 0, 1), obj='body', horns=True, mat='plastic'):
+def skull(m, at, s=1.0, n=(0, 0, 1), obj='body', horns=True, mat='plastic', eyes='metal_dark'):
     """Stylised skull facing n."""
     P = V3(at); nn = V3(n).normalized()
     R = basis_from(nn)
@@ -223,7 +223,7 @@ def skull(m, at, s=1.0, n=(0, 0, 1), obj='body', horns=True, mat='plastic'):
     m.hull(mat, [L(-0.10, -0.03, 0.10), L(0.10, -0.03, 0.10), L(-0.12, -0.02, 0.0), L(0.12, -0.02, 0.0), L(-0.08, -0.16, 0.08), L(0.08, -0.16, 0.08), L(-0.07, -0.15, 0.0), L(0.07, -0.15, 0.0)], bevel=0.008, seg=1, obj=obj)
     # eye sockets + nose
     for sx in (-1, 1):
-        m.revolve('metal_dark', [(0, 0.02), (0.045, 0.0), (0.045, -0.03), (0, -0.03)], at=L(sx * 0.065, 0.02, 0.105), axis=tuple(nn), seg=10, obj=obj)
+        m.revolve(eyes, [(0, 0.02), (0.045, 0.0), (0.045, -0.03), (0, -0.03)], at=L(sx * 0.065, 0.02, 0.105), axis=tuple(nn), seg=10, obj=obj)
     m.hull('metal_dark', [L(0, -0.04, 0.115), L(-0.022, -0.09, 0.11), L(0.022, -0.09, 0.11), L(0, -0.045, 0.09)], bevel=0, obj=obj)
     # teeth
     for i in range(6):
@@ -233,3 +233,38 @@ def skull(m, at, s=1.0, n=(0, 0, 1), obj='body', horns=True, mat='plastic'):
     if horns:
         for sx in (-1, 1):
             m.tube('metal_bare', [L(sx * 0.14, 0.12, -0.02), L(sx * 0.24, 0.16, -0.02), L(sx * 0.32, 0.27, 0.0), L(sx * 0.33, 0.4, 0.03)], 0.026 * s, seg=7, bend=0.08, r_end=0.004, obj=obj)
+
+
+# ------------------------------------------------------------------------------------------------ QA proxies (env PROXY=1)
+def human_stand(m, feet, h=1.78, obj='body', facing=(0, 0, 1)):
+    x, y, z = feet
+    m.cyl('cloth_red', (x - 0.1, y, z), (x - 0.1, y + h * 0.5, z), 0.09, seg=8, obj=obj)
+    m.cyl('cloth_red', (x + 0.1, y, z), (x + 0.1, y + h * 0.5, z), 0.09, seg=8, obj=obj)
+    m.box('cloth_red', (0.42, h * 0.32, 0.24), at=(x, y + h * 0.66, z), bevel=0.03, seg=1, obj=obj)
+    m.revolve('cloth_red', [(0, -0.11), (0.09, -0.08), (0.11, 0.0), (0.09, 0.08), (0, 0.11)], at=(x, y + h - 0.11, z), axis='y', seg=10, obj=obj)
+    m.cyl('cloth_red', (x - 0.28, y + h * 0.78, z), (x - 0.4, y + h * 0.55, z + 0.25), 0.05, seg=6, obj=obj)
+    m.cyl('cloth_red', (x + 0.28, y + h * 0.78, z), (x + 0.4, y + h * 0.55, z + 0.25), 0.05, seg=6, obj=obj)
+
+
+def human_sit(m, hip, obj='body'):
+    x, y, z = hip
+    m.box('cloth_red', (0.4, 0.5, 0.25), at=(x, y + 0.3, z - 0.05), bevel=0.03, seg=1, obj=obj)
+    m.revolve('cloth_red', [(0, -0.11), (0.09, -0.08), (0.11, 0.0), (0.09, 0.08), (0, 0.11)], at=(x, y + 0.72, z - 0.05), axis='y', seg=10, obj=obj)
+    m.cyl('cloth_red', (x - 0.1, y, z), (x - 0.1, y - 0.05, z + 0.5), 0.09, seg=8, obj=obj)
+    m.cyl('cloth_red', (x + 0.1, y, z), (x + 0.1, y - 0.05, z + 0.5), 0.09, seg=8, obj=obj)
+    m.cyl('cloth_red', (x - 0.1, y - 0.05, z + 0.5), (x - 0.1, y - 0.55, z + 0.55), 0.07, seg=8, obj=obj)
+    m.cyl('cloth_red', (x + 0.1, y - 0.05, z + 0.5), (x + 0.1, y - 0.55, z + 0.55), 0.07, seg=8, obj=obj)
+    m.cyl('cloth_red', (x - 0.22, y + 0.5, z - 0.05), (x - 0.15, y + 0.35, z + 0.4), 0.045, seg=6, obj=obj)
+    m.cyl('cloth_red', (x + 0.22, y + 0.5, z - 0.05), (x + 0.15, y + 0.35, z + 0.4), 0.045, seg=6, obj=obj)
+
+
+def add_proxies(m):
+    import os
+    if not os.environ.get('PROXY'):
+        return
+    m.use('body')
+    for (nm, pos, rot, size) in m.socks:
+        if nm == 'seat_driver':
+            human_sit(m, pos)
+        elif nm.startswith('seat_gunner'):
+            human_stand(m, pos)

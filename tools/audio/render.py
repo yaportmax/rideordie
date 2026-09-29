@@ -155,6 +155,8 @@ def _finalize(entry, x):
         # tiny fade-out to avoid end clicks
         x = dsp.fade(x, 0.0, min(0.03, 0.2 * len(x) / SR))
         x = dsp.fade(x, 0.0002, 0.0)
+        # Chrome's decoder may drop up to 128 trailing samples of short Vorbis files: keep them digital silence
+        x = np.concatenate([x, np.zeros((128,) + x.shape[1:])])
     kind, val = entry["norm"][0], entry["norm"][1]
     if kind == "peak":
         x = dsp.normalize_peak(x, val)

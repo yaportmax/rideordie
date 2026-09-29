@@ -26,6 +26,7 @@ class Truck(BodyMixin, CabMixin, BedMixin):
         self.wheels = {}
         self.k = C.R / 0.335        # scale factor vs the compact truck
         self.socks = []
+        self.fns = {}          # panel surface mappings (for decals): 'hood', 'fender+1', 'door+1', ...
 
     # ----------------------------------------------------------------------------------------------- utils
     def part(self, name, origin):
@@ -183,9 +184,10 @@ class Truck(BodyMixin, CabMixin, BedMixin):
             b.tube('metal_dark', [(0.16 * k, f, Z(0.36 * k)), (0.23 * k, f, Z(0.40 * k)), (0.12 * k, f, Z(0.47 * k))], 0.022 * k, n=8, rad=0.05, k=3)
         b.box('metal_dark', (0.11 * k, fe, Z(0.50 * k)), (0.10 * k, 0.46 * k, 0.045 * k * ev), bev=0.01)
         ac_c = (0.09 * k, fe + 0.02 * k, Z(0.56 * k))
-        b.cyl('metal_dark', ac_c, 0.115 * k, 0.085 * k * ev, axis='z', n=20, bev=0.01)
-        b.cyl('metal_bare', (ac_c[0], ac_c[1], ac_c[2] + 0.048 * k * ev), 0.10 * k, 0.014, axis='z', n=20, bev=0.004)
-        b.cyl('metal_dark', (ac_c[0], ac_c[1], ac_c[2] + 0.06 * k * ev), 0.018 * k, 0.025, axis='z', n=8)
+        if not getattr(C, 'no_air_cleaner', False):
+            b.cyl('metal_dark', ac_c, 0.115 * k, 0.085 * k * ev, axis='z', n=20, bev=0.01)
+            b.cyl('metal_bare', (ac_c[0], ac_c[1], ac_c[2] + 0.048 * k * ev), 0.10 * k, 0.014, axis='z', n=20, bev=0.004)
+            b.cyl('metal_dark', (ac_c[0], ac_c[1], ac_c[2] + 0.06 * k * ev), 0.018 * k, 0.025, axis='z', n=8)
         mx = 'rust' if C.tier == 1 else 'metal_dark'
         # exhaust manifold (right)
         b.tube(mx, [(-0.17 * k, fe - 0.22 * k, Z(0.30 * k)), (-0.22 * k, fe - 0.22 * k, Z(0.30 * k)), (-0.22 * k, fe + 0.22 * k, Z(0.30 * k))], 0.026 * k, n=8)

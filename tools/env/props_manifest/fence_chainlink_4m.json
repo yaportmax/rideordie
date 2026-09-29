@@ -17,5 +17,5 @@
  ],
  "notes": "4.0 m chain-link fence section along Z (glTF), 1.9 m high, post at the segment centre so instances tile every 4 m; mesh = alphaMode MASK double-sided card texture, torn hole near the bottom. Mesh sits on the +X side of the post.",
  "segment_length": 4.0,
- "kb": 626.2
+ "kb": 621.2
 }

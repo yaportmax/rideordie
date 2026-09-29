@@ -15,7 +15,7 @@ USE = {
     "gravel": ("2.5", "3-5", "Road shoulder, railway ballast, quarry floors; dark grey-brown crushed stone."),
     "rock_red": ("1.8", "3-4", "Layered canyon sandstone (strata run along image X = horizontal). Canyon walls, boulders, pillars."),
     "rock_grey": ("2.7", "4-6", "Cracked warm-grey mountain rock: pine-mountain slopes, rocks, tunnel portals."),
-    "cliff": ("2.0", "4-6", "Coastal / mountain cliff face with horizontal blocky strata; use on steep triplanar Y-axis projections."),
+    "cliff": ("1.8", "6-10", "Coastal / mountain cliff face: warm grey-tan layered sediment with horizontal strata (same scan as rock_red, different grade). Use on steep faces with world-Y-projected UVs; looks best at 6-10 m per tile."),
     "snow": ("2.0", "4-8", "Bright powder snow for the peaks (albedo lifted so dark pits don't read as dirt). Blend with rock_grey by slope/height."),
     "forest_floor": ("1.5", "3-5", "Dark pine-needle / leaf litter with twigs for the pine-mountain ground."),
     "grass_green": ("2.0", "4-6", "Coastal / lowland green grass (slightly cool, not neon)."),
@@ -77,6 +77,9 @@ for k, v in mk["items"].items():
 L.append("")
 L.append("Layout rules of thumb (US-style highway): lane 3.7 m; dashed lane line = 3 m paint / 9 m gap (`dash_white_*` every 12 m); edge lines 0.3 m inside the lane edge; double yellow centre line "
          "`double_yellow_*` (0.55 m wide); rumble strips on the shoulder (`rumble_*`, darkening decal); arrows every ~150 m before exits; `chevron_*`/`hatch_*` for gore areas and barricades.\n")
+L.append("## Names in docs/ASSET_SPEC.md -> actual files\n")
+L.append("`paint_road` = `road_markings/markings.png` (+ `markings.json`), `smoke_particle` = `particles/smoke_sheet.png`, `dust_particle` = `particles/dust_puff.png`. "
+         "(No duplicate copies are shipped, to save bandwidth.)\n")
 L.append("## Rebuilding\n")
 L.append("`tools/env/tex_fetch.py` (downloads Poly Haven sources into `C:/Dev/art_cache/rideordie/env`), `tools/env/build_textures.py`, `build_particles.py`, `build_markings.py`, `build_readme.py` "
          "(this file), `prep_prop_textures.py` (512 px copies embedded in prop GLBs).\n")

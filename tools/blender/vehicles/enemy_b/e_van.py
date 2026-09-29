@@ -166,7 +166,9 @@ for sx in (1, -1):
         m.box('armor', (0.05, 0.03, 0.66), at=(1.0 * sx, 1.755, zc), bevel=0.004, seg=1)
     # rear arch flare + inner liner
     for zc in (ZR,):
-        m.revolve('metal_dark', [(0.6, -0.16), (0.6, 0.16), (0.56, 0.16), (0.56, -0.16)], at=(0.86 * sx, HUBY, zc), axis='x', seg=24)
+        po = [(zc + 0.62 * math.cos(t * D2R), HUBY + 0.62 * math.sin(t * D2R)) for t in range(8, 173, 12)]
+        pi_ = [(zc + 0.56 * math.cos(t * D2R), HUBY + 0.56 * math.sin(t * D2R)) for t in range(172, 7, -12)]
+        m.plate('metal_dark', po + pi_, 0.3, at=(0.86 * sx, 0, 0), u=(0, 0, 1), v=(0, 1, 0), bevel=0)
     # sill / rocker rail and lower rust strip
     m.box('metal_dark', (0.09, 0.07, 6.0 - 0.6), at=(1.0 * sx, 0.46, 0.0), bevel=0.01, seg=1)
     # mud flaps
@@ -285,7 +287,7 @@ for sx in (1, -1):
     for a in (0, 60, 120):
         m.beam('metal_dark', (0.66 * sx + 0.14 * math.cos(a * D2R), 0.98 + 0.14 * math.sin(a * D2R), 2.83), (0.66 * sx - 0.14 * math.cos(a * D2R), 0.98 - 0.14 * math.sin(a * D2R), 2.83), 0.014, 0.014, bevel=0.002, seg=1)
     light_rect(m, (0.9 * sx, 0.98, 2.79), (0.1, 0.09), 'light_amber', n=(0, 0, 1))
-    light_rect(m, (0.9 * sx, 1.32, -2.905), (0.12, 0.42), 'light_tail', n=(0, 0, -1), depth=0.14)
+    light_rect(m, (0.9 * sx, 1.32, -2.905), (0.12, 0.42), 'light_tail', n=(0, 0, -1), depth=0.14, ribs=4)
     light_rect(m, (0.9 * sx, 0.9, -2.905), (0.1, 0.1), 'light_amber', n=(0, 0, -1), depth=0.14)
     m.box('armor', (0.22, 0.02, 0.1), at=(0.9 * sx, 1.57, -2.92), bevel=0.004, seg=1)
     m.box('armor', (0.22, 0.02, 0.1), at=(0.9 * sx, 1.07, -2.92), bevel=0.004, seg=1)
@@ -421,4 +423,5 @@ for x in (-0.75, -0.25, 0.25, 0.75):
 m.weld('metal_bare', (-0.9, 1.5, -2.905), (0.9, 1.5, -2.905), r=0.009, obj='panel_tailgate')
 m.use('body')
 
+add_proxies(m)
 m.finish()

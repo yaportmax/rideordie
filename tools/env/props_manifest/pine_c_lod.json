@@ -2,12 +2,12 @@
  "name": "pine_c_lod",
  "file": "pine_c_lod.glb",
  "category": "tree_pine_lod",
- "height": 9.981,
+ "height": 9.999,
  "radius": 3.852,
  "size": [
-  6.547,
-  9.981,
-  6.588
+  6.697,
+  9.999,
+  7.009
  ],
  "tris": 164,
  "materials": [
@@ -15,5 +15,5 @@
   "pine_needles_c"
  ],
  "notes": "LOD1 of pine_c (alpha-tested cards, same materials)",
- "kb": 488.4
+ "kb": 432.3
 }

@@ -82,3 +82,36 @@ class Ctx:
         glb.g["scenes"][0]["nodes"] = [root]
         size = glb.save(path)
         return size
+
+
+def _save_final(self, path=None, hidden_groups=(), split_by_label=False, extras=None):
+    """Final export: all clips baked from this character's own proportions + socket frames (needs anim.py)."""
+    path = path or (OUT_DIR + "/" + self.name + ".glb")
+    clips, sp, sr = None, None, None
+    try:
+        import anim
+        heads = self.ch.heads_final
+        clips = anim.build_clips(heads)
+        sp, sr = anim.socket_frames(heads, clips)
+    except ImportError:
+        print("  (anim.py not available: exporting without clips)")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    size = self.save(path, clips=clips, hidden_groups=hidden_groups, socket_pos=sp, socket_rot=sr, extras=extras,
+                     split_by_label=split_by_label)
+    print("saved", path, "%.2f MB" % (size / 1e6), "tris", self.tri_count(), "(visible main: %d)" % self.tri_count("main"))
+    return size
+
+
+Ctx.save_final = _save_final
+
+
+def _report(self, top=30):
+    from collections import defaultdict
+    d = defaultdict(int)
+    for g, prims in self.groups.items():
+        for p in prims:
+            d[p.get("_label") or "?"] += len(p["idx"]) // 3
+    print("  tri breakdown:", ", ".join("%s %d" % (k, v) for k, v in sorted(d.items(), key=lambda kv: -kv[1])[:top]), "| total", sum(d.values()))
+
+
+Ctx.report = _report

@@ -1,0 +1,18 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--use-angle=d3d11', '--force_high_performance_gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
+const mk = async () => { const c = await browser.newContext({ viewport: { width: 1280, height: 720 } }); const p = await c.newPage(); p.on('pageerror', (e) => console.log('[pageerror]', e.message)); p.on('console', (m) => { const t = m.text(); if (/ROOM|JOINED|disconnected|error/i.test(t) && !/GLB|404/.test(t)) console.log('[' + m.type() + ']', t.slice(0, 200)); }); return p; };
+const A = await mk(), B = await mk();
+await A.goto('http://localhost:5173/?net=host&role=driver&s=300&weapons=smg'); await A.waitForFunction('window.__code', null, { timeout: 60000 });
+const code = await A.evaluate('window.__code'); console.log('code', code);
+await B.goto(`http://localhost:5173/?net=join&code=${code}&weapons=smg`);
+await A.waitForFunction('window.__run && window.__run.sim', null, { timeout: 60000 });
+await B.waitForFunction('window.__run', null, { timeout: 60000 });
+console.log('both running');
+await A.evaluate('window.__forceInput = { throttle: 1, steer: 0 }');
+await B.evaluate('window.__aimbot = true');
+await new Promise((r) => setTimeout(r, 25000));
+const a = await A.evaluate('(() => { const R = window.__run; return { t: R.sim.time, s: R.player.s, speed: R.player.veh.speed * 3.6, cars: R.sim.cars.size, hits: R.sim.stats.hits, kills: R.sim.stats.kills, hp: R.player.hp, gunnerAim: R.player.crew.gunner.aimYaw, fps: window.__perf.fps } })()');
+const b = await B.evaluate('(() => { const R = window.__run; const st = R.states.get(1); return { states: R.states.size, snaps: R.buf.snaps.length, delay: R.buf.delay, jitter: R.buf.jitter, playerS: R.playerS, shots: R.shots, hitsLanded: R.hitsLanded, mag: R.gunner.magNow, fps: window.__perf.fps, rtt: window.__session.rtt, sstate: R.simState } })()');
+console.log('driver', a); console.log('gunner', b);
+await A.screenshot({ path: 'shots/net_driver.png' }); await B.screenshot({ path: 'shots/net_gunner.png' });
+await browser.close();

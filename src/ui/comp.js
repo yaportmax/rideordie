@@ -27,7 +27,8 @@ export const pips = (lv, max, fresh = -1, cls = '') =>
 export function statRow(s) {
   const fmt = s.fmt || ((v) => String(Math.round(v * 10) / 10));
   const max = s.max || 1;
-  const b = clamp01(s.before / max), a = s.after == null ? b : clamp01(s.after / max);
+  let b = clamp01(s.before / max), a = s.after == null ? b : clamp01(s.after / max);
+  if (s.lowerBetter) { b = 1 - b; a = s.after == null ? b : 1 - a; }
   const changed = s.after != null && Math.abs(s.after - s.before) > 1e-6;
   const better = changed && (s.lowerBetter ? s.after < s.before : s.after > s.before);
   const lo = Math.min(a, b), hi = Math.max(a, b);
@@ -35,5 +36,5 @@ export function statRow(s) {
   const val = changed
     ? `<span class="sval"><s>${esc(fmt(s.before))}</s><b class="${better ? 'up' : 'down'}">${esc(fmt(s.after))}</b>${s.unit ? `<small>${esc(s.unit)}</small>` : ''}</span>`
     : `<span class="sval"><b>${esc(s.text ?? fmt(s.before))}</b>${s.unit ? `<small>${esc(s.unit)}</small>` : ''}</span>`;
-  return `<div class="stat${changed ? ' chg' : ''}"><span class="slabel">${esc(s.label)}</span>${bar}${val}</div>`;
+  return `<div class="stat${changed ? ' chg' : ''}"><span class="slabel">${esc(s.label)}</span>${val}${bar}</div>`;
 }

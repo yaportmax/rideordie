@@ -1,0 +1,229 @@
+{
+ "name": "revolver",
+ "tris": 27672,
+ "glb_kb": 2145,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 17314,
+   "materials": [
+    "gun_metal",
+    "gun_steel",
+    "gun_black",
+    "wood"
+   ]
+  },
+  "hammer": {
+   "pivot": [
+    0.0,
+    62.0,
+    14.0
+   ],
+   "parent": null,
+   "tris": 1780,
+   "materials": [
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
+  "trigger": {
+   "pivot": [
+    0.0,
+    40.0,
+    32.0
+   ],
+   "parent": null,
+   "tris": 716,
+   "materials": [
+    "gun_metal"
+   ]
+  },
+  "crane": {
+   "pivot": [
+    16.0,
+    33.0,
+    104.0
+   ],
+   "parent": null,
+   "tris": 1460,
+   "materials": [
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
+  "cylinder": {
+   "pivot": [
+    0.0,
+    60.0,
+    77.0
+   ],
+   "parent": "crane",
+   "tris": 6402,
+   "materials": [
+    "gun_metal",
+    "gun_steel",
+    "brass"
+   ]
+  }
+ },
+ "sockets": {
+  "muzzle": {
+   "pos": [
+    0.0,
+    74.0,
+    252.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "eject": {
+   "pos": [
+    0.0,
+    60.0,
+    54.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    90
+   ],
+   "parent": "crane"
+  },
+  "grip_R": {
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "grip_L": {
+   "pos": [
+    17.0,
+    -8.0,
+    6.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "mag_well": {
+   "pos": [
+    0.0,
+    60.0,
+    77.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": "crane"
+  },
+  "sight": {
+   "pos": [
+    0.0,
+    100.0,
+    -60.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "hammer",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": -55.0,
+   "note": "cock: -55 deg about the node's +X axis (glTF) swings the spur rearward (top goes back) - spur ends ~10 mm behind the frame; pivot = hammer pin."
+  },
+  {
+   "node": "trigger",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 20.0,
+   "note": "pull: +20 deg about +X (glTF) swings the finger blade rearward (double action); pivot = trigger pin."
+  },
+  {
+   "node": "crane",
+   "kind": "rotate",
+   "axis_g": [
+    1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "amount": -70.0,
+   "note": "swing-out: rotate the crane (carries `cylinder`, ejector rod, eject/mag_well sockets) by -70 deg about the node's +Z axis (glTF forward, right-hand rule) -> the cylinder swings out to the LEFT (+X) and slightly up. Pivot = crane hinge pin (x=104, left y=+16, z=33 mm in gun mm)."
+  },
+  {
+   "node": "cylinder",
+   "kind": "rotate",
+   "axis_g": [
+    1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "amount": 60.0,
+   "note": "index: spins about its own axis (local +Z glTF); 60 deg per chamber (either direction; real Colts turn clockwise seen from the rear). Origin = cylinder centre. It is a CHILD of `crane`."
+  }
+ ],
+ "remarks": [
+  "Reload: swing the crane out (-70 deg), punch cases out rearward via `eject` (crane child), drop fresh rounds into the chambers at `mag_well` (cylinder centre), swing back. Six brass .357 rounds are modelled in the chambers.",
+  "Hands: right hand on the wood grip at grip_R (index on the trigger); support hand cups the left grip panel at grip_L. Hammer spur is ~ 10 mm from the web of the hand when cocked.",
+  "Socket orientations: `eject` +X points REARWARD (out of the cylinder rear when the crane is open), it and `mag_well` are children of `crane` so they follow the swing. `muzzle`/`grip_R`/`sight` are static.",
+  "Ejector rod is inside `cylinder` and hides in the full underlug bore when closed. `sight` sits 60 mm behind the frame at the sight-line height (over the rear notch)."
+ ],
+ "style_keys": [
+  "decals"
+ ]
+}

@@ -1,5 +1,6 @@
 {
  "version": 1,
+ "basePath": "/audio/",
  "sampleRate": 44100,
  "format": "ogg/vorbis q5; mono for positional sfx, stereo for music + ambience",
  "conventions": {
@@ -9,7 +10,7 @@
   "variations": "files list one file per variation; pick randomly, never same twice in a row, pitch +-4%",
   "engines": "see 'engines': stage loops recorded at fixed RPM; crossfade neighbours (equal power) and set playbackRate = currentRPM / stageRPM (0.75..1.35)"
  },
- "totalBytes": 8494291,
+ "totalBytes": 15405904,
  "engines": {
   "engine_boss": {
    "stages": [
@@ -18,7 +19,7 @@
      "rpm": 520,
      "file": "vehicles/engine_boss_idle.ogg",
      "duration": 2.3077,
-     "gain": 0.673,
+     "gain": 0.552,
      "fireHz": 52.0
     },
     {
@@ -26,7 +27,7 @@
      "rpm": 900,
      "file": "vehicles/engine_boss_low.ogg",
      "duration": 2.4,
-     "gain": 0.621,
+     "gain": 0.546,
      "fireHz": 90.0
     },
     {
@@ -34,7 +35,7 @@
      "rpm": 1400,
      "file": "vehicles/engine_boss_mid.ogg",
      "duration": 2.4,
-     "gain": 0.575,
+     "gain": 0.541,
      "fireHz": 140.0
     },
     {
@@ -42,7 +43,7 @@
      "rpm": 1900,
      "file": "vehicles/engine_boss_high.ogg",
      "duration": 2.4,
-     "gain": 0.537,
+     "gain": 0.542,
      "fireHz": 190.0
     },
     {
@@ -50,7 +51,7 @@
      "rpm": 2500,
      "file": "vehicles/engine_boss_redline.ogg",
      "duration": 2.4,
-     "gain": 0.506,
+     "gain": 0.547,
      "fireHz": 250.0
     }
    ],
@@ -63,7 +64,7 @@
      "rpm": 1100,
      "file": "vehicles/engine_buggy_idle.ogg",
      "duration": 2.4,
-     "gain": 0.686,
+     "gain": 0.563,
      "fireHz": 36.67
     },
     {
@@ -71,7 +72,7 @@
      "rpm": 2600,
      "file": "vehicles/engine_buggy_low.ogg",
      "duration": 2.4,
-     "gain": 0.629,
+     "gain": 0.553,
      "fireHz": 86.67
     },
     {
@@ -79,7 +80,7 @@
      "rpm": 4200,
      "file": "vehicles/engine_buggy_mid.ogg",
      "duration": 2.4,
-     "gain": 0.578,
+     "gain": 0.545,
      "fireHz": 140.0
     },
     {
@@ -87,7 +88,7 @@
      "rpm": 5800,
      "file": "vehicles/engine_buggy_high.ogg",
      "duration": 2.4,
-     "gain": 0.541,
+     "gain": 0.546,
      "fireHz": 193.33
     },
     {
@@ -95,7 +96,7 @@
      "rpm": 7400,
      "file": "vehicles/engine_buggy_redline.ogg",
      "duration": 2.4,
-     "gain": 0.507,
+     "gain": 0.548,
      "fireHz": 246.67
     }
    ],
@@ -108,7 +109,7 @@
      "rpm": 600,
      "file": "vehicles/engine_diesel_idle.ogg",
      "duration": 2.4,
-     "gain": 0.676,
+     "gain": 0.555,
      "fireHz": 30.0
     },
     {
@@ -116,7 +117,7 @@
      "rpm": 1000,
      "file": "vehicles/engine_diesel_low.ogg",
      "duration": 2.4,
-     "gain": 0.622,
+     "gain": 0.546,
      "fireHz": 50.0
     },
     {
@@ -124,7 +125,7 @@
      "rpm": 1500,
      "file": "vehicles/engine_diesel_mid.ogg",
      "duration": 2.4,
-     "gain": 0.572,
+     "gain": 0.539,
      "fireHz": 75.0
     },
     {
@@ -132,7 +133,7 @@
      "rpm": 2000,
      "file": "vehicles/engine_diesel_high.ogg",
      "duration": 2.4,
-     "gain": 0.535,
+     "gain": 0.54,
      "fireHz": 100.0
     },
     {
@@ -140,7 +141,7 @@
      "rpm": 2600,
      "file": "vehicles/engine_diesel_redline.ogg",
      "duration": 2.4,
-     "gain": 0.504,
+     "gain": 0.545,
      "fireHz": 130.0
     }
    ],
@@ -153,7 +154,7 @@
      "rpm": 650,
      "file": "vehicles/engine_muscle_idle.ogg",
      "duration": 2.4,
-     "gain": 0.677,
+     "gain": 0.555,
      "fireHz": 43.33
     },
     {
@@ -161,7 +162,7 @@
      "rpm": 1900,
      "file": "vehicles/engine_muscle_low.ogg",
      "duration": 2.4,
-     "gain": 0.626,
+     "gain": 0.55,
      "fireHz": 126.67
     },
     {
@@ -169,7 +170,7 @@
      "rpm": 3300,
      "file": "vehicles/engine_muscle_mid.ogg",
      "duration": 2.4,
-     "gain": 0.578,
+     "gain": 0.545,
      "fireHz": 220.0
     },
     {
@@ -177,7 +178,7 @@
      "rpm": 5000,
      "file": "vehicles/engine_muscle_high.ogg",
      "duration": 2.4,
-     "gain": 0.533,
+     "gain": 0.538,
      "fireHz": 333.33
     },
     {
@@ -185,7 +186,7 @@
      "rpm": 6300,
      "file": "vehicles/engine_muscle_redline.ogg",
      "duration": 2.4,
-     "gain": 0.506,
+     "gain": 0.548,
      "fireHz": 420.0
     }
    ],
@@ -198,7 +199,7 @@
      "rpm": 900,
      "file": "vehicles/engine_player_t1_idle.ogg",
      "duration": 2.4,
-     "gain": 0.693,
+     "gain": 0.568,
      "fireHz": 30.0
     },
     {
@@ -206,7 +207,7 @@
      "rpm": 2200,
      "file": "vehicles/engine_player_t1_low.ogg",
      "duration": 2.4,
-     "gain": 0.63,
+     "gain": 0.553,
      "fireHz": 73.33
     },
     {
@@ -214,7 +215,7 @@
      "rpm": 3600,
      "file": "vehicles/engine_player_t1_mid.ogg",
      "duration": 2.4,
-     "gain": 0.58,
+     "gain": 0.546,
      "fireHz": 120.0
     },
     {
@@ -222,7 +223,7 @@
      "rpm": 5200,
      "file": "vehicles/engine_player_t1_high.ogg",
      "duration": 2.4,
-     "gain": 0.541,
+     "gain": 0.546,
      "fireHz": 173.33
     },
     {
@@ -230,7 +231,7 @@
      "rpm": 6500,
      "file": "vehicles/engine_player_t1_redline.ogg",
      "duration": 2.4,
-     "gain": 0.508,
+     "gain": 0.55,
      "fireHz": 216.67
     }
    ],
@@ -243,7 +244,7 @@
      "rpm": 750,
      "file": "vehicles/engine_player_t2_idle.ogg",
      "duration": 2.4,
-     "gain": 0.676,
+     "gain": 0.558,
      "fireHz": 50.0
     },
     {
@@ -251,7 +252,7 @@
      "rpm": 2000,
      "file": "vehicles/engine_player_t2_low.ogg",
      "duration": 2.4,
-     "gain": 0.621,
+     "gain": 0.551,
      "fireHz": 133.33
     },
     {
@@ -259,7 +260,7 @@
      "rpm": 3400,
      "file": "vehicles/engine_player_t2_mid.ogg",
      "duration": 2.4,
-     "gain": 0.575,
+     "gain": 0.544,
      "fireHz": 226.67
     },
     {
@@ -267,7 +268,7 @@
      "rpm": 5000,
      "file": "vehicles/engine_player_t2_high.ogg",
      "duration": 2.4,
-     "gain": 0.536,
+     "gain": 0.548,
      "fireHz": 333.33
     },
     {
@@ -275,7 +276,7 @@
      "rpm": 6200,
      "file": "vehicles/engine_player_t2_redline.ogg",
      "duration": 2.4,
-     "gain": 0.506,
+     "gain": 0.551,
      "fireHz": 413.33
     }
    ],
@@ -288,7 +289,7 @@
      "rpm": 700,
      "file": "vehicles/engine_player_t3_idle.ogg",
      "duration": 2.4,
-     "gain": 0.675,
+     "gain": 0.553,
      "fireHz": 46.67
     },
     {
@@ -296,7 +297,7 @@
      "rpm": 1900,
      "file": "vehicles/engine_player_t3_low.ogg",
      "duration": 2.4,
-     "gain": 0.624,
+     "gain": 0.549,
      "fireHz": 126.67
     },
     {
@@ -304,7 +305,7 @@
      "rpm": 3300,
      "file": "vehicles/engine_player_t3_mid.ogg",
      "duration": 2.4,
-     "gain": 0.577,
+     "gain": 0.544,
      "fireHz": 220.0
     },
     {
@@ -312,7 +313,7 @@
      "rpm": 4900,
      "file": "vehicles/engine_player_t3_high.ogg",
      "duration": 2.4,
-     "gain": 0.534,
+     "gain": 0.539,
      "fireHz": 326.67
     },
     {
@@ -320,7 +321,7 @@
      "rpm": 6000,
      "file": "vehicles/engine_player_t3_redline.ogg",
      "duration": 2.4,
-     "gain": 0.506,
+     "gain": 0.548,
      "fireHz": 400.0
     }
    ],
@@ -333,7 +334,7 @@
      "rpm": 750,
      "file": "vehicles/engine_player_t4_idle.ogg",
      "duration": 2.4,
-     "gain": 0.676,
+     "gain": 0.555,
      "fireHz": 50.0
     },
     {
@@ -341,7 +342,7 @@
      "rpm": 2200,
      "file": "vehicles/engine_player_t4_low.ogg",
      "duration": 2.4,
-     "gain": 0.624,
+     "gain": 0.548,
      "fireHz": 146.67
     },
     {
@@ -349,7 +350,7 @@
      "rpm": 3800,
      "file": "vehicles/engine_player_t4_mid.ogg",
      "duration": 2.4,
-     "gain": 0.574,
+     "gain": 0.541,
      "fireHz": 253.33
     },
     {
@@ -357,7 +358,7 @@
      "rpm": 5500,
      "file": "vehicles/engine_player_t4_high.ogg",
      "duration": 2.4,
-     "gain": 0.538,
+     "gain": 0.543,
      "fireHz": 366.67
     },
     {
@@ -365,7 +366,7 @@
      "rpm": 6800,
      "file": "vehicles/engine_player_t4_redline.ogg",
      "duration": 2.4,
-     "gain": 0.506,
+     "gain": 0.548,
      "fireHz": 453.33
     }
    ],
@@ -378,7 +379,7 @@
      "rpm": 850,
      "file": "vehicles/engine_sedan_idle.ogg",
      "duration": 2.4,
-     "gain": 0.678,
+     "gain": 0.556,
      "fireHz": 42.5
     },
     {
@@ -386,7 +387,7 @@
      "rpm": 2100,
      "file": "vehicles/engine_sedan_low.ogg",
      "duration": 2.4,
-     "gain": 0.624,
+     "gain": 0.549,
      "fireHz": 105.0
     },
     {
@@ -394,7 +395,7 @@
      "rpm": 3500,
      "file": "vehicles/engine_sedan_mid.ogg",
      "duration": 2.4,
-     "gain": 0.571,
+     "gain": 0.538,
      "fireHz": 175.0
     },
     {
@@ -402,7 +403,7 @@
      "rpm": 5100,
      "file": "vehicles/engine_sedan_high.ogg",
      "duration": 2.4,
-     "gain": 0.535,
+     "gain": 0.54,
      "fireHz": 255.0
     },
     {
@@ -410,7 +411,7 @@
      "rpm": 6400,
      "file": "vehicles/engine_sedan_redline.ogg",
      "duration": 2.4,
-     "gain": 0.505,
+     "gain": 0.546,
      "fireHz": 320.0
     }
    ],
@@ -429,7 +430,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.538,
+   "gain": 0.589,
    "category": "ambience",
    "channels": 2,
    "notes": "hollow canyon wind: moving formant resonances + long echo, seamless 24 s stereo loop",
@@ -454,7 +455,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.606,
+   "gain": 0.663,
    "category": "ambience",
    "channels": 2,
    "notes": "ruined city: thin wind, structure howl, distant creaks and debris ticks, seamless 24 s stereo loop",
@@ -479,7 +480,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.487,
+   "gain": 0.533,
    "category": "ambience",
    "channels": 2,
    "notes": "surf: three irregular waves rolling in and washing out over distant surf, seamless 24 s stereo loop",
@@ -504,7 +505,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.346,
+   "gain": 0.378,
    "category": "ambience",
    "channels": 2,
    "notes": "boss arena at the dam: deep water thunder + turbine hum + spray, seamless 24 s stereo loop",
@@ -529,7 +530,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.543,
+   "gain": 0.594,
    "category": "ambience",
    "channels": 2,
    "notes": "open desert wind: broad gusts + sand hiss + faint whistles, seamless 24 s stereo loop",
@@ -554,7 +555,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.614,
+   "gain": 0.672,
    "category": "ambience",
    "channels": 2,
    "notes": "wind through pines: swishing gusts + leaf rustle sparkle, seamless 24 s stereo loop",
@@ -575,20 +576,20 @@
     "explosions/distant_explosion_2.ogg",
     "explosions/distant_explosion_3.ogg"
    ],
-   "duration": 5.8451,
+   "duration": 5.8841,
    "durations": [
-    5.8451,
-    6.4443,
-    5.3225
+    5.8841,
+    6.5148,
+    5.338
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.113,
+   "gain": 0.144,
    "category": "explosion",
    "channels": 1,
    "notes": "far-away blast: muffled, delayed onset, long rumble (mono, non-directional)",
-   "peakDb": -1.44,
-   "lufs": -4.5,
+   "peakDb": -1.37,
+   "lufs": -5.9,
    "pitchRange": [
     0.85,
     1.15
@@ -599,18 +600,18 @@
    "files": [
     "explosions/explosion_huge.ogg"
    ],
-   "duration": 7.8296,
+   "duration": 7.8323,
    "durations": [
-    7.8296
+    7.8323
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.679,
+   "gain": 0.735,
    "category": "explosion",
    "channels": 1,
    "notes": "boss / tanker mega explosion, 6.5 s; screen shake sync at ~0.0-0.6 s",
-   "peakDb": -1.59,
-   "lufs": -8.1,
+   "peakDb": -1.24,
+   "lufs": -8.0,
    "pitchRange": [
     0.9,
     1.1
@@ -622,18 +623,18 @@
     "explosions/explosion_large_1.ogg",
     "explosions/explosion_large_2.ogg"
    ],
-   "duration": 4.9816,
+   "duration": 4.9851,
    "durations": [
-    4.9816,
-    4.9727
+    4.9851,
+    5.3914
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.544,
+   "gain": 0.596,
    "category": "explosion",
    "channels": 1,
    "notes": "large blast (heavy vehicle, chain reaction), 3.8 s",
-   "peakDb": -1.36,
+   "peakDb": -1.52,
    "lufs": -8.2,
    "pitchRange": [
     0.9,
@@ -647,20 +648,20 @@
     "explosions/explosion_medium_2.ogg",
     "explosions/explosion_medium_3.ogg"
    ],
-   "duration": 3.1097,
+   "duration": 3.1126,
    "durations": [
-    3.1097,
-    3.5652,
-    3.1076
+    3.1126,
+    3.5681,
+    3.1105
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.37,
+   "gain": 0.401,
    "category": "explosion",
    "channels": 1,
    "notes": "medium blast (car explosion), 2.6 s",
-   "peakDb": -1.05,
-   "lufs": -7.8,
+   "peakDb": -1.06,
+   "lufs": -7.7,
    "pitchRange": [
     0.9,
     1.1
@@ -673,20 +674,20 @@
     "explosions/explosion_small_2.ogg",
     "explosions/explosion_small_3.ogg"
    ],
-   "duration": 2.1519,
+   "duration": 2.1992,
    "durations": [
-    2.1519,
-    1.941,
-    2.0502
+    2.1992,
+    2.0098,
+    2.0532
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.223,
+   "gain": 0.251,
    "category": "explosion",
    "channels": 1,
    "notes": "small blast (barrel, light car), 1.7 s",
-   "peakDb": -1.42,
-   "lufs": -7.4,
+   "peakDb": -1.41,
+   "lufs": -7.7,
    "pitchRange": [
     0.9,
     1.1
@@ -703,7 +704,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.435,
+   "gain": 0.476,
    "category": "explosion_loop",
    "channels": 1,
    "notes": "crackling flames (quieter, more snaps), seamless 3.2 s loop",
@@ -728,7 +729,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.387,
+   "gain": 0.423,
    "category": "explosion_loop",
    "channels": 1,
    "notes": "burning car: roar + crackle, seamless 2.4 s loop (3D loop on wrecks)",
@@ -747,13 +748,13 @@
    "files": [
     "explosions/fuel_ignite.ogg"
    ],
-   "duration": 1.9126,
+   "duration": 1.9155,
    "durations": [
-    1.9126
+    1.9155
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.353,
+   "gain": 0.386,
    "category": "explosion",
    "channels": 1,
    "notes": "fuel / fire whump: slow-attack low thump + flame roar, 1.6 s",
@@ -771,20 +772,20 @@
     "explosions/grenade_explosion_2.ogg",
     "explosions/grenade_explosion_3.ogg"
    ],
-   "duration": 2.3516,
+   "duration": 2.4019,
    "durations": [
-    2.3516,
-    2.3437,
-    2.2956
+    2.4019,
+    2.4238,
+    2.2499
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.346,
+   "gain": 0.381,
    "category": "explosion",
    "channels": 1,
    "notes": "frag grenade: sharp crack + shrapnel whine + short boom, ~1.9 s",
-   "peakDb": -1.16,
-   "lufs": -8.2,
+   "peakDb": -1.27,
+   "lufs": -8.3,
    "pitchRange": [
     0.9,
     1.1
@@ -796,14 +797,14 @@
     "explosions/rocket_explosion_1.ogg",
     "explosions/rocket_explosion_2.ogg"
    ],
-   "duration": 3.769,
+   "duration": 3.7719,
    "durations": [
-    3.769,
-    3.3633
+    3.7719,
+    3.3662
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.482,
+   "gain": 0.528,
    "category": "explosion",
    "channels": 1,
    "notes": "rocket / RPG impact: sharp bang then heavy boom, 2.8 s",
@@ -819,18 +820,18 @@
    "files": [
     "explosions/shockwave_sub.ogg"
    ],
-   "duration": 1.0,
+   "duration": 1.0029,
    "durations": [
-    1.0
+    1.0029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.249,
+   "gain": 0.279,
    "category": "explosion",
    "channels": 1,
    "notes": "sub-bass thump for blast pressure wave; layer under big explosions / camera shake",
-   "peakDb": -1.54,
-   "lufs": -7.4,
+   "peakDb": -1.44,
+   "lufs": -7.6,
    "pitchRange": [
     0.9,
     1.15
@@ -841,13 +842,13 @@
    "files": [
     "guns/dry_click.ogg"
    ],
-   "duration": 0.13,
+   "duration": 0.1329,
    "durations": [
-    0.13
+    0.1329
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.228,
+   "gain": 0.25,
    "category": "gun_foley",
    "channels": 1,
    "notes": "empty-chamber hammer click",
@@ -865,19 +866,19 @@
     "guns/fire_enemy_heavy_2.ogg",
     "guns/fire_enemy_heavy_3.ogg"
    ],
-   "duration": 1.3143,
+   "duration": 1.3172,
    "durations": [
-    1.3143,
-    1.2913,
-    1.3137
+    1.3172,
+    1.2942,
+    1.3166
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.184,
+   "gain": 0.284,
    "category": "gun_enemy",
    "channels": 1,
    "notes": "raider heavy gun / shotgun (distant, chunky); positional",
-   "peakDb": -1.36,
+   "peakDb": -1.41,
    "lufs": -8.7,
    "pitchRange": [
     0.9,
@@ -891,20 +892,20 @@
     "guns/fire_enemy_light_2.ogg",
     "guns/fire_enemy_light_3.ogg"
    ],
-   "duration": 0.7124,
+   "duration": 0.7153,
    "durations": [
-    0.7124,
-    0.7164,
-    0.7073
+    0.7153,
+    0.7193,
+    0.7102
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.16,
+   "gain": 0.267,
    "category": "gun_enemy",
    "channels": 1,
    "notes": "raider light gun (distant, flatter, midrangey); positional",
    "peakDb": -1.27,
-   "lufs": -11.5,
+   "lufs": -12.2,
    "pitchRange": [
     0.9,
     1.1
@@ -918,21 +919,21 @@
     "guns/fire_lmg_3.ogg",
     "guns/fire_lmg_4.ogg"
    ],
-   "duration": 0.7405,
+   "duration": 0.7434,
    "durations": [
-    0.7405,
-    0.6976,
-    0.7353,
-    0.7278
+    0.7434,
+    0.7005,
+    0.7382,
+    0.7307
    ],
    "loop": false,
    "variations": 4,
-   "gain": 0.428,
+   "gain": 0.519,
    "category": "gun_fire",
    "channels": 1,
-   "notes": "lmg shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
-   "peakDb": -1.15,
-   "lufs": -11.1,
+   "notes": "lmg shot with baked outdoor tail (slapback echoes)",
+   "peakDb": -1.54,
+   "lufs": -12.0,
    "pitchRange": [
     0.95,
     1.05
@@ -945,20 +946,20 @@
     "guns/fire_pistol_2.ogg",
     "guns/fire_pistol_3.ogg"
    ],
-   "duration": 0.5023,
+   "duration": 0.5052,
    "durations": [
-    0.5023,
-    0.5452,
-    0.5098
+    0.5052,
+    0.5481,
+    0.5127
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.338,
+   "gain": 0.4,
    "category": "gun_fire",
    "channels": 1,
-   "notes": "pistol shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
-   "peakDb": -1.22,
-   "lufs": -12.0,
+   "notes": "pistol shot with baked outdoor tail (slapback echoes)",
+   "peakDb": -1.6,
+   "lufs": -12.7,
    "pitchRange": [
     0.95,
     1.05
@@ -971,20 +972,20 @@
     "guns/fire_revolver_2.ogg",
     "guns/fire_revolver_3.ogg"
    ],
-   "duration": 1.0796,
+   "duration": 1.0825,
    "durations": [
-    1.0796,
-    1.0683,
-    1.0435
+    1.0825,
+    1.0712,
+    1.0464
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.41,
+   "gain": 0.455,
    "category": "gun_fire",
    "channels": 1,
-   "notes": "revolver shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "notes": "revolver shot with baked outdoor tail (slapback echoes)",
    "peakDb": -1.05,
-   "lufs": -10.7,
+   "lufs": -10.8,
    "pitchRange": [
     0.95,
     1.05
@@ -998,21 +999,21 @@
     "guns/fire_rifle_3.ogg",
     "guns/fire_rifle_4.ogg"
    ],
-   "duration": 1.3395,
+   "duration": 1.3424,
    "durations": [
-    1.3395,
-    1.2534,
-    1.3109,
-    1.3348
+    1.3424,
+    1.2563,
+    1.3138,
+    1.3377
    ],
    "loop": false,
    "variations": 4,
-   "gain": 0.366,
+   "gain": 0.428,
    "category": "gun_fire",
    "channels": 1,
-   "notes": "rifle shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
-   "peakDb": -1.49,
-   "lufs": -10.7,
+   "notes": "rifle shot with baked outdoor tail (slapback echoes)",
+   "peakDb": -1.96,
+   "lufs": -11.3,
    "pitchRange": [
     0.95,
     1.05
@@ -1024,14 +1025,14 @@
     "guns/fire_rpg_1.ogg",
     "guns/fire_rpg_2.ogg"
    ],
-   "duration": 3.2599,
+   "duration": 3.2628,
    "durations": [
-    3.2599,
-    3.2718
+    3.2628,
+    3.2747
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.324,
+   "gain": 0.354,
    "category": "gun_fire",
    "channels": 1,
    "notes": "launch: tube pop + ignition whoosh + backblast thump",
@@ -1049,20 +1050,20 @@
     "guns/fire_shotgun_2.ogg",
     "guns/fire_shotgun_3.ogg"
    ],
-   "duration": 1.5967,
+   "duration": 1.5996,
    "durations": [
-    1.5967,
-    1.7306,
-    1.6044
+    1.5996,
+    1.7335,
+    1.6073
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.385,
+   "gain": 0.426,
    "category": "gun_fire",
    "channels": 1,
-   "notes": "shotgun shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
-   "peakDb": -1.46,
-   "lufs": -9.2,
+   "notes": "shotgun shot with baked outdoor tail (slapback echoes)",
+   "peakDb": -1.54,
+   "lufs": -9.3,
    "pitchRange": [
     0.95,
     1.05
@@ -1076,21 +1077,21 @@
     "guns/fire_smg_3.ogg",
     "guns/fire_smg_4.ogg"
    ],
-   "duration": 0.3353,
+   "duration": 0.3382,
    "durations": [
-    0.3353,
-    0.3368,
-    0.3416,
-    0.3412
+    0.3382,
+    0.3397,
+    0.3445,
+    0.3441
    ],
    "loop": false,
    "variations": 4,
-   "gain": 0.411,
+   "gain": 0.479,
    "category": "gun_fire",
    "channels": 1,
-   "notes": "smg shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "notes": "smg shot with baked outdoor tail (slapback echoes)",
    "peakDb": -1.2,
-   "lufs": -14.7,
+   "lufs": -15.3,
    "pitchRange": [
     0.95,
     1.05
@@ -1102,19 +1103,19 @@
     "guns/fire_sniper_1.ogg",
     "guns/fire_sniper_2.ogg"
    ],
-   "duration": 2.8423,
+   "duration": 2.8452,
    "durations": [
-    2.8423,
-    2.9665
+    2.8452,
+    2.9694
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.47,
+   "gain": 0.51,
    "category": "gun_fire",
    "channels": 1,
-   "notes": "sniper shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
-   "peakDb": -1.66,
-   "lufs": -9.9,
+   "notes": "sniper shot with baked outdoor tail (slapback echoes)",
+   "peakDb": -1.53,
+   "lufs": -9.8,
    "pitchRange": [
     0.95,
     1.05
@@ -1127,20 +1128,20 @@
     "guns/grenade_bounce_2.ogg",
     "guns/grenade_bounce_3.ogg"
    ],
-   "duration": 0.55,
+   "duration": 0.5529,
    "durations": [
-    0.55,
-    0.55,
-    0.55
+    0.5529,
+    0.5529,
+    0.5529
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.137,
+   "gain": 0.205,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.33,
-   "lufs": -12.2,
+   "notes": "metal grenade bouncing on asphalt",
+   "peakDb": -1.57,
+   "lufs": -14.9,
    "pitchRange": [
     0.96,
     1.04
@@ -1151,18 +1152,18 @@
    "files": [
     "guns/grenade_pin.ogg"
    ],
-   "duration": 0.5,
+   "duration": 0.5029,
    "durations": [
-    0.5
+    0.5029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.126,
+   "gain": 0.242,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.29,
-   "lufs": -11.5,
+   "notes": "pin pull + spoon flick",
+   "peakDb": -1.66,
+   "lufs": -16.3,
    "pitchRange": [
     0.96,
     1.04
@@ -1173,18 +1174,18 @@
    "files": [
     "guns/grenade_throw.ogg"
    ],
-   "duration": 0.4,
+   "duration": 0.4029,
    "durations": [
-    0.4
+    0.4029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.102,
+   "gain": 0.096,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.87,
-   "lufs": -12.7,
+   "notes": "arm swing / release whoosh",
+   "peakDb": -1.63,
+   "lufs": -11.3,
    "pitchRange": [
     0.96,
     1.04
@@ -1195,18 +1196,18 @@
    "files": [
     "guns/lmg_belt_in.ogg"
    ],
-   "duration": 0.68,
+   "duration": 0.6829,
    "durations": [
-    0.68
+    0.6829
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.092,
+   "gain": 0.142,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.53,
-   "lufs": -10.7,
+   "notes": "ammo belt laid in (LMG)",
+   "peakDb": -1.19,
+   "lufs": -13.7,
    "pitchRange": [
     0.96,
     1.04
@@ -1217,18 +1218,18 @@
    "files": [
     "guns/lmg_cover_close.ogg"
    ],
-   "duration": 0.6,
+   "duration": 0.6029,
    "durations": [
-    0.6
+    0.6029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.261,
+   "gain": 0.254,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.5,
-   "lufs": -14.8,
+   "notes": "feed cover slams shut (LMG)",
+   "peakDb": -2.02,
+   "lufs": -13.8,
    "pitchRange": [
     0.96,
     1.04
@@ -1239,18 +1240,18 @@
    "files": [
     "guns/lmg_cover_open.ogg"
    ],
-   "duration": 0.7,
+   "duration": 0.7029,
    "durations": [
-    0.7
+    0.7029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.254,
+   "gain": 0.294,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.64,
-   "lufs": -15.6,
+   "notes": "feed cover lifts open (LMG)",
+   "peakDb": -1.71,
+   "lufs": -16.0,
    "pitchRange": [
     0.96,
     1.04
@@ -1261,18 +1262,18 @@
    "files": [
     "guns/lmg_rack.ogg"
    ],
-   "duration": 0.8,
+   "duration": 0.8029,
    "durations": [
-    0.8
+    0.8029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.35,
+   "gain": 0.269,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.79,
-   "lufs": -18.3,
+   "notes": "charging handle rack (LMG)",
+   "peakDb": -1.83,
+   "lufs": -15.3,
    "pitchRange": [
     0.96,
     1.04
@@ -1283,18 +1284,18 @@
    "files": [
     "guns/pistol_mag_in.ogg"
    ],
-   "duration": 0.42,
+   "duration": 0.4429,
    "durations": [
-    0.42
+    0.4429
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.263,
+   "gain": 0.218,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.05,
-   "lufs": -19.9,
+   "notes": "magazine insert + seat (pistol)",
+   "peakDb": -1.58,
+   "lufs": -17.4,
    "pitchRange": [
     0.96,
     1.04
@@ -1305,18 +1306,18 @@
    "files": [
     "guns/pistol_mag_out.ogg"
    ],
-   "duration": 0.38,
+   "duration": 0.4029,
    "durations": [
-    0.38
+    0.4029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.219,
+   "gain": 0.169,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.68,
-   "lufs": -19.3,
+   "notes": "magazine release + drop (pistol)",
+   "peakDb": -1.97,
+   "lufs": -16.2,
    "pitchRange": [
     0.96,
     1.04
@@ -1327,18 +1328,18 @@
    "files": [
     "guns/pistol_slide.ogg"
    ],
-   "duration": 0.46,
+   "duration": 0.4629,
    "durations": [
-    0.46
+    0.4629
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.246,
+   "gain": 0.247,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.77,
-   "lufs": -18.3,
+   "notes": "slide rack (pistol)",
+   "peakDb": -2.11,
+   "lufs": -17.5,
    "pitchRange": [
     0.96,
     1.04
@@ -1349,18 +1350,18 @@
    "files": [
     "guns/rifle_bolt.ogg"
    ],
-   "duration": 0.54,
+   "duration": 0.5429,
    "durations": [
-    0.54
+    0.5429
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.292,
+   "gain": 0.233,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.68,
-   "lufs": -17.8,
+   "notes": "bolt cycle (rifle)",
+   "peakDb": -2.03,
+   "lufs": -15.0,
    "pitchRange": [
     0.96,
     1.04
@@ -1371,18 +1372,18 @@
    "files": [
     "guns/rifle_mag_in.ogg"
    ],
-   "duration": 0.42,
+   "duration": 0.4429,
    "durations": [
-    0.42
+    0.4429
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.26,
+   "gain": 0.171,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.44,
-   "lufs": -17.8,
+   "notes": "magazine in (rifle)",
+   "peakDb": -1.76,
+   "lufs": -13.3,
    "pitchRange": [
     0.96,
     1.04
@@ -1393,18 +1394,18 @@
    "files": [
     "guns/rifle_mag_out.ogg"
    ],
-   "duration": 0.38,
+   "duration": 0.4029,
    "durations": [
-    0.38
+    0.4029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.222,
+   "gain": 0.173,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.4,
-   "lufs": -18.4,
+   "notes": "magazine out (rifle)",
+   "peakDb": -1.76,
+   "lufs": -15.4,
    "pitchRange": [
     0.96,
     1.04
@@ -1421,7 +1422,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.692,
+   "gain": 0.757,
    "category": "gun_loop",
    "channels": 1,
    "notes": "rocket motor flight loop, 1.6 s seamless; scale gain with distance, pitch 0.9-1.15 (doppler)",
@@ -1440,18 +1441,18 @@
    "files": [
     "guns/rpg_reload.ogg"
    ],
-   "duration": 1.15,
+   "duration": 1.1529,
    "durations": [
-    1.15
+    1.1529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.334,
+   "gain": 0.398,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.64,
-   "lufs": -17.9,
+   "notes": "rocket slid into launcher and locked (RPG)",
+   "peakDb": -1.39,
+   "lufs": -18.7,
    "pitchRange": [
     0.96,
     1.04
@@ -1465,21 +1466,21 @@
     "guns/shell_drop_brass_3.ogg",
     "guns/shell_drop_brass_4.ogg"
    ],
-   "duration": 0.5,
+   "duration": 0.5029,
    "durations": [
-    0.5,
-    0.5,
-    0.5,
-    0.5
+    0.5029,
+    0.5029,
+    0.5029,
+    0.5029
    ],
    "loop": false,
    "variations": 4,
-   "gain": 0.053,
+   "gain": 0.057,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
+   "notes": "ejected brass casing hitting asphalt (3-4 bounces)",
    "peakDb": -1.58,
-   "lufs": -9.9,
+   "lufs": -9.8,
    "pitchRange": [
     0.96,
     1.04
@@ -1492,20 +1493,20 @@
     "guns/shell_drop_shotgun_2.ogg",
     "guns/shell_drop_shotgun_3.ogg"
    ],
-   "duration": 0.55,
+   "duration": 0.5529,
    "durations": [
-    0.55,
-    0.55,
-    0.55
+    0.5529,
+    0.5529,
+    0.5529
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.092,
+   "gain": 0.104,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.32,
-   "lufs": -13.7,
+   "notes": "ejected shotgun hull (plastic, 3 bounces)",
+   "peakDb": -1.34,
+   "lufs": -14.0,
    "pitchRange": [
     0.96,
     1.04
@@ -1516,18 +1517,18 @@
    "files": [
     "guns/shotgun_pump.ogg"
    ],
-   "duration": 0.75,
+   "duration": 0.7529,
    "durations": [
-    0.75
+    0.7529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.347,
+   "gain": 0.238,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.35,
-   "lufs": -17.3,
+   "notes": "pump-action slide forward/back (shotgun)",
+   "peakDb": -1.06,
+   "lufs": -13.2,
    "pitchRange": [
     0.96,
     1.04
@@ -1541,21 +1542,21 @@
     "guns/shotgun_shell_in_3.ogg",
     "guns/shotgun_shell_in_4.ogg"
    ],
-   "duration": 0.22,
+   "duration": 0.2229,
    "durations": [
-    0.22,
-    0.22,
-    0.22,
-    0.22
+    0.2229,
+    0.2229,
+    0.2229,
+    0.2229
    ],
    "loop": false,
    "variations": 4,
-   "gain": 0.131,
+   "gain": 0.196,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.47,
-   "lufs": -13.8,
+   "notes": "shell into tube magazine",
+   "peakDb": -1.65,
+   "lufs": -16.5,
    "pitchRange": [
     0.96,
     1.04
@@ -1566,18 +1567,18 @@
    "files": [
     "guns/smg_bolt.ogg"
    ],
-   "duration": 0.51,
+   "duration": 0.5129,
    "durations": [
-    0.51
+    0.5129
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.26,
+   "gain": 0.238,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.98,
-   "lufs": -17.8,
+   "notes": "charging handle (SMG)",
+   "peakDb": -1.86,
+   "lufs": -16.2,
    "pitchRange": [
     0.96,
     1.04
@@ -1588,18 +1589,18 @@
    "files": [
     "guns/smg_mag_in.ogg"
    ],
-   "duration": 0.42,
+   "duration": 0.4429,
    "durations": [
-    0.42
+    0.4429
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.276,
+   "gain": 0.269,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.94,
-   "lufs": -19.3,
+   "notes": "magazine in (SMG)",
+   "peakDb": -2.11,
+   "lufs": -18.2,
    "pitchRange": [
     0.96,
     1.04
@@ -1610,18 +1611,18 @@
    "files": [
     "guns/smg_mag_out.ogg"
    ],
-   "duration": 0.38,
+   "duration": 0.4029,
    "durations": [
-    0.38
+    0.4029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.216,
+   "gain": 0.192,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.16,
-   "lufs": -18.1,
+   "notes": "magazine out (SMG)",
+   "peakDb": -1.92,
+   "lufs": -16.3,
    "pitchRange": [
     0.96,
     1.04
@@ -1632,18 +1633,18 @@
    "files": [
     "guns/sniper_bolt_close.ogg"
    ],
-   "duration": 0.55,
+   "duration": 0.5529,
    "durations": [
-    0.55
+    0.5529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.219,
+   "gain": 0.306,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.54,
-   "lufs": -16.3,
+   "notes": "bolt pushed forward and locked (sniper)",
+   "peakDb": -1.79,
+   "lufs": -18.4,
    "pitchRange": [
     0.96,
     1.04
@@ -1654,18 +1655,18 @@
    "files": [
     "guns/sniper_bolt_open.ogg"
    ],
-   "duration": 0.5,
+   "duration": 0.5029,
    "durations": [
-    0.5
+    0.5029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.315,
+   "gain": 0.276,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.3,
-   "lufs": -19.4,
+   "notes": "bolt lifted and drawn back (sniper)",
+   "peakDb": -1.57,
+   "lufs": -17.5,
    "pitchRange": [
     0.96,
     1.04
@@ -1676,18 +1677,18 @@
    "files": [
     "guns/sniper_mag.ogg"
    ],
-   "duration": 0.38,
+   "duration": 0.3829,
    "durations": [
-    0.38
+    0.3829
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.203,
+   "gain": 0.125,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.72,
-   "lufs": -17.6,
+   "notes": "magazine seated (sniper)",
+   "peakDb": -1.37,
+   "lufs": -12.6,
    "pitchRange": [
     0.96,
     1.04
@@ -1699,19 +1700,19 @@
     "guns/weapon_swap_1.ogg",
     "guns/weapon_swap_2.ogg"
    ],
-   "duration": 0.38,
+   "duration": 0.4029,
    "durations": [
-    0.38,
-    0.38
+    0.4029,
+    0.4029
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.101,
+   "gain": 0.172,
    "category": "gun_foley",
    "channels": 1,
-   "notes": "",
-   "peakDb": -1.65,
-   "lufs": -11.5,
+   "notes": "holster / draw: cloth rustle + strap + click",
+   "peakDb": -1.49,
+   "lufs": -15.4,
    "pitchRange": [
     0.96,
     1.04
@@ -1724,15 +1725,15 @@
     "impacts/armor_hit_2.ogg",
     "impacts/armor_hit_3.ogg"
    ],
-   "duration": 0.42,
+   "duration": 0.4229,
    "durations": [
-    0.42,
-    0.42,
-    0.42
+    0.4229,
+    0.4229,
+    0.4229
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.294,
+   "gain": 0.321,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "hit on body armor / armour plate: clank + thud",
@@ -1750,15 +1751,15 @@
     "impacts/bullet_asphalt_2.ogg",
     "impacts/bullet_asphalt_3.ogg"
    ],
-   "duration": 0.25,
+   "duration": 0.2529,
    "durations": [
-    0.25,
-    0.25,
-    0.25
+    0.2529,
+    0.2529,
+    0.2529
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.331,
+   "gain": 0.359,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "bullet on road: sharp tck + dust puff + gravel scatter",
@@ -1776,20 +1777,20 @@
     "impacts/bullet_dirt_2.ogg",
     "impacts/bullet_dirt_3.ogg"
    ],
-   "duration": 0.3,
+   "duration": 0.3029,
    "durations": [
-    0.3,
-    0.3,
-    0.3
+    0.3029,
+    0.3029,
+    0.3029
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.201,
+   "gain": 0.218,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "bullet into dirt/sand: soft thud + spray",
-   "peakDb": -1.42,
-   "lufs": -10.5,
+   "peakDb": -1.43,
+   "lufs": -10.4,
    "pitchRange": [
     0.92,
     1.08
@@ -1802,20 +1803,20 @@
     "impacts/bullet_flesh_2.ogg",
     "impacts/bullet_flesh_3.ogg"
    ],
-   "duration": 0.28,
+   "duration": 0.2229,
    "durations": [
-    0.28,
-    0.28,
-    0.28
+    0.2229,
+    0.2229,
+    0.2229
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.239,
+   "gain": 0.268,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "dull body thud (non-graphic): low thump + soft slap",
-   "peakDb": -1.41,
-   "lufs": -11.0,
+   "peakDb": -1.46,
+   "lufs": -11.2,
    "pitchRange": [
     0.92,
     1.08
@@ -1828,20 +1829,20 @@
     "impacts/bullet_glass_2.ogg",
     "impacts/bullet_glass_3.ogg"
    ],
-   "duration": 0.5,
+   "duration": 0.5029,
    "durations": [
-    0.5,
-    0.5,
-    0.5
+    0.5029,
+    0.5029,
+    0.5029
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.451,
+   "gain": 0.424,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "bullet through glass: crack + ting + falling shards",
-   "peakDb": -1.54,
-   "lufs": -15.5,
+   "peakDb": -1.61,
+   "lufs": -14.2,
    "pitchRange": [
     0.92,
     1.08
@@ -1856,22 +1857,22 @@
     "impacts/bullet_metal_4.ogg",
     "impacts/bullet_metal_5.ogg"
    ],
-   "duration": 0.33,
+   "duration": 0.2729,
    "durations": [
-    0.33,
-    0.33,
-    0.33,
-    0.33,
-    0.33
+    0.2729,
+    0.2729,
+    0.2729,
+    0.2729,
+    0.2729
    ],
    "loop": false,
    "variations": 5,
-   "gain": 0.587,
+   "gain": 0.666,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "bullet on car body / plate: tick + plate modes + dent; frequent, short",
-   "peakDb": -1.53,
-   "lufs": -16.8,
+   "peakDb": -1.1,
+   "lufs": -17.1,
    "pitchRange": [
     0.92,
     1.08
@@ -1882,13 +1883,13 @@
    "files": [
     "impacts/bullet_tire.ogg"
    ],
-   "duration": 1.5,
+   "duration": 1.5029,
    "durations": [
-    1.5
+    1.5029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.265,
+   "gain": 0.29,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "tyre puncture: pop + long air hiss + flap",
@@ -1908,22 +1909,22 @@
     "impacts/bullet_whizz_4.ogg",
     "impacts/bullet_whizz_5.ogg"
    ],
-   "duration": 0.5,
+   "duration": 0.5029,
    "durations": [
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5
+    0.5029,
+    0.5029,
+    0.5029,
+    0.5029,
+    0.5029
    ],
    "loop": false,
    "variations": 5,
-   "gain": 0.207,
+   "gain": 0.334,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "supersonic near-miss flyby with downward pitch glide (doppler)",
-   "peakDb": -1.15,
-   "lufs": -10.8,
+   "peakDb": -1.18,
+   "lufs": -10.1,
    "pitchRange": [
     0.92,
     1.08
@@ -1936,20 +1937,20 @@
     "impacts/car_crash_heavy_2.ogg",
     "impacts/car_crash_heavy_3.ogg"
    ],
-   "duration": 1.9137,
+   "duration": 1.8425,
    "durations": [
-    1.9137,
-    1.9188,
-    1.917
+    1.8425,
+    1.8909,
+    1.918
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.487,
+   "gain": 0.538,
    "category": "impact_car",
    "channels": 1,
    "notes": "heavy crash: sub boom + crush + debris, ~1.9 s",
-   "peakDb": -1.32,
-   "lufs": -8.2,
+   "peakDb": -1.11,
+   "lufs": -8.3,
    "pitchRange": [
     0.9,
     1.1
@@ -1962,20 +1963,20 @@
     "impacts/car_crash_light_2.ogg",
     "impacts/car_crash_light_3.ogg"
    ],
-   "duration": 0.9858,
+   "duration": 1.0823,
    "durations": [
-    0.9858,
-    0.96,
-    0.9971
+    1.0823,
+    0.9629,
+    1.0295
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.25,
+   "gain": 0.265,
    "category": "impact_car",
    "channels": 1,
    "notes": "light collision / scrape-crash, ~1 s",
-   "peakDb": -1.16,
-   "lufs": -8.4,
+   "peakDb": -1.31,
+   "lufs": -8.1,
    "pitchRange": [
     0.9,
     1.1
@@ -1986,13 +1987,13 @@
    "files": [
     "impacts/car_scrape_hit.ogg"
    ],
-   "duration": 0.55,
+   "duration": 0.5529,
    "durations": [
-    0.55
+    0.5529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.371,
+   "gain": 0.406,
    "category": "impact_car",
    "channels": 1,
    "notes": "onset of a metal scrape: screech chirp + crunch, 0.5 s",
@@ -2014,15 +2015,15 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.391,
+   "gain": 0.428,
    "category": "impact_loop",
    "channels": 1,
    "notes": "metal scraping on asphalt, seamless 1.6 s loop; gain by slide speed, pitch 0.8-1.3",
-   "peakDb": -15.07,
+   "peakDb": -15.05,
    "lufs": -21.3,
    "loopStart": 0.0,
    "loopEnd": 1.6,
-   "loopJumpRatio": 0.21,
+   "loopJumpRatio": 0.19,
    "pitchRange": [
     0.8,
     1.3
@@ -2036,21 +2037,21 @@
     "impacts/debris_bounce_3.ogg",
     "impacts/debris_bounce_4.ogg"
    ],
-   "duration": 0.75,
+   "duration": 0.7529,
    "durations": [
-    0.75,
-    0.75,
-    0.75,
-    0.75
+    0.7529,
+    0.7529,
+    0.7529,
+    0.7529
    ],
    "loop": false,
    "variations": 4,
-   "gain": 0.412,
+   "gain": 0.396,
    "category": "impact_car",
    "channels": 1,
    "notes": "chunk of metal bouncing on asphalt, 3 bounces",
-   "peakDb": -1.39,
-   "lufs": -12.8,
+   "peakDb": -1.29,
+   "lufs": -11.6,
    "pitchRange": [
     0.9,
     1.1
@@ -2062,19 +2063,19 @@
     "impacts/glass_shatter_1.ogg",
     "impacts/glass_shatter_2.ogg"
    ],
-   "duration": 1.4,
+   "duration": 1.4029,
    "durations": [
-    1.4,
-    1.4
+    1.4029,
+    1.4029
    ],
    "loop": false,
    "variations": 2,
-   "gain": 1.0,
+   "gain": 0.981,
    "category": "impact_car",
    "channels": 1,
    "notes": "windscreen / window shatter, 1.3 s",
-   "peakDb": -2.15,
-   "lufs": -17.4,
+   "peakDb": -2.03,
+   "lufs": -16.5,
    "pitchRange": [
     0.9,
     1.1
@@ -2085,13 +2086,13 @@
    "files": [
     "impacts/headshot_ping.ogg"
    ],
-   "duration": 0.8,
+   "duration": 0.8029,
    "durations": [
-    0.8
+    0.8029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.71,
+   "gain": 0.776,
    "category": "impact_ui",
    "channels": 1,
    "notes": "bright metallic headshot ping",
@@ -2107,13 +2108,13 @@
    "files": [
     "impacts/hit_marker.ogg"
    ],
-   "duration": 0.11,
+   "duration": 0.1129,
    "durations": [
-    0.11
+    0.1129
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.911,
+   "gain": 0.997,
    "category": "impact_ui",
    "channels": 1,
    "notes": "crisp hit confirmation tick (2-3 kHz)",
@@ -2129,13 +2130,13 @@
    "files": [
     "impacts/hit_marker_kill.ogg"
    ],
-   "duration": 0.45,
+   "duration": 0.4529,
    "durations": [
-    0.45
+    0.4529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.914,
+   "gain": 1.0,
    "category": "impact_ui",
    "channels": 1,
    "notes": "kill confirmation: double tick + low thock + ping",
@@ -2153,20 +2154,20 @@
     "impacts/metal_tear_2.ogg",
     "impacts/metal_tear_3.ogg"
    ],
-   "duration": 1.0,
+   "duration": 1.0029,
    "durations": [
-    1.0,
-    0.8,
-    1.2
+    1.0029,
+    0.8029,
+    1.2029
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.499,
+   "gain": 0.539,
    "category": "impact_car",
    "channels": 1,
    "notes": "tearing / peeling sheet metal, ~1 s",
-   "peakDb": -1.26,
-   "lufs": -11.4,
+   "peakDb": -1.39,
+   "lufs": -11.3,
    "pitchRange": [
     0.9,
     1.1
@@ -2179,20 +2180,20 @@
     "impacts/panel_detach_2.ogg",
     "impacts/panel_detach_3.ogg"
    ],
-   "duration": 0.75,
+   "duration": 0.7529,
    "durations": [
-    0.75,
-    0.75,
-    0.75
+    0.7529,
+    0.7529,
+    0.7529
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.668,
+   "gain": 0.732,
    "category": "impact_car",
    "channels": 1,
    "notes": "body panel / bumper ripping off: clang + boing + skitter",
    "peakDb": -1.46,
-   "lufs": -12.9,
+   "lufs": -13.0,
    "pitchRange": [
     0.9,
     1.1
@@ -2205,20 +2206,20 @@
     "impacts/ram_hit_2.ogg",
     "impacts/ram_hit_3.ogg"
    ],
-   "duration": 0.9,
+   "duration": 0.9029,
    "durations": [
-    0.9,
-    0.9,
-    0.9
+    0.9029,
+    0.9029,
+    0.9029
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.372,
+   "gain": 0.391,
    "category": "impact_car",
    "channels": 1,
    "notes": "vehicle-vehicle ram: solid low thud + crunch",
-   "peakDb": -1.46,
-   "lufs": -7.9,
+   "peakDb": -1.25,
+   "lufs": -7.5,
    "pitchRange": [
     0.9,
     1.1
@@ -2232,21 +2233,21 @@
     "impacts/ricochet_3.ogg",
     "impacts/ricochet_4.ogg"
    ],
-   "duration": 0.7,
+   "duration": 0.7029,
    "durations": [
-    0.7,
-    0.7,
-    0.7,
-    0.7
+    0.7029,
+    0.7029,
+    0.7029,
+    0.7029
    ],
    "loop": false,
    "variations": 4,
-   "gain": 0.289,
+   "gain": 0.364,
    "category": "impact_bullet",
    "channels": 1,
    "notes": "ricochet zing: tonal noise gliding down, 0.6 s",
-   "peakDb": -1.17,
-   "lufs": -11.7,
+   "peakDb": -1.14,
+   "lufs": -11.9,
    "pitchRange": [
     0.92,
     1.08
@@ -2257,13 +2258,13 @@
    "files": [
     "impacts/wheel_off.ogg"
    ],
-   "duration": 1.8,
+   "duration": 1.8029,
    "durations": [
-    1.8
+    1.8029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.462,
+   "gain": 0.505,
    "category": "impact_car",
    "channels": 1,
    "notes": "wheel shears off: bang + whirring roll-away + bounces, 1.8 s",
@@ -2272,6 +2273,324 @@
    "pitchRange": [
     0.9,
     1.1
+   ]
+  },
+  "music/boss_base": {
+   "file": "music/boss_base.ogg",
+   "files": [
+    "music/boss_base.ogg"
+   ],
+   "duration": 22.5882,
+   "durations": [
+    22.5882
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
+   "peakDb": -7.15,
+   "lufs": -19.8,
+   "loopStart": 0.0,
+   "loopEnd": 22.58823129251701,
+   "loopJumpRatio": 0.68,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "boss",
+   "bpm": 170.0,
+   "bpmNominal": 170,
+   "bars": 16,
+   "beats": 64,
+   "key": "E phrygian",
+   "loopBars": 16,
+   "samples": 996141,
+   "secPerBar": 1.41176,
+   "beatSec": 0.35294,
+   "barSec": 1.41176,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 5,
+     "name": "half-time breakdown"
+    },
+    {
+     "bar": 9,
+     "name": "double-time"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "boss_base",
+    "boss_drums",
+    "boss_lead",
+    "boss_extra"
+   ],
+   "stem": "base",
+   "intensity": 0
+  },
+  "music/boss_drums": {
+   "file": "music/boss_drums.ogg",
+   "files": [
+    "music/boss_drums.ogg"
+   ],
+   "duration": 22.5882,
+   "durations": [
+    22.5882
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
+   "peakDb": -8.79,
+   "lufs": -18.8,
+   "loopStart": 0.0,
+   "loopEnd": 22.58823129251701,
+   "loopJumpRatio": 0.41,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "boss",
+   "bpm": 170.0,
+   "bpmNominal": 170,
+   "bars": 16,
+   "beats": 64,
+   "key": "E phrygian",
+   "loopBars": 16,
+   "samples": 996141,
+   "secPerBar": 1.41176,
+   "beatSec": 0.35294,
+   "barSec": 1.41176,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 5,
+     "name": "half-time breakdown"
+    },
+    {
+     "bar": 9,
+     "name": "double-time"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "boss_base",
+    "boss_drums",
+    "boss_lead",
+    "boss_extra"
+   ],
+   "stem": "drums",
+   "intensity": 1
+  },
+  "music/boss_extra": {
+   "file": "music/boss_extra.ogg",
+   "files": [
+    "music/boss_extra.ogg"
+   ],
+   "duration": 22.5882,
+   "durations": [
+    22.5882
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
+   "peakDb": -5.04,
+   "lufs": -20.9,
+   "loopStart": 0.0,
+   "loopEnd": 22.58823129251701,
+   "loopJumpRatio": 0.02,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "boss",
+   "bpm": 170.0,
+   "bpmNominal": 170,
+   "bars": 16,
+   "beats": 64,
+   "key": "E phrygian",
+   "loopBars": 16,
+   "samples": 996141,
+   "secPerBar": 1.41176,
+   "beatSec": 0.35294,
+   "barSec": 1.41176,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 5,
+     "name": "half-time breakdown"
+    },
+    {
+     "bar": 9,
+     "name": "double-time"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "boss_base",
+    "boss_drums",
+    "boss_lead",
+    "boss_extra"
+   ],
+   "stem": "extra",
+   "intensity": 3
+  },
+  "music/boss_lead": {
+   "file": "music/boss_lead.ogg",
+   "files": [
+    "music/boss_lead.ogg"
+   ],
+   "duration": 22.5882,
+   "durations": [
+    22.5882
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
+   "peakDb": -9.73,
+   "lufs": -20.8,
+   "loopStart": 0.0,
+   "loopEnd": 22.58823129251701,
+   "loopJumpRatio": 0.04,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "boss",
+   "bpm": 170.0,
+   "bpmNominal": 170,
+   "bars": 16,
+   "beats": 64,
+   "key": "E phrygian",
+   "loopBars": 16,
+   "samples": 996141,
+   "secPerBar": 1.41176,
+   "beatSec": 0.35294,
+   "barSec": 1.41176,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 5,
+     "name": "half-time breakdown"
+    },
+    {
+     "bar": 9,
+     "name": "double-time"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "boss_base",
+    "boss_drums",
+    "boss_lead",
+    "boss_extra"
+   ],
+   "stem": "lead",
+   "intensity": 2
+  },
+  "music/garage_loop": {
+   "file": "music/garage_loop.ogg",
+   "files": [
+    "music/garage_loop.ogg"
+   ],
+   "duration": 41.7391,
+   "durations": [
+    41.7391
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music",
+   "channels": 2,
+   "notes": "GARAGE menu loop: G minor 92 BPM, 16 bars, ~-16 LUFS, warm/gritty/hopeful, sits under menus",
+   "peakDb": -4.9,
+   "lufs": -16.0,
+   "loopStart": 0.0,
+   "loopEnd": 41.73913832199546,
+   "loopJumpRatio": 0.47,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "garage",
+   "bpm": 92.0,
+   "bpmNominal": 92,
+   "bars": 16,
+   "beats": 64,
+   "key": "G minor",
+   "loopBars": 16,
+   "samples": 1840696,
+   "secPerBar": 2.6087,
+   "beatSec": 0.65217,
+   "barSec": 2.6087,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "intro arps"
+    },
+    {
+     "bar": 5,
+     "name": "theme"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "resolve"
+    }
    ]
   },
   "music/run_a_base": {
@@ -2289,11 +2608,11 @@
    "category": "music_stem",
    "channels": 2,
    "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -6.83,
+   "peakDb": -7.2,
    "lufs": -19.8,
    "loopStart": 0.0,
    "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.06,
+   "loopJumpRatio": 0.19,
    "pitchRange": [
     1.0,
     1.0
@@ -2307,6 +2626,36 @@
    "loopBars": 16,
    "samples": 1114105,
    "secPerBar": 1.57895,
+   "beatSec": 0.39474,
+   "barSec": 1.57895,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_a_base",
+    "run_a_drums",
+    "run_a_lead",
+    "run_a_extra"
+   ],
    "stem": "base",
    "intensity": 0
   },
@@ -2325,11 +2674,11 @@
    "category": "music_stem",
    "channels": 2,
    "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -8.96,
-   "lufs": -18.9,
+   "peakDb": -8.91,
+   "lufs": -18.8,
    "loopStart": 0.0,
    "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.12,
+   "loopJumpRatio": 0.09,
    "pitchRange": [
     1.0,
     1.0
@@ -2343,6 +2692,36 @@
    "loopBars": 16,
    "samples": 1114105,
    "secPerBar": 1.57895,
+   "beatSec": 0.39474,
+   "barSec": 1.57895,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_a_base",
+    "run_a_drums",
+    "run_a_lead",
+    "run_a_extra"
+   ],
    "stem": "drums",
    "intensity": 1
   },
@@ -2361,11 +2740,11 @@
    "category": "music_stem",
    "channels": 2,
    "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -5.16,
+   "peakDb": -5.11,
    "lufs": -20.9,
    "loopStart": 0.0,
    "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.01,
+   "loopJumpRatio": 0.04,
    "pitchRange": [
     1.0,
     1.0
@@ -2379,6 +2758,36 @@
    "loopBars": 16,
    "samples": 1114105,
    "secPerBar": 1.57895,
+   "beatSec": 0.39474,
+   "barSec": 1.57895,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_a_base",
+    "run_a_drums",
+    "run_a_lead",
+    "run_a_extra"
+   ],
    "stem": "extra",
    "intensity": 3
   },
@@ -2397,11 +2806,11 @@
    "category": "music_stem",
    "channels": 2,
    "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -11.54,
-   "lufs": -20.8,
+   "peakDb": -11.6,
+   "lufs": -20.7,
    "loopStart": 0.0,
    "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.04,
+   "loopJumpRatio": 0.03,
    "pitchRange": [
     1.0,
     1.0
@@ -2415,26 +2824,669 @@
    "loopBars": 16,
    "samples": 1114105,
    "secPerBar": 1.57895,
+   "beatSec": 0.39474,
+   "barSec": 1.57895,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_a_base",
+    "run_a_drums",
+    "run_a_lead",
+    "run_a_extra"
+   ],
    "stem": "lead",
    "intensity": 2
+  },
+  "music/run_b_base": {
+   "file": "music/run_b_base.ogg",
+   "files": [
+    "music/run_b_base.ogg"
+   ],
+   "duration": 24.3038,
+   "durations": [
+    24.3038
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -6.97,
+   "lufs": -19.9,
+   "loopStart": 0.0,
+   "loopEnd": 24.303786848072562,
+   "loopJumpRatio": 0.72,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_b",
+   "bpm": 158.0001,
+   "bpmNominal": 158,
+   "bars": 16,
+   "beats": 64,
+   "key": "D phrygian",
+   "loopBars": 16,
+   "samples": 1071797,
+   "secPerBar": 1.51899,
+   "beatSec": 0.37975,
+   "barSec": 1.51899,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_b_base",
+    "run_b_drums",
+    "run_b_lead",
+    "run_b_extra"
+   ],
+   "stem": "base",
+   "intensity": 0
+  },
+  "music/run_b_drums": {
+   "file": "music/run_b_drums.ogg",
+   "files": [
+    "music/run_b_drums.ogg"
+   ],
+   "duration": 24.3038,
+   "durations": [
+    24.3038
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -8.23,
+   "lufs": -18.9,
+   "loopStart": 0.0,
+   "loopEnd": 24.303786848072562,
+   "loopJumpRatio": 0.58,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_b",
+   "bpm": 158.0001,
+   "bpmNominal": 158,
+   "bars": 16,
+   "beats": 64,
+   "key": "D phrygian",
+   "loopBars": 16,
+   "samples": 1071797,
+   "secPerBar": 1.51899,
+   "beatSec": 0.37975,
+   "barSec": 1.51899,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_b_base",
+    "run_b_drums",
+    "run_b_lead",
+    "run_b_extra"
+   ],
+   "stem": "drums",
+   "intensity": 1
+  },
+  "music/run_b_extra": {
+   "file": "music/run_b_extra.ogg",
+   "files": [
+    "music/run_b_extra.ogg"
+   ],
+   "duration": 24.3038,
+   "durations": [
+    24.3038
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -5.85,
+   "lufs": -21.0,
+   "loopStart": 0.0,
+   "loopEnd": 24.303786848072562,
+   "loopJumpRatio": 0.1,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_b",
+   "bpm": 158.0001,
+   "bpmNominal": 158,
+   "bars": 16,
+   "beats": 64,
+   "key": "D phrygian",
+   "loopBars": 16,
+   "samples": 1071797,
+   "secPerBar": 1.51899,
+   "beatSec": 0.37975,
+   "barSec": 1.51899,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_b_base",
+    "run_b_drums",
+    "run_b_lead",
+    "run_b_extra"
+   ],
+   "stem": "extra",
+   "intensity": 3
+  },
+  "music/run_b_lead": {
+   "file": "music/run_b_lead.ogg",
+   "files": [
+    "music/run_b_lead.ogg"
+   ],
+   "duration": 24.3038,
+   "durations": [
+    24.3038
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -12.08,
+   "lufs": -20.8,
+   "loopStart": 0.0,
+   "loopEnd": 24.303786848072562,
+   "loopJumpRatio": 0.26,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_b",
+   "bpm": 158.0001,
+   "bpmNominal": 158,
+   "bars": 16,
+   "beats": 64,
+   "key": "D phrygian",
+   "loopBars": 16,
+   "samples": 1071797,
+   "secPerBar": 1.51899,
+   "beatSec": 0.37975,
+   "barSec": 1.51899,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_b_base",
+    "run_b_drums",
+    "run_b_lead",
+    "run_b_extra"
+   ],
+   "stem": "lead",
+   "intensity": 2
+  },
+  "music/run_c_base": {
+   "file": "music/run_c_base.ogg",
+   "files": [
+    "music/run_c_base.ogg"
+   ],
+   "duration": 23.4146,
+   "durations": [
+    23.4146
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -8.11,
+   "lufs": -19.8,
+   "loopStart": 0.0,
+   "loopEnd": 23.414625850340137,
+   "loopJumpRatio": 0.74,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_c",
+   "bpm": 164.0001,
+   "bpmNominal": 164,
+   "bars": 16,
+   "beats": 64,
+   "key": "F# minor",
+   "loopBars": 16,
+   "samples": 1032585,
+   "secPerBar": 1.46341,
+   "beatSec": 0.36585,
+   "barSec": 1.46341,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_c_base",
+    "run_c_drums",
+    "run_c_lead",
+    "run_c_extra"
+   ],
+   "stem": "base",
+   "intensity": 0
+  },
+  "music/run_c_drums": {
+   "file": "music/run_c_drums.ogg",
+   "files": [
+    "music/run_c_drums.ogg"
+   ],
+   "duration": 23.4146,
+   "durations": [
+    23.4146
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -8.78,
+   "lufs": -18.9,
+   "loopStart": 0.0,
+   "loopEnd": 23.414625850340137,
+   "loopJumpRatio": 0.17,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_c",
+   "bpm": 164.0001,
+   "bpmNominal": 164,
+   "bars": 16,
+   "beats": 64,
+   "key": "F# minor",
+   "loopBars": 16,
+   "samples": 1032585,
+   "secPerBar": 1.46341,
+   "beatSec": 0.36585,
+   "barSec": 1.46341,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_c_base",
+    "run_c_drums",
+    "run_c_lead",
+    "run_c_extra"
+   ],
+   "stem": "drums",
+   "intensity": 1
+  },
+  "music/run_c_extra": {
+   "file": "music/run_c_extra.ogg",
+   "files": [
+    "music/run_c_extra.ogg"
+   ],
+   "duration": 23.4146,
+   "durations": [
+    23.4146
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -5.87,
+   "lufs": -20.9,
+   "loopStart": 0.0,
+   "loopEnd": 23.414625850340137,
+   "loopJumpRatio": 0.42,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_c",
+   "bpm": 164.0001,
+   "bpmNominal": 164,
+   "bars": 16,
+   "beats": 64,
+   "key": "F# minor",
+   "loopBars": 16,
+   "samples": 1032585,
+   "secPerBar": 1.46341,
+   "beatSec": 0.36585,
+   "barSec": 1.46341,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_c_base",
+    "run_c_drums",
+    "run_c_lead",
+    "run_c_extra"
+   ],
+   "stem": "extra",
+   "intensity": 3
+  },
+  "music/run_c_lead": {
+   "file": "music/run_c_lead.ogg",
+   "files": [
+    "music/run_c_lead.ogg"
+   ],
+   "duration": 23.4146,
+   "durations": [
+    23.4146
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -11.7,
+   "lufs": -20.8,
+   "loopStart": 0.0,
+   "loopEnd": 23.414625850340137,
+   "loopJumpRatio": 0.07,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_c",
+   "bpm": 164.0001,
+   "bpmNominal": 164,
+   "bars": 16,
+   "beats": 64,
+   "key": "F# minor",
+   "loopBars": 16,
+   "samples": 1032585,
+   "secPerBar": 1.46341,
+   "beatSec": 0.36585,
+   "barSec": 1.46341,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "riff"
+    },
+    {
+     "bar": 5,
+     "name": "variation"
+    },
+    {
+     "bar": 9,
+     "name": "lift"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ],
+   "fillBars": [
+    8,
+    16
+   ],
+   "layers": [
+    "run_c_base",
+    "run_c_drums",
+    "run_c_lead",
+    "run_c_extra"
+   ],
+   "stem": "lead",
+   "intensity": 2
+  },
+  "music/title_loop": {
+   "file": "music/title_loop.ogg",
+   "files": [
+    "music/title_loop.ogg"
+   ],
+   "duration": 36.9231,
+   "durations": [
+    36.9231
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music",
+   "channels": 2,
+   "notes": "TITLE screen loop: D minor 104 BPM, 16 bars, ~-16 LUFS, epic/moody horn theme",
+   "peakDb": -5.48,
+   "lufs": -16.0,
+   "loopStart": 0.0,
+   "loopEnd": 36.92308390022676,
+   "loopJumpRatio": 0.34,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "title",
+   "bpm": 104.0,
+   "bpmNominal": 104,
+   "bars": 16,
+   "beats": 64,
+   "key": "D minor",
+   "loopBars": 16,
+   "samples": 1628308,
+   "secPerBar": 2.30769,
+   "beatSec": 0.57692,
+   "barSec": 2.30769,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drone + horn"
+    },
+    {
+     "bar": 5,
+     "name": "theme + drums"
+    },
+    {
+     "bar": 9,
+     "name": "answer + choir"
+    },
+    {
+     "bar": 13,
+     "name": "peak"
+    }
+   ]
+  },
+  "music/victory": {
+   "file": "music/victory.ogg",
+   "files": [
+    "music/victory.ogg"
+   ],
+   "duration": 11.2029,
+   "durations": [
+    11.2029
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music",
+   "channels": 2,
+   "notes": "VICTORY fanfare one-shot, D major 132 BPM, ~11 s, heroic brass + drums + rising arpeggio, natural tail",
+   "peakDb": -4.87,
+   "lufs": -5.7,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "victory",
+   "bpm": 132.0001,
+   "bpmNominal": 132,
+   "bars": 4,
+   "beats": 16,
+   "key": "D major",
+   "beatSec": 0.45455,
+   "barSec": 1.81818,
+   "oneShot": true
   },
   "stingers/boss_defeated": {
    "file": "stingers/boss_defeated.ogg",
    "files": [
     "stingers/boss_defeated.ogg"
    ],
-   "duration": 5.4509,
+   "duration": 5.468,
    "durations": [
-    5.4509
+    5.468
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.424,
+   "gain": 0.375,
    "category": "stinger",
    "channels": 2,
    "notes": "boss dies: huge boom then rising A-minor to A-major brass resolution, ~7 s",
-   "peakDb": -2.07,
-   "lufs": -7.0,
+   "peakDb": -1.68,
+   "lufs": -7.2,
    "pitchRange": [
     1.0,
     1.0
@@ -2445,13 +3497,13 @@
    "files": [
     "stingers/boss_intro.ogg"
    ],
-   "duration": 7.6546,
+   "duration": 7.6575,
    "durations": [
-    7.6546
+    7.6575
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.436,
+   "gain": 0.378,
    "category": "stinger",
    "channels": 2,
    "notes": "boss appears: drone + phrygian minor-second swell + tom hits + massive E hit, ~7 s",
@@ -2467,18 +3519,18 @@
    "files": [
     "stingers/danger_riser.ogg"
    ],
-   "duration": 3.0,
+   "duration": 3.0029,
    "durations": [
-    3.0
+    3.0029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.511,
+   "gain": 0.453,
    "category": "stinger",
    "channels": 2,
    "notes": "3 s tension riser (noise sweep + rising tone + accelerating tremolo); ends at peak, cut it with a hit",
-   "peakDb": -1.85,
-   "lufs": -9.6,
+   "peakDb": -1.89,
+   "lufs": -9.8,
    "pitchRange": [
     1.0,
     1.0
@@ -2489,13 +3541,13 @@
    "files": [
     "stingers/game_over.ogg"
    ],
-   "duration": 4.8684,
+   "duration": 4.8713,
    "durations": [
-    4.8684
+    4.8713
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.392,
+   "gain": 0.34,
    "category": "stinger",
    "channels": 2,
    "notes": "car destroyed / run over: sub hit + tape-stop A-minor chord sinking, 3.8 s",
@@ -2511,21 +3563,21 @@
    "files": [
     "stingers/low_health_heartbeat_loop.ogg"
    ],
-   "duration": 1.0,
+   "duration": 2.0,
    "durations": [
-    1.0
+    2.0
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.671,
+   "gain": 0.735,
    "category": "stinger_loop",
    "channels": 2,
-   "notes": "heartbeat lub-dub at 60 BPM, seamless 1 s loop; loop while HP < 30 %, raise rate via playbackRate",
-   "peakDb": -4.21,
+   "notes": "heartbeat lub-dub-lub-dub at 60 BPM (2 beats, slight variation), seamless 2 s loop; loop while HP < 30 %, raise rate via playbackRate",
+   "peakDb": -4.38,
    "lufs": -21.0,
    "loopStart": 0.0,
-   "loopEnd": 1.0,
-   "loopJumpRatio": 0.22,
+   "loopEnd": 2.0,
+   "loopJumpRatio": 0.29,
    "pitchRange": [
     0.9,
     1.4
@@ -2536,13 +3588,13 @@
    "files": [
     "stingers/run_start.ogg"
    ],
-   "duration": 3.5666,
+   "duration": 3.5695,
    "durations": [
-    3.5666
+    3.5695
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.544,
+   "gain": 0.473,
    "category": "stinger",
    "channels": 2,
    "notes": "run begins: 1.2 s riser (tom roll + swell) then A-minor power-chord impact; ~4 s total",
@@ -2558,18 +3610,18 @@
    "files": [
     "stingers/victory.ogg"
    ],
-   "duration": 4.0075,
+   "duration": 2.3799,
    "durations": [
-    4.0075
+    2.3799
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.416,
+   "gain": 0.378,
    "category": "stinger",
    "channels": 2,
-   "notes": "short heroic C-major fanfare (stinger; full theme is music/victory), ~5 s",
-   "peakDb": -1.17,
-   "lufs": -6.8,
+   "notes": "short heroic C-major fanfare (2.6 s stinger; full theme is music/victory)",
+   "peakDb": -1.93,
+   "lufs": -7.2,
    "pitchRange": [
     1.0,
     1.0
@@ -2586,15 +3638,15 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.842,
+   "gain": 0.922,
    "category": "stinger_loop",
    "channels": 2,
    "notes": "two-tone electronic warning siren (960/720 Hz), seamless 1.2 s loop",
-   "peakDb": -21.86,
+   "peakDb": -21.87,
    "lufs": -22.0,
    "loopStart": 0.0,
    "loopEnd": 1.2,
-   "loopJumpRatio": 0.06,
+   "loopJumpRatio": 0.01,
    "pitchRange": [
     0.9,
     1.4
@@ -2605,13 +3657,13 @@
    "files": [
     "ui/buy.ogg"
    ],
-   "duration": 0.75,
+   "duration": 0.7529,
    "durations": [
-    0.75
+    0.7529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.229,
+   "gain": 0.251,
    "category": "ui",
    "channels": 1,
    "notes": "purchase confirmation: cash-register bell + coin clink, 0.7 s",
@@ -2627,13 +3679,13 @@
    "files": [
     "ui/click.ogg"
    ],
-   "duration": 0.07,
+   "duration": 0.0729,
    "durations": [
-    0.07
+    0.0729
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.607,
+   "gain": 0.665,
    "category": "ui",
    "channels": 1,
    "notes": "button press: dry tactile tick",
@@ -2650,14 +3702,14 @@
     "ui/coin_1.ogg",
     "ui/coin_2.ogg"
    ],
-   "duration": 0.45,
+   "duration": 0.4529,
    "durations": [
-    0.45,
-    0.45
+    0.4529,
+    0.4529
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.227,
+   "gain": 0.248,
    "category": "ui",
    "channels": 1,
    "notes": "coin pickup / cash ding (two variations, pitch up/down)",
@@ -2673,13 +3725,13 @@
    "files": [
     "ui/countdown_beep.ogg"
    ],
-   "duration": 0.3,
+   "duration": 0.3029,
    "durations": [
-    0.3
+    0.3029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.226,
+   "gain": 0.247,
    "category": "ui",
    "channels": 1,
    "notes": "3-2-1 countdown beep (880 Hz)",
@@ -2695,13 +3747,13 @@
    "files": [
     "ui/error.ogg"
    ],
-   "duration": 0.36,
+   "duration": 0.3629,
    "durations": [
-    0.36
+    0.3629
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.222,
+   "gain": 0.242,
    "category": "ui",
    "channels": 1,
    "notes": "denied / cannot afford: low double buzz",
@@ -2717,13 +3769,13 @@
    "files": [
     "ui/go.ogg"
    ],
-   "duration": 0.7,
+   "duration": 0.7029,
    "durations": [
-    0.7
+    0.7029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.311,
+   "gain": 0.34,
    "category": "ui",
    "channels": 1,
    "notes": "GO! start beep: higher, longer, with rising sweep",
@@ -2739,13 +3791,13 @@
    "files": [
     "ui/hover.ogg"
    ],
-   "duration": 0.05,
+   "duration": 0.0529,
    "durations": [
-    0.05
+    0.0529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.313,
+   "gain": 0.342,
    "category": "ui",
    "channels": 1,
    "notes": "menu item hover: light high tick",
@@ -2761,13 +3813,13 @@
    "files": [
     "ui/menu_close.ogg"
    ],
-   "duration": 0.3,
+   "duration": 0.3029,
    "durations": [
-    0.3
+    0.3029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.353,
+   "gain": 0.386,
    "category": "ui",
    "channels": 1,
    "notes": "menu closes: falling whoosh + soft thock",
@@ -2783,13 +3835,13 @@
    "files": [
     "ui/menu_open.ogg"
    ],
-   "duration": 0.32,
+   "duration": 0.3229,
    "durations": [
-    0.32
+    0.3229
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.255,
+   "gain": 0.279,
    "category": "ui",
    "channels": 1,
    "notes": "menu opens: short rising airy whoosh + soft click",
@@ -2805,13 +3857,13 @@
    "files": [
     "ui/ready.ogg"
    ],
-   "duration": 0.36,
+   "duration": 0.3629,
    "durations": [
-    0.36
+    0.3629
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.332,
+   "gain": 0.363,
    "category": "ui",
    "channels": 1,
    "notes": "ready / confirm: two-note up chirp",
@@ -2827,13 +3879,13 @@
    "files": [
     "ui/upgrade_unlock.ogg"
    ],
-   "duration": 1.05,
+   "duration": 1.0529,
    "durations": [
-    1.05
+    1.0529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.177,
+   "gain": 0.193,
    "category": "ui",
    "channels": 1,
    "notes": "new upgrade / weapon unlocked: rising sparkle arpeggio, 1 s",
@@ -2849,13 +3901,13 @@
    "files": [
     "ui/whoosh_transition.ogg"
    ],
-   "duration": 0.95,
+   "duration": 0.9529,
    "durations": [
-    0.95
+    0.9529
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.142,
+   "gain": 0.155,
    "category": "ui",
    "channels": 1,
    "notes": "screen transition: swelling whoosh into a low thud, 0.8 s",
@@ -2873,20 +3925,20 @@
     "vehicles/backfire_2.ogg",
     "vehicles/backfire_3.ogg"
    ],
-   "duration": 0.5219,
+   "duration": 0.5248,
    "durations": [
-    0.5219,
-    0.5933,
-    0.4267
+    0.5248,
+    0.5962,
+    0.4296
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.403,
+   "gain": 0.437,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "exhaust backfire bang + crackle, 0.6 s",
-   "peakDb": -1.96,
-   "lufs": -14.6,
+   "peakDb": -2.06,
+   "lufs": -14.5,
    "pitchRange": [
     0.94,
     1.06
@@ -2897,13 +3949,13 @@
    "files": [
     "vehicles/brake_squeal.ogg"
    ],
-   "duration": 1.1,
+   "duration": 1.1029,
    "durations": [
-    1.1
+    1.1029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.123,
+   "gain": 0.135,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "brake squeal, 1.1 s (pitch 0.9-1.2)",
@@ -2925,7 +3977,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.549,
+   "gain": 0.6,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "dying engine: misfires, rod knock, steam hiss; overlay on engine when HP low; seamless 2.4 s loop",
@@ -2950,7 +4002,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.537,
+   "gain": 0.542,
    "category": "engine",
    "channels": 1,
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; high stage recorded at 1900 RPM (fire freq 190.0 Hz); crossfade neighbours, playbackRate = rpm/1900",
@@ -2981,7 +4033,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.673,
+   "gain": 0.552,
    "category": "engine",
    "channels": 1,
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; idle stage recorded at 520 RPM (fire freq 52.0 Hz); crossfade neighbours, playbackRate = rpm/520",
@@ -3012,7 +4064,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.621,
+   "gain": 0.546,
    "category": "engine",
    "channels": 1,
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; low stage recorded at 900 RPM (fire freq 90.0 Hz); crossfade neighbours, playbackRate = rpm/900",
@@ -3043,7 +4095,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.575,
+   "gain": 0.541,
    "category": "engine",
    "channels": 1,
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; mid stage recorded at 1400 RPM (fire freq 140.0 Hz); crossfade neighbours, playbackRate = rpm/1400",
@@ -3074,7 +4126,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.506,
+   "gain": 0.547,
    "category": "engine",
    "channels": 1,
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; redline stage recorded at 2500 RPM (fire freq 250.0 Hz); crossfade neighbours, playbackRate = rpm/2500",
@@ -3105,7 +4157,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.541,
+   "gain": 0.546,
    "category": "engine",
    "channels": 1,
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; high stage recorded at 5800 RPM (fire freq 193.3 Hz); crossfade neighbours, playbackRate = rpm/5800",
@@ -3136,7 +4188,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.686,
+   "gain": 0.563,
    "category": "engine",
    "channels": 1,
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; idle stage recorded at 1100 RPM (fire freq 36.7 Hz); crossfade neighbours, playbackRate = rpm/1100",
@@ -3167,7 +4219,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.629,
+   "gain": 0.553,
    "category": "engine",
    "channels": 1,
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; low stage recorded at 2600 RPM (fire freq 86.7 Hz); crossfade neighbours, playbackRate = rpm/2600",
@@ -3198,7 +4250,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.578,
+   "gain": 0.545,
    "category": "engine",
    "channels": 1,
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; mid stage recorded at 4200 RPM (fire freq 140.0 Hz); crossfade neighbours, playbackRate = rpm/4200",
@@ -3229,7 +4281,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.507,
+   "gain": 0.548,
    "category": "engine",
    "channels": 1,
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; redline stage recorded at 7400 RPM (fire freq 246.7 Hz); crossfade neighbours, playbackRate = rpm/7400",
@@ -3260,7 +4312,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.535,
+   "gain": 0.54,
    "category": "engine",
    "channels": 1,
    "notes": "heavy diesel (trucks, vans, tankers); high stage recorded at 2000 RPM (fire freq 100.0 Hz); crossfade neighbours, playbackRate = rpm/2000",
@@ -3291,7 +4343,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.676,
+   "gain": 0.555,
    "category": "engine",
    "channels": 1,
    "notes": "heavy diesel (trucks, vans, tankers); idle stage recorded at 600 RPM (fire freq 30.0 Hz); crossfade neighbours, playbackRate = rpm/600",
@@ -3322,7 +4374,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.622,
+   "gain": 0.546,
    "category": "engine",
    "channels": 1,
    "notes": "heavy diesel (trucks, vans, tankers); low stage recorded at 1000 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/1000",
@@ -3353,7 +4405,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.572,
+   "gain": 0.539,
    "category": "engine",
    "channels": 1,
    "notes": "heavy diesel (trucks, vans, tankers); mid stage recorded at 1500 RPM (fire freq 75.0 Hz); crossfade neighbours, playbackRate = rpm/1500",
@@ -3384,7 +4436,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.504,
+   "gain": 0.545,
    "category": "engine",
    "channels": 1,
    "notes": "heavy diesel (trucks, vans, tankers); redline stage recorded at 2600 RPM (fire freq 130.0 Hz); crossfade neighbours, playbackRate = rpm/2600",
@@ -3415,7 +4467,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.533,
+   "gain": 0.538,
    "category": "engine",
    "channels": 1,
    "notes": "loud V8 with lopey idle; high stage recorded at 5000 RPM (fire freq 333.3 Hz); crossfade neighbours, playbackRate = rpm/5000",
@@ -3446,7 +4498,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.677,
+   "gain": 0.555,
    "category": "engine",
    "channels": 1,
    "notes": "loud V8 with lopey idle; idle stage recorded at 650 RPM (fire freq 43.3 Hz); crossfade neighbours, playbackRate = rpm/650",
@@ -3477,7 +4529,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.626,
+   "gain": 0.55,
    "category": "engine",
    "channels": 1,
    "notes": "loud V8 with lopey idle; low stage recorded at 1900 RPM (fire freq 126.7 Hz); crossfade neighbours, playbackRate = rpm/1900",
@@ -3508,7 +4560,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.578,
+   "gain": 0.545,
    "category": "engine",
    "channels": 1,
    "notes": "loud V8 with lopey idle; mid stage recorded at 3300 RPM (fire freq 220.0 Hz); crossfade neighbours, playbackRate = rpm/3300",
@@ -3539,7 +4591,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.506,
+   "gain": 0.548,
    "category": "engine",
    "channels": 1,
    "notes": "loud V8 with lopey idle; redline stage recorded at 6300 RPM (fire freq 420.0 Hz); crossfade neighbours, playbackRate = rpm/6300",
@@ -3570,7 +4622,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.541,
+   "gain": 0.546,
    "category": "engine",
    "channels": 1,
    "notes": "tired rattly 4-cylinder (starter truck); high stage recorded at 5200 RPM (fire freq 173.3 Hz); crossfade neighbours, playbackRate = rpm/5200",
@@ -3601,7 +4653,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.693,
+   "gain": 0.568,
    "category": "engine",
    "channels": 1,
    "notes": "tired rattly 4-cylinder (starter truck); idle stage recorded at 900 RPM (fire freq 30.0 Hz); crossfade neighbours, playbackRate = rpm/900",
@@ -3632,7 +4684,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.63,
+   "gain": 0.553,
    "category": "engine",
    "channels": 1,
    "notes": "tired rattly 4-cylinder (starter truck); low stage recorded at 2200 RPM (fire freq 73.3 Hz); crossfade neighbours, playbackRate = rpm/2200",
@@ -3663,7 +4715,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.58,
+   "gain": 0.546,
    "category": "engine",
    "channels": 1,
    "notes": "tired rattly 4-cylinder (starter truck); mid stage recorded at 3600 RPM (fire freq 120.0 Hz); crossfade neighbours, playbackRate = rpm/3600",
@@ -3694,7 +4746,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.508,
+   "gain": 0.55,
    "category": "engine",
    "channels": 1,
    "notes": "tired rattly 4-cylinder (starter truck); redline stage recorded at 6500 RPM (fire freq 216.7 Hz); crossfade neighbours, playbackRate = rpm/6500",
@@ -3725,15 +4777,15 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.536,
+   "gain": 0.548,
    "category": "engine",
    "channels": 1,
    "notes": "rough V8; high stage recorded at 5000 RPM (fire freq 333.3 Hz); crossfade neighbours, playbackRate = rpm/5000",
-   "peakDb": -9.88,
-   "lufs": -20.0,
+   "peakDb": -7.07,
+   "lufs": -20.1,
    "loopStart": 0.0,
    "loopEnd": 2.4,
-   "loopJumpRatio": 0.38,
+   "loopJumpRatio": 0.12,
    "pitchRange": [
     0.75,
     1.35
@@ -3756,15 +4808,15 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.676,
+   "gain": 0.558,
    "category": "engine",
    "channels": 1,
    "notes": "rough V8; idle stage recorded at 750 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/750",
-   "peakDb": -5.54,
+   "peakDb": -4.75,
    "lufs": -22.1,
    "loopStart": 0.0,
    "loopEnd": 2.4,
-   "loopJumpRatio": 0.09,
+   "loopJumpRatio": 0.06,
    "pitchRange": [
     0.75,
     1.35
@@ -3787,12 +4839,12 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.621,
+   "gain": 0.551,
    "category": "engine",
    "channels": 1,
    "notes": "rough V8; low stage recorded at 2000 RPM (fire freq 133.3 Hz); crossfade neighbours, playbackRate = rpm/2000",
-   "peakDb": -12.32,
-   "lufs": -21.3,
+   "peakDb": -7.14,
+   "lufs": -21.4,
    "loopStart": 0.0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.07,
@@ -3818,15 +4870,15 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.575,
+   "gain": 0.544,
    "category": "engine",
    "channels": 1,
    "notes": "rough V8; mid stage recorded at 3400 RPM (fire freq 226.7 Hz); crossfade neighbours, playbackRate = rpm/3400",
-   "peakDb": -10.66,
-   "lufs": -20.6,
+   "peakDb": -9.07,
+   "lufs": -20.7,
    "loopStart": 0.0,
    "loopEnd": 2.4,
-   "loopJumpRatio": 0.4,
+   "loopJumpRatio": 0.17,
    "pitchRange": [
     0.75,
     1.35
@@ -3849,15 +4901,15 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.506,
+   "gain": 0.551,
    "category": "engine",
    "channels": 1,
    "notes": "rough V8; redline stage recorded at 6200 RPM (fire freq 413.3 Hz); crossfade neighbours, playbackRate = rpm/6200",
-   "peakDb": -11.04,
-   "lufs": -19.5,
+   "peakDb": -7.8,
+   "lufs": -19.6,
    "loopStart": 0.0,
    "loopEnd": 2.4,
-   "loopJumpRatio": 0.06,
+   "loopJumpRatio": 0.05,
    "pitchRange": [
     0.75,
     1.35
@@ -3880,7 +4932,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.534,
+   "gain": 0.539,
    "category": "engine",
    "channels": 1,
    "notes": "big growly V8; high stage recorded at 4900 RPM (fire freq 326.7 Hz); crossfade neighbours, playbackRate = rpm/4900",
@@ -3911,7 +4963,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.675,
+   "gain": 0.553,
    "category": "engine",
    "channels": 1,
    "notes": "big growly V8; idle stage recorded at 700 RPM (fire freq 46.7 Hz); crossfade neighbours, playbackRate = rpm/700",
@@ -3942,7 +4994,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.624,
+   "gain": 0.549,
    "category": "engine",
    "channels": 1,
    "notes": "big growly V8; low stage recorded at 1900 RPM (fire freq 126.7 Hz); crossfade neighbours, playbackRate = rpm/1900",
@@ -3973,7 +5025,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.577,
+   "gain": 0.544,
    "category": "engine",
    "channels": 1,
    "notes": "big growly V8; mid stage recorded at 3300 RPM (fire freq 220.0 Hz); crossfade neighbours, playbackRate = rpm/3300",
@@ -4004,7 +5056,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.506,
+   "gain": 0.548,
    "category": "engine",
    "channels": 1,
    "notes": "big growly V8; redline stage recorded at 6000 RPM (fire freq 400.0 Hz); crossfade neighbours, playbackRate = rpm/6000",
@@ -4035,7 +5087,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.538,
+   "gain": 0.543,
    "category": "engine",
    "channels": 1,
    "notes": "supercharged V8 with gear/blower whine; high stage recorded at 5500 RPM (fire freq 366.7 Hz); crossfade neighbours, playbackRate = rpm/5500",
@@ -4066,7 +5118,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.676,
+   "gain": 0.555,
    "category": "engine",
    "channels": 1,
    "notes": "supercharged V8 with gear/blower whine; idle stage recorded at 750 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/750",
@@ -4097,7 +5149,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.624,
+   "gain": 0.548,
    "category": "engine",
    "channels": 1,
    "notes": "supercharged V8 with gear/blower whine; low stage recorded at 2200 RPM (fire freq 146.7 Hz); crossfade neighbours, playbackRate = rpm/2200",
@@ -4128,7 +5180,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.574,
+   "gain": 0.541,
    "category": "engine",
    "channels": 1,
    "notes": "supercharged V8 with gear/blower whine; mid stage recorded at 3800 RPM (fire freq 253.3 Hz); crossfade neighbours, playbackRate = rpm/3800",
@@ -4159,7 +5211,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.506,
+   "gain": 0.548,
    "category": "engine",
    "channels": 1,
    "notes": "supercharged V8 with gear/blower whine; redline stage recorded at 6800 RPM (fire freq 453.3 Hz); crossfade neighbours, playbackRate = rpm/6800",
@@ -4190,7 +5242,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.535,
+   "gain": 0.54,
    "category": "engine",
    "channels": 1,
    "notes": "thin inline-6 (sedan raiders); high stage recorded at 5100 RPM (fire freq 255.0 Hz); crossfade neighbours, playbackRate = rpm/5100",
@@ -4221,7 +5273,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.678,
+   "gain": 0.556,
    "category": "engine",
    "channels": 1,
    "notes": "thin inline-6 (sedan raiders); idle stage recorded at 850 RPM (fire freq 42.5 Hz); crossfade neighbours, playbackRate = rpm/850",
@@ -4252,7 +5304,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.624,
+   "gain": 0.549,
    "category": "engine",
    "channels": 1,
    "notes": "thin inline-6 (sedan raiders); low stage recorded at 2100 RPM (fire freq 105.0 Hz); crossfade neighbours, playbackRate = rpm/2100",
@@ -4283,7 +5335,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.571,
+   "gain": 0.538,
    "category": "engine",
    "channels": 1,
    "notes": "thin inline-6 (sedan raiders); mid stage recorded at 3500 RPM (fire freq 175.0 Hz); crossfade neighbours, playbackRate = rpm/3500",
@@ -4314,7 +5366,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.505,
+   "gain": 0.546,
    "category": "engine",
    "channels": 1,
    "notes": "thin inline-6 (sedan raiders); redline stage recorded at 6400 RPM (fire freq 320.0 Hz); crossfade neighbours, playbackRate = rpm/6400",
@@ -4339,13 +5391,13 @@
    "files": [
     "vehicles/engine_stall.ogg"
    ],
-   "duration": 2.6,
+   "duration": 2.6029,
    "durations": [
-    2.6
+    2.6029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.446,
+   "gain": 0.488,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "engine dies: sputtering chugs slowing to a stop, 2.4 s",
@@ -4361,13 +5413,13 @@
    "files": [
     "vehicles/engine_start.ogg"
    ],
-   "duration": 3.2,
+   "duration": 3.2029,
    "durations": [
-    3.2
+    3.2029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.38,
+   "gain": 0.415,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "starter crank -> catch -> rev overshoot -> idle (~800 rpm), 3 s",
@@ -4384,14 +5436,14 @@
     "vehicles/gear_shift_1.ogg",
     "vehicles/gear_shift_2.ogg"
    ],
-   "duration": 0.5,
+   "duration": 0.5029,
    "durations": [
-    0.5,
-    0.5
+    0.5029,
+    0.5029
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.173,
+   "gain": 0.189,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "gear change: drivetrain clunk + blow-off chuff, 0.45 s",
@@ -4409,15 +5461,15 @@
     "vehicles/hit_car_body_2.ogg",
     "vehicles/hit_car_body_3.ogg"
    ],
-   "duration": 0.42,
+   "duration": 0.4229,
    "durations": [
-    0.42,
-    0.42,
-    0.42
+    0.4229,
+    0.4229,
+    0.4229
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.342,
+   "gain": 0.372,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "bullet hits on the PLAYER truck body: heavier panel bong + thud",
@@ -4434,19 +5486,19 @@
     "vehicles/horn_1.ogg",
     "vehicles/horn_2.ogg"
    ],
-   "duration": 1.0,
+   "duration": 1.0029,
    "durations": [
-    1.0,
-    1.35
+    1.0029,
+    1.3529
    ],
    "loop": false,
    "variations": 2,
-   "gain": 0.155,
+   "gain": 0.175,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "horn: [0]=car honk (415+520 Hz), [1]=heavy truck horn (235+295 Hz); ~1 s sustained",
-   "peakDb": -1.23,
-   "lufs": -6.3,
+   "peakDb": -1.17,
+   "lufs": -6.6,
    "pitchRange": [
     0.94,
     1.06
@@ -4457,13 +5509,13 @@
    "files": [
     "vehicles/jump_land_heavy.ogg"
    ],
-   "duration": 1.1,
+   "duration": 1.1029,
    "durations": [
-    1.1
+    1.1029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.234,
+   "gain": 0.256,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "hard landing after a jump: sub thump + suspension crash + rattle, 1.1 s",
@@ -4479,13 +5531,13 @@
    "files": [
     "vehicles/mine_drop_beep.ogg"
    ],
-   "duration": 0.8,
+   "duration": 0.8029,
    "durations": [
-    0.8
+    0.8029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.3,
+   "gain": 0.328,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "mine dropped: clink + two arming beeps (2.1 kHz), 0.75 s",
@@ -4501,13 +5553,13 @@
    "files": [
     "vehicles/mine_explosion.ogg"
    ],
-   "duration": 2.8127,
+   "duration": 2.8156,
    "durations": [
-    2.8127
+    2.8156
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.552,
+   "gain": 0.604,
    "category": "explosion",
    "channels": 1,
    "notes": "road mine blast: crack + dirt spray + medium boom, 2.3 s",
@@ -4523,13 +5575,13 @@
    "files": [
     "vehicles/nitro_end.ogg"
    ],
-   "duration": 1.1,
+   "duration": 1.1029,
    "durations": [
-    1.1
+    1.1029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.377,
+   "gain": 0.412,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "nitro off: fading hiss, pitch-dropping whistle + crackling pops, 1.1 s",
@@ -4545,13 +5597,13 @@
    "files": [
     "vehicles/nitro_ignite.ogg"
    ],
-   "duration": 1.1,
+   "duration": 1.1029,
    "durations": [
-    1.1
+    1.1029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.398,
+   "gain": 0.436,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "nitro / boost kick-in: whump + pssht + rising scream, 1.1 s",
@@ -4573,7 +5625,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.547,
+   "gain": 0.598,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "nitro burn: flame roar + turbine whistle, seamless 1.6 s loop",
@@ -4592,13 +5644,13 @@
    "files": [
     "vehicles/oil_slick_splat.ogg"
    ],
-   "duration": 0.7,
+   "duration": 0.7029,
    "durations": [
-    0.7
+    0.7029
    ],
    "loop": false,
    "variations": 1,
-   "gain": 0.189,
+   "gain": 0.207,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "oil slick deployed: wet splat + bubbles, 0.7 s",
@@ -4620,7 +5672,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.617,
+   "gain": 0.675,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "sliding on gravel / dirt: spray hiss + stone crackle, seamless 1.6 s loop",
@@ -4645,15 +5697,15 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.605,
+   "gain": 0.656,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "tyre squeal on asphalt (drift), seamless 1.6 s loop; gain by slip, pitch 0.85-1.25",
-   "peakDb": -13.13,
-   "lufs": -23.1,
+   "peakDb": -13.99,
+   "lufs": -23.0,
    "loopStart": 0.0,
    "loopEnd": 1.6,
-   "loopJumpRatio": 0.29,
+   "loopJumpRatio": 0.44,
    "pitchRange": [
     0.85,
     1.25
@@ -4670,7 +5722,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.755,
+   "gain": 0.826,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "roots-blower / gear whine, reference 1.5 kHz; playbackRate follows rpm (0.5-1.5)",
@@ -4691,20 +5743,20 @@
     "vehicles/suspension_thunk_2.ogg",
     "vehicles/suspension_thunk_3.ogg"
    ],
-   "duration": 0.55,
+   "duration": 0.5529,
    "durations": [
-    0.55,
-    0.55,
-    0.55
+    0.5529,
+    0.5529,
+    0.5529
    ],
    "loop": false,
    "variations": 3,
-   "gain": 0.201,
+   "gain": 0.222,
    "category": "vehicle_fx",
    "channels": 1,
    "notes": "landing / bump: dull thunk + spring settle, 0.55 s",
    "peakDb": -1.33,
-   "lufs": -8.5,
+   "lufs": -8.6,
    "pitchRange": [
     0.94,
     1.06
@@ -4721,7 +5773,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.757,
+   "gain": 0.828,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "turbine whistle, reference 3.3 kHz; playbackRate 0.5-1.6 with boost / rpm; layer with engine",
@@ -4746,7 +5798,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.768,
+   "gain": 0.84,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "road roar on asphalt; volume ~ speed^1, pitch 0.7-1.6 with speed; seamless 2 s loop",
@@ -4771,7 +5823,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.773,
+   "gain": 0.845,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "tyres on dirt / gravel road: rumble + stone rattle; pitch 0.7-1.5 with speed; 2 s loop",
@@ -4796,7 +5848,7 @@
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.772,
+   "gain": 0.844,
    "category": "vehicle_loop",
    "channels": 1,
    "notes": "wind rush around the truck; volume ~ speed^1.5, pitch 0.7-1.6; 2.5 s loop",

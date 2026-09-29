@@ -2,17 +2,17 @@
  "name": "dead_tree_b",
  "file": "dead_tree_b.glb",
  "category": "tree_dead",
- "height": 7.703,
- "radius": 4.11,
+ "height": 7.327,
+ "radius": 3.727,
  "size": [
-  5.726,
-  7.703,
-  3.982
+  5.783,
+  7.327,
+  6.316
  ],
- "tris": 2716,
+ "tris": 2939,
  "materials": [
   "bark_dead"
  ],
- "notes": "bare weathered snag, bark_dead texture (0.9 m/tile), origin at trunk base, no alpha cards",
- "kb": 526.6
+ "notes": "broad forked dead candelabra: short fat trunk, three curving limbs (one snapped), low drooping bough, exposed roots; bark_dead texture 0.9 m/tile, origin at trunk base, no alpha cards",
+ "kb": 516.9
 }

@@ -41,7 +41,10 @@ def main():
     doc = dict(
         _readme="Props are instancing-friendly GLBs: metres, Y up, origin at base centre (min y = 0). COLOR_0 holds baked ambient occlusion (multiply base colour). "
                 "Materials are named after the textures in public/textures/<name>/ where applicable (rock_grey, rock_red, cliff, concrete, rust_metal...): game code may swap them. "
-                "*_lod / *_billboard files are cheaper stand-ins for the same prop (same base footprint).",
+                "*_lod / *_billboard files are cheaper stand-ins for the same prop (same base footprint). "
+                "Foliage (pines, shrubs, palm, grass) uses alphaMode MASK + doubleSided cards and carries a small emissive term (emissive = albedo*0.6-0.85, KHR_materials_emissive_strength) as a fake ambient floor so shaded sides never go black: set material.emissive to black / emissiveIntensity 0 if the game has its own hemisphere/ambient light. "
+                "Sign faces and the billboard read from glTF -Z (toward oncoming traffic when the road runs +Z; rotate 180deg about Y otherwise); guardrail traffic side is +X; guardrail_4m and fence_chainlink_4m tile every 4.0 m along Z; wire_span shares utility_pole's origin transform and spans 20 m along +Z; skeleton_car_frame faces +Z. "
+                "Rocks: rock_0N (rock_grey) and rock_0N_red variants share geometry; swap the material by name for other biomes.",
         props=out,
     )
     with open(os.path.join(PROPS, "manifest.json"), "w") as f:

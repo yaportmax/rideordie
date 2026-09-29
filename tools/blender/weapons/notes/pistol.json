@@ -1,7 +1,7 @@
 {
  "name": "pistol",
- "tris": 23518,
- "glb_kb": 5490,
+ "tris": 19682,
+ "glb_kb": 1893,
  "parts": {
   "body": {
    "pivot": [
@@ -10,7 +10,7 @@
     0.0
    ],
    "parent": null,
-   "tris": 10468,
+   "tris": 6636,
    "materials": [
     "polymer",
     "gun_steel",
@@ -25,7 +25,7 @@
     -20.0
    ],
    "parent": null,
-   "tris": 5452,
+   "tris": 5448,
    "materials": [
     "gun_black",
     "gun_steel",
@@ -198,6 +198,8 @@
   "Hands: right palm on the backstrap/right panel around grip_R; support hand cups the left panel at grip_L with the index finger along the trigger guard."
  ],
  "style_keys": [
-  "decals"
+  "decals",
+  "grooves",
+  "polymer_stip"
  ]
 }

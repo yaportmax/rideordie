@@ -340,4 +340,5 @@ for sx in (1, -1):
         for (zz, yy) in po[1:-1]:
             m.rivet('armor', (1.31 * sx, yy - 0.04, zz), (sx, 0, 0), r=0.013)
         m.box('metal_dark', (0.03, 0.46, 0.5), at=(1.2 * sx, 0.97, zc - 0.78), bevel=0.006, seg=1)
+add_proxies(m)
 m.finish()

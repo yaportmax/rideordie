@@ -35,13 +35,15 @@ class Glb:
         self.g["bufferViews"].append(v)
         return len(self.g["bufferViews"]) - 1
 
-    def accessor(self, arr, kind, comp=FLOAT, target=None, minmax=False):
+    def accessor(self, arr, kind, comp=FLOAT, target=None, minmax=False, normalized=False):
         arr = np.ascontiguousarray(arr)
         dt = {FLOAT: np.float32, USHORT: np.uint16, UINT: np.uint32, UBYTE: np.uint8}[comp]
         arr = arr.astype(dt)
         view = self._view(arr.tobytes(), target)
         count = arr.shape[0]
         acc = {"bufferView": view, "componentType": comp, "count": int(count), "type": kind}
+        if normalized:
+            acc["normalized"] = True
         if minmax:
             flat = arr.reshape(count, -1)
             acc["min"] = [float(x) for x in flat.min(axis=0)]
@@ -79,7 +81,7 @@ class Glb:
     # -- materials ---------------------------------------------------------------------------------
     def material(self, name, color=(1, 1, 1, 1), metallic=0.0, rough=0.7, base_tex=None, normal_tex=None, normal_scale=1.0,
                  mr_tex=None, occ_tex=None, emissive=None, emissive_strength=None, alpha_mode=None, alpha_cutoff=0.5,
-                 double_sided=False, extensions=None, srgb=True):
+                 double_sided=False, extensions=None, srgb=True, spec=None):
         color = list(color)
         if srgb:                                    # factors are linear in glTF; scripts give sRGB
             color[:3] = [float(c) ** 2.2 for c in color[:3]]
@@ -105,6 +107,8 @@ class Glb:
                 m["alphaCutoff"] = float(alpha_cutoff)
         if double_sided:
             m["doubleSided"] = True
+        if spec is not None:
+            m.setdefault("extensions", {})["KHR_materials_specular"] = {"specularFactor": float(spec)}
         if extensions:
             m.setdefault("extensions", {}).update(extensions)
         self.g["materials"].append(m)
@@ -145,14 +149,23 @@ class Glb:
                 "TEXCOORD_0": self.accessor(p["uv"], "VEC2", target=34962),
             }
             if "joints" in p:
-                attrs["JOINTS_0"] = self.accessor(p["joints"], "VEC4", USHORT, target=34962)
-                attrs["WEIGHTS_0"] = self.accessor(p["weights"], "VEC4", target=34962)
+                j = np.asarray(p["joints"])
+                w = np.asarray(p["weights"], np.float64)
+                w = w / np.maximum(w.sum(axis=1, keepdims=True), 1e-9)
+                q = np.floor(w * 255.0 + 0.5).astype(np.int64)
+                # make every row sum to exactly 255 (add the rounding error to the dominant weight)
+                q[np.arange(len(q)), w.argmax(axis=1)] += 255 - q.sum(axis=1)
+                q = np.maximum(q, 0)
+                attrs["JOINTS_0"] = self.accessor(j.astype(np.uint8), "VEC4", UBYTE, target=34962)
+                attrs["WEIGHTS_0"] = self.accessor(q.astype(np.uint8), "VEC4", UBYTE, target=34962, normalized=True)
             if "color" in p and p["color"] is not None:
                 c = np.asarray(p["color"], np.float32)
                 attrs["COLOR_0"] = self.accessor(c[:, :3], "VEC3", target=34962)
             if "uv2" in p and p["uv2"] is not None:
                 attrs["TEXCOORD_1"] = self.accessor(p["uv2"], "VEC2", target=34962)
-            prim = {"attributes": attrs, "indices": self.accessor(np.asarray(p["idx"]).reshape(-1), "SCALAR", UINT, target=34963),
+            ii = np.asarray(p["idx"]).reshape(-1)
+            icomp = USHORT if int(ii.max()) < 65535 else UINT
+            prim = {"attributes": attrs, "indices": self.accessor(ii, "SCALAR", icomp, target=34963),
                     "material": p["material"]}
             out.append(prim)
         self.g["meshes"].append({"name": name, "primitives": out})
@@ -189,8 +202,9 @@ class Glb:
         used = []
         if self.uses_visibility:
             used.append("KHR_node_visibility")
-        if any("KHR_materials_emissive_strength" in m.get("extensions", {}) for m in self.g.get("materials", [])):
-            used.append("KHR_materials_emissive_strength")
+        for ext in ("KHR_materials_emissive_strength", "KHR_materials_specular", "KHR_materials_clearcoat"):
+            if any(ext in m.get("extensions", {}) for m in self.g.get("materials", [])):
+                used.append(ext)
         if used:
             self.g["extensionsUsed"] = used
         js = json.dumps(self.g, separators=(",", ":")).encode()

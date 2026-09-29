@@ -1,0 +1,102 @@
+{
+ "garage": {
+  "track": "garage",
+  "key": "G minor",
+  "bpm": 92.0,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "D#",
+   "F",
+   "G",
+   "A",
+   "A#"
+  ],
+  "lengths": {
+   "mix": 1840696
+  },
+  "equal_length": true,
+  "duration_s": 41.7391,
+  "stems": {
+   "mix": {
+    "peak_db": -1.99,
+    "dc": 2.7e-05,
+    "lufs": -16.02,
+    "seam": {
+     "jump_ratio": 0.83,
+     "jump_ratio_995": 0.38,
+     "seam_rms": 0.19999,
+     "interior_med": 0.14346,
+     "seam_vs_med": 1.39,
+     "seam_pct": 0.771
+    }
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.36,
+   "lr_corr": 0.88,
+   "lufs": -16.02,
+   "peak_db": -1.99,
+   "crest_db": 16.38,
+   "crest_vs_lufs_db": 14.03,
+   "bands_pct": [
+    45.2,
+    25.5,
+    17.5,
+    11.6,
+    0.2
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "mix": {
+    "attributed": {
+     "in_scale": 0.9865,
+     "tonic": 0.106,
+     "fifth": 0.082,
+     "top_pcs": [
+      "F",
+      "D#",
+      "C"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9819,
+     "tonic": 0.134,
+     "fifth": 0.112,
+     "top_pcs": [
+      "F",
+      "D#",
+      "A#"
+     ]
+    }
+   }
+  },
+  "rhythm_mix": {
+   "low": {
+    "beat": [
+     0.042,
+     0.166
+    ],
+    "bar": [
+     0.002,
+     1.0
+    ]
+   },
+   "full": {
+    "beat": [
+     0.025,
+     0.866
+    ],
+    "bar": [
+     0.001,
+     1.0
+    ]
+   },
+   "grid_dev_ms_med": 5.62,
+   "grid_dev_ms_p95": 66.78,
+   "onsets": 141
+  }
+ }
+}

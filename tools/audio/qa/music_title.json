@@ -1,0 +1,102 @@
+{
+ "title": {
+  "track": "title",
+  "key": "D minor",
+  "bpm": 104.0,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "E",
+   "F",
+   "G",
+   "A",
+   "A#"
+  ],
+  "lengths": {
+   "mix": 1628308
+  },
+  "equal_length": true,
+  "duration_s": 36.9231,
+  "stems": {
+   "mix": {
+    "peak_db": -5.47,
+    "dc": 2.3e-05,
+    "lufs": -16.0,
+    "seam": {
+     "jump_ratio": 0.63,
+     "jump_ratio_995": 0.29,
+     "seam_rms": 0.42214,
+     "interior_med": 0.15655,
+     "seam_vs_med": 2.7,
+     "seam_pct": 0.999
+    }
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.87,
+   "lr_corr": 0.716,
+   "lufs": -16.0,
+   "peak_db": -5.47,
+   "crest_db": 12.38,
+   "crest_vs_lufs_db": 10.53,
+   "bands_pct": [
+    46.0,
+    21.7,
+    27.3,
+    4.6,
+    0.4
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "mix": {
+    "attributed": {
+     "in_scale": 0.8059,
+     "tonic": 0.195,
+     "fifth": 0.064,
+     "top_pcs": [
+      "D",
+      "C",
+      "F"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.8402,
+     "tonic": 0.197,
+     "fifth": 0.087,
+     "top_pcs": [
+      "D",
+      "C",
+      "F"
+     ]
+    }
+   }
+  },
+  "rhythm_mix": {
+   "low": {
+    "beat": [
+     0.043,
+     0.699
+    ],
+    "bar": [
+     0.016,
+     1.0
+    ]
+   },
+   "full": {
+    "beat": [
+     0.051,
+     1.0
+    ],
+    "bar": [
+     0.001,
+     0.827
+    ]
+   },
+   "grid_dev_ms_med": 7.5,
+   "grid_dev_ms_p95": 61.87,
+   "onsets": 96
+  }
+ }
+}

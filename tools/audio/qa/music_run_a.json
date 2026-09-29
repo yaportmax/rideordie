@@ -24,15 +24,15 @@
   "stems": {
    "base": {
     "peak_db": -6.83,
-    "dc": 3.2e-05,
+    "dc": 2.9e-05,
     "lufs": -19.8,
     "seam": {
-     "jump_ratio": 0.13,
+     "jump_ratio": 0.12,
      "jump_ratio_995": 0.06,
-     "seam_rms": 0.07183,
-     "interior_med": 0.12028,
-     "seam_vs_med": 0.6,
-     "seam_pct": 0.159
+     "seam_rms": 0.07142,
+     "interior_med": 0.12026,
+     "seam_vs_med": 0.59,
+     "seam_pct": 0.156
     }
    },
    "drums": {
@@ -40,23 +40,23 @@
     "dc": 6.8e-05,
     "lufs": -18.85,
     "seam": {
-     "jump_ratio": 0.22,
-     "jump_ratio_995": 0.12,
-     "seam_rms": 0.15708,
-     "interior_med": 0.09512,
-     "seam_vs_med": 1.65,
-     "seam_pct": 0.729
+     "jump_ratio": 0.2,
+     "jump_ratio_995": 0.1,
+     "seam_rms": 0.15596,
+     "interior_med": 0.0951,
+     "seam_vs_med": 1.64,
+     "seam_pct": 0.726
     }
    },
    "lead": {
-    "peak_db": -11.54,
+    "peak_db": -11.55,
     "dc": 4e-06,
     "lufs": -20.75,
     "seam": {
      "jump_ratio": 0.08,
      "jump_ratio_995": 0.04,
-     "seam_rms": 0.04113,
-     "interior_med": 0.07571,
+     "seam_rms": 0.0411,
+     "interior_med": 0.0757,
      "seam_vs_med": 0.54,
      "seam_pct": 0.09
     }
@@ -64,22 +64,24 @@
    "extra": {
     "peak_db": -5.16,
     "dc": 2.7e-05,
-    "lufs": -20.86,
+    "lufs": -20.87,
     "seam": {
-     "jump_ratio": 0.03,
-     "jump_ratio_995": 0.01,
-     "seam_rms": 0.10903,
-     "interior_med": 0.06249,
+     "jump_ratio": 0.01,
+     "jump_ratio_995": 0.0,
+     "seam_rms": 0.1085,
+     "interior_med": 0.0625,
      "seam_vs_med": 1.74,
-     "seam_pct": 0.902
+     "seam_pct": 0.901
     }
    }
   },
   "mix": {
-   "lufs": -14.03,
-   "peak_db": -1.29,
-   "crest_db": 14.91,
-   "crest_vs_lufs_db": 12.75,
+   "mono_fold_db": -0.54,
+   "lr_corr": 0.824,
+   "lufs": -14.04,
+   "peak_db": -1.41,
+   "crest_db": 14.78,
+   "crest_vs_lufs_db": 12.62,
    "bands_pct": [
     40.9,
     28.8,
@@ -92,7 +94,7 @@
   "chroma": {
    "base": {
     "attributed": {
-     "in_scale": 0.9207,
+     "in_scale": 0.9224,
      "tonic": 0.146,
      "fifth": 0.019,
      "top_pcs": [
@@ -102,7 +104,7 @@
      ]
     },
     "raw": {
-     "in_scale": 0.9479,
+     "in_scale": 0.948,
      "tonic": 0.158,
      "fifth": 0.045,
      "top_pcs": [
@@ -126,7 +128,7 @@
     "raw": {
      "in_scale": 0.9871,
      "tonic": 0.17,
-     "fifth": 0.112,
+     "fifth": 0.111,
      "top_pcs": [
       "A",
       "G",
@@ -136,7 +138,7 @@
    },
    "extra": {
     "attributed": {
-     "in_scale": 0.9516,
+     "in_scale": 0.9513,
      "tonic": 0.148,
      "fifth": 0.061,
      "top_pcs": [
@@ -146,8 +148,8 @@
      ]
     },
     "raw": {
-     "in_scale": 0.9384,
-     "tonic": 0.154,
+     "in_scale": 0.9382,
+     "tonic": 0.155,
      "fifth": 0.07,
      "top_pcs": [
       "D",
@@ -167,7 +169,7 @@
    "kick_e_min_db": -1.5,
    "beats": 64,
    "kick_onset_db_min": 3.0,
-   "kick_onset_db_med": 65.9,
+   "kick_onset_db_med": 65.8,
    "onsets": 71,
    "grid_dev_ms_p95": 1.9,
    "grid_dev_ms_med": 1.48,
@@ -178,9 +180,9 @@
     199
    ],
    "gen_min_gain": 0.34,
-   "gen_recover90_ms": 0.0,
-   "slot_corr_mean": 0.55,
-   "slot_corr_min": 0.212,
+   "gen_recover90_ms": 95.5,
+   "slot_corr_mean": 0.551,
+   "slot_corr_min": 0.215,
    "slot_lag_ms_p90": 0.23,
    "slot_lag_ms_max": 1.22
   }

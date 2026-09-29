@@ -31,8 +31,9 @@ ENGINES = {
                intake=0.22, var=0.14, tjit=0.02, body=[(110, 4.0, 1.2)], dry=0.6)),
     "engine_player_t2": dict(
         desc="rough V8", rpms=[750, 2000, 3400, 5000, 6200],
-        P=dict(layout="V8x", kd=0.23, pipe=[(1.8, 0.5, 0.55), (2.0, 0.5, 0.55)], res=[(85, 5, 0.7), (190, 5, 0.6), (420, 4, 0.4)],
-               rasp=2.0, muff=1900, click=0.12, click_mix=0.15, mech=0.12, intake=0.25, var=0.08, body=[(90, 5.0, 1.2)])),
+        P=dict(layout="V8x", kd=0.26, pipe=[(1.5, 0.45, 0.5), (1.65, 0.45, 0.5)], res=[(100, 4, 0.6), (240, 4, 0.6), (520, 4, 0.5), (1100, 3, 0.3)],
+               rasp=2.4, muff=2700, click=0.2, click_mix=0.25, mech=0.25, mech_rate=4.0, intake=0.3, var=0.13, tjit=0.012,
+               body=[(95, 4.0, 1.2)], lope=dict(pattern=np.array([1.0, 0.9, 1.05, 0.8, 1.0, 0.85, 1.0, 0.95]), miss=0.02))),
     "engine_player_t3": dict(
         desc="big growly V8", rpms=[700, 1900, 3300, 4900, 6000],
         P=dict(layout="V8x", kd=0.20, pipe=[(2.4, 0.62, 0.6), (2.6, 0.62, 0.6)],
@@ -96,7 +97,7 @@ for _e, _spec in ENGINES.items():
     _lay = EL.LAYOUTS[_spec["P"]["layout"]]
     for _si, _st in enumerate(STAGES):
         _rpm = _spec["rpms"][_si]
-        sound(G, f"{_e}_{_st}", n=1, loop=True, category="engine", norm=("lufs", STAGE_LUFS[_st]), rel_db=-1.0 * (4 - _si) * 0.0,
+        sound(G, f"{_e}_{_st}", n=1, loop=True, category="engine", norm=("lufs", STAGE_LUFS[_st]), rel_db=-2.5 + 0.6 * _si,
               notes=f"{_spec['desc']}; {_st} stage recorded at {_rpm} RPM (fire freq {_rpm / 60.0 * _lay['n'] / 2.0:.1f} Hz); "
                     f"crossfade neighbours, playbackRate = rpm/{_rpm}",
               extra=dict(engine=_e, stage=_st, rpm=_rpm, fireHz=round(_rpm / 60.0 * _lay["n"] / 2.0, 2), cylinders=_lay["n"],

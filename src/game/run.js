@@ -61,7 +61,7 @@ export class Run {
       this.qworld = createWorld();
       this.streamer = new TerrainStreamer({ scene: g.scene, world: this.qworld, seed: this.seed, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
     }
-    this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, fx: g.fx, audio: g.audio });
+    this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
     return this;
@@ -94,6 +94,13 @@ export class Run {
     const px = o.x + d.x * h.timeOfImpact, pz = o.z + d.z * h.timeOfImpact;
     return { t: h.timeOfImpact, normal: new V3(h.normal.x, h.normal.y, h.normal.z), kind: this._surfaceKind(px, pz) };
   }
+  _groundY(x, y, z) {
+    const world = this.sim ? this.sim.world : this.qworld; if (!world) return null;
+    if (!this._gray) this._gray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
+    const r = this._gray; r.origin.x = x; r.origin.y = y + 4; r.origin.z = z;
+    const h = world.castRay(r, 60, true, undefined, RAY_SHOT);
+    return h ? y + 4 - h.timeOfImpact : null;
+  }
   _surfaceKind(x, z) {
     const road = this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)));
     const n = road.nearest(x, z, this.playerS || 0, 80, this._nn || (this._nn = {}));
@@ -123,7 +130,8 @@ export class Run {
           else g.hud.message(String(Math.ceil(this.countdown - 0.2)) || 'GO', 500, '#fff');
         }
       }
-      if (this.driverLocal) P.veh.setInput(cmds.driver);
+      if (this.driverLocal) { P.veh.setInput(cmds.driver); this._driverActions(dt, cmds.driver); }
+      if (cmds.gunner.medkit) this._medkit();
       else if (this.remoteDriverInput) P.veh.setInput(this.remoteDriverInput);
       // gunner state onto the sim car (from the local controller or from the remote gunner)
       const gs = P.crew.gunner;
@@ -195,6 +203,32 @@ export class Run {
     this._outcome(dt);
   }
 
+  _driverActions(dt, d) {
+    const e = this.effects, sim = this.sim, P = this.player;
+    this.oilCd = Math.max(0, (this.oilCd || 0) - dt); this.mineCd = Math.max(0, (this.mineCd || 0) - dt);
+    if (sim.state !== 'run' || P.exploded) return;
+    if (d.special1 && e.oil > 0 && this.oilCd <= 0) { sim.hazards.dropOil(sim, P); this.oilCd = e.oil >= 2 ? 6 : 10; }
+    if (d.special2 && e.mines > 0 && this.mineCd <= 0) { sim.hazards.dropMine(sim, P, e.mines >= 2 ? 11 : 8, e.mines >= 2 ? 190 : 140); this.mineCd = 4; }
+    if (d.medkit) this._medkit();
+    // hold reset to flip the truck upright
+    if (d.reset && P.veh.up.y < 0.55) { this.flipT = (this.flipT || 0) + dt; if (this.flipT > 1.0) { this.flipT = 0; this._unflip(); } } else this.flipT = 0;
+    if (d.horn) sim.emit({ t: 'horn', id: P.id });
+  }
+  _unflip() {
+    const P = this.player, b = P.veh.body, q = P.veh.quat;
+    const yaw = Math.atan2(P.veh.fwd.x, P.veh.fwd.z);
+    b.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
+    b.setTranslation({ x: P.veh.pos.x, y: P.veh.pos.y + 1.8, z: P.veh.pos.z }, true);
+    b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    this.sim.damageCar(P, P.maxHp * 0.04, { cause: 'flip' });
+    this.sim.emit({ t: 'unflip', id: P.id });
+  }
+  _medkit() {
+    if (this.medkits <= 0) return;
+    if (this.role === 'gunner') { this.net.sendJSON({ t: 'medkit' }); return; }
+    if (this.sim.useMedkit()) { this.medkits--; this.g.hud.message('MEDKIT', 900, '#7fdc7f'); }
+  }
+
   _simEventsToRun() {
     for (const e of this.events) {
       if (e.t === 'kill') { g_kill(this, e); }
@@ -228,7 +262,7 @@ export class Run {
     const b = biomeAt(s);
     const d = {
       speed: pst ? pst.speed : 0, rpm01: pst ? pst.rpm01 : 0, nitro01: 0, nitroMax: this.spec.nitro?.capacity || 0,
-      hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : 0, biome: BIOMES[b.w > 0.5 ? b.b : b.a].name, prog01: s / BOSS_S, boss,
+      hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : (this.hud?.time || 0), biome: BIOMES[b.w > 0.5 ? b.b : b.a].name, prog01: s / BOSS_S, boss,
       weapon: this.gunner ? this.gunner.weapon.name : undefined, mag: this.gunner ? this.gunner.magNow : 0, reloading: this.gunner ? this.gunner.reloading : false,
       showDriver: this.role !== 'gunner',
     };
@@ -292,6 +326,7 @@ export class Run {
       else if (m.t === 'grenade') this.sim.projectiles.addGrenade(this.sim, new V3(...m.o), new V3(...m.v), m.cfg, 1);
       else if (m.t === 'shotfx') for (const e of m.e) this.sim.emit({ ...e, remote: true });
       else if (m.t === 'input') this.remoteDriverInput = m.i;
+      else if (m.t === 'medkit') { if (this.medkits > 0 && this.sim.useMedkit()) this.medkits--; }
     }
   }
   onFast(buf) {

@@ -3,16 +3,16 @@
  "file": "dead_tree_c.glb",
  "category": "tree_dead",
  "height": 5.035,
- "radius": 1.399,
+ "radius": 1.976,
  "size": [
-  2.007,
+  2.329,
   5.035,
-  2.423
+  3.567
  ],
- "tris": 2448,
+ "tris": 2879,
  "materials": [
   "bark_dead"
  ],
- "notes": "bare weathered snag, bark_dead texture (0.9 m/tile), origin at trunk base, no alpha cards",
- "kb": 521.2
+ "notes": "low twisted multi-stem dead mesquite: spiralling knotty stems, dead horizontal bough, exposed roots; bark_dead texture 0.9 m/tile, origin at trunk base, no alpha cards",
+ "kb": 528.2
 }

@@ -9,7 +9,7 @@ const curve = (v, p = 1.6) => Math.sign(v) * Math.pow(Math.abs(v), p);
 export const DEFAULT_BINDINGS = {
   // driver
   throttle: ['KeyW', 'ArrowUp'], brake: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
-  handbrake: ['Space'], nitro: ['ShiftLeft', 'ShiftRight'], reset: ['KeyR'], camera: ['KeyC'], horn: ['KeyH'], special1: ['KeyQ'], special2: ['KeyE'],
+  handbrake: ['Space'], nitro: ['ShiftLeft', 'ShiftRight'], reset: ['KeyR'], camera: ['KeyC'], horn: ['KeyH'], special1: ['KeyQ'], special2: ['KeyE'], medkit: ['KeyX'],
   // gunner
   reload: ['KeyR'], grenade: ['KeyG'], crouch: ['ControlLeft', 'KeyC'], slot1: ['Digit1'], slot2: ['Digit2'], slot3: ['Digit3'], slot4: ['Digit4'], slot5: ['Digit5'], slot6: ['Digit6'],
   moveL: ['KeyA'], moveR: ['KeyD'], moveF: ['KeyW'], moveB: ['KeyS'], lean: ['KeyQ'], melee: ['KeyV'],
@@ -84,7 +84,7 @@ export class Input {
 
   /** Driver commands. Steering: +1 = left. */
   driver(dt) {
-    const c = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false, reset: false, cameraToggle: false, horn: false, special1: false, special2: false, lookX: 0, lookY: 0 };
+    const c = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false, reset: false, cameraToggle: false, horn: false, special1: false, special2: false, medkit: this.hit('medkit'), lookX: 0, lookY: 0 };
     // keyboard
     let kSteer = (this.down('left') ? 1 : 0) - (this.down('right') ? 1 : 0);
     this.steerSmooth = damp(this.steerSmooth, kSteer, kSteer !== 0 ? 9 : 14, dt);
@@ -103,7 +103,7 @@ export class Input {
       c.throttle = Math.max(c.throttle, this.btnV(7)); c.brake = Math.max(c.brake, this.btnV(6));
       c.handbrake = c.handbrake || this.btn(0); c.nitro = c.nitro || this.btn(5); c.reset = c.reset || this.btn(3);
       c.special1 = c.special1 || this.edge(2); c.special2 = c.special2 || this.edge(1);
-      c.cameraToggle = c.cameraToggle || this.edge(10) || this.edge(4); c.horn = c.horn || this.btn(9);
+      c.cameraToggle = c.cameraToggle || this.edge(10) || this.edge(4); c.horn = c.horn || this.btn(9); c.medkit = c.medkit || this.edge(13);
       c.lookX = applyDead(this.pad.axes[2] || 0); c.lookY = applyDead(this.pad.axes[3] || 0);
     }
     return c;
@@ -111,7 +111,7 @@ export class Input {
 
   /** Gunner commands. yaw/pitch deltas in radians. */
   gunner(dt, adsActive = false) {
-    const c = { dYaw: 0, dPitch: 0, fire: false, firePressed: false, ads: false, reload: false, grenade: false, swap: 0, slot: -1, crouch: false, moveX: 0, moveZ: 0, lean: 0, melee: false, pause: false };
+    const c = { dYaw: 0, dPitch: 0, fire: false, firePressed: false, ads: false, reload: false, grenade: false, swap: 0, slot: -1, crouch: false, moveX: 0, moveZ: 0, lean: 0, melee: false, pause: false, medkit: this.hit('medkit') };
     const mul = this.sens.mouse;
     c.dYaw = -this.mouseDX * mul; c.dPitch = -this.mouseDY * mul * (this.invertY ? -1 : 1);
     c.fire = this.mouse.left; c.firePressed = this.mousePressed.left; c.ads = this.mouse.right;
@@ -130,7 +130,7 @@ export class Input {
       c.reload = c.reload || this.edge(2); c.grenade = c.grenade || this.edge(5) || this.edge(4);
       c.crouch = c.crouch || this.btn(1);
       if (this.edge(3)) c.swap += 1; if (this.edge(12)) c.slot = 0; if (this.edge(15)) c.slot = 1; if (this.edge(13)) c.slot = 2; if (this.edge(14)) c.slot = 3;
-      c.melee = c.melee || this.edge(9);
+      c.medkit = c.medkit || this.edge(11); c.melee = false;
       c.moveX += -applyDead(this.pad.axes[0] || 0); c.moveZ += -applyDead(this.pad.axes[1] || 0);
       c.moveX = clamp(c.moveX, -1, 1); c.moveZ = clamp(c.moveZ, -1, 1);
     }

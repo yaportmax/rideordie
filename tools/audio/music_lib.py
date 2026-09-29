@@ -275,6 +275,8 @@ def bass_note(f, gate, vel=1.0, open_=1800.0, close=260.0, tau_f=0.07, res=0.3, 
     f2 = f * 2.0 ** (-det / 1200.0)
     if wave == "saw":
         osc = 0.5 * dsp.saw(f1, n, ph[0]) + 0.5 * dsp.saw(f2, n, ph[1])
+    elif wave == "tri":
+        osc = 0.5 * dsp.tri(f1, n, ph[0]) + 0.5 * dsp.tri(f2, n, ph[1])
     else:
         osc = 0.5 * dsp.pulse(f1, n, 0.5, ph[0]) + 0.5 * dsp.pulse(f2, n, 0.35, ph[1])
     fc = close + (open_ - close) * np.exp(-t / tau_f)
@@ -425,9 +427,56 @@ def pluck_ks(f, gate, vel=1.0, decay=0.996, damp=0.5, bright=0.6, rel=0.12, seed
     return y * e * vel
 
 
+def epiano(f, gate, vel=1.0, tau=1.1, bright=0.6, rel=0.25, seed=13):
+    """electric-piano / bell: harmonic partials (1,2,3,4,6) with faster decay for the upper ones + tine click. stereo."""
+    n = tail_n(gate, rel) + int(tau * SR * 0.5)
+    t = np.arange(n) / SR
+    y = np.zeros(n)
+    for k, (h, a, tk) in enumerate([(1, 1.0, 1.0), (2, 0.55, 0.6), (3, 0.28 * bright, 0.35), (4, 0.2 * bright, 0.25), (6, 0.1 * bright, 0.15)]):
+        if f * h < 12000:
+            y += a * np.sin(TAU * f * h * t + 0.7 * k) * np.exp(-t / (tau * tk))
+    rr = np.random.default_rng(seed)
+    y += 0.25 * bright * dsp.bp(rr.standard_normal(n), 2500.0, 6000.0, 1) * np.exp(-t / 0.012)
+    e = np.ones(n)
+    if gate < n:
+        e[gate:] = np.exp(-np.maximum(t[gate:] - gate / SR, 0.0) / max(rel / 4.0, 1e-4))
+    e *= np.minimum(t / 0.002, 1.0)
+    kk = int(0.005 * SR)
+    e[n - kk:] *= np.linspace(1, 0, kk)
+    y = np.tanh(1.3 * y) * e * vel
+    return np.stack([y, y], axis=1)
+
+
+def tape_wow(x, depth_ms=0.35, cycles=21, flutter_ms=0.08, flutter_cycles=290, seed=3):
+    """loop-safe tape wow/flutter: sinusoidal delay modulation with integer cycles per loop (circular interpolation)."""
+    n = len(x)
+    t = np.arange(n) / n
+    d = (depth_ms * np.sin(TAU * cycles * t + 0.4) + flutter_ms * np.sin(TAU * flutter_cycles * t + 1.3)) * 1e-3 * SR
+    idx = (np.arange(n) - d) % n
+    i0 = np.floor(idx).astype(int)
+    fr = idx - i0
+    i1 = (i0 + 1) % n
+    if x.ndim == 1:
+        return x[i0] * (1 - fr) + x[i1] * fr
+    return x[i0] * (1 - fr)[:, None] + x[i1] * fr[:, None]
+
+
 # ======================================================================================================== drums
 def _nz(r, n):
     return r.standard_normal(n)
+
+
+def _tailfade(y, frac=0.22, min_s=0.006):
+    """raised-cosine fade over the last `frac` of the sound (>= min_s): no truncation clicks on decaying samples."""
+    y = y.copy()
+    n = len(y)
+    k = min(n, max(int(min_s * SR), int(frac * n)))
+    w = 0.5 * (1.0 + np.cos(np.linspace(0.0, np.pi, k)))
+    if y.ndim == 1:
+        y[n - k:] *= w
+    else:
+        y[n - k:] *= w[:, None]
+    return y
 
 
 def make_kick(r, f0=180.0, f1=52.0, tp=0.022, tau=0.13, drive=2.2, click=0.45, dur=0.32, sub=0.0, hp_f=30.0):
@@ -444,8 +493,7 @@ def make_kick(r, f0=180.0, f1=52.0, tp=0.022, tau=0.13, drive=2.2, click=0.45, d
     cl += 0.7 * np.sin(TAU * 1500.0 * t) * np.exp(-t / 0.0025)
     y = y + click * cl / (np.abs(cl).max() + 1e-9)
     y = dsp.hp(y, hp_f, 2)
-    k = int(0.003 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
 
 
@@ -465,8 +513,7 @@ def make_snare(r, tune=190.0, noise_lo=1300.0, noise_hi=9000.0, tau_n=0.085, tau
         ir = dsp.reverb_ir(0.22, r, lp_start=6000, lp_end=1500, hp_f=200.0)
         w = dsp.convolve(y, ir)[:n]
         y = y + room * w * math.sqrt(np.sum(y * y) / (np.sum(w * w) + 1e-12))
-    k = int(0.004 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
 
 
@@ -482,8 +529,7 @@ def make_clap(r, lo=850.0, hi=3400.0, tail=0.075, dur=0.30, spacing=(0.0, 0.0085
     s = spacing[-1]
     y += dsp.bp(_nz(r, n), lo * 0.9, hi * 0.8, 2) * np.exp(-np.maximum(t - s, 0) / tail) * (t >= s) * 0.9
     y = np.tanh(1.4 * y) / 1.1
-    k = int(0.005 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
 
 
@@ -503,8 +549,7 @@ def make_hat(r, open_=False, bright=1.0, dur=None, tau=None):
     y = y + 0.3 * dsp.hp(_nz(r, n), 9000.0, 2) * 0.6
     env = np.exp(-t / tau) * np.minimum(t / 0.0004, 1.0)
     y = y * env
-    k = int(0.004 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
 
 
@@ -516,8 +561,7 @@ def make_tom(r, f=110.0, tau=0.17, drop=1.7, dur=0.55, drive=1.6):
     y = np.tanh(drive * y)
     cl = dsp.bp(_nz(r, n), 900.0, 4500.0, 1) * np.exp(-t / 0.006) * 0.35
     y = y + cl
-    k = int(0.005 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
 
 
@@ -534,8 +578,7 @@ def make_crash(r, dur=2.6, tau=0.85, lo=3200.0):
         y *= np.minimum(t / 0.0015, 1.0)
         outs.append(y)
     o = np.stack(outs, axis=1)
-    k = int(0.02 * SR)
-    o[-k:] *= np.linspace(1, 0, k)[:, None]
+    o = _tailfade(o)
     return o / (np.abs(o).max() + 1e-9)
 
 
@@ -555,8 +598,7 @@ def make_riser(r, n, f0=300.0, f1=9000.0, q=2.2, curve=2.0, tone=None):
         tn = dsp.svf(tn, np.minimum(f * 4.0, 9000.0), 1.2, "lp") * (u ** 2.5) * tone[2]
         o = o + tn[:, None]
     o = o / (np.abs(o).max() + 1e-9)
-    k = int(0.004 * SR)
-    o[-k:] *= np.linspace(1, 0, k)[:, None]
+    o = _tailfade(o, frac=0.0, min_s=0.004)        # riser ends loud on purpose (the downbeat masks it): 4 ms fade only
     return o
 
 
@@ -568,8 +610,7 @@ def make_impact(r, f0=110.0, f1=28.0, dur=1.6, tau=0.35, noise=0.4):
     y = np.tanh(1.8 * y)
     nz = dsp.lp(_nz(r, n), 2200.0, 2) * np.exp(-t / 0.35) * noise
     y = y + nz
-    k = int(0.02 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
 
 
@@ -577,9 +618,12 @@ def make_shaker(r, tau=0.03, dur=0.15, lo=5500.0):
     n = secs(dur)
     t = dsp.tt(n)
     y = dsp.hp(_nz(r, n), lo, 2) * np.exp(-t / tau) * (1 - np.exp(-t / 0.004))
-    k = int(0.004 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
+
+
+# diatonic (just) partial ratios for a tuned 'metal': root, fifth, octave, fourth+oct, minor-sixth+oct, 2 oct  (root=E: E B E A C E)
+METAL_E = (1.0, 1.5, 2.0, 2.667, 3.2, 4.0)
 
 
 def make_metal(r, f=380.0, ratios=(1.0, 2.76, 5.40, 8.93, 13.34), taus=(0.35, 0.22, 0.14, 0.08, 0.05), dur=0.9, click=0.5, drive=1.6):
@@ -590,8 +634,7 @@ def make_metal(r, f=380.0, ratios=(1.0, 2.76, 5.40, 8.93, 13.34), taus=(0.35, 0.
     y = np.tanh(drive * y)
     cl = dsp.bp(_nz(r, n), 2000.0, 9000.0, 1) * np.exp(-t / 0.004) * click
     y = y + cl
-    k = int(0.01 * SR)
-    y[-k:] *= np.linspace(1, 0, k)
+    y = _tailfade(y)
     return y / (np.abs(y).max() + 1e-9)
 
 
@@ -653,6 +696,14 @@ def dbg(name, x):
     """print component loudness when MDEBUG=1 (dev aid)."""
     if os.environ.get("MDEBUG"):
         print(f"   [{name:8s}] lufs {lufs(x):6.1f}  peak {20 * math.log10(float(np.abs(x).max()) + 1e-12):6.1f} dB")
+
+
+def save_parts(track, parts):
+    """dev aid: MSAVE=<dir> dumps the component buses of a track as float32 npz."""
+    d = os.environ.get("MSAVE")
+    if d:
+        os.makedirs(d, exist_ok=True)
+        np.savez(os.path.join(d, f"{track}_parts.npz"), **{k: v.astype(np.float32) for k, v in parts.items()})
 
 
 def lufs(x):
@@ -745,16 +796,14 @@ def cached_stems(track, builder, srcs):
             fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             break
         except FileExistsError:
-            waited = 0
-            while os.path.exists(lock) and waited < 900:
+            while os.path.exists(lock):
                 time.sleep(0.5)
-                waited += 0.5
                 r = load()
                 if r:
                     return r
-            if os.path.exists(lock):
                 try:
-                    os.remove(lock)
+                    if time.time() - os.path.getmtime(lock) > 300:      # stale lock from a killed build
+                        os.remove(lock)
                 except OSError:
                     pass
     try:

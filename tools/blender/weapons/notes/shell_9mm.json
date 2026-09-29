@@ -1,0 +1,29 @@
+{
+ "name": "shell_9mm",
+ "tris": 1392,
+ "glb_kb": 246,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 1392,
+   "materials": [
+    "brass",
+    "gun_steel"
+   ]
+  }
+ },
+ "sockets": {},
+ "motions": [],
+ "remarks": [
+  "Fired 9x19 mm case: mouth toward +Z (glTF), origin at the middle of the case length on the axis, case axis = Z. Length 19.1 mm, rim dia 10.0 mm. Slight mouth dent, dented primer, headstamp ring."
+ ],
+ "style_keys": [
+  "dirt",
+  "wear"
+ ]
+}

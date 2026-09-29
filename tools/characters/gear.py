@@ -11,9 +11,10 @@ class BodyRC:
 
     def __init__(self, ch):
         self.ch = ch
-        self.P = mh.to_final(ch.pos)
-        self.top = ch.top
-        self.tv = ch.tv
+        src = getattr(ch, "full", None)           # after decimation, rays go against the full-resolution body
+        self.P = mh.to_final(src["pos"] if src else ch.pos)
+        self.top = src["top"] if src else ch.top
+        self.tv = src["tv"] if src else ch.tv
         self._cache = {}
 
     def region(self, *bone_subs):
@@ -77,16 +78,16 @@ def footprint_solid(poly_xz, y0, y1, chamfer=0.004, tile=0.25, heel_extra=0.0):
     return kit.orient_outward(m, np.array([c[0], (y0 + y1) / 2, c[1]]))
 
 
-def boots(ctx, brc, side, shaft_len=0.22, upper_off=0.011, sole_h=0.032, sole_off=0.012, laces=True):
+def boots(ctx, brc, side, shaft_len=0.22, upper_off=0.011, sole_h=0.032, sole_off=0.012, laces=True, detail=1.0):
     """One boot: dict(upper, shaft, sole, laces(list)). Lofted from the foot's own cross-sections (final space)."""
     ch = ctx.ch
     P = brc.P
-    top = ch.top
+    top = brc.top
     B = mh.BONE_INDEX
     H = brc.landmarks()
     ankle = H[side + "Foot"]
     valid = np.zeros(len(P), bool)
-    valid[np.unique(ch.tv)] = True
+    valid[np.unique(brc.tv)] = True
     foot = np.isin(top, [B[side + "Foot"], B[side + "ToeBase"]]) & valid
     ptsF = P[foot]
     ptsF = ptsF[ptsF[:, 1] < ankle[1] + 0.03]
@@ -98,8 +99,8 @@ def boots(ctx, brc, side, shaft_len=0.22, upper_off=0.011, sole_h=0.032, sole_of
     along = (ptsF - ankle) @ d
     a0, a1 = float(along.min()), float(along.max())
     rc_foot = brc.region(side + "Foot", side + "ToeBase")
-    stations = np.linspace(a0 + 0.012, a1 - 0.010, 14)
-    n = 26
+    stations = np.linspace(a0 + 0.012, a1 - 0.010, max(8, int(14 * detail)))
+    n = max(14, int(26 * detail))
     th = np.linspace(0, 2 * np.pi, n, endpoint=False)
     rings = []
     prev_c = None
@@ -152,7 +153,7 @@ def boots(ctx, brc, side, shaft_len=0.22, upper_off=0.011, sole_h=0.032, sole_of
     dd = poly - cen
     L = np.linalg.norm(dd, axis=1, keepdims=True)
     poly = cen + dd * (1 + (sole_off + upper_off * 0.6) / np.maximum(L, 1e-6))
-    for _ in range(3):
+    for _ in range(1 if detail >= 0.7 else 0):
         nxt = np.roll(poly, -1, axis=0)
         poly = np.concatenate([0.75 * poly + 0.25 * nxt, 0.25 * poly + 0.75 * nxt])
         order = np.argsort(np.arctan2(poly[:, 1] - cen[1], poly[:, 0] - cen[0]))
@@ -162,16 +163,16 @@ def boots(ctx, brc, side, shaft_len=0.22, upper_off=0.011, sole_h=0.032, sole_of
     rc_leg = brc.region(side + "Leg", side + "Foot")
     p0 = np.array([ankle[0], ankle[1] - 0.035, ankle[2]])
     p1 = np.array([ankle[0], ankle[1] + shaft_len, ankle[2]])
-    ts = np.linspace(0, 1, 9)
-    srings, dirs = kit.rings_along(rc_leg, p0, p1, ts, offset=0.012, n=30, r_out=0.25)
+    ts = np.linspace(0, 1, 9 if detail >= 0.7 else 6)
+    srings, dirs = kit.rings_along(rc_leg, p0, p1, ts, offset=0.012, n=max(14, int(30 * detail)), r_out=0.25)
     cuff = srings[-1] + dirs * 0.005
     srings = np.concatenate([srings, cuff[None], (cuff - np.array([0, 0.012, 0]) + dirs * 0.002)[None]])
     shaft = kit.loft(srings, closed=True, tile=0.25, angle=45.0)
     shaft = kit.orient_outward(shaft, srings.reshape(-1, 3).mean(axis=0), 45.0)
     out = dict(upper=upper, shaft=shaft, sole=sole, laces=[])
-    if laces:
-        for a in np.linspace(a0 + 0.30 * (a1 - a0), a0 + 0.72 * (a1 - a0), 6):
-            xs = np.linspace(-0.035, 0.035, 9)
+    if laces and detail >= 0.7:
+        for a in np.linspace(a0 + 0.32 * (a1 - a0), a0 + 0.70 * (a1 - a0), 5):
+            xs = np.linspace(-0.035, 0.035, 7)
             path = []
             for x in xs:
                 o = ankle + d * a + side_v * x
@@ -181,16 +182,17 @@ def boots(ctx, brc, side, shaft_len=0.22, upper_off=0.011, sole_h=0.032, sole_of
                     continue
                 path.append(hp[0] + hn[0] * (upper_off + 0.003) + np.array([0, 0.0, 0]))
             if len(path) >= 4:
-                out["laces"].append(kit.sweep(np.array(path), 0.0024, sides=6, caps=True, tile=0.25))
+                out["laces"].append(kit.sweep(np.array(path), 0.0024, sides=4, caps=True, tile=0.25))
     return out
 
 
-def belt(ctx, brc, y, height=0.045, thick=0.006, ease=0.004, cols=72):
+def belt(ctx, brc, y, height=0.045, thick=0.006, ease=0.004, cols=72, detail=1.0):
     """A belt ring around the waist at height y (final space), rays cast onto the trunk. Returns (belt mesh, front point)."""
     rc = brc.region("Hips", "Spine")
     Pf = mh.to_final(ctx.ch.pos)
     H = brc.landmarks()
     c = np.array([0.0, y, H["Hips"][2] * 0.4 + H["Spine"][2] * 0.6])
+    cols = max(24, int(cols * detail))
     th = np.linspace(0, 2 * np.pi, cols, endpoint=False)
     dirs = np.stack([np.sin(th), np.zeros(cols), np.cos(th)], axis=1)
     out = []
@@ -228,12 +230,12 @@ def head_info(ctx, brc):
     eye = mh.to_final(mh.to_game(ch.body.mh_bone("eye.L")[0]) + ch.lift)
     eye_r = mh.to_final(mh.to_game(ch.body.mh_bone("eye.R")[0]) + ch.lift)
     P = brc.P
-    hp = P[np.isin(ch.top, [mh.BONE_INDEX["Head"]])]
+    hp = P[np.isin(brc.top, [mh.BONE_INDEX["Head"]])]
     return dict(eye_l=eye, eye_r=eye_r, top=float(hp[:, 1].max()), front=float(hp[:, 2].max()), back=float(hp[:, 2].min()),
                 head=H["Head"])
 
 
-def goggles(ctx, brc, up=0.052, hair=0.012, lens_r=0.0255, spacing=0.034, tilt=6.0):
+def goggles(ctx, brc, up=0.052, hair=0.012, lens_r=0.0255, spacing=0.034, tilt=6.0, seg=24, ring_n=44):
     """Goggles pushed up on the forehead: dict(strap, frames[], lenses[], rims[]) (kit meshes, rigid to Head)."""
     hi = head_info(ctx, brc)
     rc = brc.head()
@@ -243,8 +245,8 @@ def goggles(ctx, brc, up=0.052, hair=0.012, lens_r=0.0255, spacing=0.034, tilt=6
     # strap ring around the head at height yc (over the hair)
     p0 = np.array([0.0, yc - 0.017, zc])
     p1 = np.array([0.0, yc + 0.017, zc])
-    rings, dirs = kit.rings_along(rc, p0, p1, [0.0, 1.0], offset=hair + 0.004, n=44, r_out=0.3)
-    inner, _ = kit.rings_along(rc, p0, p1, [0.0, 1.0], offset=hair, n=44, r_out=0.3)
+    rings, dirs = kit.rings_along(rc, p0, p1, [0.0, 1.0], offset=hair + 0.004, n=ring_n, r_out=0.3)
+    inner, _ = kit.rings_along(rc, p0, p1, [0.0, 1.0], offset=hair, n=ring_n, r_out=0.3)
     strap = kit.loft(np.array([inner[0], rings[0], rings[1], inner[1]]), closed=True, tile=0.25, angle=60.0)
     strap = kit.orient_outward(strap, np.array([0.0, yc, zc]), 60.0)
     out = dict(strap=strap, frames=[], lenses=[], rims=[])
@@ -260,9 +262,9 @@ def goggles(ctx, brc, up=0.052, hair=0.012, lens_r=0.0255, spacing=0.034, tilt=6
         # frame: soft rubber cup
         prof = [(0.0, -0.004), (lens_r + 0.006, -0.004), (lens_r + 0.008, 0.006), (lens_r + 0.005, 0.024), (lens_r - 0.002, 0.030),
                 (lens_r - 0.004, 0.024), (lens_r - 0.002, 0.004), (0.0, 0.004)]
-        frame = kit.lathe(prof, pt, axis=ax, seg=24, up=(0, 1, 0))
-        rim = kit.lathe([(lens_r - 0.004, 0.026), (lens_r + 0.002, 0.026), (lens_r + 0.003, 0.032), (lens_r - 0.003, 0.033)], pt, axis=ax, seg=24, up=(0, 1, 0))
-        lens = kit.lathe([(0.0, 0.033), (lens_r * 0.6, 0.0325), (lens_r - 0.003, 0.030)], pt, axis=ax, seg=24, up=(0, 1, 0))
+        frame = kit.lathe(prof, pt, axis=ax, seg=seg, up=(0, 1, 0))
+        rim = kit.lathe([(lens_r - 0.004, 0.026), (lens_r + 0.002, 0.026), (lens_r + 0.003, 0.032), (lens_r - 0.003, 0.033)], pt, axis=ax, seg=seg, up=(0, 1, 0))
+        lens = kit.lathe([(0.0, 0.033), (lens_r * 0.6, 0.0325), (lens_r - 0.003, 0.030)], pt, axis=ax, seg=seg, up=(0, 1, 0))
         out["frames"].append(frame)
         out["rims"].append(rim)
         out["lenses"].append(lens)
@@ -271,3 +273,133 @@ def goggles(ctx, brc, up=0.052, hair=0.012, lens_r=0.0255, spacing=0.034, tilt=6
     pc = 0.5 * (out["frames"][0]["pos"].mean(axis=0) + out["frames"][1]["pos"].mean(axis=0))
     out["bridge"] = kit.xform(br, t=pc + np.array([0, 0.0, 0.004]))
     return out
+
+
+# --- surface-following parts -----------------------------------------------------------------------------------
+
+def surface_pts(rc, pts, lift=0.12):
+    """Project approximate points onto the surface seen by rc: returns (hit points, unit normals)."""
+    pts = np.asarray(pts, float)
+    P, n0, d = rc.nearest(pts)
+    orig = P + n0 * lift
+    T, hp, hn = rc.cast(orig, -n0, tmax=lift * 2.5)
+    miss = ~np.isfinite(T)
+    hp[miss] = P[miss]
+    hn[miss] = n0[miss]
+    return hp, hn
+
+
+def ribbon(rc, ctrl, width, standoff=0.004, thick=0.006, n=60, closed=False, tile=0.25, angle=45.0, smooth_n=3):
+    """A strap hugging the surface along a smooth path through `ctrl` (approximate surface points)."""
+    path = kit.polyline_smooth(ctrl, n)
+    if closed:
+        path = np.vstack([path, path[:1]])
+    hp, hn = surface_pts(rc, path)
+    for _ in range(smooth_n):
+        hn = (np.roll(hn, 1, axis=0) + 2 * hn + np.roll(hn, -1, axis=0)) / 4.0
+        hn /= np.linalg.norm(hn, axis=1, keepdims=True)
+    t = np.gradient(hp, axis=0)
+    t /= np.maximum(np.linalg.norm(t, axis=1, keepdims=True), 1e-9)
+    side = np.cross(hn, t)
+    side /= np.maximum(np.linalg.norm(side, axis=1, keepdims=True), 1e-9)
+    prof = [(-width / 2, 0.0), (width / 2, 0.0), (width / 2, thick), (-width / 2, thick)]
+    rings = []
+    for i in range(len(hp)):
+        base = hp[i] + hn[i] * standoff
+        rings.append(np.array([base + side[i] * x + hn[i] * z for x, z in prof]))
+    m = kit.loft(np.array(rings), closed=True, cap0=not closed, cap1=not closed, tile=tile, angle=angle)
+    c = np.array(rings).reshape(-1, 3).mean(axis=0)
+    return m, hp, hn
+
+
+def pouch(size=(0.09, 0.11, 0.05), flap=0.4, radius=0.006, tile=0.25, strap=True, detail=1.0):
+    """A belt/MOLLE pouch: body box + flap (origin at the back-centre, +Z = out of the surface). Returns a merged mesh."""
+    sx, sy, sz = size
+    if detail < 0.7:
+        radius = 0.0
+    body = kit.rbox((sx, sy, sz), radius, 1 if radius > 0 else 0, tile)
+    body = kit.xform(body, t=[0, 0, sz / 2])
+    fl = kit.rbox((sx * 1.02, sy * flap, sz * 0.22), radius * 0.8, 1 if radius > 0 else 0, tile)
+    fl = kit.xform(fl, t=[0, sy / 2 - sy * flap / 2 + 0.002, sz + 0.002 - sz * 0.05])
+    parts_ = [body, fl]
+    if strap and detail >= 0.7:
+        tab = kit.rbox((sx * 0.22, sy * 0.10, sz * 0.14), radius * 0.6, 1, tile)
+        parts_.append(kit.xform(tab, t=[0, sy / 2 - sy * flap - 0.004, sz + 0.004]))
+    return kit.merge(parts_)
+
+
+def place(mesh, P, n, up=(0, 1, 0)):
+    """Place a part authored with +Z out of the surface and +Y up at point P with outward normal n."""
+    n = np.asarray(n, float)
+    n = n / np.linalg.norm(n)
+    y = np.asarray(up, float) - n * (np.asarray(up, float) @ n)
+    if np.linalg.norm(y) < 1e-6:
+        y = np.cross(n, [1.0, 0, 0])
+    y /= np.linalg.norm(y)
+    x = np.cross(y, n)
+    R = np.stack([x, y, n], axis=1)
+    return kit.xform(mesh, R=R, t=P)
+
+
+def grenade(scale=1.0, tile=0.25):
+    """Frag grenade (origin at its base centre, +Y up): body, neck, spoon lever and pull ring; returns (body, metal) meshes."""
+    s = scale
+    body = kit.lathe([(0.0, 0.0), (0.016 * s, 0.002 * s), (0.026 * s, 0.018 * s), (0.028 * s, 0.038 * s), (0.024 * s, 0.056 * s),
+                      (0.014 * s, 0.066 * s), (0.0, 0.066 * s)], [0, 0, 0], axis=(0, 1, 0), seg=16, tile=tile)
+    neck = kit.cylinder([0, 0.064 * s, 0], [0, 0.078 * s, 0], 0.011 * s, 0.011 * s, seg=12, tile=tile)
+    lever = kit.rbox((0.012 * s, 0.070 * s, 0.004 * s), 0.0015, 1, tile)
+    lever = kit.xform(lever, t=[0.023 * s, 0.040 * s, 0.0])
+    ring = kit.sweep(kit.polyline_smooth([[0.0, 0.08 * s, 0.0], [0.012 * s, 0.086 * s, 0.0], [0.02 * s, 0.078 * s, 0.0], [0.012 * s, 0.072 * s, 0.0]], 12), 0.0012 * s, sides=6, caps=True, tile=tile)
+    return body, kit.merge([neck, lever, ring])
+
+
+def spike(base, direction, length=0.09, r=0.012, seg=10, tile=0.25):
+    d = np.asarray(direction, float)
+    d /= np.linalg.norm(d)
+    p1 = np.asarray(base, float) + d * length
+    return kit.cylinder(base, p1, r, 0.0008, seg=seg, tile=tile, caps=(True, False))
+
+
+def knee_pad(rc, P0, n, up=(0, 1, 0), half_u=0.062, half_v=0.075, thick=0.02):
+    return kit.patch_on_surface(rc, P0, n, up, half_u, half_v, standoff=0.006, thick=thick, bevel=0.006, e=3.2, rings=5, seg=28, dome=0.012)
+
+
+def spiral_wrap(rc, p0, p1, turns=5, width=0.024, offset=0.004, thick=0.003, n=64, ring_n=36, r_out=0.25, phase=0.0, tilt=0.0):
+    """A bandage spiralling around a limb from p0 to p1 (radii sampled from the surface)."""
+    ts = np.linspace(0, 1, 26)
+    rings, dirs = kit.rings_along(rc, p0, p1, ts, offset=0.0, n=ring_n, r_out=r_out)
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    axis = (p1 - p0) / np.linalg.norm(p1 - p0)
+    centers = p0 + (p1 - p0) * ts[:, None]
+    rad = np.linalg.norm(rings - centers[:, None, :] - np.einsum("ktj,j->kt", rings - centers[:, None, :], axis)[..., None] * axis, axis=2)
+    x, y, z = kit.frame_from_axis(axis, (0, 0, 1))
+    tt = np.linspace(0, 1, n)
+    phi = phase + tt * turns * 2 * np.pi
+    L = np.linalg.norm(p1 - p0)
+    # interpolate radius at (t, phi)
+    def R_at(t, ph):
+        ti = np.clip(t * (len(ts) - 1), 0, len(ts) - 1 - 1e-6)
+        i0 = ti.astype(int)
+        f = ti - i0
+        ang = np.mod(ph, 2 * np.pi) / (2 * np.pi) * ring_n
+        j0 = ang.astype(int) % ring_n
+        j1 = (j0 + 1) % ring_n
+        g = ang - np.floor(ang)
+        r00, r01 = rad[i0, j0], rad[i0, j1]
+        r10, r11 = rad[i0 + 1, j0], rad[i0 + 1, j1]
+        return (r00 * (1 - g) + r01 * g) * (1 - f) + (r10 * (1 - g) + r11 * g) * f
+    r = R_at(tt, phi) + offset
+    pts_c = p0 + np.outer(tt, p1 - p0)
+    dirv = np.cos(phi)[:, None] * x + np.sin(phi)[:, None] * y
+    pt = pts_c + dirv * r[:, None]
+    rings2 = []
+    for k in range(n):
+        for_edge = []
+        for s_, off_r in ((-1, 0.0), (1, 0.0)):
+            pass
+        c = pt[k]
+        e = axis * (width / 2)
+        nrm = dirv[k]
+        rings2.append(np.array([c - e, c + e, c + e + nrm * thick, c - e + nrm * thick]))
+    m = kit.loft(np.array(rings2), closed=True, cap0=True, cap1=True, tile=0.25, angle=50.0)
+    return m

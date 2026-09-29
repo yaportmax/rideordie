@@ -19,17 +19,18 @@ def kit(T):
         rr = 0.17 - 0.0035 * i * 0.6
         pts.append((cx + rr * math.cos(a), cf + rr * math.sin(a) * 0.85, zb + 0.014 + 0.0016 * i * 0.5))
     b.sweep('canvas', pts, circle_prof(0.0115, 6))
-    tail = [pts[-1], (cx + 0.05, cf - 0.10, zb + 0.05), (cx - 0.14, cf + 0.30, zb + 0.12), (-0.66, C.f_bf - 0.46, zb + 0.55), (-0.66, C.f_bf - 0.46, zb + 0.76)]
+    px_, pf_ = T.ring_post_fr
+    tail = [pts[-1], (cx + 0.05, cf - 0.10, zb + 0.05), (cx - 0.10, cf + 0.30, zb + 0.12), (px_ + 0.04, pf_ + 0.02, zb + 0.55), (px_ + 0.03, pf_, zb + 0.76)]
     b.tube('canvas', tail, 0.0115, n=6, rad=0.10, k=3)
     # rope wraps around the post
     for i in range(4):
-        b.torus('canvas', (-0.66, C.f_bf - 0.46, zb + 0.72 - i * 0.014), 0.028, 0.0095, axis='z', nR=10, nr=5)
+        b.torus('canvas', (px_, pf_, zb + 0.72 - i * 0.014), 0.029, 0.0095, axis='z', nR=10, nr=5)
     # ---- duct tape over the windshield crack
     ws = T.ws
     for (u, s, ang, L) in ((-0.30, ws['slope'] * 0.55, 20.0, 0.34), (-0.22, ws['slope'] * 0.50, -55.0, 0.30)):
         du, ds = math.cos(math.radians(ang)) * L / 2, math.sin(math.radians(ang)) * L / 2
         p0, p1 = T.wpos(u - du, s - ds, 0.006), T.wpos(u + du, s + ds, 0.006)
-        b.sweep('metal_bare', [p0, p1], [(0.026, 0.0015), (-0.026, 0.0015), (-0.026, -0.0015), (0.026, -0.0015)], up=(0, 1, 0.3))
+        b.sweep('chrome', [p0, p1], [(0.02, 0.0015), (-0.02, 0.0015), (-0.02, -0.0015), (0.02, -0.0015)], up=(0, 1, 0.3))
     # ---- fuzzy dice from the mirror
     m0 = T.wpos(0.12 * k, ws['slope'] - 0.08, -0.03)
     for i, x in enumerate((0.09, 0.15)):

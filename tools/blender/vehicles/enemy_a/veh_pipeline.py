@@ -172,13 +172,13 @@ class G:
 # ------------------------------------------------------------------------------------------ wear recipes
 # per material: base colour a, dust/dirt colour, rust colour, edge-wear colour, roughness, metallic, rustiness (0..1 how much rust shows on it)
 RECIPES = {
-    "paint":       dict(a=(0.80, 0.80, 0.80), dust=(0.40, 0.36, 0.31), rustc=(0.34, 0.17, 0.08), edgec=(0.30, 0.22, 0.16), rough=0.52, metal=0.12, rusty=1.0, dirty=1.0, mottle=0.14),
-    "paint2":      dict(a=(0.80, 0.80, 0.80), dust=(0.40, 0.36, 0.31), rustc=(0.34, 0.17, 0.08), edgec=(0.30, 0.22, 0.16), rough=0.52, metal=0.12, rusty=1.0, dirty=1.0, mottle=0.14),
+    "paint":       dict(a=(0.80, 0.80, 0.80), dust=(0.40, 0.36, 0.31), rustc=(0.20, 0.10, 0.045), edgec=(0.26, 0.19, 0.13), rough=0.62, metal=0.12, rusty=1.0, dirty=1.0, mottle=0.14),
+    "paint2":      dict(a=(0.80, 0.80, 0.80), dust=(0.40, 0.36, 0.31), rustc=(0.20, 0.10, 0.045), edgec=(0.26, 0.19, 0.13), rough=0.62, metal=0.12, rusty=1.0, dirty=1.0, mottle=0.14),
     "rust":        dict(a=(0.30, 0.11, 0.045), dust=(0.14, 0.08, 0.05), rustc=(0.06, 0.022, 0.01), edgec=(0.45, 0.18, 0.06), rough=0.88, metal=0.1, rusty=0.0, dirty=0.8, mottle=0.9),
-    "metal_dark":  dict(a=(0.05, 0.05, 0.055), dust=(0.13, 0.11, 0.09), rustc=(0.18, 0.07, 0.03), edgec=(0.32, 0.32, 0.33), rough=0.62, metal=0.7, rusty=0.5, dirty=1.0, mottle=0.4),
+    "metal_dark":  dict(a=(0.07, 0.07, 0.075), dust=(0.15, 0.125, 0.10), rustc=(0.18, 0.07, 0.03), edgec=(0.32, 0.32, 0.33), rough=0.7, metal=0.4, rusty=0.5, dirty=1.0, mottle=0.4),
     "metal_bare":  dict(a=(0.40, 0.40, 0.42), dust=(0.16, 0.13, 0.10), rustc=(0.22, 0.09, 0.035), edgec=(0.6, 0.6, 0.62), rough=0.45, metal=1.0, rusty=0.5, dirty=0.8, mottle=0.5),
     "armor":       dict(a=(0.10, 0.108, 0.098), dust=(0.20, 0.16, 0.11), rustc=(0.24, 0.09, 0.03), edgec=(0.42, 0.42, 0.42), rough=0.62, metal=0.85, rusty=0.8, dirty=1.0, mottle=0.5),
-    "rim":         dict(a=(0.30, 0.30, 0.31), dust=(0.20, 0.16, 0.12), rustc=(0.22, 0.09, 0.035), edgec=(0.55, 0.55, 0.57), rough=0.5, metal=1.0, rusty=0.6, dirty=1.0, mottle=0.4),
+    "rim":         dict(a=(0.13, 0.13, 0.135), dust=(0.20, 0.15, 0.10), rustc=(0.24, 0.10, 0.04), edgec=(0.45, 0.45, 0.47), rough=0.62, metal=0.6, rusty=1.0, dirty=1.0, mottle=0.4),
     "interior":    dict(a=(0.07, 0.06, 0.05), dust=(0.16, 0.13, 0.10), rustc=(0.12, 0.06, 0.03), edgec=(0.2, 0.17, 0.14), rough=0.9, metal=0.0, rusty=0.2, dirty=1.0, mottle=0.4),
     "fabric":      dict(a=(0.14, 0.10, 0.075), dust=(0.27, 0.21, 0.15), rustc=(0.05, 0.03, 0.02), edgec=(0.24, 0.19, 0.14), rough=0.95, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5),
     "leather":     dict(a=(0.10, 0.045, 0.02), dust=(0.2, 0.15, 0.1), rustc=(0.05, 0.02, 0.01), edgec=(0.22, 0.12, 0.06), rough=0.7, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5),
@@ -188,11 +188,11 @@ RECIPES = {
     "cloth_dark":  dict(a=(0.04, 0.035, 0.03), dust=(0.2, 0.16, 0.12), rustc=(0.05, 0.04, 0.03), edgec=(0.12, 0.1, 0.08), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5),
     "cloth_tan":   dict(a=(0.30, 0.24, 0.15), dust=(0.30, 0.24, 0.17), rustc=(0.1, 0.08, 0.05), edgec=(0.4, 0.32, 0.22), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5),
     "rubber":      dict(a=(0.02, 0.02, 0.02), dust=(0.08, 0.07, 0.06), rustc=(0.02, 0.02, 0.02), edgec=(0.09, 0.085, 0.08), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3),
-    "rubber_tire": dict(a=(0.018, 0.017, 0.016), dust=(0.16, 0.12, 0.085), rustc=(0.02, 0.02, 0.02), edgec=(0.12, 0.10, 0.08), rough=0.92, metal=0.0, rusty=0.0, dirty=1.6, mottle=0.3),
+    "rubber_tire": dict(a=(0.030, 0.028, 0.026), dust=(0.13, 0.10, 0.075), rustc=(0.02, 0.02, 0.02), edgec=(0.12, 0.10, 0.08), rough=0.92, metal=0.0, rusty=0.0, dirty=1.6, mottle=0.3),
     "plastic":     dict(a=(0.04, 0.04, 0.042), dust=(0.15, 0.13, 0.11), rustc=(0.04, 0.04, 0.04), edgec=(0.2, 0.2, 0.2), rough=0.6, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3),
     "spike":       dict(a=(0.30, 0.30, 0.32), dust=(0.18, 0.14, 0.10), rustc=(0.22, 0.09, 0.035), edgec=(0.6, 0.6, 0.62), rough=0.35, metal=1.0, rusty=0.4, dirty=0.8, mottle=0.4),
     "brass":       dict(a=(0.55, 0.38, 0.10), dust=(0.22, 0.16, 0.08), rustc=(0.10, 0.09, 0.04), edgec=(0.75, 0.55, 0.2), rough=0.4, metal=1.0, rusty=0.2, dirty=1.0, mottle=0.4),
-    "chrome":      dict(a=(0.80, 0.80, 0.84), dust=(0.25, 0.22, 0.19), rustc=(0.24, 0.10, 0.04), edgec=(0.9, 0.9, 0.92), rough=0.15, metal=1.0, rusty=0.6, dirty=0.9, mottle=0.5),
+    "chrome":      dict(a=(0.46, 0.46, 0.49), dust=(0.20, 0.16, 0.12), rustc=(0.26, 0.11, 0.045), edgec=(0.80, 0.80, 0.83), rough=0.34, metal=0.95, rusty=1.5, dirty=1.3, mottle=0.6),
 }
 
 
@@ -256,14 +256,14 @@ def build_wear(m, S, img_hooks=None):
     rc = g.mixc(n_r2, tuple(x * 0.55 for x in R["rustc"]), tuple(min(x * 1.5, 1.0) for x in R["rustc"]))
     colr = g.mixc(rustm, colr, rc)
     colr = g.mixc(g.clamp(chip), colr, R["edgec"])
-    hook = (S.get("hooks") or {}).get(m.name)
+    hook = None if argv().get("nohook") else (S.get("hooks") or {}).get(m.name)
     ctx = dict(g=g, pos=pos, nrm=nrm, px=px, py=py, pz=pz, ao=ao, cav=cav, edge=ed, dirt=dirt, rust=rustm, top=top, n_l=n_l, n_m=n_m, n_f=n_f, nz=nz)
     if hook:
         colr = hook(ctx, colr)
     colr = g.mixc(g.clamp(g.add(g.mul(g.sub(1.0, cav), 0.32), g.mul(g.sub(1.0, ao), 0.16))), colr, (0, 0, 0))
     rough = g.add(g.add(R["rough"], g.mul(g.sub(n_m, 0.5), 0.3)), g.add(g.mul(dirt, 0.28), g.sub(g.mul(rustm, 0.32), g.mul(g.clamp(chip), 0.15))))
     if is_paint:
-        rough = g.add(rough, g.mul(top, 0.08))
+        rough = g.add(rough, g.mul(top, 0.14))
     rough = g.clamp(rough)
     metal = g.clamp(g.mul(g.sub(1.0, g.mul(g.add(dirt, rustm), 0.65)), R["metal"]))
     if is_paint:
@@ -309,7 +309,7 @@ def area_report():
         me = o.data
         fl = me.attributes.get("flat")
         fv = [0] * len(me.polygons)
-        if fl is not None:
+        if fl is not None and len(fl.data) == len(me.polygons):
             fl.data.foreach_get("value", fv)
         for p in me.polygons:
             if not o.material_slots or not o.material_slots[p.material_index].material:
@@ -450,7 +450,7 @@ def unwrap_atlas(objs, tex_mats, res, margin=0.003, angle=66.0):
         me.polygons.foreach_get("loop_total", lt)
         me.polygons.foreach_get("material_index", mi)
         flat = np.zeros(npoly, dtype=np.int32)
-        if me.attributes.get("flat") is not None:
+        if me.attributes.get("flat") is not None and len(me.attributes["flat"].data) == npoly:
             me.attributes["flat"].data.foreach_get("value", flat)
         lp = np.repeat(np.arange(npoly), lt)
         loop_flat = flat[lp] > 0
@@ -481,6 +481,20 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
     tlog("unwrap start")
     unwrap_atlas(meshes, set(tex), res)
     tlog("unwrap done")
+    if argv().get("debug"):
+        uv_overlap_report(meshes)
+    # triangulate now (UVs are kept): Cycles' baker mis-fills big concave / collinear n-gons left by the booleans
+    done = set()
+    for o in meshes:
+        if o.data.name in done:
+            continue
+        done.add(o.data.name)
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
+        bm.to_mesh(o.data)
+        bm.free()
+
     # ground for AO contact shadow
     ground = bpy.data.objects.new("_tmp_ground", bpy.data.meshes.new("_tmp_ground"))
     bm = bmesh.new()
@@ -541,9 +555,11 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
     tlog("albedo done")
     run("orm", img_o, max(samples, 32))
     tlog("orm done")
-    _fill_spots(img_a, img_o, tex, res, orm_res, S)
+    if not argv().get("nofill"):
+        _fill_spots(img_a, img_o, tex, res, orm_res, S)
     if argv().get("debug"):
         _debug_atlas(meshes, img_o, orm_res)
+        _debug_albedo(meshes, img_a, res)
     pa = os.path.join(SCRATCH, name + "_albedo.png")
     po = os.path.join(SCRATCH, name + "_orm.png")
     for img, p in ((img_a, pa), (img_o, po)):
@@ -605,9 +621,106 @@ def _debug_atlas(meshes, img, r):
             ub.sort(key=lambda t: -(t[2] - t[0]) * (t[3] - t[1]))
             for t in ub[:4]:
                 print("DBGUV", o.name, ["%.3f" % x for x in t])
+            for p in sorted(me.polygons, key=lambda q: -q.area)[:3]:
+                uvs = [tuple(uvl.data[l].uv) for l in p.loop_indices]
+                ar = 0.5 * abs(sum(uvs[i][0] * uvs[(i + 1) % len(uvs)][1] - uvs[(i + 1) % len(uvs)][0] * uvs[i][1] for i in range(len(uvs))))
+                print("DBGPOLY", o.name, "verts", len(uvs), "area3d %.3f" % p.area, "uvarea %.5f" % ar, "mat", o.material_slots[p.material_index].material.name, "uv0", ["%.3f" % x for x in uvs[0]])
+        if o.name == "body_paint":
+            npoly = len(me.polygons)
+            flat = np.zeros(npoly, dtype=np.int32)
+            if me.attributes.get("flat") is not None and len(me.attributes["flat"].data) == npoly:
+                me.attributes["flat"].data.foreach_get("value", flat)
+            bad = []
+            for p in me.polygons:
+                uvs = [uvl.data[l].uv for l in p.loop_indices]
+                cu = sum(u[0] for u in uvs) / len(uvs)
+                cv = sum(u[1] for u in uvs) / len(uvs)
+                v = arr[min(max(int(cv * r), 0), r - 1), min(max(int(cu * r), 0), r - 1)]
+                if abs(v[0] - 1.0) < 0.02 and abs(v[1] - 0.7) < 0.02 and v[2] < 0.02:
+                    bad.append((p.area, p.index, len(uvs), int(flat[p.index]), o.material_slots[p.material_index].material.name, (round(cu, 3), round(cv, 3))))
+            bad.sort(reverse=True)
+            for b in bad[:12]:
+                print("DBGBAD", b)
         for mn, vs in rows.items():
             vs = np.array(vs)
-            print("DBG %-22s %-12s n=%5d  AO=%.2f rough=%.2f metal=%.2f" % (o.name, mn, len(vs), vs[:, 0].mean(), vs[:, 1].mean(), vs[:, 2].mean()))
+            unb = int(((np.abs(vs[:, 0] - 1.0) < 0.02) & (np.abs(vs[:, 1] - 0.7) < 0.02) & (vs[:, 2] < 0.02)).sum())
+            print("DBG %-22s %-12s n=%5d unbaked=%d AO=%.2f rough=%.2f metal=%.2f" % (o.name, mn, len(vs), unb, vs[:, 0].mean(), vs[:, 1].mean(), vs[:, 2].mean()))
+
+
+def _debug_albedo(meshes, img, r):
+    arr = np.empty(r * r * 4, dtype=np.float32)
+    img.pixels.foreach_get(arr)
+    arr = arr.reshape(r, r, 4)
+    fill = np.array([0.25, 0.25, 0.25])
+    tot = {}
+    for o in meshes:
+        me = o.data
+        uvl = me.uv_layers.active
+        if uvl is None:
+            continue
+        for p in me.polygons:
+            if p.area < 0.01:
+                continue
+            mn = o.material_slots[p.material_index].material.name if o.material_slots else "?"
+            uvs = [uvl.data[l].uv for l in p.loop_indices]
+            cu = sum(u[0] for u in uvs) / len(uvs)
+            cv = sum(u[1] for u in uvs) / len(uvs)
+            v = arr[min(max(int(cv * r), 0), r - 1), min(max(int(cu * r), 0), r - 1)][:3]
+            if np.abs(v - fill).max() < 0.012:
+                k = (o.name, mn)
+                a = tot.get(k, [0, 0.0])
+                a[0] += 1
+                a[1] += p.area
+                tot[k] = a
+    for k, v in sorted(tot.items(), key=lambda kv: -kv[1][1])[:14]:
+        print("DBGALB unbaked", k, v[0], "polys", "%.2f m2" % v[1])
+
+
+def uv_overlap_report(meshes, n=512):
+    cov = np.zeros((n, n), dtype=np.int16)
+    owner = {}
+    who = {}
+    seen = set()
+    for o in meshes:
+        me = o.data
+        if me.name in seen or not me.uv_layers:
+            continue
+        seen.add(me.name)
+        uvl = me.uv_layers.active
+        npoly = len(me.polygons)
+        flat = np.zeros(npoly, dtype=np.int32)
+        if me.attributes.get("flat") is not None and len(me.attributes["flat"].data) == npoly:
+            me.attributes["flat"].data.foreach_get("value", flat)
+        me.calc_loop_triangles()
+        for t in me.loop_triangles:
+            if flat[t.polygon_index]:
+                continue
+            mn = o.material_slots[me.polygons[t.polygon_index].material_index].material.name
+            if mn not in TEXTURED:
+                continue
+            pts = np.array([uvl.data[l].uv for l in t.loops]) * n
+            x0, x1 = int(max(pts[:, 0].min(), 0)), int(min(pts[:, 0].max(), n - 1))
+            y0, y1 = int(max(pts[:, 1].min(), 0)), int(min(pts[:, 1].max(), n - 1))
+            if x1 < x0 or y1 < y0:
+                continue
+            xs, ys = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
+            a, b, c = pts
+            d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+            if abs(d) < 1e-9:
+                continue
+            l1 = ((b[1] - c[1]) * (xs - c[0]) + (c[0] - b[0]) * (ys - c[1])) / d
+            l2 = ((c[1] - a[1]) * (xs - c[0]) + (a[0] - c[0]) * (ys - c[1])) / d
+            l3 = 1 - l1 - l2
+            m = (l1 >= 0) & (l2 >= 0) & (l3 >= 0)
+            sub = cov[y0:y1 + 1, x0:x1 + 1]
+            hit = m & (sub > 0)
+            if hit.any():
+                key = (o.name, mn)
+                who[key] = who.get(key, 0) + int(hit.sum())
+            sub[m] += 1
+    print("OVERLAP texels(512 grid) >1:", int((cov > 1).sum()), "of covered", int((cov > 0).sum()))
+    for k, v in sorted(who.items(), key=lambda kv: -kv[1])[:12]:
+        print("OVERLAP by", k, v)
 
 
 def _lin2srgb(c):
@@ -695,9 +808,12 @@ class Vehicle:
                 wheels[gname] = lst
             else:
                 body_parts += lst
-        for o in self._merge_by_material(body_parts, "body"):
-            o.parent = root_body
-            smooth_by_angle(o, self.style.get("smooth", 38.0))
+        if body_parts:
+            for o in body_parts:
+                bake_transform(o)
+            bo = join(body_parts, "body_mesh") if len(body_parts) > 1 else _rename(body_parts[0], "body_mesh")
+            bo.parent = root_body
+            smooth_by_angle(bo, self.style.get("smooth", 38.0))
         # 2. panels: join all parts into one mesh object with origin at the hinge
         for gname, lst in panels.items():
             for o in lst:
@@ -734,6 +850,15 @@ class Vehicle:
             area_report()
         self.report()
         path = os.path.join(OUT_DIR, self.vid + ".glb")
+        if args.get("strip"):
+            # QA build: drop the named detachable panels (e.g. --strip panel_hood,panel_door_L) to check what is underneath; writes <id>_strip.glb
+            kill = set(str(args["strip"]).split(","))
+            for o in list(bpy.context.scene.objects):
+                if o.name in kill:
+                    for c in list(o.children):
+                        bpy.data.objects.remove(c)
+                    bpy.data.objects.remove(o)
+            path = os.path.join(OUT_DIR, self.vid + "_strip.glb")
         self.export(path)
         return path
 
@@ -767,11 +892,23 @@ class Vehicle:
 
     def export(self, path):
         objs = [o for o in bpy.context.scene.objects if o.parent is None and not o.name.startswith("_tmp")]
-        export_glb(path, objs)
-        try:
-            bpy.ops.export_scene.gltf  # noqa
-        except Exception:
-            pass
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        bpy.ops.object.select_all(action="DESELECT")
+        sel = set()
+
+        def add(o):
+            sel.add(o)
+            for c in o.children:
+                add(c)
+        for o in objs:
+            add(o)
+        for o in sel:
+            o.select_set(True)
+        bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True,
+                                  export_materials="EXPORT", export_cameras=False, export_lights=False, export_extras=True,
+                                  export_image_format="JPEG", export_jpeg_quality=int(self.args.get("jpeg", 90)), export_texcoords=True, export_normals=True,
+                                  export_tangents=False, export_animations=False, export_skins=False, export_vertex_color="NONE")
+        print("EXPORTED", path, "%.1f KB" % (os.path.getsize(path) / 1024))
 
 
 def _rename(o, name):

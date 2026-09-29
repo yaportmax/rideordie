@@ -52,6 +52,24 @@ exported as GLB. `manifest.json` lists every file (tris, dimensions, materials, 
 * Wear: every mesh carries COLOR_0 (linear) baked from ambient occlusion (ray cast), ground dirt, rain streaks, dust on top faces, underside grime,
   strata (rock). It multiplies the material base colour: if you swap a texture in, keep `vertexColors = true` to keep the grime, or disable it for a clean look.
 * Bevels / smooth-by-angle normals are baked in geometry. Triangle budgets: big pieces <= 10k, buildings <= 6k.
+
+## Placement cheat-sheet
+* **Bridge**: put `bridge_span_20m` (or `_damaged`) every 20 m along +Z at road height (y=0). Under each joint place `bridge_pier` at x=0 with its
+  origin at `y = -1.92 - 12 = -13.92` (its `deck_socket` top at y=12 meets the span socket `pier` at y=-1.92) - or sink the footing into terrain and align the socket.
+  `bridge_arch` is a single 40 m span (deck underside y=-1.4, arch crown y=17.6, bracing >= 7.5 m).
+* **Tunnel**: `tunnel_portal_rock` (tube z 0..12, face at z=0 looking -Z) + N x `tunnel_mid_10m` at z = 12 + 10k + `tunnel_exit` at z = 12 + 10N (its tube z 0..12, face at z=12 looking +Z).
+  Rib spacing (2.5 m) is continuous across the joints. `_grey` variants swap rock_red for rock_grey; `_concrete` variants are the modern concrete portals. Bury the rock mass in a hill; interiors are lit by `light_amber` strips.
+* **Overpass**: crosses the road at 90 deg; origin at road centre on the near edge of the deck (deck spans z 0..12, x -20..20, clearance 6.5 m).
+* **Jump ramps**: drive +Z, lip socket at the top edge; `speed_boost_pad` is a 14 x 4 m trigger strip (`trigger` socket).
+* **roadblock_wreck_line**: gap x in [0.4, 4.8] (socket `gap_center`); mirror with scale.x=-1 for the other side.
+* **Dam** (boss arena): see `dam_wall_backdrop` / `dam_road_10m` notes (crest road at y=80, yaw +90 modules); `dam_gate_big`, `spike_wall` (x=+-3.5 to block), `spike_gate`, `boss_arena_lights` (4 towers at (+-20, +-30)).
+* **Buildings / rocks / coast / canyon**: origin at base centre, front faces +Z; rotate yaw to face the road. `natural_arch` is road-aligned (legs at x=+-15).
+
+## Known limitations
+* No image textures are embedded (colour via material + baked COLOR_0, UV boxes ready for tiling textures by material name); concrete/rock read a bit clean and faceted in the QA viewer.
+* `collision` meshes are unlit-invisible via alpha 0 but still cast shadows in the stock viewer.html; hide them in game (`extras.role === 'collision'`).
+* Tri counts: `bridge_arch` 10.0k and `dam_gate_big` 9.6k sit at the top of the budget.
+* Lighting: albedos are kept mid-value (global x0.72) because the viewer/game sun clips light materials to white.
 """
 
 

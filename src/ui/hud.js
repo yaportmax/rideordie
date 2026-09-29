@@ -43,7 +43,7 @@ const CSS = `
 #hud .boss{left:50%;top:58px;transform:translateX(-50%);width:520px;text-align:center;display:none}
 #hud .boss .bar{height:16px}
 #hud .boss .bar i{background:linear-gradient(90deg,#a11,#f54)}
-#hud .prog{left:50%;top:56px;transform:translateX(-50%);width:420px;text-align:center;font-size:12px;letter-spacing:2px;opacity:.85}
+#hud .prog{left:50%;top:76px;transform:translateX(-50%);width:420px;text-align:center;font-size:12px;letter-spacing:2px;opacity:.85}
 #hud .prog .bar{height:6px;margin-top:3px}
 #hud .prog .bar i{background:#fff}
 `;

@@ -15,7 +15,8 @@ m.tile_scale = 2.6
 m.dirt_h = 3.4
 m.noise_f = 0.3
 m.alias.update({'metal_bare': 'armor', 'interior': 'metal_dark', 'fabric': 'metal_dark', 'leather': 'metal_dark', 'brass': 'metal_dark',
-                'gun_metal': 'armor', 'gun_black': 'metal_dark', 'decal_red': 'paint2', 'decal_yellow': 'plastic', 'spike': 'armor'})
+                'gun_metal': 'armor', 'gun_black': 'metal_dark', 'decal_red': 'paint2', 'decal_yellow': 'plastic', 'spike': 'armor',
+                'rust': 'armor', 'cloth_red': 'paint2'})
 PI = math.pi
 R_W, W_W, HUBY, HX = 1.35, 0.95, 1.35, 2.95
 AX = dict(F=12.6, M=7.4, R=5.0, R2=-2.4, T1=-5.2, T2=-13.6)
@@ -30,6 +31,14 @@ DECK = 3.0            # trailer deck top
 CF = 2.85             # cab / tractor deck top
 CAB_R, CAB_F = 6.6, 10.6
 ROOF = 6.8
+
+
+def apanel(name, origin, **keep):
+    """single-material detachable armor panel node (pass e.g. plastic='plastic' to keep an extra material)"""
+    al = dict(metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', paint2='armor', rust='armor', spike='armor', plastic='armor')
+    al.update(keep)
+    m.panel(name, origin, **al)
+    return name
 
 
 def both(fn):
@@ -113,12 +122,10 @@ def tractor_panels():
     m.hull('paint', [(-1.4, 4.6, 11.4), (1.4, 4.6, 11.4), (-1.1, 5.2, 11.8), (1.1, 5.2, 11.8), (-1.1, 4.9, 13.8), (1.1, 4.9, 13.8), (-1.4, 4.3, 14.1), (1.4, 4.3, 14.1)], bevel=0.1, seg=2, obj=o)   # engine hump
     for i in range(10):
         m.box('paint', (1.7, 0.05, 0.06), at=(0, 5.2 - i * 0.01, 11.9 + i * 0.22), bevel=0, obj=o)
-    wall(m, 'paint', (0, 4.6, 12.9), (1, 0, 0), (0, 0, 1), 4.6, 4.0, 3, 4, t=0.06, gap=0.08, obj=o, rr=0.04, bevel=0.03, jit=0.0) if False else None
     for sx in (1, -1):
         m.rivet_line('paint', (2.2 * sx, 4.34, 11.2), (2.2 * sx, 4.05, 14.6), (0, 1, 0), step=0.35, r=0.05, obj=o)
         m.cyl('metal_dark', (0.7 * sx, 4.7, 10.9), (1.5 * sx, 4.7, 10.9), 0.1, seg=8, obj=o)
         m.box('metal_dark', (0.2, 0.2, 0.7), at=(1.6 * sx, 3.7, 14.7), bevel=0.02, seg=1, obj=o)
-        m.spike('paint', (1.5 * sx, 5.0, 12.4), (1.75 * sx, 5.9, 12.5), 0.12, seg=6, obj=o) if False else None
     m.use('body')
     # ---- fenders
     for sx, nm in ((1, 'panel_fender_L'), (-1, 'panel_fender_R')):
@@ -144,45 +151,42 @@ def tractor_panels():
 
 def plow_and_grille():
     o = 'part_plow'
-    m.panel(o, (0, 1.9, 16.0), metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', paint2='armor', rust='armor', plastic='armor')
-    # blade: centre + two wings curved back
+    m.panel(o, (0, 1.4, 16.0), metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', paint2='armor', rust='armor', plastic='plastic')
+    YT = 2.55
+    # blade: centre + two wings curved back (low, so the grille + eyes stay visible above it)
     for sx in (1, -1):
-        m.hull('armor', [(0.0, 0.5, 17.1), (1.7 * sx, 0.5, 17.0), (0.0, 3.7, 16.1), (1.7 * sx, 3.7, 16.05), (0.0, 0.5, 15.8), (1.6 * sx, 0.5, 15.7), (0.0, 3.5, 15.5), (1.6 * sx, 3.5, 15.5)], bevel=0.1, seg=2, obj=o)
-        m.hull('armor', [(1.7 * sx, 0.5, 17.0), (3.7 * sx, 0.5, 15.6), (1.7 * sx, 3.7, 16.05), (3.7 * sx, 3.6, 15.0), (1.6 * sx, 0.5, 15.7), (3.6 * sx, 0.5, 14.7), (1.6 * sx, 3.5, 15.5), (3.6 * sx, 3.4, 14.6)], bevel=0.1, seg=2, obj=o)
-        m.hull('armor', [(0.0, 0.32, 17.35), (1.7 * sx, 0.32, 17.25), (0.0, 0.7, 17.1), (1.7 * sx, 0.7, 17.0), (0.0, 0.32, 17.0), (1.7 * sx, 0.32, 16.9)], bevel=0.04, seg=1, obj=o)     # cutting edge
-        m.hull('armor', [(1.7 * sx, 0.32, 17.25), (3.8 * sx, 0.32, 15.8), (1.7 * sx, 0.7, 17.0), (3.8 * sx, 0.7, 15.6), (1.7 * sx, 0.32, 16.9), (3.7 * sx, 0.32, 15.6)], bevel=0.04, seg=1, obj=o)
-        # ribs + rivet rows
+        m.hull('armor', [(0.0, 0.45, 17.1), (1.7 * sx, 0.45, 17.0), (0.0, YT, 16.3), (1.7 * sx, YT, 16.25), (0.0, 0.45, 15.8), (1.6 * sx, 0.45, 15.7), (0.0, YT - 0.1, 15.6), (1.6 * sx, YT - 0.1, 15.6)], bevel=0.1, seg=2, obj=o)
+        m.hull('armor', [(1.7 * sx, 0.45, 17.0), (3.7 * sx, 0.45, 15.6), (1.7 * sx, YT, 16.25), (3.7 * sx, YT - 0.1, 15.2), (1.6 * sx, 0.45, 15.7), (3.6 * sx, 0.45, 14.7), (1.6 * sx, YT - 0.1, 15.6), (3.6 * sx, YT - 0.2, 14.7)], bevel=0.1, seg=2, obj=o)
+        m.hull('armor', [(0.0, 0.28, 17.35), (1.7 * sx, 0.28, 17.25), (0.0, 0.62, 17.1), (1.7 * sx, 0.62, 17.0), (0.0, 0.28, 17.0), (1.7 * sx, 0.28, 16.9)], bevel=0.04, seg=1, obj=o)
+        m.hull('armor', [(1.7 * sx, 0.28, 17.25), (3.8 * sx, 0.28, 15.8), (1.7 * sx, 0.62, 17.0), (3.8 * sx, 0.62, 15.6), (1.7 * sx, 0.28, 16.9), (3.7 * sx, 0.28, 15.6)], bevel=0.04, seg=1, obj=o)
         for i in range(4):
             x = (0.4 + i * 0.5) * sx
-            m.beam('armor', (x, 0.8, 16.95 - i * 0.03), (x, 3.55, 16.15), 0.24, 0.14, bevel=0.03, seg=1, obj=o)
+            m.beam('armor', (x, 0.7, 16.98 - i * 0.03), (x, YT - 0.05, 16.3), 0.24, 0.14, bevel=0.03, seg=1, obj=o)
         for i in range(4):
             x = 1.9 + i * 0.5
             zc_ = 16.9 - (x - 1.7) * 0.7
-            m.beam('armor', (x * sx, 0.8, zc_ - 0.05), (x * sx, 3.5, zc_ - 0.75), 0.24, 0.14, bevel=0.03, seg=1, obj=o)
-        for y in (1.2, 2.0, 2.8):
-            m.rivet_line('armor', (0.05 * sx, y, 17.0 - (y - 0.5) * 0.28), (1.65 * sx, y, 16.95 - (y - 0.5) * 0.28), (0, 0.3, 1), step=0.28, r=0.05, obj=o)
-        m.rivet_line('armor', (1.75 * sx, 1.2, 16.9 - 0.4), (3.6 * sx, 1.2, 15.6 - 0.2), (0.6 * sx, 0.3, 0.8), step=0.28, r=0.05, obj=o)
-        m.rivet_line('armor', (1.75 * sx, 2.4, 16.5 - 0.4), (3.6 * sx, 2.4, 15.1 - 0.2), (0.6 * sx, 0.3, 0.8), step=0.28, r=0.05, obj=o)
-        m.weld('armor', (0.0, 1.9, 16.7), (1.7 * sx, 1.9, 16.55), r=0.05, obj=o)
-        # wing tip + edge spikes
-        m.spike('armor', (3.7 * sx, 1.0, 15.3), (4.3 * sx, 1.0, 16.4), 0.16, seg=6, obj=o)
-        m.spike('armor', (3.6 * sx, 2.5, 14.9), (4.2 * sx, 2.6, 15.9), 0.15, seg=6, obj=o)
-        # pusher arms + rams
-        m.beam('armor', (1.2 * sx, 2.2, 15.4), (1.35 * sx, 2.2, 13.2), 0.4, 0.55, bevel=0.03, seg=1, obj=o)
-        m.cyl('metal_dark', (2.0 * sx, 2.2, 14.3), (2.6 * sx, 3.3, 15.5), 0.14, seg=8, obj=o)
-        m.cyl('chrome', (2.0 * sx, 2.2, 14.3), (2.3 * sx, 2.75, 14.9), 0.1, seg=8, obj=o) if False else None
-    # top edge spike crown + hazard stripes
-    spike_row(m, 'armor', (-3.5, 3.7, 15.2), (3.5, 3.7, 16.05), 11, 1.5, 0.13, (0, 0.55, 0.85), obj=o)
-    m.box('armor', (7.4, 0.24, 0.5), at=(0, 3.75, 15.8), bevel=0.04, seg=1, obj=o) if False else None
-    skull(m, (0, 2.2, 16.55), s=3.4, n=(0, 0.15, 1), obj=o, horns=True, mat='plastic')
+            m.beam('armor', (x * sx, 0.7, zc_ - 0.05), (x * sx, YT - 0.1, zc_ - 0.75), 0.24, 0.14, bevel=0.03, seg=1, obj=o)
+        for y in (0.95, 1.5, 2.05):
+            m.rivet_line('armor', (0.05 * sx, y, 17.0 - (y - 0.45) * 0.36), (1.65 * sx, y, 16.95 - (y - 0.45) * 0.36), (0, 0.3, 1), step=0.28, r=0.05, obj=o)
+        m.rivet_line('armor', (1.75 * sx, 1.0, 16.8), (3.6 * sx, 1.0, 15.4), (0.6 * sx, 0.3, 0.8), step=0.28, r=0.05, obj=o)
+        m.rivet_line('armor', (1.75 * sx, 1.9, 16.5), (3.6 * sx, 1.9, 15.0), (0.6 * sx, 0.3, 0.8), step=0.28, r=0.05, obj=o)
+        m.weld('armor', (0.0, 1.5, 16.8), (1.7 * sx, 1.5, 16.65), r=0.05, obj=o)
+        m.spike('armor', (3.7 * sx, 0.9, 15.3), (4.3 * sx, 0.9, 16.4), 0.16, seg=6, obj=o)
+        m.spike('armor', (3.6 * sx, 2.0, 14.9), (4.2 * sx, 2.1, 15.9), 0.15, seg=6, obj=o)
+        m.beam('armor', (1.2 * sx, 1.9, 15.4), (1.35 * sx, 1.9, 13.2), 0.4, 0.55, bevel=0.03, seg=1, obj=o)
+        m.cyl('metal_dark', (2.0 * sx, 1.9, 14.3), (2.6 * sx, 2.4, 15.5), 0.14, seg=8, obj=o)
+    spike_row(m, 'armor', (-3.5, YT, 15.1), (3.5, YT, 16.25), 11, 1.5, 0.13, (0, 0.5, 0.86), obj=o)
+    skull(m, (0, 1.55, 17.05), s=3.2, n=(0, 0.2, 1), obj=o, horns=True, mat='plastic', eyes='light_amber')
     m.use('body')
-    # ---- grille + skull face + headlights (body)
+    # ---- grille + skull face (detachable) + headlights (body)
+    m.panel('panel_grille', (0, 3.2, 14.95), metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', paint2='armor', rust='armor', spike='armor')
     for i in range(13):
         x = -2.05 + i * 0.3417
-        m.beam('armor', (x, 2.45, 14.93), (x, 4.0, 14.93), 0.13, 0.12, bevel=0.02, seg=1)
-    m.beam('armor', (-2.2, 3.6, 14.95), (2.2, 3.6, 14.95), 0.35, 0.22, bevel=0.03, seg=1)
-    m.beam('armor', (-2.2, 2.75, 14.95), (2.2, 2.75, 14.95), 0.3, 0.2, bevel=0.03, seg=1)
-    skull(m, (0, 3.25, 15.05), s=2.0, n=(0, 0, 1), horns=True, mat='plastic')
+        m.beam('armor', (x, 2.45, 14.93), (x, 4.0, 14.93), 0.13, 0.12, bevel=0.02, seg=1, obj='panel_grille')
+    m.beam('armor', (-2.2, 3.6, 14.95), (2.2, 3.6, 14.95), 0.35, 0.22, bevel=0.03, seg=1, obj='panel_grille')
+    m.beam('armor', (-2.2, 2.75, 14.95), (2.2, 2.75, 14.95), 0.3, 0.2, bevel=0.03, seg=1, obj='panel_grille')
+    skull(m, (0, 3.25, 15.05), s=2.6, n=(0, 0, 1), horns=True, mat='plastic', obj='panel_grille', eyes='light_amber')
+    m.use('body')
     for sx in (1, -1):
         headlight(m, (2.6 * sx, 3.5, 15.0), 0.62, n=(0, 0, 1), seg=20)
         for a in (0, 45, 90, 135):
@@ -220,7 +224,9 @@ def cab():
     # roof: paint2 slab + armor hat + brow
     m.box('paint2', (6.3, 0.22, 4.3), at=(0, ROOF + 0.08, 8.55), bevel=0.06, seg=2)
     m.hull('armor', [(-3.15, 5.9, 10.55), (3.15, 5.9, 10.55), (-3.15, 6.9, 10.4), (3.15, 6.9, 10.4), (-3.1, 5.55, 11.15), (3.1, 5.55, 11.15), (-3.1, 6.1, 11.25), (3.1, 6.1, 11.25)], bevel=0.08, seg=2)   # visor brow
-    wall(m, 'armor', (0, ROOF + 0.2, 8.4), (1, 0, 0), (0, 0, 1), 5.4, 3.4, 3, 3, t=0.08, gap=0.1, rr=0.04, bevel=0.03)
+    on = apanel('panel_armor_roof', (0, ROOF + 0.25, 8.4))
+    wall(m, 'armor', (0, ROOF + 0.2, 8.4), (1, 0, 0), (0, 0, 1), 5.4, 3.4, 3, 3, t=0.08, gap=0.1, rr=0.04, bevel=0.03, obj=on)
+    m.use('body')
     for sx in (1, -1):
         for k in range(7):
             m.spike('armor', (2.9 * sx, ROOF + 0.2, 6.9 + k * 0.5), (3.05 * sx, ROOF + 0.9, 6.9 + k * 0.5), 0.09, seg=6)
@@ -233,8 +239,15 @@ def cab():
         m.beam('armor', (x, 4.35, 10.77), (x, 6.0, 10.77), 0.12, 0.1, bevel=0.015, seg=1)
     for sx in (1, -1):
         m.beam('armor', (3.0 * sx, 4.3, 10.72), (3.0 * sx, 6.1, 10.72), 0.3, 0.2, bevel=0.03, seg=1)
+    for sx, nm in ((1, 'panel_armor_cab_L'), (-1, 'panel_armor_cab_R')):
+        apanel(nm, (3.1 * sx, 4.6, 8.6))
+        wall(m, 'armor', (3.08 * sx, 3.55, 8.6), (0, 0, -sx), (0, 1, 0), 3.9, 1.3, 3, 1, t=0.1, gap=0.1, rr=0.045, bevel=0.03, obj=nm)
+        wall(m, 'armor', (3.08 * sx, 6.05, 8.6), (0, 0, -sx), (0, 1, 0), 3.9, 1.0, 3, 1, t=0.1, gap=0.1, rr=0.045, bevel=0.03, obj=nm)
+        m.use('body')
     # lower chin armor, hazard stripes (paint2), war paint
-    wall(m, 'armor', (0, 3.6, 10.6), (1, 0, 0), (0, 1, 0), 5.9, 1.5, 4, 2, t=0.1, gap=0.09, rr=0.045, bevel=0.03)
+    on = apanel('panel_chin', (0, 3.6, 10.7))
+    wall(m, 'armor', (0, 3.6, 10.6), (1, 0, 0), (0, 1, 0), 5.9, 1.5, 4, 2, t=0.1, gap=0.09, rr=0.045, bevel=0.03, obj=on)
+    m.use('body')
     for k in range(8):
         m.obox('paint2', (-2.8 + k * 0.8, 6.35, 10.68), (1, 0.7, 0), (0, 1, 0), (0.28, 0.55, 0.03), bevel=0, seg=1)
     # interior: pedestal seats, dash, wheel, gauges
@@ -263,9 +276,14 @@ def cab():
         m.sock('floodlight_%d' % (i + 1), (p[0], p[1], p[2] + 0.2), rot=(4, 0, 0), size=0.4)
     # roof skulls + chains
     for sx in (1, -1):
-        skull(m, (2.4 * sx, ROOF + 0.4, 10.3), s=1.7, n=(0, 0.1, 1), horns=True, mat='plastic')
+        skull(m, (2.4 * sx, ROOF + 0.4, 10.3), s=1.7, n=(0, 0.1, 1), horns=True, mat='plastic', eyes='light_amber')
     chain(m, (-3.05, 6.2, 9.0), (-3.05, 5.2, 7.0), sag=0.6, link=0.28, r=0.05)
     chain(m, (3.05, 6.2, 9.0), (3.05, 5.2, 7.0), sag=0.6, link=0.28, r=0.05)
+    # colossal horned-skull crest on a pylon above the cab roof (bold far-view silhouette)
+    m.beam('armor', (0, ROOF + 0.2, 8.6), (0, ROOF + 1.3, 8.6), 0.45, 0.4, bevel=0.04, seg=1)
+    for sx in (1, -1):
+        m.beam('armor', (0.9 * sx, ROOF + 0.25, 8.1), (0.15 * sx, ROOF + 1.4, 8.6), 0.22, 0.2, bevel=0.03, seg=1)
+    skull(m, (0, ROOF + 1.95, 8.9), s=3.6, n=(0, 0.12, 1), horns=True, mat='plastic', eyes='light_amber')
     # exhaust pipes from the engine, running under the cab to the stacks
     for sx in (1, -1):
         m.tube('metal_dark', [(1.3 * sx, 3.3, 12.0), (1.9 * sx, 2.55, 11.4), (2.2 * sx, 2.4, 10.0), (2.4 * sx, 2.6, 6.6), (2.4 * sx, 3.0, 6.15)], 0.24, seg=10, bend=0.6)
@@ -314,8 +332,15 @@ def trailer1():
     slits = [[(z0, 3.75), (z0 + 0.9, 3.75), (z0 + 0.9, 4.1), (z0, 4.1)] for z0 in (1.6, -0.2, -2.0, -3.8, -5.6, -7.2)]
     for sx in (1, -1):
         m.plate('paint', [(Z1R + 0.2, 2.7), (Z1F - 0.4, 2.7), (Z1F - 0.4, 4.6), (Z1R + 0.2, 4.6)], 0.34, at=(WX * sx, 0, 0), u=(0, 0, 1), v=(0, 1, 0), bevel=0.05, seg=1, holes=slits)
-        wall(m, 'armor', (WX * sx + 0.18 * sx, 3.15, zc1 - 0.2), (0, 0, -sx), (0, 1, 0), 10.6, 0.9, 6, 1, t=0.1, gap=0.1, rr=0.045, bevel=0.03, mats=['armor', 'armor', 'rust'])
-        wall(m, 'armor', (WX * sx + 0.18 * sx, 4.43, zc1 - 0.2), (0, 0, -sx), (0, 1, 0), 10.6, 0.4, 6, 1, t=0.1, gap=0.1, rr=0.04, bevel=0.03, mats=['armor', 'paint2', 'armor'])
+        for half in (0, 1):
+            nm = 'panel_armor_t1_%s%d' % ('L' if sx > 0 else 'R', half + 1)
+            zc_h = zc1 - 0.2 + (2.65 if half == 0 else -2.65)
+            apanel(nm, (WX * sx + 0.2 * sx, 3.5, zc_h), **({'plastic': 'plastic', 'light_amber': 'light_amber'} if half == 0 else {}))
+            wall(m, 'armor', (WX * sx + 0.18 * sx, 3.15, zc_h), (0, 0, -sx), (0, 1, 0), 5.3, 0.9, 3, 1, t=0.1, gap=0.1, rr=0.045, bevel=0.03, obj=nm)
+            wall(m, 'armor', (WX * sx + 0.18 * sx, 4.43, zc_h), (0, 0, -sx), (0, 1, 0), 5.3, 0.4, 3, 1, t=0.1, gap=0.1, rr=0.04, bevel=0.03, obj=nm)
+            if half == 0:
+                skull(m, (WX * sx + 0.5 * sx, 3.68, -2.45), s=2.1, n=(sx, 0.05, 0), horns=True, mat='plastic', eyes='light_amber', obj=nm)
+            m.use('body')
         spike_row(m, 'armor', (WX * sx + 0.3 * sx, 3.4, 2.2), (WX * sx + 0.3 * sx, 3.4, -7.8), 12, 1.0, 0.11, (sx, 0.05, 0), jitter=0.2)
         spike_row(m, 'armor', (WX * sx, 4.65, 2.3), (WX * sx, 4.65, -7.9), 10, 0.6, 0.08, (0, 1, 0), jitter=0.2)
         m.box('interior', (0.2, 1.7, 10.4), at=((WX - 0.2) * sx, 3.55, zc1), bevel=0)
@@ -350,7 +375,7 @@ def trailer1():
                 for k in range(5):
                     a = k * 72 * D2R
                     m.spike('armor', (3.05 * sx + 0.6 * math.cos(a), 5.6, zt + 0.6 * math.sin(a)), (3.05 * sx + 0.7 * math.cos(a), 6.5, zt + 0.7 * math.sin(a)), 0.1, seg=6)
-                skull(m, (3.05 * sx, 6.0, zt), s=1.6, n=(0, 0.1, -1), horns=True, mat='plastic')
+                skull(m, (3.05 * sx, 6.0, zt), s=1.6, n=(0, 0.1, -1), horns=True, mat='plastic', eyes='light_amber')
     # raised central platform + stairs
     PZ0, PZ1 = 1.4, -6.9
     m.box('armor', (4.9, 0.9, PZ0 - PZ1), at=(0, 3.45, (PZ0 + PZ1) / 2), bevel=0.04, seg=1)
@@ -359,11 +384,6 @@ def trailer1():
         m.box('metal_dark', (4.6, 0.02, 0.03), at=(0, 3.985, PZ0 - 0.15 - i * 0.5), bevel=0)
     wall(m, 'armor', (2.46, 3.45, (PZ0 + PZ1) / 2), (0, 0, -1), (0, 1, 0), 8.3, 0.85, 5, 1, t=0.08, gap=0.09, rr=0.04, bevel=0.03, mats=['armor', 'paint2', 'armor'])
     wall(m, 'armor', (-2.46, 3.45, (PZ0 + PZ1) / 2), (0, 0, 1), (0, 1, 0), 8.3, 0.85, 5, 1, t=0.08, gap=0.09, rr=0.04, bevel=0.03, mats=['armor', 'paint2', 'armor'])
-    for sx in (1, -1):
-        for k in range(4):
-            m.box('armor', (0.7, 0.22, 0.9), at=(2.75 * sx, 3.1 + k * 0.2, 1.9 - k * 0.5 + 1.0 - 1.0), bevel=0.02, seg=1) if False else None
-        for k in range(4):
-            m.box('armor', (0.6, 0.2 * (k + 1), 0.55), at=(2.75 * sx, 3.0 + 0.1 * (k + 1), -0.6 - k * 0.55 + 2.0 - 2.0 + 0.0), bevel=0.015, seg=1) if False else None
     # front lower deck: generator, drums, cables
     m.box('paint2', (2.2, 1.5, 1.2), at=(-1.4, 3.85, 2.2), bevel=0.06, seg=1)
     for i in range(7):
@@ -418,15 +438,224 @@ def trailer1():
         ladder(m, (3.55 * sx, 0.9, -6.2), (3.55 * sx, 4.7, -6.2), width=0.8, rung=0.4, side=(0, 0, 1))
 
 
-undercarriage()
-if STAGE >= 2:
+# ================================================================================ 5. TRAILER #2  (cannon turret, fuel tanks, flame ports, ramp, reactor tower)
+Z2F, Z2R = -9.7, -17.0
+CANNON_Z = -12.8
+
+
+def flame_port(sx, at, name):
+    rot = (0, 180 - 15 * sx, 0)
+    with m.xf(at, rot=rot):
+        m.cyl('metal_dark', (0, 0, -0.9), (0, 0, 0.1), 0.34, seg=10)
+        m.cyl('armor', (0, 0, 0.1), (0, 0, 1.1), 0.17, seg=10)
+        m.cyl('armor', (0, 0, 1.1), (0, 0, 1.5), 0.17, 0.3, seg=10)
+        m.revolve('metal_dark', [(0.31, 1.46), (0.34, 1.48), (0.34, 1.56), (0.28, 1.56)], axis='z', seg=10)
+        m.revolve('light_amber', [(0.2, 1.5), (0.22, 1.52), (0.22, 1.54), (0.0, 1.54), (0.0, 1.5)], axis='z', seg=10)
+        for k in range(3):
+            m.revolve('metal_dark', [(0.18, 0.3 + k * 0.28), (0.24, 0.32 + k * 0.28), (0.24, 0.38 + k * 0.28), (0.18, 0.4 + k * 0.28)], axis='z', seg=10)
+        m.tube('metal_dark', [(0.0, 0.34, -0.3), (0.0, 0.7, -0.5), (0.0, 0.9, -1.3)], 0.07, seg=6, bend=0.2)
+    m.sock(name, at, rot=rot, size=0.4)
+
+
+def trailer2():
+    m.use('body')
+    L2 = Z2F - Z2R
+    zc2 = (Z2F + Z2R) / 2
+    m.box('armor', (5.3, 0.3, L2), at=(0, 2.85, zc2), bevel=0.03, seg=1)
+    m.box('wood', (4.9, 0.08, L2 - 0.3), at=(0, 3.02, zc2), bevel=0)
+    for i in range(int(L2 / 0.55)):
+        m.box('metal_dark', (4.9, 0.02, 0.03), at=(0, 3.065, Z2F - 0.3 - i * 0.55), bevel=0)
+    slits = [[(z0, 3.75), (z0 + 0.9, 3.75), (z0 + 0.9, 4.1), (z0, 4.1)] for z0 in (-10.3, -12.0)]
+    for sx in (1, -1):
+        m.plate('paint', [(Z2R + 0.2, 2.7), (Z2F - 0.1, 2.7), (Z2F - 0.1, 4.6), (Z2R + 0.2, 4.6)], 0.3, at=(2.25 * sx, 0, 0), u=(0, 0, 1), v=(0, 1, 0), bevel=0.05, seg=1, holes=slits)
+        wall(m, 'armor', (2.1 * sx, 3.7, zc2 - 0.1), (0, 0, sx), (0, 1, 0), 7.0, 1.7, 5, 2, t=0.08, gap=0.09, rr=0.04, bevel=0.03, mats=['armor', 'armor', 'rust'])
+        m.box('armor', (0.18, 0.5, 7.2), at=(2.4 * sx, 2.5, zc2), bevel=0.02, seg=1)
+        # tank saddles
+        for zz in (-11.9, -15.4):
+            m.beam('armor', (2.45 * sx, 3.0, zz), (3.05 * sx, 3.5, zz), 0.34, 0.5, bevel=0.03, seg=1)
+        m.box('rubber_tire', (0.06, 1.3, 1.2), at=(3.3 * sx, 1.2, AX['T2'] - 1.5), bevel=0.02, seg=1)
+        po = [(AX['T2'] + 1.62 * math.cos(t * D2R), HUBY + 1.62 * math.sin(t * D2R)) for t in range(30, 151, 10)]
+        pi_ = [(AX['T2'] + 1.45 * math.cos(t * D2R), HUBY + 1.45 * math.sin(t * D2R)) for t in range(150, 29, -10)]
+        m.plate('armor', po + pi_, 0.2, at=(3.45 * sx, 0, 0), u=(0, 0, 1), v=(0, 1, 0), bevel=0.02, seg=1)
+    # front bulkhead with a doorway to the catwalk
+    m.plate('paint', [(-2.6, 2.7), (2.6, 2.7), (2.6, 4.6), (-2.6, 4.6)], 0.3, at=(0, 0, Z2F), u=(1, 0, 0), v=(0, 1, 0), bevel=0.05, seg=1, holes=[[(-0.8, 3.05), (0.8, 3.05), (0.8, 4.3), (-0.8, 4.3)]])
+    # cannon pedestal drum
+    m.revolve('armor', [(0, 3.0), (1.85, 3.0), (1.9, 3.1), (1.85, 4.5), (1.5, 4.65), (0, 4.65)], at=(0, 0, CANNON_Z), axis='y', seg=24, bevel=0.02)
+    m.revolve('paint2', [(1.9, 3.45), (1.93, 3.5), (1.93, 3.9), (1.9, 3.95)], at=(0, 0, CANNON_Z), axis='y', seg=24)
+    for k in range(28):
+        a = 2 * PI * (k + 0.5) / 28
+        m.rivet('armor', (1.88 * math.cos(a), 4.3, CANNON_Z + 1.88 * math.sin(a)), (math.cos(a), 0, math.sin(a)), r=0.05)
+    for k in range(10):
+        a = 2 * PI * k / 10
+        m.spike('armor', (2.0 * math.cos(a), 3.4, CANNON_Z + 2.0 * math.sin(a)), (2.35 * math.cos(a), 3.5, CANNON_Z + 2.35 * math.sin(a)), 0.09, seg=6)
+    cannon_turret(m, 'turret_main', (0, 4.65, CANNON_Z), s=0.72)
+    m.use('body')
+    # fuel tanks on the flanks
+    fuel_tank(m, 'tank_L', (3.05, 4.1, -13.7), r=0.8, L=5.2, fuel_socket=True)
+    fuel_tank(m, 'tank_R', (-3.05, 4.1, -13.7), r=0.8, L=5.2)
+    # ---- reactor tower (rear)
+    for sx in (1, -1):
+        m.box('paint', (0.5, 5.4, 1.9), at=(2.1 * sx, 5.7, -16.05), bevel=0.05, seg=1)
+        nm = 'panel_tower_%s' % ('L' if sx > 0 else 'R')
+        apanel(nm, (2.4 * sx, 5.7, -16.05))
+        wall(m, 'armor', (2.36 * sx, 5.7, -16.05), (0, 0, -sx), (0, 1, 0), 1.9, 5.2, 1, 3, t=0.08, gap=0.08, rr=0.04, bevel=0.03, obj=nm)
+        m.use('body')
+        m.box('armor', (0.4, 0.3, 1.9), at=(1.9 * sx, 3.1, -16.05), bevel=0.02, seg=1)
+    m.box('paint2', (5.0, 0.3, 2.1), at=(0, 8.55, -16.1), bevel=0.06, seg=2)
+    m.box('armor', (3.6, 0.2, 0.3), at=(0, 5.45, -15.2), bevel=0.02, seg=1)
+    m.plate('armor', [(-2.05, 5.45), (2.05, 5.45), (2.05, 8.4), (-2.05, 8.4)], 0.22, at=(0, 0, -15.1), u=(1, 0, 0), v=(0, 1, 0), bevel=0.03, seg=1)
+    m.rivet_rect('armor', (0, 6.9, -15.0), 4.1, 2.9, (0, 0, 1), u=(1, 0, 0), v=(0, 1, 0), step=0.34, r=0.045, inset=0.12)
+    for k in range(4):
+        m.obox('paint2', (-1.5 + k * 1.0, 6.9, -14.98), (1, 0.7, 0), (0, 1, 0), (0.3, 1.6, 0.03), bevel=0, seg=1)
+    reactor(m, (0, 6.75, -16.05), s=1.0)
+    m.use('body')
+    for k in range(9):
+        a = 2 * PI * k / 9
+        m.spike('armor', (0.0 + 2.2 * math.cos(a) * 1.0, 8.7, -16.1 + 0.9 * math.sin(a)), (2.35 * math.cos(a), 9.5, -16.1 + 0.95 * math.sin(a)), 0.09, seg=6) if abs(math.cos(a)) > 0.3 else None
+    for k in range(3):
+        spotlight(m, (-1.5 + k * 1.5, 8.95, -17.15), n=(0, -0.12, -1), r=0.34)
+    # rear lights on the pillars
+    for sx in (1, -1):
+        light_rect(m, (2.15 * sx, 4.6, -17.03), (0.8, 0.5), 'light_tail', n=(0, 0, -1), depth=0.3)
+        light_rect(m, (2.15 * sx, 3.9, -17.03), (0.8, 0.3), 'light_amber', n=(0, 0, -1), depth=0.3)
+    flame_port(1, (2.55, 4.1, -17.05), 'flame_L')
+    flame_port(-1, (-2.55, 4.1, -17.05), 'flame_R')
+    for sx in (1, -1):
+        m.tube('metal_dark', [(3.05 * sx, 3.5, -16.9), (2.9 * sx, 3.3, -17.0), (2.65 * sx, 3.7, -17.0)], 0.07, seg=6, bend=0.2)
+    m.sock('nitro_L', (1.9, 2.2, -17.25))
+    m.sock('nitro_R', (-1.9, 2.2, -17.25))
+    m.sock('light_tail_L', (2.15, 4.6, -17.35))
+    m.sock('light_tail_R', (-2.15, 4.6, -17.35))
+    # ladder up the tower + catwalk along the wall tops
+    for sx in (1, -1):
+        ladder(m, (2.75 * sx, 3.0, -16.4), (2.75 * sx, 8.4, -16.4), width=0.8, rung=0.4, side=(0, 0, 1)) if sx > 0 else None
+    # hanging chains + skulls on the tower
+    for sx in (1, -1):
+        chain(m, (1.6 * sx, 5.5, -17.15), (2.3 * sx, 8.3, -17.15), sag=0.8, link=0.3, r=0.055)
+        skull(m, (2.35 * sx, 8.85, -15.6), s=1.6, n=(0, 0.1, -1), horns=True, mat='plastic', eyes='light_amber')
+
+
+def trailer2_panels():
+    # ---- ramp (hinged at the deck edge)
+    m.panel('ramp_rear', (0, 3.02, -17.0), metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', rust='armor', spike='armor', plastic='armor')
+    o = 'ramp_rear'
+    m.box('armor', (3.9, 2.5, 0.3), at=(0, 4.27, -17.1), bevel=0.05, seg=1, obj=o)
+    for k in range(9):
+        m.box('armor', (3.7, 0.12, 0.08), at=(0, 3.3 + k * 0.26, -17.28), bevel=0.02, seg=1, obj=o)          # grip ribs
+    m.rivet_rect('armor', (0, 4.27, -17.26), 3.9, 2.5, (0, 0, -1), u=(-1, 0, 0), v=(0, 1, 0), step=0.36, r=0.05, inset=0.12, obj=o)
+    for sx in (1, -1):
+        m.box('armor', (0.24, 2.5, 0.42), at=(1.95 * sx, 4.27, -17.15), bevel=0.03, seg=1, obj=o)
+        m.beam('armor', (1.8 * sx, 3.1, -17.32), (1.8 * sx, 5.4, -17.32), 0.26, 0.1, bevel=0.02, seg=1, obj=o)
+    for k in range(6):
+        m.obox('paint2', (-1.5 + k * 0.6, 5.2, -17.29), (1, 0.8, 0), (0, 1, 0), (0.22, 0.6, 0.03), bevel=0, seg=1, obj=o)
+    m.cyl('metal_dark', (-1.9, 3.02, -17.0), (1.9, 3.02, -17.0), 0.14, seg=8, obj=o)
+    m.text('paint2', 'WARLORD', (0, 4.75, -17.3), u=(-1, 0, 0), v=(0, 1, 0), size=0.55, depth=0.04, obj=o)
+    m.text('paint2', 'LEVIATHAN', (0, 4.05, -17.3), u=(-1, 0, 0), v=(0, 1, 0), size=0.3, depth=0.04, obj=o)
+    for sx in (1, -1):
+        m.tube('armor', [(2.1 * sx, 3.5, -17.1), (2.6 * sx, 3.3, -17.3), (2.6 * sx, 3.0, -17.3)], 0.09, seg=6, bend=0.1, obj=o)
+    m.use('body')
+    # ---- bolt-on plates over the reactor
+    for i, (x0, x1) in enumerate(((-0.6, 0.6), (0.65, 2.05), (-2.05, -0.65)), start=1):
+        if os.environ.get('NOPLATES'):
+            continue
+        nm = 'panel_armor_rear_%d' % i
+        m.panel(nm, ((x0 + x1) / 2, 6.75, -17.05), metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', rust='armor', spike='armor')
+        w = x1 - x0
+        m.box('armor', (w, 2.7, 0.22), at=((x0 + x1) / 2, 6.75, -17.05), bevel=0.04, seg=1, obj=nm)
+        m.rivet_rect('armor', ((x0 + x1) / 2, 6.75, -17.17), w, 2.7, (0, 0, -1), u=(-1, 0, 0), v=(0, 1, 0), step=0.3, r=0.045, inset=0.1, obj=nm)
+        for k in range(3):
+            m.obox('paint2', ((x0 + x1) / 2, 5.6 + k * 0.9, -17.19), (1, 0.6, 0), (0, 1, 0), (w * 0.9, 0.22, 0.03), bevel=0, seg=1, obj=nm)
+        m.weld('armor', (x0 + 0.1, 8.05, -17.2), (x1 - 0.1, 8.05, -17.2), r=0.04, obj=nm)
+        m.use('body')
+
+
+# ================================================================================ 6. TRACTOR REAR DECK (between cab and trailer): spares, toolboxes, gladhand hoses
+def rear_deck():
+    m.use('body')
+    m.box('armor', (6.3, 0.22, 3.25), at=(0, 2.83, 4.72), bevel=0.03, seg=1)
+    m.rivet_rect('armor', (0, 2.95, 4.72), 6.3, 3.25, (0, 1, 0), u=(1, 0, 0), v=(0, 0, 1), step=0.42, r=0.05, inset=0.15)
+    for i in range(7):
+        m.box('metal_dark', (6.0, 0.03, 0.08), at=(0, 2.96, 3.35 + i * 0.5), bevel=0)
+    for sx in (1, -1):
+        railing(m, [(3.05 * sx, 2.94, 6.25), (3.05 * sx, 2.94, 3.15)], h=1.1, r=0.045, post_step=1.05, rails=(0.55, 1.1))
+        m.box('paint2', (1.3, 1.0, 1.8), at=(2.3 * sx, 3.45, 4.3), bevel=0.05, seg=1)
+        for k in range(3):
+            m.box('metal_dark', (0.06, 0.06, 1.6), at=(2.3 * sx + 0.67 * sx, 3.45 + (k - 1) * 0.3, 4.3), bevel=0)
+        m.box('armor', (1.3, 0.12, 1.9), at=(2.3 * sx, 3.98, 4.3), bevel=0.03, seg=1)
+        m.hexbolt('armor', (2.3 * sx, 4.04, 4.9), (0, 1, 0), r=0.1, h=0.08)
+        # spare tyres standing against the cab
+        m.revolve('rubber_tire', [(0.42, -0.3), (0.86, -0.3), (0.9, -0.18), (0.9, 0.18), (0.86, 0.3), (0.42, 0.3)], at=(1.05 * sx, 3.95, 6.0), axis='z', seg=24)
+        m.revolve('metal_dark', [(0, -0.32), (0.44, -0.32), (0.44, -0.24), (0, -0.24)], at=(1.05 * sx, 3.95, 5.88), axis='z', seg=14)
+        for k in range(8):
+            a = k * 45 * D2R
+            m.hexbolt('metal_dark', (1.05 * sx + 0.3 * math.cos(a), 3.95 + 0.3 * math.sin(a), 5.7), (0, 0, -1), r=0.05, h=0.05)
+        m.beam('armor', (1.05 * sx, 2.95, 5.7), (1.05 * sx, 3.5, 5.7), 0.5, 0.12, bevel=0.02, seg=1)
+    m.beam('armor', (-1.9, 5.0, 6.35), (1.9, 5.0, 6.35), 0.14, 0.14, bevel=0.02, seg=1)             # tyre retaining bar
+    # gladhand air/electric lines between cab and trailer (drooping hoses)
+    for x, y in ((-0.5, 3.6), (-0.15, 3.5), (0.2, 3.7), (0.55, 3.55)):
+        m.tube('metal_dark', [(x, y, 6.3), (x, y - 0.5, 5.4), (x * 0.6, y - 1.0, 4.3), (x * 0.5, y - 0.4, 3.2), (x * 0.5, y, 3.0)], 0.075, seg=6, bend=0.6)
+    m.box('armor', (1.6, 1.2, 0.4), at=(0, 3.6, 6.4), bevel=0.04, seg=1)
+
+
+# ================================================================================ 7. EXTRA STORYTELLING DETAIL
+def extra_detail():
+    m.use('body')
+    # impaled skulls + chains hanging from the plow crown
+    o = 'part_plow'
+    a, b = V3((-3.5, 2.55, 15.1)), V3((3.5, 2.55, 16.25))
+    d = V3((0, 0.5, 0.86)).normalized()
+    for i in (1, 3, 5, 7, 9):
+        base = a + (b - a) * ((i + 0.5) / 11)
+        skull(m, tuple(base + d * 1.25), s=1.0, n=(0, 0.2, 1), obj=o, horns=(i % 4 == 1), mat='plastic', eyes='light_amber')
+    for i in (0, 2, 4, 6, 8):
+        p0 = a + (b - a) * ((i + 0.5) / 11) + d * 0.9
+        p1 = a + (b - a) * ((i + 2.5) / 11) + d * 0.9
+        chain(m, tuple(p0), tuple(p1), sag=0.35, link=0.22, r=0.04, obj=o)
+    m.use('body')
+    # pipe runs + vents along the trailer-1 parapet tops
+    for sx in (1, -1):
+        m.tube('metal_dark', [(3.0 * sx, 4.85, 2.0), (3.0 * sx, 4.85, -7.9)], 0.11, seg=8)
+        for z in (1.5, -0.5, -2.5, -4.5, -6.5):
+            m.box('metal_dark', (0.3, 0.3, 0.16), at=(3.0 * sx, 4.7, z), bevel=0.01, seg=1)
+    # ammo crates + belts between the two turrets
+    crate(m, (0.0, PLAT_Y + 0.35, -2.95), size=(1.0, 0.7, 0.9), rot=(0, 3, 0), mat='armor')
+    crate(m, (0.15, PLAT_Y + 1.05, -2.95), size=(0.8, 0.7, 0.8), rot=(0, -10, 0), mat='armor')
+    for sx in (1, -1):
+        m.tube('metal_dark', [(0.4 * sx, PLAT_Y + 0.6, -2.8), (0.9 * sx, PLAT_Y + 1.0, -2.4), (1.1 * sx, PLAT_Y + 0.4, -1.9)], 0.06, seg=6, bend=0.2)
+    # radio mast + dish at the rear of trailer 1
+    m.cyl('metal_dark', (0.0, PLAT_Y, -6.5), (0.0, PLAT_Y + 3.6, -6.5), 0.07, seg=6)
+    for k in range(3):
+        m.beam('metal_dark', (-0.7, PLAT_Y + 2.2 + k * 0.55, -6.5), (0.7, PLAT_Y + 2.2 + k * 0.55, -6.5), 0.05, 0.05, bevel=0, seg=1)
+    # steam / coolant pipes at the hood sides
+    for sx in (1, -1):
+        m.tube('chrome', [(1.55 * sx, 3.6, 11.3), (2.0 * sx, 4.2, 11.4), (2.15 * sx, 5.2, 11.5)], 0.13, seg=8, bend=0.3)
+
+
+SECTS = set(x for x in os.environ.get('SECT', '').split(',') if x)
+
+
+def want(k):
+    return (not SECTS) or (k in SECTS)
+
+
+if want('under'):
+    undercarriage()
+if want('tractor'):
     tractor()
     tractor_panels()
     plow_and_grille()
-if STAGE >= 3:
+if want('cab'):
     cab()
     stacks()
-if STAGE >= 4:
+if want('t1'):
     trailer1()
+if want('t2'):
+    trailer2()
+    trailer2_panels()
+if want('deck'):
+    rear_deck()
+if want('extra'):
+    extra_detail()
 
-m.finish(ao_rays=6, ao_dist=3.0)
+add_proxies(m)
+m.finish(ao_rays=9, ao_dist=3.0)

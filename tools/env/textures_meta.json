@@ -4,22 +4,22 @@
   "tile": 2.0,
   "size": 2048,
   "seam": 0.96,
-  "kb": 2846
+  "kb": 2861
  },
  "asphalt_worn": {
   "source": "asphalt_01 (+procedural wear)",
   "tile": 3.7,
   "note": "one lane wide, tile U across the lane",
   "size": 2048,
-  "seam": 1.4,
-  "kb": 3846
+  "seam": 1.39,
+  "kb": 3858
  },
  "asphalt_cracked": {
   "source": "asphalt_02",
   "tile": 3.000000238418579,
   "size": 2048,
   "seam": 1.01,
-  "kb": 4472
+  "kb": 4512
  },
  "sand": {
   "source": "sandy_gravel_02 (+procedural wind ripples)",
@@ -40,14 +40,14 @@
   "tile": 1.9999996423721313,
   "size": 2048,
   "seam": 0.98,
-  "kb": 5515
+  "kb": 5520
  },
  "gravel": {
   "source": "gravel_floor_03",
   "tile": 2.5,
   "size": 2048,
   "seam": 1.02,
-  "kb": 5010
+  "kb": 5038
  },
  "rock_red": {
   "source": "cliff_side",
@@ -60,30 +60,30 @@
   "source": "rock_face_03 (desaturated)",
   "tile": 2.6999995708465576,
   "size": 2048,
-  "seam": 0.92,
-  "kb": 2757
+  "seam": 0.93,
+  "kb": 2777
  },
  "cliff": {
-  "source": "dry_riverbed_rock",
-  "tile": 2.0,
+  "source": "cliff_side (re-graded warm grey-tan)",
+  "tile": 1.8300000429153442,
   "note": "strata run horizontally (image X)",
   "size": 2048,
-  "seam": 0.92,
-  "kb": 3189
+  "seam": 1.09,
+  "kb": 2385
  },
  "snow": {
   "source": "snow_02",
   "tile": 2.0,
   "size": 2048,
   "seam": 1.09,
-  "kb": 2531
+  "kb": 2529
  },
  "forest_floor": {
   "source": "forest_leaves_04",
   "tile": 1.5,
   "size": 2048,
   "seam": 1.13,
-  "kb": 4772
+  "kb": 4771
  },
  "grass_green": {
   "source": "forrest_ground_01",
@@ -110,15 +110,15 @@
   "source": "concrete_floor_03 (bleached)",
   "tile": 2.499999761581421,
   "size": 1024,
-  "seam": 1.02,
-  "kb": 997
+  "seam": 1.03,
+  "kb": 976
  },
  "concrete_cracked": {
   "source": "cracked_concrete (bleached)",
   "tile": 2.0,
   "size": 1024,
   "seam": 0.98,
-  "kb": 582
+  "kb": 566
  },
  "rust_metal": {
   "source": "rust_coarse_01",

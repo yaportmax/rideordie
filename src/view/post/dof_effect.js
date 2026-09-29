@@ -31,7 +31,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
       float r = sqrt(fi / float(DOF_TAPS)) * rad;
       float a = fi * 2.39996323 + jit;
       vec2 suv = uv + vec2(cos(a), sin(a)) * r * px;
-      vec3 c = texture2D(inputBuffer, suv).rgb;
+      vec3 c = textureLod(inputBuffer, suv, 0.0).rgb;
       float zs = -getViewZ(readDepth(suv));
       float cs = cocPx(zs);
       // a sample only contributes if its own CoC reaches this pixel, or if it is behind us (background never occludes)

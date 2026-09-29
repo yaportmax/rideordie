@@ -1,0 +1,29 @@
+{
+ "name": "shell_rifle",
+ "tris": 1648,
+ "glb_kb": 277,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 1648,
+   "materials": [
+    "brass",
+    "gun_steel"
+   ]
+  }
+ },
+ "sockets": {},
+ "motions": [],
+ "remarks": [
+  "Fired 7.62x39 mm case: mouth toward +Z (glTF), origin at the middle of the case length on the axis, case axis = Z. Length 38.7 mm, rim dia 11.3 mm. Slight mouth dent, dented primer, headstamp ring."
+ ],
+ "style_keys": [
+  "dirt",
+  "wear"
+ ]
+}

@@ -2,18 +2,18 @@
  "name": "shrub_green_bush",
  "file": "shrub_green_bush.glb",
  "category": "shrub",
- "height": 1.433,
- "radius": 1.094,
+ "height": 1.348,
+ "radius": 1.197,
  "size": [
-  1.906,
-  1.433,
-  2.117
+  2.316,
+  1.348,
+  1.994
  ],
- "tris": 467,
+ "tris": 611,
  "materials": [
   "bark_dead",
   "shrub_green_leaves"
  ],
- "notes": "green broadleaf bush (coast / lower biomes): 46 alpha-tested cards + 3 stems; ~1.2 m",
- "kb": 474.2
+ "notes": "green broadleaf bush (coast / lower biomes): 64 alpha-tested cards + 3 stems; dark green; ~1.2 m",
+ "kb": 462.9
 }

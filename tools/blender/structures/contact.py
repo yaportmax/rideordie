@@ -26,6 +26,10 @@ def shot(i_e):
     dx, dy, dz = e["dims"]
     dist = max(2.5 * dy, 1.55 * max(dx, dz), 8.0)
     q += "&dist=%.1f" % dist
+    OV = {"dam_wall_backdrop": "haze=1&az=172&el=5&dist=320&road=0&gcol=4a4032&fov=40",
+          "dam_wall": "haze=1&az=55&el=16&dist=190&road=1&gy=-45"}
+    if e["id"] in OV:
+        q = OV[e["id"]]
     out = "shots/structures/_c/%03d_%s.png" % (i, e["id"])
     cmd = ["node", "tools/test/shot.mjs", "tools/blender/structures/qa.html?model=/models/structures/%s.glb&%s" % (e["id"], q), out, "--quiet", "--w=720", "--h=480", "--wait=900"]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -31,7 +31,7 @@ export const VEHICLES = {
     seats: { driver: [0.4, 0.55, 0.55], gunner: [0, 0.95, -0.85] },
   },
   truck_t2: {
-    ...truckBase, id: 'truck_t2', name: 'Hauler', kind: 'player', tier: 2,
+    ...truckBase, id: 'truck_t2', hp: 560, name: 'Hauler', kind: 'player', tier: 2,
     mass: 1700, length: 5.6, width: 2.0, height: 1.9,
     wheels: wheels4(0.92, 1.72, -1.6), wheelRadius: 0.4,
     colliders: [{ center: [0, 0.8, 0], half: [0.98, 0.4, 2.75] }, { center: [0, 1.4, 0.8], half: [0.85, 0.36, 0.95] }],
@@ -39,7 +39,7 @@ export const VEHICLES = {
     seats: { driver: [0.45, 0.6, 0.75], gunner: [0, 1.0, -0.95] },
   },
   truck_t3: {
-    ...truckBase, id: 'truck_t3', name: 'Bruiser', kind: 'player', tier: 3,
+    ...truckBase, id: 'truck_t3', hp: 760, name: 'Bruiser', kind: 'player', tier: 3,
     mass: 2300, length: 5.7, width: 2.1, height: 2.0,
     wheels: wheels4(0.96, 1.75, -1.65), wheelRadius: 0.42,
     colliders: [{ center: [0, 0.82, 0], half: [1.02, 0.42, 2.85] }, { center: [0, 1.45, 0.85], half: [0.88, 0.36, 0.95] }],
@@ -47,7 +47,7 @@ export const VEHICLES = {
     seats: { driver: [0.48, 0.65, 0.8], gunner: [0, 1.05, -1.0] },
   },
   truck_t4: {
-    ...truckBase, id: 'truck_t4', name: 'Juggernaut', kind: 'player', tier: 4,
+    ...truckBase, id: 'truck_t4', hp: 1000, name: 'Juggernaut', kind: 'player', tier: 4,
     mass: 3000, length: 6.2, width: 2.3, height: 2.2,
     wheels: wheels4(1.05, 1.95, -1.8), wheelRadius: 0.48,
     colliders: [{ center: [0, 0.95, 0], half: [1.12, 0.48, 3.1] }, { center: [0, 1.6, 0.95], half: [0.95, 0.38, 1.0] }],

@@ -13,11 +13,11 @@
  "materials": [
   "rock_grey"
  ],
- "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)",
+ "notes": "angular rock; material rock_grey (swap by name for other biomes: rock_grey / rock_red / cliff)",
  "variants": [
   "rock_grey",
   "rock_red",
   "cliff"
  ],
- "kb": 306.8
+ "kb": 308.0
 }

@@ -87,7 +87,7 @@ def pal():
     M["brass"] = mat("brass", (0.55, 0.38, 0.10), metal=1.0, rough=0.35)
     M["glass"] = mat("glass", (0.05, 0.075, 0.07), metal=0.0, rough=0.05, alpha=0.38, double_sided=True)
     M["light_head"] = mat("light_head", (1.0, 0.92, 0.75), rough=0.15, emit=(1.0, 0.88, 0.62), emit_strength=3.0)
-    M["light_tail"] = mat("light_tail", (0.9, 0.02, 0.01), rough=0.2, emit=(1.0, 0.005, 0.0), emit_strength=1.5)
+    M["light_tail"] = mat("light_tail", (0.45, 0.0, 0.0), rough=0.55, emit=(0.75, 0.0, 0.0), emit_strength=1.0)
     M["light_amber"] = mat("light_amber", (1.0, 0.45, 0.05), rough=0.2, emit=(1.0, 0.4, 0.03), emit_strength=2.5)
     M["cloth_red"] = mat("cloth_red", (0.32, 0.015, 0.01), metal=0.0, rough=0.95)
     M["cloth_dark"] = mat("cloth_dark", (0.04, 0.035, 0.03), metal=0.0, rough=0.95)
@@ -679,3 +679,16 @@ def strip_wave(name, base, length, width, amp, waves, m, direction=(0, -1, 0), u
     md.offset = 0
     apply_modifiers(o)
     return reg(o, g)
+
+
+def weld_line(name, p0, p1, seed=0, r=0.006, step=0.07, jitter=0.0025, m="metal_bare", g=None):
+    """Bumpy weld bead between two (x,f,z) points."""
+    rnd = random.Random(seed)
+    a, b = Vector(p0), Vector(p1)
+    n = max(int((b - a).length / step), 2)
+    pts = []
+    for i in range(n + 1):
+        t = i / n
+        q = a + (b - a) * t
+        pts.append((q.x + rnd.uniform(-jitter, jitter), q.y + rnd.uniform(-jitter, jitter), q.z + rnd.uniform(-jitter, jitter)))
+    return tube(name, pts, r, m, res=0, g=g)

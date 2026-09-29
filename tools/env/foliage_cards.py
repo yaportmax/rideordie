@@ -29,6 +29,44 @@ def bez(p0, p1, p2, t):
     return lerp(a, b, t)
 
 
+
+# ---- colour grade applied to every card (round 3): linear-light gain, highlight compression (tips only ~15% lighter than the body), yellow/lime removal
+#      name -> (gain, comp, red_comp, green_bias)   gain multiplies linear albedo; comp compresses luminance above the body mean; red_comp pulls red
+#      down in the highlights (kills lime/yellow); green_bias multiplies the green channel (deeper conifer/palm green)
+GRADE = {
+    "card_pine_a": (0.285, 0.85, 0.70, 1.00, (0.98, 1.0, 1.19)), "card_pine_b": (0.285, 0.85, 0.70, 1.00, (0.98, 1.0, 1.19)), "card_pine_c": (0.285, 0.85, 0.70, 1.00, (0.98, 1.0, 1.19)),
+    "card_palm_frond": (0.24, 0.75, 0.60, 1.00, (0.80, 1.0, 0.85)), "card_palm_frond_dry": (0.42, 0.6, 0.0, 1.0),
+    "card_fern": (0.34, 0.75, 0.60, 1.00, (0.90, 1.0, 1.0)),
+    "card_bush_scrub": (0.15, 0.7, 0.30, 1.00, (0.90, 1.05, 1.15)), "card_bush_green": (0.46, 0.7, 0.55, 1.00), "card_bush_dry": (0.28, 0.6, 0.0, 1.0),
+    "card_grass_dry": (0.24, 0.7, 0.0, 1.0, (1.0, 0.94, 1.15)), "card_grass_green": (0.44, 0.7, 0.55, 1.0),
+    "card_grass_stalks_dry": (0.24, 0.7, 0.0, 1.0, (1.0, 0.94, 1.15)), "card_grass_stalks_green": (0.44, 0.7, 0.55, 1.0),
+}
+
+
+def s2l(x):
+    return np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+
+
+def l2s(x):
+    x = np.clip(x, 0, None)
+    return np.where(x <= 0.0031308, x * 12.92, 1.055 * np.power(x, 1 / 2.4) - 0.055)
+
+
+def grade_rgb(rgb, al, spec):
+    gain, comp, red_comp, gbias = spec[:4]
+    ch = spec[4] if len(spec) > 4 else (1.0, 1.0, 1.0)
+    lin = s2l(rgb)
+    lum = lin[..., 0] * 0.2126 + lin[..., 1] * 0.7152 + lin[..., 2] * 0.0722
+    m = al > 0.5
+    ref = float(lum[m].mean()) if m.any() else 1.0
+    t = np.clip(lum / max(ref, 1e-6) - 1.0, 0, None)
+    k = 1.0 / (1.0 + comp * t)
+    lin = lin * k[..., None]
+    lin[..., 0] *= 1.0 / (1.0 + red_comp * t)
+    lin[..., 1] *= gbias
+    lin = lin * gain * np.array(ch, np.float32)
+    return np.clip(l2s(lin), 0, 1)
+
 def finish_rgba(im, path, size, boost=0.0):
     """downsample premultiplied, bleed colour into transparent texels, save"""
     a = np.asarray(im.convert("RGBA"), dtype=np.float32) / 255.0
@@ -40,6 +78,9 @@ def finish_rgba(im, path, size, boost=0.0):
     if boost:
         al = 1.0 - (1.0 - al) ** boost                       # fatten thin needles so alpha-tested mips keep coverage
     rgb = np.where(al[..., None] > 1e-3, p[..., :3] / np.maximum(al[..., None], 1e-3), 0.0)
+    gname = os.path.splitext(os.path.basename(path))[0]
+    if gname in GRADE:
+        rgb = grade_rgb(rgb, al, GRADE[gname])
     solid = al > 0.35
     idx = ndimage.distance_transform_edt(~solid, return_distances=False, return_indices=True)
     rgb = rgb[idx[0], idx[1]]
@@ -179,7 +220,7 @@ def blades(kind, seed, n=46):
     im = canvas(W, H)
     d = ImageDraw.Draw(im)
     if kind == "dry":
-        cols = [((122, 96, 54), (206, 178, 108)), ((150, 122, 70), (226, 200, 130)), ((104, 84, 50), (180, 150, 92))]
+        cols = [((136, 98, 46), (208, 166, 84)), ((156, 116, 56), (222, 180, 96)), ((116, 84, 42), (190, 150, 76))]
     else:
         cols = [((44, 70, 26), (128, 160, 70)), ((52, 84, 30), (150, 176, 84)), ((40, 62, 26), (108, 140, 60))]
     order = sorted(range(n), key=lambda _: r.random())
@@ -222,7 +263,7 @@ def stalks(kind, seed):
     im = canvas(W, H)
     d = ImageDraw.Draw(im)
     if kind == "dry":
-        c0, c1, head = (128, 106, 64), (196, 172, 112), (176, 148, 88)
+        c0, c1, head = (140, 102, 50), (204, 164, 88), (184, 140, 70)
     else:
         c0, c1, head = (58, 84, 34), (116, 142, 66), (128, 132, 70)
     for i in range(9):
@@ -338,7 +379,7 @@ def leafy(kind, seed):
     im = canvas(W, H)
     d = ImageDraw.Draw(im)
     if kind == "scrub":
-        leafcols = [(112, 114, 82), (138, 136, 100), (158, 152, 112), (96, 98, 70)]
+        leafcols = [(126, 118, 80), (150, 140, 96), (170, 158, 112), (106, 98, 68)]
         stem_col, leaf_len, leaf_w, nst, per = (86, 72, 56), 44, 12, 9, 26
     elif kind == "green":
         leafcols = [(34, 54, 28), (46, 70, 34), (64, 88, 42), (30, 48, 26)]
@@ -407,19 +448,21 @@ def cactus_skin(kind, seed, size=512):
     lo = tile_noise(n, seed, 3.0); mid = tile_noise(n, seed + 1, 1.8); hi = tile_noise(n, seed + 2, 0.8)
     if kind == "rib":
         crest = 0.5 + 0.5 * np.cos(2 * np.pi * xx)                     # 1 at crest, 0 in the groove
-        base = np.array([96, 112, 80], np.float32); light = np.array([126, 138, 100], np.float32); dark = np.array([60, 76, 52], np.float32)
+        base = np.array([92, 114, 72], np.float32); light = np.array([122, 142, 92], np.float32); dark = np.array([58, 76, 46], np.float32)
         t = np.clip(0.42 + 0.26 * (crest - 0.5) + 0.10 * lo + 0.05 * mid + 0.03 * hi, 0, 1)
     else:
-        base = np.array([94, 112, 88], np.float32); light = np.array([126, 140, 116], np.float32); dark = np.array([62, 80, 62], np.float32)
+        base = np.array([96, 116, 76], np.float32); light = np.array([126, 144, 96], np.float32); dark = np.array([62, 78, 50], np.float32)
         t = np.clip(0.5 + 0.13 * lo + 0.08 * mid + 0.03 * hi, 0, 1)
     col = np.where(t[..., None] < 0.5, dark + (base - dark) * (t[..., None] * 2), base + (light - base) * ((t[..., None] - 0.5) * 2))
     col += np.array([4, 3, 0], np.float32) * mid[..., None]
     if kind == "pad":                       # waxy blue-grey bloom, patchy
-        bl = np.clip(0.5 + 0.55 * tile_noise(n, seed + 7, 2.4), 0, 1)[..., None] * 0.42
-        col = col * (1 - bl) + np.array([118, 136, 132], np.float32) * bl
+        bl = np.clip(0.5 + 0.55 * tile_noise(n, seed + 7, 2.4), 0, 1)[..., None] * 0.30
+        col = col * (1 - bl) + np.array([126, 138, 124], np.float32) * bl
     else:                                   # older darker / scarred patches
         sc = np.clip((tile_noise(n, seed + 9, 2.0) - 0.9) * 1.6, 0, 1)[..., None] * 0.5
         col = col * (1 - sc) + np.array([88, 78, 64], np.float32) * sc
+    col = np.clip(col, 0, 255) / 255.0
+    col = l2s(s2l(col) * 0.15) * 255.0                              # round 3: darker dusty green (linear gain 0.15)
     img = Image.fromarray(np.clip(col, 0, 255).astype(np.uint8), "RGB")
     d = ImageDraw.Draw(img)
     def areole(x, y, rr, nsp, ln0, ln1):
@@ -427,11 +470,11 @@ def cactus_skin(kind, seed, size=512):
             for oy in (-n, 0, n):
                 xx_, yy_ = x + ox, y + oy
                 if -20 < xx_ < n + 20 and -20 < yy_ < n + 20:
-                    d.ellipse([xx_ - rr, yy_ - rr * 1.2, xx_ + rr, yy_ + rr * 1.2], fill=(150, 138, 104))
+                    d.ellipse([xx_ - rr, yy_ - rr * 1.2, xx_ + rr, yy_ + rr * 1.2], fill=(122, 114, 88))
                     for q in range(nsp):
                         a = rng.uniform(0, 2 * math.pi)
                         ln = rng.uniform(ln0, ln1)
-                        d.line([xx_, yy_, xx_ + math.cos(a) * ln, yy_ + math.sin(a) * ln * 1.3], fill=(206, 196, 160), width=1)
+                        d.line([xx_, yy_, xx_ + math.cos(a) * ln, yy_ + math.sin(a) * ln * 1.3], fill=(176, 168, 136), width=1)
     if kind == "rib":
         rows = 22
         for j in range(rows):

@@ -719,7 +719,8 @@ def axes(sk):
     (±pi) lands on the seams: centre back, under the arms, inside the legs."""
     H = sk["heads"]
     up = np.array([0.0, 1.0, 0.0])
-    out = {"body": (H["Hips"] * np.array([1, 0, 1]), -up, np.array([0.0, 0.0, -1.0])),
+    # (tube seam at the character's LEFT side: the centre back and centre front stay in one piece for logos and zips)
+    out = {"body": (H["Hips"] * np.array([1, 0, 1]), -up, np.array([1.0, 0.0, 0.0])),
            "head": (H["Head"] * np.array([1, 0, 1]), -up, np.array([0.0, 0.0, -1.0]))}
     for side, arm, hand, leg, foot in (("L", "LeftArm", "LeftHand", "LeftUpLeg", "LeftFoot"),
                                        ("R", "RightArm", "RightHand", "RightUpLeg", "RightFoot")):

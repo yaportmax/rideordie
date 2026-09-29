@@ -31,6 +31,7 @@ os.makedirs(SHOTS, exist_ok=True)
 
 SPECS = {
     "m": dict(macro=dict(gender=1.0, age=0.5, muscle=0.6, weight=0.35, height=0.5, race="caucasian"), height=1.82, skin="young_african_male"),
+    "h": dict(macro=dict(gender=1.0, age=0.55, muscle=1.0, weight=0.85, height=0.5, race="caucasian"), height=1.92, skin="middleage_caucasian_male"),
     "f": dict(macro=dict(gender=0.0, age=0.5, muscle=0.4, weight=0.7, height=0.4, race="caucasian"), height=1.62, skin="young_caucasian_female"),
 }
 _cache = {}
@@ -41,6 +42,7 @@ def build(kind, only=None, **kw):
     ch = char(kind)
     g = Glb()
     pr = body_prims(ch, g)[0]
+    kw.setdefault("bulk", float(os.environ.get("ANIM_BULK", "1")))
     return anim.build_clips(ch.heads_final, only=only, mesh=(pr["pos"], pr["joints"], pr["weights"]), foot_sole=getattr(ch, "sole", 0.0), **kw)
 
 

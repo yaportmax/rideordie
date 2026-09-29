@@ -5,9 +5,11 @@ import { CrewView } from '../view/crew_view.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { ENEMIES } from '../data/enemies.js';
 import * as Assets from '../core/assets.js';
+import { DebrisSystem } from '../view/debris.js';
 
 const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f, 0x6a2f2f, 0x91856a];
 const _q = new THREE.Quaternion();
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 export class WorldView {
   /** opts: {scene, playerPaint, fx?, audio?} */
@@ -17,6 +19,8 @@ export class WorldView {
     this.cars = new Map(); // id -> {view, crew:{gunner?,driver?}, state}
     this.group = new THREE.Group(); this.group.name = 'cars'; this.scene.add(this.group);
     this.night = 0;
+    this.groundY = opts.groundY || (() => null);
+    this.debris = new DebrisSystem(this.scene, (x, y, z) => this.groundY(x, y, z));
     this.armorTier = 0; this.playerWeapon = 'pistol';
     this.projMeshes = new Map();
     this.rocketGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.9, 8).rotateX(Math.PI / 2);
@@ -72,13 +76,15 @@ export class WorldView {
           local: st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : null, exploded: st.exploded,
         });
       }
-      if (st.exploded && !rec.wreck) { rec.wreck = true; this._charCar(rec); }
+      this._damageVisuals(rec, st);
+      if (st.exploded && !rec.wreck) { rec.wreck = true; this._charCar(rec); this._blowParts(rec, st, 1.0); }
     }
     // remove views for cars that vanished
     for (const id of [...this.cars.keys()]) if (!states.has(id)) this.remove(id);
     // events -> crew reactions and cross-module fan-out
     for (const e of events) this.handleEvent(e, states);
     this._projectiles(ctx.proj || []);
+    this.debris.update(dt);
   }
 
   handleEvent(e, states) {
@@ -86,6 +92,41 @@ export class WorldView {
     if (e.t === 'crewDead' && rec && rec.crew[e.role]) rec.crew[e.role].die(e);
     if (e.t === 'crewHit' && rec && rec.crew[e.role]) rec.crew[e.role].flinch(e);
     if (e.t === 'remove') this.remove(e.id);
+    if (e.t === 'crash' && rec && e.dv > 2.2) this._shedPart(rec, e.dv * 0.6, e.other >= 0);
+    if (e.t === 'tirePop' && rec) { const w = rec.view.spec.wheels[e.index]; const n = w && rec.view.wheelNodes.get(w.name); if (n) n.userData.flat = true; }
+    if (e.t === 'explode' && rec && !rec.wreck) { rec.wreck = true; this._charCar(rec); this._blowParts(rec, rec.state, 1.4, e.vel); }
+  }
+
+  _damageVisuals(rec, st) {
+    // detach panels as hp falls through thresholds
+    const hp = st.hp01; rec.hpPrev ??= 1;
+    const T = [[0.72, ['bumper_F', 'fender_L']], [0.55, ['door_L', 'door_R2', 'fender_R']], [0.4, ['hood']], [0.28, ['trunk', 'tailgate', 'bumper_R', 'door_R']], [0.14, ['roof', 'door_L2', 'armor_1']]];
+    for (const [th, names] of T) if (rec.hpPrev >= th && hp < th) for (const nm of names) this._throwPanel(rec, nm, 1.0);
+    rec.hpPrev = hp;
+    // flat tyres sit lower
+    for (const [name, node] of rec.view.wheelNodes) { const target = node.userData.flat ? 0.82 : 1; node.scale.y += (target - node.scale.y) * 0.2; }
+  }
+  _shedPart(rec, force, ram) {
+    const names = [...rec.view.panels.keys()].filter((n) => rec.view.panels.get(n).parent === rec.view.model || rec.view.panels.get(n).parent);
+    if (!names.length || Math.random() > 0.55) return;
+    this._throwPanel(rec, names[(Math.random() * names.length) | 0], clamp01(force / 6));
+  }
+  _blowParts(rec, st, k, vel) {
+    const v = vel ? new THREE.Vector3(...vel) : st.vel;
+    for (const name of [...rec.view.panels.keys()]) if (Math.random() < 0.85) this._throwPanel(rec, name, k, v);
+    // wheels fly off too
+    let n = 0; for (const [name, node] of rec.view.wheelNodes) { if (n++ % 2 === 0 || Math.random() < 0.3) this._throwWheel(rec, node, k, v); }
+  }
+  _throwPanel(rec, name, k, baseVel) {
+    const node = rec.view.panels.get(name); if (!node || node.userData.gone) return; node.userData.gone = true;
+    const v = (baseVel || rec.state.vel).clone();
+    v.x += (Math.random() - 0.5) * 9 * k; v.z += (Math.random() - 0.5) * 9 * k; v.y += (4 + Math.random() * 7) * k;
+    this.debris.detach(node, v, new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), 10);
+  }
+  _throwWheel(rec, node, k, baseVel) {
+    if (node.userData.gone) return; node.userData.gone = true;
+    const v = (baseVel || rec.state.vel).clone(); v.x += (Math.random() - 0.5) * 12 * k; v.z += (Math.random() - 0.5) * 12 * k; v.y += (5 + Math.random() * 6) * k;
+    this.debris.detach(node, v, new THREE.Vector3(v.length() / 0.4, (Math.random() - 0.5) * 3, 0), 9);
   }
 
   _charCar(rec) {
@@ -120,5 +161,5 @@ export class WorldView {
     if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
     return false;
   }
-  dispose() { for (const id of [...this.cars.keys()]) this.remove(id); this.scene.remove(this.group); }
+  dispose() { for (const id of [...this.cars.keys()]) this.remove(id); this.debris.clear(); this.scene.remove(this.group); }
 }

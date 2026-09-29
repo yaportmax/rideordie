@@ -1,0 +1,217 @@
+{
+ "name": "shotgun",
+ "tris": 26900,
+ "glb_kb": 2857,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 23346,
+   "materials": [
+    "gun_black",
+    "gun_steel",
+    "polymer",
+    "gun_metal",
+    "brass",
+    "wood",
+    "rubber",
+    "paint"
+   ]
+  },
+  "bolt": {
+   "pivot": [
+    0.0,
+    54.0,
+    178.0
+   ],
+   "parent": null,
+   "tris": 1348,
+   "materials": [
+    "gun_metal",
+    "gun_black",
+    "gun_steel"
+   ]
+  },
+  "pump": {
+   "pivot": [
+    0.0,
+    27.0,
+    270.0
+   ],
+   "parent": null,
+   "tris": 1718,
+   "materials": [
+    "wood",
+    "gun_black",
+    "gun_metal"
+   ]
+  },
+  "trigger": {
+   "pivot": [
+    0.0,
+    26.0,
+    52.0
+   ],
+   "parent": null,
+   "tris": 488,
+   "materials": [
+    "gun_black",
+    "gun_steel"
+   ]
+  }
+ },
+ "sockets": {
+  "muzzle": {
+   "pos": [
+    0.0,
+    54.0,
+    683.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "eject": {
+   "pos": [
+    -17.5,
+    62.0,
+    150.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    180
+   ],
+   "parent": null
+  },
+  "grip_R": {
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "grip_L": {
+   "pos": [
+    0.0,
+    19.0,
+    358.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": "pump"
+  },
+  "mag_well": {
+   "pos": [
+    0.0,
+    13.0,
+    148.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "sight": {
+   "pos": [
+    0.0,
+    90.0,
+    -120.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "stock": {
+   "pos": [
+    0.0,
+    -52.0,
+    -317.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "pump",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 62.0,
+   "note": "rack: fore-end (with action bars) slides straight back (62 mm, stops against the receiver front) along the magazine tube; grip_L is parented to it. Origin = rear centre of the fore-end on the tube axis."
+  },
+  {
+   "node": "bolt",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 72.0,
+   "note": "moves back WITH the pump (rear travel 72 mm; game may ease it so it starts ~6 mm after the pump and travels slightly further, as the real bolt does); opens the ejection port. Origin = bolt-face centre on the bore axis."
+  },
+  {
+   "node": "trigger",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 14.0,
+   "note": "pull: +14 deg about +X (glTF) swings the blade rearward. Pivot = trigger pin."
+  }
+ ],
+ "remarks": [
+  "No detachable mag: shells are inserted one at a time at `mag_well` (the loading port under the receiver, push forward/up). One 12 ga shell is modelled partly loaded in the port (part of `body`, hide it if needed).",
+  "Reload/fire cycle: pump back 62 mm (bolt 72), eject a hull out of `eject` (right side, +X of the socket = ejection direction), pump forward.",
+  "Hands: right hand on the wrist at grip_R behind the trigger guard (index on trigger); left hand on the fore-end at grip_L (follows the pump). Shoulder pad centre = `stock`.",
+  "Bead sight is brass; `sight` sits over the comb line 120 mm behind the receiver rear, aligned over the receiver top and the bead."
+ ],
+ "style_keys": []
+}

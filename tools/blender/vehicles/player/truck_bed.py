@@ -161,7 +161,7 @@ class BedMixin:
             rb.box('metal_bare', (-0.11 + i * 0.044, fr - 0.083, zc + 0.03), (0.024, 0.002, 0.05), bev=0.0005, seg=1)
         for sx in (-0.13, 0.13):
             rb.cyl('metal_bare', (sx, fr - 0.081, zc - 0.03), 0.007, 0.005, axis='f', n=6)
-        rb.box('light_head', (0, fr - 0.06, zc + 0.115), (0.07, 0.02, 0.014), bev=0.003, seg=1)
+        rb.box('metal_dark', (0, fr - 0.06, zc + 0.115), (0.07, 0.02, 0.014), bev=0.003, seg=1)
         # tow hitch receiver
         b.box('metal_dark', (0, C.f_tail - 0.03, C.rail_z - 0.01), (0.16, 0.18, 0.13), bev=0.012)
         # ---- tail lamps
@@ -179,11 +179,12 @@ class BedMixin:
         zr = zbd + 0.95
         fmid = (C.f_bf + C.f_tail) / 2
         style = getattr(C, 'frame_style', 'ring')
-        self.gunner_f = fmid - 0.05
+        self.gunner_f = fmid - 0.02
+        self.ring_post_fr = (-(hwi - 0.08), C.f_bf - 0.10 - 0.22)
         if style == 'ring':
             r_pipe = 0.021
-            xr = hwi - 0.10
-            f0, f1 = C.f_bf - 0.25, C.f_tail + 0.32
+            xr = hwi - 0.08
+            f0, f1 = C.f_bf - 0.10, C.f_tail + 0.10
             ring = [(xr, f0, zr), (xr, f1, zr), (-xr, f1, zr), (-xr, f0, zr)]
             b.tube('metal_dark', ring, r_pipe, n=8, rad=0.22, k=4, closed=True)
             # weld beads + grip wraps
@@ -223,8 +224,9 @@ class BedMixin:
             S.append(socket('light_head_' + nm, (sg * (hx - 0.06 * k), C.f_grille + 0.04, zl)))
             S.append(socket('light_tail_' + nm, (sg * (C.bed_hw - 0.06), C.f_tail - 0.03, C.z_bed + 0.17 * k), rot=(0, 180, 0)))
         tip = self.exh_tip
-        S.append(socket('exhaust_R', tip, rot=(-15, 180, 0)))
-        S.append(socket('exhaust_L', (-tip[0] if getattr(C, 'exhaust_style', 'dangle') != 'dangle' else tip[0], tip[1], tip[2]), rot=(-15, 180, 0)))
+        ex_rot = (80, 180, 0) if getattr(C, 'exhaust_style', 'dangle') == 'stack' else (-15, 180, 0)     # stacks: smoke rises
+        S.append(socket('exhaust_R', tip, rot=ex_rot))
+        S.append(socket('exhaust_L', (-tip[0] if getattr(C, 'exhaust_style', 'dangle') != 'dangle' else tip[0], tip[1], tip[2]), rot=ex_rot))
         S.append(socket('smoke_engine', (0, C.fa + 0.1, C.z_hood_f - 0.16)))
         S.append(socket('fuel_cap', (C.bed_hw + 0.02, C.f_bf - 0.42, C.bed_top - 0.12), rot=(0, 90, 0)))
         for sg, nm in ((1, 'L'), (-1, 'R')):

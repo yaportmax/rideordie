@@ -1,0 +1,277 @@
+{
+ "name": "smg",
+ "tris": 30336,
+ "glb_kb": 3064,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 17544,
+   "materials": [
+    "gun_black",
+    "gun_metal",
+    "gun_steel",
+    "polymer",
+    "rubber"
+   ]
+  },
+  "bolt": {
+   "pivot": [
+    0.0,
+    64.0,
+    -40.0
+   ],
+   "parent": null,
+   "tris": 660,
+   "materials": [
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
+  "charging_handle": {
+   "pivot": [
+    22.0,
+    70.0,
+    58.0
+   ],
+   "parent": null,
+   "tris": 1072,
+   "materials": [
+    "gun_metal",
+    "gun_black",
+    "gun_steel"
+   ]
+  },
+  "trigger": {
+   "pivot": [
+    0.0,
+    40.0,
+    36.0
+   ],
+   "parent": null,
+   "tris": 708,
+   "materials": [
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
+  "mag": {
+   "pivot": [
+    0.0,
+    47.0,
+    75.0
+   ],
+   "parent": null,
+   "tris": 8696,
+   "materials": [
+    "gun_black",
+    "polymer",
+    "brass",
+    "gun_metal"
+   ]
+  },
+  "stock_fold": {
+   "pivot": [
+    0.0,
+    56.0,
+    -104.0
+   ],
+   "parent": null,
+   "tris": 1656,
+   "materials": [
+    "gun_metal",
+    "gun_steel",
+    "rubber"
+   ]
+  }
+ },
+ "sockets": {
+  "muzzle": {
+   "pos": [
+    0.0,
+    64.0,
+    334.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "eject": {
+   "pos": [
+    -22.0,
+    74.0,
+    52.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    180
+   ],
+   "parent": null
+  },
+  "grip_R": {
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "grip_L": {
+   "pos": [
+    4.0,
+    40.0,
+    188.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "mag_well": {
+   "pos": [
+    0.0,
+    47.0,
+    75.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "sight": {
+   "pos": [
+    0.0,
+    98.6,
+    -150.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "stock": {
+   "pos": [
+    0.0,
+    44.0,
+    -322.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "bolt",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 52.0,
+   "note": "cycling / recoil: bolt slides straight back inside the receiver (visible through the right ejection port). Origin = bolt rear centre on the bore axis."
+  },
+  {
+   "node": "charging_handle",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 52.0,
+   "note": "cocking: paddle on the LEFT side slides back in the receiver slot together with the bolt; return spring-loaded. Origin = base of the stem."
+  },
+  {
+   "node": "trigger",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 12.0,
+   "note": "pull: +12 deg about the node's +X (glTF) swings the blade rearward. Pivot = trigger pin."
+  },
+  {
+   "node": "mag",
+   "kind": "translate",
+   "axis_g": [
+    0,
+    0,
+    -1
+   ],
+   "axis_gltf": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "amount": 190.0,
+   "note": "eject/insert straight down through the mag well (curved lower half swings out clear of the well). Origin = magazine top where the feed lips seat."
+  },
+  {
+   "node": "stock_fold",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": -160.0,
+   "note": "optional fold: -160 deg about the node's +X (glTF) swings the wire stock down and forward under the receiver. Pivot = hinge bosses at the receiver rear."
+  }
+ ],
+ "remarks": [
+  "Reload: left hand drops the mag straight down (grip_L is under the ventilated handguard), fresh mag enters the well at mag_well from below, then slap the charging handle (left side) back 52 mm.",
+  "Right hand on the pistol grip, index on the trigger (blade at ~x=43 mm, z=28 mm from the origin). Wire stock is modelled EXTENDED; `stock` socket is the centre of the rubber butt pad.",
+  "Sights: drum rear aperture (z=98.6) and hooded front post on the same line; `sight` socket is the eye point 80 mm behind the rear sight."
+ ],
+ "style_keys": [
+  "decals",
+  "edge_gain",
+  "wear"
+ ]
+}

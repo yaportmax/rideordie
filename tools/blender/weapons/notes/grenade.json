@@ -1,0 +1,128 @@
+{
+ "name": "grenade",
+ "tris": 8900,
+ "glb_kb": 627,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 6736,
+   "materials": [
+    "paint",
+    "gun_steel",
+    "gun_metal"
+   ]
+  },
+  "lever": {
+   "pivot": [
+    10.5,
+    0.0,
+    56.0
+   ],
+   "parent": null,
+   "tris": 1572,
+   "materials": [
+    "paint"
+   ]
+  },
+  "pin": {
+   "pivot": [
+    0.0,
+    0.0,
+    50.0
+   ],
+   "parent": null,
+   "tris": 592,
+   "materials": [
+    "gun_steel"
+   ]
+  }
+ },
+ "sockets": {
+  "grip_R": {
+   "pos": [
+    26.0,
+    0.0,
+    0.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "throw": {
+   "pos": [
+    0.0,
+    0.0,
+    8.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "fuze": {
+   "pos": [
+    0.0,
+    0.0,
+    60.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "pin",
+   "kind": "translate",
+   "axis_g": [
+    0,
+    -1,
+    0
+   ],
+   "axis_gltf": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 35.0,
+   "note": "pull the pin out along its own axis (toward gun-right = glTF -X). Origin = pin/fuze-axis crossing. Do it just before the lever flies."
+  },
+  {
+   "node": "lever",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    0,
+    -1
+   ],
+   "axis_gltf": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "amount": 95.0,
+   "note": "on release the spoon swings ~95 deg outward about its hinge (glTF axis (0,-1,0) i.e. rotate -95 deg about +Y up) and can then be spawned as a flying debris piece. Origin = hinge."
+  }
+ ],
+ "remarks": [
+  "Model front (+Z glTF) = the fuze. In hand the lever lies against the palm (grip_R is on the spoon). Body is an F1-style cast-iron 'pineapple' ~60 mm dia x 117 mm long incl. fuze."
+ ],
+ "style_keys": [
+  "dirt",
+  "paint_color",
+  "wear"
+ ]
+}

@@ -1,0 +1,103 @@
+{
+ "name": "rocket",
+ "tris": 9404,
+ "glb_kb": 1269,
+ "parts": {
+  "rocket": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 9044,
+   "materials": [
+    "paint",
+    "gun_black",
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
+  "flame": {
+   "pivot": [
+    0.0,
+    0.0,
+    -482.0
+   ],
+   "parent": "rocket",
+   "tris": 360,
+   "materials": [
+    "paint2"
+   ]
+  }
+ },
+ "sockets": {
+  "nose": {
+   "pos": [
+    0.0,
+    0.0,
+    246.5
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "tail": {
+   "pos": [
+    0.0,
+    0.0,
+    -482.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    90
+   ],
+   "parent": null
+  },
+  "muzzle": {
+   "pos": [
+    0.0,
+    0.0,
+    -95.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "flame",
+   "kind": "scale",
+   "axis_g": [
+    1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "amount": 1.0,
+   "note": "optional: toggle visibility / scale along its local Z (glTF) for the motor burn; origin at the nozzle exit; emissive paint2, no transparency."
+  }
+ ],
+ "remarks": [
+  "Origin = centre of the warhead's cylindrical body (identical to the `rocket` node origin in rpg.glb). Nose tip at +246.5 mm, nozzle exit at -482 mm, optional flame cone to -646 mm. Fin span radius ~64 mm, 6 fins, deployed.",
+  "Body colour comes from the `paint` material (olive drab); `paint2` (flame only) is emissive orange."
+ ],
+ "style_keys": [
+  "paint2_color",
+  "paint_color",
+  "rust",
+  "wear"
+ ]
+}

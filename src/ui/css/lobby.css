@@ -1,0 +1,58 @@
+/* ---------------------------------------------------------------- LOBBY */
+.rod-ui .lb-title{position:absolute; left:56px; top:26px}
+.rod-ui .lb-title h1,.rod-ui .rs-title h1,.rod-ui .st-title h1{font-family:var(--disp); font-size:86px; line-height:.95; letter-spacing:.06em; transform:skewX(-9deg); transform-origin:left bottom; text-shadow:0 5px 0 rgba(0,0,0,.75),0 0 30px rgba(0,0,0,.6)}
+.rod-ui .lb-code{position:absolute; left:250px; right:250px; top:150px; height:214px; display:flex; align-items:center; justify-content:space-between; padding:0 44px 0 48px}
+.rod-ui .lc-l{display:flex; flex-direction:column; gap:12px}
+.rod-ui .codetiles{display:flex; gap:10px}
+.rod-ui .codetiles i{display:flex; align-items:center; justify-content:center; width:92px; height:112px; font:400 92px/1 var(--disp); font-style:normal; color:var(--haz); background:linear-gradient(180deg,#0d0a08,#1a1410); border:3px solid #6a4a2a; transform:skewX(-8deg); text-shadow:0 0 24px rgba(255,194,26,.5); box-shadow:inset 0 0 26px rgba(0,0,0,.8)}
+.rod-ui .codetiles i.ph{color:#4a4036; text-shadow:none; animation:blink 1.4s infinite}
+.rod-ui .lc-sub{font-size:16px; font-weight:700; letter-spacing:.24em; color:var(--mute)}
+.rod-ui .lc-r{display:flex; flex-direction:column; align-items:flex-end; gap:22px}
+.rod-ui .btn.copy{min-width:300px; height:68px; font-size:26px}
+.rod-ui .lb-status{display:flex; align-items:center; gap:12px; font-size:21px; font-weight:800; letter-spacing:.2em; color:var(--bone-d)}
+.rod-ui .lb-status .dot{width:15px; height:15px; border-radius:50%; background:var(--haz); box-shadow:0 0 12px var(--haz)}
+.rod-ui .lb-status.wait .dot{animation:blink 1s infinite}
+.rod-ui .lb-status.ok{color:var(--green)} .rod-ui .lb-status.ok .dot{background:var(--green); box-shadow:0 0 12px var(--green)}
+.rod-ui .lb-status.bad{color:#ff6a55} .rod-ui .lb-status.bad .dot{background:var(--red); box-shadow:0 0 12px var(--red)}
+.rod-ui .lb-status em{font-style:normal; color:var(--mute); margin-left:6px}
+.rod-ui .dots u{text-decoration:none; animation:dotSeq 1.2s infinite} .rod-ui .dots u:nth-child(2){animation-delay:.2s} .rod-ui .dots u:nth-child(3){animation-delay:.4s}
+@keyframes dotSeq{0%,100%{opacity:.15}40%{opacity:1}}
+.rod-ui .lb-seats{position:absolute; left:250px; right:250px; top:392px; height:456px; display:grid; grid-template-columns:1fr 84px 1fr}
+.rod-ui .lb-seats>div{display:flex}
+.rod-ui .lb-seats .vs{align-items:center; justify-content:center; font:400 62px var(--disp); color:var(--rust); text-shadow:0 3px 0 #000}
+.rod-ui .seat{--rc:var(--haz); position:relative; flex:1; display:flex; flex-direction:column; background:var(--noise-soft),linear-gradient(180deg,rgba(38,32,26,.96),rgba(20,16,13,.97)); border:3px solid #41372d; transition:border-color .12s,box-shadow .12s,transform .12s}
+.rod-ui .seat.gunner{--rc:var(--rust)}
+.rod-ui .seat::before{content:''; position:absolute; left:-3px; right:-3px; top:-3px; height:10px; background:repeating-linear-gradient(-45deg,var(--rc) 0 11px,#14110f 11px 22px)}
+.rod-ui .sk-top{display:flex; gap:24px; padding:34px 34px 14px}
+.rod-ui .sicon{flex:none; width:96px; height:96px; display:flex; align-items:center; justify-content:center; background:var(--rc); color:#1a0e06; transform:skewX(-8deg)}
+.rod-ui .sicon .ic{width:66px; height:66px; transform:skewX(8deg)}
+.rod-ui .sk-top h3{font:400 56px/1 var(--disp); letter-spacing:.08em; transform:skewX(-8deg); transform-origin:left bottom; color:var(--rc)}
+.rod-ui .sk-top p{margin-top:8px; font-size:20px; line-height:1.3; color:var(--bone-d); letter-spacing:.02em}
+.rod-ui .sk-body{flex:1; display:flex; align-items:center; gap:24px; padding:0 34px; border-top:2px solid #2e2720; margin:0 0; background:rgba(0,0,0,.22)}
+.rod-ui .avatar{flex:none; width:104px; height:104px; display:flex; align-items:center; justify-content:center; font:400 64px var(--disp); color:#1a0e06; background:linear-gradient(135deg,var(--bone),#a9a08a); transform:skewX(-8deg); box-shadow:0 5px 0 rgba(0,0,0,.6)}
+.rod-ui .who{display:flex; flex-direction:column; gap:8px; min-width:0}
+.rod-ui .who b{font-size:44px; font-weight:800; letter-spacing:.1em; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:14px}
+.rod-ui .hostb{font-style:normal; font-size:14px; letter-spacing:.2em; padding:4px 10px; background:#3a3025; color:var(--haz); border:1px solid #6a5a3c}
+.rod-ui .who .dev{display:flex; align-items:center; gap:10px; font-size:19px; font-weight:700; letter-spacing:.14em; color:var(--bone-d)}
+.rod-ui .who .dev .ic{width:34px; height:34px}
+.rod-ui .you{margin-left:auto; font-style:normal; font-size:20px; font-weight:800; letter-spacing:.26em; padding:8px 16px; background:var(--rc); color:#1a0e06; transform:skewX(-10deg)}
+.rod-ui .openseat{flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:20px; border:3px dashed #5a4d3e; color:var(--mute)}
+.rod-ui .openseat b{font:400 46px var(--disp); letter-spacing:.12em}
+.rod-ui .openseat small{font-size:18px; font-weight:700; letter-spacing:.24em}
+.rod-ui .seat.open{background:linear-gradient(180deg,rgba(28,23,19,.9),rgba(16,13,10,.92))}
+.rod-ui .seat.mine{border-color:var(--rc); box-shadow:0 0 30px rgba(255,194,26,.16)}
+.rod-ui .rdy{display:flex; align-items:center; justify-content:center; gap:12px; height:64px; font-size:22px; font-weight:800; letter-spacing:.3em; color:#c4523f; background:#1a1310; border-top:2px solid #2e2720}
+.rod-ui .rdy i{width:14px; height:14px; border-radius:50%; background:#7a2a20}
+.rod-ui .rdy.on{color:#0e2004; background:linear-gradient(180deg,#9ee05a,#5da126)} .rod-ui .rdy.on i{background:#0e2004}
+.rod-ui .rdy.off{color:var(--mute)} .rod-ui .rdy.off i{background:#5a4d3e; animation:blink 1.2s infinite}
+.rod-ui .seat.is-f{border-color:var(--haz); box-shadow:0 0 0 4px var(--haz),0 0 40px rgba(255,194,26,.5); transform:scale(1.012); z-index:2}
+.rod-ui .lb-actions{position:absolute; left:250px; right:250px; bottom:76px; display:flex; align-items:center; gap:26px}
+.rod-ui .lb-actions .sp{flex:1}
+.rod-ui .lb-actions .btn{min-width:330px; height:84px}
+.rod-ui .lb-actions .btn.leave{min-width:220px}
+.rod-ui .btn.inactive{opacity:.6; filter:saturate(.4)}
+.rod-ui .btn.inactive.is-f{opacity:1}
+.rod-ui .btn.ready-btn.is-ready{background:var(--noise-soft),linear-gradient(180deg,#9ee05a,#5da126); color:#0e2004; border-color:#c9f5a0}
+.rod-ui .lb-actions .btn small{font-size:13px; margin-top:0; letter-spacing:.18em}
+.rod-ui .waithost{display:flex; align-items:center; gap:14px; font-size:22px; font-weight:800; letter-spacing:.2em; color:var(--bone-d); min-width:330px; justify-content:center}
+.rod-ui .waithost i{width:14px; height:14px; border-radius:50%; background:var(--haz); animation:blink 1s infinite}

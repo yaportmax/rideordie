@@ -1,0 +1,77 @@
+{
+ "victory": {
+  "track": "victory",
+  "key": "D major",
+  "bpm": 132.0001,
+  "bars": 4,
+  "scale_pcs": [
+   "C#",
+   "D",
+   "E",
+   "F#",
+   "G",
+   "A",
+   "B"
+  ],
+  "lengths": {
+   "mix": 494048
+  },
+  "equal_length": true,
+  "duration_s": 11.2029,
+  "stems": {
+   "mix": {
+    "peak_db": -4.87,
+    "dc": 3.6e-05,
+    "lufs": -14.04,
+    "seam": {
+     "jump_ratio": 0.0,
+     "jump_ratio_995": 0.0,
+     "seam_rms": 0.01394,
+     "interior_med": 0.15569,
+     "seam_vs_med": 0.09,
+     "seam_pct": 0.177
+    }
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.91,
+   "lr_corr": 0.681,
+   "lufs": -14.04,
+   "peak_db": -4.87,
+   "crest_db": 12.76,
+   "crest_vs_lufs_db": 9.17,
+   "bands_pct": [
+    31.5,
+    31.3,
+    30.0,
+    6.3,
+    0.9
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "mix": {
+    "attributed": {
+     "in_scale": 0.9926,
+     "tonic": 0.554,
+     "fifth": 0.211,
+     "top_pcs": [
+      "D",
+      "A",
+      "F#"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9901,
+     "tonic": 0.401,
+     "fifth": 0.307,
+     "top_pcs": [
+      "D",
+      "A",
+      "F#"
+     ]
+    }
+   }
+  }
+ }
+}

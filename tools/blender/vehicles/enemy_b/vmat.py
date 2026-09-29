@@ -74,7 +74,7 @@ def tex_paint(n, rng):
     drips = fbm(n, 70, 4, rng, ax=1.0, ay=0.05, gain=0.6)          # vertical streaks
     scr = fbm(n, 300, 2, rng, ax=0.012, ay=1.0)                      # long horizontal scratches
     scr2 = fbm(n, 300, 2, rng, ax=1.0, ay=0.012)
-    gray = 0.80 + 0.07 * (low - .5) + 0.06 * (mid - .5) + 0.035 * (fine - .5)
+    gray = 0.76 + 0.07 * (low - .5) + 0.06 * (mid - .5) + 0.035 * (fine - .5)
     gray -= 0.20 * sstep(0.55, 0.95, drips) * sstep(0.35, 0.7, low)
     chip_zone = sstep(0.62, 0.78, fbm(n, 5, 3, rng))
     chips = chip_zone * sstep(0.64, 0.70, fbm(n, 90, 3, rng, gain=0.55))
@@ -83,7 +83,7 @@ def tex_paint(n, rng):
     gray = gray * (1 - 0.35 * scratch) + 0.10 * scratch * 0
     gray = np.clip(gray, 0.15, 1.0)
     alb = np.repeat(gray[..., None], 3, -1)
-    rough = np.clip(0.68 + 0.12 * (fine - .5) + 0.25 * chips + 0.1 * sstep(0.5, 0.9, drips), 0, 1)
+    rough = np.clip(0.72 + 0.12 * (fine - .5) + 0.25 * chips + 0.1 * sstep(0.5, 0.9, drips), 0, 1)
     metal = 0.08 + 0.7 * chips
     h = 0.6 + 0.08 * (fine - .5) - 0.45 * chips - 0.1 * scratch
     return alb, np.stack([np.ones_like(rough), rough, metal], -1), h, 1.8
@@ -225,11 +225,11 @@ PAL = {
     'gun_steel': dict(color='#7b7f83', rough=0.35, metal=1.0),
     'decal_red': dict(color='#a4241b', rough=0.6, metal=0.0),
     'decal_yellow': dict(color='#d9a516', rough=0.6, metal=0.0),
-    'glass': dict(color='#7fa0a8', rough=0.05, metal=0.0, alpha=0.38),
+    'glass': dict(color='#42636b', rough=0.05, metal=0.0, alpha=0.4),
     'glass_lens': dict(color='#9fc4d0', rough=0.05, metal=0.0, alpha=0.5),
     'light_head': dict(color='#fff3d8', rough=0.1, metal=0.0, emit='#ffe9b8', es=3.5),
-    'light_tail': dict(color='#c81010', rough=0.2, metal=0.0, emit='#ff1a0a', es=3.0),
-    'light_amber': dict(color='#e09010', rough=0.2, metal=0.0, emit='#ff9a10', es=3.0),
+    'light_tail': dict(color='#a80c0c', rough=0.2, metal=0.0, emit='#ff1208', es=2.2),
+    'light_amber': dict(color='#e09010', rough=0.2, metal=0.0, emit='#ff8c0a', es=2.6),
 }
 NO_GRIME = {'light_head', 'light_tail', 'light_amber', 'glass', 'glass_lens'}
 

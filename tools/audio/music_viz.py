@@ -51,8 +51,8 @@ def main(track, zoom=None):
     ents = sorted(ents, key=lambda e: order.index(e[1]) if e[1] in order else 9)
     ex = ents[0][2]
     bars = ex["bars"]
-    dur = ex["samples"] / SR
-    bar_s = dur / bars
+    dur = sf.info(os.path.join(OUT, ents[0][0] + ".ogg")).frames / SR
+    bar_s = ex["samples"] / SR / bars if "samples" in ex else 4 * 60.0 / ex["bpm"]
     t0, t1 = 0.0, dur
     if zoom:
         t0, t1 = zoom[0] * bar_s, zoom[1] * bar_s
@@ -61,7 +61,7 @@ def main(track, zoom=None):
     for ax, (name, key, e) in zip(axs, ents):
         x, sr = sf.read(os.path.join(OUT, name + ".ogg"), dtype="float64", always_2d=True)
         spec(ax, x, t0, t1, fine=zoom is not None)
-        for b in range(bars + 1):
+        for b in range(int(dur / bar_s) + 1):
             tb = b * bar_s
             if t0 - 1e-6 <= tb <= t1 + 1e-6:
                 ax.axvline(tb, color="w", lw=0.6, alpha=0.6, ls="--")

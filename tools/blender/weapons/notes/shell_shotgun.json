@@ -1,0 +1,31 @@
+{
+ "name": "shell_shotgun",
+ "tris": 3040,
+ "glb_kb": 331,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 3040,
+   "materials": [
+    "brass",
+    "gun_steel",
+    "paint"
+   ]
+  }
+ },
+ "sockets": {},
+ "motions": [],
+ "remarks": [
+  "Fired 12 ga shell: red plastic hull (`paint`, tint via the material colour) with a brass head, splayed star-crimp petals at the mouth (+Z), origin at the middle of the 70 mm length, axis = Z."
+ ],
+ "style_keys": [
+  "dirt",
+  "paint_color",
+  "wear"
+ ]
+}

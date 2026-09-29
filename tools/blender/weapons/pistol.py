@@ -61,9 +61,6 @@ body.prism([(6.5, 34.2), (9.5, 37.3), (28.0, 37.6), (40.5, 34.5), (44.0, 33.6), 
 body.prism([(46, 31.8), (49, 34.4), (60, 34.4), (62, 31.6), (60, 30.0), (48, 30.0)], 12.9, 14.9, mat="gun_metal", bevel=0.4, fillet=0.7, fsegs=3)
 body.cyl((18.5, 13.0, 15.6), (18.5, 17.6, 15.6), 4.3, mat="gun_metal", bevel=0.35, segs=20)
 body.cyl((18.5, 17.6, 15.6), (18.5, 17.0, 15.6), 3.2, mat="gun_metal", segs=16)
-# beavertail thumb rest checkering surrogate rib
-for k in range(6):
-    body.box((1.2, 20, 0.9), c=(-13.5 + k * 2.0, 0, 39.4), mat="polymer", bevel=0.2)
 
 # ================================================================== BARREL group (static, in body)
 # hood with ejection slot
@@ -192,6 +189,9 @@ G.motion("mag", "translate", (-math.sin(GA * D2R), 0, -math.cos(GA * D2R)), 135.
 G.remark("Rounds are visible in the mag windows and the chambered round shows through the ejection port. Chambered case is part of `body`.")
 G.remark("Hands: right palm on the backstrap/right panel around grip_R; support hand cups the left panel at grip_L with the index finger along the trigger guard.")
 G.notes["style"] = dict(
+    polymer_stip=[((-52, 34), (-16, 16), (-75, 32))],
+    grooves=[dict(axis="z", at=43.0, width=0.5, depth=0.2, box=((-14, 150), (None, None), (None, None)), mats=["gun_black"]),
+             dict(axis="x", at=126.0, width=0.5, depth=0.2, box=((None, None), (None, None), (40, 66)), mats=["gun_black"])],
     decals=[dict(pos=(141.0, 0, 74.2), r=1.25, color=(0.55, 0.56, 0.5), mats=["gun_steel"]),
             dict(pos=(-15.4, 3.6, 74.6), r=1.3, color=(0.55, 0.56, 0.5), mats=["gun_steel"]),
             dict(pos=(-15.4, -3.6, 74.6), r=1.3, color=(0.55, 0.56, 0.5), mats=["gun_steel"])],

@@ -1,0 +1,1397 @@
+{
+ "boss": {
+  "track": "boss",
+  "key": "E phrygian",
+  "bpm": 170.0,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "E",
+   "F",
+   "G",
+   "A",
+   "B"
+  ],
+  "lengths": {
+   "base": 996141,
+   "drums": 996141,
+   "lead": 996141,
+   "extra": 996141
+  },
+  "equal_length": true,
+  "duration_s": 22.5882,
+  "stems": {
+   "base": {
+    "peak_db": -7.15,
+    "dc": 8.5e-05,
+    "lufs": -19.78,
+    "seam": {
+     "wrap_step_rank": 0.9662,
+     "jump_abs_db": -37.3,
+     "jump_ratio": 1.11,
+     "jump_ratio_995": 0.68,
+     "seam_rms": 0.07891,
+     "interior_med": 0.11721,
+     "seam_vs_med": 0.67,
+     "seam_pct": 0.201
+    },
+    "bar_rms_db": [
+     -21.1,
+     -21.7,
+     -21.0,
+     -19.9,
+     -20.1,
+     -19.9,
+     -19.1,
+     -21.2,
+     -22.2,
+     -22.3,
+     -22.0,
+     -21.0,
+     -20.7,
+     -20.7,
+     -20.6,
+     -20.0
+    ],
+    "gap_bars": []
+   },
+   "drums": {
+    "peak_db": -8.79,
+    "dc": 0.00011,
+    "lufs": -18.78,
+    "seam": {
+     "wrap_step_rank": 0.916,
+     "jump_abs_db": -28.2,
+     "jump_ratio": 0.81,
+     "jump_ratio_995": 0.41,
+     "seam_rms": 0.08746,
+     "interior_med": 0.14605,
+     "seam_vs_med": 0.6,
+     "seam_pct": 0.187
+    },
+    "bar_rms_db": [
+     -19.1,
+     -18.9,
+     -18.9,
+     -18.7,
+     -20.0,
+     -20.0,
+     -20.2,
+     -19.9,
+     -18.8,
+     -18.6,
+     -18.7,
+     -18.4,
+     -19.0,
+     -18.9,
+     -19.0,
+     -18.4
+    ],
+    "gap_bars": []
+   },
+   "lead": {
+    "peak_db": -9.73,
+    "dc": 1.3e-05,
+    "lufs": -20.75,
+    "seam": {
+     "wrap_step_rank": 0.2184,
+     "jump_abs_db": -56.8,
+     "jump_ratio": 0.08,
+     "jump_ratio_995": 0.04,
+     "seam_rms": 0.02391,
+     "interior_med": 0.08011,
+     "seam_vs_med": 0.3,
+     "seam_pct": 0.019
+    },
+    "bar_rms_db": [
+     -24.9,
+     -23.7,
+     -25.0,
+     -24.2,
+     -23.4,
+     -23.1,
+     -22.2,
+     -22.2,
+     -23.4,
+     -23.3,
+     -23.2,
+     -23.5,
+     -23.4,
+     -23.2,
+     -23.2,
+     -24.3
+    ],
+    "gap_bars": []
+   },
+   "extra": {
+    "peak_db": -5.04,
+    "dc": 3.6e-05,
+    "lufs": -20.87,
+    "seam": {
+     "wrap_step_rank": 0.3731,
+     "jump_abs_db": -53.1,
+     "jump_ratio": 0.07,
+     "jump_ratio_995": 0.02,
+     "seam_rms": 0.13457,
+     "interior_med": 0.06752,
+     "seam_vs_med": 1.99,
+     "seam_pct": 0.947
+    },
+    "bar_rms_db": [
+     -22.1,
+     -25.1,
+     -25.4,
+     -24.4,
+     -22.6,
+     -24.4,
+     -30.2,
+     -23.4,
+     -21.0,
+     -24.6,
+     -23.6,
+     -23.9,
+     -21.1,
+     -24.3,
+     -24.9,
+     -20.9
+    ],
+    "gap_bars": []
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.67,
+   "lr_corr": 0.801,
+   "lufs": -14.05,
+   "peak_db": -2.83,
+   "crest_db": 12.63,
+   "crest_vs_lufs_db": 11.22,
+   "bands_pct": [
+    49.8,
+    29.9,
+    15.4,
+    4.0,
+    0.9
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "base": {
+    "attributed": {
+     "in_scale": 0.9285,
+     "tonic": 0.287,
+     "fifth": 0.0,
+     "top_pcs": [
+      "E",
+      "F",
+      "C"
+     ],
+     "voiced": 0.84
+    },
+    "raw": {
+     "in_scale": 0.9285,
+     "tonic": 0,
+     "fifth": 0,
+     "top_pcs": []
+    }
+   },
+   "lead": {
+    "attributed": {
+     "in_scale": 0.9869,
+     "tonic": 0.195,
+     "fifth": 0.112,
+     "top_pcs": [
+      "E",
+      "C",
+      "F"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9566,
+     "tonic": 0.183,
+     "fifth": 0.124,
+     "top_pcs": [
+      "E",
+      "F",
+      "C"
+     ]
+    }
+   },
+   "extra": {
+    "attributed": {
+     "in_scale": 0.9416,
+     "tonic": 0.236,
+     "fifth": 0.13,
+     "top_pcs": [
+      "E",
+      "D",
+      "C"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9002,
+     "tonic": 0.239,
+     "fifth": 0.146,
+     "top_pcs": [
+      "E",
+      "B",
+      "D"
+     ]
+    }
+   }
+  },
+  "rhythm": {
+   "beat_s": 0.35294,
+   "ac_period_s": 0.35291,
+   "period_err_pct": 0.008,
+   "ac_at_beat": 0.816,
+   "ac_shorter": 0.728,
+   "kicks_present": 64,
+   "kick_e_min_db": -3.8,
+   "beats": 64,
+   "kick_onset_db_min": -1.6,
+   "kick_onset_db_med": 0.9,
+   "onsets": 73,
+   "grid_dev_ms_p95": 1.72,
+   "grid_dev_ms_med": 1.3,
+   "grid_dev_ms_max": 1.92
+  },
+  "duck": {
+   "gen_dip_offset_samples": [
+    199
+   ],
+   "gen_min_gain": 0.34,
+   "gen_recover90_ms": 95.5,
+   "slot_corr_mean": 0.497,
+   "slot_corr_min": 0.125,
+   "slot_lag_ms_p90": 0.27,
+   "slot_lag_ms_max": 10.0
+  }
+ },
+ "garage": {
+  "track": "garage",
+  "key": "G minor",
+  "bpm": 92.0,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "D#",
+   "F",
+   "G",
+   "A",
+   "A#"
+  ],
+  "lengths": {
+   "mix": 1840696
+  },
+  "equal_length": true,
+  "duration_s": 41.7391,
+  "stems": {
+   "mix": {
+    "peak_db": -4.9,
+    "dc": 4.4e-05,
+    "lufs": -16.03,
+    "seam": {
+     "wrap_step_rank": 0.9531,
+     "jump_abs_db": -25.8,
+     "jump_ratio": 1.03,
+     "jump_ratio_995": 0.47,
+     "seam_rms": 0.20179,
+     "interior_med": 0.14389,
+     "seam_vs_med": 1.4,
+     "seam_pct": 0.776
+    },
+    "bar_rms_db": [
+     -19.3,
+     -18.5,
+     -19.0,
+     -19.1,
+     -18.1,
+     -18.2,
+     -18.5,
+     -18.1,
+     -18.2,
+     -18.6,
+     -18.2,
+     -18.4,
+     -18.1,
+     -18.6,
+     -17.8,
+     -18.2
+    ],
+    "gap_bars": []
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.36,
+   "lr_corr": 0.876,
+   "lufs": -16.03,
+   "peak_db": -4.9,
+   "crest_db": 13.51,
+   "crest_vs_lufs_db": 11.12,
+   "bands_pct": [
+    45.0,
+    24.6,
+    18.0,
+    12.2,
+    0.3
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "mix": {
+    "attributed": {
+     "in_scale": 0.9859,
+     "tonic": 0.117,
+     "fifth": 0.088,
+     "top_pcs": [
+      "F",
+      "D#",
+      "C"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9819,
+     "tonic": 0.147,
+     "fifth": 0.115,
+     "top_pcs": [
+      "F",
+      "D#",
+      "A#"
+     ]
+    }
+   }
+  },
+  "rhythm_mix": {
+   "low": {
+    "beat": [
+     0.07,
+     0.176
+    ],
+    "bar": [
+     0.002,
+     1.0
+    ]
+   },
+   "full": {
+    "beat": [
+     0.025,
+     0.865
+    ],
+    "bar": [
+     0.0,
+     1.0
+    ]
+   },
+   "grid_dev_ms_med": 1.89,
+   "grid_dev_ms_p95": 51.86,
+   "onsets": 85
+  }
+ },
+ "run_a": {
+  "track": "run_a",
+  "key": "A minor",
+  "bpm": 152.0,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "E",
+   "F",
+   "G",
+   "A",
+   "B"
+  ],
+  "lengths": {
+   "base": 1114105,
+   "drums": 1114105,
+   "lead": 1114105,
+   "extra": 1114105
+  },
+  "equal_length": true,
+  "duration_s": 25.2632,
+  "stems": {
+   "base": {
+    "peak_db": -7.2,
+    "dc": 3.6e-05,
+    "lufs": -19.77,
+    "seam": {
+     "wrap_step_rank": 0.5842,
+     "jump_abs_db": -49.9,
+     "jump_ratio": 0.38,
+     "jump_ratio_995": 0.19,
+     "seam_rms": 0.07444,
+     "interior_med": 0.12092,
+     "seam_vs_med": 0.62,
+     "seam_pct": 0.171
+    },
+    "bar_rms_db": [
+     -20.8,
+     -21.4,
+     -20.8,
+     -20.6,
+     -20.8,
+     -19.7,
+     -21.4,
+     -20.4,
+     -20.4,
+     -20.9,
+     -20.5,
+     -20.3,
+     -20.5,
+     -20.2,
+     -20.3,
+     -20.2
+    ],
+    "gap_bars": []
+   },
+   "drums": {
+    "peak_db": -8.91,
+    "dc": 2.2e-05,
+    "lufs": -18.83,
+    "seam": {
+     "wrap_step_rank": 0.497,
+     "jump_abs_db": -36.9,
+     "jump_ratio": 0.18,
+     "jump_ratio_995": 0.09,
+     "seam_rms": 0.23884,
+     "interior_med": 0.09523,
+     "seam_vs_med": 2.51,
+     "seam_pct": 0.88
+    },
+    "bar_rms_db": [
+     -21.2,
+     -21.2,
+     -21.1,
+     -20.4,
+     -21.0,
+     -20.9,
+     -20.9,
+     -20.0,
+     -20.9,
+     -20.9,
+     -20.8,
+     -20.1,
+     -20.8,
+     -20.9,
+     -20.8,
+     -19.3
+    ],
+    "gap_bars": []
+   },
+   "lead": {
+    "peak_db": -11.6,
+    "dc": 4e-06,
+    "lufs": -20.71,
+    "seam": {
+     "wrap_step_rank": 0.1405,
+     "jump_abs_db": -56.0,
+     "jump_ratio": 0.06,
+     "jump_ratio_995": 0.03,
+     "seam_rms": 0.04133,
+     "interior_med": 0.07579,
+     "seam_vs_med": 0.55,
+     "seam_pct": 0.091
+    },
+    "bar_rms_db": [
+     -24.0,
+     -24.5,
+     -24.4,
+     -24.6,
+     -24.2,
+     -24.4,
+     -24.3,
+     -24.7,
+     -24.4,
+     -24.5,
+     -24.3,
+     -24.5,
+     -23.3,
+     -23.8,
+     -23.6,
+     -23.5
+    ],
+    "gap_bars": []
+   },
+   "extra": {
+    "peak_db": -5.11,
+    "dc": 1.9e-05,
+    "lufs": -20.85,
+    "seam": {
+     "wrap_step_rank": 0.4919,
+     "jump_abs_db": -46.0,
+     "jump_ratio": 0.11,
+     "jump_ratio_995": 0.04,
+     "seam_rms": 0.11066,
+     "interior_med": 0.06312,
+     "seam_vs_med": 1.75,
+     "seam_pct": 0.905
+    },
+    "bar_rms_db": [
+     -26.3,
+     -29.2,
+     -30.0,
+     -29.5,
+     -24.8,
+     -25.0,
+     -25.0,
+     -23.1,
+     -21.3,
+     -23.8,
+     -23.3,
+     -23.2,
+     -22.9,
+     -24.8,
+     -24.8,
+     -22.3
+    ],
+    "gap_bars": []
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.54,
+   "lr_corr": 0.823,
+   "lufs": -14.02,
+   "peak_db": -2.54,
+   "crest_db": 13.63,
+   "crest_vs_lufs_db": 11.47,
+   "bands_pct": [
+    41.1,
+    28.5,
+    20.8,
+    6.9,
+    2.7
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "base": {
+    "attributed": {
+     "in_scale": 0.996,
+     "tonic": 0.173,
+     "fifth": 0.004,
+     "top_pcs": [
+      "G",
+      "F",
+      "A"
+     ],
+     "voiced": 0.91
+    },
+    "raw": {
+     "in_scale": 0.996,
+     "tonic": 0,
+     "fifth": 0,
+     "top_pcs": []
+    }
+   },
+   "lead": {
+    "attributed": {
+     "in_scale": 0.9994,
+     "tonic": 0.168,
+     "fifth": 0.118,
+     "top_pcs": [
+      "A",
+      "G",
+      "C"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9878,
+     "tonic": 0.171,
+     "fifth": 0.111,
+     "top_pcs": [
+      "A",
+      "G",
+      "B"
+     ]
+    }
+   },
+   "extra": {
+    "attributed": {
+     "in_scale": 0.9746,
+     "tonic": 0.155,
+     "fifth": 0.065,
+     "top_pcs": [
+      "D",
+      "C",
+      "G"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9593,
+     "tonic": 0.165,
+     "fifth": 0.076,
+     "top_pcs": [
+      "D",
+      "G",
+      "A"
+     ]
+    }
+   }
+  },
+  "rhythm": {
+   "beat_s": 0.39474,
+   "ac_period_s": 0.39474,
+   "period_err_pct": 0.0,
+   "ac_at_beat": 0.983,
+   "ac_shorter": 0.69,
+   "kicks_present": 64,
+   "kick_e_min_db": -1.7,
+   "beats": 64,
+   "kick_onset_db_min": 3.0,
+   "kick_onset_db_med": 70.4,
+   "onsets": 73,
+   "grid_dev_ms_p95": 2.95,
+   "grid_dev_ms_med": 1.46,
+   "grid_dev_ms_max": 12.65
+  },
+  "duck": {
+   "gen_dip_offset_samples": [
+    199
+   ],
+   "gen_min_gain": 0.34,
+   "gen_recover90_ms": 95.5,
+   "slot_corr_mean": 0.549,
+   "slot_corr_min": 0.205,
+   "slot_lag_ms_p90": 0.23,
+   "slot_lag_ms_max": 1.22
+  }
+ },
+ "run_b": {
+  "track": "run_b",
+  "key": "D phrygian",
+  "bpm": 158.0001,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "D#",
+   "F",
+   "G",
+   "A",
+   "A#"
+  ],
+  "lengths": {
+   "base": 1071797,
+   "drums": 1071797,
+   "lead": 1071797,
+   "extra": 1071797
+  },
+  "equal_length": true,
+  "duration_s": 24.3038,
+  "stems": {
+   "base": {
+    "peak_db": -6.97,
+    "dc": 7.6e-05,
+    "lufs": -19.87,
+    "seam": {
+     "wrap_step_rank": 0.9793,
+     "jump_abs_db": -37.4,
+     "jump_ratio": 1.29,
+     "jump_ratio_995": 0.72,
+     "seam_rms": 0.06292,
+     "interior_med": 0.1086,
+     "seam_vs_med": 0.58,
+     "seam_pct": 0.263
+    },
+    "bar_rms_db": [
+     -22.4,
+     -22.2,
+     -21.4,
+     -22.2,
+     -21.4,
+     -21.0,
+     -22.3,
+     -21.6,
+     -21.0,
+     -20.1,
+     -20.8,
+     -20.5,
+     -21.4,
+     -22.0,
+     -20.9,
+     -21.3
+    ],
+    "gap_bars": []
+   },
+   "drums": {
+    "peak_db": -8.23,
+    "dc": 6.6e-05,
+    "lufs": -18.93,
+    "seam": {
+     "wrap_step_rank": 0.9624,
+     "jump_abs_db": -22.7,
+     "jump_ratio": 1.11,
+     "jump_ratio_995": 0.58,
+     "seam_rms": 0.17965,
+     "interior_med": 0.1212,
+     "seam_vs_med": 1.48,
+     "seam_pct": 0.738
+    },
+    "bar_rms_db": [
+     -21.3,
+     -21.1,
+     -21.1,
+     -20.1,
+     -20.0,
+     -20.0,
+     -20.1,
+     -19.2,
+     -20.7,
+     -20.5,
+     -20.5,
+     -20.3,
+     -20.0,
+     -20.1,
+     -20.1,
+     -19.4
+    ],
+    "gap_bars": []
+   },
+   "lead": {
+    "peak_db": -12.08,
+    "dc": 2e-06,
+    "lufs": -20.83,
+    "seam": {
+     "wrap_step_rank": 0.7379,
+     "jump_abs_db": -38.5,
+     "jump_ratio": 0.45,
+     "jump_ratio_995": 0.26,
+     "seam_rms": 0.04086,
+     "interior_med": 0.06923,
+     "seam_vs_med": 0.59,
+     "seam_pct": 0.07
+    },
+    "bar_rms_db": [
+     -24.4,
+     -24.5,
+     -24.3,
+     -24.5,
+     -24.7,
+     -25.0,
+     -24.5,
+     -24.7,
+     -24.3,
+     -24.2,
+     -23.8,
+     -24.3,
+     -23.8,
+     -23.9,
+     -23.9,
+     -24.0
+    ],
+    "gap_bars": []
+   },
+   "extra": {
+    "peak_db": -5.85,
+    "dc": 8e-06,
+    "lufs": -20.96,
+    "seam": {
+     "wrap_step_rank": 0.6908,
+     "jump_abs_db": -37.7,
+     "jump_ratio": 0.25,
+     "jump_ratio_995": 0.1,
+     "seam_rms": 0.1171,
+     "interior_med": 0.06259,
+     "seam_vs_med": 1.87,
+     "seam_pct": 0.936
+    },
+    "bar_rms_db": [
+     -26.2,
+     -29.6,
+     -30.4,
+     -29.4,
+     -24.7,
+     -24.8,
+     -24.3,
+     -22.0,
+     -21.7,
+     -24.2,
+     -23.9,
+     -24.0,
+     -22.7,
+     -24.7,
+     -24.5,
+     -22.3
+    ],
+    "gap_bars": []
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.68,
+   "lr_corr": 0.777,
+   "lufs": -14.05,
+   "peak_db": -2.64,
+   "crest_db": 13.52,
+   "crest_vs_lufs_db": 11.41,
+   "bands_pct": [
+    41.3,
+    27.6,
+    22.3,
+    6.7,
+    2.1
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "base": {
+    "attributed": {
+     "in_scale": 0.996,
+     "tonic": 0.45,
+     "fifth": 0.0,
+     "top_pcs": [
+      "D",
+      "C",
+      "D#"
+     ],
+     "voiced": 0.97
+    },
+    "raw": {
+     "in_scale": 0.996,
+     "tonic": 0,
+     "fifth": 0,
+     "top_pcs": []
+    }
+   },
+   "lead": {
+    "attributed": {
+     "in_scale": 0.9991,
+     "tonic": 0.201,
+     "fifth": 0.111,
+     "top_pcs": [
+      "F",
+      "D",
+      "D#"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9974,
+     "tonic": 0.208,
+     "fifth": 0.122,
+     "top_pcs": [
+      "D",
+      "F",
+      "D#"
+     ]
+    }
+   },
+   "extra": {
+    "attributed": {
+     "in_scale": 0.9705,
+     "tonic": 0.282,
+     "fifth": 0.099,
+     "top_pcs": [
+      "D",
+      "A#",
+      "C"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9367,
+     "tonic": 0.245,
+     "fifth": 0.134,
+     "top_pcs": [
+      "D",
+      "A#",
+      "A"
+     ]
+    }
+   }
+  },
+  "rhythm": {
+   "beat_s": 0.37975,
+   "ac_period_s": 0.37977,
+   "period_err_pct": 0.006,
+   "ac_at_beat": 0.555,
+   "ac_shorter": 0.342,
+   "kicks_present": 64,
+   "kick_e_min_db": -2.3,
+   "beats": 64,
+   "kick_onset_db_min": -3.1,
+   "kick_onset_db_med": 56.5,
+   "onsets": 93,
+   "grid_dev_ms_p95": 3.7,
+   "grid_dev_ms_med": 1.39,
+   "grid_dev_ms_max": 43.17
+  },
+  "duck": {
+   "gen_dip_offset_samples": [
+    199
+   ],
+   "gen_min_gain": 0.34,
+   "gen_recover90_ms": 95.5,
+   "slot_corr_mean": 0.58,
+   "slot_corr_min": 0.352,
+   "slot_lag_ms_p90": 0.23,
+   "slot_lag_ms_max": 0.27
+  }
+ },
+ "run_c": {
+  "track": "run_c",
+  "key": "F# minor",
+  "bpm": 164.0001,
+  "bars": 16,
+  "scale_pcs": [
+   "C#",
+   "D",
+   "E",
+   "F#",
+   "G#",
+   "A",
+   "B"
+  ],
+  "lengths": {
+   "base": 1032585,
+   "drums": 1032585,
+   "lead": 1032585,
+   "extra": 1032585
+  },
+  "equal_length": true,
+  "duration_s": 23.4146,
+  "stems": {
+   "base": {
+    "peak_db": -8.11,
+    "dc": 8.5e-05,
+    "lufs": -19.83,
+    "seam": {
+     "wrap_step_rank": 0.9849,
+     "jump_abs_db": -37.8,
+     "jump_ratio": 1.4,
+     "jump_ratio_995": 0.74,
+     "seam_rms": 0.04465,
+     "interior_med": 0.11974,
+     "seam_vs_med": 0.37,
+     "seam_pct": 0.032
+    },
+    "bar_rms_db": [
+     -21.3,
+     -21.7,
+     -20.5,
+     -20.6,
+     -21.5,
+     -20.6,
+     -21.2,
+     -21.9,
+     -21.0,
+     -20.9,
+     -21.4,
+     -20.7,
+     -20.7,
+     -20.3,
+     -20.9,
+     -20.8
+    ],
+    "gap_bars": []
+   },
+   "drums": {
+    "peak_db": -8.78,
+    "dc": 8.9e-05,
+    "lufs": -18.93,
+    "seam": {
+     "wrap_step_rank": 0.6678,
+     "jump_abs_db": -31.2,
+     "jump_ratio": 0.31,
+     "jump_ratio_995": 0.17,
+     "seam_rms": 0.20573,
+     "interior_med": 0.10744,
+     "seam_vs_med": 1.91,
+     "seam_pct": 0.843
+    },
+    "bar_rms_db": [
+     -20.9,
+     -20.7,
+     -20.7,
+     -20.1,
+     -20.2,
+     -20.3,
+     -20.4,
+     -20.1,
+     -20.8,
+     -20.7,
+     -20.9,
+     -19.8,
+     -20.3,
+     -20.3,
+     -20.3,
+     -20.0
+    ],
+    "gap_bars": []
+   },
+   "lead": {
+    "peak_db": -11.7,
+    "dc": 2e-06,
+    "lufs": -20.78,
+    "seam": {
+     "wrap_step_rank": 0.2311,
+     "jump_abs_db": -48.2,
+     "jump_ratio": 0.14,
+     "jump_ratio_995": 0.07,
+     "seam_rms": 0.04572,
+     "interior_med": 0.07311,
+     "seam_vs_med": 0.63,
+     "seam_pct": 0.121
+    },
+    "bar_rms_db": [
+     -24.3,
+     -24.7,
+     -24.9,
+     -24.9,
+     -24.6,
+     -24.3,
+     -24.7,
+     -24.6,
+     -24.5,
+     -24.6,
+     -24.2,
+     -24.4,
+     -23.7,
+     -24.3,
+     -24.0,
+     -23.8
+    ],
+    "gap_bars": []
+   },
+   "extra": {
+    "peak_db": -5.87,
+    "dc": 1.7e-05,
+    "lufs": -20.92,
+    "seam": {
+     "wrap_step_rank": 0.9606,
+     "jump_abs_db": -24.8,
+     "jump_ratio": 1.13,
+     "jump_ratio_995": 0.42,
+     "seam_rms": 0.1095,
+     "interior_med": 0.06297,
+     "seam_vs_med": 1.74,
+     "seam_pct": 0.914
+    },
+    "bar_rms_db": [
+     -26.6,
+     -29.3,
+     -29.2,
+     -28.8,
+     -26.3,
+     -25.8,
+     -25.9,
+     -22.8,
+     -21.6,
+     -23.3,
+     -23.2,
+     -23.3,
+     -23.3,
+     -24.6,
+     -24.6,
+     -22.1
+    ],
+    "gap_bars": []
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.77,
+   "lr_corr": 0.757,
+   "lufs": -14.07,
+   "peak_db": -2.7,
+   "crest_db": 13.54,
+   "crest_vs_lufs_db": 11.37,
+   "bands_pct": [
+    44.2,
+    22.8,
+    22.6,
+    7.6,
+    2.8
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "base": {
+    "attributed": {
+     "in_scale": 0.9997,
+     "tonic": 0.162,
+     "fifth": 0.007,
+     "top_pcs": [
+      "E",
+      "A",
+      "D"
+     ],
+     "voiced": 0.94
+    },
+    "raw": {
+     "in_scale": 0.9997,
+     "tonic": 0,
+     "fifth": 0,
+     "top_pcs": []
+    }
+   },
+   "lead": {
+    "attributed": {
+     "in_scale": 0.9995,
+     "tonic": 0.209,
+     "fifth": 0.095,
+     "top_pcs": [
+      "A",
+      "F#",
+      "D"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9911,
+     "tonic": 0.202,
+     "fifth": 0.111,
+     "top_pcs": [
+      "A",
+      "F#",
+      "E"
+     ]
+    }
+   },
+   "extra": {
+    "attributed": {
+     "in_scale": 0.9755,
+     "tonic": 0.125,
+     "fifth": 0.061,
+     "top_pcs": [
+      "A",
+      "E",
+      "D"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9637,
+     "tonic": 0.146,
+     "fifth": 0.091,
+     "top_pcs": [
+      "A",
+      "E",
+      "F#"
+     ]
+    }
+   }
+  },
+  "rhythm": {
+   "beat_s": 0.36585,
+   "ac_period_s": 0.36585,
+   "period_err_pct": 0.002,
+   "ac_at_beat": 0.86,
+   "ac_shorter": 0.548,
+   "kicks_present": 64,
+   "kick_e_min_db": -2.9,
+   "beats": 64,
+   "kick_onset_db_min": 0.5,
+   "kick_onset_db_med": 29.6,
+   "onsets": 63,
+   "grid_dev_ms_p95": 1.57,
+   "grid_dev_ms_med": 1.26,
+   "grid_dev_ms_max": 4.03
+  },
+  "duck": {
+   "gen_dip_offset_samples": [
+    199
+   ],
+   "gen_min_gain": 0.34,
+   "gen_recover90_ms": 95.5,
+   "slot_corr_mean": 0.577,
+   "slot_corr_min": 0.291,
+   "slot_lag_ms_p90": 0.02,
+   "slot_lag_ms_max": 7.76
+  }
+ },
+ "title": {
+  "track": "title",
+  "key": "D minor",
+  "bpm": 104.0,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "E",
+   "F",
+   "G",
+   "A",
+   "A#"
+  ],
+  "lengths": {
+   "mix": 1628308
+  },
+  "equal_length": true,
+  "duration_s": 36.9231,
+  "stems": {
+   "mix": {
+    "peak_db": -5.48,
+    "dc": 3.9e-05,
+    "lufs": -16.01,
+    "seam": {
+     "wrap_step_rank": 0.9042,
+     "jump_abs_db": -30.0,
+     "jump_ratio": 0.73,
+     "jump_ratio_995": 0.34,
+     "seam_rms": 0.18121,
+     "interior_med": 0.15686,
+     "seam_vs_med": 1.16,
+     "seam_pct": 0.633
+    },
+    "bar_rms_db": [
+     -20.3,
+     -20.4,
+     -20.6,
+     -19.2,
+     -18.6,
+     -18.5,
+     -19.6,
+     -17.5,
+     -17.2,
+     -17.1,
+     -17.8,
+     -17.2,
+     -16.5,
+     -16.6,
+     -17.0,
+     -16.2
+    ],
+    "gap_bars": []
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.89,
+   "lr_corr": 0.703,
+   "lufs": -16.01,
+   "peak_db": -5.48,
+   "crest_db": 12.44,
+   "crest_vs_lufs_db": 10.52,
+   "bands_pct": [
+    44.6,
+    22.1,
+    28.1,
+    4.7,
+    0.4
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "mix": {
+    "attributed": {
+     "in_scale": 0.9837,
+     "tonic": 0.385,
+     "fifth": 0.045,
+     "top_pcs": [
+      "D",
+      "C",
+      "F"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9819,
+     "tonic": 0.339,
+     "fifth": 0.089,
+     "top_pcs": [
+      "D",
+      "C",
+      "F"
+     ]
+    }
+   }
+  },
+  "rhythm_mix": {
+   "low": {
+    "beat": [
+     0.007,
+     0.698
+    ],
+    "bar": [
+     0.015,
+     1.0
+    ]
+   },
+   "full": {
+    "beat": [
+     0.033,
+     1.0
+    ],
+    "bar": [
+     0.002,
+     0.829
+    ]
+   },
+   "grid_dev_ms_med": 8.99,
+   "grid_dev_ms_p95": 60.74,
+   "onsets": 123
+  }
+ },
+ "victory": {
+  "track": "victory",
+  "key": "D major",
+  "bpm": 132.0001,
+  "bars": 4,
+  "scale_pcs": [
+   "C#",
+   "D",
+   "E",
+   "F#",
+   "G",
+   "A",
+   "B"
+  ],
+  "lengths": {
+   "mix": 494048
+  },
+  "equal_length": true,
+  "duration_s": 11.2029,
+  "stems": {
+   "mix": {
+    "peak_db": -4.87,
+    "dc": 3.6e-05,
+    "lufs": -14.04,
+    "seam": {
+     "wrap_step_rank": 0.1323,
+     "jump_abs_db": -74.9,
+     "jump_ratio": 0.0,
+     "jump_ratio_995": 0.0,
+     "seam_rms": 0.01394,
+     "interior_med": 0.15569,
+     "seam_vs_med": 0.09,
+     "seam_pct": 0.177
+    }
+   }
+  },
+  "mix": {
+   "mono_fold_db": -0.91,
+   "lr_corr": 0.681,
+   "lufs": -14.04,
+   "peak_db": -4.87,
+   "crest_db": 12.76,
+   "crest_vs_lufs_db": 9.17,
+   "bands_pct": [
+    31.5,
+    31.3,
+    30.0,
+    6.3,
+    0.9
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "mix": {
+    "attributed": {
+     "in_scale": 0.9926,
+     "tonic": 0.554,
+     "fifth": 0.211,
+     "top_pcs": [
+      "D",
+      "A",
+      "F#"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9901,
+     "tonic": 0.401,
+     "fifth": 0.307,
+     "top_pcs": [
+      "D",
+      "A",
+      "F#"
+     ]
+    }
+   }
+  }
+ }
+}

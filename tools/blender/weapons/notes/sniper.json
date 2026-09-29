@@ -1,0 +1,290 @@
+{
+ "name": "sniper",
+ "tris": 33876,
+ "glb_kb": 3205,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 18968,
+   "materials": [
+    "wood",
+    "gun_black",
+    "rubber",
+    "polymer",
+    "gun_steel",
+    "gun_metal"
+   ]
+  },
+  "bipod": {
+   "pivot": [
+    0.0,
+    14.0,
+    402.0
+   ],
+   "parent": null,
+   "tris": 864,
+   "materials": [
+    "gun_metal",
+    "gun_black",
+    "rubber"
+   ]
+  },
+  "bolt": {
+   "pivot": [
+    0.0,
+    74.0,
+    -15.0
+   ],
+   "parent": null,
+   "tris": 894,
+   "materials": [
+    "gun_steel",
+    "gun_metal",
+    "gun_black"
+   ]
+  },
+  "bolt_handle": {
+   "pivot": [
+    0.0,
+    74.0,
+    -15.0
+   ],
+   "parent": "bolt",
+   "tris": 1036,
+   "materials": [
+    "gun_steel",
+    "polymer",
+    "gun_black"
+   ]
+  },
+  "trigger": {
+   "pivot": [
+    0.0,
+    56.0,
+    46.0
+   ],
+   "parent": null,
+   "tris": 588,
+   "materials": [
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
+  "mag": {
+   "pivot": [
+    0.0,
+    52.0,
+    128.0
+   ],
+   "parent": null,
+   "tris": 3626,
+   "materials": [
+    "gun_black",
+    "polymer",
+    "gun_steel",
+    "brass"
+   ]
+  },
+  "scope": {
+   "pivot": [
+    0.0,
+    124.0,
+    60.0
+   ],
+   "parent": null,
+   "tris": 7900,
+   "materials": [
+    "gun_black",
+    "rubber",
+    "glass_lens",
+    "gun_steel"
+   ]
+  }
+ },
+ "sockets": {
+  "muzzle": {
+   "pos": [
+    0.0,
+    74.0,
+    774.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "eject": {
+   "pos": [
+    -22.0,
+    80.0,
+    140.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    180
+   ],
+   "parent": null
+  },
+  "grip_R": {
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "grip_L": {
+   "pos": [
+    0.0,
+    34.0,
+    250.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "mag_well": {
+   "pos": [
+    0.0,
+    52.0,
+    128.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "sight": {
+   "pos": [
+    0.0,
+    124.0,
+    -180.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "stock": {
+   "pos": [
+    0.0,
+    47.0,
+    -365.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "bolt",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 105.0,
+   "note": "cycling: after the handle is lifted, the bolt slides straight back 105 mm along the bore axis, then forward again. bolt_handle is its child."
+  },
+  {
+   "node": "bolt_handle",
+   "kind": "rotate",
+   "axis_g": [
+    1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "amount": -90.0,
+   "note": "unlock: rotate -90 deg about the node's +Z (glTF, the bolt axis; = forward) raises the handle from the modelled down-right position to straight up. Pivot on the bolt axis at the handle root."
+  },
+  {
+   "node": "trigger",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 12.0,
+   "note": "pull: +12 deg about the node's +X (glTF) swings the blade rearward. Pivot = trigger pin."
+  },
+  {
+   "node": "mag",
+   "kind": "translate",
+   "axis_g": [
+    0,
+    0,
+    -1
+   ],
+   "axis_gltf": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "amount": 130.0,
+   "note": "drops straight out of the magwell (down). Origin = top centre of the magazine where it seats; rounds visible at the feed lips."
+  },
+  {
+   "node": "bipod",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 70.0,
+   "note": "modelled FOLDED forward under the barrel; deploy = +70 deg about the node's +X (glTF), legs swing down. Pivot = hinge pin at the fore-end clamp."
+  }
+ ],
+ "remarks": [
+  "scope: separate node (origin on the scope axis over the receiver, x = +60 mm). Lenses use glass_lens (transparent); sight socket sits at the exit pupil ~90 mm behind the eyepiece (eye relief).",
+  "Hands: right hand around the pistol grip (grip_R), trigger finger through the guard; left hand supports the fore-end/bipod area at grip_L, or the rear bag under the butt (stock).",
+  "Reload: `mag` drops out downwards; bolt: rotate bolt_handle -90, translate bolt -105 mm (ejects a case from `eject`), push forward, rotate +90 to lock."
+ ],
+ "style_keys": []
+}

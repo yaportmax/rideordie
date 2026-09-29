@@ -651,7 +651,7 @@ def patch_on_surface(rc, P0, n, up, half_u, half_v, standoff=0.004, thick=0.012,
     keep = area > 1e-10
     m["idx"] = tris[keep]
     fn = fn[keep]
-    top_tris = m["idx"] // seg < len(pts_rings)
+    top_tris = (m["idx"] // seg < len(pts_rings)).all(axis=1)
     if (fn[top_tris] @ surf_n).mean() < 0:
         m["idx"] = m["idx"][:, [0, 2, 1]]
     return smooth_normals(m, 38.0)

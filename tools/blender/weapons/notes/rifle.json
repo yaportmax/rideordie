@@ -1,0 +1,290 @@
+{
+ "name": "rifle",
+ "tris": 30454,
+ "glb_kb": 3081,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 16932,
+   "materials": [
+    "gun_black",
+    "gun_metal",
+    "polymer",
+    "rubber",
+    "wood"
+   ]
+  },
+  "bolt": {
+   "pivot": [
+    0.0,
+    91.0,
+    -30.0
+   ],
+   "parent": null,
+   "tris": 1500,
+   "materials": [
+    "gun_metal",
+    "gun_steel",
+    "gun_black"
+   ]
+  },
+  "charging_handle": {
+   "pivot": [
+    -22.0,
+    102.0,
+    124.0
+   ],
+   "parent": null,
+   "tris": 800,
+   "materials": [
+    "gun_metal"
+   ]
+  },
+  "selector": {
+   "pivot": [
+    -25.0,
+    86.0,
+    22.0
+   ],
+   "parent": null,
+   "tris": 812,
+   "materials": [
+    "gun_black",
+    "gun_metal"
+   ]
+  },
+  "trigger": {
+   "pivot": [
+    0.0,
+    66.0,
+    56.0
+   ],
+   "parent": null,
+   "tris": 600,
+   "materials": [
+    "gun_metal"
+   ]
+  },
+  "mag": {
+   "pivot": [
+    0.0,
+    56.0,
+    115.0
+   ],
+   "parent": null,
+   "tris": 6736,
+   "materials": [
+    "gun_black",
+    "gun_metal",
+    "brass"
+   ]
+  },
+  "optic": {
+   "pivot": [
+    0.0,
+    129.0,
+    -20.0
+   ],
+   "parent": null,
+   "tris": 3074,
+   "materials": [
+    "gun_black",
+    "gun_metal",
+    "glass_lens",
+    "brass"
+   ]
+  }
+ },
+ "sockets": {
+  "muzzle": {
+   "pos": [
+    0.0,
+    92.0,
+    568.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "eject": {
+   "pos": [
+    -24.0,
+    100.0,
+    110.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    180
+   ],
+   "parent": null
+  },
+  "grip_R": {
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "grip_L": {
+   "pos": [
+    8.0,
+    48.0,
+    325.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "mag_well": {
+   "pos": [
+    0.0,
+    56.0,
+    115.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "sight": {
+   "pos": [
+    0.0,
+    158.5,
+    -150.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "stock": {
+   "pos": [
+    0.0,
+    51.0,
+    -333.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "bolt",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 95.0,
+   "note": "cycling / recoil: bolt carrier + bolt slide straight back inside the receiver (visible through the right ejection port). Origin = carrier rear centre on the bore axis."
+  },
+  {
+   "node": "charging_handle",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 95.0,
+   "note": "cocking: knob on the RIGHT side slides back in the receiver slot with the carrier (same 95 mm as `bolt`). Origin = stem base."
+  },
+  {
+   "node": "trigger",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 12.0,
+   "note": "pull: +12 deg about the node's +X (glTF) swings the blade rearward. Pivot = trigger pin."
+  },
+  {
+   "node": "selector",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": -55.0,
+   "note": "AK safety lever is modelled in FIRE (down). Safe = -55 deg about the node's +X (glTF), lever swings up over the ejection slot. Pivot = lever axle on the right side."
+  },
+  {
+   "node": "mag",
+   "kind": "translate",
+   "axis_g": [
+    0.10452846326765347,
+    0,
+    -0.9945218953682733
+   ],
+   "axis_gltf": [
+    0.0,
+    -0.9945,
+    0.1045
+   ],
+   "amount": 260.0,
+   "note": "eject/insert along the mag's top axis (down and 6 deg FORWARD along the seated top axis); the curved lower half needs a small forward rock at the end (rotate about the front hook) if you want the real AK rock-in."
+  }
+ ],
+ "remarks": [
+  "Reload: press mag catch (behind the mag), rock the mag forward and out, hook the fresh mag's front lug in first, rock back at mag_well, then pull the charging handle (right side) back 95 mm and release.",
+  "Right hand on the pistol grip (grip_R at the grip centre), left hand cups the lower wood handguard at grip_L (x=325 mm). Optic (compact 4x prism sight) is a separate static `optic` node (hide it for an iron-sight variant); the AK iron sights sit lower on the same line.",
+  "Sight line: `sight` socket is on the prism sight optical axis (z=158.5 mm), 58 mm behind the eyepiece."
+ ],
+ "style_keys": [
+  "decals",
+  "wear",
+  "wood_axis",
+  "wood_dark",
+  "wood_light"
+ ]
+}

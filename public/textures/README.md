@@ -16,7 +16,7 @@ Every set tiles seamlessly in both directions (seam error ~1.0 measured on the w
 | `gravel` | 2048 | 2.5 | 3-5 | gravel_floor_03 | Road shoulder, railway ballast, quarry floors; dark grey-brown crushed stone. |
 | `rock_red` | 2048 | 1.8 | 3-4 | cliff_side | Layered canyon sandstone (strata run along image X = horizontal). Canyon walls, boulders, pillars. |
 | `rock_grey` | 2048 | 2.7 | 4-6 | rock_face_03 (desaturated) | Cracked warm-grey mountain rock: pine-mountain slopes, rocks, tunnel portals. |
-| `cliff` | 2048 | 2.0 | 4-6 | dry_riverbed_rock | Coastal / mountain cliff face with horizontal blocky strata; use on steep triplanar Y-axis projections. |
+| `cliff` | 2048 | 1.8 | 6-10 | cliff_side (re-graded warm grey-tan) | Coastal / mountain cliff face: warm grey-tan layered sediment with horizontal strata (same scan as rock_red, different grade). Use on steep faces with world-Y-projected UVs; looks best at 6-10 m per tile. |
 | `snow` | 2048 | 2.0 | 4-8 | snow_02 | Bright powder snow for the peaks (albedo lifted so dark pits don't read as dirt). Blend with rock_grey by slope/height. |
 | `forest_floor` | 2048 | 1.5 | 3-5 | forest_leaves_04 | Dark pine-needle / leaf litter with twigs for the pine-mountain ground. |
 | `grass_green` | 2048 | 2.0 | 4-6 | forrest_ground_01 | Coastal / lowland green grass (slightly cool, not neon). |
@@ -83,6 +83,10 @@ Other tileables: `detail/macro_noise.png` (512, RGBA, 4 independent tileable low
 | `stop_line` | 3.60 x 0.50 | white |  |
 
 Layout rules of thumb (US-style highway): lane 3.7 m; dashed lane line = 3 m paint / 9 m gap (`dash_white_*` every 12 m); edge lines 0.3 m inside the lane edge; double yellow centre line `double_yellow_*` (0.55 m wide); rumble strips on the shoulder (`rumble_*`, darkening decal); arrows every ~150 m before exits; `chevron_*`/`hatch_*` for gore areas and barricades.
+
+## Names in docs/ASSET_SPEC.md -> actual files
+
+`paint_road` = `road_markings/markings.png` (+ `markings.json`), `smoke_particle` = `particles/smoke_sheet.png`, `dust_particle` = `particles/dust_puff.png`. (No duplicate copies are shipped, to save bandwidth.)
 
 ## Rebuilding
 

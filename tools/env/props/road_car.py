@@ -20,7 +20,7 @@ def skeleton_car_frame():
     ZW = 0.34                                  # wheel centre height (before sagging)
 
     def tube(m, pts, r, seg=5, **k):
-        return mb.tube(m, [Vector(p) for p in pts], r, seg=seg, **k)
+        return mb.tube(m, [Vector(p) for p in pts], r * 1.35, seg=seg, **k)      # chunkier members so the frame still reads at distance
 
     # ---- chassis ------------------------------------------------------------------------------------------------------
     for sx in (-1, 1):
@@ -132,6 +132,14 @@ def skeleton_car_frame():
         vs += mb.box(S, (0.03, 0.80, 0.86), (0.05, 0.10, 0.03))           # handle
         T = Matrix.Translation((0.86 * sx, -0.66, 0.0)) @ Matrix.Rotation(math.radians(-70 * sx), 4, "Z")
         transform_verts(mb, R, vs, T)
+    # ---- body skin remnants for mass / silhouette ------------------------------------------------------------------------------------
+    for sx in (-1, 1):
+        mb.box(R, (0.875 * sx, -1.78, 0.66), (0.014, 0.38, 0.30), rot=(0, 0, 0))
+        mb.box(R, (0.875 * sx, -0.98, 0.62), (0.014, 0.30, 0.24))
+        mb.box(R, (0.875 * sx, 1.62, 0.62), (0.014, 0.62, 0.36))
+    mb.box(R, (0.875, 1.05, 0.66), (0.014, 0.36, 0.28))
+    mb.box(R, (0.32, -0.05, 1.29), (0.62, 0.55, 0.010), rot=(2, 3, 0))
+    mb.box(R, (-0.30, 0.98, 0.985), (1.0, 0.30, 0.012))
     # ---- hood (propped open, twisted, rusted through) + trunk lid hanging open ------------------------------------------------------
     vs = mb.box(R, (0.0, -0.62, 0.0), (1.50, 1.22, 0.016))
     vs += mb.box(R, (0.62, -0.62, -0.02), (0.06, 1.10, 0.04))

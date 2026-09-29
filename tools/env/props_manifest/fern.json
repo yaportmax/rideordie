@@ -2,17 +2,17 @@
  "name": "fern",
  "file": "fern.glb",
  "category": "shrub",
- "height": 0.641,
- "radius": 0.883,
+ "height": 0.669,
+ "radius": 0.91,
  "size": [
-  1.691,
-  0.641,
-  1.368
+  1.745,
+  0.669,
+  1.4
  ],
- "tris": 312,
+ "tris": 408,
  "materials": [
   "fern_fronds"
  ],
- "notes": "fern clump: 26 arching V-folded frond cards (MASK); ~0.7 m tall, 1.4 m wide",
- "kb": 127.2
+ "notes": "fern clump: 34 arching V-folded frond cards (MASK); ~0.7 m tall, 1.4 m wide",
+ "kb": 115.7
 }

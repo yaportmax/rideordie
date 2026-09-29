@@ -1,0 +1,347 @@
+// Effect recipes: explosions, muzzle flashes, tracers, impacts, crashes. Pure functions over an Fx instance; they only write
+// particles / pool items / decals / lights (no allocation: shared PDesc `fx.p`, module-level scratch).
+import { MODE } from './particles.js';
+import { SPR } from './atlas.js';
+import { MUZZLE, TRACER } from './weapons.js';
+import { SURF } from './util.js';
+
+const PI2 = Math.PI * 2;
+const SMOKE_GAIN = 1.8, DUST_GAIN = 1.5;
+const D = { x: 0, y: 1, z: 0 };
+export function muzzleCfg(w) { return MUZZLE[w] || null; }
+
+/** Random unit direction in a cone around (nx,ny,nz); `spread` ~ tan(half angle). Result in D. */
+export function coneDir(r, nx, ny, nz, spread) {
+  let tx, ty = 0, tz;
+  if (Math.abs(ny) < 0.95) { tx = nz; tz = -nx; } else { tx = 1; tz = 0; }
+  let l = Math.hypot(tx, ty, tz); tx /= l; ty /= l; tz /= l;
+  const bx = ny * tz - nz * ty, by = nz * tx - nx * tz, bz = nx * ty - ny * tx;
+  const a = r.next() * PI2, s = Math.sqrt(r.next()) * spread;
+  const cx = Math.cos(a) * s, cy = Math.sin(a) * s;
+  const dx = nx + tx * cx + bx * cy, dy = ny + ty * cx + by * cy, dz = nz + tz * cx + bz * cy;
+  l = Math.hypot(dx, dy, dz) || 1; D.x = dx / l; D.y = dy / l; D.z = dz / l;
+  return D;
+}
+
+// ------------------------------------------------------------------------------------------------ primitives
+/** Hot spark: velocity-aligned streak with bounce. */
+export function spark(fx, x, y, z, vx, vy, vz, life, gy, hot = 1, width = 0.05, drag = 0.35) {
+  const p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life;
+  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.size(width * 1.7, width * 0.7); p.len = 0.14; p.lenSpd = 0.036;
+  p.drag = drag; p.grav = 9.8; p.ground = gy; p.bounce = 0.42;
+  p.col0(8 * hot, 4.4 * hot, 1.3 * hot, 1).col1(2.4 * hot, 0.55 * hot, 0.07 * hot, 1); p.cCurve = 0.75;
+  p.add0 = p.add1 = 1; p.fin = 0.01; p.fout = 0.4;
+  fx.pf.emit(p);
+}
+
+/** Glowing ember: soft point, buoyant, flickers out. */
+export function ember(fx, x, y, z, vx, vy, vz, life, size = 0.2, hot = 1) {
+  const p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life;
+  p.spr = SPR.SPARK; p.size(size, size * 0.25); p.sCurve = 0.8; p.drag = 1.3; p.grav = -0.8; p.turb = 0.7; p.wind = 0.8;
+  p.col0(6 * hot, 2.6 * hot, 0.5 * hot, 1).col1(1.4 * hot, 0.16 * hot, 0.02 * hot, 1); p.cCurve = 0.6;
+  p.add0 = p.add1 = 1; p.rot = fx.rng.next() * PI2; p.fin = 0.03; p.fout = 0.45;
+  fx.pf.emit(p);
+}
+
+/** Alpha smoke puff (smoke sheet, random puff family playing its 4 life frames). */
+export function puff(fx, x, y, z, vx, vy, vz, s0, s1, life, r, g, b, a, buoy = 0.5, turb = 0.4, gy = -1e4) {
+  const rng = fx.rng, p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life;
+  p.spr = SPR.SMOKE; p.f0 = rng.int(4) * 4; p.nPlay = 4; p.size(s0, s1); p.sCurve = 0.55;
+  p.rot = rng.sym(0.6); p.rotV = rng.sym(0.22); p.drag = 0.9; p.grav = -buoy; p.turb = turb; p.wind = 0.6; p.lit = 0.85;
+  p.col(r * SMOKE_GAIN, g * SMOKE_GAIN, b * SMOKE_GAIN, a); p.col1(r * SMOKE_GAIN * 1.35, g * SMOKE_GAIN * 1.35, b * SMOKE_GAIN * 1.35, a); p.fin = 0.08; p.fout = 0.6; p.ground = gy;
+  fx.pa.emit(p);
+}
+
+/** Dust puff (dust sheet). */
+export function dust(fx, x, y, z, vx, vy, vz, s0, s1, life, r, g, b, a, gy = -1e4, drag = 1.6, buoy = 0.2) {
+  const rng = fx.rng, p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life;
+  p.spr = SPR.DUST; p.f0 = rng.int(4) * 4; p.nPlay = 4; p.size(s0, s1); p.sCurve = 0.5;
+  p.rot = rng.sym(0.7); p.rotV = rng.sym(0.3); p.drag = drag; p.grav = -buoy; p.turb = 0.35; p.wind = 0.9; p.lit = 1;
+  p.col(r * DUST_GAIN, g * DUST_GAIN, b * DUST_GAIN, a); p.fin = 0.06; p.fout = 0.65; p.ground = gy;
+  fx.pa.emit(p);
+}
+
+/** Flat sprite chunk (debris sheet): dirt/rock flung with gravity + bounce. cell 0-2 rock, 3-5 concrete, 6-8 dirt, 9-12 metal, 13-15 wood. */
+export function chip(fx, x, y, z, vx, vy, vz, size, life, cell, gy, tr = 1, tg = 1, tb = 1) {
+  const rng = fx.rng, p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life;
+  p.spr = SPR.DEBRIS; p.f0 = cell; p.nPlay = 1; p.size(size); p.rot = rng.next() * PI2; p.rotV = rng.sym(14);
+  p.drag = 0.4; p.grav = 9.8; p.ground = gy; p.bounce = 0.32; p.lit = 1; p.col(tr, tg, tb, 1); p.fin = 0.01; p.fout = 0.25;
+  fx.pa.emit(p);
+}
+
+/** Camera-facing additive glow (spark sprite) or flash (blast flash sprite). */
+export function glow(fx, x, y, z, size, life, r, g, b, big = false, grow = 1.5) {
+  const p = fx.p.reset(); p.pos(x, y, z); p.life = life; p.spr = big ? SPR.FLASH : SPR.SPARK; p.size(size, size * grow); p.sCurve = 0.5;
+  p.col(r, g, b, 1); p.add0 = p.add1 = 1; p.rot = fx.rng.next() * PI2; p.fin = 0.0; p.fout = 0.85;
+  fx.pf.emit(p);
+}
+
+// ------------------------------------------------------------------------------------------------ explosions
+/**
+ * Fireball explosion. S = size (1 car, 1.8 heavy, 2.4 tanker). o: {ground, paint(hex), cause}
+ */
+export function explosion(fx, x, y, z, S, o) {
+  const r = fx.rng, p = fx.p, qd = fx.qd;
+  const gy = o && o.ground !== undefined ? o.ground : y - 0.9;
+  const R = 4.6 * S;
+  const sS = Math.sqrt(S);
+  // 1. flash: hot white bloom + wide soft flash
+  glow(fx, x, y + 0.6, z, R * 2.2, 0.18, 10, 7.5, 4.2, true, 2.2);
+  glow(fx, x, y + 0.8, z, R * 3.4, 0.3, 2.4, 0.9, 0.22, true, 1.5);
+  // 2. fireball body: smoke-sheet blobs. Three layers: deep-orange outer shell (part alpha so it reads on bright sky), orange mid, white-yellow hot core.
+  const layers = [
+    { n: 8 + 3 * S, s0: 0.6, s1: 1.0, s2: 1.55, s3: 2.15, c0: [2.6, 0.62, 0.07], add: 0.3, life: [1.6, 3.0], spread: 0.42, sp: [3, 9] },
+    { n: 7 + 3 * S, s0: 0.5, s1: 0.85, s2: 1.35, s3: 1.9, c0: [4.4, 1.5, 0.22], add: 0.65, life: [1.3, 2.4], spread: 0.32, sp: [3, 10] },
+    { n: 4 + 2 * S, s0: 0.35, s1: 0.6, s2: 0.9, s3: 1.35, c0: [6.5, 3.6, 1.1], add: 1.0, life: [0.5, 1.0], spread: 0.2, sp: [1, 5] },
+  ];
+  for (const L of layers) {
+    const nb = Math.round(L.n * qd);
+    for (let i = 0; i < nb; i++) {
+      p.reset();
+      let rx = r.sym(1), ry = r.range(-0.15, 1), rz = r.sym(1); const rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+      const d = R * L.spread * Math.sqrt(r.next());
+      p.pos(x + rx * d, y + 0.4 + ry * d * 0.9, z + rz * d);
+      const sp = r.range(L.sp[0], L.sp[1]) * sS;
+      p.vel(rx * sp, ry * sp * 0.75 + r.range(2.5, 8) * sS, rz * sp);
+      p.drag = 1.9; p.grav = -2.2; p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4;
+      p.size(R * r.range(L.s0, L.s1), R * r.range(L.s2, L.s3)); p.sCurve = 0.42; p.rot = r.sym(0.6); p.rotV = r.sym(0.3);
+      p.life = r.range(L.life[0], L.life[1]); p.col0(L.c0[0], L.c0[1], L.c0[2], 1).col1(0.05, 0.043, 0.037, 0.94); p.cCurve = 0.6;
+      p.add0 = L.add; p.add1 = 0; p.fin = 0.03; p.fout = 0.5; p.lit = 0.4; p.wind = 0.5; p.turb = 0.5; p.ground = gy;
+      fx.pa.emit(p);
+    }
+  }
+  // hot inner flames (upright fire sprites)
+  const nf = Math.round((4 + 2 * S) * qd);
+  for (let i = 0; i < nf; i++) {
+    p.reset(); const a = r.next() * PI2, d = R * 0.3 * r.next();
+    p.pos(x + Math.cos(a) * d, gy + 0.2, z + Math.sin(a) * d); p.vel(r.sym(2.2), r.range(2, 6), r.sym(2.2));
+    p.spr = SPR.FIRE; p.mode = MODE.UPRIGHT; p.pivot = 1; p.aspect = 1.55; p.f0 = r.int(16); p.nPlay = 16; p.fps = 24;
+    p.size(R * r.range(0.75, 1.1), R * r.range(1.1, 1.6)); p.sCurve = 0.5; p.drag = 1.2; p.grav = -1.0; p.life = r.range(0.7, 1.25);
+    p.col0(2.0, 1.15, 0.5, 1).col1(1.1, 0.42, 0.16, 1); p.add0 = p.add1 = 1; p.fin = 0.05; p.fout = 0.6; p.ground = gy;
+    fx.pf.emit(p);
+  }
+  // 3. sparks (bouncing streaks) + embers
+  const ns = Math.round((34 + 18 * S) * qd);
+  for (let i = 0; i < ns; i++) {
+    const el = Math.acos(Math.pow(r.next(), 0.55)), az = r.next() * PI2;   // biased toward the sides/up
+    const sp = r.range(12, 44) * (0.75 + 0.25 * S);
+    spark(fx, x + r.sym(0.6), y + 0.3, z + r.sym(0.6), Math.cos(az) * Math.sin(el) * sp, Math.cos(el) * sp * 0.9 + 6, Math.sin(az) * Math.sin(el) * sp, r.range(0.7, 1.7), gy, 1, 0.06);
+  }
+  const ne = Math.round((22 + 10 * S) * qd);
+  for (let i = 0; i < ne; i++) {
+    const a = r.next() * PI2, sp = r.range(2, 13) * sS;
+    ember(fx, x + r.sym(1), y + r.range(0, 1.5), z + r.sym(1), Math.cos(a) * sp, r.range(2, 12), Math.sin(a) * sp, r.range(1.8, 4.2), r.range(0.16, 0.34), r.range(0.6, 1.1));
+  }
+  // 4. debris chunks (3D)
+  fx.debrisBurst(x, y, z, S, gy, o && o.paint !== undefined ? o.paint : 0x6d4a30);
+  // 5. shockwave ring on the ground + faint vertical blast disc
+  p.reset(); p.pos(x, gy + 0.06, z); p.mode = MODE.GROUND; p.spr = SPR.SHOCK; p.size(3, 30 * S); p.sCurve = 0.55; p.life = 0.6;
+  p.col(1.5, 1.25, 1.0, 0.85); p.add0 = 0.7; p.add1 = 0.7; p.fin = 0.01; p.fout = 0.85; p.rot = r.next() * PI2; fx.pf.emit(p);
+  p.reset(); p.pos(x, gy + 0.05, z); p.mode = MODE.GROUND; p.spr = SPR.SHOCK; p.size(2, 20 * S); p.sCurve = 0.6; p.life = 0.5;
+  p.col(1.2, 1.0, 0.8, 0.5); p.add0 = 0.9; p.add1 = 0.9; p.fin = 0.02; p.fout = 0.9; p.rot = r.next() * PI2; fx.pf.emit(p);
+  p.reset(); p.pos(x, y + 0.5, z); p.spr = SPR.SHOCK; p.size(R * 0.6, R * 4.2); p.sCurve = 0.5; p.life = 0.42;
+  p.col(1.0, 0.85, 0.7, 0.16); p.add0 = p.add1 = 1; p.fin = 0.01; p.fout = 0.9; fx.pf.emit(p);
+  // 6. dust ring hugging the ground
+  const nd = Math.round((16 + 8 * S) * qd);
+  for (let i = 0; i < nd; i++) {
+    const a = (i / nd) * PI2 + r.sym(0.25), sp = r.range(9, 21) * sS;
+    dust(fx, x + Math.cos(a) * R * 0.3, gy + 0.3, z + Math.sin(a) * R * 0.3, Math.cos(a) * sp, r.range(0.4, 2.2), Math.sin(a) * sp,
+      r.range(1.2, 2.2) * sS, r.range(4.5, 7.5) * sS, r.range(2.2, 3.6), 0.5, 0.38, 0.26, 0.6, gy, 1.4, 0.15);
+  }
+  // 7. lingering smoke column (job) + secondary pops
+  fx.startSmokeColumn(x, y, z, S, gy);
+  const np = S > 1.5 ? 3 : 2;
+  for (let i = 0; i < np; i++) fx.startPop(x + r.sym(R * 0.5), y + r.range(0, 1), z + r.sym(R * 0.5), S * 0.42, gy, 0.12 + i * 0.16 + r.next() * 0.1);
+  // 8. scorch decal, light flash, shake
+  if (fx.decScorch) fx.decScorch.add(x, gy, z, 0, 1, 0, 7.5 * S, r.int(4), r.next() * PI2, 55, 0.95, fx.time);
+  fx.flashLight(x, y + 1.2, z, 1.0, 0.6, 0.26, 1500 * S, 70 * S, 0.55 + 0.1 * S, S);
+}
+
+/** Small secondary fireball (used for chained pops). */
+export function miniPop(fx, x, y, z, S, gy) {
+  const r = fx.rng, p = fx.p, qd = fx.qd, R = 4.0 * S;
+  glow(fx, x, y + 0.4, z, R * 2.6, 0.16, 8, 6, 3, true, 2.0);
+  const nb = Math.max(3, Math.round(6 * qd * Math.sqrt(S) * 1.6));
+  for (let i = 0; i < nb; i++) {
+    p.reset(); let rx = r.sym(1), ry = r.range(-0.1, 1), rz = r.sym(1); const rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+    p.pos(x + rx * R * 0.2, y + ry * R * 0.2, z + rz * R * 0.2); p.vel(rx * r.range(3, 8), ry * r.range(2, 6) + r.range(2, 5), rz * r.range(3, 8));
+    p.drag = 1.8; p.grav = -2; p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(R * r.range(0.5, 0.8), R * r.range(1.3, 1.8)); p.sCurve = 0.42;
+    p.rot = r.sym(0.6); p.rotV = r.sym(0.3); p.life = r.range(1.0, 1.8); p.col0(5, 2.2, 0.5, 1).col1(0.05, 0.045, 0.04, 0.9); p.cCurve = 0.62;
+    p.add0 = 1; p.add1 = 0; p.fin = 0.03; p.fout = 0.5; p.lit = 0.5; p.turb = 0.5; p.ground = gy;
+    fx.pa.emit(p);
+  }
+  const ns = Math.round(14 * qd);
+  for (let i = 0; i < ns; i++) {
+    const el = Math.acos(Math.pow(r.next(), 0.6)), az = r.next() * PI2, sp = r.range(8, 28);
+    spark(fx, x, y, z, Math.cos(az) * Math.sin(el) * sp, Math.cos(el) * sp, Math.sin(az) * Math.sin(el) * sp, r.range(0.5, 1.2), gy, 1, 0.05);
+  }
+  fx.flashLight(x, y + 1, z, 1.0, 0.6, 0.25, 500 * S, 30, 0.3, S * 0.6);
+}
+
+/** Rocket / grenade impact (non-car explosion). */
+export function boom(fx, x, y, z, radius, kind, ground) {
+  const grenade = kind === 'grenade';
+  const S = grenade ? 0.62 : 0.72 * Math.max(0.6, radius / 11) + 0.15;
+  const r = fx.rng;
+  const gy = ground !== undefined ? ground : y - 0.15;
+  explosion(fx, x, Math.max(y, gy + 0.9), z, S, { ground: gy, paint: 0x40372d, boom: true });
+  if (grenade) {
+    // extra ground dirt: fountain of dirt chips and a bigger dust cloud
+    for (let i = 0; i < Math.round(14 * fx.qd); i++) {
+      const a = r.next() * PI2, sp = r.range(3, 10);
+      chip(fx, x, gy + 0.2, z, Math.cos(a) * sp, r.range(6, 15), Math.sin(a) * sp, r.range(0.12, 0.3), r.range(1.2, 2.0), 6 + r.int(3), gy, 0.85, 0.75, 0.65);
+    }
+  }
+}
+
+// ------------------------------------------------------------------------------------------------ guns
+/** Muzzle flash for weapon `wid` at (ox,oy,oz) pointing along (dx,dy,dz). (vx,vy,vz) = shooter velocity (flash rides along). */
+export function muzzle(fx, wid, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy) {
+  const cfg = MUZZLE[wid] || MUZZLE.enemy, r = fx.rng, p = fx.p;
+  const yaw = Math.atan2(dx, dz), pitch = Math.asin(Math.max(-1, Math.min(1, dy)));
+  const h = cfg.hdr, c0 = cfg.col[0] * h, c1 = cfg.col[1] * h, c2 = cfg.col[2] * h;
+  if (wid === 'rpg') return rocketBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy);
+  // star (camera facing)
+  const cell = cfg.stars[r.int(cfg.stars.length)];
+  p.reset(); p.pos(ox + dx * 0.1, oy + dy * 0.1, oz + dz * 0.1).vel(vx, vy, vz); p.spr = SPR.MUZZLE; p.f0 = cell; p.size(cfg.star * r.range(0.85, 1.15));
+  p.life = cfg.life; p.rot = r.next() * PI2; p.col(c0, c1, c2, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0.7; fx.pf.emit(p);
+  // cone (forward)
+  const cc = cfg.cones[r.int(cfg.cones.length)], L = cfg.coneL * r.range(0.85, 1.15), W = cfg.coneW * r.range(0.9, 1.1);
+  p.reset(); p.pos(ox - dx * L * 0.11, oy - dy * L * 0.11, oz - dz * L * 0.11).vel(vx, vy, vz); p.spr = SPR.MUZZLE; p.f0 = cc; p.mode = MODE.FWD; p.pivot = yaw; p.aspect = pitch;
+  p.len = L; p.size(W); p.life = cfg.life * 0.9; p.col(c0, c1, c2, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0.65; fx.pf.emit(p);
+  // light-less glow
+  glow(fx, ox + dx * 0.15, oy + dy * 0.15, oz + dz * 0.15, cfg.glow * 0.7, cfg.life * 1.1, c0 * 0.35, c1 * 0.3, c2 * 0.25, true, 1.3);
+  // powder smoke drifting forward
+  for (let i = 0; i < cfg.smoke; i++) {
+    const s = r.range(2, 5);
+    puff(fx, ox + dx * 0.3, oy + dy * 0.3, oz + dz * 0.3, vx * 0.85 + dx * s + r.sym(0.4), vy * 0.85 + dy * s + r.range(0.1, 0.7), vz * 0.85 + dz * s + r.sym(0.4), 0.18, 0.9 + cfg.star * 0.4, r.range(0.7, 1.1), 0.75, 0.72, 0.68, 0.32, 0.25, 0.3);
+  }
+  // burning powder sparks
+  for (let i = 0; i < cfg.sparks; i++) {
+    coneDir(r, dx, dy, dz, 0.35); const sp = r.range(8, 22);
+    spark(fx, ox + dx * 0.2, oy + dy * 0.2, oz + dz * 0.2, vx * 0.9 + D.x * sp, vy * 0.9 + D.y * sp, vz * 0.9 + D.z * sp, r.range(0.15, 0.35), gy, 0.7, 0.03);
+  }
+}
+
+/** RPG launch: small front flash + big backblast (fire jet + smoke cloud) behind the tube. */
+export function rocketBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy) {
+  const r = fx.rng, p = fx.p;
+  glow(fx, ox + dx * 0.3, oy + dy * 0.3, oz + dz * 0.3, 1.8, 0.1, 8, 5, 2.4, true, 1.5);
+  for (let i = 0; i < 3; i++) {                                    // fire jet backwards
+    p.reset(); p.pos(ox - dx * 0.2, oy - dy * 0.2, oz - dz * 0.2).vel(vx - dx * r.range(16, 26) + r.sym(1), vy - dy * 20 + r.sym(1), vz - dz * r.range(16, 26) + r.sym(1));
+    p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = r.int(16); p.nPlay = 16; p.fps = 30; p.len = 4.2; p.size(1.2, 2.0); p.drag = 2.5; p.life = r.range(0.16, 0.3);
+    p.col(2.6, 1.9, 1.3, 1); p.add0 = p.add1 = 1; p.fin = 0.02; p.fout = 0.7; fx.pf.emit(p);
+  }
+  const n = Math.round(10 * fx.qd);
+  for (let i = 0; i < n; i++) {                                    // backblast smoke cloud
+    coneDir(r, -dx, -dy, -dz, 0.55); const sp = r.range(6, 20);
+    puff(fx, ox - dx * 0.5, oy - dy * 0.5, oz - dz * 0.5, vx * 0.6 + D.x * sp, vy * 0.6 + D.y * sp + 0.6, vz * 0.6 + D.z * sp, 0.6, r.range(3.2, 5.5), r.range(1.4, 2.4), 0.8, 0.77, 0.72, 0.5, 0.2, 0.5);
+  }
+  for (let i = 0; i < 10 * fx.qd; i++) { coneDir(r, -dx, -dy, -dz, 0.5); const sp = r.range(10, 30); spark(fx, ox, oy, oz, vx * 0.5 + D.x * sp, vy * 0.5 + D.y * sp, vz * 0.5 + D.z * sp, r.range(0.3, 0.8), gy, 0.9, 0.04); }
+  // dust kick on the ground behind the launcher (only if close to the ground)
+  if (oy - gy < 3.5) for (let i = 0; i < 5 * fx.qd; i++) { const a = r.next() * PI2, sp = r.range(3, 8); dust(fx, ox - dx * 2, gy + 0.2, oz - dz * 2, Math.cos(a) * sp, r.range(0.3, 1.5), Math.sin(a) * sp, 1, 3.5, 1.4, 0.65, 0.52, 0.38, 0.5, gy); }
+  fx.flashLight(ox, oy, oz, 1.0, 0.65, 0.3, 240, 30, 0.2, 1);
+}
+
+/** Player hitscan tracer (streak from origin to end at ~620 m/s, clipped at both ends). */
+export function tracerHit(fx, wid, ox, oy, oz, ex, ey, ez) {
+  const dx = ex - ox, dy = ey - oy, dz = ez - oz, dist = Math.hypot(dx, dy, dz);
+  if (dist < 3) return;
+  const t = TRACER[wid] || TRACER.pistol, p = fx.p, inv = 1 / dist, speed = 620;
+  const L = t.len, h = t.hdr;
+  p.reset(); p.pos(ox, oy, oz).vel(dx * inv * speed, dy * inv * speed, dz * inv * speed); p.life = (dist + L) / speed; p.clip = dist;
+  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = L; p.size(t.width); p.col(t.col[0] * h, t.col[1] * h, t.col[2] * h, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
+  fx.pf.emit(p);
+  p.reset(); p.pos(ox, oy, oz).vel(dx * inv * speed, dy * inv * speed, dz * inv * speed); p.life = (dist + L * 0.6) / speed; p.clip = dist;
+  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = L * 0.6; p.size(t.width * 0.4); p.col(9, 8, 6.5, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
+  fx.pf.emit(p);
+}
+
+/** Enemy bullet: visible projectile, travels at `speed` along dir until killed (hit event) or 1.8 s. Returns [slot, birth] via fx.lastSlot. */
+export function tracerBullet(fx, ox, oy, oz, dx, dy, dz, speed, vx, vy, vz) {
+  const t = TRACER.enemy, p = fx.p, h = t.hdr;
+  p.reset(); p.pos(ox, oy, oz).vel(dx * speed + vx, dy * speed + vy, dz * speed + vz); p.life = 1.8;
+  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = t.len; p.size(t.width); p.col(t.col[0] * h, t.col[1] * h, t.col[2] * h, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
+  fx.lastSlot = fx.pf.emit(p); fx.lastBirth = fx.pf.time;
+  p.reset(); p.pos(ox, oy, oz).vel(dx * speed + vx, dy * speed + vy, dz * speed + vz); p.life = 1.8;
+  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = t.len * 0.55; p.size(t.width * 0.4); p.col(9, 6, 4, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
+  fx.lastSlot2 = fx.pf.emit(p);
+}
+
+/** Near-miss flyby: a short faint streak passing the listener. */
+export function whizz(fx, x, y, z, ax, ay, az) {
+  const p = fx.p;
+  const speed = 320;
+  p.reset(); p.pos(x - ax * 10, y - ay * 10, z - az * 10).vel(ax * speed, ay * speed, az * speed); p.life = 0.06; p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = 7; p.size(0.05);
+  p.col(2.4, 1.6, 1.0, 0.7); p.add0 = p.add1 = 1; p.fin = 0.1; p.fout = 0.3; fx.pf.emit(p);
+}
+
+// ------------------------------------------------------------------------------------------------ impacts
+const HARD = new Set(['asphalt', 'road', 'concrete', 'rock', 'stone']);
+/** Bullet impact by surface. (nx,ny,nz) = outward surface normal. */
+export function impact(fx, surf, x, y, z, nx, ny, nz, gy) {
+  const r = fx.rng, qd = fx.qd;
+  switch (surf) {
+    case 'metal': {
+      const n = Math.round(10 * qd) + 2;
+      for (let i = 0; i < n; i++) { coneDir(r, nx, ny, nz, 1.1); const sp = r.range(5, 19); spark(fx, x, y, z, D.x * sp, D.y * sp + 1.5, D.z * sp, r.range(0.25, 0.65), gy, 1, 0.035); }
+      glow(fx, x + nx * 0.05, y + ny * 0.05, z + nz * 0.05, 0.55, 0.07, 6, 4, 2, false, 1.3);
+      puff(fx, x + nx * 0.1, y + ny * 0.1, z + nz * 0.1, nx * 0.9, ny * 0.9 + 0.7, nz * 0.9, 0.12, 0.6, r.range(0.7, 1.1), 0.62, 0.6, 0.58, 0.22, 0.3, 0.3);
+      break;
+    }
+    case 'glass': {
+      const n = Math.round(9 * qd) + 2;
+      for (let i = 0; i < n; i++) {
+        coneDir(r, nx, ny, nz, 1.4); const sp = r.range(2, 8), p = fx.p.reset();
+        p.pos(x, y, z).vel(D.x * sp, D.y * sp + 1.2, D.z * sp); p.life = r.range(0.4, 0.9); p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.size(0.03); p.len = 0.05; p.lenSpd = 0.025;
+        p.drag = 0.2; p.grav = 9.8; p.ground = gy; p.bounce = 0.25; p.col(2.0, 2.6, 3.2, 1); p.add0 = p.add1 = 1; p.fin = 0.02; p.fout = 0.4; fx.pf.emit(p);
+      }
+      glow(fx, x, y, z, 0.5, 0.07, 3, 4, 5, false, 1.2);
+      break;
+    }
+    case 'flesh': {                                      // no gore: a brief dusty puff
+      for (let i = 0; i < 2; i++) dust(fx, x + nx * 0.1, y + ny * 0.1, z + nz * 0.1, nx * 1.2 + r.sym(0.5), ny * 1.2 + r.range(0.2, 0.8), nz * 1.2 + r.sym(0.5), 0.15, r.range(0.6, 0.9), r.range(0.45, 0.7), 0.62, 0.52, 0.44, 0.5, -1e4, 2.4, 0);
+      break;
+    }
+    case 'tire': {
+      for (let i = 0; i < 3; i++) puff(fx, x, y, z, nx * 1.6 + r.sym(0.5), ny * 1.6 + r.range(0.6, 1.3), nz * 1.6 + r.sym(0.5), 0.2, r.range(0.9, 1.4), r.range(0.9, 1.4), 0.45, 0.45, 0.46, 0.38, 0.3, 0.2);
+      for (let i = 0; i < 3; i++) { coneDir(r, nx, ny, nz, 0.9); const sp = r.range(2, 6); chip(fx, x, y, z, D.x * sp, D.y * sp, D.z * sp, 0.06, r.range(0.5, 0.9), 9 + r.int(4), gy, 0.15, 0.15, 0.15); }
+      break;
+    }
+    default: {                                           // ground: dirt / sand / rock / asphalt / gravel / grass / snow
+      const s = SURF[surf] || (HARD.has(surf) ? SURF.rock : SURF.dirt);
+      const d = s.dust, hard = HARD.has(surf) || s.hard;
+      const n = 2 + Math.round(2 * qd);
+      for (let i = 0; i < n; i++) dust(fx, x + nx * 0.1, y + ny * 0.1, z + nz * 0.1, nx * r.range(0.8, 2.6) + r.sym(1), ny * r.range(0.8, 2.6) + r.range(0.3, 1.2), nz * r.range(0.8, 2.6) + r.sym(1), 0.18, r.range(0.7, 1.4), r.range(0.6, 1.1), d[0], d[1], d[2], 0.55, y - 0.05, 2.2, 0.1);
+      const nc = 2 + Math.round(2 * qd);
+      const cell = hard ? (surf === 'rock' ? r.int(3) : 3 + r.int(3)) : 6 + r.int(3);
+      for (let i = 0; i < nc; i++) { coneDir(r, nx, ny, nz, 0.9); const sp = r.range(2, 7); chip(fx, x, y, z, D.x * sp, D.y * sp + 1, D.z * sp, r.range(0.05, 0.12), r.range(0.6, 1.2), cell, y - 0.02); }
+      if (hard) for (let i = 0; i < 4; i++) { coneDir(r, nx, ny, nz, 1.0); const sp = r.range(4, 12); spark(fx, x, y, z, D.x * sp, D.y * sp, D.z * sp, r.range(0.15, 0.4), y - 0.02, 0.7, 0.03); }
+      if (fx.decHoles && ny > 0.5) fx.decHoles.add(x, y, z, nx, ny, nz, r.range(0.28, 0.42), hard ? 0 : 2, r.next() * PI2, 25, 0.9, fx.time);
+    }
+  }
+}
+
+// ------------------------------------------------------------------------------------------------ crash / tyre pop
+export function crash(fx, x, y, z, dv, speed, gy) {
+  const r = fx.rng, qd = fx.qd;
+  const k = Math.min(1, dv / 8);
+  const n = Math.round((16 + 60 * k) * qd);
+  for (let i = 0; i < n; i++) {
+    const a = r.next() * PI2, sp = r.range(4, 12 + 18 * k), up = r.range(0.5, 5 + 8 * k);
+    spark(fx, x + r.sym(0.9), y + r.range(-0.3, 0.5), z + r.sym(1.5), Math.cos(a) * sp, up, Math.sin(a) * sp, r.range(0.4, 1.2), gy, 1, 0.05);
+  }
+  glow(fx, x, y + 0.3, z, 2.4 + 3 * k, 0.1, 7, 4.5, 1.8, true, 1.5);
+  glow(fx, x, y + 0.3, z, 1.2 + 1.5 * k, 0.07, 9, 8, 6, false, 1.4);
+  const nd = Math.round((4 + 6 * k) * qd);
+  for (let i = 0; i < nd; i++) { const a = r.next() * PI2, sp = r.range(1.5, 5); dust(fx, x + r.sym(0.8), gy + 0.3, z + r.sym(1), Math.cos(a) * sp, r.range(0.3, 1.6), Math.sin(a) * sp, 0.8, r.range(2.8, 5), r.range(1.0, 1.8), 0.6, 0.52, 0.42, 0.5, gy); }
+  if (dv > 2) for (let i = 0; i < Math.round(10 * k * qd) + 3; i++) { const a = r.next() * PI2, sp = r.range(2, 9); chip(fx, x, y + 0.3, z, Math.cos(a) * sp, r.range(2, 8), Math.sin(a) * sp, r.range(0.1, 0.24), r.range(0.8, 1.7), 9 + r.int(4), gy, 0.5, 0.5, 0.5); }
+  if (dv > 4) fx.debrisBurst(x, y, z, 0.25 + 0.35 * k, gy, 0x6d4a30);
+}
+
+export function tirePop(fx, x, y, z, vx, vy, vz, gy) {
+  const r = fx.rng, qd = fx.qd;
+  for (let i = 0; i < 4; i++) puff(fx, x + r.sym(0.15), y, z + r.sym(0.15), vx * 0.4 + r.sym(1.4), vy * 0.4 + r.range(0.4, 1.6), vz * 0.4 + r.sym(1.4), 0.3, r.range(1.3, 2.0), r.range(1.0, 1.6), 0.6, 0.6, 0.62, 0.5, 0.3, 0.3);
+  for (let i = 0; i < Math.round(6 * qd); i++) { const a = r.next() * PI2, sp = r.range(3, 9); chip(fx, x, y, z, vx * 0.5 + Math.cos(a) * sp, vy * 0.5 + r.range(2, 5), vz * 0.5 + Math.sin(a) * sp, r.range(0.08, 0.16), r.range(0.7, 1.3), 9 + r.int(4), gy, 0.12, 0.12, 0.12); }
+  for (let i = 0; i < Math.round(8 * qd); i++) { const a = r.next() * PI2, sp = r.range(4, 12); spark(fx, x, y, z, vx * 0.5 + Math.cos(a) * sp, r.range(1, 5), vz * 0.5 + Math.sin(a) * sp, r.range(0.25, 0.6), gy, 0.8, 0.035); }
+}

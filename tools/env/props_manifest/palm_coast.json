@@ -9,12 +9,13 @@
   10.249,
   7.446
  ],
- "tris": 1166,
+ "tris": 1214,
  "materials": [
   "bark_palm",
   "palm_coconut",
-  "palm_fronds"
+  "palm_fronds",
+  "palm_fronds_dry"
  ],
- "notes": "coastal palm: ringed bark_palm trunk (curved, leans +X), 15 alpha-tested (MASK) V-folded frond cards, coconuts; origin at trunk base",
- "kb": 390.0
+ "notes": "coastal palm: ringed bark_palm trunk (curved, leans +X), 19 green + 4 dry brown alpha-tested (MASK) V-folded frond cards, coconuts; origin at trunk base",
+ "kb": 437.3
 }

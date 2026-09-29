@@ -22,7 +22,7 @@ def surf_normal(fn, u, v, out, e=0.01):
 
 class BodyMixin:
     # ------------------------------------------------------------------------------------------- wear helpers
-    def patch(self, pt, fn, out, u, v, r, mat='rust', lift=0.003, thick=0.004, seed=0, elong=(1.0, 1.0), hole=False, satellite=False):
+    def patch(self, pt, fn, out, u, v, r, mat='rust', lift=0.006, thick=0.005, seed=0, elong=(1.0, 1.0), hole=False, satellite=False):
         rnd = random.Random(seed * 131 + 7)
         ph = [rnd.uniform(0, 6.28) for _ in range(5)]
         n = 9 if satellite else 16
@@ -87,10 +87,11 @@ class BodyMixin:
 
         def fn(u, v):
             return (u, v, zs(u, v))
+        self.fns['hood'] = fn
         poly = rrect_poly(-hw, fr0, hw, fr1, 0.0, 4, r_tl=0.02, r_tr=0.02, r_bl=0.07 * k, r_br=0.07 * k)
         dent = None
         if C.dents:
-            dent = [(0.25, 1.9 * k, 0.24, 0.008), (-0.35, 1.45, 0.20, 0.006), (0.05, 1.2, 0.16, 0.005)]
+            dent = [(0.25, 1.9 * k, 0.26, 0.006), (-0.35, 1.45, 0.22, 0.004), (0.05, 1.2, 0.18, 0.003)]
         holes = []
         cut = getattr(C, 'hood_cutout', None)
         if cut:
@@ -100,7 +101,7 @@ class BodyMixin:
         for sx in (-0.26 * k, 0.26 * k):
             path = [(sx, fr0 + 0.10, zs(sx, fr0 + 0.10) + 0.004), (sx, (fr0 + fr1) / 2, zs(sx, (fr0 + fr1) / 2) + 0.004), (sx * 0.93, fr1 - 0.22, zs(sx * 0.93, fr1 - 0.22) + 0.004)]
             path = [(x, f, zs(x, f) + 0.004) for x, f in [(p[0], p[1]) for p in self._resample(path, 14)]]
-            pt.sweep('paint', path, [(0.028, 0.0), (0.02, 0.008), (-0.02, 0.008), (-0.028, 0.0), (-0.02, -0.004), (0.02, -0.004)], up=(1, 0, 0))
+            pt.sweep('paint', path, [(0.018, 0.0), (0.012, 0.006), (-0.012, 0.006), (-0.018, 0.0), (-0.012, -0.004), (0.012, -0.004)], up=(1, 0, 0))
         # hinges + latch on the underside
         for sg in (1, -1):
             pt.box('metal_dark', (sg * (hw - 0.12), fr0 + 0.03, zr - 0.035), (0.09, 0.06, 0.03), bev=0.005)
@@ -162,6 +163,7 @@ class BodyMixin:
                     d = math.hypot(u - C.fa, zb + min(v, Ls) - zc)
                     x += flare * (1 - smoothstep(ar, ar + 0.10, d))
                 return (sg * x, u, z)
+            self.fns['fender%+d' % sg] = (fn, zb, Ls, La, S)
             arc = arch_arc(C.fa, zc - zb, ar, 0.0)
             poly = [(f0, 0.0)] + arc + [(f1 - 0.03, 0.0), (f1, 0.03), (f1, S - 0.03), (f1 - 0.03, S), (f0 + 0.03, S), (f0, S - 0.03)]
             dent = None

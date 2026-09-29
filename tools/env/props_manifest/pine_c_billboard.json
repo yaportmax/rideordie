@@ -14,5 +14,5 @@
   "pine_billboard_c"
  ],
  "notes": "crossed-quad far billboard (2 quads, 4 tris) baked from the real pine_c model (front + side view in one texture), alphaMode MASK, 9.0 x 11.1 m",
- "kb": 258.8
+ "kb": 186.5
 }

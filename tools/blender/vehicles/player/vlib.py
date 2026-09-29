@@ -22,6 +22,7 @@ import rod_lib  # noqa: E402
 from rod_lib import ROOT, PUBLIC, D2R  # noqa: E402
 
 SMOOTH_ANGLE = 48.0 * D2R
+DENT_K = 1.0            # global dent amplitude multiplier (set per tier by build.py)
 
 
 def P(x, f, z):
@@ -61,7 +62,7 @@ PAL = {
     'rubber': dict(base=(0.028, 0.028, 0.03), metal=0.0, rough=0.85),
     'rubber_tire': dict(base=(0.022, 0.022, 0.022), metal=0.0, rough=0.93),
     'rim': dict(base=(0.34, 0.34, 0.36), metal=0.9, rough=0.42),
-    'armor': dict(base=(0.085, 0.09, 0.09), metal=0.85, rough=0.55),
+    'armor': dict(base=(0.085, 0.09, 0.09), metal=0.6, rough=0.58),
     'spike': dict(base=(0.5, 0.48, 0.45), metal=1.0, rough=0.32),
     'plastic': dict(base=(0.06, 0.06, 0.065), metal=0.0, rough=0.55),
     'interior': dict(base=(0.16, 0.145, 0.125), metal=0.0, rough=0.8),
@@ -77,6 +78,8 @@ PAL = {
     'glass_lens': dict(base=(0.85, 0.9, 0.95), alpha=0.25, metal=0.0, rough=0.03, double_sided=True),
 }
 TEXTURED = {}      # material name -> bpy image (multiplied into base colour)
+import copy as _copy
+_PAL0 = _copy.deepcopy(PAL)
 
 
 def M(name):
@@ -522,7 +525,7 @@ class Part:
                 pass
 
     # -- curved / flat thin shells --------------------------------------------------------------------
-    def shell(self, m, poly, fn, out, thick=0.02, dens=0.06, holes=(), bev=0.005, dent=None, jitter=0.2, seed=1,
+    def shell(self, m, poly, fn, out, thick=0.02, dens=0.06, holes=(), bev=0.005, dent=None, jitter=0.06, seed=1,
               keep_inner=False, edge_dens=None, flip=False, m2=None, back='flat'):
         """Thin curved panel. poly/holes: 2D (u,v) polygons; fn(u,v)->game-space (x,f,z); out=game-space outward hint vector.
         Triangulated (CDT) at density `dens`, thickened inward by `thick` and rim-bevelled by `bev`.
@@ -610,7 +613,7 @@ class Part:
                     continue
                 d = 0.0
                 for (du, dv, dr, dd) in dent:
-                    d += dd * gauss(math.hypot(uu - du, vv - dv), dr)
+                    d += dd * DENT_K * gauss(math.hypot(uu - du, vv - dv), dr)
                 if d:
                     v.co -= v.normal * d
             bm.normal_update()
@@ -768,5 +771,26 @@ def socket(name, loc, rot=(0, 0, 0), size=0.08, parent=None):
 
 def new_scene():
     rod_lib.reset()
+    PAL.clear()
+    PAL.update(_copy.deepcopy(_PAL0))
     _SOCKETS.clear()
     TEXTURED.clear()
+
+
+def tweak_mat(name, **kw):
+    """Adjust an already-created palette material: base=(r,g,b) rough= metal= clearcoat= emit_strength= ..."""
+    m = M(name)
+    b = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    if 'base' in kw:
+        b.inputs["Base Color"].default_value = (*kw['base'][:3], 1.0)
+    if 'rough' in kw:
+        b.inputs["Roughness"].default_value = kw['rough']
+    if 'metal' in kw:
+        b.inputs["Metallic"].default_value = kw['metal']
+    if 'spec' in kw:
+        b.inputs["Specular IOR Level"].default_value = kw['spec']
+    if 'clearcoat' in kw and "Coat Weight" in b.inputs:
+        b.inputs["Coat Weight"].default_value = kw['clearcoat']
+    if 'emit_strength' in kw:
+        b.inputs["Emission Strength"].default_value = kw['emit_strength']
+    return m

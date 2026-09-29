@@ -62,7 +62,7 @@ def _ao_group():
 
 
 def pmat(name, tex=None, color=(0.8, 0.8, 0.8), rough=0.8, metal=0.0, uv_m=2.0, alpha=None, double_sided=False,
-         emit=None, emit_strength=0.0, normal_strength=1.0, albedo_file=None, tex_dir=None, alpha_cutoff=0.5):
+         emit=None, emit_strength=0.0, normal_strength=1.0, albedo_file=None, tex_dir=None, alpha_cutoff=0.5, spec=0.5, glow=0.0):
     """Named PBR material (cached).
        tex       = name of a texture set in PTEX ('<tex>_albedo.jpg', '<tex>_normal.jpg', '<tex>_arm.jpg') -> textured; else flat `color`.
        uv_m      = metres per texture tile (used by MB.project_uv; stored as custom prop 'uv_m').
@@ -78,7 +78,7 @@ def pmat(name, tex=None, color=(0.8, 0.8, 0.8), rough=0.8, metal=0.0, uv_m=2.0, 
     b.inputs["Roughness"].default_value = rough
     b.inputs["Base Color"].default_value = (*color[:3], 1.0)
     if "Specular IOR Level" in b.inputs:
-        b.inputs["Specular IOR Level"].default_value = 0.5
+        b.inputs["Specular IOR Level"].default_value = spec      # 0.5 = default dielectric F0 0.04; foliage uses ~0.1 (exported as KHR_materials_specular)
     if emit is not None:
         b.inputs["Emission Color"].default_value = (*emit[:3], 1.0)
         b.inputs["Emission Strength"].default_value = emit_strength
@@ -88,6 +88,9 @@ def pmat(name, tex=None, color=(0.8, 0.8, 0.8), rough=0.8, metal=0.0, uv_m=2.0, 
         ta.image = _img(albedo_file or os.path.join(tdir, tex + "_albedo.jpg"), "sRGB")
         ta.location = (-700, 300)
         nt.links.new(ta.outputs["Color"], b.inputs["Base Color"])
+        if glow > 0:          # fake ambient / translucency floor: emissive = albedo * glow (foliage in shade must not go black)
+            nt.links.new(ta.outputs["Color"], b.inputs["Emission Color"])
+            b.inputs["Emission Strength"].default_value = glow
         if alpha == "BLEND":
             nt.links.new(ta.outputs["Alpha"], b.inputs["Alpha"])
         elif alpha == "MASK":          # exporter detects  Alpha -> [Math: greater than cutoff] -> Alpha   as alphaMode MASK + alphaCutoff

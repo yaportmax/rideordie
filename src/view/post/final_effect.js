@@ -29,10 +29,10 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
   #ifdef SHARPEN
   if (fxA.x > 0.001) {
-    vec3 b = texture2D(inputBuffer, uv + vec2(0.0, texelSize.y)).rgb;
-    vec3 d = texture2D(inputBuffer, uv - vec2(texelSize.x, 0.0)).rgb;
-    vec3 f = texture2D(inputBuffer, uv + vec2(texelSize.x, 0.0)).rgb;
-    vec3 h = texture2D(inputBuffer, uv - vec2(0.0, texelSize.y)).rgb;
+    vec3 b = textureLod(inputBuffer, uv + vec2(0.0, texelSize.y), 0.0).rgb;
+    vec3 d = textureLod(inputBuffer, uv - vec2(texelSize.x, 0.0), 0.0).rgb;
+    vec3 f = textureLod(inputBuffer, uv + vec2(texelSize.x, 0.0), 0.0).rgb;
+    vec3 h = textureLod(inputBuffer, uv - vec2(0.0, texelSize.y), 0.0).rgb;
     vec3 mn = min(min(min(d, f), min(b, h)), c);
     vec3 mx = max(max(max(d, f), max(b, h)), c);
     vec3 amp = sqrt(clamp(min(mn, 1.0 - mx) / max(mx, vec3(1e-3)), 0.0, 1.0));
@@ -51,19 +51,21 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   // vignette (gamma-space multiply)
   c *= 1.0 - fxA.y * vmask * vmask;
 
-  // damage: red edge, pulsing like a heartbeat when low
+  // damage: red edge, pulsing like a heartbeat when low (mask is equal on all four screen edges)
+  float vd = length((uv - 0.5) * 2.0);
+  float dmask = smoothstep(0.62, 1.42, vd);
   float dmg = fxA.z;
   if (dmg > 0.001) {
-    float beat = 0.72 + 0.28 * pow(max(0.0, sin(fxC.w * (3.2 + dmg * 3.5))), 6.0);
-    float e = dmg * mix(0.15, 1.0, smoothstep(0.2, 1.05, vr)) * beat;
-    vec3 red = vec3(0.62, 0.02, 0.015);
-    c = mix(c, red * (0.35 + l1(c)), clamp(e * e * 1.1 + e * 0.12, 0.0, 0.85));
+    float beat = 0.75 + 0.25 * pow(max(0.0, sin(fxC.w * (3.2 + dmg * 3.5))), 6.0);
+    float e = dmg * dmask * dmask * beat;
+    c *= 1.0 - 0.3 * dmg * dmask;
+    c = mix(c, vec3(0.6, 0.02, 0.015) * (0.35 + l1(c)), clamp(e * 0.95, 0.0, 0.75));
   }
-  // hit flash: quick red-white edge kick
+  // hit flash: quick red edge kick
   if (fxA.w > 0.001) {
     float hf = fxA.w;
-    c += vec3(0.5, 0.06, 0.04) * hf * (0.15 + 0.85 * vmask) * 0.55;
-    c = mix(c, vec3(dot(c, W)), hf * 0.25);
+    c += vec3(0.55, 0.05, 0.03) * hf * (0.06 + 0.94 * dmask * dmask) * 0.6;
+    c = mix(c, vec3(dot(c, W)), hf * 0.2);
   }
   // slow-mo: cool, slightly darker edges
   if (fxC.z > 0.001) {
@@ -71,28 +73,28 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     c = mix(c, c * vec3(0.9, 0.97, 1.1), fxC.z * 0.6);
   }
 
-  // speed lines
+  // speed lines: thin tapered streaks in the outer ring only, low opacity
   #ifdef LINES
   if (fxB.x > 0.001) {
     vec2 p = (uv - fxC.xy) * asp;
     float r = length(p);
     float a = atan(p.y, p.x) / 6.2831853 + 0.5;
-    const float N = 110.0;
+    const float N = 150.0;
     float ac = a * N;
     float cell = floor(ac);
     float fa = fract(ac) - 0.5;
-    float tick = floor(fxC.w * 14.0);
+    float tick = floor(fxC.w * 12.0);
     float h1 = hash11(cell * 1.71 + tick * 13.7);
     float h2 = hash11(cell * 3.13 + 7.0);
     float h3 = hash11(cell * 5.29 + tick * 3.1 + 2.0);
-    float vis = step(1.0 - fxB.x * 0.6, h1);
-    float width = mix(0.06, 0.22, h2) * (0.6 + 0.6 * fxB.x);
+    float vis = step(1.0 - (0.12 + 0.3 * fxB.x), h1);
+    float r0 = mix(0.42, 0.66, h3);
+    float t = clamp((r - r0) / 0.42, 0.0, 1.0);
+    float width = mix(0.04, 0.16, h2) * t;
     float aa = fwidth(ac) + 1e-4;
     float line = 1.0 - smoothstep(width - aa, width + aa, abs(fa));
-    float r0 = mix(0.30, 0.52, h3);
-    float radial = smoothstep(r0, r0 + 0.22, r);
-    float I = line * vis * radial * fxB.x * 0.5;
-    c = mix(c, vec3(1.0, 0.96, 0.88), clamp(I, 0.0, 0.6));
+    float I = line * vis * t * t * fxB.x * 0.32;
+    c = mix(c, vec3(1.0, 0.97, 0.9), clamp(I, 0.0, 0.4));
   }
   #endif
 

@@ -1,0 +1,76 @@
+=== boss  key E phrygian  bpm 170.0  bars 16  dur 22.5882s  equal_len=True {'base': 996141, 'drums': 996141, 'lead': 996141, 'extra': 996141}
+  stem base   lufs  -19.8 peak  -7.15 dc 0.000085 | seam wrap-step -37.3 dB (rank 0.966) jump p95 1.11 p99.5 0.68 seamRMS/med 0.67 (pctile 0.20)
+  stem drums  lufs  -18.8 peak  -8.79 dc 0.000110 | seam wrap-step -28.2 dB (rank 0.916) jump p95 0.81 p99.5 0.41 seamRMS/med 0.60 (pctile 0.19)
+  stem lead   lufs  -20.8 peak  -9.73 dc 0.000013 | seam wrap-step -56.8 dB (rank 0.218) jump p95 0.08 p99.5 0.04 seamRMS/med 0.30 (pctile 0.02)
+  stem extra  lufs  -20.9 peak  -5.04 dc 0.000036 | seam wrap-step -53.1 dB (rank 0.373) jump p95 0.07 p99.5 0.02 seamRMS/med 1.99 (pctile 0.95)
+  bars base   rms dB/bar [-21.1, -21.7, -21.0, -19.9, -20.1, -19.9, -19.1, -21.2, -22.2, -22.3, -22.0, -21.0, -20.7, -20.7, -20.6, -20.0]  gaps(>12 dB below median): none
+  bars drums  rms dB/bar [-19.1, -18.9, -18.9, -18.7, -20.0, -20.0, -20.2, -19.9, -18.8, -18.6, -18.7, -18.4, -19.0, -18.9, -19.0, -18.4]  gaps(>12 dB below median): none
+  bars lead   rms dB/bar [-24.9, -23.7, -25.0, -24.2, -23.4, -23.1, -22.2, -22.2, -23.4, -23.3, -23.2, -23.5, -23.4, -23.2, -23.2, -24.3]  gaps(>12 dB below median): none
+  bars extra  rms dB/bar [-22.1, -25.1, -25.4, -24.4, -22.6, -24.4, -30.2, -23.4, -21.0, -24.6, -23.6, -23.9, -21.1, -24.3, -24.9, -20.9]  gaps(>12 dB below median): none
+  MIX  mono-fold -0.67 dB (L/R corr 0.80) lufs -14.05 peak  -2.83 crest 12.63 dB (peak-LUFS 11.22) bands<120/120-500/0.5-2k/2-8k/>8k % [49.8, 29.9, 15.4, 4.0, 0.9] flags []
+  chroma base   in-scale  92.8% (f0 tracker, voiced 0.84)  tonic 28.7% fifth  0.0%  top ['E', 'F', 'C']
+  chroma lead   in-scale  98.7% (raw  95.7%)  tonic 19.5% fifth 11.2%  top ['E', 'C', 'F']
+  chroma extra  in-scale  94.2% (raw  90.0%)  tonic 23.6% fifth 13.0%  top ['E', 'D', 'C']
+  rhythm beat 0.35294s acPeriod 0.35291s err 0.008% (AC@beat/max 0.816, shorter-lag/max 0.728) | kicks 64/64 (40-90Hz energy min -3.8 dB re median; rise min -1.6 med 0.9 dB) | drum onsets 73 grid dev ms med 1.3 p95 1.72 max 1.92
+  duck gen: dip offsets(samples) [199] min gain 0.34 90%-recovery 95.5 ms | audio (300-1400 Hz) beat-slot corr mean 0.497 min 0.125, timing jitter |lag| p90 0.27 ms max 10.0 ms
+=== garage  key G minor  bpm 92.0  bars 16  dur 41.7391s  equal_len=True {'mix': 1840696}
+  stem mix    lufs  -16.0 peak  -4.90 dc 0.000044 | seam wrap-step -25.8 dB (rank 0.953) jump p95 1.03 p99.5 0.47 seamRMS/med 1.40 (pctile 0.78)
+  bars mix    rms dB/bar [-19.3, -18.5, -19.0, -19.1, -18.1, -18.2, -18.5, -18.1, -18.2, -18.6, -18.2, -18.4, -18.1, -18.6, -17.8, -18.2]  gaps(>12 dB below median): none
+  MIX  mono-fold -0.36 dB (L/R corr 0.88) lufs -16.03 peak  -4.90 crest 13.51 dB (peak-LUFS 11.12) bands<120/120-500/0.5-2k/2-8k/>8k % [45.0, 24.6, 18.0, 12.2, 0.3] flags []
+  chroma mix    in-scale  98.6% (raw  98.2%)  tonic 11.7% fifth  8.8%  top ['F', 'D#', 'C']
+  rhythm (mix) [period err % , AC/max] low-band beat (np.float64(0.07), 0.176) bar (np.float64(0.002), 1.0) | full-band beat (np.float64(0.025), 0.865) bar (np.float64(0.0), 1.0) | strong onsets 85 grid dev ms med 1.89 p95 51.86
+=== run_a  key A minor  bpm 152.0  bars 16  dur 25.2632s  equal_len=True {'base': 1114105, 'drums': 1114105, 'lead': 1114105, 'extra': 1114105}
+  stem base   lufs  -19.8 peak  -7.20 dc 0.000036 | seam wrap-step -49.9 dB (rank 0.584) jump p95 0.38 p99.5 0.19 seamRMS/med 0.62 (pctile 0.17)
+  stem drums  lufs  -18.8 peak  -8.91 dc 0.000022 | seam wrap-step -36.9 dB (rank 0.497) jump p95 0.18 p99.5 0.09 seamRMS/med 2.51 (pctile 0.88)
+  stem lead   lufs  -20.7 peak -11.60 dc 0.000004 | seam wrap-step -56.0 dB (rank 0.141) jump p95 0.06 p99.5 0.03 seamRMS/med 0.55 (pctile 0.09)
+  stem extra  lufs  -20.9 peak  -5.11 dc 0.000019 | seam wrap-step -46.0 dB (rank 0.492) jump p95 0.11 p99.5 0.04 seamRMS/med 1.75 (pctile 0.91)
+  bars base   rms dB/bar [-20.8, -21.4, -20.8, -20.6, -20.8, -19.7, -21.4, -20.4, -20.4, -20.9, -20.5, -20.3, -20.5, -20.2, -20.3, -20.2]  gaps(>12 dB below median): none
+  bars drums  rms dB/bar [-21.2, -21.2, -21.1, -20.4, -21.0, -20.9, -20.9, -20.0, -20.9, -20.9, -20.8, -20.1, -20.8, -20.9, -20.8, -19.3]  gaps(>12 dB below median): none
+  bars lead   rms dB/bar [-24.0, -24.5, -24.4, -24.6, -24.2, -24.4, -24.3, -24.7, -24.4, -24.5, -24.3, -24.5, -23.3, -23.8, -23.6, -23.5]  gaps(>12 dB below median): none
+  bars extra  rms dB/bar [-26.3, -29.2, -30.0, -29.5, -24.8, -25.0, -25.0, -23.1, -21.3, -23.8, -23.3, -23.2, -22.9, -24.8, -24.8, -22.3]  gaps(>12 dB below median): none
+  MIX  mono-fold -0.54 dB (L/R corr 0.82) lufs -14.02 peak  -2.54 crest 13.63 dB (peak-LUFS 11.47) bands<120/120-500/0.5-2k/2-8k/>8k % [41.1, 28.5, 20.8, 6.9, 2.7] flags []
+  chroma base   in-scale  99.6% (f0 tracker, voiced 0.91)  tonic 17.3% fifth  0.4%  top ['G', 'F', 'A']
+  chroma lead   in-scale  99.9% (raw  98.8%)  tonic 16.8% fifth 11.8%  top ['A', 'G', 'C']
+  chroma extra  in-scale  97.5% (raw  95.9%)  tonic 15.5% fifth  6.5%  top ['D', 'C', 'G']
+  rhythm beat 0.39474s acPeriod 0.39474s err 0.0% (AC@beat/max 0.983, shorter-lag/max 0.69) | kicks 64/64 (40-90Hz energy min -1.7 dB re median; rise min 3.0 med 70.4 dB) | drum onsets 73 grid dev ms med 1.46 p95 2.95 max 12.65
+  duck gen: dip offsets(samples) [199] min gain 0.34 90%-recovery 95.5 ms | audio (300-1400 Hz) beat-slot corr mean 0.549 min 0.205, timing jitter |lag| p90 0.23 ms max 1.22 ms
+=== run_b  key D phrygian  bpm 158.0001  bars 16  dur 24.3038s  equal_len=True {'base': 1071797, 'drums': 1071797, 'lead': 1071797, 'extra': 1071797}
+  stem base   lufs  -19.9 peak  -6.97 dc 0.000076 | seam wrap-step -37.4 dB (rank 0.979) jump p95 1.29 p99.5 0.72 seamRMS/med 0.58 (pctile 0.26)
+  stem drums  lufs  -18.9 peak  -8.23 dc 0.000066 | seam wrap-step -22.7 dB (rank 0.962) jump p95 1.11 p99.5 0.58 seamRMS/med 1.48 (pctile 0.74)
+  stem lead   lufs  -20.8 peak -12.08 dc 0.000002 | seam wrap-step -38.5 dB (rank 0.738) jump p95 0.45 p99.5 0.26 seamRMS/med 0.59 (pctile 0.07)
+  stem extra  lufs  -21.0 peak  -5.85 dc 0.000008 | seam wrap-step -37.7 dB (rank 0.691) jump p95 0.25 p99.5 0.10 seamRMS/med 1.87 (pctile 0.94)
+  bars base   rms dB/bar [-22.4, -22.2, -21.4, -22.2, -21.4, -21.0, -22.3, -21.6, -21.0, -20.1, -20.8, -20.5, -21.4, -22.0, -20.9, -21.3]  gaps(>12 dB below median): none
+  bars drums  rms dB/bar [-21.3, -21.1, -21.1, -20.1, -20.0, -20.0, -20.1, -19.2, -20.7, -20.5, -20.5, -20.3, -20.0, -20.1, -20.1, -19.4]  gaps(>12 dB below median): none
+  bars lead   rms dB/bar [-24.4, -24.5, -24.3, -24.5, -24.7, -25.0, -24.5, -24.7, -24.3, -24.2, -23.8, -24.3, -23.8, -23.9, -23.9, -24.0]  gaps(>12 dB below median): none
+  bars extra  rms dB/bar [-26.2, -29.6, -30.4, -29.4, -24.7, -24.8, -24.3, -22.0, -21.7, -24.2, -23.9, -24.0, -22.7, -24.7, -24.5, -22.3]  gaps(>12 dB below median): none
+  MIX  mono-fold -0.68 dB (L/R corr 0.78) lufs -14.05 peak  -2.64 crest 13.52 dB (peak-LUFS 11.41) bands<120/120-500/0.5-2k/2-8k/>8k % [41.3, 27.6, 22.3, 6.7, 2.1] flags []
+  chroma base   in-scale  99.6% (f0 tracker, voiced 0.97)  tonic 45.0% fifth  0.0%  top ['D', 'C', 'D#']
+  chroma lead   in-scale  99.9% (raw  99.7%)  tonic 20.1% fifth 11.1%  top ['F', 'D', 'D#']
+  chroma extra  in-scale  97.0% (raw  93.7%)  tonic 28.2% fifth  9.9%  top ['D', 'A#', 'C']
+  rhythm beat 0.37975s acPeriod 0.37977s err 0.006% (AC@beat/max 0.555, shorter-lag/max 0.342) | kicks 64/64 (40-90Hz energy min -2.3 dB re median; rise min -3.1 med 56.5 dB) | drum onsets 93 grid dev ms med 1.39 p95 3.7 max 43.17
+  duck gen: dip offsets(samples) [199] min gain 0.34 90%-recovery 95.5 ms | audio (300-1400 Hz) beat-slot corr mean 0.58 min 0.352, timing jitter |lag| p90 0.23 ms max 0.27 ms
+=== run_c  key F# minor  bpm 164.0001  bars 16  dur 23.4146s  equal_len=True {'base': 1032585, 'drums': 1032585, 'lead': 1032585, 'extra': 1032585}
+  stem base   lufs  -19.8 peak  -8.11 dc 0.000085 | seam wrap-step -37.8 dB (rank 0.985) jump p95 1.40 p99.5 0.74 seamRMS/med 0.37 (pctile 0.03)
+  stem drums  lufs  -18.9 peak  -8.78 dc 0.000089 | seam wrap-step -31.2 dB (rank 0.668) jump p95 0.31 p99.5 0.17 seamRMS/med 1.91 (pctile 0.84)
+  stem lead   lufs  -20.8 peak -11.70 dc 0.000002 | seam wrap-step -48.2 dB (rank 0.231) jump p95 0.14 p99.5 0.07 seamRMS/med 0.63 (pctile 0.12)
+  stem extra  lufs  -20.9 peak  -5.87 dc 0.000017 | seam wrap-step -24.8 dB (rank 0.961) jump p95 1.13 p99.5 0.42 seamRMS/med 1.74 (pctile 0.91)
+  bars base   rms dB/bar [-21.3, -21.7, -20.5, -20.6, -21.5, -20.6, -21.2, -21.9, -21.0, -20.9, -21.4, -20.7, -20.7, -20.3, -20.9, -20.8]  gaps(>12 dB below median): none
+  bars drums  rms dB/bar [-20.9, -20.7, -20.7, -20.1, -20.2, -20.3, -20.4, -20.1, -20.8, -20.7, -20.9, -19.8, -20.3, -20.3, -20.3, -20.0]  gaps(>12 dB below median): none
+  bars lead   rms dB/bar [-24.3, -24.7, -24.9, -24.9, -24.6, -24.3, -24.7, -24.6, -24.5, -24.6, -24.2, -24.4, -23.7, -24.3, -24.0, -23.8]  gaps(>12 dB below median): none
+  bars extra  rms dB/bar [-26.6, -29.3, -29.2, -28.8, -26.3, -25.8, -25.9, -22.8, -21.6, -23.3, -23.2, -23.3, -23.3, -24.6, -24.6, -22.1]  gaps(>12 dB below median): none
+  MIX  mono-fold -0.77 dB (L/R corr 0.76) lufs -14.07 peak  -2.70 crest 13.54 dB (peak-LUFS 11.37) bands<120/120-500/0.5-2k/2-8k/>8k % [44.2, 22.8, 22.6, 7.6, 2.8] flags []
+  chroma base   in-scale 100.0% (f0 tracker, voiced 0.94)  tonic 16.2% fifth  0.7%  top ['E', 'A', 'D']
+  chroma lead   in-scale 100.0% (raw  99.1%)  tonic 20.9% fifth  9.5%  top ['A', 'F#', 'D']
+  chroma extra  in-scale  97.5% (raw  96.4%)  tonic 12.5% fifth  6.1%  top ['A', 'E', 'D']
+  rhythm beat 0.36585s acPeriod 0.36585s err 0.002% (AC@beat/max 0.86, shorter-lag/max 0.548) | kicks 64/64 (40-90Hz energy min -2.9 dB re median; rise min 0.5 med 29.6 dB) | drum onsets 63 grid dev ms med 1.26 p95 1.57 max 4.03
+  duck gen: dip offsets(samples) [199] min gain 0.34 90%-recovery 95.5 ms | audio (300-1400 Hz) beat-slot corr mean 0.577 min 0.291, timing jitter |lag| p90 0.02 ms max 7.76 ms
+=== title  key D minor  bpm 104.0  bars 16  dur 36.9231s  equal_len=True {'mix': 1628308}
+  stem mix    lufs  -16.0 peak  -5.48 dc 0.000039 | seam wrap-step -30.0 dB (rank 0.904) jump p95 0.73 p99.5 0.34 seamRMS/med 1.16 (pctile 0.63)
+  bars mix    rms dB/bar [-20.3, -20.4, -20.6, -19.2, -18.6, -18.5, -19.6, -17.5, -17.2, -17.1, -17.8, -17.2, -16.5, -16.6, -17.0, -16.2]  gaps(>12 dB below median): none
+  MIX  mono-fold -0.89 dB (L/R corr 0.70) lufs -16.01 peak  -5.48 crest 12.44 dB (peak-LUFS 10.52) bands<120/120-500/0.5-2k/2-8k/>8k % [44.6, 22.1, 28.1, 4.7, 0.4] flags []
+  chroma mix    in-scale  98.4% (raw  98.2%)  tonic 38.5% fifth  4.5%  top ['D', 'C', 'F']
+  rhythm (mix) [period err % , AC/max] low-band beat (np.float64(0.007), 0.698) bar (np.float64(0.015), 1.0) | full-band beat (np.float64(0.033), 1.0) bar (np.float64(0.002), 0.829) | strong onsets 123 grid dev ms med 8.99 p95 60.74
+=== victory  key D major  bpm 132.0001  bars 4  dur 11.2029s  equal_len=True {'mix': 494048}
+  stem mix    lufs  -14.0 peak  -4.87 dc 0.000036 | seam wrap-step -74.9 dB (rank 0.132) jump p95 0.00 p99.5 0.00 seamRMS/med 0.09 (pctile 0.18)
+  MIX  mono-fold -0.91 dB (L/R corr 0.68) lufs -14.04 peak  -4.87 crest 12.76 dB (peak-LUFS 9.17) bands<120/120-500/0.5-2k/2-8k/>8k % [31.5, 31.3, 30.0, 6.3, 0.9] flags []
+  chroma mix    in-scale  99.3% (raw  99.0%)  tonic 55.4% fifth 21.1%  top ['D', 'A', 'F#']

@@ -34,11 +34,11 @@ def reg(name, n, cat, rel, notes, loop=False, **kw):
 def bullet_metal(v, r):
     f0 = [950, 1300, 1750, 2350, 1100][v] * r.uniform(0.96, 1.04)
     tk = fo.tick(r, 4200, 1.5, 0.0009, dur=0.012)
-    plate = fo.metal_hit(r, f0, 0.06 + 0.01 * (v % 3), k=6, click=0.0, dur=0.3, spread=0.03)
+    plate = fo.metal_hit(r, f0, 0.032 + 0.005 * (v % 3), k=6, click=0.0, dur=0.2, spread=0.03)
     dent = fo.thunk(r, 240 * r.uniform(0.9, 1.15), 0.012, 0.07, noise=1.2, tone=0.4)
     zing = samples.impact("Tin_medium", v, ratio=r.uniform(1.25, 1.8), length=0.2)
     real = rubber(f"breaking/bfh1_metal_hit_{2 + v:02d}.ogg", ratio=r.uniform(1.5, 2.4), length=0.18)
-    y = layers([(tk, 0.10, 0), (plate, 0.32, 0.0004), (dent, 0.16, 0), (zing, 0.22, 0), (real, 0.20, 0)], 0.33)
+    y = layers([(tk, 0.12, 0), (plate, 0.26, 0.0004), (dent, 0.18, 0), (zing, 0.22, 0), (real, 0.22, 0)], 0.27)
     return loud(y, 8)
 
 
@@ -102,7 +102,7 @@ def bullet_asphalt(v, r):
     return loud(y, 8)
 
 
-@reg("ricochet", 4, "impact_bullet", -1, "ricochet zing: tonal noise gliding down, 0.6 s")
+@reg("ricochet", 4, "impact_bullet", 0, "ricochet zing: tonal noise gliding down, 0.6 s")
 def ricochet(v, r):
     dur = 0.7
     n = secs(dur)
@@ -121,7 +121,7 @@ def ricochet(v, r):
     return loud(y, 8)
 
 
-@reg("bullet_whizz", 5, "impact_bullet", -3, "supersonic near-miss flyby with downward pitch glide (doppler)")
+@reg("bullet_whizz", 5, "impact_bullet", 1, "supersonic near-miss flyby with downward pitch glide (doppler)")
 def bullet_whizz(v, r):
     dur = 0.5
     n = secs(dur)
@@ -222,9 +222,9 @@ reg("car_crash_heavy", 3, "impact_car", 0, "heavy crash: sub boom + crush + debr
 def car_scrape_loop(v, r):
     n = secs(1.6)
     nz = lambda beta=0: dsp.noise(n, r, beta)
-    modes = (en(dsp.bpq(nz(), 1250, 9, 2, loop=True)) * 1.0 + en(dsp.bpq(nz(), 2700, 10, 2, loop=True)) * 0.8 +
-             en(dsp.bpq(nz(), 4700, 12, 2, loop=True)) * 0.5)
-    rough = np.clip(1 + 0.9 * en(dsp.lp(nz(), 160, 1, loop=True)), 0.05, 3.0)
+    modes = (en(dsp.bpq(nz(), 1250, 3.5, 2, loop=True)) * 1.0 + en(dsp.bpq(nz(), 2700, 4, 2, loop=True)) * 0.8 +
+             en(dsp.bpq(nz(), 4700, 5, 2, loop=True)) * 0.5)
+    rough = np.clip(1 + 1.1 * en(dsp.lp(nz(), 220, 1, loop=True)), 0.03, 3.5)
     grit = en(dsp.hp(nz(), 3000, 1, loop=True)) * 0.35 * rough ** 2
     low = en(dsp.lp(nz(1), 320, 2, loop=True)) * 0.5
     y = (modes * 0.9 + low) * rough + grit

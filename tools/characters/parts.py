@@ -53,3 +53,18 @@ def tint_hair_texture(src, colour, size=1024, strength=1.0, lift=0.0):
     rgb = rgb * strength + a[..., :3] * (1.0 - strength)
     out = np.concatenate([np.clip(rgb, 0, 1), a[..., 3:4]], axis=-1)
     return (out * 255 + 0.5).astype(np.uint8)
+
+
+def eye_spheres(ch):
+    """Centres / radii of the two eyeballs (FINAL space) from the MakeHuman eye proxy."""
+    d = fit_asset(ch, A + "/eyes/high-poly/high-poly.mhclo",
+                  tri_filter=lambda tv, tt, vt: ~((vt[tt].mean(axis=1)[:, 0] > 0.85) & (vt[tt].mean(axis=1)[:, 1] < 0.2)))
+    P = d["pos"]
+    out = []
+    for sgn in (1.0, -1.0):
+        sel = P[:, 0] * sgn > 0
+        q = P[sel]
+        c = 0.5 * (q.min(axis=0) + q.max(axis=0))
+        r = float(0.5 * (q.max(axis=0) - q.min(axis=0)).mean())
+        out.append((c, r))
+    return out

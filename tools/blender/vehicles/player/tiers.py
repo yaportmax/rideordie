@@ -16,7 +16,7 @@ BASE = dict(
     # doors
     f_df=0.90, f_dr=-0.46, door_hw=0.885,
     # bed
-    z_bed=0.80, bed_wall=0.36, f_bf=-0.64, f_tail=-2.22, bed_hw=0.89, bed_wall_t=0.06,
+    z_bed=0.80, bed_wall=0.36, f_bf=-0.64, f_tail=-2.22, bed_hw=0.89, bed_wall_t=0.04,
     # seat
     seat='bench', driver_x=0.37, seat_f=0.06, seat_z=0.62,
     # style

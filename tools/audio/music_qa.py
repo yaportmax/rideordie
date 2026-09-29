@@ -42,6 +42,13 @@ def jump_ratio(x, pct=95.0):
     return float(np.max(np.abs(x[0] - x[-1]) / typ))
 
 
+def wrap_rank(x):
+    """percentile rank of the wrap step |x[0]-x[-1]| among all interior adjacent-sample steps (worst channel); ~0.5-0.99 = normal."""
+    d = np.abs(np.diff(x, axis=0))
+    w = np.abs(x[0] - x[-1])
+    return float(max(np.mean(d[:, c] < w[c]) for c in range(x.shape[1])))
+
+
 def seam(x):
     ratio = jump_ratio(x, 95.0)
     k = int(0.005 * SR)
@@ -51,7 +58,7 @@ def seam(x):
     for p in range(k, len(m) - 2 * k, k // 2):
         ds.append(np.sqrt(np.mean((m[p:p + k] - m[p + k:p + 2 * k]) ** 2)))
     ds = np.array(ds)
-    return dict(jump_ratio=round(ratio, 2), jump_ratio_995=round(jump_ratio(x, 99.5), 2), seam_rms=round(d_seam, 5), interior_med=round(float(np.median(ds)), 5),
+    return dict(wrap_step_rank=round(wrap_rank(x), 4), jump_abs_db=round(20 * math.log10(float(np.abs(x[0] - x[-1]).max()) + 1e-12), 1), jump_ratio=round(ratio, 2), jump_ratio_995=round(jump_ratio(x, 99.5), 2), seam_rms=round(d_seam, 5), interior_med=round(float(np.median(ds)), 5),
                 seam_vs_med=round(d_seam / (float(np.median(ds)) + 1e-12), 2), seam_pct=round(float(np.mean(ds < d_seam)), 3))
 
 
@@ -66,15 +73,13 @@ def bands(x):
 
 
 # ------------------------------------------------------------------------------------------------- chroma
-def chroma(x, fmin, fmax, scale_pcs, tonic_pc, win=8192, hop=4096, prom_db=9.0, attribute=True, merge_hz=0.0):
-    xm = x.mean(axis=1)
+def _frame_peaks(xm, win, hop, prom_db):
     w = np.hanning(win)
-    freqs = np.fft.rfftfreq(win, 1 / SR)
-    pc_e = np.zeros(12)
-    raw_e = np.zeros(12)
+    frames = []
     for start in range(0, len(xm) - win, hop):
         X = np.abs(np.fft.rfft(xm[start:start + win] * w))
         if X.max() < 1e-4:
+            frames.append([])
             continue
         floor = ndi.median_filter(X, size=81)
         pk, _ = ss.find_peaks(X, height=X.max() * 10 ** (-55 / 20))
@@ -83,12 +88,29 @@ def chroma(x, fmin, fmax, scale_pcs, tonic_pc, win=8192, hop=4096, prom_db=9.0, 
         for k in pk:
             a, b, c = np.log(X[k - 1] + 1e-12), np.log(X[k] + 1e-12), np.log(X[k + 1] + 1e-12)
             d = 0.5 * (a - c) / (a - 2 * b + c) if (a - 2 * b + c) != 0 else 0.0
-            f = (k + d) * SR / win
-            e = X[k - 1] ** 2 + X[k] ** 2 + X[k + 1] ** 2
-            pts.append((f, e))
+            pts.append(((k + d) * SR / win, X[k - 1] ** 2 + X[k] ** 2 + X[k + 1] ** 2))
+        frames.append(sorted(pts))
+    return frames
+
+
+def chroma(x, fmin, fmax, scale_pcs, tonic_pc, win=8192, hop=4096, prom_db=9.0, attribute=True, merge_hz=0.0, steady=True):
+    """pitch-class energy from prominent spectral peaks.  steady=True keeps only peaks that reappear (within 1%) in the
+    previous or next frame, i.e. sustained/repeated pitches (gliding risers and impact sweeps are not pitches);
+    attribute=True assigns overtones (2..12 x a stronger lower peak) to the fundamental's pitch class."""
+    xm = x.mean(axis=1)
+    frames = _frame_peaks(xm, win, hop, prom_db)
+    pc_e = np.zeros(12)
+    raw_e = np.zeros(12)
+
+    def near(lst, f):
+        return any(abs(g_ - f) / f < 0.01 for g_, _ in lst)
+
+    for fi, pts in enumerate(frames):
+        if steady:
+            prv = frames[fi - 1] if fi > 0 else []
+            nxt = frames[fi + 1] if fi + 1 < len(frames) else []
+            pts = [(f, e) for f, e in pts if near(prv, f) or near(nxt, f)]
         if merge_hz > 0:
-            # amplitude-modulation sidebands (sidechain ducking / note gating) within merge_hz of a stronger peak are
-            # merged into it (they are not separate pitches)
             kept = []
             for f, e in sorted(pts, key=lambda p_: -p_[1]):
                 for kp in kept:
@@ -97,8 +119,7 @@ def chroma(x, fmin, fmax, scale_pcs, tonic_pc, win=8192, hop=4096, prom_db=9.0, 
                         break
                 else:
                     kept.append([f, e])
-            pts = [(f, e) for f, e in kept]
-        pts.sort()
+            pts = sorted((f, e) for f, e in kept)
         acc = []
         for f, e in pts:
             pc = int(round(12 * math.log2(f / 440.0) + 69)) % 12
@@ -125,6 +146,38 @@ def chroma(x, fmin, fmax, scale_pcs, tonic_pc, win=8192, hop=4096, prom_db=9.0, 
                        fifth=round(float(arr[(tonic_pc + 7) % 12] / tot), 3),
                        top_pcs=[M.NOTE_NAMES[i] for i in np.argsort(-arr)[:3]])
     return res
+
+
+def chroma_f0(x, scale_pcs, tonic_pc, fmin=38.0, fmax=330.0, win=4096, hop=1024, thr=0.5):
+    """fundamental-pitch chroma for the bass register: frame-wise autocorrelation f0 (low-passed < 700 Hz), energy-weighted
+    pitch classes (octave errors do not change the pitch class)."""
+    m = dsp.lp(x.mean(axis=1), 700.0, 4, loop=True)
+    lag_lo, lag_hi = int(SR / fmax), int(SR / fmin)
+    pc_e = np.zeros(12)
+    voiced = tot = 0.0
+    for st in range(0, len(m) - win, hop):
+        seg = m[st:st + win]
+        e = float(np.sum(seg * seg))
+        if e < 1e-9:
+            continue
+        tot += e
+        F = np.fft.rfft(seg, 2 * win)
+        ac = np.fft.irfft(F * np.conj(F))[:win]
+        ac = ac / (ac[0] + 1e-20)
+        i = lag_lo + int(np.argmax(ac[lag_lo:lag_hi]))
+        if ac[i] < thr or i <= lag_lo or i >= lag_hi - 1:
+            continue
+        a_, b_, c_ = ac[i - 1], ac[i], ac[i + 1]
+        d = 0.5 * (a_ - c_) / (a_ - 2 * b_ + c_) if (a_ - 2 * b_ + c_) != 0 else 0.0
+        f0 = SR / (i + d)
+        pc = int(round(12 * math.log2(f0 / 440.0) + 69)) % 12
+        pc_e[pc] += e
+        voiced += e
+    ins = sum(pc_e[p] for p in scale_pcs) / (pc_e.sum() + 1e-20)
+    return dict(attributed=dict(in_scale=round(float(ins), 4), tonic=round(float(pc_e[tonic_pc] / (pc_e.sum() + 1e-20)), 3),
+                                fifth=round(float(pc_e[(tonic_pc + 7) % 12] / (pc_e.sum() + 1e-20)), 3),
+                                top_pcs=[M.NOTE_NAMES[i] for i in np.argsort(-pc_e)[:3]], voiced=round(voiced / (tot + 1e-20), 2)),
+                raw=dict(in_scale=round(float(ins), 4), tonic=0, fifth=0, top_pcs=[]))
 
 
 # ------------------------------------------------------------------------------------------------- rhythm
@@ -205,6 +258,30 @@ def rhythm(drums, bpm_actual, bars, step_samples):
                 grid_dev_ms_max=round(float(np.abs(offs).max()), 2) if len(offs) else None)
 
 
+def rhythm_mix(x, bpm_actual, bars, step_samples):
+    """for single-file loops: 40-120 Hz and broadband onset-envelope autocorrelation -> peak near 1 bar / 1 beat, grid alignment."""
+    beat = 60.0 / bpm_actual
+    out = {}
+    for nm, env in (("low", band_env(x, 40, 120, win_ms=15.0)), ("full", np.abs(dsp.hp(x.mean(axis=1), 200.0, 2, loop=True)))):
+        if nm == "full":
+            env = ndi.uniform_filter1d(env, size=int(0.015 * SR), mode="wrap")
+        ac = circ_autocorr(env)
+        mx = ac[int(0.15 * SR):int(6 * beat * SR)].max()
+        res = {}
+        for lab, T in (("beat", beat), ("bar", 4 * beat)):
+            lo_i, hi_i = int(0.97 * T * SR), int(1.03 * T * SR)
+            i = lo_i + int(np.argmax(ac[lo_i:hi_i]))
+            a_, b_, c_ = ac[i - 1], ac[i], ac[i + 1]
+            dlt = 0.5 * (a_ - c_) / (a_ - 2 * b_ + c_) if (a_ - 2 * b_ + c_) != 0 else 0.0
+            res[lab] = (round(abs((i + dlt) / SR - T) / T * 100, 3), round(float(ac[i] / mx), 3))
+        out[nm] = res
+    offs = onset_offsets(x, step_samples)
+    out["grid_dev_ms_med"] = round(float(np.median(np.abs(offs))), 2) if len(offs) else None
+    out["grid_dev_ms_p95"] = round(float(np.percentile(np.abs(offs), 95)), 2) if len(offs) else None
+    out["onsets"] = len(offs)
+    return out
+
+
 def duck_check(base, bpm_nominal, bars):
     """(a) the sidechain envelope generator itself: dip position/depth/recovery identical on every beat (+-1 sample);
     (b) audio: correlation of the beat-slot envelope of the base stem across bars (rhythmic regularity incl. pumping)."""
@@ -265,6 +342,13 @@ def analyse_track(track, entries, verbose=True):
     for k, x in sig.items():
         d = dict(peak_db=round(pk_db(x), 2), dc=round(float(np.abs(x.mean(axis=0)).max()), 6),
                  lufs=round(R.lufs_integrated(x), 2), seam=seam(x))
+        if ex0.get("bars") and not ex0.get("oneShot"):
+            nb = ex0["bars"]
+            seg = len(x) // nb
+            lv = [20 * math.log10(float(np.sqrt(np.mean(x[b * seg:(b + 1) * seg] ** 2))) + 1e-9) for b in range(nb)]
+            med = float(np.median(lv))
+            d["bar_rms_db"] = [round(v, 1) for v in lv]
+            d["gap_bars"] = [b + 1 for b, v in enumerate(lv) if v < med - 12.0]
         rep["stems"][k] = d
     if len(sig) > 1:
         n = min(lens.values())
@@ -287,7 +371,7 @@ def analyse_track(track, entries, verbose=True):
         if k == "drums":
             continue
         if k == "base":
-            ch[k] = chroma(x, 90, 330, scale_pcs, tonic_pc, win=16384, hop=8192)
+            ch[k] = chroma_f0(x, scale_pcs, tonic_pc)
         else:
             ch[k] = chroma(x, 100, 2500, scale_pcs, tonic_pc)
     if len(sig) == 1:
@@ -297,8 +381,12 @@ def analyse_track(track, entries, verbose=True):
     # rhythm
     bpm = ex0["bpm"]
     step_n = SR * 15.0 / bpm
+    if ex0.get("oneShot"):
+        return rep
     if "drums" in sig:
         rep["rhythm"] = rhythm(sig["drums"], bpm, ex0["bars"], step_n)
+    if "drums" not in sig and len(sig) == 1:
+        rep["rhythm_mix"] = rhythm_mix(list(sig.values())[0], bpm, ex0["bars"], step_n)
     if "base" in sig:
         rep["duck"] = duck_check(sig["base"], ex0["bpmNominal"], ex0["bars"])
     return rep
@@ -310,20 +398,27 @@ def fmt(rep):
              f"equal_len={rep['equal_length']} {rep['lengths']}")
     for k, d in rep["stems"].items():
         s = d["seam"]
-        L.append(f"  stem {k:6s} lufs {d['lufs']:6.1f} peak {d['peak_db']:6.2f} dc {d['dc']:.6f} | seam jump p95 {s['jump_ratio']:.2f} p99.5 {s['jump_ratio_995']:.2f} "
+        L.append(f"  stem {k:6s} lufs {d['lufs']:6.1f} peak {d['peak_db']:6.2f} dc {d['dc']:.6f} | seam wrap-step {s['jump_abs_db']} dB (rank {s['wrap_step_rank']:.3f}) jump p95 {s['jump_ratio']:.2f} p99.5 {s['jump_ratio_995']:.2f} "
                  f"seamRMS/med {s['seam_vs_med']:.2f} (pctile {s['seam_pct']:.2f})")
+    for k, d in rep["stems"].items():
+        if "bar_rms_db" in d:
+            L.append(f"  bars {k:6s} rms dB/bar {d['bar_rms_db']}  gaps(>12 dB below median): {d['gap_bars'] or 'none'}")
     m = rep["mix"]
     L.append(f"  MIX  mono-fold {m['mono_fold_db']:+.2f} dB (L/R corr {m['lr_corr']:.2f}) lufs {m['lufs']:6.2f} peak {m['peak_db']:6.2f} crest {m['crest_db']:5.2f} dB (peak-LUFS {m['crest_vs_lufs_db']:.2f}) "
              f"bands<120/120-500/0.5-2k/2-8k/>8k % {m['bands_pct']} flags {m['flags']}")
     for k, c in rep["chroma"].items():
         a, r_ = c["attributed"], c["raw"]
-        L.append(f"  chroma {k:6s} in-scale {a['in_scale'] * 100:5.1f}% (raw {r_['in_scale'] * 100:5.1f}%)  tonic {a['tonic'] * 100:4.1f}% "
+        L.append(f"  chroma {k:6s} in-scale {a['in_scale'] * 100:5.1f}% ({'f0 tracker, voiced ' + str(a['voiced']) if 'voiced' in a else 'raw ' + format(r_['in_scale'] * 100, '5.1f') + '%'})  tonic {a['tonic'] * 100:4.1f}% "
                  f"fifth {a['fifth'] * 100:4.1f}%  top {a['top_pcs']}")
     if "rhythm" in rep:
         r = rep["rhythm"]
         L.append(f"  rhythm beat {r['beat_s']}s acPeriod {r['ac_period_s']}s err {r['period_err_pct']}% (AC@beat/max {r['ac_at_beat']}, shorter-lag/max {r['ac_shorter']}) | kicks {r['kicks_present']}/{r['beats']} "
                  f"(40-90Hz energy min {r['kick_e_min_db']} dB re median; rise min {r['kick_onset_db_min']} med {r['kick_onset_db_med']} dB) | drum onsets {r['onsets']} grid dev ms med "
                  f"{r['grid_dev_ms_med']} p95 {r['grid_dev_ms_p95']} max {r['grid_dev_ms_max']}")
+    if "rhythm_mix" in rep:
+        r = rep["rhythm_mix"]
+        L.append(f"  rhythm (mix) [period err % , AC/max] low-band beat {r['low']['beat']} bar {r['low']['bar']} | full-band beat {r['full']['beat']} bar {r['full']['bar']} "
+                 f"| strong onsets {r['onsets']} grid dev ms med {r['grid_dev_ms_med']} p95 {r['grid_dev_ms_p95']}")
     if "duck" in rep:
         d = rep["duck"]
         L.append(f"  duck gen: dip offsets(samples) {d['gen_dip_offset_samples']} min gain {d['gen_min_gain']} 90%-recovery {d['gen_recover90_ms']} ms | "

@@ -2,18 +2,18 @@
  "name": "shrub_dry_bush",
  "file": "shrub_dry_bush.glb",
  "category": "shrub",
- "height": 0.72,
- "radius": 0.654,
+ "height": 0.744,
+ "radius": 0.688,
  "size": [
-  1.111,
-  0.72,
-  1.173
+  1.325,
+  0.744,
+  1.011
  ],
- "tris": 884,
+ "tris": 1212,
  "materials": [
   "shrub_dry_leaves",
   "twig_dry"
  ],
  "notes": "dry dead shrub / tumbleweed-like: 34 woody twigs + a few papery leaf cards; ~0.9 m",
- "kb": 115.9
+ "kb": 130.7
 }

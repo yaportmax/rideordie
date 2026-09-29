@@ -106,7 +106,8 @@ def _set_pos(g, first, P):
 
 
 def torso_top(fit, style="tank", off=0.014, bridge=0.04, sleeve_len=None, hem=0.0, neck=(0.0, 0.0), open_front=0.0,
-              iters=50, belt_blouse=0.01, drape=True, collar=False, strap=0.11, arm_off_extra=0.012, seed=1):
+              iters=50, belt_blouse=0.01, drape=True, collar=False, strap=0.135, neck_half=0.078, arm_off_extra=0.012, seed=1,
+              open_y=None, neck_up=0.0):
     """A top over the torso (and sleeves): returns a Garment (region-tagged), no belt.
     style: 'tank' (deep armholes), 'sleeved' (sleeve_len metres from the shoulder joint; None = none),
     hem: metres relative to the belt line (negative = lower), neck: (front_drop, back_drop) extra metres,
@@ -143,8 +144,8 @@ def torso_top(fit, style="tank", off=0.014, bridge=0.04, sleeve_len=None, hem=0.
     neck_base = fit.neck_y
     front = tnorm[:, 2] < 0.0
     fdrop, bdrop = neck
-    nk_front = neck_base - 0.045 * S - fdrop * S + (ax / (0.08 * S)) ** 2 * 0.06 * S
-    nk_back = neck_base - 0.02 * S - bdrop * S + (ax / (0.09 * S)) ** 2 * 0.04 * S
+    nk_front = neck_base - 0.045 * S - fdrop * S + (ax / (0.08 * S)) ** 2 * 0.06 * S + neck_up * S
+    nk_back = neck_base - 0.02 * S - bdrop * S + (ax / (0.09 * S)) ** 2 * 0.04 * S + neck_up * S
     nk = np.where(front, nk_front, nk_back)
     if style == "tank":
         # armhole: |x| limit shrinking from the underarm up to the strap
@@ -154,7 +155,7 @@ def torso_top(fit, style="tank", off=0.014, bridge=0.04, sleeve_len=None, hem=0.
         xlim = (fit.sh_x - 0.03 * S) * (1 - t) + strap * S * t
         keep &= ((ax < xlim) | (ay < y_ap)) & ~tri_arm
         keep &= ~((ay > nk) & (ax < strap * S - 0.05 * S)) if False else keep
-        keep &= ~((ay > nk) & (ax < (strap - 0.04) * S))
+        keep &= ~((ay > nk) & (ax < neck_half * S))
     else:
         keep &= ~((ay > nk) & (ax < 0.05 * S + 0.0))
         keep &= ~((ay > nk + 0.02 * S) & (ax < 0.075 * S))
@@ -163,12 +164,19 @@ def torso_top(fit, style="tank", off=0.014, bridge=0.04, sleeve_len=None, hem=0.
         else:
             keep &= ~tri_arm
     if open_front > 0.0:
-        keep &= ~((tnorm[:, 2] < 0.25) & (ax < open_front * S) & (ay < nk + 0.04 * S) & (cent[:, 2] < fit.torso_cz))
+        if open_y is None:
+            keep &= ~((tnorm[:, 2] < 0.25) & (ax < open_front * S) & (ay < nk + 0.04 * S) & (cent[:, 2] < fit.torso_cz))
+        else:
+            # V opening from the neckline down to open_y, narrowing to a point
+            topy = nk_front_center = neck_base - 0.045 * S - fdrop * S
+            taper = np.clip((ay - open_y) / max(topy - open_y, 1e-3), 0.0, 1.0)
+            keep &= ~((tnorm[:, 2] < 0.25) & (cent[:, 2] < fit.torso_cz) & (ay > open_y) & (ax < open_front * S * taper))
     res = G._shell(g, fit, m, lo, hi, iters, cut=lambda c: keep)
     if res is None:
         return g
     first, verts, lt = res
     g.cover = verts[np.array(lt) - first]
+    trim_slivers(g, 0)
     if drape:
         G._drape(g, first, fit, y_hem + 0.03 * S)
     P = fit.clear(np.array(g.pos[first:]), off * S * 0.7)
@@ -358,4 +366,161 @@ def glove(fit, side, fingerless=True, off=0.0028, cuff=0.05, finger_len=0.03, it
         P = fit.clear(np.array(g.pos[first:]), off * S * 0.8)
         _set_pos(g, first, P)
         G._classify_edges(g, first, lt, fit, belt=False)
+    return g
+
+
+def trim_slivers(g, first_tri=0, qmin=0.16, passes=4):
+    """Delete thin triangles that touch a free edge (spikes left by cutting along a coarse mesh)."""
+    T = np.array(g.tris[first_tri:], np.int64)
+    if len(T) == 0:
+        return
+    P = np.array(g.pos)
+    for _ in range(passes):
+        a, b, c = P[T[:, 0]], P[T[:, 1]], P[T[:, 2]]
+        area = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=1)
+        l2 = np.sum((a - b) ** 2, 1) + np.sum((b - c) ** 2, 1) + np.sum((c - a) ** 2, 1)
+        q = 4 * np.sqrt(3) * area / np.maximum(l2, 1e-12)
+        cnt = {}
+        for t in T:
+            for e in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+                k = (min(e), max(e))
+                cnt[k] = cnt.get(k, 0) + 1
+        free = np.array([any(cnt[(min(e), max(e))] == 1 for e in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0]))) for t in T])
+        kill = free & (q < qmin)
+        if not kill.any():
+            break
+        T = T[~kill]
+    g.tris[first_tri:] = [tuple(t) for t in T]
+
+
+def bindings(g, radius=0.0055, smooth=8, min_len=0.10, first_tri=0, sides=6, skip=None, spacing=0.015):
+    """Rolled trim (piping / hem roll) along every free edge of a garment: closed tubes swept along the smoothed boundary
+    loops. Returns kit-style meshes in INTERNAL space (call mh.to_final on them) plus the loop points."""
+    import kit as K
+    T = np.array(g.tris[first_tri:], np.int64)
+    if len(T) == 0:
+        return []
+    P = np.array(g.pos)
+    out = []
+    for loop in G._boundary_loops(T):
+        pts = P[loop]
+        L = float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum())
+        if L < min_len:
+            continue
+        if skip is not None and skip(pts):
+            continue
+        for _ in range(smooth):
+            pts = pts * 0.5 + (np.roll(pts, 1, axis=0) + np.roll(pts, -1, axis=0)) * 0.25
+        n = len(pts)
+        # resample to ~1.5 cm spacing
+        seg = np.linalg.norm(np.diff(np.vstack([pts, pts[:1]]), axis=0), axis=1)
+        s = np.concatenate([[0], np.cumsum(seg)])
+        m_ = max(int(s[-1] / spacing), 12)
+        u = np.linspace(0, s[-1], m_, endpoint=False)
+        pts2 = np.stack([np.interp(u, s, np.append(pts[:, k], pts[0, k])) for k in range(3)], axis=1)
+        out.append(closed_tube(pts2, radius, sides))
+    return out
+
+
+def closed_tube(path, radius, sides=6, tile=0.25):
+    import kit as K
+    M = len(path)
+    tang = np.roll(path, -1, axis=0) - np.roll(path, 1, axis=0)
+    tang /= np.maximum(np.linalg.norm(tang, axis=1, keepdims=True), 1e-9)
+    ref = np.array([0.0, 1.0, 0.0])
+    a = np.linspace(0, 2 * np.pi, sides, endpoint=False)
+    rings = []
+    xprev = np.cross(ref, tang[0])
+    for i in range(M):
+        xi = xprev - tang[i] * (xprev @ tang[i])
+        if np.linalg.norm(xi) < 1e-6:
+            xi = np.cross([1.0, 0, 0], tang[i])
+        xi /= np.linalg.norm(xi)
+        yi = np.cross(tang[i], xi)
+        rings.append(path[i] + radius * (np.cos(a)[:, None] * xi + np.sin(a)[:, None] * yi))
+        xprev = xi
+    rings.append(rings[0])
+    m = K.loft(np.array(rings), closed=True, tile=tile, angle=70.0)
+    return m
+
+
+def loop_band(g, which="lowest", height=0.05, thick=0.008, grow=0.006, shrink=0.006, min_len=0.5, center=None, n_max=80):
+    """A rib band (hem / waistband) built from a garment's own free-edge loop: the band spans `height` upward from the loop,
+    slightly proud of the garment (INTERNAL space kit mesh) - hides the ragged edge of a cut."""
+    import kit as K
+    T = np.array(g.tris, np.int64)
+    P = np.array(g.pos)
+    best = None
+    for loop in G._boundary_loops(T):
+        pts = P[loop]
+        L = float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum())
+        if L < min_len:
+            continue
+        ym = pts[:, 1].mean()
+        if best is None or (which == "lowest" and ym < best[0]) or (which == "highest" and ym > best[0]):
+            best = (ym, pts)
+    if best is None:
+        return None
+    pts = best[1]
+    for _ in range(8):
+        pts = pts * 0.5 + (np.roll(pts, 1, axis=0) + np.roll(pts, -1, axis=0)) * 0.25
+    c = pts.mean(axis=0) if center is None else np.asarray(center)
+    # order by angle and resample
+    ang = np.arctan2(pts[:, 0] - c[0], pts[:, 2] - c[2])
+    order = np.argsort(ang)
+    pts = pts[order]
+    ang = ang[order]
+    ta = np.linspace(-np.pi, np.pi, n_max, endpoint=False)
+    pr = np.stack([np.interp(ta, ang, pts[:, k], period=2 * np.pi) for k in range(3)], axis=1)
+    out = np.stack([pr[:, 0] - c[0], np.zeros(len(pr)), pr[:, 2] - c[2]], axis=1)
+    out /= np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-9)
+    up = np.array([0.0, 1.0, 0.0]) if which == "lowest" else np.array([0.0, -1.0, 0.0])
+    rings = np.array([
+        pr - out * thick + up * 0.0,
+        pr + out * (grow * 0.4) - up * 0.004,
+        pr + out * grow + up * (height * 0.25),
+        pr + out * grow + up * (height * 0.75),
+        pr + out * (grow * 0.4) + up * height,
+        pr - out * thick + up * height,
+    ])
+    m = K.loft(rings, closed=True, tile=0.25, angle=50.0)
+    return m
+
+
+# --- head wear ------------------------------------------------------------------------------------------------------
+
+def head_frame(fit):
+    """Landmarks of the head in INTERNAL space: eye centre, head centre, top, front (min z), back (max z)."""
+    ch = fit.ch
+    eL = mh.to_game(ch.body.mh_bone("eye.L")[0]) + ch.lift
+    eR = mh.to_game(ch.body.mh_bone("eye.R")[0]) + ch.lift
+    hd = np.isin(fit.top, [fit.B["Head"]])
+    P = fit.pos[hd]
+    return dict(eye=0.5 * (eL + eR), eye_l=eL, eye_r=eR, top=float(P[:, 1].max()), front=float(P[:, 2].min()), back=float(P[:, 2].max()),
+                centre=np.array([fit.cx, float(P[:, 1].mean()), float(0.5 * (P[:, 2].min() + P[:, 2].max()))]))
+
+
+def head_shell(fit, keep_fn, off=0.008, bridge=0.004, iters=10, include_neck=False, ymin=None):
+    """A shell hugging the head (INTERNAL space).  keep_fn(centroids (T,3), normals (T,3), landmarks) -> bool per triangle."""
+    S = fit.S
+    g = G.Garment()
+    hf = head_frame(fit)
+    groups = [fit.B["Head"]] + ([fit.B["Neck"]] if include_neck else [])
+    m = np.isin(fit.top, groups)
+    if ymin is not None:
+        m &= fit.pos[:, 1] > ymin
+    n = len(fit.pos)
+    lo = np.full(n, off)
+    hi = lo + bridge
+    cent = fit.tri_centroids()
+    nrm = fit.tri_normals()
+    keep = keep_fn(cent, nrm, hf)
+    res = G._shell(g, fit, m, lo, hi, iters, cut=lambda c: keep)
+    if res:
+        first, verts, lt = res
+        g.cover = verts[np.array(lt) - first]
+        P = fit.clear(np.array(g.pos[first:]), off * 0.8)
+        _set_pos(g, first, P)
+        G._classify_edges(g, first, lt, fit, belt=False)
+        trim_slivers(g, 0, qmin=0.10)
     return g

@@ -38,7 +38,7 @@ def skull_alpha(n=512, seed=1):
     cran = _sd_ellipse(x, y, 0.0, 0.20, 0.62, 0.58)
     jaw = _sd_box(x, y, 0.0, -0.42, 0.38, 0.30, 0.14)
     head = np.minimum(cran, jaw)
-    outline = _soft(np.abs(head) - 0.04, w)
+    outline = _soft(np.abs(head) - 0.06, w)
     a = outline
     for sx in (-1, 1):
         eye = _sd_ellipse(x, y, sx * 0.28, 0.10, 0.20, 0.23)
@@ -59,7 +59,7 @@ def skull_alpha(n=512, seed=1):
     a = np.maximum(a, _soft(_sd_seg(x, y, 0.02, 0.55, 0.12, 0.42, 0.011), w))
     # spray speckle / broken edges
     speck = rng.rand(n, n)
-    a = a * np.clip(0.55 + speck * 0.9, 0, 1)
+    a = a * np.clip(0.8 + speck * 0.6, 0, 1)
     return a
 
 
@@ -102,13 +102,25 @@ def xmark_alpha(n=512, seed=3):
     return a
 
 
+def _write_png_gray(path, arr8):
+    import zlib, struct
+    h, w = arr8.shape
+    raw = b"".join(bytes([0]) + arr8[y].tobytes() for y in range(h))
+
+    def chunk(t, d):
+        c = struct.pack(">I", len(d)) + t + d
+        return c + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    sig = bytes.fromhex("89504e470d0a1a0a")
+    with open(path, "wb") as f:
+        f.write(sig + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 0, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
 def make_image(name, alpha):
-    n = alpha.shape[0]
-    img = bpy.data.images.new(name, n, n, alpha=True)
-    px = np.zeros((n, n, 4), dtype=np.float32)
-    px[..., 3] = alpha[::-1]                     # Blender image rows go bottom -> top
-    img.pixels.foreach_set(px.ravel())
-    img.alpha_mode = "STRAIGHT"
+    """Decal mask image (white = paint), written as a grayscale PNG and loaded as a file image so Cycles reliably sees the pixels."""
+    os.makedirs(SCRATCH, exist_ok=True)
+    path = os.path.join(SCRATCH, name + "_mask.png")
+    _write_png_gray(path, (np.clip(alpha, 0, 1) * 255).astype(np.uint8))
+    img = bpy.data.images.load(path)
     img.colorspace_settings.name = "Non-Color"
     return img
 
@@ -138,7 +150,7 @@ def stamp(ctx, img, origin, U, V, size, thick=0.05, n=(0, 0, 1), ncos=0.6):
     tex = g.new("ShaderNodeTexImage", extension="CLIP", interpolation="Linear")
     tex.image = img
     g.l.new(comb.outputs[0], tex.inputs["Vector"])
-    alpha = tex.outputs["Alpha"]
+    alpha = tex.outputs["Color"]
     inside = g.math("LESS_THAN", w, thick)
     nd = g.new("ShaderNodeVectorMath", operation="DOT_PRODUCT")
     g.put(nd.inputs[0], ctx["nrm"])

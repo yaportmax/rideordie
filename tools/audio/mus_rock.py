@@ -85,12 +85,16 @@ def pad_stem(g, sc, prog, r, duck_steps, lift, params=None, lo=55, hi=70, vel=0.
 
 
 # ------------------------------------------------------------------------------------------------------ drums
-def drum_stem(g, r, lanes, kit=None, crashes=(), gains=None, bus=None, crest=10.5, open_hat_steps=2.5):
+def drum_stem(g, r, lanes, kit=None, crashes=(), gains=None, bus=None, crest=10.5, open_hat_steps=2.5, hits=(), swing=0.0):
     k = _p(dict(kick=dict(f0=190, f1=56, tp=0.018, tau=0.075, drive=2.4, click=0.55, dur=0.36, hp_f=36.0),
                 snare=dict(tune=188, room=0.16), clap=dict(), hat=dict(), hat_o=dict(),
                 tom_h=(190.0, 0.10), tom_m=(140.0, 0.13), tom_l=(95.0, 0.18), crash=dict()), kit)
     gn = _p(dict(kick=1.0, snare=0.85, clap=0.5, hat_c=0.5, hat_o=0.45, tom_h=0.7, tom_m=0.7, tom_l=0.75, crash=0.42,
                  rim=0.5, ride=0.3, perc=0.5), gains)
+    for nm, ll in lanes.items():
+        assert len(ll) == g.bars, (nm, len(ll))
+        for b, st in enumerate(ll):
+            assert len(st.replace(" ", "")) == 16, (nm, b, st)
     hd = M.Human(r, ms=0.0, vel=0.04)
     smp = dict(kick=M.make_kick(r, **k["kick"]), snare=M.make_snare(r, **k["snare"]), clap=M.make_clap(r, **k["clap"]),
                hat_c=M.make_hat(r, **k["hat"]), hat_o=M.make_hat(r, True, **k["hat_o"]),
@@ -110,9 +114,12 @@ def drum_stem(g, r, lanes, kit=None, crashes=(), gains=None, bus=None, crest=10.
                     put(buf, oh, g.t(bar * 16 + i), gn["hat_o"] * v, pans["hat_o"])
                 continue
             for i, v in parse_lane(lane_list[bar]):
-                put(buf, smp[name], g.t(bar * 16 + i), gn[name] * v * hd.v(), pans[name])
+                sw = swing if (name in ("hat_c", "rim") and i % 2 == 1) else 0.0
+                put(buf, smp[name], g.t(bar * 16 + i + sw), gn[name] * v * hd.v(), pans[name])
     for bar, v in crashes:
         put(buf, crash, g.t(bar * 16), gn["crash"] * v)
+    for arr, step, gain, pan in hits:
+        put(buf, arr, g.t(step), gain, pan)
     b = _p(dict(hp_f=26, sat=1.5, comp=(-14.0, 3.0, 6.0, 90.0, 0.0)), bus)
     buf = M.bus(buf, r, **b)
     return M.soft_crest(buf, crest)
@@ -150,9 +157,9 @@ def lead_stem(g, sc, r, hum, bars_notes, timbre_of, timbres, low_bars=(), counte
     dl = _p(dict(delay_s=ds, feedback=0.36, mix=0.28, lp_fc=3800.0, hp_fc=250.0, stereo_pingpong=True), delay)
     bd = _p(dict(hp_f=180, lp_f=9000, sat=1.2, delay=dl, rev=dict(rt60=1.2, amount=0.16), comp=(-16.0, 2.5, 6.0, 110.0, 0.0)), bus)
     lead = M.bus(lead, r, **bd)
+    if not (low_bars or counter):
+        return lead
     lowb = M.bus(low + cnt, r, hp_f=150, lp_f=6000, sat=1.2, rev=dict(rt60=0.8, amount=0.1), comp=(-16.0, 2.5, 6.0, 110.0, 0.0))
-    M.dbg("lead", lead)
-    M.dbg("lowb", lowb)
     return lead + low_gain * lowb
 
 
@@ -240,8 +247,8 @@ def fx_stem(g, r, risers=(), rev_crash=(), impacts=(), riser_tone=(mtof(57), mto
     return fx
 
 
-def perc_stem(g, r, hum, shaker_bars=(), cow_bars=(), cow_steps=(0, 3, 6, 8, 11, 14), cow_f=820.0, tam_steps=(4, 12),
-              shaker_gain=0.5, cow_gain=0.16):
+def perc_stem(g, r, hum, shaker_bars=(), cow_bars=(), cow_steps=(0, 3, 6, 8, 11, 14), cow_f=880.0, tam_steps=(4, 12),
+              shaker_gain=0.5, cow_gain=0.16, cow_ratios=(1.0, 1.5, 2.0, 3.0)):
     shaker = M.make_shaker(r)
     tam = M.make_shaker(r, tau=0.05, dur=0.2, lo=3500.0)
     buf = g.zeros()
@@ -251,14 +258,14 @@ def perc_stem(g, r, hum, shaker_bars=(), cow_bars=(), cow_steps=(0, 3, 6, 8, 11,
             put(buf, shaker, g.t(bar * 16 + i), shaker_gain * v, 0.3 if i % 2 else -0.3)
         for i in tam_steps:
             put(buf, tam, g.t(bar * 16 + i), 0.35, 0.4)
-    cow = M.make_metal(r, f=cow_f, ratios=(1.0, 1.51, 2.02, 3.1), taus=(0.09, 0.06, 0.04, 0.03), dur=0.3, click=0.3)
+    cow = M.make_metal(r, f=cow_f, ratios=cow_ratios, taus=(0.09, 0.06, 0.04, 0.03), dur=0.3, click=0.3)
     for bar in cow_bars:
         for st in cow_steps:
             put(buf, cow, g.t(bar * 16 + st), cow_gain * (1.0 if st % 8 == 0 else 0.7), -0.3)
     return M.bus(buf, r, hp_f=400, rev=dict(rt60=0.5, amount=0.1))
 
 
-def finish(stems, rel_db, target=-14.0, ref=-20.0, ceiling=-2.0):
+def finish(stems, rel_db, target=-14.0, ref=-20.0, ceiling=-3.0):
     m = {k: M.lufs(v) for k, v in stems.items()}
     gains = {k: 10 ** ((ref + rel_db[k] - m[k]) / 20.0) for k in stems}
     out, info = M.master(stems, gains, target_lufs=target, ceiling_db=ceiling)

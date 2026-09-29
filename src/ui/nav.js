@@ -1,6 +1,6 @@
 // Focus navigation for menus: keyboard (arrows/Enter/Esc/Q-E), gamepad (d-pad + left stick, A/B/X/Y, LB/RB), mouse hover = focus.
 // Focusable elements are `.f` (div role=button); `.dis` = not focusable; `data-adjust` = left/right adjusts the value instead of moving focus.
-// The active screen may implement: back() -> bool, tab(dir), alt('x'|'y'|'start'|'select'), onKey(e) -> bool, navOverride(el, dir) -> Element|false|undefined.
+// The active screen may implement: back() -> bool, tabStep(dir), alt('x'|'y'|'start'|'select'), onKey(e) -> bool, navOverride(el, dir) -> Element|false|undefined.
 
 const REPEAT_FIRST = 0.38, REPEAT_NEXT = 0.1;
 
@@ -96,7 +96,7 @@ export class Nav {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur();
     return !!(s.back && s.back());
   }
-  tab(dir) { if (this.ui.modalOpen()) return; const s = this.ui.screen(); if (s && s.tab) s.tab(dir); }
+  tab(dir) { if (this.ui.modalOpen()) return; const s = this.ui.screen(); if (s && s.tabStep) s.tabStep(dir); }
   alt(name) { if (this.ui.modalOpen()) return; const s = this.ui.screen(); if (s && s.alt) s.alt(name); }
   _dir(dir) {
     const el = this.cur;
@@ -163,6 +163,7 @@ export class Nav {
     let any = false;
     for (let i = 0; i < 16; i++) { const d = btn(i); if (d && !this.prev[i]) edge[i] = true; if (d) any = true; this.prev[i] = d; }
     const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+    if (p.id !== this._padId) { this._padId = p.id; ui._setPadType(p.id); }
     if (any || Math.hypot(ax, ay) > 0.5) ui._setDevice('pad', p.id);
     if (!ui.active() || ui.blocked()) { this.dirHeld = null; return; }
     if (ui.device() !== 'pad') return;

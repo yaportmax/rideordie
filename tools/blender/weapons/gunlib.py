@@ -301,24 +301,6 @@ def sweep_bm(path, radius=1.0, segs=10, profile=None, smooth=0, cap=True, closed
     return _fin(bm, xf)
 
 
-def helix_bm(p0, p1, r, wire_r=0.5, turns=8.0, pts_per_turn=12, segs=6, taper=None):
-    """Coil spring between two points (helix around the p0->p1 axis). taper=(r_start_scale, r_end_scale) optional."""
-    p0 = Vector(p0); p1 = Vector(p1)
-    d = p1 - p0
-    L = d.length
-    n = max(4, int(turns * pts_per_turn))
-    pts = []
-    for k in range(n + 1):
-        f = k / n
-        a = 2 * math.pi * turns * f
-        rr = r * (1.0 if not taper else taper[0] + (taper[1] - taper[0]) * f)
-        pts.append(Vector((rr * math.cos(a), rr * math.sin(a), L * f)))
-    bm = sweep_bm(pts, wire_r, segs=segs)
-    q = Vector((0, 0, 1)).rotation_difference(d.normalized())
-    bmesh.ops.transform(bm, matrix=Matrix.Translation(p0) @ q.to_matrix().to_4x4(), verts=bm.verts)
-    return bm
-
-
 def merge_bm(bms):
     """Merge several bmeshes into one (no boolean)."""
     dst = bmesh.new()
@@ -483,7 +465,26 @@ def bool_op(bm, cutters, op="DIFFERENCE", solver="EXACT"):
     bm.free()
     if len(cutters) > 1:
         cb.free()
-    return r
+    return clean_bm(r, 1e-3, 1e-6)
+
+
+def clean_bm(bm, dist=2e-3, min_area=1e-5):
+    """Merge near-duplicate verts and dissolve degenerate edges/faces (bevel/boolean slivers make Blender's UV island scaling explode).
+    Topology stays closed (no holes) - never just delete the collapsed faces."""
+    if os.environ.get("ROD_NOCLEAN"):
+        return bm
+    try:
+        mode = os.environ.get("ROD_CLEAN", "both")
+        if mode in ("both", "doubles"):
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=dist)
+        if mode in ("both", "dissolve"):
+            bmesh.ops.dissolve_degenerate(bm, dist=dist, edges=bm.edges)
+        loose = [v for v in bm.verts if not v.link_faces]
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context="VERTS")
+    except Exception as ex:      # pragma: no cover
+        print("WARN clean failed", ex)
+    return bm
 
 
 def bevel_bm(bm, width, segs=2, angle=30.0, sel=None):
@@ -511,7 +512,7 @@ def bevel_bm(bm, width, segs=2, angle=30.0, sel=None):
                         affect="EDGES", clamp_overlap=True, loop_slide=True)
     except Exception as ex:  # pragma: no cover
         print("WARN bevel failed:", ex)
-    return bm
+    return clean_bm(bm)
 
 
 def bm_tris(bm):
@@ -637,6 +638,13 @@ class Part:
         o = bpy.data.objects.new(self.name, me)
         bpy.context.collection.objects.link(o)
         o.location = R_G2B @ (self.pivot * S)
+        if not os.environ.get("ROD_NOWN"):
+            # weighted normals: big flat faces stay flat next to bevel strips (exported as custom split normals)
+            wn = o.modifiers.new("WeightedNormal", "WEIGHTED_NORMAL")
+            wn.mode = "FACE_AREA"
+            wn.weight = 60
+            wn.keep_sharp = True
+            wn.thresh = 0.01
         self.obj = o
         return o
 

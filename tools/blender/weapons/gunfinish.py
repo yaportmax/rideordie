@@ -17,7 +17,47 @@ from gunlook import compose, MAT_IDS, DBG_DIR
 
 
 # ---------------------------------------------------------------------------------------------- UV atlas
-def unwrap_atlas(objs, margin=0.003):
+def face_hidden(objs, maxd=0.35, log=print):
+    """Per-object list of booleans: polygon is enclosed (no ray in a 9-ray hemisphere escapes) -> low priority in the atlas."""
+    from mathutils.bvhtree import BVHTree
+    verts, polys = [], []
+    for o in objs:
+        me = o.data
+        M = o.matrix_world
+        base = len(verts)
+        verts += [M @ v.co for v in me.vertices]
+        me.calc_loop_triangles()
+        for lt in me.loop_triangles:
+            polys.append((base + lt.vertices[0], base + lt.vertices[1], base + lt.vertices[2]))
+    tree = BVHTree.FromPolygons(verts, polys)
+    angs = [(0.0, 0.0)] + [(math.radians(55), math.radians(k * 60 + 15)) for k in range(6)] + [(math.radians(78), math.radians(45)), (math.radians(78), math.radians(225))]
+    out = {}
+    nh = nt = 0
+    for o in objs:
+        me = o.data
+        M = o.matrix_world
+        M3 = M.to_3x3()
+        flags = []
+        for p in me.polygons:
+            n = (M3 @ p.normal).normalized()
+            c = M @ p.center
+            t = n.orthogonal().normalized()
+            bt = n.cross(t)
+            org = c + n * 0.0004
+            esc = False
+            for (a, ph) in angs:
+                d = n * math.cos(a) + (t * math.cos(ph) + bt * math.sin(ph)) * math.sin(a)
+                if tree.ray_cast(org, d, maxd)[0] is None:
+                    esc = True
+                    break
+            flags.append(not esc)
+        out[o.name] = flags
+        nh += sum(flags); nt += len(flags)
+    log("  hidden faces: %d / %d (%.0f%%)" % (nh, nt, 100.0 * nh / max(nt, 1)))
+    return out
+
+
+def unwrap_atlas(objs, margin=0.003, hidden=None, hidden_scale=0.4):
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
@@ -26,6 +66,17 @@ def unwrap_atlas(objs, margin=0.003):
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.smart_project(angle_limit=math.radians(66.0), island_margin=0.0, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
     bpy.ops.uv.average_islands_scale()
+    if hidden:
+        for o in objs:
+            bm = bmesh.from_edit_mesh(o.data)
+            bm.faces.ensure_lookup_table()
+            uv = bm.loops.layers.uv.active
+            fl = hidden[o.name]
+            for f in bm.faces:
+                if fl[f.index]:
+                    for l in f.loops:
+                        l[uv].uv = l[uv].uv * hidden_scale
+            bmesh.update_edit_mesh(o.data)
     bpy.ops.uv.pack_islands(rotate=True, margin=margin)
     bpy.ops.object.mode_set(mode="OBJECT")
 
@@ -263,7 +314,12 @@ def finish_textures(gun, size=2048, style=None):
     mats_by_slot = {o.name: [m.name for m in o.data.materials] for o in objs}
     log = print
     log("FINISH %s: %d meshes, atlas %d" % (gun.name, len(objs), size))
-    unwrap_atlas(objs)
+    for o in objs:                       # safety net: report zero-area slivers (they wreck UV island scaling)
+        nb = sum(1 for p in o.data.polygons if p.area < 2e-11)
+        if nb:
+            log("  WARN %s has %d zero-area faces" % (o.name, nb))
+    hidden = None if gun.args.get("nohide") else face_hidden(objs, log=log)
+    unwrap_atlas(objs, hidden=hidden)
     log("  uv unwrap %.1fs" % (time.time() - t0))
     import tempfile
     cache = os.path.join(tempfile.gettempdir(), "rod_tex", "%s_%d_masks.npz" % (gun.name, size))
@@ -276,6 +332,21 @@ def finish_textures(gun, size=2048, style=None):
         os.makedirs(os.path.dirname(cache), exist_ok=True)
         np.savez_compressed(cache, **masks)
     A, O, NM, texel = compose(masks, size, style, log, dbg_save)
+    out_size = int(gun.args.get("out", 0) or 0) or size
+
+    def box(a, target):
+        target = min(target, a.shape[0])
+        fct = a.shape[0] // target
+        if fct <= 1:
+            return a
+        return a.reshape(target, fct, target, fct, a.shape[2]).mean(axis=(1, 3))
+    # texture budget: albedo at out_size, ORM (smooth data) at half, normal at out_size (<=1024) else half
+    A = box(A, out_size)
+    O = box(O, max(512, out_size // 2))
+    NM3 = box(NM * 2 - 1, out_size if out_size <= 1024 else out_size // 2)
+    NM3 /= np.maximum(np.linalg.norm(NM3, axis=2, keepdims=True), 1e-6)
+    NM = NM3 * 0.5 + 0.5
+    log("  atlas %d: albedo %d, orm %d, normal %d" % (size, A.shape[0], O.shape[0], NM.shape[0]))
     ia = _mk_image(gun.name + "_albedo", A, "sRGB", "JPEG")
     io = _mk_image(gun.name + "_orm", O, "Non-Color", "JPEG")
     inn = _mk_image(gun.name + "_normal", NM, "Non-Color", "PNG")

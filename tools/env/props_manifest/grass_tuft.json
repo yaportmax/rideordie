@@ -2,17 +2,18 @@
  "name": "grass_tuft",
  "file": "grass_tuft.glb",
  "category": "grass",
- "height": 0.529,
- "radius": 0.337,
+ "height": 0.923,
+ "radius": 0.343,
  "size": [
-  0.674,
-  0.529,
-  0.584
+  0.687,
+  0.923,
+  0.687
  ],
- "tris": 54,
+ "tris": 102,
  "materials": [
-  "grass_dry"
+  "grass_dry",
+  "grass_stalks_dry"
  ],
- "notes": "dry golden grass tuft: 3 crossed vertical cards + 3 leaning fans (MASK, double-sided), ~0.50 m",
- "kb": 70.4
+ "notes": "dry golden grass tuft: 5 crossed blade cards + 4 leaning fans + 2 taller seed-stalk cards (MASK, double-sided), ~0.50 m (stalks 0.95 m)",
+ "kb": 115.3
 }

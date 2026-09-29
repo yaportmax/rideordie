@@ -2,18 +2,18 @@
  "name": "skeleton_car_frame",
  "file": "skeleton_car_frame.glb",
  "category": "furniture",
- "height": 1.842,
+ "height": 1.849,
  "radius": 2.325,
  "size": [
   3.535,
-  1.842,
+  1.849,
   4.649
  ],
- "tris": 3692,
+ "tris": 3800,
  "materials": [
   "burnt_black",
   "rust_metal"
  ],
  "notes": "Burnt-out rusty car shell, 4.5 m long, front toward Blender -Y (= +Z glTF): chassis rails, floor remnants, pillars + roof rails, dash/steering wheel, seat frames, charred engine block, radiator support, wheel arches, open doors (hinged at the A pillar), bare rims on drums, exhaust/tank; no glass, no tyres.",
- "kb": 375.5
+ "kb": 384.6
 }

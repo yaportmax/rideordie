@@ -6,7 +6,7 @@
 // so it is faded near the camera (player car / close enemies move with the camera and must stay sharp), masked in an
 // ellipse around the player's car and clamped in length so nothing smears into an unreadable mess.
 import { Effect, EffectAttribute } from 'postprocessing';
-import { Uniform, Matrix4, Vector2, Vector4 } from 'three';
+import { Uniform, Matrix4, Vector2, Vector3, Vector4 } from 'three';
 
 const frag = /* glsl */`
 uniform mat4 reproj;
@@ -87,9 +87,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
       vec2 suv = uvc + vel * t;
       vec3 c;
       if (useCA) {
-        c = vec3(texture2D(inputBuffer, suv + caOff).r, texture2D(inputBuffer, suv).g, texture2D(inputBuffer, suv - caOff).b);
+        c = vec3(textureLod(inputBuffer, suv + caOff, 0.0).r, textureLod(inputBuffer, suv, 0.0).g, textureLod(inputBuffer, suv - caOff, 0.0).b);
       } else {
-        c = texture2D(inputBuffer, suv).rgb;
+        c = textureLod(inputBuffer, suv, 0.0).rgb;
       }
       acc += c * w; wsum += w;
     }
@@ -99,9 +99,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   #endif
 
   if (useCA) {
-    outputColor = vec4(texture2D(inputBuffer, uvc + caOff).r, texture2D(inputBuffer, uvc).g, texture2D(inputBuffer, uvc - caOff).b, inputColor.a);
+    outputColor = vec4(textureLod(inputBuffer, uvc + caOff, 0.0).r, textureLod(inputBuffer, uvc, 0.0).g, textureLod(inputBuffer, uvc - caOff, 0.0).b, inputColor.a);
   } else if (uvc != uv) {
-    outputColor = texture2D(inputBuffer, uvc);
+    outputColor = textureLod(inputBuffer, uvc, 0.0);
   } else {
     outputColor = inputColor;
   }
@@ -118,7 +118,7 @@ export class LensEffect extends Effect {
         ['mbMaxPx', new Uniform(24)],
         ['car', new Uniform(new Vector4(0.5, 0.3, 0.2, 0.25))],
         ['carMask', new Uniform(0.75)],
-        ['nearFade', new Uniform(new Vector4(6, 45, 0.3, 0))],
+        ['nearFade', new Uniform(new Vector3(6, 45, 0.3))],
         ['caAmount', new Uniform(0)],
         ['shock', new Uniform([new Vector4(), new Vector4(), new Vector4(), new Vector4()])],
         ['shockWidth', new Uniform(0.16)],

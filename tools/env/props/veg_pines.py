@@ -5,6 +5,7 @@ import sys, os, json
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from vegetation_lib import *
 
+GLOW = 0.85          # emissive = albedo * GLOW : keeps shaded needles from going black (fake ambient / translucency)
 PINES = {
     # H height, R trunk base radius, crown0 crown start (fraction), Lmax longest (lowest) branch, gap mean level spacing, per branches per level,
     # e0/e1 branch elevation at bottom/top of the crown (deg), card = needle sprig texture, cardL = (card length at bottom, at top), dead_low = bare dead lowest branches
@@ -16,7 +17,7 @@ PINES = {
 
 def mats_for(key):
     bark = pmat("bark_pine", tex="bark_pine", uv_m=1.6, rough=0.95, normal_strength=1.0)
-    fol = pmat("pine_needles_" + key, albedo_file=os.path.join(PTEX, PINES[key]["card"] + ".png"), alpha="MASK", double_sided=True, rough=1.0, alpha_cutoff=0.45)
+    fol = pmat("pine_needles_" + key, albedo_file=os.path.join(PTEX, PINES[key]["card"] + ".png"), alpha="MASK", double_sided=True, rough=1.0, alpha_cutoff=0.45, spec=0.05, glow=GLOW)
     return bark, fol
 
 
@@ -178,7 +179,7 @@ def build_lod(key):
     # upright crossed sprig cards: each one shows a whole conifer silhouette from every side
     for k in range(6):
         base = tpos(c_lo + crown_h * 0.03)
-        card3d(mb, fol, base, Vector((0.02 * math.cos(k), 0.02 * math.sin(k), 1.0)), crown_h * 1.04, Lmax * 1.9 * rnd.uniform(0.9, 1.05), roll=k * 30 + rnd.uniform(-6, 6), seg=2)
+        card3d(mb, fol, base, Vector((0.02 * math.cos(k), 0.02 * math.sin(k), 1.0)), crown_h * 1.04, Lmax * 2.6 * rnd.uniform(0.9, 1.05), roll=k * 30 + rnd.uniform(-6, 6), seg=2)
     top = tpos(H * 0.94)
     for yaw in (0, 90):
         card3d(mb, fol, top - Vector((0, 0, 1.0)), Vector((0, 0, 1)), H * 0.12, 1.4, roll=yaw, seg=1)
@@ -191,7 +192,7 @@ def finish_pine(key, lod=False):
     objs = mb.to_objects(name, shade_smooth=True)
     fol = [o for o in objs if o.data.materials[0].name.startswith("pine_needles")]
     bark = [o for o in objs if o.data.materials[0].name == "bark_pine"]
-    foliage_vcol(fol, P["H"], P["Lmax"] * 1.0, low=0.62, tint=P["tint"], seed=P["seed"], noise_amp=0.12, top_warm=0.05)
+    foliage_vcol(fol, P["H"], P["Lmax"] * 1.0, low=0.62, tint=tuple(t * (0.56 if lod else 1.0) for t in P["tint"]), seed=P["seed"], noise_amp=0.12, top_warm=0.05)
     for o in bark:
         bake_ao(o, samples=10 if lod else 16, dist=2.0, strength=0.7, ground=True, gradient=0.10, others=fol, floor=0.35, tint=(1.0, 0.95, 0.9))
     extra = {}
@@ -207,7 +208,7 @@ def build_billboard(key):
     P = PINES[key]
     info = json.load(open(os.path.join(PTEX, "billboard_pine_%s.json" % key)))
     W, H = info["width_m"], info["height_m"]
-    fol = pmat("pine_billboard_" + key, albedo_file=os.path.join(PTEX, "billboard_pine_%s.png" % key), alpha="MASK", double_sided=True, rough=1.0, alpha_cutoff=0.4)
+    fol = pmat("pine_billboard_" + key, albedo_file=os.path.join(PTEX, "billboard_pine_%s.png" % key), alpha="MASK", double_sided=True, rough=1.0, alpha_cutoff=0.4, spec=0.05, glow=GLOW)
     mb = MB()
     bm = mb.bm(fol)
     uvl = bm.loops.layers.uv.verify()
@@ -220,7 +221,7 @@ def build_billboard(key):
             lp[uvl].uv = t
     objs = mb.to_objects("pine_%s_billboard" % key, shade_smooth=False)
     for o in objs:
-        set_vertex_color(o, (1.0, 1.0, 1.0))
+        set_vertex_color(o, (0.66, 0.66, 0.66))
     finish("pine_%s_billboard" % key, objs, category="tree_pine_billboard", center_xy=False, ao=None,
            notes="crossed-quad far billboard (2 quads, 4 tris) baked from the real pine_%s model (front + side view in one texture), alphaMode MASK, %.1f x %.1f m" % (key, W, H))
 

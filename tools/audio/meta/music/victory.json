@@ -1,0 +1,1 @@
+{"duration": 11.2029, "peak_db": -4.87, "rms_db": -17.63, "lufs_i": -14.04, "lufs_m": -6.7, "lufs_s": -5.72, "dc": 3.2e-05, "centroid": 672.0, "clip": 0, "rise_ms": 5001.84, "tail_50db_s": 10.046, "bands_db": [-3.8, -4.2, -7.4, -15.8], "src_len": 494048, "dec_len": 494048, "variation": 0, "build_s": 9.39, "file": "music/victory.ogg", "bytes": 206743}

@@ -174,6 +174,7 @@ class CabMixin:
                 # beltline shoulder
                 x += bulge + 0.006 * math.exp(-((v - (zbl - 0.10)) / 0.03) ** 2)
                 return (sg * x, u, v)
+            self.fns['door%+d' % sg] = fn
             poly = rrect_poly(f_r, zdb, f_f, zbl, 0.0, 4, r_tl=0.02, r_tr=0.02, r_bl=0.05, r_br=0.05)
             dent = None
             if C.dents:
@@ -266,11 +267,11 @@ class CabMixin:
         for gx_, gr in ((dx + 0.11 * k, 0.05 * k), (dx - 0.06 * k, 0.05 * k)):
             b.cyl('chrome', (gx_, fd - 0.038, gz), gr, 0.012, axis='f', n=14)
             b.cyl('brass', (gx_, fd - 0.044, gz), gr * 0.86, 0.004, axis='f', n=14)
-            b.box('light_tail', (gx_ + gr * 0.2, fd - 0.049, gz + gr * 0.15), (gr * 0.6, 0.003, 0.004), bev=0.001, seg=1, rot=(0, 0, 35))
+            b.box('metal_dark', (gx_ + gr * 0.2, fd - 0.049, gz + gr * 0.15), (gr * 0.6, 0.003, 0.004), bev=0.0, rot=(0, 0, 35))
         for i, gx_ in enumerate((dx - 0.16 * k, dx - 0.19 * k, dx + 0.19 * k)):
             b.cyl('chrome', (gx_, fd - 0.038, gz + 0.03 - i * 0.02 + (0.02 if i == 2 else 0)), 0.018 * k, 0.01, axis='f', n=10, bev=0.001)
-        for i, m_ in enumerate(('light_amber', 'light_tail', 'light_head')):
-            b.box(m_, (dx + 0.02 + i * 0.03, fd - 0.04, gz - 0.04), (0.012, 0.004, 0.012), bev=0.002, seg=1)
+        for i, m_ in enumerate(('brass', 'brass', 'brass')):
+            b.box(m_, (dx + 0.02 + i * 0.03, fd - 0.04, gz - 0.04), (0.012, 0.004, 0.012), bev=0.0)
         # vents, radio, glove box, knobs
         for vx in (-0.62 * k, -0.15 * k, 0.55 * k):
             b.box('metal_dark', (vx, fd - 0.012, zt_ - 0.075), (0.11, 0.02, 0.05), bev=0.006)

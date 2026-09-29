@@ -6,6 +6,7 @@ import numpy as np
 import dsp
 import foley as fo
 import samples
+from foley import layers
 from dsp import SR, secs, tt
 from render import sound
 
@@ -126,7 +127,7 @@ for _nm, _n, _cat in [("pistol", 3, "gun_fire"), ("revolver", 3, "gun_fire"), ("
                       ("sniper", 2, "gun_fire")]:
     _rel = dict(pistol=-5, revolver=-2, smg=-6, shotgun=-1, rifle=-3, lmg=-2, sniper=0)[_nm]
     sound(G, f"fire_{_nm}", n=_n, category=_cat, rel_db=_rel,
-          notes=f"{_nm} shot with outdoor tail; play at pitch 0.94-1.06 for extra variation")(_gun(_nm, _n))
+          notes=f"{_nm} shot with baked outdoor tail (slapback echoes)")(_gun(_nm, _n))
 
 
 # ---- RPG launch + rocket flight ----------------------------------------------------------------------------
@@ -213,61 +214,81 @@ def dry_click(v, r):
 
 
 # ============================================================================================ reload foley
+# Layers: synthetic ticks / thunks / friction + real CC0 clicks, metal scrapes and cloth (Kenney RPG audio).
+def _real_click(r, ratio, weight=1.0):
+    k = int(r.integers(0, 3))
+    if k == 0:
+        return samples.rpg("metalLatch", ratio=ratio, start=0.03, length=0.11, fin=0.0003)
+    if k == 1:
+        return samples.rpg("metalClick", ratio=ratio, start=0.07, length=0.10, fin=0.0003)
+    return samples.rpg("metalClick", ratio=ratio, start=0.225, length=0.12, fin=0.0003)
+
+
+def _scrape_real(r, dur, ratio):
+    nm = "drawKnife1" if r.random() < 0.5 else "drawKnife2"
+    st = r.uniform(0.06, 0.14)
+    return samples.rpg(nm, ratio=ratio, start=st, length=dur, fin=0.01, fout=0.03)
+
+
 def _clack(r, f=2400, weight=1.0, body=300, dur=0.16, ringf=None):
-    """Metal seat/slam: real latch click layer + synthetic tick + body thunk + very short damped ring."""
+    """Metal seat/slam: real latch click + synthetic tick + short body thunk + very short damped ring."""
     ringf = ringf or f * 1.9
     a = fo.tick(r, f, 2.5, 0.0028, dur=0.06, ring=0.15, ring_f=ringf, ring_tau=0.006 + 0.006 * weight)
     b = fo.thunk(r, body, 0.008 + 0.008 * weight, dur=0.10, noise=1.3, tone=0.3, ncut=3.0)
     m = fo.metal_hit(r, f * 0.55, 0.010 * weight + 0.004, k=4, click=0.0, dur=0.08)
-    k = samples.rpg("metalLatch" if r.random() < 0.6 else "metalClick", ratio=f / 2600.0 * r.uniform(0.95, 1.05),
-                    length=0.12, gain=0.7)
-    y = fo.mix([(0, a, 1.0), (0, b, 0.65 * weight), (0.001, m, 0.12), (0.0, k, 0.55 / max(weight, 0.6))], dur)
-    return y
+    k = _real_click(r, f / 2600.0 * r.uniform(0.95, 1.05), weight)
+    return layers([(a, 0.20, 0), (b, 0.22 * weight ** 0.5, 0), (m, 0.06, 0.001), (k, 0.46, 0)], dur)
 
 
-def _seq(r, dur, items):
-    return fo.mix(items, dur)
+def _slide_snd(r, dur, f0, f1, ratio, rough=0.7, real=0.5):
+    fr = fo.friction(r, dur, f0, f1, 2.0, rough)
+    dk = _scrape_real(r, dur, ratio)
+    return layers([(fr, 1.0 - real, 0), (dk, real, 0)], dur)
 
 
 def _mag_out(r, f, weight, body, v):
     j = 1 + 0.05 * r.uniform(-1, 1)
-    rel = fo.tick(r, f * 1.3 * j, 3, 0.003, dur=0.05, ring=0.3, ring_f=f * 2.6, ring_tau=0.015)
-    sl = fo.friction(r, 0.11 + 0.03 * weight, f * 0.7, f * 1.8, 2.0, 0.7)
+    rel = fo.tick(r, f * 1.3 * j, 3, 0.003, dur=0.05, ring=0.2, ring_f=f * 2.6, ring_tau=0.01)
+    rl = _real_click(r, f / 2600.0 * 1.1 * j)
+    sl = _slide_snd(r, 0.11 + 0.03 * weight, f * 0.7, f * 1.8, 1.0 + 0.15 * (3000 - f) / 1000.0)
     drop = _clack(r, f * 0.55 * j, 0.6 * weight, body * 0.8, 0.14)
-    return fo.mix([(0.0, rel, 0.9), (0.02, sl, 0.35), (0.05 + 0.03 * weight, drop, 0.5)], 0.38)
+    rt = fo.rattle(r, 0.1, 40, 700, 3500, 0.004)
+    return layers([(rel, 0.06, 0), (rl, 0.13, 0), (sl, 0.20, 0.025), (drop, 0.50, 0.05 + 0.03 * weight), (rt, 0.06, 0.09 + 0.03 * weight)], 0.4)
 
 
 def _mag_in(r, f, weight, body):
     j = 1 + 0.05 * r.uniform(-1, 1)
-    sl = fo.friction(r, 0.10 + 0.03 * weight, f * 1.6, f * 0.8, 2.0, 0.65)
+    sl = _slide_snd(r, 0.10 + 0.03 * weight, f * 1.6, f * 0.8, 1.0 + 0.15 * (3000 - f) / 1000.0, real=0.45)
     seat = _clack(r, f * j, weight, body, 0.18)
     latch = fo.tick(r, f * 1.5, 3, 0.002, dur=0.04, ring=0.3, ring_f=f * 3, ring_tau=0.012)
-    return fo.mix([(0.0, sl, 0.4), (0.12 + 0.03 * weight, seat, 1.0), (0.17 + 0.03 * weight, latch, 0.5)], 0.42)
+    lk = _real_click(r, f / 2600.0 * 1.25 * j)
+    return layers([(sl, 0.20, 0), (seat, 0.48, 0.12 + 0.03 * weight), (latch, 0.06, 0.17 + 0.03 * weight), (lk, 0.26, 0.175 + 0.03 * weight)], 0.44)
 
 
 def _slide(r, f, weight, body, back=0.09, gap=0.07):
     j = 1 + 0.04 * r.uniform(-1, 1)
-    b = fo.friction(r, back, f * 0.6, f * 1.5, 2.2, 0.8)
+    ratio = 1.0 + 0.15 * (3000 - f) / 1000.0
+    b = _slide_snd(r, back, f * 0.6, f * 1.5, ratio, 0.8, 0.5)
     sp = fo.spring(r, 0.12, f * 0.6, 0.05)
-    fw = fo.friction(r, 0.05, f * 1.2, f * 0.7, 2.0, 0.6)
+    fw = _slide_snd(r, 0.05, f * 1.2, f * 0.7, ratio * 1.1, 0.6, 0.4)
     slam = _clack(r, f * 1.15 * j, weight, body, 0.2)
     t2 = back + gap
-    return fo.mix([(0.0, b, 0.55), (back * 0.5, sp, 0.05), (t2, fw, 0.3), (t2 + 0.045, slam, 1.0)], t2 + 0.3)
+    return layers([(b, 0.24, 0), (sp, 0.02, back * 0.5), (fw, 0.10, t2), (slam, 0.64, t2 + 0.045)], t2 + 0.3)
 
 
 def _reg(name, n, fn, rel=-10, notes="", cat="gun_foley"):
     sound(G, name, n=n, category=cat, rel_db=rel, notes=notes)(fn)
 
 
-_reg("pistol_mag_out", 1, lambda v, r: _mag_out(r, 3000, 0.7, 320, v), -9)
-_reg("pistol_mag_in", 1, lambda v, r: _mag_in(r, 2900, 0.7, 330), -8)
-_reg("pistol_slide", 1, lambda v, r: _slide(r, 3000, 0.8, 340), -7)
-_reg("smg_mag_out", 1, lambda v, r: _mag_out(r, 2400, 1.0, 260, v), -8)
-_reg("smg_mag_in", 1, lambda v, r: _mag_in(r, 2300, 1.0, 270), -7)
-_reg("smg_bolt", 1, lambda v, r: _slide(r, 2300, 1.0, 250, 0.12, 0.09), -6)
-_reg("rifle_mag_out", 1, lambda v, r: _mag_out(r, 2000, 1.3, 210, v), -8)
-_reg("rifle_mag_in", 1, lambda v, r: _mag_in(r, 1900, 1.3, 220), -6)
-_reg("rifle_bolt", 1, lambda v, r: _slide(r, 1900, 1.3, 200, 0.14, 0.10), -5)
+_reg("pistol_mag_out", 1, lambda v, r: _mag_out(r, 3000, 0.7, 320, v), -9, "magazine release + drop (pistol)")
+_reg("pistol_mag_in", 1, lambda v, r: _mag_in(r, 2900, 0.7, 330), -8, "magazine insert + seat (pistol)")
+_reg("pistol_slide", 1, lambda v, r: _slide(r, 3000, 0.8, 340), -7, "slide rack (pistol)")
+_reg("smg_mag_out", 1, lambda v, r: _mag_out(r, 2400, 1.0, 260, v), -8, "magazine out (SMG)")
+_reg("smg_mag_in", 1, lambda v, r: _mag_in(r, 2300, 1.0, 270), -7, "magazine in (SMG)")
+_reg("smg_bolt", 1, lambda v, r: _slide(r, 2300, 1.0, 250, 0.12, 0.09), -6, "charging handle (SMG)")
+_reg("rifle_mag_out", 1, lambda v, r: _mag_out(r, 2000, 1.3, 210, v), -8, "magazine out (rifle)")
+_reg("rifle_mag_in", 1, lambda v, r: _mag_in(r, 1900, 1.3, 220), -6, "magazine in (rifle)")
+_reg("rifle_bolt", 1, lambda v, r: _slide(r, 1900, 1.3, 200, 0.14, 0.10), -5, "bolt cycle (rifle)")
 
 
 def _shell_in(v, r):
@@ -275,115 +296,138 @@ def _shell_in(v, r):
     hull = fo.thunk(r, 560 * j, 0.016, 0.07, noise=0.6)
     tube = dsp.modal(secs(0.1), [1150 * j, 2350 * j], [0.03, 0.015], [0.5, 0.25])
     lat = fo.tick(r, 3600 * j, 3, 0.0018, dur=0.04, ring=0.3, ring_f=5200, ring_tau=0.012)
-    return fo.mix([(0, hull, 0.9), (0, tube, 0.5), (0.028, lat, 0.7), (0.05, fo.thunk(r, 300, 0.01, 0.04), 0.3)], 0.22)
+    rk = _real_click(r, 1.25 * j)
+    return layers([(hull, 0.30, 0), (tube, 0.12, 0), (lat, 0.10, 0.028), (rk, 0.36, 0.026), (fo.thunk(r, 300, 0.01, 0.04), 0.12, 0.05)], 0.22)
 
 
-_reg("shotgun_shell_in", 4, _shell_in, -8)
+_reg("shotgun_shell_in", 4, _shell_in, -8, "shell into tube magazine")
 
 
 def _pump(v, r):
     j = 1 + 0.03 * r.uniform(-1, 1)
-    b = fo.friction(r, 0.14, 350, 900, 1.6, 0.9, res=0.3, res_f=1100)
+    b = _slide_snd(r, 0.14, 350, 900, 0.85, 0.9, 0.5)
     rattle = fo.rattle(r, 0.12, 90, 900, 3500, 0.004)
-    fw = fo.friction(r, 0.08, 800, 400, 1.6, 0.8)
+    fw = _slide_snd(r, 0.08, 800, 400, 0.8, 0.8, 0.4)
     slam = _clack(r, 1500 * j, 1.5, 150, 0.28)
     lock = fo.tick(r, 3000, 3, 0.002, dur=0.05, ring=0.4, ring_f=4200, ring_tau=0.02)
-    return fo.mix([(0, b, 0.6), (0.03, rattle, 0.12), (0.26, fw, 0.4), (0.33, slam, 1.0), (0.34, lock, 0.4)], 0.75)
+    lk = _real_click(r, 0.9)
+    return layers([(b, 0.16, 0), (rattle, 0.04, 0.03), (fw, 0.09, 0.26), (slam, 0.55, 0.33), (lock, 0.04, 0.34), (lk, 0.12, 0.335)], 0.75)
 
 
-_reg("shotgun_pump", 1, _pump, -3)
+_reg("shotgun_pump", 1, _pump, -3, "pump-action slide forward/back (shotgun)")
 
 
 def _lmg_cover_open(v, r):
-    creak = fo.friction(r, 0.22, 260, 720, 4.0, 0.9, res=0.4, res_f=650)
+    creak = samples.rpg("creak1", ratio=0.75, start=0.14, length=0.3, fin=0.01, fout=0.05)
+    creak2 = fo.friction(r, 0.22, 260, 720, 4.0, 0.9, res=0.4, res_f=650)
     hit = _clack(r, 850, 2.0, 110, 0.4)
     latch = fo.tick(r, 2200, 3, 0.003, dur=0.06, ring=0.4, ring_f=3300, ring_tau=0.03)
-    return fo.mix([(0, latch, 0.7), (0.03, creak, 0.4), (0.24, hit, 1.0)], 0.7)
+    lk = _real_click(r, 0.7)
+    return layers([(lk, 0.10, 0), (latch, 0.05, 0), (creak, 0.14, 0.03), (creak2, 0.10, 0.03), (hit, 0.61, 0.24)], 0.7)
 
 
 def _lmg_belt_in(v, r):
     ch = fo.rattle(r, 0.55, 42, 1800, 5200, 0.0045, shape=lambda u: 0.4 + 0.6 * math.sin(math.pi * min(u * 1.1, 1)))
+    clicks = np.zeros(secs(0.55))
+    for i in range(6):
+        k = _real_click(r, r.uniform(0.85, 1.15))
+        dsp.place(clicks, k, secs(0.03 + i * 0.075 + r.uniform(-0.01, 0.01)), r.uniform(0.4, 1.0))
     thk = fo.thunk(r, 210, 0.03, 0.12, 0.6)
-    return fo.mix([(0, ch, 0.9), (0.02, fo.friction(r, 0.3, 700, 1800, 2, 0.9), 0.25), (0.32, thk, 0.5)], 0.68)
+    fr = _slide_snd(r, 0.3, 700, 1800, 0.9, 0.9, 0.4)
+    return layers([(ch, 0.30, 0), (clicks, 0.30, 0), (fr, 0.10, 0.02), (thk, 0.30, 0.32)], 0.68)
 
 
 def _lmg_cover_close(v, r):
     s = _clack(r, 700, 2.4, 95, 0.5)
     l = fo.tick(r, 2600, 3, 0.003, dur=0.06, ring=0.5, ring_f=3900, ring_tau=0.035)
-    fr = fo.friction(r, 0.13, 300, 800, 3.0, 0.8, res=0.3, res_f=700)
-    return fo.mix([(0, fr, 0.35), (0.10, s, 1.0), (0.13, l, 0.6)], 0.6)
+    fr = _slide_snd(r, 0.13, 300, 800, 0.8, 0.8, 0.4)
+    lk = _real_click(r, 0.75)
+    return layers([(fr, 0.12, 0), (s, 0.66, 0.10), (l, 0.06, 0.13), (lk, 0.16, 0.135)], 0.6)
 
 
 def _lmg_rack(v, r):
-    b = fo.friction(r, 0.18, 260, 800, 2.0, 0.9, res=0.25, res_f=900)
+    b = _slide_snd(r, 0.18, 260, 800, 0.8, 0.9, 0.5)
     sp = fo.spring(r, 0.15, 500, 0.08)
     slam = _clack(r, 900, 2.0, 120, 0.4)
-    return fo.mix([(0, b, 0.6), (0.05, sp, 0.05), (0.32, slam, 1.0), (0.33, fo.tick(r, 2800, 3, 0.002, dur=0.05), 0.4)], 0.8)
+    lk = _real_click(r, 0.8)
+    return layers([(b, 0.24, 0), (sp, 0.02, 0.05), (slam, 0.62, 0.32), (lk, 0.12, 0.325)], 0.8)
 
 
-_reg("lmg_cover_open", 1, _lmg_cover_open, -4)
-_reg("lmg_belt_in", 1, _lmg_belt_in, -8)
-_reg("lmg_cover_close", 1, _lmg_cover_close, -3)
-_reg("lmg_rack", 1, _lmg_rack, -4)
+_reg("lmg_cover_open", 1, _lmg_cover_open, -4, "feed cover lifts open (LMG)")
+_reg("lmg_belt_in", 1, _lmg_belt_in, -8, "ammo belt laid in (LMG)")
+_reg("lmg_cover_close", 1, _lmg_cover_close, -3, "feed cover slams shut (LMG)")
+_reg("lmg_rack", 1, _lmg_rack, -4, "charging handle rack (LMG)")
 
 
 def _sniper_bolt_open(v, r):
     lift = fo.tick(r, 2600, 3, 0.003, dur=0.06, ring=0.3, ring_f=3900, ring_tau=0.02)
-    sl = fo.friction(r, 0.16, 900, 2200, 1.8, 0.5, res=0.2, res_f=2500)
+    sl = _slide_snd(r, 0.16, 900, 2200, 1.0, 0.5, 0.55)
     stop = _clack(r, 2100, 1.0, 220, 0.2)
-    return fo.mix([(0, lift, 0.8), (0.04, sl, 0.45), (0.21, stop, 0.8)], 0.5)
+    lk = _real_click(r, 0.95)
+    return layers([(lift, 0.06, 0), (lk, 0.12, 0), (sl, 0.24, 0.04), (stop, 0.58, 0.21)], 0.5)
 
 
 def _sniper_bolt_close(v, r):
-    sl = fo.friction(r, 0.14, 2200, 900, 1.8, 0.5, res=0.2, res_f=2000)
+    sl = _slide_snd(r, 0.14, 2200, 900, 1.0, 0.5, 0.55)
     seat = _clack(r, 1800, 1.2, 200, 0.22)
     down = fo.tick(r, 2900, 3, 0.003, dur=0.06, ring=0.35, ring_f=4200, ring_tau=0.025)
-    return fo.mix([(0, sl, 0.45), (0.15, seat, 0.9), (0.22, down, 0.8)], 0.55)
+    lk = _real_click(r, 1.05)
+    return layers([(sl, 0.22, 0), (seat, 0.50, 0.15), (down, 0.06, 0.22), (lk, 0.22, 0.225)], 0.55)
 
 
 def _sniper_mag(v, r):
-    a = fo.friction(r, 0.09, 1100, 2000, 2.0, 0.6)
+    a = _slide_snd(r, 0.09, 1100, 2000, 1.0, 0.6, 0.45)
     s = _clack(r, 1500, 0.9, 190, 0.16)
-    return fo.mix([(0, a, 0.35), (0.09, s, 1.0), (0.13, fo.tick(r, 2600, 3, 0.002, dur=0.04), 0.4)], 0.38)
+    lk = _real_click(r, 1.0)
+    return layers([(a, 0.18, 0), (s, 0.58, 0.09), (lk, 0.24, 0.13)], 0.38)
 
 
-_reg("sniper_bolt_open", 1, _sniper_bolt_open, -6)
-_reg("sniper_bolt_close", 1, _sniper_bolt_close, -6)
-_reg("sniper_mag", 1, _sniper_mag, -8)
+_reg("sniper_bolt_open", 1, _sniper_bolt_open, -6, "bolt lifted and drawn back (sniper)")
+_reg("sniper_bolt_close", 1, _sniper_bolt_close, -6, "bolt pushed forward and locked (sniper)")
+_reg("sniper_mag", 1, _sniper_mag, -8, "magazine seated (sniper)")
 
 
 def _rpg_reload(v, r):
-    sl = fo.friction(r, 0.55, 200, 700, 1.4, 0.9, shape=0.5, res=0.35, res_f=600)
+    sl = _slide_snd(r, 0.55, 200, 700, 0.7, 0.9, 0.5)
     rat = fo.rattle(r, 0.4, 30, 400, 1800, 0.005)
     lock = _clack(r, 700, 2.2, 90, 0.5)
     ck = fo.tick(r, 2600, 3, 0.003, dur=0.06, ring=0.5, ring_f=3600, ring_tau=0.03)
-    return fo.mix([(0, sl, 0.7), (0.1, rat, 0.15), (0.58, lock, 1.0), (0.62, ck, 0.6)], 1.15)
+    lk = _real_click(r, 0.7)
+    return layers([(sl, 0.30, 0), (rat, 0.05, 0.1), (lock, 0.52, 0.58), (ck, 0.04, 0.62), (lk, 0.09, 0.625)], 1.15)
 
 
-_reg("rpg_reload", 1, _rpg_reload, -4)
+_reg("rpg_reload", 1, _rpg_reload, -4, "rocket slid into launcher and locked (RPG)")
 
 
 def _weapon_swap(v, r):
     cl = fo.cloth(r, 0.16, 1.0, 600, 4500, bursts=3 + v)
+    real = samples.rpg(["cloth1", "cloth3"][v], ratio=1.15, start=0.05, length=0.26, fin=0.01, fout=0.05)
+    lea = samples.rpg("handleSmallLeather" if v == 0 else "dropLeather", ratio=1.1, start=0.05, length=0.2, fin=0.005, fout=0.04)
     hd = fo.thunk(r, 210 * (1 + 0.15 * v), 0.022, 0.1, 0.7)
     st = fo.tick(r, 2200 + 500 * v, 3, 0.003, dur=0.06, ring=0.3, ring_f=3300, ring_tau=0.02)
-    return fo.mix([(0, cl, 0.55), (0.05, hd, 0.55), (0.09, st, 0.6), (0.11 + 0.02 * v, fo.cloth(r, 0.1, 1, 800, 5000, 2), 0.25)], 0.38)
+    lk = _real_click(r, 1.0 + 0.1 * v)
+    return layers([(cl, 0.10, 0), (real, 0.30, 0.0), (lea, 0.20, 0.03), (hd, 0.14, 0.05), (st, 0.04, 0.09), (lk, 0.22, 0.09)], 0.4)
 
 
-_reg("weapon_swap", 2, _weapon_swap, -8)
+_reg("weapon_swap", 2, _weapon_swap, -8, "holster / draw: cloth rustle + strap + click")
 
 
 def _grenade_pin(v, r):
     pull = fo.friction(r, 0.06, 1200, 3200, 3, 0.5)
     ping = fo.ring([5400, 8100, 3600], [0.16, 0.07, 0.10], [0.7, 0.3, 0.3], 0.5)
     spoon = fo.metal_hit(r, 2600, 0.05, k=4, click=0.7, dur=0.25)
-    return fo.mix([(0, pull, 0.5), (0.055, ping, 0.35), (0.08, fo.tick(r, 3500, 3, 0.002, dur=0.05), 0.5), (0.13, spoon, 0.6)], 0.5)
+    lk = _real_click(r, 1.3)
+    lk2 = _real_click(r, 0.9)
+    return layers([(pull, 0.10, 0), (ping, 0.18, 0.055), (fo.tick(r, 3500, 3, 0.002, dur=0.05), 0.06, 0.08), (spoon, 0.24, 0.13),
+                   (lk, 0.20, 0.055), (lk2, 0.22, 0.13)], 0.5)
 
 
 def _grenade_throw(v, r):
     w = fo.whoosh(r, 0.32, 350, 1600, 0.9, 0.35, 1.3)
     cl = fo.cloth(r, 0.18, 1, 500, 3500, 3)
-    return fo.mix([(0, cl, 0.4), (0.03, w, 0.55)], 0.4)
+    real = samples.rpg("cloth2", ratio=1.0, start=0.02, length=0.3, fin=0.01, fout=0.06)
+    sw = samples.rpg("knifeSlice", ratio=0.85, start=0.1, length=0.3, fin=0.02, fout=0.1)
+    return layers([(cl, 0.15, 0), (real, 0.25, 0), (w, 0.35, 0.03), (sw, 0.25, 0.05)], 0.4)
 
 
 def _grenade_bounce(v, r):
@@ -392,12 +436,12 @@ def _grenade_bounce(v, r):
     m = fo.metal_hit(r, 880 * j, 0.11, k=5, click=0.6, dur=0.5, ratios=[1.0, 2.32, 4.13, 6.6, 9.7])
     tk = fo.tick(r, 3200 * j, 2, 0.003, dur=0.05)
     gr = dsp.bp(r.standard_normal(secs(0.06)), 1200, 4000, 1) * dsp.exp_env(secs(0.06), 0.015)
-    return fo.mix([(0, th, 0.9), (0, m, 0.7), (0, tk, 0.5), (0.005, gr, 0.3)], 0.55)
+    return layers([(th, 0.30, 0), (m, 0.40, 0), (tk, 0.10, 0), (gr, 0.20, 0.005)], 0.55)
 
 
-_reg("grenade_pin", 1, _grenade_pin, -6)
-_reg("grenade_throw", 1, _grenade_throw, -9)
-_reg("grenade_bounce", 3, _grenade_bounce, -6)
+_reg("grenade_pin", 1, _grenade_pin, -6, "pin pull + spoon flick")
+_reg("grenade_throw", 1, _grenade_throw, -9, "arm swing / release whoosh")
+_reg("grenade_bounce", 3, _grenade_bounce, -6, "metal grenade bouncing on asphalt")
 
 
 def _shell_brass(v, r):
@@ -429,5 +473,5 @@ def _shell_shotgun(v, r):
     return y
 
 
-_reg("shell_drop_brass", 4, _shell_brass, -12)
-_reg("shell_drop_shotgun", 3, _shell_shotgun, -11)
+_reg("shell_drop_brass", 4, _shell_brass, -12, "ejected brass casing hitting asphalt (3-4 bounces)")
+_reg("shell_drop_shotgun", 3, _shell_shotgun, -11, "ejected shotgun hull (plastic, 3 bounces)")

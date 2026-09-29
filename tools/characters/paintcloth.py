@@ -132,7 +132,9 @@ def wrinkles(bk, fit, key, s_c, width, amp=0.0016, along=0.05, across=0.006, see
     """Horizontal (ring) wrinkles around a joint at limb coordinate s_c."""
     shape = bk.mask.shape
     ppm = bk.ppm
-    s, r = fit.chain_coord(bk.P.reshape(-1, 3), key)
+    act = np.flatnonzero(bk.active.reshape(-1))
+    s = np.full(shape[0] * shape[1], -10.0)
+    s[act] = fit.chain_coord(bk.P.reshape(-1, 3)[act], key)[0]
     s = s.reshape(shape)
     n = aniso(shape, seed, along * ppm * 0.5, across * ppm * 0.5)
     env = np.exp(-(((s - s_c) / width) ** 2))

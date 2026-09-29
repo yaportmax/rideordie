@@ -382,7 +382,7 @@ def painted_cyl(name, base, bands, rubber_v=0.0, rust_amt=0.3, seed=1, dirt=0.6,
     col *= (1 + 0.05 * n_lo)[..., None]
     # sun fade
     Lm = lum(col)[..., None]
-    col = col * 0.75 + (Lm * 0.6 + 0.2) * 0.25 * (1 - rub[..., None])
+    col = col * 0.85 + (Lm * 0.6 + 0.2) * 0.15 * (1 - rub[..., None])
     # paint chips -> bare metal / rust
     chipm = smoothstep(n_hi + n_mid * 0.7 - (1.7 - chip), 0.0, 0.3) * (1 - rub)
     rust = smoothstep(n_mid * 0.8 + n_lo * 0.6 + n_hi * 0.3 - (1.25 - rust_amt * 1.2) + 1.2 * np.exp(-v * 5.0), 0.1, 0.9) * (1 - rub)
@@ -412,7 +412,7 @@ def road_cone_tex():
 
 
 def bollard_tex():
-    painted_cyl("bollard", (0.86, 0.66, 0.10), [(0.70, 0.78, (0.86, 0.86, 0.82), 1.0), (0.80, 0.84, (0.86, 0.86, 0.82), 1.0)], rubber_v=0.0, rust_amt=0.4, seed=211, dirt=0.9, chip=0.6)
+    painted_cyl("bollard", (0.88, 0.62, 0.05), [(0.70, 0.78, (0.86, 0.86, 0.82), 1.0), (0.80, 0.84, (0.86, 0.86, 0.82), 1.0)], rubber_v=0.0, rust_amt=0.4, seed=211, dirt=0.9, chip=0.6)
 
 
 

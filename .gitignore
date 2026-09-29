@@ -13,3 +13,6 @@ tools/**/venv/
 *.blend1
 *.blend
 public/_qa/
+tools/**/_cache/
+__pycache__/
+*.pyc
