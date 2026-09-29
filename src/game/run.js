@@ -154,7 +154,12 @@ export class Run {
       // countdown -> start once the ground under the truck exists
       if (this.sim.state === 'countdown') {
         this.streamer.update(P.s);
-        if (P.held && this.streamer.groundReady(P.s) && !this.groundOk) { this.groundOk = true; g.fade(0, 0.8); }
+        // start once the ground exists AND the first dressing chunks are built and warm (no compile stutter during the fly-by)
+        if (P.held && this.streamer.groundReady(P.s) && !this.groundOk) {
+          this.startWaitT = (this.startWaitT || 0) + dt;
+          const dr = this.dressing, ready = !dr || (dr.idle && !dr.pool.warming);
+          if (ready || this.startWaitT > 6) { this.groundOk = true; g.fade(0, 0.8); }
+        }
         if (this.groundOk) {
           this.countdown -= dt;
           if (this.countdown <= 0) { this.sim.releaseCar(P); this.sim.start(); this.started = true; g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); if (this.net) this.net.sendJSON({ t: 'go' }); }

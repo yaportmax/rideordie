@@ -49,6 +49,9 @@ export class InstancePool {
     return e;
   }
 
+  /** True while any instanced set is still compiling/uploading its materials (it stays hidden until warm). */
+  get warming() { for (const e of this.entries.values()) for (const set of e.sets) if (set.warm === false) return true; return false; }
+
   _makeSet(asset, mats, shadow, cap) {
     const set = { n: 0, cap, shadow, meshes: [], asset, mats, sph: new THREE.Sphere(), min: new THREE.Vector3(), max: new THREE.Vector3(), rad: 0 };
     this._alloc(set);
