@@ -41,6 +41,9 @@ export const WEAPONS = {
     head: 1, tracer: 0xffffff, tracerLen: 0, adsZoom: 1.5, sound: 'rpg', crosshair: 1, rocket: { speed: 85, blast: 11, blastDmg: 240, trail: 0xffaa66 }, desc: 'Turns cars into fireballs.',
   },
 };
+// purchase prices follow the shop's COST_SCALE (1.25, see upgrades.js); baseCost drives upgrade-track prices
+for (const w of Object.values(WEAPONS)) { w.baseCost = w.cost; w.cost = Math.round(w.cost * 1.25); }
+
 export const WEAPON_ORDER = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'];
 
 export const GRENADE = { name: 'FRAG', fuse: 2.1, blast: 9.5, dmg: 190, speed: 24, cooldown: 7, count: 2, upgrades: 4 };

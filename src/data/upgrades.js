@@ -45,7 +45,7 @@ export const WEAPON_TRACKS = [
   { id: 'hnd', name: 'HANDLING', costMul: [0.1, 0.2, 0.4] },
 ];
 export function weaponTrackCost(weaponId, track, level) { // level = level being bought (0-based)
-  const base = Math.max(WEAPONS[weaponId].cost, 1800);
+  const base = Math.max(WEAPONS[weaponId].baseCost ?? WEAPONS[weaponId].cost, 1800);
   return Math.round(base * WEAPON_TRACKS.find((t) => t.id === track).costMul[level] * COST_SCALE);
 }
 export const WEAPON_TRACK_MAX = 3;
