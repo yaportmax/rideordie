@@ -15,6 +15,7 @@ import { Cockpit } from '../view/cockpit.js';
 import { ThreatHUD } from '../ui/threat_hud.js';
 import { Banner } from '../ui/banner.js';
 import { HazardMarks } from '../view/hazard_marks.js';
+import { BossMarks } from '../view/boss_marks.js';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../net/snapshot.js';
 import { WEAPONS } from '../data/weapons.js';
 import { Road } from '../world/road.js';
@@ -25,7 +26,7 @@ import { AIDriver } from './ai_driver.js';
 import { AIGunner } from './ai_gunner.js';
 import { Dressing } from '../world/dressing.js';
 import { StructureColliders } from '../sim/structure_colliders.js';
-import { BOSS_ID, BOSS_NAMES, MINIBOSSES } from '../data/boss.js';
+import { BOSS_ID, BOSS_NAMES, MINIBOSSES, BOSS_PARTS } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
 import { clamp, damp, lerp, wrapAngle } from '../core/util.js';
 
@@ -282,7 +283,9 @@ export class Run {
     this.wv.updateBoss(this.bossState, dt);
     // roadblock telegraphing (signs, flares, breakable barricades) + cinematic banners (warlord intro, roadblock countdown)
     (this.hazMarks || (this.hazMarks = new HazardMarks(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)))))).update(dt, this.playerS || 0);
-    (this.banner || (this.banner = new Banner(g.hud.el))).update(dt, this.playerS || 0);
+    (this.banner || (this.banner = new Banner(g.hud.el))).update(dt, this.playerS || 0, this.bossState);
+    // Leviathan per-part health markers (sim peer reads the boss directly, the gunner peer the snapshot's per-part hp)
+    if (this.bossState || this.bossMarks) { const Bs = this.sim?.boss; (this.bossMarks || (this.bossMarks = new BossMarks(g.scene))).update(dt, this.bossState, (n) => Bs ? Bs.hp[n] / BOSS_PARTS[n].hp : this.bossState?.hp?.[n] ?? 1, g.camera); }
     if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
     g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
     const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside } : null;
@@ -299,7 +302,7 @@ export class Run {
       else if (e.t === 'setPiece') { this.banner.event(e); g.audio?.stinger('danger_riser', { gain: 0.7 }); }
       else if (e.t === 'minibossDown') { g.hud.message(`${e.name} WRECKED  +$${ECONOMY.minibossBounty[e.index] || ''}`, 2800, '#ffc21a'); }
       else if (e.t === 'bossSpawn') { g.hud.message('THE LEVIATHAN', 3500, '#ff3a1a'); this.abridge?.bossIntro(); }
-      else if (e.t === 'bossPhase' && e.phase === 3) g.hud.message('REACTOR EXPOSED!', 2200, '#ffc21a');
+      else if (e.t === 'bossPhase' || e.t === 'bossBeat') { this.banner.bossBeat(e); if (e.phase === 3 && !(this.lastPulse > this.time - 2)) { this.pulseT = 1.1; this.lastPulse = this.time; } }   // reactor exposed: a beat of slow-mo
       else if (e.t === 'bossPart' && e.label) g.hud.feed(`${e.label} DESTROYED`, '#ffc21a');
       else if (e.t === 'repair' && e.supply) g.hud.feed('SUPPLY CACHE: TRUCK PATCHED, CREW HEALED', '#7fdc7f');
       else if (e.t === 'repair' && e.big) g.hud.feed(`SALVAGE  +${Math.round(e.amount)} HP`, '#7fdc7f');
@@ -651,7 +654,7 @@ export class Run {
 
   dispose() {
     this.cockpit?.dispose(); this.cockpit = null; this.threatHud?.dispose(); this.threatHud = null;
-    this.banner?.dispose(); this.banner = null; this.hazMarks?.dispose(); this.hazMarks = null;
+    this.banner?.dispose(); this.banner = null; this.hazMarks?.dispose(); this.hazMarks = null; this.bossMarks?.dispose(); this.bossMarks = null;
     this.g.fx?.clear();
     try { this.dressing?.dispose(); } catch (e) { console.warn(e); }
     this.structures?.dispose();

@@ -14,6 +14,10 @@ const CSS = `
 #bnr .bn-boss .w{margin-top:8px;font-size:15px;letter-spacing:3px;color:#ffe08a}
 #bnr .bn-boss .w b{color:var(--ac);font-weight:800}
 #bnr .bn-boss .tip{font-size:13px;letter-spacing:2px;opacity:.75;margin-top:3px}
+#bnr .bn-obj{position:absolute;left:50%;top:128px;transform:translateX(-50%);display:none;padding:4px 14px;background:rgba(0,0,0,.55);border-left:3px solid #ff5a2a;
+  font-size:14px;letter-spacing:2px;font-weight:700;white-space:nowrap;text-shadow:0 1px 3px #000}
+#bnr .bn-obj b{color:#ffb21a;font-weight:800;margin-right:8px}
+#bnr .bn-obj i{font-style:normal;color:#ffe08a;margin-left:8px}
 #bnr .bn-haz{position:absolute;left:50%;top:15%;transform:translateX(-50%);display:none;align-items:center;gap:16px;padding:9px 22px 9px 16px;
   background:rgba(20,12,0,.72);border:2px solid #ffb21a;border-radius:3px;box-shadow:0 0 18px rgba(255,160,20,.35);text-shadow:0 1px 4px #000}
 #bnr .bn-haz .ic{width:0;height:0;border-left:19px solid transparent;border-right:19px solid transparent;border-bottom:33px solid #ffb21a;position:relative}
@@ -30,10 +34,11 @@ export class Banner {
     if (!document.getElementById('bnr-css')) { const st = document.createElement('style'); st.id = 'bnr-css'; st.textContent = CSS; document.head.appendChild(st); }
     const el = this.el = document.createElement('div'); el.id = 'bnr';
     el.innerHTML = `<div class="bn-boss"><div class="k">WARLORD</div><div class="n"></div><div class="t"></div><div class="w"></div><div class="tip"></div></div>
+      <div class="bn-obj"></div>
       <div class="bn-haz"><div class="ic"></div><div><div class="tx">ROADBLOCK</div><div class="g"></div></div><div class="d"></div></div>`;
     parent.appendChild(el);
     const $ = (s) => el.querySelector(s);
-    this.q = { boss: $('.bn-boss'), n: $('.bn-boss .n'), t: $('.bn-boss .t'), w: $('.bn-boss .w'), tip: $('.bn-boss .tip'), haz: $('.bn-haz'), hd: $('.bn-haz .d'), hg: $('.bn-haz .g'), htx: $('.bn-haz .tx') };
+    this.q = { boss: $('.bn-boss'), n: $('.bn-boss .n'), t: $('.bn-boss .t'), w: $('.bn-boss .w'), tip: $('.bn-boss .tip'), haz: $('.bn-haz'), hd: $('.bn-haz .d'), hg: $('.bn-haz .g'), htx: $('.bn-haz .tx'), obj: $('.bn-obj') };
     this.bossT = -1; this.hazards = []; this.time = 0;
   }
 
@@ -55,7 +60,7 @@ export class Banner {
   event(e) {
     const q = this.q;
     q.boss.style.setProperty('--ac', e.color || '#ffb21a');
-    q.boss.querySelector('.k').textContent = 'INCOMING';
+    q.boss.querySelector('.k').textContent = e.k || 'INCOMING';
     q.n.textContent = e.title || ''; q.t.textContent = e.sub || ''; q.w.innerHTML = ''; q.tip.textContent = '';
     this.bossT = 0; this.bossHold = 2.6; // shorter hold than a warlord intro
   }
@@ -66,9 +71,30 @@ export class Banner {
     this.hazards.push({ s0: e.s0, gapD: e.gapD ?? 0, kind: e.kind || 'roadblock', t: 0 });
   }
 
-  update(dt, playerS) {
+  /** Leviathan beats: phase changes, the blockade smash, the reactor overheating. */
+  bossBeat(e) {
+    const B = {
+      2: { title: 'PHASE 2', sub: 'THE CANNON WAKES — FLAMERS ON ITS FLANKS, HIT THE FUEL TANKS' },
+      3: { title: 'REACTOR EXPOSED', sub: 'THE CORE IS OPEN — POUR EVERYTHING INTO IT', color: '#ff3a1a' },
+      blockade: { title: 'BRACE', sub: 'IT IS SMASHING THROUGH THE BLOCKADE' },
+      overheat: { title: 'REACTOR OVERHEATING', sub: 'ITS OWN ARMOUR IS BLOWING OFF', color: '#ff3a1a' },
+    }[e.t === 'bossPhase' ? e.phase : e.kind];
+    if (B) this.event({ k: 'THE LEVIATHAN', ...B });
+  }
+
+  update(dt, playerS, bs) {
     this.time += dt;
     const q = this.q;
+    // ---- Leviathan objective chip under the boss bar: what to shoot this phase, and how much of it is left
+    if (bs && !bs.dead && !bs.exploded) {
+      const a = bs.alive || {}, n = (list) => list.filter((k) => a[k]).length;
+      const guns = n(['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R']), tanks = n(['part_tank_L', 'part_tank_R']), armor = n(['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3']);
+      const html = bs.phase <= 1 ? `<b>PHASE 1</b>KNOCK OUT THE GUNS<i>${guns} LEFT</i>`
+        : bs.phase === 2 ? `<b>PHASE 2</b>FUEL TANKS <i>${tanks}</i> &nbsp;·&nbsp; REAR ARMOUR <i>${armor}</i>${a.part_turret_main ? ' &nbsp;·&nbsp; CANNON' : ''}`
+        : '<b>PHASE 3</b>SHOOT THE REACTOR — REAR, TOP';
+      if (html !== this._objHtml) { this._objHtml = html; q.obj.innerHTML = html; }
+      q.obj.style.display = 'block';
+    } else if (this._objHtml) { this._objHtml = null; q.obj.style.display = 'none'; }
     // ---- warlord intro
     if (this.bossT >= 0) {
       this.bossT += dt;

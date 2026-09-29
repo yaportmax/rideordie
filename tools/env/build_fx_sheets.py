@@ -93,12 +93,12 @@ def tile(frames, cols):
 # ------------------------------------------------------------------------------------------------ fire colour
 FIRE_RAMP = np.array([
     [0.00, 0.000, 0.000, 0.000],
-    [0.10, 0.160, 0.015, 0.004],
-    [0.25, 0.520, 0.080, 0.012],
-    [0.45, 0.950, 0.260, 0.035],
-    [0.65, 1.000, 0.520, 0.110],
-    [0.82, 1.000, 0.760, 0.330],
-    [1.00, 1.000, 0.950, 0.780],
+    [0.08, 0.120, 0.010, 0.003],
+    [0.22, 0.450, 0.055, 0.010],
+    [0.42, 0.900, 0.210, 0.025],
+    [0.62, 1.000, 0.430, 0.070],
+    [0.80, 1.000, 0.680, 0.220],
+    [1.00, 1.000, 0.920, 0.700],
 ], np.float32)
 
 
@@ -126,19 +126,20 @@ def flame_sheet(N=32, W=128, H=256, cols=8):
         ph = k / N
         su = (x * 0.5 + 0.5) * P * 0.42
         sv = (1 - y) * P * 0.62
-        warp = samp2(nW, su * 0.6 + 17, sv * 0.6 + ph * P)
-        lick = samp2(nA, su + warp * 10 * (0.2 + y), sv + ph * P * 2)
-        det = samp2(nB, su * 2.0 + 40, sv * 1.7 + ph * P * 3)
-        sway = 0.07 * y ** 1.5 * np.sin(2 * math.pi * (ph + 0.5 * y)) + 0.10 * y ** 1.3 * warp
+        warp = samp2(nW, su * 0.5 + 17, sv * 0.5 + ph * P)
+        lick = samp2(nA, su * 0.8 + warp * 12 * (0.2 + y), sv * 0.8 + ph * P * 2)
+        det = samp2(nB, su * 1.3 + 40, sv * 1.2 + ph * P * 3)
+        sway = 0.08 * y ** 1.5 * np.sin(2 * math.pi * (ph + 0.5 * y)) + 0.12 * y ** 1.3 * warp
         xr = (x - sway)
-        hw = 0.80 * np.clip(1.02 - y, 0.0, 1.0) ** 0.45 * (0.72 + 0.28 * sstep(y, 0.0, 0.12))
-        shape = 1.0 - (np.abs(xr) / np.maximum(hw, 1e-3)) ** 2 - 0.95 * y ** 1.25
-        q = shape + (lick * 0.62 + det * 0.26) * (0.10 + 0.62 * y)
-        q = q * sstep(y, 0.0, 0.05)
-        T = np.clip(q * 1.15, 0, 1)
-        T = T ** 1.1
-        rgb = fire_col(np.clip(T * 1.1 + 0.02, 0, 1))
-        a = sstep(T, 0.02, 0.45)
+        hw = 0.78 * np.clip(1.02 - y, 0.0, 1.0) ** 0.5 * (0.70 + 0.30 * sstep(y, 0.0, 0.12))
+        shape = 1.0 - (np.abs(xr) / np.maximum(hw, 1e-3)) ** 2 - 0.9 * y ** 1.3
+        split = 0.5 + 0.5 * np.cos(xr * math.pi * 2.6 + warp * 2.2 + 1.3)          # 2-3 tongues in the upper half
+        q = shape + (lick * 0.72 + det * 0.14) * (0.08 + 0.66 * y) - 0.42 * sstep(y, 0.25, 0.8) * split
+        q = np.clip(q * sstep(y, 0.0, 0.05), 0, 1.4)
+        heat = (0.46 + 0.54 * (1 - y) ** 1.8) * (0.78 + 0.22 * (1 - sstep(np.abs(xr) / np.maximum(hw, 0.05), 0, 0.8)))
+        T = np.clip(q, 0, 1) ** 0.9 * heat
+        rgb = fire_col(np.clip(T * 0.98, 0, 1))
+        a = sstep(q, 0.02, 0.5)
         img = to_img(rgb, a)
         frames.append(np.clip(down2(img.astype(np.float32)), 0, 255).astype(np.uint8))
     return tile(frames, cols)
@@ -149,8 +150,8 @@ def fireball_sheet(N=64, S=128, cols=8, steps=56):
     SS = 2
     s = S * SS
     V = 64
-    vol = noise3(V, beta=2.0, seed=21)
-    vol2 = noise3(V, beta=1.4, seed=22)
+    vol = noise3(V, beta=2.0, seed=21, fmax=9)
+    vol2 = noise3(V, beta=1.4, seed=22, fmax=18)
     yy, xx = np.mgrid[0:s, 0:s].astype(np.float32)
     px = (xx + 0.5) / s * 2 - 1
     py = 1 - (yy + 0.5) / s * 2
@@ -160,21 +161,19 @@ def fireball_sheet(N=64, S=128, cols=8, steps=56):
     rng = np.random.default_rng(5)
     for k in range(N):
         t = k / (N - 1)
-        R = 0.30 + 0.56 * (1 - (1 - t) ** 2.4)                 # fast expansion, then it slows
-        rise = 0.10 * t
-        heat = np.clip(1.25 * (1 - t) ** 1.35, 0, 1.25)
+        R = 0.50 + 0.20 * (1 - (1 - t) ** 2.4)                 # fast expansion, then it slows (the sprite grows too)
+        rise = 0.08 * t
+        heat = np.clip(1.35 * (1 - t) ** 1.25, 0, 1.35)
         T = np.ones((s, s), np.float32)                        # transmittance
         C = np.zeros((s, s, 3), np.float32)
-        for z in zs[::-1] * -1:                                # front (z=-1, toward the viewer) to back
-            pass
         for z in zs:                                           # z = -1 nearest the viewer
             X, Y, Z = px, py - rise, np.full_like(px, z)
             r = np.sqrt(X * X + Y * Y + Z * Z)
             # billowing: noise coords scale with the ball (features grow), plus a slow roll
-            nx = (X / R) * 9 + 32 + t * 3.0; ny = (Y / R) * 9 + 32 - t * 6.0; nz = (Z / R) * 9 + 32
+            nx = (X / R) * 7 + 32 + t * 3.0; ny = (Y / R) * 7 + 32 - t * 6.0; nz = (Z / R) * 7 + 32
             n1 = samp3(vol, nx, ny, nz)
             n2 = samp3(vol2, nx * 2.3 + 7, ny * 2.3, nz * 2.3 + 3)
-            shell = R * (1 + 0.28 * n1 + 0.08 * n2)
+            shell = R * (1 + 0.26 * n1 + 0.09 * n2)
             dens = sstep(shell - r, -0.02, 0.10 + 0.08 * t) * (0.75 + 0.35 * n2 * 0.5 + 0.25)
             dens *= 1.0 - 0.55 * sstep(t, 0.55, 1.0) * sstep(n2, -0.2, 1.2)     # late: breaks up into wisps
             if not dens.any():
@@ -182,17 +181,16 @@ def fireball_sheet(N=64, S=128, cols=8, steps=56):
             sig = dens * (3.2 + 2.0 * t) * dz * 2.5
             # temperature: hottest inside and early; cooler bumps on the outside char first
             tin = np.clip(1 - r / np.maximum(shell, 1e-3), 0, 1)
-            Tk = np.clip(heat * (0.35 + 0.95 * tin) + 0.18 * n1 * heat - 0.12, 0, 1)
-            emis = fire_col(Tk) * (Tk[..., None] ** 1.2) * 4.0
+            Tk = np.clip(heat * (0.28 + 1.0 * tin) + 0.34 * n1 * heat - 0.14, 0, 1)
+            Tk = Tk * (1 - 0.65 * sstep(n2, 0.2, 1.3) * sstep(t, 0.08, 0.45))            # sooty patches roll over the ball
+            emis = fire_col(Tk) * (Tk[..., None] ** 0.9) * 1.7
             smoke = np.array([0.055, 0.050, 0.046], np.float32) * (0.6 + 0.4 * (0.5 + 0.5 * n2))[..., None]
             a = 1 - np.exp(-sig)
             C += (T * a)[..., None] * (emis + smoke)
             T *= np.exp(-sig)
         alpha = 1 - T
         rgb = C / np.maximum(alpha, 1e-4)[..., None]          # straight colour
-        # fire colour is HDR (emissive x4): compress into 0..1 keeping hue; the shader multiplies it back up
-        rgb = rgb / (1 + rgb * 0.0)
-        rgb = np.clip(rgb / 4.0, 0, 1)
+        rgb = np.clip(rgb, 0, 1)                               # HDR intensity comes from the particle colour
         img = to_img(rgb, alpha)
         frames.append(np.clip(down2(img.astype(np.float32)), 0, 255).astype(np.uint8))
         print("  fireball frame", k, flush=True) if k % 16 == 0 else None

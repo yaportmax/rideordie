@@ -5,7 +5,7 @@ import { fbm2, smoothstep } from '../../core/util.js';
 import { SCATTER, TINTS, tierOf, specOfEntry } from './types.js';
 import { rngOf, strId, CHUNK_LEN, EDGE } from './util.js';
 import { buildCover } from './groundcover.js';
-import { buildFences } from './furniture.js';
+import { buildFences, buildWrecks } from './furniture.js';
 
 const QKEEP = [0.26, 0.5, 0.74, 1.0];
 const scat = (id, key) => (key ? (BIOMES[id].scatter[key] ?? 0) : 1);
@@ -47,6 +47,10 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
   if (tier === 1 && !chunk.done.has('f:fences')) {
     if (!buildFences(ctx, chunk)) return false;
     chunk.done.add('f:fences'); chunk.dirty = true;
+  }
+  if (tier === 1 && !chunk.done.has('f:wrecks')) {
+    if (!buildWrecks(ctx, chunk)) return false;
+    chunk.done.add('f:wrecks'); chunk.dirty = true;
   }
   // dense near-road ground cover (grass, scrub, flowers, pebbles) with the near tier
   if (tier === 3 && !chunk.done.has('cover')) {

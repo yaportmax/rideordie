@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { biomeAt } from '../../data/biomes.js';
 import { hash2, lerp } from '../../core/util.js';
-import { roadFrame, groundAt, CHUNK_LEN } from './util.js';
+import { roadFrame, groundAt, CHUNK_LEN, rngOf } from './util.js';
 import { GLOW } from './pool.js';
 import { instanceMaterial } from './assets.js';
 
@@ -19,6 +19,7 @@ const CFG = {
 };
 function cfg(s, key) { const b = biomeAt(s); return lerp(CFG[b.a][key], CFG[b.b][key], b.w); }
 
+const WRECK_SPEC = { far: 520, shadow: true, behind: true, mergeNear: 28 };   // same spec as the city's wrecks (first registration wins)
 export const FURNITURE_SPECS = {
   guardrail_4m: { far: 300, shadow: true, behind: true, lods: [{ asset: 'guardrail_4m', max: 80 }, { asset: 'guardrail_lod', max: 1e9 }] },
   jersey_barrier: { far: 260, shadow: true, behind: true, lods: [{ asset: 'jersey_barrier', max: 90 }, { asset: 'jersey_lod', max: 1e9 }] },
@@ -33,6 +34,9 @@ export const FURNITURE_SPECS = {
   road_cone: { far: 200, shadow: false, lite: true },
   barrel: { far: 200, shadow: false, lite: true },
   bollard: { far: 160, shadow: false },
+  // roadside wrecks + their barrels / tyres (open road; the city places its own). Listed here so the biome prefetch loads them.
+  wreck_sedan: WRECK_SPEC, wreck_pickup: WRECK_SPEC, wreck_flipped: WRECK_SPEC, skeleton_car_frame: WRECK_SPEC,
+  tire_stack: { far: 240, shadow: false },
 };
 
 /** ready-check helper: returns asset | null (missing) | undefined (still loading) */
@@ -358,15 +362,15 @@ function blockedBy(feats, s, pad = 10) {
   return false;
 }
 
-// ------------------------------------------------------------------------------------------------ delineators (every 50 m, both sides)
+// ------------------------------------------------------------------------------------------------ delineators (every 25 m, both sides)
 function delineators(ctx, chunk) {
   const { road } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
   if (cfg(s0, 'delin') < 0.5 && cfg(s1, 'delin') < 0.5) return true;
   useSpec(ctx, 'delineator', PROC_SPECS.delineator);
   const feats = road.featuresIn(s0 - 30, s1 + 30);
   const guards = feats.filter((f) => f.type === 'guard');
-  for (let k = Math.ceil(s0 / 50); k * 50 < s1; k++) {
-    const s = k * 50;
+  for (let k = Math.ceil(s0 / 25); k * 25 < s1; k++) {
+    const s = k * 25;
     if (cfg(s, 'delin') < 0.5 || blockedBy(feats, s, 6)) continue;
     for (const side of [1, -1]) {
       if (guards.some((f) => s > f.s0 - 4 && s < f.s1 + 4 && (f.side === 'both' || (f.side === 'L') === (side > 0)))) continue;
@@ -443,6 +447,75 @@ export function buildFences(ctx, chunk) {
         const ux = fy * lz, uy = fz * lx - fx * lz, uz = -fy * lx;
         if (isChain) list.pushBasis((a.x + c.x) / 2, (a.y + c.y) / 2 - 0.05, (a.z + c.z) / 2, lx, 0, lz, 0, 1, 0, fx, fy, fz, 1, 1, L / 4, 2.4);
         else list.pushBasis(a.x, a.y - 0.08, a.z, lx, 0, lz, ux, uy, uz, fx, fy, fz, 1, 1, L / 4, 2.6);
+      }
+    }
+  }
+  return true;
+}
+
+// ------------------------------------------------------------------------------------------------ roadside wrecks, barrels, tyres
+// A burnt-out car every few hundred metres just off the verge (never on the road), often with a couple of barrels / a tyre stack next to
+// it, plus loose barrel / tyre groups. Wrecks get a static collider (like landmarks) so the truck can't drive through them.
+const WRECK_P = { desert: 0.75, canyon: 0.55, coast: 0.4, mountain: 0.35, city: 0, dam: 0.45 };
+const WRECK_NAMES = [['wreck_sedan', 3], ['wreck_pickup', 2], ['wreck_flipped', 1.2], ['skeleton_car_frame', 2.5]];
+const _wg = {}, _wsm = {};
+/** Runs with the far scatter tier (needs the landmark plan for exclusions; must not hold up road features). */
+export function buildWrecks(ctx, chunk) {
+  const { road, seed } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
+  const b0 = biomeAt(s0), b1 = biomeAt(s1);
+  if (Math.max(WRECK_P[b0.a], WRECK_P[b0.b], WRECK_P[b1.a], WRECK_P[b1.b]) <= 0) return true;
+  const names = ['wreck_sedan', 'wreck_pickup', 'wreck_flipped', 'skeleton_car_frame', 'barrel', 'tire_stack'];
+  const A = names.map((n) => need(ctx, n));
+  if (A.some((a) => a === undefined)) return false;
+  const excl = ctx.exclusions(s0 - 20, s1 + 20);
+  if (!excl) return false;
+  const feats = road.featuresIn(s0 - 40, s1 + 40);
+  const BL = 320;
+  for (let b = Math.floor(s0 / BL); b * BL < s1; b++) {
+    for (const side of [1, -1]) {
+      const h = hash2(b, side > 0 ? 71 : 72, seed), bio = biomeAt(b * BL + BL / 2), id = bio.w > 0.5 ? bio.b : bio.a;
+      const s = b * BL + 20 + hash2(b, side > 0 ? 73 : 74, seed) * (BL - 40);
+      if (s < s0 || s >= s1 || blockedBy(feats, s, 25) || feats.some((f) => f.type === 'guard' && s > f.s0 - 5 && s < f.s1 + 5)) continue;
+      const r = rngOf(seed, b * 2 + (side > 0 ? 1 : 0), 7373);
+      const wreck = h < WRECK_P[id] * 0.5;                                   // ~1 wreck per 640 m per side at p = 1
+      const loose = !wreck && h < WRECK_P[id] * 0.5 + 0.35;
+      if (!wreck && !loose) continue;
+      const d0 = side * (11.2 + r() * 3.5);
+      const g = chunk.ground.sample(s, d0, _wg), sm = road.sample(s, _wsm);
+      if (Math.abs(g.y - road.surfaceY(sm, d0)) > 2.5 || g.ny < 0.85 || g.y < chunk.seaY + 0.5) continue;
+      let bad = false;
+      for (const z of excl) { const dx = g.x - z[0], dz = g.z - z[1]; if (dx * dx + dz * dz < (z[2] + 4) * (z[2] + 4)) { bad = true; break; } }
+      if (bad) continue;
+      if (wreck) {
+        let t = r() * 8.7, name = WRECK_NAMES[0][0];
+        for (const [n, w] of WRECK_NAMES) { t -= w; if (t <= 0) { name = n; break; } }
+        const a = ctx.kit.get(name); if (!a) continue;
+        const psi = (r() - 0.5) * 1.4 + (r() < 0.3 ? Math.PI : 0), yaw = sm.th + psi;
+        const ext = Math.abs(Math.sin(psi)) * a.size.z / 2 + Math.abs(Math.cos(psi)) * a.size.x / 2;
+        const d = side * Math.max(Math.abs(d0), 10.4 + ext);
+        const gw = chunk.ground.sample(s, d, _wg);
+        const tt = 0.7 + r() * 0.45;
+        useSpec(ctx, name);
+        chunk.list(name).push(gw.x, gw.y - 0.06, gw.z, yaw, 1, 1, 1, gw.nx, gw.ny, gw.nz, 0.7, a.sphere.radius, tt, tt * (0.9 + r() * 0.12), tt * (0.84 + r() * 0.18));
+        if (a.collision) {
+          const id2 = `wreck:${chunk.c}:${b}:${side}`; chunk.hooks.push(id2);
+          const c = Math.cos(yaw), sn = Math.sin(yaw), src = a.collision.pos, pos = new Float32Array(src.length);
+          for (let i = 0; i < src.length; i += 3) { pos[i] = gw.x + src[i] * c + src[i + 2] * sn; pos[i + 1] = gw.y - 0.06 + src[i + 1]; pos[i + 2] = gw.z - src[i] * sn + src[i + 2] * c; }
+          ctx.hook({ type: 'static', id: id2, asset: name, pos: [gw.x, gw.y - 0.06, gw.z], yaw, scale: [1, 1, 1], collision: { pos, idx: a.collision.idx } });
+        }
+      }
+      // barrels / tyres: next to the wreck, or on their own
+      const nB = wreck ? Math.floor(r() * 3) : 1 + Math.floor(r() * 3);
+      for (let i = 0; i < nB; i++) {
+        const tyre = r() < 0.3, name = tyre ? 'tire_stack' : 'barrel';
+        const a = ctx.kit.get(name); if (!a) { r(); r(); r(); continue; }
+        const ss = s + (wreck ? (r() < 0.5 ? -1 : 1) * (3.4 + r() * 2) : (r() - 0.5) * 3), dd = side * (Math.abs(d0) + (r() - 0.3) * 1.6);
+        const gb = chunk.ground.sample(Math.min(s1, Math.max(s0, ss)), dd, _wg);
+        const k = 0.6 + r() * 0.5;
+        useSpec(ctx, name, name === 'barrel' ? { far: 220, shadow: false, lite: true } : FURNITURE_SPECS.tire_stack);
+        const lying = !tyre && r() < 0.25;
+        if (lying) { const an = r() * 6.28, ca = Math.cos(an), sa = Math.sin(an); chunk.list(name).pushBasis(gb.x, gb.y + 0.29, gb.z, 0, 1, 0, ca, 0, sa, sa, 0, -ca, 1, 1, 1, 0.8, k, k * 0.92, k * 0.85); continue; }
+        chunk.list(name).push(gb.x, gb.y - 0.02, gb.z, r() * 6.28, 1, 1, 1, gb.nx, gb.ny, gb.nz, 0.8, a.sphere.radius, k, k * 0.92, k * 0.85);
       }
     }
   }

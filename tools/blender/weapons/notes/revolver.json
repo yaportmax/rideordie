@@ -1,7 +1,7 @@
 {
  "name": "revolver",
- "tris": 22662,
- "glb_kb": 1475,
+ "tris": 23432,
+ "glb_kb": 556,
  "parts": {
   "body": {
    "pivot": [
@@ -10,7 +10,7 @@
     0.0
    ],
    "parent": null,
-   "tris": 12304,
+   "tris": 13074,
    "materials": [
     "gun_steel",
     "gun_metal",
@@ -99,27 +99,27 @@
   },
   "grip_R": {
    "pos": [
-    0.0,
-    0.0,
-    0.0
+    1.0,
+    6.71,
+    -8.08
    ],
    "rot_deg": [
-    0,
-    0,
-    0
+    -0.0,
+    4.0,
+    -26.0
    ],
    "parent": null
   },
   "grip_L": {
    "pos": [
-    17.0,
-    -8.0,
-    6.0
+    8.0,
+    -27.0,
+    36.0
    ],
    "rot_deg": [
-    0,
-    0,
-    0
+    90.0,
+    30.0,
+    -0.0
    ],
    "parent": null
   },

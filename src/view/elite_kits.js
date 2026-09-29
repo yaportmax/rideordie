@@ -234,6 +234,7 @@ function glowMat(color, key) {
 }
 
 // ------------------------------------------------------------------------------------------------ nameplate
+const _np = new THREE.Vector3();
 function nameplate(name, colorHex) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 112;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -252,6 +253,11 @@ function nameplate(name, colorHex) {
     tex.needsUpdate = true;
   };
   draw(1);
+  // never over the top HUD (km readout + the warlord's own boss bar): fade out as the plate projects into the top band
+  sp.onBeforeRender = (renderer, scene, camera) => {
+    _np.setFromMatrixPosition(sp.matrixWorld).project(camera);
+    mat.opacity = _np.y > 0.64 ? 0 : _np.y > 0.5 ? (0.64 - _np.y) / 0.14 : 1;
+  };
   return { sprite: sp, draw };
 }
 

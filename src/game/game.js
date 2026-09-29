@@ -17,6 +17,7 @@ import { Fx } from '../view/fx.js';
 import { AudioSys } from '../core/audio.js';
 import { CarView, warmRaiderViews } from '../view/car_view.js';
 import { HazardMarks } from '../view/hazard_marks.js';
+import { BossMarks } from '../view/boss_marks.js';
 import { BossView } from '../view/boss_view.js';
 import { WeaponView } from '../view/weapon_view.js';
 import { CrewView } from '../view/crew_view.js';
@@ -121,7 +122,7 @@ export class Game {
     const g = new THREE.Group(); g.position.set(0, -5000, 0);
     // build the real view objects (same shadow/transparency flags => same shader programs as in play)
     for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333 }); g.add(v.root); }
-    for (const r of warmRaiderViews()) g.add(r); g.add(HazardMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
+    for (const r of warmRaiderViews()) g.add(r); g.add(HazardMarks.warmGroup()); g.add(BossMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
     g.add(new BossView(null).root);
     for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);
     for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);

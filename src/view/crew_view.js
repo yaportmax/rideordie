@@ -521,7 +521,11 @@ export class CrewView {
       this.acc.lerp(_v1, 1 - Math.exp(-dt * 7));
     }
     const kk = (this.role === 'driver' ? 0.022 : 0.038) * k;
-    this._swT.set(clamp(this.acc.x * kk, -0.45, 0.45), 0, clamp(-this.acc.z * kk * 0.8 + this.acc.y * 0.006, -0.35, 0.35));
+    // + a constant road bob that scales with speed (a rough road through stiff suspension: never a statue)
+    this.sawT += dt;
+    const rb = clamp((s.speed || 0) / 22, 0, 1) * (this.role === 'driver' ? 0.5 : 1) * k, t = this.sawT;
+    this._swT.set(clamp(this.acc.x * kk, -0.45, 0.45) + rb * (Math.sin(t * 2.3) * 0.045 + Math.sin(t * 5.1 + 1.7) * 0.018), 0,
+      clamp(-this.acc.z * kk * 0.8 + this.acc.y * 0.006, -0.35, 0.35) + rb * (Math.sin(t * 3.1 + 0.6) * 0.03 + Math.sin(t * 6.7) * 0.012));
     springStep(this.sway, this.swayV, this._swT, SWAY_W, SWAY_Z, dt);
     _v2.set(0, 0, 0); springStep(this.whip, this.whipV, _v2, WHIP_W, WHIP_Z, dt);
     // the car's roll / pitch axes seen from the body frame (the body is yawed inside the car-aligned root)

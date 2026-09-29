@@ -59,12 +59,24 @@ fp = [(-21, 60), (-19, 72), (-12, 82), (2, 88.5), (30, 90.5), (104, 90.5), (111,
       (20, 40), (-8, 47), (-17, 52)]
 fr = [2, 6, 8, 8, 4, 1.5, 2, 3, 5, 3, 6, 6, 6, 5, 3]
 frame_bm = K.rounded_prism(fp, -FRAME_HW, FRAME_HW, r=3.2, fillet=fr, fsegs=5, rsegs=3)
-cuts = [box_bm((CYL_X1 + 1.0 - (CYL_X0 - 0.5), 60, 81.5 - 37.0), c=((CYL_X1 + 1.0 + CYL_X0 - 0.5) / 2, 0, (81.5 + 37.0) / 2)),   # cylinder window
+# cylinder window with radiused corners (forged frame, not a milled box)
+_wx0, _wx1, _wz0, _wz1 = CYL_X0 - 0.5, CYL_X1 + 1.0, 37.0, 81.5
+_win = prism_bm([(_wx0, _wz0), (_wx1, _wz0), (_wx1, _wz1), (_wx0, _wz1)], -30, 30, fillet=[3.5, 3.5, 5.0, 5.0], fsegs=4)
+# top strap: broad chamfers along both upper edges (trapezoid section) + lower front edges of the frame under the cylinder
+_ch = []
+for sy in (-1, 1):
+    _ch.append(box_bm((116.0, 9.0, 9.0), c=(45.0, sy * (FRAME_HW + 1.2), 91.2), rot=(45, 0, 0)))
+    _ch.append(box_bm((62.0, 7.0, 7.0), c=(84.0, sy * (FRAME_HW + 1.4), 28.2), rot=(45, 0, 0)))
+cuts = [_win,                                                                                                                      # cylinder window
         box_bm((40, 11.4, 30), c=(10, 0, 84)),                                                                                    # hammer slot
         box_bm((16, 8.6, 12), c=(38, 0, 32)),                                                                                     # trigger slot
         box_bm((6, 14, 22), c=(103.5, 13, 46)),                                                                                   # crane recess (left)
-        cyl_bm((103, 0, BORE_Z), (115, 0, BORE_Z), 11.4, segs=28)]                                                                # barrel shank hole
+        cyl_bm((103, 0, BORE_Z), (115, 0, BORE_Z), 11.4, segs=28)] + _ch                                                          # barrel shank hole
 body.add(bool_op(frame_bm, cuts), "gun_steel", bevel=0)
+# recoil shield boss (raised round face behind the cylinder, both sides) - breaks up the flat frame side
+for sy in (-1, 1):
+    _rs = cyl_bm((47.0, sy * (FRAME_HW - 0.5), CYL_Z), (47.0, sy * (FRAME_HW + 0.7), CYL_Z), 16.5, segs=40)
+    body.add(bool_op(_rs, [box_bm((40, 10, 40), c=(47.0 + 20.0 + 6.5, sy * FRAME_HW, CYL_Z))]), "gun_steel", bevel=0.5)
 # round trigger guard (part of the frame)
 tg = sweep_bm([(32, 0, 32), (30, 0, 22), (38, 0, 13.5), (56, 0, 10.5), (78, 0, 12.5), (92, 0, 20), (96, 0, 29)], radius=1.0, segs=4,
               profile=[(5.6, 2.3), (-5.6, 2.3), (-5.6, -2.3), (5.6, -2.3)], smooth=5)
@@ -106,14 +118,49 @@ body.lathe([(101.0, 0), (101.0, 12.3), (104.5, 12.3), (104.5, 0)], c=(0, 0, BORE
 body.cyl((240.9, 0, 58.0), (241.3, 0, 58.0), 2.2, segs=12, mat="gun_steel", bevel=0.0)
 
 # ================================================================== GRIP (checkered walnut, round butt) + medallions
-gl = [(15, 50), (19, 22), (21, 0), (20, -26), (17, -46), (11, -56), (-18, -56), (-26, -40), (-29, -12), (-27, 18), (-21, 50)]
-grip_side = [gp(lx, lz) for lx, lz in gl]
-grip = K.rounded_prism([(p[0], p[2]) for p in grip_side], -16.5, 16.5, r=8.5, fillet=[2, 8, 8, 8, 8, 10, 10, 10, 10, 8, 2], fsegs=4, rsegs=4)
-body.add(grip, "wood", bevel=0)
+# grip-local sections (lz along the grip axis, lx forward): front, back, width.  Palm swell at lz ~ -10, round butt.
+GRIP = [(56, 15.0, -20.0, 29.5), (46, 16.2, -22.5, 31.0), (30, 18.4, -25.8, 32.8), (12, 20.2, -28.0, 34.4), (-6, 20.8, -28.9, 35.2),
+        (-22, 20.2, -28.6, 35.2), (-36, 18.6, -27.4, 34.2), (-46, 15.8, -25.2, 32.6), (-52, 11.8, -22.0, 30.4), (-55.4, 6.0, -17.0, 27.2),
+        (-57.4, -1.0, -11.0, 21.0), (-58.2, -4.5, -7.5, 11.0)]
+
+
+def grip_half_w(lz):
+    zs = [g[0] for g in GRIP][::-1]
+    return float(np.interp(lz, zs, [g[3] for g in GRIP][::-1])) / 2
+
+
+def revolver_grip(N=56, e=3.2):
+    rings = []
+    for lz, fr, bk, wd in GRIP:
+        cx, a, b = (fr + bk) / 2, (fr - bk) / 2, wd / 2
+        ring = []
+        for k in range(N):
+            t = 2 * math.pi * k / N
+            ct, st = math.cos(t), math.sin(t)
+            lx = cx + a * math.copysign(abs(ct) ** (2 / e), ct)
+            y = b * math.copysign(abs(st) ** (2 / e), st)
+            if ct > 0.35:                      # finger grooves on the front strap (middle / ring finger)
+                g = sum(2.1 * math.exp(-((lz - c0) / 6.5) ** 2) for c0 in (-4.0, -27.0))
+                lx -= g * min(1.0, (ct - 0.35) / 0.4)
+            ring.append(gv(lx, lz, y))
+        rings.append(ring)
+    bm = bmesh.new()
+    vr = [[bm.verts.new(v) for v in r] for r in rings]
+    for i in range(len(vr) - 1):
+        for k in range(N):
+            k2 = (k + 1) % N
+            bm.faces.new((vr[i][k], vr[i][k2], vr[i + 1][k2], vr[i + 1][k]))
+    bm.faces.new(list(reversed(vr[0])))
+    bm.faces.new(vr[-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return bm
+
+
+body.add(revolver_grip(), "wood", bevel=0)
 for sy in (-1, 1):
-    body.add(K.rivet(gp(-4.0, 22.0, sy * 16.4), (0, sy, 0), 5.8, 0.8, segs=24), "gun_steel", bevel=0)
-    body.add(K.screw_head(gp(-4.0, -22.0, sy * 16.6), (0, sy, 0), 2.4, 0.8), "gun_steel", bevel=0)
-body.add(box_bm((24, 26, 2.2), c=gp(-3.5, -55.8), rot=(0, GA, 0)), "gun_steel", bevel=0.8)
+    body.add(K.rivet(gp(-4.0, 22.0, sy * (grip_half_w(22.0) - 0.25)), (0, sy, 0), 5.8, 0.8, segs=24), "gun_steel", bevel=0)
+    body.add(K.screw_head(gp(-4.0, -22.0, sy * (grip_half_w(-22.0) - 0.15)), (0, sy, 0), 2.4, 0.8), "gun_steel", bevel=0)
+# (butt: the wood wraps the round butt completely - no steel butt cap)
 
 # ================================================================== HAMMER (moving)
 ham = G.part("hammer", pivot=(HAMMER_PIN[0], 0, HAMMER_PIN[1]))

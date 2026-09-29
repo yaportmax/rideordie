@@ -120,13 +120,13 @@ const SLEEVE_ALBEDO = /* glsl */`
 // when aiming; fov: viewmodel vertical FOV [hip, ads]; rec: [kick back m, climb deg, yaw deg, roll deg]; lRot/rRot: extra hand
 // rotation on the grip sockets (deg, socket axes); sh: shoulder-centre offset (camera space); blade: torso yaw (rad).
 export const TUNE = {
-  pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_pistol', rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.17, fov: [62, 56], pose: 'pose_rifle', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
-  shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], pose: 'pose_rifle', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
+  pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', support: [0.0424, -0.0214, 0.0081, -0.4666, 0.3715, 0.5124, 0.6178], rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.0424, -0.0214, 0.0081, -0.4666, 0.3715, 0.5124, 0.6178], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.17, fov: [62, 56], pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
+  shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], pose: 'pose_shotgun', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rec: [0.032, 3.0, 1.0, 2.0], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
-  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_rifle', rec: [0.032, 2.7, 1.4, 2.6], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
-  sniper: { hip: [0.165, -0.27, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_rifle', rec: [0.10, 9, 1.5, 4], reload: 'mag', bolt: true, blade: -0.45, sh: [0.02, -0.24, 0.04] },
+  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_lmg', rec: [0.032, 2.7, 1.4, 2.6], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
+  sniper: { hip: [0.165, -0.27, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_sniper', rec: [0.10, 9, 1.5, 4], reload: 'mag', bolt: true, blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rpg: { hip: [0.16, -0.24, -0.28], hipRot: [0, 2, -2], relief: 0.02, fov: [62, 50], pose: 'pose_launcher', rec: [0.10, 6, 1.5, 3], reload: 'rpg', blade: -0.45, sh: [0.02, -0.24, 0.04] },
 };
 // hand orientations for non-grip anchors (virtual socket Euler XYZ, deg, gun-model axes)
@@ -452,14 +452,32 @@ export class ViewModel {
     this.armBones = []; for (const s of ['Right', 'Left']) for (const n of ['Shoulder', 'Arm', 'ForeArm', 'Hand']) this.armBones.push(B[s + n]);
     // finger poses (pose clips, finger tracks only)
     this.mixer = new THREE.AnimationMixer(model);
-    this.poses = {};
+    this.poses = {};    // pose name -> {L, R} finger-only actions (per hand, so the support hand can open while the gun hand grips)
     const FING = /Hand(Thumb|Index|Middle|Ring|Pinky)\d/;
     for (const c of fpClips || Assets.getAnimations(url)) {
       if (!/^pose_/.test(c.name)) continue;
-      const clip = new THREE.AnimationClip(c.name + '_f', c.duration, c.tracks.filter((t) => FING.test(t.name.split('.')[0])));
-      const a = this.mixer.clipAction(clip); a.play(); a.setEffectiveWeight(0); this.poses[c.name] = a;
+      const mk = (side) => {
+        const tr = c.tracks.filter((t) => { const b = t.name.split('.')[0]; return FING.test(b) && b.startsWith(side); });
+        if (!tr.length) return null;
+        const a = this.mixer.clipAction(new THREE.AnimationClip(c.name + '_' + side, c.duration, tr)); a.play(); a.setEffectiveWeight(0); return a;
+      };
+      this.poses[c.name] = { L: mk('Left'), R: mk('Right') };
     }
-    if (this.T) for (const [n, a] of Object.entries(this.poses)) a.setEffectiveWeight(n === this.T.pose ? 1 : 0);
+    this._poseKey = null;
+  }
+
+  /** Finger poses: the weapon's grip pose on both hands; the support hand opens (pose_open) while it reaches for mags, handles... */
+  _setPoses(T, openL) {
+    const P = this.poses; if (!P) return;
+    const pose = P[T.pose] ? T.pose : P[T.poseAlt] ? T.poseAlt : 'pose_rifle';
+    const open = P.pose_open ? openL : 0;
+    const key = pose + '|' + open.toFixed(2);
+    if (key === this._poseKey) return;
+    this._poseKey = key;
+    for (const [n, h] of Object.entries(P)) {
+      if (h.R) h.R.setEffectiveWeight(n === pose ? 1 : 0);
+      if (h.L) h.L.setEffectiveWeight(n === pose ? 1 - open : n === 'pose_open' ? open : 0);
+    }
   }
 
   /** Swap in the dedicated first-person arms asset once it has loaded (no-op when the file does not exist). */
@@ -533,7 +551,6 @@ export class ViewModel {
       for (const f of [this.flashStar, this.flashCone, this.flashStar2]) this.gun.sockets.muzzle ? this.gun.sockets.muzzle.add(f) : null;
       if (this.T.reticle && this.gun.sockets.sight) this.gun.sockets.sight.add(this.reticle); else this.reticle.removeFromParent();
       this.reticle.position.set(0, 0, this.T.reticle || 0.1);
-      for (const [n, a] of Object.entries(this.poses)) a.setEffectiveWeight(n === this.T.pose ? 1 : 0);
     }
     const gun = this.gun, T = this.T, cur = showId === id;
     const dbg = window.__vmDbg;
@@ -797,7 +814,10 @@ export class ViewModel {
     // out: {p: Vector3 camera space, q: Quaternion camera space}
     const W = gun, root = W.root, A = ANCH[name];
     const P = out.p, Q = out.q;
-    if (name === 'grip') {           // live socket (the shotgun's grip_L rides the pump)
+    if (name === 'support') {        // pistols: the support hand wraps the gun hand (relation from the hero's two-handed pose_pistol)
+      const s = W.loc.grip_R, S = this.T.support;
+      P.set(S[0], S[1], S[2]).applyQuaternion(s.q).add(s.p); Q.copy(s.q).multiply(_q3.set(S[3], S[4], S[5], S[6]));
+    } else if (name === 'grip') {    // live socket (the shotgun's grip_L rides the pump)
       const s = W.sockets.grip_L || W.sockets.grip_R;
       s.getWorldPosition(P); root.worldToLocal(P);
       s.getWorldQuaternion(Q); Q.premultiply(root.getWorldQuaternion(_q3).invert());
@@ -825,6 +845,11 @@ export class ViewModel {
   _arms(dt, gun, T, R, act, ads, thr) {
     const B = this.B;
     for (const b of this.armBones) b.quaternion.identity();
+    const lh = R.lh, REACH = lh.b === 'pocket' || lh.b === 'cover' || lh.b === 'charge' || lh.b === 'slide' || lh.b === 'port' || lh.b === 'cyl' || lh.b === 'tray';
+    let openL = lh.a !== lh.b ? Math.sin(Math.PI * lh.w) * 0.9 : 0;
+    if (REACH) openL = Math.max(openL, 0.55 * lh.w);
+    if (thr > 0) openL = Math.max(openL, sstep(0.0, 0.1, thr) * (1 - sstep(0.6, 0.9, thr)));
+    this._setPoses(T, openL);
     this.mixer.update(0);
     // torso: shoulders under/behind the eye, bladed; follows a bit of the gun's recoil / reload motion
     const sh = T.sh;
@@ -846,6 +871,7 @@ export class ViewModel {
     // left hand
     const aL = this._aL || (this._aL = { p: new THREE.Vector3(), q: new THREE.Quaternion() });
     const aT = this._aT || (this._aT = { p: new THREE.Vector3(), q: new THREE.Quaternion() });
+    if (T.support) { if (R.lh.a === 'grip') R.lh.a = 'support'; if (R.lh.b === 'grip') R.lh.b = 'support'; }
     this._anchor(R.lh.a, gun, aL);
     if (R.lh.a === 'grip' && T.lRot) aL.q.multiply(_q.setFromEuler(_e.set(T.lRot[0] * DEG, T.lRot[1] * DEG, T.lRot[2] * DEG)));
     if (R.lh.w > 0 && R.lh.b !== R.lh.a) {

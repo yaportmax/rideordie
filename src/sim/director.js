@@ -38,6 +38,7 @@ export class Director {
       P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4);
     }
     const L = this.level = levelAt(P.s, sim.time);
+    this._runQueue(sim);
     this._bosses(sim, P, L);
     if (sim.boss && !sim.boss.dead) {
       // the Leviathan brings its own raiders (ramp); its fight keeps the damage scaling it was tuned with
@@ -154,35 +155,43 @@ export class Director {
     // (far enough that nobody pops into view: the haze and the mirrors are kind at 250+ m ahead / 140+ m behind)
     const baseAhead = this.encounters === 0 ? r.range(160, 180) : r.range(250, 300), baseBehind = r.range(140, 170);
     const flip = r() < 0.5 ? 1 : -1;
-    let n = 0, ai = 0, bi = 0;
-    const squad = [];
+    let ai = 0, bi = 0;
+    const jobs = [];
     for (const c of E.cars) {
       if ((c.minLevel ?? 0) > L) continue;
       const k = this._carKey(c, L);
       const side = (c.side || (r() < 0.5 ? 1 : -1)) * flip;
-      let at;
-      if (c.at === 'park') {
-        // waiting on the shoulder ahead, both sides of the road
-        const s = P.s + baseAhead - 40 + ai++ * 22;
-        const d = side * (HALF_ROAD - 1.7);
-        at = { s, d, speed: pv * 0.45, park: true };
-      } else if (c.at === 'ahead') {
-        const s = P.s + baseAhead + ai++ * 16;
-        at = { s, d: c.role === 'flanker' ? side * 4.2 : r.pick([-1.7, 1.7]), speed: pv * 0.72 };
-      } else if (pv > 40 && r() < Math.min(1, (pv - 40) / 14)) {
+      // placement relative to the truck, resolved when the car actually spawns (squads arrive one car per few frames)
+      let rel;
+      if (c.at === 'park') rel = { ds: baseAhead - 40 + ai++ * 22, d: side * (HALF_ROAD - 1.7), vMul: 0.45, vAdd: 0, park: true };   // waiting on the shoulder ahead
+      else if (c.at === 'ahead') rel = { ds: baseAhead + ai++ * 16, d: c.role === 'flanker' ? side * 4.2 : r.pick([-1.7, 1.7]), vMul: 0.72, vAdd: 0 };
+      else if (pv > 40 && r() < Math.min(1, (pv - 40) / 14)) {
         // a fast truck outruns anything spawned behind it: at speed the squad comes from up the road instead (and adapts:
         // rammers / chasers drop back through the next lane, flankers ease onto your flanks)
-        const s = P.s + baseAhead + ai++ * 16;
-        at = { s, d: side * r.range(1.7, 4.6), speed: pv * 0.8 };
-      } else {
-        const s = P.s - baseBehind - bi++ * 14;
-        at = { s, d: c.role === 'flanker' || c.mode === 'overtake' ? side * 4.6 : r.pick(LANES), speed: pv + (c.role === 'chaser' && !c.mode ? 8 : 14) };
-      }
-      const car = this.spawn(sim, k, L, { behavior: c.role, side, mode: c.at === 'park' ? 'ambush' : c.mode, next: c.at === 'park' ? c.role : c.next, at, gap: c.gap, squad: key });
-      if (car) { n++; squad.push(car); if (at.park) car.ai.parkD = at.d; }
+        rel = { ds: baseAhead + ai++ * 16, d: side * r.range(1.7, 4.6), vMul: 0.8, vAdd: 0 };
+      } else rel = { ds: -baseBehind - bi++ * 14, d: c.role === 'flanker' || c.mode === 'overtake' ? side * 4.6 : r.pick(LANES), vMul: 1, vAdd: c.role === 'chaser' && !c.mode ? 8 : 14 };
+      jobs.push(() => {
+        const Pn = sim.player, pvn = Math.max(10, Pn.veh.vf);
+        const at = { s: Pn.s + rel.ds, d: rel.d, speed: pvn * rel.vMul + rel.vAdd, park: rel.park };
+        const car = this.spawn(sim, k, L, { behavior: c.role, side, mode: c.at === 'park' ? 'ambush' : c.mode, next: c.at === 'park' ? c.role : c.next, at, gap: c.gap, squad: key });
+        if (car && at.park) car.ai.parkD = at.d;
+        return car;
+      });
     }
-    if (n) sim.emit({ t: 'encounter', key, ids: squad.map((c) => c.id), level: +L.toFixed(3) });
-    return n;
+    if (!jobs.length) return 0;
+    const first = jobs.shift()();
+    if (!first) return 0;
+    for (const j of jobs) this.queue(j);
+    sim.emit({ t: 'encounter', key, ids: [first.id], n: jobs.length + 1, level: +L.toFixed(3) });
+    return jobs.length + 1;
+  }
+
+  /** Deferred spawns: at most one new raider every ~0.13 s, so a squad never builds 3-4 car views (+ crews) in one frame. */
+  queue(job) { (this.spawnQ || (this.spawnQ = [])).push(job); }
+  _runQueue(sim) {
+    const q = this.spawnQ; if (!q || !q.length || sim.time < (this.nextQT || 0)) return;
+    this.nextQT = sim.time + 0.13;
+    q.shift()();
   }
 
   _cleanup(sim, P) {
@@ -311,7 +320,7 @@ export class Director {
     // nobody made it onto the road: try again next tick (and do NOT spawn the escorts, or they pile up every frame)
     if (!cars.length) { this.minibossDone.delete(index); return; }
     if (cars.length === 2) { cars[0].ai.pattern.partner = cars[1]; cars[1].ai.pattern.partner = cars[0]; }
-    (M.escorts || []).forEach((e, i) => this.spawn(sim, e, L, { behavior: i % 2 ? 'flanker' : 'chaser', side: i % 2 ? 1 : -1, at: { s: P.s - 150 - i * 14, d: (i % 2 ? 1 : -1) * 3.4, speed: pv + 10 } }));
+    (M.escorts || []).forEach((e, i) => this.queue(() => { const Pn = sim.player; return this.spawn(sim, e, L, { behavior: i % 2 ? 'flanker' : 'chaser', side: i % 2 ? 1 : -1, at: { s: Pn.s - 150 - i * 14, d: (i % 2 ? 1 : -1) * 3.4, speed: Math.max(12, Pn.veh.vf) + 10 } }); }));
     this.activeElite = { index, name: M.name, cars, maxHp: cars.reduce((a, c) => a + c.maxHp, 0), hp01: 1 };
     sim.emit({ t: 'minibossSpawn', index, name: M.name, title: M.title || '', ids: cars.map((c) => c.id), weak: M.weak?.label || '' });
   }

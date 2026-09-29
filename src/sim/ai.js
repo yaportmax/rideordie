@@ -218,7 +218,7 @@ export class EnemyBrain {
         const alive = [...sim.cars.values()].filter((c) => c.kind === 'enemy' && !c.exploded).length;
         if (alive < (this.pattern?.summonCap ?? 5)) {
           const kinds = this.pattern?.summonKinds || ['e_buggy', 'e_buggy'];
-          kinds.forEach((k, i) => sim.director.spawn(sim, k, L, { behavior: 'flanker', side: i % 2 ? 1 : -1, at: { s: P.s - 105 - i * 12, d: (i % 2 ? 1 : -1) * 3.4, speed: pv + 14 } }));
+          kinds.forEach((k, i) => sim.director.queue(() => { const Pn = sim.player; return sim.director.spawn(sim, k, L, { behavior: 'flanker', side: i % 2 ? 1 : -1, at: { s: Pn.s - 105 - i * 12, d: (i % 2 ? 1 : -1) * 3.4, speed: Math.max(0, Pn.veh.vf) + 14 } }); }));
           sim.emit({ t: 'summon', id: car.id });
         }
       }

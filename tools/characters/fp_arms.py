@@ -13,12 +13,20 @@ Stage 2 (Blender): Catmull-Clark subdivision, glove shells (offset skin + stitch
                    the most texels); Cycles AO bake; per-vertex region fields; weights transferred to every added piece.
 Stage 3 (numpy):   per-texel painting from exact 3D fields (skin pores / knuckle creases / nails, leather grain + scuffs,
                    stitches, weave, grime), height -> normal map, ORM; skeleton with IDENTITY rest rotations (the shared
-                   rig contract), sockets socket_hand_R/L (= hero_gunner's), finger pose clips pose_rifle / pose_pistol /
-                   pose_launcher / pose_open, written with glb.py (WebP textures).
+                   rig contract), anatomical hand sockets (fp_arms_fit.socket_R / socket_L), finger pose clips from
+                   fp_arms_poses.json, written with glb.py (WebP textures).
+
+Hands on the guns (after stage 2, whenever a weapon changes):
+    blender -b --factory-startup -P tools/blender/weapons/grip_extract.py            # weapon meshes -> _cache/fp_arms/gun_*.npz
+    python tools/characters/fp_arms_place.py [gun ...]     # grip_R/grip_L placements (hand_sockets.json) + finger clips (fp_arms_poses.json)
+    python tools/blender/weapons/patch_hand_sockets.py     # write the sockets into the GLBs in place (a weapon rebuild does it too)
+    python tools/characters/fp_arms.py --stage 3 --reuse   # re-export fp_arms.glb with the new clips (textures cached)
 
 Contract (for src/view/viewmodel.js): bones Spine2 > Left/RightShoulder > Arm > ForeArm > Hand > Hand{Thumb..Pinky}{1..3},
 identity rest rotations, character faces +Z, left = +X, metres; sockets socket_hand_R / socket_hand_L (children of the hand
-bones, grip centre, +Z weapon forward / +Y up in pose_rifle); clips carry finger tracks only.
+bones; the IK puts them exactly on the weapon's grip_R / grip_L, whose rotations carry the per-weapon hand placement, so
+TUNE.lRot / rRot should stay [0,0,0]); clips carry finger tracks only: pose_rifle, pose_pistol, pose_launcher, pose_open +
+per-weapon pose_smg, pose_shotgun, pose_lmg, pose_sniper, pose_revolver.
 """
 import json
 import os
