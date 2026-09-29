@@ -166,7 +166,9 @@ export class Run {
         gs.weapon = this.gunner.cur; gs.reloading = this.gunner.reloading; gs.x = this.gunner.pos.x; gs.z = this.gunner.pos.z;
       } else { const r = this.gunnerRemote; gs.aimYaw = r.yaw; gs.aimPitch = r.pitch; gs.fire = r.fire; gs.crouch = r.crouch; gs.ads = r.ads; gs.weapon = r.weapon; gs.reloading = r.reloading; gs.x = r.x; gs.z = r.z; }
       const B = this.sim.boss;
-      this.slowmo = B && B.dead && B.deathT < 5.5 ? (B.deathT < 0.4 ? 0.2 : Math.min(1, 0.25 + (B.deathT - 0.4) * 0.12)) : (this.slowmo ? Math.min(1, this.slowmo + dt * 0.6) : 1);
+      // adrenaline pulse: a heartbeat of slow motion on big close explosions / triple kills
+      if (this.pulseT > 0) this.pulseT -= dt;
+      this.slowmo = this.pulseT > 0 && !(B && B.dead) ? 0.45 : B && B.dead && B.deathT < 5.5 ? (B.deathT < 0.4 ? 0.2 : Math.min(1, 0.25 + (B.deathT - 0.4) * 0.12)) : (this.slowmo ? Math.min(1, this.slowmo + dt * 0.6) : 1);
       if (this.slowmo >= 1) this.slowmo = 0;
       this.acc += dt * (this.slowmo || 1);
       let steps = 0;
@@ -340,6 +342,7 @@ export class Run {
       if (e.t === 'playerDown') this.g.hud.message(e.why === 'car' ? 'TRUCK DESTROYED' : e.why === 'driver' ? 'DRIVER DOWN' : 'GUNNER DOWN', 2400, '#ff4433');
       if (e.t === 'crash' && e.id === 1) { this.chase.shake.add(clamp(e.dv * 0.05, 0, 0.7)); this.gcam.shake.add(clamp(e.dv * 0.05, 0, 0.7)); if (e.dv > 2.5) { this.g.hud.damageFlash(clamp(e.dv * 0.08, 0.2, 0.6)); this.g.input.rumble(0.8, 0.6, 200); } }
       if (e.t === 'crewHit' && e.id === 1) { this.g.hud.damageFlash(0.45); this.chase.shake.add(0.12); this.gcam.shake.add(0.15); this.g.input.rumble(0.3, 0.7, 90); }
+      if (e.t === 'explode' && e.size >= 1.8 && this.states.get(1) && this.states.get(1).pos.distanceTo(_v.fromArray(e.pos)) < 70 && !(this.lastPulse > this.time - 6)) { this.pulseT = 0.35; this.lastPulse = this.time; }
       if (e.t === 'explode') { const p = this.states.get(1); const d = p ? p.pos.distanceTo(_v.fromArray(e.pos)) : 999; const k = clamp(1 - d / 90, 0, 1) * e.size; this.chase.shake.add(k * 0.8); this.gcam.shake.add(k * 0.8); if (k > 0.3) this.g.input.rumble(0.6, 0.4, 250); }
     }
   }
@@ -528,6 +531,7 @@ function g_kill(run, e) {
   if (run.streakT <= 0) run.multi = 0;
   run.streakT = 3.5; run.multi++; run.bestMulti = Math.max(run.bestMulti || 0, run.multi);
   if (run.multi >= 2) mult *= 1 + Math.min(run.multi - 1, 5) * 0.15;
+  if (run.multi === 3 && !(run.lastPulse > run.time - 6)) { run.pulseT = 0.3; run.lastPulse = run.time; }
   const cash = Math.round(base * mult * run.effects.cashMul);
   run.cash += cash;
   run.sim.stats.cash = run.cash;
