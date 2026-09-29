@@ -170,7 +170,7 @@ def box_uv2(obj, scales, default=(0.8, 1.0)):
     """World box projection per face with a per-material scale: UVMap (albedo/grunge, scale s0) and UV1 (detail normal, scale s1).
     scales: {material name: (s0, s1)}.  uv = metres * scale."""
     me = obj.data
-    for layer in ('UVMap', 'UV1'):
+    for layer in ('UVMap',):
         if layer not in me.uv_layers:
             me.uv_layers.new(name=layer)
     nl = len(me.loops)
@@ -201,10 +201,8 @@ def box_uv2(obj, scales, default=(0.8, 1.0)):
     v = np.where(ax == 2, y, z)
     names = [m.name if m else '' for m in me.materials]
     s0 = np.array([scales.get(n, default)[0] for n in names] or [default[0]])[mi][lp]
-    s1 = np.array([scales.get(n, default)[1] for n in names] or [default[1]])[mi][lp]
     off = (hash(obj.name) % 997) / 997.0
     me.uv_layers['UVMap'].data.foreach_set('uv', np.stack([u * s0 + off, v * s0 + off * 0.7], axis=1).astype(np.float32).ravel())
-    me.uv_layers['UV1'].data.foreach_set('uv', np.stack([u * s1 + off * 0.3, v * s1 + off * 0.9], axis=1).astype(np.float32).ravel())
     me.uv_layers.active = me.uv_layers['UVMap']
     try:
         me.uv_layers['UVMap'].active_render = True
@@ -272,21 +270,24 @@ def gray_array(name, size):
     return g
 
 
-def hook_normal(matname, img, strength=1.0, uv='UV1'):
-    """Tangent-space normal map on a palette material (glTF normalTexture; texCoord from the UV layer)."""
+def hook_normal(matname, img, strength=1.0, scale=1.0):
+    """Tangent-space normal map on a palette material (glTF normalTexture on UV0; scale != 1 exports as KHR_texture_transform,
+    so a fine detail normal can tile faster than the albedo/grunge map)."""
     m = M(matname)
     nt = m.node_tree
     bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
     tex = nt.nodes.new('ShaderNodeTexImage')
     tex.image = img
-    if uv:
+    if abs(scale - 1.0) > 1e-4:
         uvn = nt.nodes.new('ShaderNodeUVMap')
-        uvn.uv_map = uv
-        nt.links.new(uvn.outputs['UV'], tex.inputs['Vector'])
+        uvn.uv_map = 'UVMap'
+        mp = nt.nodes.new('ShaderNodeMapping')
+        mp.vector_type = 'POINT'
+        mp.inputs['Scale'].default_value = (scale, scale, 1.0)
+        nt.links.new(uvn.outputs['UV'], mp.inputs['Vector'])
+        nt.links.new(mp.outputs['Vector'], tex.inputs['Vector'])
     nm = nt.nodes.new('ShaderNodeNormalMap')
     nm.inputs['Strength'].default_value = strength
-    if uv:
-        nm.uv_map = uv
     nt.links.new(tex.outputs['Color'], nm.inputs['Color'])
     nt.links.new(nm.outputs['Normal'], bsdf.inputs['Normal'])
 
@@ -340,6 +341,31 @@ def bake_ao(objs, dist=1.0, samples=48, ground=True):
         bpy.data.objects.remove(gobj, do_unlink=True)
 
 
+_CONVEX = None
+
+
+def convexity(me, co, nm):
+    """per-vertex convexity ~[-1, 1] from edge neighbours (positive on outward-bent edges / lips / knobs)."""
+    ne = len(me.edges)
+    if ne == 0:
+        return np.zeros(len(co))
+    ev = np.empty(ne * 2, dtype=np.int32)
+    me.edges.foreach_get('vertices', ev)
+    ev = ev.reshape(-1, 2)
+    a, b = ev[:, 0], ev[:, 1]
+    d = co[b] - co[a]
+    L = np.linalg.norm(d, axis=1) + 1e-9
+    ca = -np.einsum('ij,ij->i', nm[a], d) / L        # neighbour b lies below a's tangent plane -> convex at a
+    cb = np.einsum('ij,ij->i', nm[b], d) / L
+    acc = np.zeros(len(co))
+    cnt = np.zeros(len(co))
+    np.add.at(acc, a, ca)
+    np.add.at(acc, b, cb)
+    np.add.at(cnt, a, 1)
+    np.add.at(cnt, b, 1)
+    return acc / np.maximum(cnt, 1)
+
+
 def shade_vcol(objs, fn, ao_strength=0.85):
     """Rewrite Col = fn(ao, x, f, z, nx, nf, nz) per point (world game coords). fn returns (r,g,b) arrays or a gray array."""
     for o in objs:
@@ -359,6 +385,8 @@ def shade_vcol(objs, fn, ao_strength=0.85):
         me.vertices.foreach_get('normal', nm)
         nm = nm.reshape(-1, 3)
         x, f, z = co[:, 0], -co[:, 1], co[:, 2]
+        global _CONVEX
+        _CONVEX = convexity(me, co, nm)
         res = fn(ao ** ao_strength if False else ao, x, f, z, nm[:, 0], -nm[:, 1], nm[:, 2])
         if isinstance(res, tuple):
             r, g, b = res
@@ -480,7 +508,10 @@ def vert_mask(o, names):
     return mask
 
 
-def finish_colors(objs, wheel_objs, wear=0.5, ao_dist=0.55, samples=40, dirt=0.35):
+CAB_BASE = 0.8
+
+
+def finish_colors(objs, wheel_objs, wear=0.5, ao_dist=0.55, samples=40, dirt=0.35, cab=None):
     """AO bake + dirt/grime gradient into Col (grayscale, multiplies base colour in the engine)."""
     allo = objs + wheel_objs
     for o in allo:
@@ -497,6 +528,16 @@ def finish_colors(objs, wheel_objs, wear=0.5, ao_dist=0.55, samples=40, dirt=0.3
     def body_fn(ao, x, f, z, nx, nf, nz):
         a = 0.30 + 0.70 * np.clip(ao, 0, 1) ** 1.25
         low = 1.0 - dirt * (1.0 - np.clip((z - 0.15) / 0.9, 0, 1)) ** 1.5
+        if cab is not None:
+            # inside the cab: everything is occluded by the roof -> a softer AO curve (sky + bounce light) and no road grime
+            hx, f0, f1, z0, z1 = cab
+            ins = np.clip((hx - np.abs(x)) / 0.04, 0, 1) * np.clip((f - f0) / 0.04, 0, 1) * np.clip((f1 - f) / 0.04, 0, 1) * np.clip((z - z0) / 0.04, 0, 1) * np.clip((z1 - z) / 0.04, 0, 1)
+            # headroom: cab albedos are brightened by 1/CAB_BASE (build.py), so worn convex edges and dusty tops can go brighter
+            cv = np.clip(_CONVEX * 2.5, -1, 1) if _CONVEX is not None else 0.0
+            dust = 0.06 * np.clip(nz, 0, 1) ** 2
+            a_in = (0.5 + 0.5 * np.clip(ao, 0, 1) ** 1.1) * CAB_BASE * (1.0 + 0.24 * np.clip(cv, 0, 1) - 0.12 * np.clip(-cv, 0, 1)) + dust
+            a = a * (1 - ins) + np.clip(a_in, 0, 1) * ins
+            low = low * (1 - ins) + ins
         n = 1.0 + 0.07 * vnoise(x, f, z, 1.3, 2.0) + 0.05 * vnoise(x, f, z, 4.0, 5.0)
         up = 1.0 + 0.06 * np.clip(nz, 0, 1) * (1.0 - wear * 0.3)
         g = np.clip(a * low * n * up, 0.05, 1.0)

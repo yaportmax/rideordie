@@ -1,0 +1,36 @@
+{
+ "id": "wreck_flipped",
+ "file": "models/structures/wreck_flipped.glb",
+ "tris": 562,
+ "collision_tris": 12,
+ "size_kb": 49.7,
+ "bbox_min": [
+  -1.43,
+  -0.27,
+  -2.35
+ ],
+ "bbox_max": [
+  1.04,
+  1.33,
+  2.17
+ ],
+ "dims": [
+  2.47,
+  1.6,
+  4.52
+ ],
+ "materials": [
+  "metal_dark",
+  "rubber",
+  "rust"
+ ],
+ "nodes": {
+  "rust": 224,
+  "metal_dark": 206,
+  "rubber": 132
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+ }
+}

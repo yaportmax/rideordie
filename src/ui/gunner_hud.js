@@ -25,7 +25,7 @@ const CSS = `
 #ghud .kr{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;border:3px solid rgba(255,60,40,.85);border-radius:50%;opacity:0}
 #ghud .kt{position:absolute;left:50%;top:calc(50% + 46px);transform:translateX(-50%);font:800 italic 17px 'Bahnschrift','Segoe UI Semibold',sans-serif;letter-spacing:3px;color:#ff4a30;text-shadow:0 1px 3px #000,0 0 10px rgba(255,40,20,.6);opacity:0;white-space:nowrap}
 #ghud .dm{position:absolute;left:50%;top:50%;width:0;height:0}
-#ghud .dm div{position:absolute;left:-150px;top:-150px;width:300px;height:300px;border-radius:50%;border:7px solid transparent;border-top-color:rgba(255,34,18,.95);opacity:0;filter:drop-shadow(0 0 6px rgba(255,0,0,.7))}
+#ghud .dm div{position:absolute;left:-150px;top:-150px;width:300px;height:300px;border-radius:50%;border:5px solid transparent;border-top-color:rgba(255,34,18,.95);opacity:0;filter:drop-shadow(0 0 5px rgba(255,0,0,.6))}
 #ghud .am{position:absolute;right:34px;bottom:26px;text-align:right;font-family:'Bahnschrift','Segoe UI Semibold','Arial Narrow',sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.85)}
 #ghud .am .wn{display:block;font-size:14px;letter-spacing:3px;opacity:.9}
 #ghud .am b{font-size:56px;font-weight:800;font-style:italic;line-height:.95}
@@ -99,13 +99,14 @@ export class GunnerHud {
     const cam = d.cam; if (!cam || !d.events) return;
     for (const e of d.events) {
       let src = null;
-      if (e.t === 'hit' && e.enemy && e.carId === d.playerId && e.pos) { const n = e.normal || [0, 0, 0]; src = [e.pos[0] + n[0] * 40, e.pos[1], e.pos[2] + n[2] * 40]; }
+      if (e.t === 'hit' && e.enemy && e.carId === d.playerId && e.pos) { const n = e.normal || [0, 0, 0]; src = [e.pos[0] + n[0] * 40, e.pos[1], e.pos[2] + n[2] * 40]; this._lastSrc = src; if (/gunner/.test(e.zone || '')) { this._damage(src, cam, 30, 1); src = null; } }
+      else if (e.t === 'crewHit' && e.id === d.playerId && e.role === 'gunner' && this._lastSrc) this._damage(this._lastSrc, cam, 30, 1);
       else if ((e.t === 'explode' || e.t === 'boom') && e.pos) { const dx = e.pos[0] - cam.position.x, dz = e.pos[2] - cam.position.z; if (dx * dx + dz * dz < 28 * 28) src = e.pos; }
       else if (e.t === 'crewDead' && e.id !== d.playerId && (e.src === d.playerId || e.src === 1) && e.cause === 'shot') this.hit(true, !!e.head);
-      if (src) this._damage(src, cam, e.t === 'hit' ? (e.dmg || 8) : 30);
+      if (src) this._damage(src, cam, e.t === 'hit' ? (e.dmg || 8) : 30, e.t === 'hit' ? 0.45 : 0.9);
     }
   }
-  _damage(p, cam, dmg) {
+  _damage(p, cam, dmg, k = 1) {
     // bearing relative to the view: 0 = ahead, +pi/2 = right
     const e = cam.matrixWorld.elements;
     const fx = -e[8], fz = -e[10], rx = e[0], rz = e[2];
@@ -113,7 +114,7 @@ export class GunnerHud {
     const a = Math.atan2(vx * rx + vz * rz, vx * fx + vz * fz);
     let slot = this.dmg.find((s) => s.t > 0 && Math.abs(Math.atan2(Math.sin(s.a - a), Math.cos(s.a - a))) < 0.4);
     if (!slot) slot = this.dmg.reduce((m, s) => (s.t < m.t ? s : m), this.dmg[0]);
-    slot.a = a; slot.t = Math.min(1.6, Math.max(slot.t, 0.9 + dmg * 0.02));
+    slot.a = a; slot.t = Math.min(1.4, Math.max(slot.t, 0.7 + dmg * 0.02)); slot.k = Math.max(slot.t > 0.75 ? slot.k || 0 : 0, k);
     slot.e.style.transform = `rotate(${a}rad)`;
   }
 
@@ -157,7 +158,7 @@ export class GunnerHud {
     // ---------------------------------------------------------------- damage direction
     for (const s of this.dmg) {
       if (s.t <= 0) { if (s.e.style.opacity !== '0') s.e.style.opacity = 0; continue; }
-      s.t = Math.max(0, s.t - dt); s.e.style.opacity = Math.min(1, s.t * 1.3);
+      s.t = Math.max(0, s.t - dt); s.e.style.opacity = Math.min(1, s.t * 1.4) * (s.k || 1);
     }
     // ---------------------------------------------------------------- ammo
     const mag = d.mag ?? G.magNow, max = W.mag || 1;

@@ -225,6 +225,7 @@ PAL = {
     'gun_steel': dict(color='#7b7f83', rough=0.35, metal=1.0),
     'decal_red': dict(color='#a4241b', rough=0.6, metal=0.0),
     'decal_yellow': dict(color='#d9a516', rough=0.6, metal=0.0),
+    'decal_white': dict(color='#d8d4c8', rough=0.6, metal=0.0),
     'glass': dict(color='#42636b', rough=0.05, metal=0.0, alpha=0.4),
     'glass_lens': dict(color='#9fc4d0', rough=0.05, metal=0.0, alpha=0.5),
     'light_head': dict(color='#fff3d8', rough=0.1, metal=0.0, emit='#ffe9b8', es=3.5),
@@ -235,17 +236,140 @@ NO_GRIME = {'light_head', 'light_tail', 'light_amber', 'glass', 'glass_lens'}
 
 _MATS = {}
 _IMGS = {}
+_BAKED = {}          # material name -> (albedo image, orm image) from vbake (UV1)
+
+
+# ---------------------------------------------------------------------------------- bake-mode detail normal maps (UV0, tiling)
+def _nrm_paint(n, rng):
+    peel = fbm(n, 60, 3, rng, gain=0.55)
+    scr = fbm(n, 300, 2, rng, ax=0.012, ay=1.0)
+    dent = fbm(n, 4, 3, rng)
+    return 0.5 + 0.05 * (peel - .5) + 0.10 * (dent - .5) - 0.08 * sstep(0.88, 0.93, scr), 1.0
+
+
+def _nrm_armor(n, rng):
+    ham = fbm(n, 10, 4, rng, gain=0.55)
+    pit = sstep(0.7, 0.8, fbm(n, 120, 3, rng))
+    grind = fbm(n, 220, 2, rng, ax=0.03, ay=1.0)
+    mill = fbm(n, 30, 3, rng)
+    return 0.5 + 0.16 * (ham - .5) + 0.10 * (mill - .5) - 0.3 * pit + 0.06 * (grind - .5), 1.5
+
+
+def _nrm_metal(n, rng):
+    br = fbm(n, 200, 2, rng, ax=0.02, ay=1.0)
+    pit = sstep(0.72, 0.8, fbm(n, 150, 3, rng))
+    low = fbm(n, 8, 3, rng)
+    return 0.5 + 0.1 * (br - .5) + 0.2 * (low - .5) - 0.3 * pit, 1.8
+
+
+def _nrm_rust(n, rng):
+    return 0.5 + 0.5 * (fbm(n, 30, 4, rng) - .5) + 0.3 * (fbm(n, 140, 2, rng) - .5), 3.0
+
+
+def _nrm_rubber(n, rng):
+    return 0.5 + 0.35 * (fbm(n, 150, 3, rng) - .5) + 0.15 * (fbm(n, 12, 3, rng) - .5), 1.4
+
+
+def _nrm_cloth(n, rng):
+    yy, xx = np.mgrid[0:n, 0:n].astype(np.float32)
+    w = np.sin(xx * 2 * np.pi / 4.0) * np.sin(yy * 2 * np.pi / 4.0)
+    return 0.5 + 0.2 * w + 0.25 * (fbm(n, 12, 3, rng) - .5) + 0.1 * (fbm(n, 90, 2, rng) - .5), 2.0
+
+
+def _nrm_wood(n, rng):
+    g = fbm(n, 6, 4, rng, ax=1.0, ay=0.03, gain=0.6)
+    f = fbm(n, 200, 2, rng, ax=1.0, ay=0.02)
+    return 0.5 + 0.3 * (g - .5) + 0.2 * (f - .5), 2.2
+
+
+def _nrm_fine(n, rng):
+    return 0.5 + 0.2 * (fbm(n, 90, 3, rng) - .5) + 0.1 * (fbm(n, 10, 2, rng) - .5), 1.2
+
+
+def _nrm_chrome(n, rng):
+    return 0.5 + 0.06 * (fbm(n, 20, 3, rng) - .5), 1.0
+
+
+NRM = {'n_paint': (512, _nrm_paint, 1.2), 'n_armor': (1024, _nrm_armor, 1.6), 'n_metal': (512, _nrm_metal, 1.2), 'n_rust': (512, _nrm_rust, 1.0),
+       'n_rubber': (256, _nrm_rubber, 0.6), 'n_cloth': (256, _nrm_cloth, 0.25), 'n_wood': (512, _nrm_wood, 1.2), 'n_fine': (256, _nrm_fine, 0.5),
+       'n_chrome': (256, _nrm_chrome, 1.5)}
+NRM_OF = {'paint': 'n_paint', 'paint2': 'n_paint', 'decal_yellow': 'n_paint', 'decal_red': 'n_paint', 'decal_white': 'n_paint',
+          'armor': 'n_armor', 'spike': 'n_metal', 'metal_bare': 'n_armor', 'metal_dark': 'n_metal', 'rim': 'n_metal', 'gun_metal': 'n_metal',
+          'brass': 'n_metal', 'rust': 'n_rust', 'rubber_tire': 'n_rubber', 'rubber': 'n_rubber', 'canvas': 'n_cloth', 'fabric': 'n_cloth',
+          'cloth_red': 'n_cloth', 'wood': 'n_wood', 'interior': 'n_fine', 'plastic': 'n_fine', 'leather': 'n_fine', 'chrome': 'n_chrome'}
+
+
+def uv0_tile(name):
+    k = NRM_OF.get(name)
+    return NRM[k][2] if k else 1.0
+
+
+def _nrm_tex(key):
+    k2 = 'nrm_' + key
+    if k2 in _IMGS:
+        return _IMGS[k2]
+    n, fn, _ = NRM[key]
+    rng = np.random.default_rng(sum(ord(c) * (i + 5) for i, c in enumerate(key)) + 23)
+    h, strength = fn(n, rng)
+    im = _img('t_%s' % key, normal_from_height(np.asarray(h, np.float32), strength), False)
+    _IMGS[k2] = im
+    return im
+
+
+def set_baked(name, alb, orm):
+    _BAKED[name] = (alb, orm)
+    _MATS.pop(name, None)
+
+
+def _get_baked(name):
+    alb, orm = _BAKED[name]
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    b = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    uv1 = nt.nodes.new('ShaderNodeUVMap'); uv1.uv_map = 'UV1'
+    t1 = nt.nodes.new('ShaderNodeTexImage'); t1.image = alb; t1.interpolation = 'Linear'
+    nt.links.new(uv1.outputs['UV'], t1.inputs['Vector'])
+    nt.links.new(t1.outputs['Color'], b.inputs['Base Color'])
+    t2 = nt.nodes.new('ShaderNodeTexImage'); t2.image = orm
+    nt.links.new(uv1.outputs['UV'], t2.inputs['Vector'])
+    sep = nt.nodes.new('ShaderNodeSeparateColor')
+    nt.links.new(t2.outputs['Color'], sep.inputs['Color'])
+    nt.links.new(sep.outputs['Green'], b.inputs['Roughness'])
+    nt.links.new(sep.outputs['Blue'], b.inputs['Metallic'])
+    key = NRM_OF.get(name)
+    if key:
+        uv0 = nt.nodes.new('ShaderNodeUVMap'); uv0.uv_map = 'UVMap'
+        t3 = nt.nodes.new('ShaderNodeTexImage'); t3.image = _nrm_tex(key)
+        nt.links.new(uv0.outputs['UV'], t3.inputs['Vector'])
+        nn = nt.nodes.new('ShaderNodeNormalMap'); nn.uv_map = 'UVMap'; nn.inputs['Strength'].default_value = 1.0
+        nt.links.new(t3.outputs['Color'], nn.inputs['Color'])
+        nt.links.new(nn.outputs['Normal'], b.inputs['Normal'])
+    m.use_backface_culling = True
+    m.diffuse_color = (0.5, 0.5, 0.5, 1)
+    _MATS[name] = m
+    return m
 
 
 def _img(name, arr, srgb):
-    n = arr.shape[0]
-    im = bpy.data.images.new(name, n, n, alpha=False)
+    h, w = arr.shape[0], arr.shape[1]
+    im = bpy.data.images.new(name, w, h, alpha=False)
     im.colorspace_settings.name = 'sRGB' if srgb else 'Non-Color'   # must precede pixel writes (it clears the buffer)
     im.file_format = 'JPEG'
-    rgba = np.ones((n, n, 4), np.float32)
+    rgba = np.ones((h, w, 4), np.float32)
     rgba[..., :3] = np.clip(arr, 0, 1)
     im.pixels.foreach_set(np.ascontiguousarray(rgba[::-1]).ravel())   # bpy images are stored bottom-up
     return im
+
+
+def fill_img(im, arr):
+    h, w = arr.shape[0], arr.shape[1]
+    if tuple(im.size) != (w, h):
+        im.scale(w, h)
+    rgba = np.ones((h, w, 4), np.float32)
+    rgba[..., :3] = np.clip(arr, 0, 1)
+    im.pixels.foreach_set(np.ascontiguousarray(rgba[::-1]).ravel())
+    im.update()
 
 
 def _textures(key):
@@ -261,12 +385,14 @@ def _textures(key):
 
 
 def reset():
-    _MATS.clear(); _IMGS.clear()
+    _MATS.clear(); _IMGS.clear(); _BAKED.clear()
 
 
 def get(name):
     if name in _MATS:
         return _MATS[name]
+    if name in _BAKED:
+        return _get_baked(name)
     if name not in PAL:
         raise KeyError("unknown material " + name)
     spec = PAL[name]

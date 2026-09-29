@@ -95,7 +95,7 @@ ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
     cam.quaternion.setFromEuler(_e.set(-this.cockPitch + this.lookPitch - 0.06, _e.y + Math.PI + this.lookYaw, -this.cockRoll + so.x * 0.02, 'YXZ'));
   }
   const speed = Math.hypot(vel.x, vel.z), spd01 = smoothstep(5, 62, speed);
-  const targetFov = back ? 70 : 74 + spd01 * 14 + (opts.boosting ? 10 : 0);
+  const targetFov = back ? 70 : (opts.fovBase ?? 74) + spd01 * 14 + (opts.boosting ? 10 : 0);
   this.fov = damp(this.fov, targetFov, back ? 30 : 4, dt);
   if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
   if (cam.near !== 0.05) { cam.near = 0.05; cam.updateProjectionMatrix(); }
@@ -134,12 +134,19 @@ export class GunnerCam {
     // a share of the truck's roll reaches the gunner's head (you are standing on it)
     if (opts.truckQuat) { _e.setFromQuaternion(opts.truckQuat, 'YXZ'); this.roll = damp(this.roll, _e.z * 0.3, 10, dt); }
     cam.rotateZ(this.roll + so.x * 0.03);
-    const baseFov = (this.firstPerson ? 72 : 62) + (opts.speed01 || 0) * 8;
+    const baseFov = (this.firstPerson ? (opts.fovBase ?? 74) - 2 : 62) + (opts.speed01 || 0) * 8;
     const adsFov = opts.scoped ? (opts.scopeFov || 18) : (this.firstPerson ? 52 : 42);
     const tf = lerp(baseFov, adsFov, this.adsK) + (opts.boosting ? 6 : 0);
     this.fov = damp(this.fov, tf, 12, dt);
     if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
-    const near = this.firstPerson ? 0.05 : 0.15;
+    // looking through a scope: push the near plane past the own truck's roll cage / mounts so they never fill the scope
+    // (the first-person viewmodel uses its own projection, so it is unaffected)
+    // (the first-person viewmodel uses its own projection, so it is unaffected); looking over the cab it must clear the roof mount too
+    let near = this.firstPerson ? 0.05 : 0.15;
+    if (this.firstPerson && opts.scoped && this.adsK > 0.8) {
+      const ahead = opts.truckQuat ? Math.max(0, fwd.dot(_v2.set(0, 0, 1).applyQuaternion(opts.truckQuat))) : 0;
+      near = Math.round((1.8 + 3.4 * ahead * ahead) * 10) / 10;   // quantised: no projection rebuild every frame
+    }
     if (cam.near !== near) { cam.near = near; cam.updateProjectionMatrix(); }
     this.dir.copy(fwd);
     return this.dir;

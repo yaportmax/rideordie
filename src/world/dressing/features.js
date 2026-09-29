@@ -284,7 +284,7 @@ function tunnelKit(f, s) {
 const LAYER = { dirt_red: 1, rock_red: 4, rock_grey: 5, forest_floor: 7, grass_green: 8, cliff: 10 };
 
 /** Build a terrain-material mesh from a (rows x cols) grid of {x,y,z,ty}; splat weights derived from slope and rock kind. Winding matches the terrain strips (+d = left, +s = forward). */
-function gridMesh(ctx, chunk, mat, grid, kind, opts = {}) {
+export function gridMesh(ctx, chunk, mat, grid, kind, opts = {}) {
   const ROWS = grid.length, NC = grid[0].length, seed = ctx.seed;
   const a0 = grid[0][0], ax = a0.x, ay = a0.y, az = a0.z;
   const pos = [], nor = [], sp0 = [], sp1 = [], sp2 = [], mac = [];
@@ -329,6 +329,7 @@ function gridMesh(ctx, chunk, mat, grid, kind, opts = {}) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('aSplat0', new THREE.Float32BufferAttribute(sp0, 4)); g.setAttribute('aSplat1', new THREE.Float32BufferAttribute(sp1, 4)); g.setAttribute('aSplat2', new THREE.Float32BufferAttribute(sp2, 4));
   g.setAttribute('aMacro', new THREE.Float32BufferAttribute(mac, 1)); g.setIndex(idx); g.computeBoundingSphere();
+  if (opts.aux) { const n = pos.length / 3, aux = new Float32Array(n * 4); for (let i = 0; i < n; i++) aux.set(opts.aux, i * 4); g.setAttribute('aAux', new THREE.BufferAttribute(aux, 4)); }
   const m = new THREE.Mesh(g, mat); m.position.set(ax, ay, az); m.castShadow = !!opts.cast; m.receiveShadow = true; m.userData.ownGeo = true; m.matrixAutoUpdate = false; m.updateMatrix();
   chunk.addExtra(m);
   return m;

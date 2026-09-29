@@ -63,8 +63,8 @@ export function defaultPostConfig() {
     ao: { radius: 2.0, intensity: 2.6, falloff: 1.0, color: 0x1a1410 },
     // first person: everything within ~2.5 m (cockpit, viewmodel, truck bed) rides with the camera => never blurred;
     // blur only ramps in toward the screen edges (radial r0..r1), the centre stays crisp
-    mb: { strength: 0.8, shutter: 0.5, maxFrac: 0.022, carMask: 0.0, nearZ0: 2.5, nearZ1: 14, nearMin: 0.0, r0: 0.22, r1: 0.85 },
-    ca: { base: 0.00025, speed: 0.0011, boost: 0.0022, hit: 0.009, slowmo: 0.0015 },
+    mb: { strength: 0.8, shutter: 0.5, maxFrac: 0.018, carMask: 0.0, nearZ0: 2.5, nearZ1: 14, nearMin: 0.0, r0: 0.22, r1: 0.85 },
+    ca: { base: 0.0, speed: 0.0005, boost: 0.001, hit: 0.008, slowmo: 0.0012 },   // edge-only, never on the near field (lens_effect)
     vignette: { base: 0.2, speed: 0.1, boost: 0.1, slowmo: 0.1 },
     grain: 0.025,
     lines: 0.35,                   // boost speed streaks: a hint at the periphery, not a smear
@@ -320,7 +320,9 @@ export class Post {
 
   /** Compile the programs of passes that only render conditionally (sun shafts) so they never compile mid-run. */
   warm() {
-    try { this.renderer.compile(this.shaftsPass.scene, this.shaftsPass.camera); } catch (e) { void e; }
+    const r = this.renderer, prev = r.getRenderTarget();
+    try { r.setRenderTarget(this.shaftsPass.rt); r.compile(this.shaftsPass.scene, this.shaftsPass.camera); } catch (e) { void e; }
+    r.setRenderTarget(prev);
   }
 
   /** Settings: speed blur at the screen edges on/off. */
@@ -354,7 +356,7 @@ export class Post {
   profile(on = true) {
     if (on && !this.timer) this.timer = new GpuTimer(this.renderer);
     this._profiling = on && this.timer.supported;
-    for (const p of [this.dofPass, this.mainPass, this.smaaPass, this.finalPass]) p.timer = this._profiling ? this.timer : null;
+    for (const p of [this.dofPass, this.mainPass, this.smaaPass, this.finalPass, this.shaftsPass]) p.timer = this._profiling ? this.timer : null;
     if (this.aoPass) this._wrapAO();
     this.timings = this.timer ? this.timer.ms : null;
     return this.timer ? this.timer.supported : false;
@@ -544,11 +546,11 @@ export class Post {
     const bl = this.bloom;
     const tm = bl.thresholdMaterial.uniforms;
     // threshold relative to exposure: 'blooms when it is DISPLAYED bright' (night exposure is ~2x => lamps / windows glow)
-    const ex = Math.max(0.25, renderer.toneMappingExposure * cfg.exposure);
+    const ex = Math.sqrt(Math.max(0.25, renderer.toneMappingExposure * cfg.exposure));
     tm.thr.value.set(cfg.bloom.threshold / ex, cfg.bloom.knee / ex, cfg.bloom.clamp / ex, cfg.bloom.skyMul);
     tm.depthBuffer.value = this.composer.stableDepthTexture;
     tm.useDepth.value = 1;
-    bl.intensity = feat.bloom ? cfg.bloom.intensity * (1 + 0.25 * c.night01 + 0.2 * boost + 0.35 * this._shockPulse) : 0;
+    bl.intensity = feat.bloom ? cfg.bloom.intensity * (1 + 0.1 * c.night01 + 0.2 * boost + 0.35 * this._shockPulse) : 0;
     bl.mipmapBlurPass.radius = cfg.bloom.radius;
 
     // ---- grade

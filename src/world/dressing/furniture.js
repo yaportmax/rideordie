@@ -6,6 +6,7 @@ import { biomeAt } from '../../data/biomes.js';
 import { hash2, lerp } from '../../core/util.js';
 import { roadFrame, groundAt, CHUNK_LEN } from './util.js';
 import { GLOW } from './pool.js';
+import { instanceMaterial } from './assets.js';
 
 /** Furniture density per biome (0..1 activity). */
 const CFG = {
@@ -226,25 +227,25 @@ function signs(ctx, chunk) {
 // Delineator posts (white / amber reflector), curve chevrons (< and >), diamond curve-warning signs (left / right), ranch fence.
 // Geometry only (vertex colours, no textures): crisp at any distance, one or two draw calls each. Readable faces point to -Z like the
 // glTF props. Reflective parts use materials named in GLOW so they light up at night.
-GLOW.reflector_white = [0xfff1d8, 2.4];
-GLOW.reflector_amber = [0xffa032, 2.4];
-GLOW.reflector_yellow = [0xffc83a, 0.55];
+// one material for every procedural sign / post: vertex colours + a 4-texel emissive palette (0 none, 1 white reflector, 2 amber
+// reflector, 3 yellow sign sheeting) so each asset is a single draw and the retro-reflective parts light up at night (GLOW).
+GLOW.furn_retro = [0xffffff, 2.4];
+const PAL = { none: 0, white: 1, amber: 2, yellow: 3 };
 const PROC_SPECS = {
   delineator_w: { far: 240, shadow: false }, delineator_a: { far: 240, shadow: false },
-  chevron_l: { far: 420, shadow: true, behind: true }, chevron_r: { far: 420, shadow: true, behind: true },
-  warn_curve_l: { far: 380, shadow: true, behind: true }, warn_curve_r: { far: 380, shadow: true, behind: true },
+  chevron_l: { far: 420, shadow: false, behind: true }, chevron_r: { far: 420, shadow: false, behind: true },
+  warn_curve_l: { far: 380, shadow: false, behind: true }, warn_curve_r: { far: 380, shadow: false, behind: true },
   fence_ranch: { far: 260, shadow: false, behind: true },
   fence_chainlink_4m: { far: 240, shadow: false, behind: true },
 };
 
-function tint(geo, rgb) {
-  geo.deleteAttribute('uv');
-  const n = geo.attributes.position.count, c = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { c[i * 3] = rgb[0]; c[i * 3 + 1] = rgb[1]; c[i * 3 + 2] = rgb[2]; }
-  geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+function tint(geo, rgb, pal = 0) {
+  const n = geo.attributes.position.count, c = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) { c[i * 3] = rgb[0]; c[i * 3 + 1] = rgb[1]; c[i * 3 + 2] = rgb[2]; uv[i * 2] = (pal + 0.5) / 4; uv[i * 2 + 1] = 0.5; }
+  geo.setAttribute('color', new THREE.BufferAttribute(c, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   return geo;
 }
-const box = (w, h, d, x, y, z, rgb) => tint(new THREE.BoxGeometry(w, h, d).translate(x, y, z), rgb);
+const box = (w, h, d, x, y, z, rgb, pal = 0) => tint(new THREE.BoxGeometry(w, h, d).translate(x, y, z), rgb, pal);
 function shape(pts, holes, z, rgb) {
   const sh = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
   for (const h of holes || []) sh.holes.push(new THREE.Path(h.map(([x, y]) => new THREE.Vector2(x, y))));
@@ -273,7 +274,7 @@ function ribbon(pts, w, z, rgb) {
     if (i) { const k = i * 2; I.push(k - 2, k - 1, k, k - 1, k + 1, k); }
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I);
-  g.computeVertexNormals(); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(P.length / 3 * 2).fill(0), 2));
+  g.computeVertexNormals();
   // make every triangle face +Z before the turn
   const ar = g.index.array; for (let i = 0; i < ar.length; i += 3) {
     const p0 = ar[i] * 3, p1 = ar[i + 1] * 3, p2 = ar[i + 2] * 3;
@@ -284,28 +285,46 @@ function ribbon(pts, w, z, rgb) {
   return tint(g.rotateY(Math.PI).translate(0, 0, z), rgb);
 }
 
+let _mats = null;
+function furnMaterials() {
+  if (_mats) return _mats;
+  const pal = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255, 255, 240, 214, 255, 255, 140, 30, 255, 70, 52, 12, 255]), 4, 1);
+  pal.magFilter = THREE.NearestFilter; pal.minFilter = THREE.NearestFilter; pal.generateMipmaps = false; pal.needsUpdate = true;
+  const retro = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.2, emissiveMap: pal, emissive: 0x000000 }); retro.name = 'furn_retro';
+  const wood = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 }); wood.name = 'furn_wood';
+  _mats = { retro, wood };
+  return _mats;
+}
+/** Instanced meshes with the same program keys as the pooled procedural furniture (plain + shadow-casting), for Game.prewarm. */
+export function furniturePrewarmMeshes() {
+  const M = furnMaterials(), out = [];
+  const g = tint(new THREE.BoxGeometry(0.1, 0.1, 0.1), [1, 1, 1]);
+  for (const mat of [M.retro, M.wood]) for (const shadow of [false, true]) {
+    const m = new THREE.InstancedMesh(g, instanceMaterial(mat, {}), 1);
+    m.setColorAt(0, new THREE.Color(1, 1, 1)); m.castShadow = shadow; m.receiveShadow = true;
+    out.push(m);
+  }
+  return out;
+}
 let _furnReg = false;
 function registerFurnitureAssets(kit) {
   if (_furnReg && kit.assets.has('delineator_w')) return;
   _furnReg = true;
-  const dark = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.25 }); dark.name = 'furn_painted';
-  const refl = (name, col) => { const m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.3, metalness: 0.1 }); m.name = name; return m; };
-  const WHITE = [0.82, 0.82, 0.8], BLACK = [0.03, 0.03, 0.03], GALV = [0.46, 0.47, 0.48], WOOD = [0.3, 0.24, 0.18];
+  const dark = furnMaterials().retro;
+  const WHITE = [0.82, 0.82, 0.8], BLACK = [0.03, 0.03, 0.03], GALV = [0.46, 0.47, 0.48], WOOD = [0.3, 0.24, 0.18], YEL = [0.86, 0.62, 0.08];
   // delineator: flexible white post with a black band and a reflector on the traffic side
   const post = merge([tint(new THREE.CylinderGeometry(0.04, 0.05, 0.84, 8).translate(0, 0.42, 0), WHITE), tint(new THREE.CylinderGeometry(0.041, 0.041, 0.16, 8).translate(0, 0.92, 0), BLACK),
     tint(new THREE.CylinderGeometry(0.04, 0.041, 0.1, 8).translate(0, 1.05, 0), WHITE)]);
-  const rw = refl('reflector_white', 0xf4efe6), ra = refl('reflector_amber', 0xf0a030);
-  const reflG = () => box(0.07, 0.1, 0.012, 0, 0.92, -0.046, [1, 1, 1]);
-  kit.assets.set('delineator_w', procAsset('delineator_w', [{ name: 'post', geometry: post, material: dark }, { name: 'refl', geometry: reflG(), material: rw }]));
-  kit.assets.set('delineator_a', procAsset('delineator_a', [{ name: 'post', geometry: post.clone(), material: dark }, { name: 'refl', geometry: reflG(), material: ra }]));
+  const reflG = (rgb, p) => box(0.07, 0.1, 0.012, 0, 0.92, -0.046, rgb, p);
+  kit.assets.set('delineator_w', procAsset('delineator_w', [{ name: 'post', geometry: merge([post.clone(), reflG([0.95, 0.93, 0.88], PAL.white)]), material: dark }]));
+  kit.assets.set('delineator_a', procAsset('delineator_a', [{ name: 'post', geometry: merge([post.clone(), reflG([0.95, 0.6, 0.15], PAL.amber)]), material: dark }]));
   // chevron alignment sign: yellow retro-reflective panel 0.6 x 0.75 on a 2 m post, black chevron
-  const yel = refl('reflector_yellow', 0xe8b41c);
   const chevronPts = (dir) => [[-0.2, 0.28], [-0.06, 0.28], [0.2, 0], [-0.06, -0.28], [-0.2, -0.28], [0.06, 0]].map(([x, y]) => [x * dir, y]);
   for (const [nm, dir] of [['chevron_r', 1], ['chevron_l', -1]]) {
     const pts = chevronPts(dir), ccw = dir < 0 ? pts.slice().reverse() : pts;
-    const detail = merge([box(0.07, 1.95, 0.07, 0, 0.975, 0.03, GALV), box(0.62, 0.77, 0.018, 0, 1.55, 0.012, GALV), shape(ccw.map(([x, y]) => [x, y + 1.55]), null, -0.012, BLACK)]);
-    const panel = box(0.6, 0.75, 0.02, 0, 1.55, 0.0, [1, 1, 1]);
-    kit.assets.set(nm, procAsset(nm, [{ name: 'detail', geometry: detail, material: dark }, { name: 'panel', geometry: panel, material: yel }]));
+    const panel = box(0.6, 0.75, 0.02, 0, 1.55, 0.0, YEL, PAL.yellow);
+    const g = merge([box(0.07, 1.95, 0.07, 0, 0.975, 0.03, GALV), box(0.62, 0.77, 0.018, 0, 1.55, 0.012, GALV), shape(ccw.map(([x, y]) => [x, y + 1.55]), null, -0.012, BLACK), panel]);
+    kit.assets.set(nm, procAsset(nm, [{ name: 'sign', geometry: g, material: dark }]));
   }
   // diamond curve-warning sign: 0.76 m diamond on a 2.6 m post, black rim + curved arrow
   const D = 0.54, Y0 = 2.05;
@@ -321,14 +340,14 @@ function registerFurnitureAssets(kit) {
     const hcz = (hp[1][0] - hp[0][0]) * (hp[2][1] - hp[0][1]) - (hp[1][1] - hp[0][1]) * (hp[2][0] - hp[0][0]);
     const head = shape(hcz > 0 ? hp : [hp[0], hp[2], hp[1]], null, -0.013, BLACK);
     const back = tint(new THREE.BoxGeometry(D * 1.414, D * 1.414, 0.012).rotateZ(Math.PI / 4).translate(0, Y0, 0.004), GALV);
-    const detail = merge([box(0.07, 2.6, 0.07, 0, 1.3, 0.03, GALV), back, rim, stem, head]);
-    const panel = tint(new THREE.PlaneGeometry(D * 1.414, D * 1.414).rotateZ(Math.PI / 4).rotateY(Math.PI).translate(0, Y0, -0.006), [1, 1, 1]);
-    kit.assets.set(nm, procAsset(nm, [{ name: 'detail', geometry: detail, material: dark }, { name: 'panel', geometry: panel, material: yel }]));
+    const panel = tint(new THREE.PlaneGeometry(D * 1.414, D * 1.414).rotateZ(Math.PI / 4).rotateY(Math.PI).translate(0, Y0, -0.006), YEL, PAL.yellow);
+    const g = merge([box(0.07, 2.6, 0.07, 0, 1.3, 0.03, GALV), back, rim, stem, head, panel]);
+    kit.assets.set(nm, procAsset(nm, [{ name: 'sign', geometry: g, material: dark }]));
   }
   // ranch fence: weathered post + 3 barbed-wire strands spanning 4 m along +Z
   const wire = [0.48, 0.8, 1.1].map((h) => box(0.014, 0.014, 4.0, 0, h, 2.0, [0.2, 0.19, 0.18]));
   const fence = merge([box(0.11, 1.28, 0.11, 0, 0.6, 0, WOOD), ...wire]);
-  const wood = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 }); wood.name = 'furn_wood';
+  const wood = furnMaterials().wood;
   kit.assets.set('fence_ranch', procAsset('fence_ranch', [{ name: 'fence', geometry: fence, material: wood }]));
 }
 

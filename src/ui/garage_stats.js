@@ -1,7 +1,7 @@
 // Stat previews for the garage: "before -> after" rows computed from effects() / weaponStats() / the vehicle tables.
-import { effects, UPGRADE_BY_ID } from '../data/upgrades.js';
+import { effects, UPGRADE_BY_ID, TRUCKS } from '../data/upgrades.js';
 import { VEHICLES } from '../data/vehicles.js';
-import { WEAPONS, weaponStats } from '../data/weapons.js';
+import { WEAPONS, WEAPON_ORDER, weaponStats } from '../data/weapons.js';
 
 const r0 = (v) => String(Math.round(v));
 const r1 = (v) => (Math.round(v * 10) / 10).toFixed(1);
@@ -79,6 +79,27 @@ export function truckStats(profile, id) {
     row('TOP SPEED', 'speed', 260, r0, 'KM/H'), row('ACCELERATION', 'accel', 10, r1, 'M/S²'),
     row('HULL HP', 'hp', 1800, r0), { ...row('WEIGHT', 'mass', 3200, r0, 'KG'), },
   ];
+}
+
+/**
+ * "What to buy next" after a run: the most useful thing the player can afford now (biased by what killed them), else the next
+ * thing worth saving for. -> {tab, id, name, kind, cost, need, why} | null
+ */
+export function suggestNext(profile, cause = '') {
+  const p = profile, cash = p.cash || 0, lv = (id) => p.upgrades[id] || 0;
+  const up = (id, why) => { const u = UPGRADE_BY_ID[id]; if (!u || lv(id) >= u.costs.length) return null; return { tab: u.role === 'driver' ? 'upgrades' : 'gunner', id, name: `${u.name}${u.costs.length > 1 ? ' LV ' + (lv(id) + 1) : ''}`, kind: u.role === 'driver' ? 'TRUCK UPGRADE' : 'GUNNER GEAR', cost: u.costs[lv(id)], why }; };
+  const tierNow = +String(p.truck || 'truck_t1').slice(-1);
+  const nextTruck = TRUCKS.find((t) => t.tier > tierNow && !p.trucks.includes(t.id));
+  const truck = nextTruck ? { tab: 'truck', id: nextTruck.id, name: nextTruck.name, kind: `TIER ${nextTruck.tier} TRUCK`, cost: nextTruck.cost, why: 'MORE ARMOUR, MORE SPEED, MORE ROOM TO FIGHT' } : null;
+  const bestOwnedIdx = Math.max(...WEAPON_ORDER.map((id, i) => (p.weapons[id] ? i : -1)));
+  const nextGunId = WEAPON_ORDER.find((id, i) => i > bestOwnedIdx && !p.weapons[id] && id !== 'revolver');
+  const gun = nextGunId ? { tab: 'weapons', id: nextGunId, name: WEAPONS[nextGunId].name, kind: 'WEAPON', cost: WEAPONS[nextGunId].cost, why: 'BIGGER GUN, FASTER KILLS, MORE CASH' } : null;
+  const c = String(cause).toUpperCase();
+  const causeUp = /TRUCK/.test(c) ? up('armor', 'YOUR TRUCK WAS WRECKED: PLATING KEEPS IT ROLLING') : /DRIVER/.test(c) ? (up('glass', 'THEY SHOT YOUR DRIVER: ARMORED GLASS STOPS THAT') || up('armor', 'MORE HULL, MORE TIME')) : /GUNNER/.test(c) ? (up('vest', 'THEY SHOT YOUR GUNNER: BODY ARMOR HELPS') || up('medkit', 'PATCH UP MID-RUN')) : null;
+  const order = [causeUp, truck, gun, up('engine', 'OUTRUN THE CONVOY'), up('armor', 'MORE HULL, MORE TIME'), up('vest', 'KEEP YOUR GUNNER STANDING'), up('medkit', 'PATCH UP MID-RUN'), up('tires', 'GRIP IN THE CORNERS'), up('pouches', 'FASTER RELOADS')].filter(Boolean);
+  if (!order.length) return null;
+  const pick = order.find((o) => o.cost <= cash) || order.slice().sort((a, b) => a.cost - b.cost)[0];
+  return { ...pick, need: Math.max(0, pick.cost - cash) };
 }
 
 /** Rows for a weapon; `previewTrack` ('dmg'|'mag'|'rel'|'hnd') shows what buying that track would change. */

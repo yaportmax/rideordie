@@ -2,8 +2,8 @@
 // This is the main first-person speed / "HD ground" cue, so it is cheap by construction:
 //  - grass / stalks / scrub are crossed alpha-to-coverage cards from one 1024 atlas (6 / 4 tris), flowers are procedural stems + heads,
 //    pebbles are flat-shaded 20-tri stones; no per-kind textures, two shader programs in total (card, rock), prewarmed;
-//  - one InstancedBufferGeometry per (chunk, kind) with a compact 32-byte instance record (pos + yaw/cell, scale + normal + packed colour);
-//    base vertex buffers are shared by every chunk; frustum culling per chunk; TerrainStreamer hides chunks outside the cover window;
+//  - chunks only produce compact 32-byte instance records (pos + yaw/cell, scale + normal + packed colour); CoverField concatenates the
+//    chunks inside the cover window into ONE instanced draw per kind (4 draw calls in total), re-filled when the window moves;
 //  - wind sway + distance shrink-fade in the vertex shader; grass is lit with the ground normal so it sits in the terrain.
 // Placement is deterministic per (seed, chunk), time-sliced inside the dressing job system (runScatter tier 3), and respects landmark
 // exclusions, tunnels, bridges, water, steep slopes and the asphalt.
@@ -20,12 +20,12 @@ const A0 = -2.2, A1 = 36;                         // lateral band, metres beyond
 const KINDS = ['grass', 'scrub', 'flower', 'pebble'];
 // density per m2 at the road side (before clumping / falloff); dry = share of dry grass cards; tints are linear multipliers [a, b]
 const COVER = {
-  desert:   { grass: 0.3, scrub: 0.05, flower: 0.0, pebble: 0.42, dry: 1.0, g: [[1.08, 1.0, 0.86], [0.92, 0.82, 0.66]], s: [[2.0, 1.85, 1.35], [1.75, 1.5, 1.15]], f: [0xe8d27a, 0xd9a05a], p: [0xb89878, 0x8a6048] },
-  canyon:   { grass: 0.12, scrub: 0.04, flower: 0.0, pebble: 0.6, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.6, 1.2], [1.7, 1.4, 1.05]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
-  coast:    { grass: 1.3, scrub: 0.05, flower: 0.14, pebble: 0.14, dry: 0.22, g: [[1.12, 1.12, 0.78], [1.22, 1.12, 0.72]], s: [[1.7, 1.8, 1.3], [1.85, 1.8, 1.3]], f: [0xf2efe4, 0xf0cc48], p: [0x9a978f, 0x75726c] },
-  mountain: { grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.5, 1.65, 1.2], [1.7, 1.6, 1.2]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
-  city:     { grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.5, 1.5, 1.15], [1.6, 1.5, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },
-  dam:      { grass: 0.6, scrub: 0.05, flower: 0.03, pebble: 0.3, dry: 0.65, g: [[0.98, 0.96, 0.82], [1.05, 0.96, 0.78]], s: [[1.6, 1.6, 1.2], [1.7, 1.6, 1.2]], f: [0xf2efe4, 0xf0cc48], p: [0x97948e, 0x72706a] },
+  desert:   { grass: 0.3, scrub: 0.05, flower: 0.0, pebble: 0.42, dry: 1.0, g: [[1.08, 1.0, 0.86], [0.92, 0.82, 0.66]], s: [[1.95, 1.8, 1.35], [1.7, 1.52, 1.18]], f: [0xe8d27a, 0xd9a05a], p: [0xb89878, 0x8a6048] },
+  canyon:   { grass: 0.12, scrub: 0.04, flower: 0.0, pebble: 0.6, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.62, 1.25], [1.7, 1.42, 1.1]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
+  coast:    { grass: 1.3, scrub: 0.05, flower: 0.14, pebble: 0.14, dry: 0.22, g: [[1.12, 1.12, 0.78], [1.22, 1.12, 0.72]], s: [[1.5, 1.65, 1.2], [1.68, 1.62, 1.22]], f: [0xf2efe4, 0xf0cc48], p: [0x9a978f, 0x75726c] },
+  mountain: { grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.4, 1.55, 1.15], [1.6, 1.5, 1.15]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
+  city:     { grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.45, 1.45, 1.15], [1.55, 1.45, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },
+  dam:      { grass: 0.6, scrub: 0.05, flower: 0.03, pebble: 0.3, dry: 0.65, g: [[0.98, 0.96, 0.82], [1.05, 0.96, 0.78]], s: [[1.55, 1.55, 1.2], [1.65, 1.55, 1.2]], f: [0xf2efe4, 0xf0cc48], p: [0x97948e, 0x72706a] },
 };
 const HEX = (h) => new THREE.Color().setHex(h);
 const LIN = {};
@@ -87,6 +87,7 @@ function pebble() {
   return pb;
 }
 const BASE_ATTRS = ['position', 'normal', 'uv', 'color', 'aHead'];
+const MESH_KINDS = ['grass', 'scrub', 'flower', 'pebble'];
 
 // ------------------------------------------------------------------------------------------------ materials
 function coverMaterial(kind, atlas) {
@@ -140,7 +141,7 @@ function coverMaterial(kind, atlas) {
         #ifdef USE_MAP
           // keep the clumps full at a distance: boost alpha by the mip level (cards would otherwise thin out)
           vec2 mT = vMapUv * 1024.0; float mipL = 0.5 * log2(max(max(dot(dFdx(mT), dFdx(mT)), dot(dFdy(mT), dFdy(mT))), 1.0));
-          diffuseColor.a *= 1.0 + mipL * 0.28;
+          diffuseColor.a *= 1.0 + mipL * 0.18;
           diffuseColor.rgb = mix(diffuseColor.rgb, vColor.rgb, vHead); diffuseColor.a = mix(diffuseColor.a, 1.0, vHead);
           diffuseColor.rgb *= mix(0.5, 1.0, smoothstep(0.0, 0.65, vLocalY));   // self-shadowed base of the clump
         #endif`);
@@ -205,19 +206,26 @@ export function disposeCoverMesh(mesh) {
 
 // ------------------------------------------------------------------------------------------------ placement
 const _g = {}, _rs = {};
+let _scratch = new Float32Array(8192 * 8), _owner = null;
 const PACK = 2.5; // packed colours cover 0..2.5 (tints brighten the darker cards)
 const packCol = (c) => Math.round(Math.min(1, c.r / PACK) * 255) * 65536 + Math.round(Math.min(1, c.g / PACK) * 255) * 256 + Math.round(Math.min(1, c.b / PACK) * 255);
 const _c = new THREE.Color();
 function bdens(bio, kind) { return (COVER[bio.a][kind] ?? 0) * (1 - bio.w) + (COVER[bio.b][kind] ?? 0) * bio.w; }
 
 /**
- * Generate this chunk's cover (time-sliced). Meshes are attached to the terrain record (chunk.rec.cover) and added to its group;
- * TerrainStreamer toggles their visibility and disposes them with the chunk.
+ * Generate this chunk's cover (time-sliced). The instance records are attached to the terrain record (chunk.rec.cover = [{kind, data, n,
+ * anchor}]) and die with it; CoverField (driven by TerrainStreamer) draws the chunks inside the cover window.
  * @returns {true|false|null} true = done, false = out of time (call again), null = waiting for the landmark plan
  */
+export const coverStats = { calls: 0, maxMs: 0, inst: 0 };
+if (typeof window !== 'undefined') window.__coverStats = coverStats;
 export function buildCover(ctx, chunk, deadline = Infinity) {
+  const t0 = performance.now();
+  try { return buildCover2(ctx, chunk, deadline); } finally { const ms = performance.now() - t0; coverStats.calls++; if (ms > coverStats.maxMs) coverStats.maxMs = ms; }
+}
+function buildCover2(ctx, chunk, deadline) {
   const rec = chunk.rec;
-  if (!rec || !rec.group || !chunk.ground) return true;
+  if (!rec || !rec.alive || !chunk.ground) return true;
   warm(ctx);
   const { road, seed } = ctx, s0 = chunk.s0;
   let st = chunk._cover;
@@ -231,10 +239,12 @@ export function buildCover(ctx, chunk, deadline = Infinity) {
   const q = Math.max(0, Math.min(3, ctx.quality ?? 2)), qk = [0.35, 0.65, 1, 1.25][q];
   while (st.k < KINDS.length) {
     const kind = KINDS[st.k];
+    if (st.data && _owner !== st) st.data = null;          // another chunk used the scratch buffer meanwhile: redo this kind (deterministic)
     if (!st.data) {
       let D = 0; for (const b of st.bios) D = Math.max(D, bdens(b, kind));
       st.nCand = Math.ceil(D * qk * CHUNK_LEN * 2 * (A1 - A0)); st.D = D;
-      st.data = new Float32Array(Math.max(8, st.nCand * 8)); st.n = 0; st.i = 0;
+      if (_scratch.length < st.nCand * 8) _scratch = new Float32Array(Math.ceil(st.nCand * 1.25) * 8);   // reused: no per-chunk garbage
+      st.data = _scratch; _owner = st; st.n = 0; st.i = 0;
       st.rnd = rngOf(seed, chunk.c, strId('cover:' + kind));
     }
     const rnd = st.rnd, data = st.data, ax = st.anchor.x, ay = st.anchor.y, az = st.anchor.z;
@@ -288,19 +298,60 @@ export function buildCover(ctx, chunk, deadline = Infinity) {
       data[o + 4] = scl; data[o + 5] = nx * al; data[o + 6] = nz * al; data[o + 7] = packCol(_c);
       st.n++;
     }
-    if (st.n > 0) {
-      const arr = st.data.slice(0, st.n * 8);
-      const mesh = makeMesh(kind, arr, st.n, [ax, ay, az]);
-      // bounding sphere around the actual instances (local to the anchor)
-      let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9, mnz = 1e9, mxz = -1e9;
-      for (let i = 0; i < st.n; i++) { const x = arr[i * 8], y = arr[i * 8 + 1], z = arr[i * 8 + 2]; if (x < mnx) mnx = x; if (x > mxx) mxx = x; if (y < mny) mny = y; if (y > mxy) mxy = y; if (z < mnz) mnz = z; if (z > mxz) mxz = z; }
-      mesh.geometry.boundingSphere.center.set((mnx + mxx) / 2, (mny + mxy) / 2, (mnz + mxz) / 2);
-      mesh.geometry.boundingSphere.radius = 0.5 * Math.hypot(mxx - mnx, mxy - mny, mxz - mnz) + 2;
-      mesh.userData.s0 = s0;
-      (rec.cover || (rec.cover = [])).push(mesh); rec.group.add(mesh);
-    }
+    if (st.n > 0) (rec.cover || (rec.cover = [])).push({ kind, data: st.data.slice(0, st.n * 8), n: st.n, anchor: [ax, ay, az] });
     st.k++; st.data = null;
   }
   chunk._cover = null;
+  rec.coverVersion = (rec.coverVersion || 0) + 1;
   return true;
+}
+
+// ------------------------------------------------------------------------------------------------ field (one draw per kind)
+/** Owns the 4 cover meshes; update() re-fills them from the terrain records inside the cover window when that set changes. */
+export class CoverField {
+  constructor(parent) {
+    this.parent = parent;
+    this.meshes = {}; this.cap = {}; this.key = ''; this.origin = [0, 0, 0];
+    for (const k of MESH_KINDS) { this.cap[k] = 4096; this.meshes[k] = makeMesh(k, new Float32Array(4096 * 8), 0, [0, 0, 0]); parent.add(this.meshes[k]); }
+  }
+  /** chunks: Map<chunkIndex, terrain record>; s: player distance along the road. */
+  update(chunks, s) {
+    const c0 = Math.floor((s - COVER_BEHIND) / CHUNK_LEN), c1 = Math.floor((s + COVER_AHEAD) / CHUNK_LEN);
+    let key = '';
+    for (let c = c0; c <= c1; c++) { const r = chunks.get(c); if (r && r.cover) key += c + ':' + r.coverVersion + ','; }
+    const ready = coverReady();
+    if (key !== this.key) { this.key = key; this._fill(chunks, c0, c1); }
+    for (const k of MESH_KINDS) { const m = this.meshes[k]; m.visible = ready && m.geometry.instanceCount > 0; }
+  }
+  _fill(chunks, c0, c1) {
+    const recs = []; for (let c = c0; c <= c1; c++) { const r = chunks.get(c); if (r && r.cover) recs.push(r); }
+    if (!recs.length) { for (const k of MESH_KINDS) this.meshes[k].geometry.instanceCount = 0; return; }
+    const o = recs[0].cover[0].anchor; this.origin = o;
+    for (const k of MESH_KINDS) {
+      let n = 0; for (const r of recs) for (const e of r.cover) if (e.kind === k) n += e.n;
+      let mesh = this.meshes[k];
+      if (n > this.cap[k]) {                                     // grow (rare): new buffer, same program
+        while (this.cap[k] < n) this.cap[k] *= 2;
+        this.parent.remove(mesh); disposeCoverMesh(mesh);
+        mesh = this.meshes[k] = makeMesh(k, new Float32Array(this.cap[k] * 8), 0, [0, 0, 0]); this.parent.add(mesh);
+      }
+      const buf = mesh.geometry.attributes.aInst.data, dst = buf.array;
+      let i = 0, mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9, mnz = 1e9, mxz = -1e9;
+      for (const r of recs) for (const e of r.cover) {
+        if (e.kind !== k) continue;
+        const dx = e.anchor[0] - o[0], dy = e.anchor[1] - o[1], dz = e.anchor[2] - o[2], src = e.data;
+        for (let j = 0; j < e.n; j++, i++) {
+          const a = j * 8, b = i * 8;
+          const x = src[a] + dx, y = src[a + 1] + dy, z = src[a + 2] + dz;
+          dst[b] = x; dst[b + 1] = y; dst[b + 2] = z; dst[b + 3] = src[a + 3]; dst[b + 4] = src[a + 4]; dst[b + 5] = src[a + 5]; dst[b + 6] = src[a + 6]; dst[b + 7] = src[a + 7];
+          if (x < mnx) mnx = x; if (x > mxx) mxx = x; if (y < mny) mny = y; if (y > mxy) mxy = y; if (z < mnz) mnz = z; if (z > mxz) mxz = z;
+        }
+      }
+      mesh.geometry.instanceCount = n;
+      buf.clearUpdateRanges(); buf.addUpdateRange(0, n * 8); buf.needsUpdate = true;
+      mesh.position.set(o[0], o[1], o[2]); mesh.updateMatrix();
+      if (n) { mesh.geometry.boundingSphere.center.set((mnx + mxx) / 2, (mny + mxy) / 2, (mnz + mxz) / 2); mesh.geometry.boundingSphere.radius = 0.5 * Math.hypot(mxx - mnx, mxy - mny, mxz - mnz) + 3; }
+    }
+  }
+  dispose() { for (const k of MESH_KINDS) { this.parent.remove(this.meshes[k]); disposeCoverMesh(this.meshes[k]); } }
 }

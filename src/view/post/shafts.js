@@ -3,7 +3,7 @@
 //                disc around the sun are the light source, anything in front of the sky (ridges, trees, the boss) occludes
 //                it => light streaks through gaps. Skipped entirely when the sun is not in view.
 //  ShaftsEffect - adds the result (tinted with the sun colour) to the HDR image inside the main effect pass, before bloom/tone map.
-import { Pass, Effect } from 'postprocessing';
+import { Pass, Effect, EffectAttribute } from 'postprocessing';
 import { ShaderMaterial, Uniform, Vector2, Vector3, Vector4, WebGLRenderTarget, HalfFloatType, LinearFilter, NoBlending } from 'three';
 
 const N_TAPS = 40;
@@ -46,7 +46,7 @@ export class ShaftsPass extends Pass {
     });
     this.rt = new WebGLRenderTarget(4, 4, { type: HalfFloatType, minFilter: LinearFilter, magFilter: LinearFilter, depthBuffer: false, generateMipmaps: false });
     this.rt.texture.name = 'Shafts';
-    this.active = false;
+    this.active = false; this.timer = null;
     this.getDepth = () => null;
   }
   get texture() { return this.rt.texture; }
@@ -57,7 +57,9 @@ export class ShaftsPass extends Pass {
     if (!u.depthBuffer.value) return;
     u.seed.value = (u.seed.value + 7.31) % 97;
     renderer.setRenderTarget(this.rt);
+    if (this.timer) this.timer.begin('shafts');
     renderer.render(this.scene, this.camera);
+    if (this.timer) this.timer.end();
   }
   setSize(w, h) { this.rt.setSize(Math.max(4, Math.round(w / 4)), Math.max(4, Math.round(h / 4))); this.fullscreenMaterial.uniforms.prm.value.x = w / Math.max(1, h); }
   dispose() { super.dispose(); this.rt.dispose(); }
@@ -66,12 +68,14 @@ export class ShaftsPass extends Pass {
 const efrag = /* glsl */`
 uniform sampler2D shaftTex;
 uniform vec3 shaftCol;
-void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-  outputColor = vec4(inputColor.rgb + texture2D(shaftTex, uv).r * shaftCol, inputColor.a);
+void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
+  // no in-scattered light in the near field: the cockpit / truck bed / gun sit in the shade of the cab, not in lit air
+  float nearK = depth < 0.0082 ? 0.0 : smoothstep(3.0, 12.0, -getViewZ(depth));
+  outputColor = vec4(inputColor.rgb + texture2D(shaftTex, uv).r * shaftCol * nearK, inputColor.a);
 }`;
 
 export class ShaftsEffect extends Effect {
   constructor(tex) {
-    super('ShaftsEffect', efrag, { uniforms: new Map([['shaftTex', new Uniform(tex)], ['shaftCol', new Uniform(new Vector3())]]) });
+    super('ShaftsEffect', efrag, { attributes: EffectAttribute.DEPTH, uniforms: new Map([['shaftTex', new Uniform(tex)], ['shaftCol', new Uniform(new Vector3())]]) });
   }
 }

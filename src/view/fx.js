@@ -569,6 +569,7 @@ export class Fx {
   }
   _grenadeThrow(evt, ctx) {
     const o = evt.origin, v = evt.vel; if (!o || !v) return;
+    if (this._projSeen) return;                                     // the real grenade is drawn from updateProjectiles() (no double)
     const i = this.grenades.spawn(o[0], o[1], o[2], v[0], v[1], v[2], 0.11, 0.11, 0.11, 6, 4, 5, 2.6, 0x38452f, false);
     this.grenades.gy[i] = this.groundAt(o[0], o[2], o[1] - 1.4);
   }

@@ -26,7 +26,7 @@ export class App {
     // Esc while the mouse is captured is swallowed by the browser (it just releases the lock): treat losing the lock mid-run as "pause"
     document.addEventListener('pointerlockchange', () => {
       const g = this.game;
-      if (!document.pointerLockElement && g.mode === 'run' && g.run && !g.run.over && !g.paused && !this._releasing && this.input.lastDevice !== 'pad') this._pause();
+      if (!document.pointerLockElement && g.mode === 'run' && this.screen === 'run' && g.run && !g.run.over && !g.paused && !this._releasing && this.input.lastDevice !== 'pad') this._pause();
       this._releasing = false;
     });
   }
@@ -37,6 +37,9 @@ export class App {
     if (s.resScale !== undefined) this.game.post?.setResolutionScale?.(s.resScale);
     this.game.audio?.setVolumes?.({ master: s.master, sfx: s.sfx, music: s.music });
     this.game.post?.setFeatures?.({ mb: s.motionBlur !== false, ca: s.chromatic !== false, grain: s.grain !== false });
+    // read live by the cameras / run: first-person FOV, shake amount, gamepad aim assist
+    const g = this.game;
+    g.fovBase = s.fov ?? 75; g.shakeMul = s.shake ?? 1; g.aimAssist = s.aimAssist !== false;
     this.shake = s.shake ?? 1;
   }
 
@@ -66,6 +69,21 @@ export class App {
     if (this.session) { this.session.leave(); this.session = null; }
     this._stage('title');
     this.game.audio?.music?.setState?.('title');
+    if (!this._booted) { this._booted = true; this._bootScreen().then(() => { if (this.screen === 'title') this._showTitle(); }); return; }
+    this._showTitle();
+  }
+  /** First launch: keep the boot screen up until both menu stages are loaded, compiled and drawn once (then no hitches). */
+  _bootScreen() {
+    const boot = document.getElementById('boot');
+    const ready = Promise.race([this.game.garage?.ready || Promise.resolve(), new Promise((r) => setTimeout(r, 16000))]);
+    return ready.then(() => new Promise((res) => {
+      if (!boot) { res(); return; }
+      boot.classList.add('done');
+      setTimeout(res, 250);
+      setTimeout(() => boot.remove(), 800);
+    }));
+  }
+  _showTitle() {
     this.ui.showTitle({
       onSolo: (role) => { this.soloRole = role || 'both'; this.mode = 'solo'; this.sound('whoosh_transition'); this.garage(); },
       onHost: () => this.host(),
@@ -134,7 +152,8 @@ export class App {
   }
 
   // ------------------------------------------------------------------------------------------ garage
-  garage() {
+  /** @param open optional {tab, select} to open the shop on a specific item (e.g. the results screen's NEXT UP card). */
+  garage(open) {
     const fromRun = !!this.game.run || this.screen === 'results';
     this.screen = 'garage';
     this.readyMine = false; this.readyOther = false;
@@ -143,7 +162,7 @@ export class App {
     if (fromRun) G.fadeIn();
     G.setPreview({}); G.setTab('truck');
     this.game.audio?.music?.setState?.('garage');
-    this.ui.showGarage(this.profile, this._garageCb(), this._garageExtra());
+    this.ui.showGarage(this.profile, this._garageCb(), { ...this._garageExtra(), ...(open || {}) });
     requestAnimationFrame(() => this._frameRect());
   }
   _garageLoadout() { return { weapon: this.profile.loadout[0] || 'pistol', armorTier: this.profile.upgrades.vest || 0 }; }
@@ -227,15 +246,25 @@ export class App {
     this._watchEnd(run);
   }
   /**
-   * Results come ~3.5 s after the crash: as soon as the run's summary exists (the sim's short 'dying' beat + 0.3 s), not after the
-   * run's own extra hold. A victory lets the Leviathan finale play longer first. The run keeps rendering (death / finale camera)
-   * behind the results.
+   * Results come ~2.5 s after the crash in solo (summary taken while the wreck burns) and ~3.5 s in co-op (as soon as the host's
+   * summary exists), not after the run's own extra hold. A victory lets the Leviathan finale play first. The run keeps rendering
+   * (death / finale camera) behind the results.
    */
   _watchEnd(run) {
     const tick = () => {
-      if (this.game.run !== run || this.screen !== 'run') return;
+      if (this.game.run !== run) return;
+      const sim = run.sim;
+      if (this.screen === 'results') {
+        // victory: hold the finale camera's last good frame (it cuts back to the cockpit at the end); paused = frozen + DOF behind the results
+        if (sim && !run.net && sim.won && (run.finaleT || 0) > 8.4) { this.game.paused = true; return; }
+        requestAnimationFrame(tick); return;
+      }
+      if (this.screen !== 'run') return;
+      // solo: the summary can be taken while the wreck is still burning (co-op waits for the host's summary message)
+      const early = !run.net && sim && !sim.won && sim.state === 'dying' && (sim.stateT || 0) >= 2.3;
+      if (early && !run.summary) run.summary = run.buildSummary(false);
       const sm = run.summary || run.remoteSummary;
-      if (run.over && sm && !(sm.won && (run.overT || 0) < 4.5) && this.game.onRunEnd) { const cb = this.game.onRunEnd; this.game.onRunEnd = null; cb(run); return; }
+      if ((run.over || early) && sm && !(sm.won && (run.overT || 0) < 4.5) && this.game.onRunEnd) { const cb = this.game.onRunEnd; this.game.onRunEnd = null; cb(run); }
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -257,7 +286,7 @@ export class App {
   }
   _results(run) {
     const sm = run.summary || run.remoteSummary;
-    this.game.paused = false; this.input.releaseLock();
+    this.game.paused = false; this._releasing = true; this.input.releaseLock();
     if (!sm) { this.garage(); return; }
     this.screen = 'results';
     this.game.hud?.setVisible(false);
@@ -268,7 +297,10 @@ export class App {
     const newBest = { distance: sm.distance > (before.distance || 0), time: sm.time > (before.time || 0), kills: sm.kills > (before.kills || 0) };
     this.game.audio?.music?.setState?.(sm.won ? 'victory' : 'garage');
     this.sound('whoosh_transition');
-    this.ui.showResults({ ...sm, newBest, bestBefore: before, cashBefore }, this.profile, { onContinue: () => (sm.won ? this._victoryModal() : this.garage()), onTick: () => this.sound('coin') });
+    this.ui.showResults({ ...sm, newBest, bestBefore: before, cashBefore }, this.profile, {
+      onContinue: () => (sm.won ? this._victoryModal() : this.garage()), onTick: () => this.sound('coin'),
+      onShop: (tab, id) => this.garage({ tab, select: id }),
+    });
   }
   async _victoryModal() {
     const p = this.profile;

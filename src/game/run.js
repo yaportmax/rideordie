@@ -259,6 +259,7 @@ export class Run {
           if (st.gunnerAlive && st.spec.seats.gunner) { const sg = st.spec.seats.gunner; pts.push({ p: new THREE.Vector3(sg[0], sg[1] + 1.2 - up, sg[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel }); }
           if (st.driverAlive) { const sd = st.spec.seats.driver; pts.push({ p: new THREE.Vector3(sd[0], sd[1] + 0.5 - up, sd[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel }); }
           pts.push({ p: st.pos, v: st.vel });
+          const wc = this.sim?.cars.get(st.id); if (wc && wc.elite && wc.weakPoint) pts.push({ p: new THREE.Vector3(wc.weakPoint.c[0], wc.weakPoint.c[1] - up, wc.weakPoint.c[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel });
         }
         const bs = this.bossState; if (bs && !bs.dead) pts.push({ p: new THREE.Vector3(0, 5, -8).applyQuaternion(bs.quat).add(bs.pos), v: bs.vel });
         this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, pts, pst.vel);
@@ -289,6 +290,7 @@ export class Run {
       else if (e.t === 'minibossLost') g.hud.message(`${e.name} FELL BEHIND`, 2200, '#bbbbbb');
       else if (e.t === 'hazardWarn') { this.banner.hazard(e); g.audio?.ui('countdown_beep'); }
       else if (e.t === 'barrierBreak') this.hazMarks.handleEvent(e);
+      else if (e.t === 'setPiece') { this.banner.event(e); g.audio?.stinger('danger_riser', { gain: 0.7 }); }
       else if (e.t === 'minibossDown') { g.hud.message(`${e.name} WRECKED  +$${ECONOMY.minibossBounty[e.index] || ''}`, 2800, '#ffc21a'); }
       else if (e.t === 'bossSpawn') { g.hud.message('THE LEVIATHAN', 3500, '#ff3a1a'); this.abridge?.bossIntro(); }
       else if (e.t === 'bossPhase' && e.phase === 3) g.hud.message('REACTOR EXPOSED!', 2200, '#ffc21a');
@@ -431,7 +433,7 @@ export class Run {
     if (this.role === 'driver') {
       const cockpitEye = this._cockpitEye(dt, pst, _t2);
       const ck = this.cockpit, lookBackEye = ck && cmds.driver.lookBack && this.chase.mode === 0 ? ck.lookBackWorld(_t3) : null;
-      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, lookBack: !!lookBackEye, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
+      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, fovBase: g.fovBase, lookBack: !!lookBackEye, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
       if (cmds.driver.cameraToggle) this.chase.toggle();
       if (ck) { ck.setActive(this.chase.mode === 0 && !lookBackEye && !this.introOutside); ck.update(dt, this.hud2, g.look?.night ?? 0); }
       g.audio?.setCabin?.(ck && ck.active ? 1 : 0);
@@ -439,7 +441,7 @@ export class Run {
     } else if (this.gunner) {
       g.audio?.setCabin?.(0); if (this.abridge) this.abridge.windGain = this.gcam.firstPerson ? 1.3 : 1; // standing in the open bed: the wind roars
       const w = this.gunner.weapon;
-      const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
+      const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, fovBase: g.fovBase, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
       this.camDir.copy(dir);
     }
     if (intro < 1) this._introCam(intro, pst);

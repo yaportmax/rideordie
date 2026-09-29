@@ -44,7 +44,8 @@ function profile(id, seed, s, a, side, sm) {
     }
     case 'canyon': {
       const wallH = T.wall * (0.55 + 0.9 * fbm1(s / 650 + side * 7, 3, seed + 21));
-      const gap = 5 + 34 * Math.pow(fbm1(s / 420 + 3 + side * 5, 3, seed + 22), 1.6); // floor width beside the road
+      // floor width beside the road; buttresses and gullies move the wall foot in and out every ~40 m
+      const gap = Math.max(5, 5 + 34 * Math.pow(fbm1(s / 420 + 3 + side * 5, 3, seed + 22), 1.6) + (ridged2(s / 38 + side * 7, 0.3, 2, seed + 27) - 0.5) * 12);
       const t = smoothstep(gap, gap + 14 + 8 * fbm1(s / 60, 2, seed + 23), a);
       const rough = 0.75 + 0.25 * ridged2(s / 55, a / 38, 3, seed + 24);
       let v = t * t * wallH * rough;
@@ -93,10 +94,13 @@ function profile(id, seed, s, a, side, sm) {
       const side01 = fbm1(s / 1400 + 2.2, 2, seed + 51);
       const up = side * (side01 > 0.5 ? 1 : -1) > 0; // this side is the uphill side
       const massH = T.mass * (up ? 1 : 0.35) * (0.5 + ridged2(s / 520 + side * 4, a / 300, 4, seed + 52));
-      const slope = smoothstep(4, up ? 60 : 110, a);
+      // buttresses: the foot of the slope moves in and out along the road
+      const foot = up ? (fbm1(s / 110 + side * 3, 3, seed + 57) - 0.5) * 36 + (ridged2(s / 34, 0.4, 2, seed + 58) - 0.5) * 16 : 0;
+      const slope = smoothstep(4 + Math.max(0, foot) * 0.4, (up ? 60 : 110) + foot, a);
       const detail = (fbm2(s / 45, a / 40, 4, seed + 53) * 2 - 1) * T.amp * smoothstep(0, 30, a);
-      // crags / ribs on the big slopes (far enough from the road that the drivable verge is unchanged)
-      const crag = ((ridged2(s / 55, a / 38, 3, seed + 55) - 0.5) * 22 + (ridged2(s / 21, a / 70, 2, seed + 56) - 0.5) * 16) * smoothstep(22, 70, a) * (up ? 1 : 0.4);
+      // crags, ribs and gullies running up the big slopes (far enough from the road that the drivable verge is unchanged)
+      const crag = ((ridged2(s / 55, a / 38, 3, seed + 55) - 0.5) * 22 + (ridged2(s / 21, a / 70, 2, seed + 56) - 0.5) * 16
+        + (ridged2(s / 28, a / 260, 2, seed + 59) - 0.55) * 34) * smoothstep(22, 80, a) * (up ? 1 : 0.4);
       h = massH * slope * slope * 0.9 + detail + crag;
       if (!up) h -= 55 * smoothstep(6, 55, a) * (0.6 + 0.4 * fbm1(s / 300, 2, seed + 54)); // valley side drops away
       break;

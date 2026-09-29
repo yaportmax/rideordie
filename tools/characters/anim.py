@@ -736,34 +736,144 @@ def aim_pose(rig, base, kind):
 # glTF output
 # ------------------------------------------------------------------------------------------------
 
-def write_clips(glb, bone_nodes, clips, eps=1e-5):
-    """Add every clip to a glb.Glb.  bone_nodes: node index per bone (mh.BONE_NAMES order).  Tracks that never change
-    are written with two keys (or one, for one-frame clips) to keep files small."""
+FINGER_BONE = np.array(["Hand" in n and n[-1].isdigit() for n in mh.BONE_NAMES])
+
+
+def _reduce_rot(q, tol_deg):
+    """Indices of the keys to keep so that slerp between kept keys reproduces every frame within tol_deg (greedy)."""
+    T = len(q)
+    if T <= 2:
+        return list(range(T))
+    tol = np.radians(tol_deg)
+    keep = [0]
+    i = 0
+    while i < T - 1:
+        j = i + 2
+        best = i + 1
+        while j < T:
+            u = (np.arange(i + 1, j) - i) / float(j - i)
+            qa, qb = q[i], q[j]
+            d = float(np.dot(qa, qb))
+            qb2 = qb if d >= 0 else -qb
+            d = abs(d)
+            if d > 0.99999:
+                interp = qa[None] * (1 - u)[:, None] + qb2[None] * u[:, None]
+            else:
+                th = np.arccos(min(d, 1.0))
+                interp = (np.sin((1 - u) * th)[:, None] * qa[None] + np.sin(u * th)[:, None] * qb2[None]) / np.sin(th)
+            interp /= np.linalg.norm(interp, axis=1, keepdims=True)
+            err = 2 * np.arccos(np.clip(np.abs(np.sum(interp * q[i + 1:j], axis=1)), 0, 1))
+            if err.max() > tol:
+                break
+            best = j
+            j += 1
+        keep.append(best)
+        i = best
+    if keep[-1] != T - 1:
+        keep.append(T - 1)
+    return keep
+
+
+def _reduce_vec(v, tol):
+    T = len(v)
+    if T <= 2:
+        return list(range(T))
+    keep = [0]
+    i = 0
+    while i < T - 1:
+        j = i + 2
+        best = i + 1
+        while j < T:
+            u = (np.arange(i + 1, j) - i) / float(j - i)
+            interp = v[i][None] * (1 - u)[:, None] + v[j][None] * u[:, None]
+            if np.abs(interp - v[i + 1:j]).max() > tol:
+                break
+            best = j
+            j += 1
+        keep.append(best)
+        i = best
+    if keep[-1] != T - 1:
+        keep.append(T - 1)
+    return keep
+
+
+class _Packer:
+    """Accessors for animation data packed into ONE bufferView, deduplicated by content (keeps the glTF JSON small)."""
+
+    def __init__(self, glb):
+        self.glb = glb
+        self.blob = bytearray()
+        self.pending = []           # accessor indices to patch
+        self.cache = {}
+
+    def acc(self, arr, kind, comp, normalized=False, minmax=False):
+        arr = np.ascontiguousarray(arr)
+        key = (kind, comp, normalized, arr.shape, arr.tobytes())
+        if key in self.cache:
+            return self.cache[key]
+        while len(self.blob) % 4:
+            self.blob.append(0)
+        off = len(self.blob)
+        self.blob += arr.tobytes()
+        a = {"bufferView": -1, "byteOffset": off, "componentType": comp, "count": int(arr.shape[0]), "type": kind}
+        if normalized:
+            a["normalized"] = True
+        if minmax:
+            flat = arr.reshape(arr.shape[0], -1).astype(np.float64)
+            a["min"] = [float(x) for x in flat.min(axis=0)]
+            a["max"] = [float(x) for x in flat.max(axis=0)]
+        self.glb.g["accessors"].append(a)
+        i = len(self.glb.g["accessors"]) - 1
+        self.pending.append(i)
+        self.cache[key] = i
+        return i
+
+    def finish(self):
+        if not self.pending:
+            return
+        view = self.glb._view(bytes(self.blob))
+        for i in self.pending:
+            self.glb.g["accessors"][i]["bufferView"] = view
+
+
+def write_clips(glb, bone_nodes, clips, eps=1e-5, tol_body=0.25, tol_finger=1.0, tol_hips=0.001, quantize=True):
+    """Add every clip to a glb.Glb.  bone_nodes: node index per bone (mh.BONE_NAMES order).
+    Size: keys that linear/slerp interpolation reproduces within tol (deg / m) are dropped per track (loops keep both
+    ends), constant tracks keep one key, rotations are stored as normalized int16 quaternions (core glTF; three.js
+    rescales them on load), and all animation arrays share one bufferView with content deduplication."""
+    pk = _Packer(glb)
     for name, c in clips.items():
         times = np.asarray(c["times"], np.float32)
         q, hips = c["rot"], c["hips_t"]
         T = len(times)
-        tin_full = glb.accessor(times, "SCALAR", minmax=True)
-        tin_two = tin_full if T <= 2 else glb.accessor(times[[0, -1]], "SCALAR", minmax=True)
         samplers, channels = [], []
 
-        def add_track(node, path, vals, const):
-            vals = np.asarray(vals, np.float32)
-            if const and T > 2:
-                vals = vals[[0, -1]]
-                tin = tin_two
+        def add_track(node, path, vals, idx):
+            vals = np.asarray(vals)[idx]
+            if path == "rotation" and quantize:
+                v = vals / np.linalg.norm(vals, axis=1, keepdims=True)
+                v = v * np.where(v[:, 3:4] < 0, -1.0, 1.0) if len(v) == 1 else v
+                out = pk.acc(np.round(np.clip(v, -1, 1) * 32767.0).astype(np.int16), "VEC4", 5122, normalized=True)
             else:
-                tin = tin_full
-            kind = "VEC4" if path == "rotation" else "VEC3"
-            out = glb.accessor(vals, kind)
+                out = pk.acc(np.asarray(vals, np.float32), "VEC4" if path == "rotation" else "VEC3", 5126)
+            tin = pk.acc(times[list(idx)], "SCALAR", 5126, minmax=True)
             samplers.append({"input": tin, "output": out, "interpolation": "LINEAR"})
             channels.append({"sampler": len(samplers) - 1, "target": {"node": node, "path": path}})
 
         for b in range(NB):
-            const = float(np.abs(q[:, b] - q[0, b]).max()) < eps
-            add_track(bone_nodes[b], "rotation", q[:, b], const)
-        add_track(bone_nodes[0], "translation", hips, float(np.abs(hips - hips[0]).max()) < 1e-6)
+            qb = q[:, b]
+            if float(np.abs(qb - qb[0]).max()) < eps:
+                idx = [0]
+            else:
+                idx = _reduce_rot(qb, tol_finger if FINGER_BONE[b] else tol_body)
+            add_track(bone_nodes[b], "rotation", qb, idx)
+        if float(np.abs(hips - hips[0]).max()) < 1e-6:
+            idx = [0]
+        else:
+            idx = _reduce_vec(hips, tol_hips)
+        add_track(bone_nodes[0], "translation", hips, idx)
         glb.g["animations"].append({"name": name, "samplers": samplers, "channels": channels})
+    pk.finish()
 
 
 # ------------------------------------------------------------------------------------------------
@@ -1083,7 +1193,22 @@ def socket_frames(heads, clips, head_top=None):
     return pos, rot
 
 
-def build_clips(heads, only=None, bulk=1.0, mesh=None, foot_sole=0.0, seat=None):
+CORE_CLIPS = ("pose_pistol", "pose_rifle", "pose_launcher", "idle_stand", "idle_sit_drive", "fall_flail", "land_back", "land_front",
+              "death_fall", "death_blown_up")
+DRIVER_CLIPS = ("sit_lean_L", "sit_lean_R", "sit_brace", "sit_impact", "sit_hit", "sit_glance_L", "sit_glance_R", "sit_shout",
+                "death_sit_slump", "death_sit_jerk_L", "death_sit_jerk_R", "death_sit_headback")
+
+
+def role_filter(role):
+    """Clip-name predicate for a character's role: 'gunner' (standing set + core), 'driver' (seated set + core), None = all."""
+    if role is None:
+        return None
+    if role == "driver":
+        return lambda n: n in CORE_CLIPS or n in DRIVER_CLIPS
+    return lambda n: n not in DRIVER_CLIPS
+
+
+def build_clips(heads, only=None, bulk=1.0, mesh=None, foot_sole=0.0, seat=None, role=None):
     """All clips for a body with the given rest bone heads (B,3), game space.  See module docstring for the format.
     bulk: >1 for thick torsos/wide builds (wider stance, hands and elbows further from the body).
     mesh: optional (pos (V,3), joints (V,4), weights (V,4)) of the skinned character for exact ground contact in death_fall
@@ -1093,34 +1218,33 @@ def build_clips(heads, only=None, bulk=1.0, mesh=None, foot_sole=0.0, seat=None)
     if mesh is not None:
         rig.set_mesh(mesh[0], mesh[1], mesh[2], foot_sole)
     base = ready_stance(rig, bulk)
-    sit_p, g = sit_base(rig, sit_geometry(rig, **(seat or {})))
     out = {}
+    keep = role_filter(role)
+    if keep is not None:
+        names = only if only is not None else _ALL_NAMES
+        only = [n for n in names if keep(n)]
     want = lambda n: only is None or n in only
-    if want("idle_stand"):
-        out["idle_stand"] = clip_idle_stand(rig, base)
-    if want("idle_sit_drive"):
-        out["idle_sit_drive"] = clip_sit(rig, sit_p, g)
-    if want("sit_lean_L"):
-        out["sit_lean_L"] = clip_sit_lean(rig, sit_p, g, "L")
-    if want("sit_lean_R"):
-        out["sit_lean_R"] = clip_sit_lean(rig, sit_p, g, "R")
-    if want("flinch_a"):
-        out["flinch_a"] = clip_flinch_a(rig, base)
-    if want("flinch_b"):
-        out["flinch_b"] = clip_flinch_b(rig, base)
-    if want("throw_grenade"):
-        out["throw_grenade"] = clip_throw(rig, base)
-    if want("celebrate"):
-        out["celebrate"] = clip_celebrate(rig, base)
-    if want("crouch_idle"):
-        out["crouch_idle"] = clip_crouch(rig, base)
-    if want("death_fall"):
-        out["death_fall"] = clip_death(rig, base)
+    # first-generation one-frame weapon poses (their finger tracks feed the first-person viewmodel; sockets derive from pose_rifle)
     for kind in ("pistol", "rifle", "launcher"):
         if want("pose_" + kind):
             out["pose_" + kind] = clip_pose(rig, aim_pose(rig, base, kind), "one-frame %s pose (weapon axis +Z, arms only)" % kind)
-    # second-generation clip libraries (override the first-generation clips of the same name)
+    # second-generation libraries: standing gunner, reactions, seated driver
     import clips_gunner
-    new, _ = clips_gunner.build(rig, bulk, only)
+    import clips_react
+    import clips_driver
+    new, ctx = clips_gunner.build(rig, bulk, only)
     out.update(new)
+    out.update(clips_react.build(ctx, only))
+    out.update(clips_driver.build(rig, seat, only))
     return out
+
+
+_ALL_NAMES = ["pose_pistol", "pose_rifle", "pose_launcher", "idle_stand", "aim_rifle", "aim_pistol", "aim_launcher", "aim_shotgun",
+              "fire_rifle", "fire_pistol", "fire_shotgun", "fire_launcher", "fire_rifle_auto", "reload_rifle", "reload_pistol",
+              "reload_shotgun", "reload_launcher", "idle_pistol", "idle_launcher", "crouch_idle", "throw_grenade", "throw_molotov",
+              "taunt", "shout", "celebrate",
+              "hit_front", "hit_back", "hit_left", "hit_right", "hit_front_heavy", "hit_back_heavy", "hit_left_heavy", "hit_right_heavy",
+              "flinch_a", "flinch_b", "death_fall", "death_crumple", "death_slump_rail", "death_thrown_back", "death_thrown_left",
+              "death_thrown_right", "death_blown_up", "fall_flail", "land_back", "land_front",
+              "idle_sit_drive", "sit_lean_L", "sit_lean_R", "sit_brace", "sit_impact", "sit_hit", "sit_glance_L", "sit_glance_R",
+              "sit_shout", "death_sit_slump", "death_sit_jerk_L", "death_sit_jerk_R", "death_sit_headback"]

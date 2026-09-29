@@ -38,7 +38,7 @@ class Glb:
 
     def accessor(self, arr, kind, comp=FLOAT, target=None, minmax=False, normalized=False):
         arr = np.ascontiguousarray(arr)
-        dt = {FLOAT: np.float32, USHORT: np.uint16, UINT: np.uint32, UBYTE: np.uint8}[comp]
+        dt = {FLOAT: np.float32, USHORT: np.uint16, UINT: np.uint32, UBYTE: np.uint8, 5122: np.int16, 5120: np.int8}[comp]
         arr = arr.astype(dt)
         view = self._view(arr.tobytes(), target)
         count = arr.shape[0]

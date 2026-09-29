@@ -6,10 +6,12 @@
 //   look=Head|Hips|...  target = world position of that bone/node (else bbox centre); ty= override target y
 //   wire=1  sun=28  sunaz=215  exp=0.9  bg=rrggbb  bones=1 (draw skeleton lines)   axes=1
 //   weapon=rifle      attach /models/weapons/<id>.glb to socket_hand_R (grip_R = socket, identity) - the runtime contract
+//   wl=0.08-1.18      weapon parented to socket_hand_L (at -grip_L) inside that clip-time window (throws)
 //   lik=1             + two-bone IK of the left arm onto the weapon's grip_L (what the runtime would add on top)
 //   vehicle=e_technical&seat=gunner|driver   load a vehicle at the origin and put the character on that seat socket
 //                     (gunner: feet on seat_gunner; driver: hip point on seat_driver, root 0.56 m below). vyaw= vehicle yaw deg
 //   labels=1          print the clip time in every grid cell
+//   rail=0.95:0.30    draw a horizontal rail (height:z in front of the character, metres) for death_slump_rail
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Sky } from 'three/addons/objects/Sky.js';
@@ -63,7 +65,17 @@ const loader = new GLTFLoader();
 const modelUrl = q.get('model');
 const csv = (k) => (q.get(k) ? q.get(k).split(',') : []);
 
-function setTime(t) { if (mixer && clip) { action.time = 0; mixer.setTime(t); } root.updateMatrixWorld(true); postPose(); root.updateMatrixWorld(true); }
+function weaponHand(t) {
+  if (!weaponRoot || !q.has('wl')) return;
+  const [a, b] = q.get('wl').split('-').map(Number);
+  const left = t >= a && t <= b;
+  const s = root.getObjectByName(left ? 'socket_hand_L' : 'socket_hand_R');
+  if (weaponRoot.parent !== s) s.add(weaponRoot);
+  const g = weaponRoot.getObjectByName('grip_L');
+  if (left && g) weaponRoot.position.copy(g.position).negate(); else weaponRoot.position.set(0, 0, 0);
+  weaponRoot.quaternion.identity();
+}
+function setTime(t) { if (mixer && clip) { action.reset(); action.play(); mixer.setTime(Math.min(t, clip.duration - 1e-4)); } weaponHand(t); root.updateMatrixWorld(true); postPose(); root.updateMatrixWorld(true); }
 function findNode(name) { let r = null; root.traverse(o => { if (o.name === name && !r) r = o; }); return r; }
 
 function updateTarget() {
@@ -104,6 +116,12 @@ function postPose() {
   twoBoneIK(u, l, h, t, pole, la, lb);
 }
 
+if (q.has('rail')) {
+  const [rh, rz] = q.get('rail').split(':').map(Number);
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.6, 12).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.8, roughness: 0.4 }));
+  bar.position.set(0, rh, rz); bar.castShadow = true; scene.add(bar);
+  for (const x of [-0.75, 0.75]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, rh, 8), bar.material); post.position.set(x, rh / 2, rz); scene.add(post); }
+}
 loader.load(modelUrl, async (gltf) => {
   root = gltf.scene; scene.add(root);
   if (q.has('vehicle')) {
@@ -147,7 +165,7 @@ loader.load(modelUrl, async (gltf) => {
   if (gltf.animations.length && q.has('anim')) {
     mixer = new THREE.AnimationMixer(root);
     clip = gltf.animations.find(a => a.name === q.get('anim'));
-    if (clip) { action = mixer.clipAction(clip); action.play(); }
+    if (clip) { action = mixer.clipAction(clip); action.setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
   }
   if (q.has('bones')) {
     const sk = []; root.traverse(o => { if (o.isSkinnedMesh) sk.push(o); });

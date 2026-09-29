@@ -138,8 +138,10 @@ def _save_final(self, path=None, hidden_groups=(), split_by_label=False, extras=
         if prims:
             mesh = (np.concatenate([p["pos"] for p in prims]), np.concatenate([np.asarray(p["joints"]) for p in prims]),
                     np.concatenate([np.asarray(p["weights"]) for p in prims]))
+        import reanim
+        role = getattr(self, "role", None) or reanim.ANIM_PARAMS.get(self.name, {}).get("role")
         clips = anim.build_clips(heads, bulk=getattr(self, "bulk", 1.0), mesh=mesh, foot_sole=0.0,
-                                 seat=getattr(self, "seat", None))
+                                 seat=getattr(self, "seat", None), role=role)
         sp, sr = anim.socket_frames(heads, clips)
     except ImportError:
         print("  (anim.py not available: exporting without clips)")

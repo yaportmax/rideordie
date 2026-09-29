@@ -8,6 +8,8 @@ const game = new Game();
 window.__game = game;
 await game.boot();
 game.loop();
+// dev shortcuts skip the menus: no boot screen (index.html removes it too; this is the safety net)
+if (q.has('solo') || q.get('devnet')) document.getElementById('boot')?.remove();
 
 const devProfile = () => {
   const p = DEFAULT_PROFILE();

@@ -11,7 +11,7 @@ const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.goto(`${opt.base || 'http://localhost:5180'}/index.html?solo&as=gunner&s=${opt.s || 3000}&seed=7${opt.q ? '&' + opt.q : ''}`, { waitUntil: 'load' });
-await page.waitForFunction('window.__ready === true', null, { timeout: 120000 }).catch(() => console.log('no ready'));
+await page.waitForFunction('window.__ready === true', null, { timeout: 120000 }).then(() => page.evaluate(() => document.getElementById('boot')?.remove())).catch(() => console.log('no ready'));
 await page.evaluate((sp) => { window.__autodrive = { speed: sp }; }, +(opt.speed || 0));
 await page.waitForTimeout(+(opt.wait || 7000));
 const r = await page.evaluate(({ asset, dist, h }) => {

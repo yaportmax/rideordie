@@ -54,6 +54,8 @@ def main():
     ap.add_argument("clips")
     ap.add_argument("--weapon")
     ap.add_argument("--lik", action="store_true")
+    ap.add_argument("--wl")
+    ap.add_argument("--rail")
     ap.add_argument("--az", type=float, default=30)
     ap.add_argument("--el", type=float, default=8)
     ap.add_argument("--views")
@@ -100,6 +102,10 @@ def main():
                 q += "&weapon=" + a.weapon
             if a.lik:
                 q += "&lik=1"
+            if a.wl:
+                q += "&wl=" + a.wl
+            if a.rail:
+                q += "&rail=" + a.rail
             if a.vehicle:
                 q += "&vehicle=%s&seat=%s&vyaw=%g" % (a.vehicle, a.seat, a.vyaw)
             out = os.path.join(ROOT, a.out, "%s%s_v%d.png" % (clip, a.tag, vi))

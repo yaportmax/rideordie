@@ -284,7 +284,7 @@ def overlap(rig, params, spec, loop=False, dt=1.0 / HZ, settle=0.0, frames=("che
         return params
     n = len(params)
     passes = 3 if loop else 1
-    springs = {k: (RotSpring(*v) if k not in ("weapon", "hL", "hR") else PosSpring(*v)) for k, v in spec.items()}
+    springs = {k: (RotSpring(*v) if k not in ("weapon", "hL", "hR", "fL", "fR") else PosSpring(*v)) for k, v in spec.items()}
     out = None
     for ps in range(passes):
         res = []
@@ -327,6 +327,10 @@ def overlap(rig, params, spec, loop=False, dt=1.0 / HZ, settle=0.0, frames=("che
                         tgt = np.asarray(p[key + "_pos"], float) if fr == "world" else Cpos + Crot @ np.asarray(p[key + "_pos"], float)
                         x = springs[key].step(tgt, dt)
                         p[key + "_pos"] = x if fr == "world" else Crot.T @ (x - Cpos)
+            for S in ("L", "R"):
+                key = "f" + S
+                if key in springs:                          # feet are always world-space targets
+                    p[key + "_pos"] = springs[key].step(np.asarray(p[key + "_pos"], float), dt)
             res.append(p)
         out = res
     if settle > 0 and not loop:
@@ -375,15 +379,34 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
         if rel is not None:
             p = resolve_grips(rig, p, rel)
         W, P = rig.solve(p, frames)
-        if rel is not None and relock_left and "pw_pos" in p and float(p["attL"][0]) > 1e-3 and frames[0] == "chest":
+        if rel is not None and relock_left and "pw_pos" in p and float(p["attL"][0]) > 1e-3 and float(p["attR"][0]) > 0.999 and frames[0] == "chest":
             # the weapon follows the ACTUAL right hand (runtime: weapon parented to socket_hand_R) -> re-target the left hand
             p = _relock_left(rig, p, W, P, rel)
             W, P = rig.solve(p, frames)
         if ground:
+            if frames[0] == "world":
+                # limb targets never below the floor (they would lift the whole body when the pose is shifted up)
+                p = copy.deepcopy(p)
+                for S, fr in zip(("L", "R"), frames):
+                    if fr == "world":
+                        hp = np.asarray(p["h%s_pos" % S], float).copy()
+                        hp[1] = max(hp[1], 0.045 * rig.k)
+                        p["h%s_pos" % S] = hp
+                    fp = np.asarray(p["f%s_pos" % S], float).copy()
+                    fp[1] = max(fp[1], 0.055 * rig.k)
+                    p["f%s_pos" % S] = fp
+                W, P = rig.solve(p, frames)
             low = rig.lowest(W, P)
             if (ground_clamp and low < 0.0) or t >= ground_from:
+                # rigid shift of the whole pose (hips + every world-space target)
                 p = copy.deepcopy(p)
-                p["hips_pos"] = np.asarray(p["hips_pos"]) + np.array([0.0, -low, 0.0])
+                dy = np.array([0.0, -low, 0.0])
+                p["hips_pos"] = np.asarray(p["hips_pos"]) + dy
+                if frames[0] == "world":
+                    for S, fr in zip(("L", "R"), frames):
+                        if fr == "world":
+                            p["h%s_pos" % S] = np.asarray(p["h%s_pos" % S], float) + dy
+                        p["f%s_pos" % S] = np.asarray(p["f%s_pos" % S], float) + dy
                 W, P = rig.solve(p, frames)
         Ls.append(rig.local_from_world(W))
         hips.append(P[0].copy())

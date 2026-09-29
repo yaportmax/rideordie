@@ -16,7 +16,7 @@ let bad = 0;
 for (const m of models) {
   const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
   page.on('pageerror', e => console.log('[pageerror]', e.message));
-  await page.goto('http://localhost:5173/viewer.html?model=' + m, { waitUntil: 'load' });
+  await page.goto('http://localhost:5180/viewer.html?model=' + m, { waitUntil: 'load' });
   await page.waitForFunction('window.__ready === true', null, { timeout: 60000 }).catch(() => console.log('[warn] not ready'));
   const v = await page.evaluate(() => JSON.parse(JSON.stringify(window.__viewer)));
   const names = v.nodes.map(n => n.path.split('/').pop());

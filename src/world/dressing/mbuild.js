@@ -23,10 +23,20 @@ export function frameYaw(x, y, z, yaw, out = {}) {
   return out;
 }
 
+/** General frame: origin + orthonormal basis (left, up, forward) given as world vectors (up is re-orthogonalised). */
+export function frameBasis(x, y, z, up, fwd, out = {}) {
+  let [ux, uy, uz] = up; let l = Math.hypot(ux, uy, uz); ux /= l; uy /= l; uz /= l;
+  let [fx, fy, fz] = fwd; const dp = fx * ux + fy * uy + fz * uz; fx -= ux * dp; fy -= uy * dp; fz -= uz * dp;
+  l = Math.hypot(fx, fy, fz); fx /= l; fy /= l; fz /= l;
+  const lx = uy * fz - uz * fy, ly = uz * fx - ux * fz, lz = ux * fy - uy * fx;   // left = up x forward
+  out.x = x; out.y = y; out.z = z; out.R = [lx, ly, lz, ux, uy, uz, fx, fy, fz];
+  return out;
+}
+
 export class MB {
   constructor(anchor, opts = {}) {
     this.ax = anchor.x; this.ay = anchor.y; this.az = anchor.z;
-    this.fac = opts.fac !== false;
+    this.fac = opts.fac !== false; this.uvName = opts.uvName || 'uv';
     const n = opts.cap || 4096;
     this.P = new Grow(n * 3); this.N = new Grow(n * 3); this.U = new Grow(n * 2); this.C = new Grow(n * 3);
     if (this.fac) { this.A = new Grow(n * 4); this.B = new Grow(n * 4); }
@@ -51,7 +61,10 @@ export class MB {
   quadIdx(a, b, c, d) { this.I.push3(a, b, c); this.I.push3(a, c, d); }
 
   /** Local point -> world (writes into o). */
-  static at(F, lx, ly, lz, o) { o.x = F.x + F.lx * lx + F.fx * lz; o.y = F.y + ly; o.z = F.z + F.lz * lx + F.fz * lz; return o; }
+  static at(F, lx, ly, lz, o) {
+    if (F.R) { const R = F.R; o.x = F.x + R[0] * lx + R[3] * ly + R[6] * lz; o.y = F.y + R[1] * lx + R[4] * ly + R[7] * lz; o.z = F.z + R[2] * lx + R[5] * ly + R[8] * lz; return o; }
+    o.x = F.x + F.lx * lx + F.fx * lz; o.y = F.y + ly; o.z = F.z + F.lz * lx + F.fz * lz; return o;
+  }
 
   /** Quad from 4 WORLD points (CCW seen from outside), flat normal, uvs per corner. */
   quadW(p0, p1, p2, p3, u0, v0, u1, v1, u2, v2, u3, v3) {
@@ -81,17 +94,16 @@ export class MB {
     const tY = o.topY || [y1, y1, y1, y1];
     const W = x1 - x0, D = z1 - z0;
     const P = _P;
-    // corners: FL (x0,z1) FR (x1,z1) BR (x1,z0) BL (x0,z0) seen from the front (+z is front)
+    // corners (x = left): front-right (x0,z1), front-left (x1,z1), back-left (x1,z0), back-right (x0,z0)
     const c = [[x0, z1], [x1, z1], [x1, z0], [x0, z0]];
     const ul = [0, W, W + D, 2 * W + D, 2 * (W + D)];
-    // walls in order front (FL->FR), right (FR->BR), back (BR->BL), left (BL->FL); outward normals => CCW from outside
-    const names = 'frbl';
+    // walls in order front (+z), left (+x), back (-z), right (-x); each quad is CCW seen from outside
+    const names = 'flbr';
     for (let k = 0; k < 4; k++) {
       if (skip.includes(names[k])) continue;
       const a = c[k], b = c[(k + 1) % 4], ya = tY[k], yb = tY[(k + 1) % 4];
       MB.at(F, a[0], y0, a[1], P[0]); MB.at(F, b[0], y0, b[1], P[1]); MB.at(F, b[0], yb, b[1], P[2]); MB.at(F, a[0], ya, a[1], P[3]);
       const u0 = ul[k] + uo, u1 = ul[k + 1] + uo;
-      // the front wall faces +z: its left corner (seen from outside, looking at -z) is FL = x0 ... counter-clockwise from outside means a->b->top
       this.quadW(P[0], P[1], P[2], P[3], u0, y0 - vb, u1, y0 - vb, u1, yb - vb, u0, ya - vb);
     }
     if (!skip.includes('t')) {
@@ -140,11 +152,46 @@ export class MB {
     }
   }
 
+  /** Quad whose winding is chosen so that its normal faces `hint` (world vector). */
+  quadOut(p0, p1, p2, p3, hx, hy, hz, u0 = 0, v0 = 0, u1 = 1, v1 = 0, u2 = 1, v2 = 1, u3 = 0, v3 = 1) {
+    const ax = p1.x - p0.x, ay = p1.y - p0.y, az = p1.z - p0.z, bx = p3.x - p0.x, by = p3.y - p0.y, bz = p3.z - p0.z;
+    const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+    if (nx * hx + ny * hy + nz * hz >= 0) this.quadW(p0, p1, p2, p3, u0, v0, u1, v1, u2, v2, u3, v3);
+    else this.quadW(p3, p2, p1, p0, u3, v3, u2, v2, u1, v1, u0, v0);
+  }
+
+  /** Cylinder between two WORLD points (radius r, n sides), smooth normals, optional caps. u = arc (m), v = length (m). */
+  tubeW(a, b, r, n = 10, caps = true, r2 = r) {
+    let dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z; const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
+    // basis perpendicular to d
+    let px = -dz, py = 0, pz = dx; let pl = Math.hypot(px, pz); if (pl < 1e-4) { px = 1; pz = 0; pl = 1; } px /= pl; pz /= pl;
+    const qx = dy * pz - dz * py, qy = dz * px - dx * pz, qz = dx * py - dy * px;
+    const base = this.count;
+    for (let k = 0; k <= n; k++) {
+      const t = (k / n) * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+      const nx = px * c + qx * s, ny = py * c + qy * s, nz = pz * c + qz * s;
+      this.vert(a.x + nx * r, a.y + ny * r, a.z + nz * r, nx, ny, nz, r * t, 0);
+      this.vert(b.x + nx * r2, b.y + ny * r2, b.z + nz * r2, nx, ny, nz, r * t, L);
+    }
+    for (let k = 0; k < n; k++) { const i = base + k * 2; this.quadIdx(i, i + 2, i + 3, i + 1); }
+    if (caps) {
+      const P = [{}, {}, {}];
+      for (const [e, rr, sgn] of [[a, r, -1], [b, r2, 1]]) {
+        for (let k = 0; k < n; k++) {
+          const t0 = (k / n) * Math.PI * 2, t1 = ((k + 1) / n) * Math.PI * 2;
+          P[0].x = e.x + (px * Math.cos(t0) + qx * Math.sin(t0)) * rr; P[0].y = e.y + (py * Math.cos(t0) + qy * Math.sin(t0)) * rr; P[0].z = e.z + (pz * Math.cos(t0) + qz * Math.sin(t0)) * rr;
+          P[1].x = e.x + (px * Math.cos(t1) + qx * Math.sin(t1)) * rr; P[1].y = e.y + (py * Math.cos(t1) + qy * Math.sin(t1)) * rr; P[1].z = e.z + (pz * Math.cos(t1) + qz * Math.sin(t1)) * rr;
+          if (sgn > 0) this.triW(P[0], P[1], e, 0, 0, 1, 0, 0.5, 1); else this.triW(P[1], P[0], e, 0, 0, 1, 0, 0.5, 1);
+        }
+      }
+    }
+  }
+
   build() {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.P.view().slice(), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(this.N.view().slice(), 3));
-    g.setAttribute('uv', new THREE.BufferAttribute(this.U.view().slice(), 2));
+    g.setAttribute(this.uvName, new THREE.BufferAttribute(this.U.view().slice(), 2));
     g.setAttribute('color', new THREE.BufferAttribute(this.C.view().slice(), 3));
     if (this.fac) { g.setAttribute('aFac', new THREE.BufferAttribute(this.A.view().slice(), 4)); g.setAttribute('aFac2', new THREE.BufferAttribute(this.B.view().slice(), 4)); }
     const nv = this.count, idx = this.I.view();

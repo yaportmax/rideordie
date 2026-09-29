@@ -16,6 +16,7 @@ import { MenuPost, warmScene } from './menu_post.js';
 import { TitleScene } from './title_scene.js';
 import { buildGarageSet, BENCH, SUN_DIR, DOOR, BACK_Z } from './garage_env.js';
 import { PuffSystem } from './menu_fx.js';
+import { GpuTimer } from '../view/post/gpu_timer.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const REFL = 1;                      // layer seen by the floor reflection camera
@@ -26,11 +27,11 @@ const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** Tab framings: az = camera azimuth around the subject (0 = in front of the turntable, toward +z), el = elevation, fit = size factor. */
 const VIEWS = {
-  truck: { subject: 'truck', az: 0.5, el: 0.13, fit: 1.0, fov: 30, spin: 0.16 },
-  upgrades: { subject: 'truck', az: 0.28, el: 0.05, fit: 0.92, fov: 30, spin: 0.1, y: -0.12 },
+  truck: { subject: 'truck', az: 0.5, el: 0.13, fit: 0.84, fov: 30, spin: 0.16 },
+  upgrades: { subject: 'truck', az: 0.28, el: 0.05, fit: 0.8, fov: 30, spin: 0.1, y: -0.12 },
   weapons: { subject: 'bench', az: Math.PI / 2 + 0.28, el: 0.2, fit: 1.0, fov: 28, spin: 0.16 },
   gunner: { subject: 'gunner', az: 0.62, el: 0.14, fit: 1.0, fov: 28, spin: 0, present: -2.35 },
-  paint: { subject: 'truck', az: 1.2, el: 0.1, fit: 0.98, fov: 30, spin: 0.12 },
+  paint: { subject: 'truck', az: -0.55, el: 0.16, fit: 0.84, fov: 30, spin: 0.12 },
   title: { subject: 'truck', az: 0.5, el: 0.13, fit: 1.0, fov: 30, spin: 0.16 },
 };
 
@@ -61,7 +62,7 @@ export class GarageScene {
     floor.position.set(0, 0, 1); floor.receiveShadow = true; s.add(floor);
     // ---------------------------------------------------------------- turntable: steel disc, amber LED ring
     const tt = new THREE.Group(); s.add(tt);
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.32, 0.14, 96), new THREE.MeshStandardMaterial({ color: 0x5a5650, metalness: 0.9, roughness: 0.38, map: discTex(), roughnessMap: discTex(true) }));
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.32, 0.14, 96), new THREE.MeshStandardMaterial({ color: 0x5a5650, metalness: 0.45, roughness: 0.72, envMapIntensity: 0.7, map: discTex(), roughnessMap: discTex(true) }));
     disc.position.y = 0.07; disc.receiveShadow = true; disc.castShadow = false; tt.add(disc);
     this.ringMat = new THREE.MeshStandardMaterial({ color: 0x1a1206, emissive: 0xffa21a, emissiveIntensity: 4 });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(4.27, 0.028, 8, 160).rotateX(Math.PI / 2), this.ringMat); ring.position.y = 0.145; tt.add(ring);
@@ -81,7 +82,48 @@ export class GarageScene {
     this.preview = {};
     this.benchWeapon = null; this.benchId = null; this.benchDrop = 0;
     this.drop = 0;
-    this.ready = this.set.propsReady.then(() => this._warm()).then(() => this._envCapture());
+  }
+  /** Loads + warms both menu stages (started on first use, so ?solo dev runs never pay for it). */
+  get ready() { return this._ready || (this._ready = this._boot()); }
+
+  /**
+   * Startup (behind the boot screen): build the title chase + the garage set, compile every program they can show (all trucks,
+   * weapons, armour tiers) and draw both stages once off-screen. ANGLE finishes shader work on the first draw, so compiling alone
+   * is not enough: after this the title, the garage and every shop preview render without a hitch.
+   */
+  async _boot() {
+    const L = (m) => (window.__menuLog || (window.__menuLog = [])).push([+(performance.now() / 1000).toFixed(2), m]);
+    this._initTitle();
+    await this.set.propsReady; L('props');
+    const g = await this._warm(); L('warmed');
+    this._envCapture(); L('env');
+    try { await this.titleReady; await Promise.race([this.title.propsLoaded, new Promise((r) => setTimeout(r, 9000))]); } catch { /* ignore */ }
+    L('title');
+    this._drawWarm(g); L('drawn');
+    this.scene.remove(g);
+    this.warmed = true;
+  }
+  /** Render both stages (and the preview group) once into the pipeline's own targets. */
+  _drawWarm(g) {
+    const r = this.renderer, cam = this.camera;
+    try {
+      g.position.set(0, 0.14, 0); g.updateMatrixWorld(true);
+      g.traverse((o) => o.layers.enable(REFL));
+      this.sparks.emit(_v.set(0, 1, 0), _v2.set(0, 1, 0), { life: 0.2 }); this.sparks.update(0.01);
+      // every framing the shop uses (truck, bench, gunner, side), with the floor reflection pass
+      for (const [p, l] of [[[7, 3, 12], [0, 1, 0]], [[-8.5, 1.8, 5.5], [BENCH.x, BENCH.y, BENCH.z]], [[3, 2.6, 3], [0, 1.8, -1]], [[-2, 3, -6], [0, 1.2, 4]]]) {
+        cam.position.set(...p); cam.lookAt(...l); cam.updateMatrixWorld();
+        this.refl.update(r, this.scene, cam);
+        this.post.render(this.scene, cam, 0.016);
+      }
+      g.position.set(0, -400, 0);
+      const T = this.title;
+      if (T?.hero) {
+        for (let i = 0; i < T.shots.length; i++) { T.shot = i; T.shotT = 2; T.update(0.016); this.post.render(T.scene, T.camera, 0.016); }
+        T.shot = 0; T.shotT = 0.4;
+      }
+      r.setRenderTarget(null);
+    } catch (e) { console.warn('menu draw warm', e); }
   }
 
   _lights() {
@@ -96,12 +138,10 @@ export class GarageScene {
     const key = this.key = new THREE.SpotLight(0xffe2c0, 520, 0, 0.5, 0.6, 2);
     key.position.set(4.5, 9.5, 8); key.target.position.set(0, 0.6, 0); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0002; key.shadow.normalBias = 0.02;
     s.add(key, key.target);
-    const rim = new THREE.SpotLight(0x8fb0ff, 420, 0, 0.55, 0.7, 2); rim.position.set(-7, 5.5, -7.5); rim.target.position.set(0, 1.0, 0); s.add(rim, rim.target);
-    const lamp = new THREE.SpotLight(0xffb870, 180, 0, 0.75, 0.9, 2); lamp.position.set(-3.2, 6.2, -1.5); lamp.target.position.set(-2.5, 0, -1); s.add(lamp, lamp.target);
-    const lamp2 = new THREE.SpotLight(0xffb870, 160, 0, 0.75, 0.9, 2); lamp2.position.set(3.4, 6.2, 1.8); lamp2.target.position.set(3, 0, 2.5); s.add(lamp2, lamp2.target);
-    const bench = this.benchLight = new THREE.SpotLight(0xffe0b8, 60, 0, 0.6, 0.7, 2); bench.position.set(BENCH.x + 0.3, 2.4, BENCH.z); bench.target.position.copy(BENCH); s.add(bench, bench.target);
-    const neon = new THREE.PointLight(0xff7a3a, 26, 14, 2); neon.position.set(-14, 5.2, -4.2); s.add(neon);
-    s.add(new THREE.HemisphereLight(0x6a5e58, 0x1a120c, 0.45));
+    const rim = new THREE.SpotLight(0x9ab4ff, 300, 0, 0.3, 0.8, 2); rim.position.set(-7, 6.5, -7.5); rim.target.position.set(0, 1.7, 0); s.add(rim, rim.target);
+    // (kept to 1 directional + 3 spots: every extra light makes every program slower to compile and to shade)
+    const bench = this.benchLight = new THREE.SpotLight(0xffe0b8, 70, 0, 0.6, 0.7, 2); bench.position.set(BENCH.x + 0.3, 2.4, BENCH.z); bench.target.position.copy(BENCH); s.add(bench, bench.target);
+    s.add(new THREE.HemisphereLight(0x7a6a60, 0x1a120c, 0.6));
   }
 
   /** Environment reflections from the finished set (cube capture -> PMREM), so paint and chrome reflect this room. */
@@ -128,13 +168,13 @@ export class GarageScene {
     g.add(new CrewView('hero_driver', { role: 'driver' }).root);
     this.scene.add(g);
     await warmScene(this.renderer, this.scene, this.camera, this.post);
-    this.scene.remove(g);
-    this.warmed = true;
+    return g;
   }
 
   // ------------------------------------------------------------------------------------------------ stages
   /** 'garage' | 'title'. Cross-fades through black. */
   setStage(stage) {
+    void this.ready;
     if (stage === 'title') this._initTitle();
     if (stage === this.stage && !this.pendingStage) return;
     if (this.fade > 0.99 && !this.pendingStage) { this._enterStage(stage); return; }
@@ -150,7 +190,7 @@ export class GarageScene {
     this.stage = stage; this.pendingStage = null;
     if (stage === 'title') {
       this.title.setHero(this.base.truck, this.base.paint, this.base.weapon);
-      this.post.setLook({ exposure: 1.05, vignette: 0.7, grain: 0.035, bloom: { strength: 0.62, radius: 0.6, threshold: 0.9 } });
+      this.post.setLook({ exposure: 1.0, vignette: 0.7, grain: 0.03, bloom: { strength: 0.48, radius: 0.55, threshold: 1.0 } });
       // hold black until the chase is loaded + compiled
       this.fade = 1; this.fadeTo = 1;
       this.titleReady.then(() => { if (this.stage === 'title') this.fadeTo = 0; });
@@ -236,7 +276,12 @@ export class GarageScene {
     const box = new THREE.Box3().setFromObject(w.root), size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
     w.root.position.sub(ctr);
     holder.userData.size = Math.max(size.x, size.y, size.z);
-    holder.position.copy(BENCH).add(_v.set(0, size.y / 2 + 0.06, 0));
+    // small rotating display plinth + two padded rests under the gun
+    const L = Math.max(size.x, size.z);
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(L * 0.52, L * 0.55, 0.04, 48), this._plinthMat || (this._plinthMat = new THREE.MeshStandardMaterial({ color: 0x18171a, metalness: 0.7, roughness: 0.35 })));
+    plinth.position.y = -size.y / 2 - 0.045; plinth.receiveShadow = true; holder.add(plinth);
+    for (const f of [-0.28, 0.22]) { const rest = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.04, 0.1), this._restMat || (this._restMat = new THREE.MeshStandardMaterial({ color: 0x5a1a12, roughness: 0.8 }))); rest.position.set(0, -size.y / 2 - 0.005, f * L); holder.add(rest); }
+    holder.position.copy(BENCH).add(_v.set(0, size.y / 2 + 0.07, 0));
     holder.userData.base = holder.position.clone();
     this.scene.add(holder);
     w.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -253,7 +298,8 @@ export class GarageScene {
     const fk = this.fadeTo > this.fade ? dt / 0.22 : dt / 0.5;
     this.fade = this.fadeTo > this.fade ? Math.min(this.fadeTo, this.fade + fk) : Math.max(this.fadeTo, this.fade - fk);
     if (this.pendingStage && this.fade >= 0.999) this._enterStage(this.pendingStage);
-    this.post.mat.uniforms.uFade.value = this.fade * this.fade * (3 - 2 * this.fade);
+    const f = this.fade * this.fade * (3 - 2 * this.fade);
+    this.post.mat.uniforms.uFade.value = this.stage === 'title' && this.title ? Math.max(f, this.title.cutFade || 0) : f;
     if (this.stage === 'title') { if (this.title?.ready) this.title.update(dt); return; }
     this._garage(dt, input);
   }
@@ -346,13 +392,18 @@ export class GarageScene {
   drag(dx) { this.dragVel = (this.dragVel || 0) + dx * 0.02; }
 
   render() {
+    // dev: window.__menuProfile = true -> GPU ms per pass in window.__menuGpu
+    const T = window.__menuProfile ? (this._gpu || (this._gpu = new GpuTimer(this.renderer))) : null;
+    if (T) { T.poll(); window.__menuGpu = Object.fromEntries([...T.ms].map(([k, v]) => [k, +v.toFixed(2)])); }
     if (this.stage === 'title') {
+      T?.begin('title');
       if (this.title?.ready && this.title.hero) this.post.render(this.title.scene, this.title.camera, this.dt);
       else this.post.render(this.scene, this.camera, this.dt);
+      T?.end();
       return;
     }
-    this.refl.update(this.renderer, this.scene, this.camera);
-    this.post.render(this.scene, this.camera, this.dt);
+    T?.begin('refl'); this.refl.update(this.renderer, this.scene, this.camera); T?.end();
+    T?.begin('garage'); this.post.render(this.scene, this.camera, this.dt); T?.end();
   }
 }
 
@@ -389,11 +440,13 @@ class FloorReflection {
     clip.multiplyScalar(2 / clip.dot(q));
     P[2] = clip.x; P[6] = clip.y; P[10] = clip.z + 1 - 0.003; P[14] = clip.w;
     rc.projectionMatrixInverse.copy(rc.projectionMatrix).invert();
-    const prev = renderer.getRenderTarget(), fog = scene.fog;
+    // reuse last frame's shadow maps (three re-renders every shadow map on every render() call otherwise)
+    const prev = renderer.getRenderTarget(), au = renderer.shadowMap.autoUpdate;
+    renderer.shadowMap.autoUpdate = false;
     renderer.setRenderTarget(this.rt); renderer.clear();
     renderer.render(scene, rc);
     renderer.setRenderTarget(prev);
-    scene.fog = fog;
+    renderer.shadowMap.autoUpdate = au;
   }
 }
 

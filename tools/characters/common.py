@@ -83,7 +83,7 @@ def cloth_group(ctx, name, pieces, painter, ppm=500, extra=("depth", "ao"), grou
     return bk
 
 
-def finish_maps(alb, h, ppm, cav_strength=0.35, strength=1.0):
+def finish_maps(alb, h, ppm, cav_strength=0.24, strength=1.0):
     cav = np.clip((U.blur(h, max(0.01 * ppm, 1.0)) - h) / 0.0012, 0.0, 1.0)
     alb = np.clip(alb * (1.0 - cav_strength * cav[..., None]), 0, 1)
     return alb, U.height_to_normal(h, ppm, strength)

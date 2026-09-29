@@ -41,9 +41,7 @@ class CabMixin:
             pts = [wpos(sg * (hw0 + 0.04), s * slope / 8, 0.0) for s in range(9)]
             pts = [(p[0], p[1], p[2]) for p in pts]
             b.sweep('paint', pts[::4], rrect_prof(0.065, 0.06, 0.015, 1), up=(0, 1, 0))
-            # interior trim on the pillar
-            pts2 = [(sg * (hw0 + 0.005 - 0.07 * (s / 8)), fb + (ft - fb) * s / 8 - 0.03, zb + (zt - zb) * s / 8) for s in range(9)]
-            b.sweep('interior', pts2[::4], rrect_prof(0.05, 0.03, 0.008, 1), up=(0, 1, 0))
+            # (interior trim on the pillar: interior.cab_trim)
         # cowl panel + vent
         b.box('paint', (0, C.f_cowl + 0.005, C.z_ws_base - 0.02), (2 * (C.cab_hw) - 0.01, 0.075, 0.04), bev=0.01)
         for i in range(9):
@@ -57,25 +55,6 @@ class CabMixin:
             p2 = wpos(wx + 0.50 * k, 0.07, 0.024)
             p3 = wpos(wx + 0.50 * k - 0.44 * k, 0.07, 0.02)
             b.box('rubber', ((p2[0] + p3[0]) / 2, (p2[1] + p3[1]) / 2, (p2[2] + p3[2]) / 2), (0.44 * k, 0.012, 0.008), bev=0.002, seg=1, rot=(math.degrees(math.atan2(C.z_roof - C.z_ws_base, C.ws_run)) - 90, 0, 0))
-        if C.tier == 1:
-            # cracked windshield: chrome hairlines radiating from an impact point
-            rnd = random.Random(5)
-            cx, cs = -0.30, slope * 0.55
-            for a in range(9):
-                ang = rnd.uniform(0, 6.28)
-                L = rnd.uniform(0.22, 0.55)
-                pts = []
-                for i in range(6):
-                    t = i / 5
-                    uu = cx + math.cos(ang) * L * t + rnd.uniform(-0.012, 0.012)
-                    ss = cs + math.sin(ang) * L * t + rnd.uniform(-0.012, 0.012)
-                    uu = max(-hw0 + 0.03, min(hw0 - 0.03, uu))
-                    ss = max(0.03, min(slope - 0.03, ss))
-                    pts.append(wpos(uu, ss, 0.004))
-                b.sweep('chrome', pts, [(0.0022, 0.001), (-0.0022, 0.001), (-0.0022, -0.001), (0.0022, -0.001)], up=(0, 1, 0))
-            for r_ in (0.06, 0.13):
-                pts = [wpos(cx + r_ * math.cos(a * 0.7), cs + r_ * math.sin(a * 0.7), 0.004) for a in range(6)]
-                b.sweep('chrome', pts, [(0.0018, 0.001), (-0.0018, 0.001), (-0.0018, -0.001), (0.0018, -0.001)], up=(0, 1, 0))
 
     # ------------------------------------------------------------------------------------------- roof + cab shell
     def cab_shell(self):
@@ -213,24 +192,17 @@ class CabMixin:
             if getattr(C, 'no_door_mirror', False):
                 pass
             elif sg > 0 or C.tier > 1:
-                mirror(pt, (sg * (hwd - 0.005), f_f - 0.08, zbl + 0.09), sg, arm=0.17 * k, size=(0.035, 0.11 * k, 0.16 * k), m='plastic' if C.tier == 1 else 'paint')
+                W_, H_ = {1: (0.12, 0.17), 2: (0.16, 0.26), 3: (0.15, 0.22), 4: (0.17, 0.24)}[C.tier]
+                gc = mirror2(pt, sg, f_f - 0.07, zbl, hwd, hwd + 0.03, W=W_, H=H_, m={1: 'plastic', 2: 'metal_dark', 4: 'paint'}.get(C.tier, 'paint'),
+                             style='car' if C.tier == 1 else 'truck')
+                self.mirror_glass = getattr(self, 'mirror_glass', {})
+                self.mirror_glass['L' if sg > 0 else 'R'] = (gc, W_ - 0.03, H_ - 0.03, name)
             else:
                 # missing mirror: bare bracket
                 pt.box('metal_dark', (sg * (hwd - 0.005), f_f - 0.08, zbl + 0.09), (0.04, 0.05, 0.03), bev=0.004)
                 pt.cyl2('metal_dark', (sg * hwd, f_f - 0.08, zbl + 0.09), (sg * (hwd + 0.09), f_f - 0.06, zbl + 0.14), 0.006, n=6)
-            # ---- inside: door card, armrest, pull, crank, speaker
-            xc = hwd - 0.105
-            card = rrect_poly(f_r + 0.03, zdb + 0.04, f_f - 0.03, zbl - 0.015, 0.04, 3)
-            pt.plate('interior', card, lambda u, v, sg=sg, xc=xc: (sg * xc, u, v), out=(-sg, 0, 0), thick=0.028, bev=0.006, m2='metal_dark')
-            pt.box('interior', (sg * (xc - 0.05), fc - 0.05, zbl - 0.20), (0.11, 0.50 * k, 0.07), bev=0.025, seg=2)
-            pt.box('chrome', (sg * (xc - 0.028), f_r + 0.28, zbl - 0.10), (0.03, 0.16, 0.022), bev=0.008)
-            pt.cyl('chrome', (sg * (xc - 0.03), f_f - 0.16, zbl - 0.14), 0.02, 0.02, axis='x', n=10, bev=0.004)
-            pt.cyl2('chrome', (sg * (xc - 0.036), f_f - 0.16, zbl - 0.14), (sg * (xc - 0.07), f_f - 0.16, zbl - 0.11), 0.006, n=6)
-            pt.cyl('chrome', (sg * (xc - 0.026), f_r + 0.08, zbl - 0.03), 0.006, 0.05, axis='z', n=6)
-            for i in range(3):
-                pt.box('metal_dark', (sg * (xc - 0.022), fc - 0.16 + i * 0.03 + 0.05, zdb + 0.18), (0.006, 0.012, 0.11), bev=0.001, seg=1)
-            # inner structure visible through the skin gap
-            pt.box('metal_dark', (sg * (hwd - 0.075), fc, zdb + 0.05), (0.04, f_f - f_r - 0.04, 0.05), bev=0.004)
+            # ---- inside: door card (interior.py)
+            self.door_card(pt, sg, f_r, f_f, zdb, zbl, hwd)
             if C.rust_patches and C.tier == 1:
                 specs = [(fc - 0.30, zdb + 0.07, 0.09, (2.0, 0.7)), (fc + 0.32, zdb + 0.06, 0.06, (1.8, 0.8)), (f_f - 0.05, zdb + 0.30, 0.04, (0.7, 2.0)), (f_r + 0.05, zdb + 0.22, 0.05, (0.7, 1.8))] if sg > 0 else [(fc + 0.1, zdb + 0.06, 0.07, (2.2, 0.7)), (f_r + 0.06, zbl - 0.22, 0.04, (0.7, 1.8))]
                 self.patches(pt, fn, (sg, 0, 0), specs)

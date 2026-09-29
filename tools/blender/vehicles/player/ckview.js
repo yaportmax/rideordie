@@ -97,6 +97,7 @@ loader.load(q.get('model'), (gltf) => {
   });
   report.tris = Math.round(report.tris); report.materials = [...mats];
   root.traverse((o) => report.nodes.push(o.name));
+  if (!q.has('visor')) root.traverse((o) => { if (o.name === 'panel_armor_windshield') o.visible = false; });   // the runtime hides it in first person
   if (q.has('cluster')) {
     // stand-in for the lead's live gauge cluster (src/view/cockpit.js _cluster): 0.30 x 0.1125 face + dark hood box
     let sw = null; root.traverse((o) => { if (!sw && o.name === 'steering_wheel') sw = o; });

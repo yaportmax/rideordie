@@ -59,7 +59,7 @@ def axis_matrix(axis):
 
 
 class Obj:
-    def __init__(self, name, origin=(0, 0, 0), share=None, hidden=False, ao=True):
+    def __init__(self, name, origin=(0, 0, 0), share=None, hidden=False, ao=True, parent=None, prot=None):
         self.name = name
         self.origin = np.array(origin, dtype=np.float64)
         self.share = share          # name of another Obj whose mesh datablock this one reuses
@@ -67,7 +67,22 @@ class Obj:
         self.ao = ao
         self.alias = {}
         self.b = {}                 # mat -> ([verts], [faces])
+        self.p = {}                 # mat -> [primitive id per face]   (used by the wear bake)
         self.seg = 0
+        self.parent = parent        # name of a socket (empty) this mesh node is parented to (bake-mode models only)
+        self.prot = prot            # rotation (deg, game XYZ) of that socket: geometry is stored in its local frame
+
+
+class _Tag:
+    def __init__(self, m, kind):
+        self.m, self.kind = m, kind
+
+    def __enter__(self):
+        self.m._kinds.append(self.kind)
+        return self.m
+
+    def __exit__(self, *a):
+        self.m._kinds.pop()
 
 
 class _XF:
@@ -84,7 +99,7 @@ class _XF:
 
 
 class Model:
-    def __init__(self, ident, seed=1):
+    def __init__(self, ident, seed=1, bake=False):
         bpy.ops.wm.read_factory_settings(use_empty=True)
         vmat.reset()
         self.id = ident
@@ -97,15 +112,47 @@ class Model:
         self.T = None            # current transform stack top (Matrix or None)
         self._stack = []
         self.cur = 'body'
+        # ---- wear-bake bookkeeping (only consumed when bake=True; the legacy path ignores it)
+        self.bake = bake
+        self.bake_opts = {}      # see vbake.DEFAULTS
+        self.pkind = []          # primitive id -> tag ('part', 'rivet', 'weld', 'under', 'inner', ...)
+        self._kinds = ['part']
+        self._shape = 'hard'
+        self._look = None
+        self.section_name = 'misc'
+        self.sec_tris = {}
+        self.line_tris = {}
+        self.rivets = []         # (pos, normal, r) world game space   -> rust streak sources
+        self.welds = []          # (p0, p1, r)                         -> heat tint / weld bead ripples
         self.obj('body')
         self.t0 = time.time()
 
     # ------------------------------------------------------------------ objects
-    def obj(self, name, origin=(0, 0, 0), share=None, hidden=False, ao=True):
+    def obj(self, name, origin=(0, 0, 0), share=None, hidden=False, ao=True, parent=None, prot=None):
         if name not in self.objs:
-            self.objs[name] = Obj(name, origin, share, hidden, ao)
+            self.objs[name] = Obj(name, origin, share, hidden, ao, parent, prot)
             self.order.append(name)
         return self.objs[name]
+
+    def tag(self, kind):
+        """Context manager: primitives emitted inside carry this tag for the wear bake."""
+        return _Tag(self, kind)
+
+    def _pid(self, ntris=0):
+        self.pkind.append((self._kinds[-1], self._shape, self._look))
+        self.sec_tris[self.section_name] = self.sec_tris.get(self.section_name, 0) + ntris
+        if self.bake and ntris:
+            f = sys._getframe(1)
+            while f is not None and not f.f_code.co_filename.endswith(self.id + '.py'):
+                f = f.f_back
+            if f is not None:
+                k = f.f_lineno
+                self.line_tris[k] = self.line_tris.get(k, 0) + ntris
+        return len(self.pkind) - 1
+
+    def section(self, name):
+        """triangle accounting label for everything emitted next (report only)"""
+        self.section_name = name
 
     def use(self, name):
         self.cur = name
@@ -142,11 +189,20 @@ class Model:
 
     # ------------------------------------------------------------------ low-level emit
     def _res(self, mat, o):
-        return o.alias.get(mat) or self.alias.get(mat) or mat
+        r = o.alias.get(mat) or self.alias.get(mat) or mat
+        if self.bake:                       # bake models follow alias chains (chrome -> metal_dark -> armor)
+            for _ in range(4):
+                r2 = o.alias.get(r) or self.alias.get(r) or r
+                if r2 == r:
+                    break
+                r = r2
+        return r
 
     def _put(self, bm, mat, M=None, obj=None):
         o = self.objs[obj or self.cur]
+        mat0 = mat
         mat = self._res(mat, o)
+        self._look = mat0 if mat0 != mat else None      # aliased material keeps its own baked look
         Vv, Ff = o.b.setdefault(mat, ([], []))
         base = len(Vv)
         bm.verts.index_update()
@@ -162,6 +218,7 @@ class Model:
             Ff.extend([tuple(v.index + base for v in reversed(f.verts)) for f in bm.faces])
         else:
             Ff.extend([tuple(v.index + base for v in f.verts) for f in bm.faces])
+        o.p.setdefault(mat, []).extend([self._pid(sum(len(f.verts) - 2 for f in bm.faces))] * len(bm.faces))
 
     def _finish_bm(self, bm, mat, M, bevel, seg, min_angle, obj, recalc=True, deform=None):
         if recalc:
@@ -252,7 +309,9 @@ class Model:
         bmesh.ops.create_cone(bm, cap_ends=caps, cap_tris=False, segments=seg, radius1=r0, radius2=max(r1, 1e-4), depth=L)
         M = Matrix.Translation((a + b) / 2) @ basis_from(d / L, (0, 1, 0))
         # cone axis is local Z, radius1 at -Z (= p0)
+        self._shape = 'round'
         self._finish_bm(bm, mat, M, bevel, bseg, min_angle, obj)
+        self._shape = 'hard'
 
     def cone(self, mat, base, tip, r, seg=6, obj=None):
         self.cyl(mat, base, tip, r, 0.0015, seg=seg, caps=True, obj=obj)
@@ -287,7 +346,9 @@ class Model:
                 except ValueError:
                     pass
         M = xform(at, rot) @ axis_matrix(axis)
+        self._shape = 'round'
         self._finish_bm(bm, mat, M, bevel, bseg, min_angle, obj, deform=deform)
+        self._shape = 'hard'
 
     def sweep(self, mat, rings, caps=True, obj=None, bevel=0.0, seg=1, closed_ring=True, min_angle=30, deform=None, wrap=False):
         """Loft equal-length rings of 3D points (list of list of points)."""
@@ -338,7 +399,9 @@ class Model:
             Bn = T.cross(N)
             rr = r if r_end is None else r + (r_end - r) * i / max(n - 1, 1)
             rings.append([path[i] + (N * math.cos(2 * math.pi * k / seg) + Bn * math.sin(2 * math.pi * k / seg)) * rr for k in range(seg)])
+        self._shape = 'round'
         self.sweep(mat, rings, caps=caps, obj=obj, bevel=bevel)
+        self._shape = 'hard'
 
     def plate(self, mat, poly, thick, at=(0, 0, 0), u=(1, 0, 0), v=(0, 1, 0), bevel=0.01, seg=1, obj=None, min_angle=25, deform=None,
               holes=None):
@@ -422,12 +485,18 @@ class Model:
         ring = [tuple(self._tp(P + (xa * math.cos(2 * math.pi * i / seg) + ya * math.sin(2 * math.pi * i / seg)) * r - nn * 0.002)) for i in range(seg)]
         apex = tuple(self._tp(P + nn * h))
         o = self.objs[obj or self.cur]
+        mat0 = mat
         mat = self._res(mat, o)
+        self._look = mat0 if mat0 != mat else None
         Vv, Ff = o.b.setdefault(mat, ([], []))
         b0 = len(Vv)
         Vv.extend(ring); Vv.append(apex)
         fl = self.T is not None and self.T.determinant() < 0
         Ff.extend([((b0 + (i + 1) % seg, b0 + i, b0 + seg) if fl else (b0 + i, b0 + (i + 1) % seg, b0 + seg)) for i in range(seg)])
+        self._kinds.append('rivet')
+        o.p.setdefault(mat, []).extend([self._pid(seg)] * seg)
+        self._kinds.pop()
+        self.rivets.append((tuple(self._tp(P)), tuple(self._tn(nn)), r))
 
     def hexbolt(self, mat, p, n, r=0.02, h=0.015, obj=None, seg=6):
         """Bolt head: prism with top cap only (no hidden bottom)."""
@@ -438,7 +507,9 @@ class Model:
         lo = [tuple(self._tp(P + (xa * math.cos(2 * math.pi * i / seg) + ya * math.sin(2 * math.pi * i / seg)) * r)) for i in range(seg)]
         hi = [tuple(self._tp(P + nn * h + (xa * math.cos(2 * math.pi * i / seg) + ya * math.sin(2 * math.pi * i / seg)) * r * 0.9)) for i in range(seg)]
         o = self.objs[obj or self.cur]
+        mat0 = mat
         mat = self._res(mat, o)
+        self._look = mat0 if mat0 != mat else None
         Vv, Ff = o.b.setdefault(mat, ([], []))
         b0 = len(Vv)
         Vv.extend(lo); Vv.extend(hi)
@@ -449,6 +520,10 @@ class Model:
             Ff.append(tuple(reversed(f)) if fl else f)
         f = tuple(b0 + seg + i for i in range(seg))
         Ff.append(tuple(reversed(f)) if fl else f)
+        self._kinds.append('rivet')
+        o.p.setdefault(mat, []).extend([self._pid(seg * 2 + seg - 2)] * (seg + 1))
+        self._kinds.pop()
+        self.rivets.append((tuple(self._tp(P)), tuple(self._tn(nn)), r))
 
     def rivet_line(self, mat, p0, p1, n, step=0.12, r=0.011, obj=None, inset=0.0, seg=5):
         a, b = V3(p0), V3(p1)
@@ -474,10 +549,45 @@ class Model:
         L = (b - a).length
         k = max(int(L / 0.1), 1)
         d = (b - a) / max(L, 1e-6)
+        self.welds.append((tuple(self._tp(a)), tuple(self._tp(b)), r))
+        self._kinds.append('weld')
         for i in range(k):
             s = (i + 0.5) / k
             c = a + (b - a) * s
             self.cyl(mat, c - d * (L / k * 0.62), c + d * (L / k * 0.62), r * (0.85 + 0.3 * self.rng.random()), seg=4, caps=False, obj=obj)
+        self._kinds.pop()
+
+    def bead(self, mat, pts, r=0.009, obj=None, n=None, step=0.06, seg=4):
+        """Weld bead (bake models): lumpy flattened tube along a polyline, ripples every `step` m, lying on a surface with normal n.
+        Records the seam for the heat-tint / ripple bake."""
+        P = [V3(p) for p in pts]
+        path = []
+        for i in range(len(P) - 1):
+            a, b = P[i], P[i + 1]
+            L = (b - a).length
+            k = max(int(L / step), 1)
+            for j in range(k + (1 if i == len(P) - 2 else 0)):
+                path.append(a + (b - a) * (j / k))
+        for i in range(len(P) - 1):
+            self.welds.append((tuple(self._tp(P[i])), tuple(self._tp(P[i + 1])), r))
+        nn = V3(n).normalized() if n is not None else None
+        rings = []
+        cnt = len(path)
+        for i, c in enumerate(path):
+            t = (path[min(i + 1, cnt - 1)] - path[max(i - 1, 0)]).normalized()
+            up = nn if nn is not None else (t.orthogonal().normalized())
+            up = (up - t * up.dot(t)).normalized()
+            side = t.cross(up).normalized()
+            lump = 1.0 + (0.22 if i % 2 == 0 else -0.05) + 0.12 * (self.rng.random() - 0.5)
+            end = 1.0 if 0 < i < cnt - 1 else 0.35
+            ring = []
+            for k in range(seg):
+                a = math.pi * k / (seg - 1)        # half-round profile from one toe to the other
+                ring.append(c + side * (math.cos(a) * r * 1.25 * end) + up * (math.sin(a) * r * 0.75 * lump * end - r * 0.18))
+            rings.append(ring)
+        self._kinds.append('weld')
+        self.sweep(mat, rings, caps=False, obj=obj, closed_ring=False)
+        self._kinds.pop()
 
     def spike(self, mat, base, tip, r, seg=6, obj=None, collar=True):
         a, b = V3(base), V3(tip)
@@ -542,9 +652,17 @@ class Model:
         tris, meshes, prims = self.count()
         self.report()
         print('   prims/object:', {n: sorted((self.objs[self.objs[n].share] if self.objs[n].share else self.objs[n]).b.keys()) for n in self.order if not self.objs[n].hidden and not self.objs[n].share and n != 'body'}, 'BODY', sorted(self.objs['body'].b.keys()))
+        if self.bake:
+            tot = sum(self.sec_tris.values()) or 1
+            print('   sections (tris, shared meshes counted once): ' + ', '.join('%s %d' % kv for kv in sorted(self.sec_tris.items(), key=lambda kv: -kv[1])))
+            if os.environ.get('TRI_LINES'):
+                print('   top script lines: ' + ', '.join('L%d %d' % kv for kv in sorted(self.line_tris.items(), key=lambda kv: -kv[1])[:40]))
         print("[%s] TRIS %d  mesh-nodes %d  primitives %d  (total %.1fs)" % (self.id, tris, meshes, prims, time.time() - self.t0))
         if export:
-            export_glb(os.path.join(OUTDIR, (name or self.id) + ".glb"))
+            out = os.environ.get('VEH_OUT') or OUTDIR          # test builds: VEH_OUT=shots/enemy_b/test
+            if not os.path.isabs(out):
+                out = os.path.join(ROOT, out)
+            export_glb(os.path.join(out, (name or self.id) + ".glb"), jpeg_q=getattr(self, 'jpeg_q', 82))
         return tris
 
 
@@ -667,18 +785,21 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
         mats = list(o.b.keys())
         if not mats:
             continue
-        Vs, Fs, MI = [], [], []
+        Vs, Fs, MI, PI = [], [], [], []
         base = 0
         for mi, mt in enumerate(mats):
             Vv, Ff = o.b[mt]
             Vs.append(np.array(Vv, dtype=np.float64).reshape(-1, 3))
             Fs.extend([tuple(i + base for i in f) for f in Ff])
             MI.extend([mi] * len(Ff))
+            pl = o.p.get(mt, [])
+            PI.extend(pl if len(pl) == len(Ff) else [-1] * len(Ff))
             base += len(Vv)
         V = np.concatenate(Vs)
         lens = np.array([len(f) for f in Fs])
         Fflat = np.array([i for f in Fs for i in f], dtype=np.int64)
-        data[name] = dict(mats=mats, V=V, F=Fs, lens=lens, Fflat=Fflat, MI=np.array(MI), obj=o, vm=[len(x[0]) for x in [o.b[k] for k in mats]])
+        data[name] = dict(mats=mats, V=V, F=Fs, lens=lens, Fflat=Fflat, MI=np.array(MI), PI=np.array(PI, dtype=np.int64), obj=o,
+                          vm=[len(x[0]) for x in [o.b[k] for k in mats]], shared=any(x.share == name for x in m.objs.values()))
     # ---- normals
     for name, d in data.items():
         d['cn'], d['nf'], d['area'], d['cf'] = smooth_corner_normals(d['V'], d['Fflat'], d['lens'])
@@ -705,39 +826,44 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
     for name, d in data.items():
         o = d['obj']
         V = d['V']; nv = len(V)
-        vn = np.zeros((nv, 3))
-        for c in range(3):
-            vn[:, c] = np.bincount(d['Fflat'], weights=d['cn'][:, c], minlength=nv)
-        vn /= np.maximum(np.linalg.norm(vn, axis=1, keepdims=True), 1e-9)
-        # AO: shared (wheel) meshes are lit in isolation (they spin)
-        shared_src = any(x.share == name for x in m.objs.values())
-        if shared_src:
-            bvh = BVHTree.FromPolygons(V.tolist(), d['F'], epsilon=0.0)
-            occ = compute_ao(bvh, V, vn, ao_rays, 0.5, seed=zlib.crc32(name.encode()) & 0xffff)
-            Pw = V
+        shared_src = d['shared']       # shared (wheel) meshes are lit in isolation (they spin)
+        if m.bake:
+            d['col'] = None
         else:
-            occ = compute_ao(bvh_world, V, vn, ao_rays, ao_dist, seed=len(name))
-            Pw = V
-        # per-vertex material of origin
-        vmat_of = np.zeros(nv, dtype=np.int64)
-        off = 0
-        for mi, cnt in enumerate(d['vm']):
-            vmat_of[off:off + cnt] = mi; off += cnt
-        ao = np.clip(1.0 - 1.35 * occ, 0.12, 1.0)
-        h = Pw[:, 1] if not shared_src else np.zeros(nv)
-        dirt = np.clip(1 - h / getattr(m, 'dirt_h', 1.25), 0, 1) ** 1.6 if not shared_src else 0.35 * np.ones(nv)
-        nf_ = getattr(m, 'noise_f', 1.0)
-        noise = _vnoise3(Pw, 0.7 * nf_, 3) * 0.6 + _vnoise3(Pw, 2.3 * nf_, 9) * 0.4
-        tone = ao ** 1.1 * (1 - 0.34 * dirt) * (0.84 + 0.30 * noise)
-        rgb = np.stack([tone, tone * (1 - 0.035 * dirt), tone * (1 - 0.10 * dirt)], -1)
-        for mi, mt in enumerate(d['mats']):
-            if mt in vmat.NO_GRIME:
-                rgb[vmat_of == mi] = 1.0
-        d['col'] = np.clip(rgb, 0, 1)
+            vn = np.zeros((nv, 3))
+            for c in range(3):
+                vn[:, c] = np.bincount(d['Fflat'], weights=d['cn'][:, c], minlength=nv)
+            vn /= np.maximum(np.linalg.norm(vn, axis=1, keepdims=True), 1e-9)
+            if shared_src:
+                bvh = BVHTree.FromPolygons(V.tolist(), d['F'], epsilon=0.0)
+                occ = compute_ao(bvh, V, vn, ao_rays, 0.5, seed=zlib.crc32(name.encode()) & 0xffff)
+                Pw = V
+            else:
+                occ = compute_ao(bvh_world, V, vn, ao_rays, ao_dist, seed=len(name))
+                Pw = V
+            # per-vertex material of origin
+            vmat_of = np.zeros(nv, dtype=np.int64)
+            off = 0
+            for mi, cnt in enumerate(d['vm']):
+                vmat_of[off:off + cnt] = mi; off += cnt
+            ao = np.clip(1.0 - 1.35 * occ, 0.12, 1.0)
+            h = Pw[:, 1] if not shared_src else np.zeros(nv)
+            dirt = np.clip(1 - h / getattr(m, 'dirt_h', 1.25), 0, 1) ** 1.6 if not shared_src else 0.35 * np.ones(nv)
+            nf_ = getattr(m, 'noise_f', 1.0)
+            noise = _vnoise3(Pw, 0.7 * nf_, 3) * 0.6 + _vnoise3(Pw, 2.3 * nf_, 9) * 0.4
+            tone = ao ** 1.1 * (1 - 0.34 * dirt) * (0.84 + 0.30 * noise)
+            rgb = np.stack([tone, tone * (1 - 0.035 * dirt), tone * (1 - 0.10 * dirt)], -1)
+            for mi, mt in enumerate(d['mats']):
+                if mt in vmat.NO_GRIME:
+                    rgb[vmat_of == mi] = 1.0
+            d['col'] = np.clip(rgb, 0, 1)
         # UVs (world-scale box projection), per corner
         cf = d['cf']; nf = d['nf']
         axis = np.argmax(np.abs(nf), axis=1)
-        tile = np.array([(vmat.TILE.get(vmat.PAL[mt].get('tex'), 1.0) if 'tex' in vmat.PAL[mt] else 1.0) * m.tile_scale for mt in d['mats']])
+        if m.bake:
+            tile = np.array([vmat.uv0_tile(mt) * m.tile_scale for mt in d['mats']])
+        else:
+            tile = np.array([(vmat.TILE.get(vmat.PAL[mt].get('tex'), 1.0) if 'tex' in vmat.PAL[mt] else 1.0) * m.tile_scale for mt in d['mats']])
         tface = tile[d['MI']]
         Pc = V[d['Fflat']]
         ac = axis[cf]
@@ -746,8 +872,13 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
         rs = np.random.default_rng(zlib.crc32(name.encode()))
         offs = rs.random(2)
         d['uv'] = np.stack([u / tface[cf] + offs[0], w / tface[cf] + offs[1]], -1)
+    # ---- unique wear atlases (UV1): charts + packing now, bakes/recipes once the objects exist
+    if m.bake:
+        import vbake
+        vbake.prepare(m, data)
     # ---- create bpy objects
     scene_meshes = {}
+    objs = {}
     for name in m.order:
         o = m.objs[name]
         src = m.objs[o.share] if o.share else o
@@ -756,23 +887,33 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
         d = data[src.name]
         if src.name not in scene_meshes:
             me = bpy.data.meshes.new(src.name)
-            Vb = (d['V'] - src.origin) @ G2B_np.T
+            Vl = d['V'] - src.origin
+            cnl = d['cn']
+            if src.parent and src.prot is not None:          # geometry lives in the (rotated) socket frame
+                Rg = np.array(Euler([a * D2R for a in src.prot], 'XYZ').to_matrix(), dtype=np.float64)
+                Vl = Vl @ Rg
+                cnl = cnl @ Rg
+            Vb = Vl @ G2B_np.T
             me.from_pydata(Vb.tolist(), [], [tuple(int(i) for i in f) for f in d['F']])
             for mt in d['mats']:
                 me.materials.append(vmat.get(mt))
             me.polygons.foreach_set('material_index', d['MI'].astype(np.int32))
             me.polygons.foreach_set('use_smooth', np.ones(len(d['F']), dtype=bool))
-            cnb = (d['cn'] @ G2B_np.T)
+            cnb = (cnl @ G2B_np.T)
             try:
                 me.normals_split_custom_set(cnb.tolist())
             except Exception as ex:
                 print("custom normals failed", ex)
             uv = me.uv_layers.new(name='UVMap')
             uv.data.foreach_set('uv', d['uv'].astype(np.float32).ravel())
-            ca = me.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
-            rgba = np.ones((len(Vb), 4), np.float32); rgba[:, :3] = d['col']
-            ca.data.foreach_set('color', rgba.ravel())
-            me.color_attributes.active_color = ca
+            if d.get('uv1') is not None:
+                uv1 = me.uv_layers.new(name='UV1')
+                uv1.data.foreach_set('uv', d['uv1'].astype(np.float32).ravel())
+            if d['col'] is not None:
+                ca = me.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
+                rgba = np.ones((len(Vb), 4), np.float32); rgba[:, :3] = d['col']
+                ca.data.foreach_set('color', rgba.ravel())
+                me.color_attributes.active_color = ca
             me.update()
             scene_meshes[src.name] = me
         if o.hidden:
@@ -780,7 +921,9 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
         ob = bpy.data.objects.new(name, scene_meshes[src.name])
         bpy.context.collection.objects.link(ob)
         ob.location = G2B @ Vector(o.origin)
+        objs[name] = ob
     # hidden-source objects that are referenced only via instances need no object
+    empties = {}
     for (nm, pos, rot, size) in m.socks:
         e = bpy.data.objects.new(nm, None)
         e.empty_display_type = 'PLAIN_AXES'; e.empty_display_size = size
@@ -790,6 +933,16 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
             Rg = Euler((rot[0] * D2R, rot[1] * D2R, rot[2] * D2R), 'XYZ').to_matrix()
             Rb = G2B.to_3x3() @ Rg @ G2B.to_3x3().transposed()
             e.rotation_euler = Rb.to_euler()
+        empties[nm] = e
+    # mesh nodes parented to sockets (e.g. steering_wheel_mesh under the steering_wheel socket)
+    for name, ob in objs.items():
+        o = m.objs[name]
+        if o.parent and o.parent in empties:
+            ob.parent = empties[o.parent]
+            ob.matrix_parent_inverse.identity()
+            ob.location = (0, 0, 0)
+    if m.bake:
+        vbake.finish(m, data, objs)
 
 
 def export_glb(path, jpeg_q=82):

@@ -5,23 +5,23 @@ import { MINIBOSSES } from '../data/boss.js';
 
 const CSS = `
 #bnr{position:absolute;inset:0;pointer-events:none;font-family:'Bahnschrift','Segoe UI Semibold','Arial Narrow',Impact,sans-serif;color:#fff}
-#bnr .boss{position:absolute;left:0;right:0;top:24%;height:150px;display:none;align-items:center;justify-content:center;flex-direction:column;
+#bnr .bn-boss{position:absolute;left:0;right:0;top:24%;height:150px;display:none;align-items:center;justify-content:center;flex-direction:column;
   background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(10,4,2,.78) 18%,rgba(10,4,2,.86) 50%,rgba(10,4,2,.78) 82%,rgba(0,0,0,0) 100%);
   border-top:2px solid var(--ac);border-bottom:2px solid var(--ac);transform-origin:center;text-shadow:0 2px 6px #000}
-#bnr .boss .k{font-size:15px;letter-spacing:9px;color:var(--ac);font-weight:700}
-#bnr .boss .n{font-size:64px;line-height:1;font-weight:900;font-style:italic;letter-spacing:3px;margin:4px 0 2px}
-#bnr .boss .t{font-size:16px;letter-spacing:6px;opacity:.85}
-#bnr .boss .w{margin-top:8px;font-size:15px;letter-spacing:3px;color:#ffe08a}
-#bnr .boss .w b{color:var(--ac);font-weight:800}
-#bnr .boss .tip{font-size:13px;letter-spacing:2px;opacity:.75;margin-top:3px}
-#bnr .haz{position:absolute;left:50%;top:15%;transform:translateX(-50%);display:none;align-items:center;gap:16px;padding:9px 22px 9px 16px;
+#bnr .bn-boss .k{font-size:15px;letter-spacing:9px;color:var(--ac);font-weight:700}
+#bnr .bn-boss .n{font-size:64px;line-height:1;font-weight:900;font-style:italic;letter-spacing:3px;margin:4px 0 2px}
+#bnr .bn-boss .t{font-size:16px;letter-spacing:6px;opacity:.85}
+#bnr .bn-boss .w{margin-top:8px;font-size:15px;letter-spacing:3px;color:#ffe08a}
+#bnr .bn-boss .w b{color:var(--ac);font-weight:800}
+#bnr .bn-boss .tip{font-size:13px;letter-spacing:2px;opacity:.75;margin-top:3px}
+#bnr .bn-haz{position:absolute;left:50%;top:15%;transform:translateX(-50%);display:none;align-items:center;gap:16px;padding:9px 22px 9px 16px;
   background:rgba(20,12,0,.72);border:2px solid #ffb21a;border-radius:3px;box-shadow:0 0 18px rgba(255,160,20,.35);text-shadow:0 1px 4px #000}
-#bnr .haz .ic{width:0;height:0;border-left:19px solid transparent;border-right:19px solid transparent;border-bottom:33px solid #ffb21a;position:relative}
-#bnr .haz .ic:after{content:'!';position:absolute;left:-4px;top:7px;font-size:22px;font-weight:900;color:#1a1000}
-#bnr .haz .tx{font-size:26px;font-weight:900;font-style:italic;letter-spacing:3px;color:#ffc84a}
-#bnr .haz .d{font-size:30px;font-weight:800;min-width:92px;text-align:right}
-#bnr .haz .g{font-size:17px;letter-spacing:3px;font-weight:700;color:#fff}
-#bnr .haz .g i{font-style:normal;color:#ffb21a;font-size:24px;vertical-align:-2px}
+#bnr .bn-haz .ic{width:0;height:0;border-left:19px solid transparent;border-right:19px solid transparent;border-bottom:33px solid #ffb21a;position:relative}
+#bnr .bn-haz .ic:after{content:'!';position:absolute;left:-4px;top:7px;font-size:22px;font-weight:900;color:#1a1000}
+#bnr .bn-haz .tx{font-size:26px;font-weight:900;font-style:italic;letter-spacing:3px;color:#ffc84a}
+#bnr .bn-haz .d{font-size:30px;font-weight:800;min-width:92px;text-align:right}
+#bnr .bn-haz .g{font-size:17px;letter-spacing:3px;font-weight:700;color:#fff}
+#bnr .bn-haz .g i{font-style:normal;color:#ffb21a;font-size:24px;vertical-align:-2px}
 `;
 
 export class Banner {
@@ -29,11 +29,11 @@ export class Banner {
   constructor(parent = document.body) {
     if (!document.getElementById('bnr-css')) { const st = document.createElement('style'); st.id = 'bnr-css'; st.textContent = CSS; document.head.appendChild(st); }
     const el = this.el = document.createElement('div'); el.id = 'bnr';
-    el.innerHTML = `<div class="boss"><div class="k">WARLORD</div><div class="n"></div><div class="t"></div><div class="w"></div><div class="tip"></div></div>
-      <div class="haz"><div class="ic"></div><div><div class="tx">ROADBLOCK</div><div class="g"></div></div><div class="d"></div></div>`;
+    el.innerHTML = `<div class="bn-boss"><div class="k">WARLORD</div><div class="n"></div><div class="t"></div><div class="w"></div><div class="tip"></div></div>
+      <div class="bn-haz"><div class="ic"></div><div><div class="tx">ROADBLOCK</div><div class="g"></div></div><div class="d"></div></div>`;
     parent.appendChild(el);
     const $ = (s) => el.querySelector(s);
-    this.q = { boss: $('.boss'), n: $('.boss .n'), t: $('.boss .t'), w: $('.boss .w'), tip: $('.boss .tip'), haz: $('.haz'), hd: $('.haz .d'), hg: $('.haz .g'), htx: $('.haz .tx') };
+    this.q = { boss: $('.bn-boss'), n: $('.bn-boss .n'), t: $('.bn-boss .t'), w: $('.bn-boss .w'), tip: $('.bn-boss .tip'), haz: $('.bn-haz'), hd: $('.bn-haz .d'), hg: $('.bn-haz .g'), htx: $('.bn-haz .tx') };
     this.bossT = -1; this.hazards = []; this.time = 0;
   }
 
@@ -47,7 +47,17 @@ export class Banner {
     const weak = e.weak || M.weak?.label;
     q.w.innerHTML = weak ? `WEAK POINT: <b>${weak}</b>` : '';
     q.tip.textContent = M.tip || '';
-    this.bossT = 0;
+    q.boss.querySelector('.k').textContent = 'WARLORD';
+    this.bossT = 0; this.bossHold = 4.2;
+  }
+
+  /** Set-piece announcement (smaller, no weak point line): e {title, sub}. */
+  event(e) {
+    const q = this.q;
+    q.boss.style.setProperty('--ac', e.color || '#ffb21a');
+    q.boss.querySelector('.k').textContent = 'INCOMING';
+    q.n.textContent = e.title || ''; q.t.textContent = e.sub || ''; q.w.innerHTML = ''; q.tip.textContent = '';
+    this.bossT = 0; this.bossHold = 2.6; // shorter hold than a warlord intro
   }
 
   /** Roadblock warning: tracked until the player is past it. e: {s0, gapD} (gapD > 0 = gap on the LEFT, +X is left). */
@@ -62,7 +72,7 @@ export class Banner {
     // ---- warlord intro
     if (this.bossT >= 0) {
       this.bossT += dt;
-      const T = this.bossT, IN = 0.35, HOLD = 4.2, OUT = 0.4;
+      const T = this.bossT, IN = 0.35, HOLD = this.bossHold || 4.2, OUT = 0.4;
       if (T > IN + HOLD + OUT) { this.bossT = -1; q.boss.style.display = 'none'; }
       else {
         q.boss.style.display = 'flex';

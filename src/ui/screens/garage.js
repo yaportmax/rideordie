@@ -20,7 +20,7 @@ const ARMOR_NAME = ['NO ARMOR', 'VEST', 'PLATE CARRIER', 'HEAVY ARMOR'];
 
 export class GarageScreen {
   constructor(ui, profile, cb, extra = {}) {
-    this.ui = ui; this.cb = cb; this.kind = 'garage'; this.bg = 'none';
+    this.ui = ui; this.cb = cb; this.kind = 'garage'; this.bg = 'garage';
     this.p = profile;
     this.extra = { solo: true, ready: false, isHost: true, partner: null, runNo: null, ...extra };
     this.tab = TAB_IDS.includes(extra.tab) ? extra.tab : 'truck';
@@ -169,7 +169,7 @@ export class GarageScreen {
   buyBtn(state, cost, label, extraCls = '') {
     const need = cost - this.p.cash;
     if (state === 'ok') return `<div class="f buy ok pressable ${extraCls}" role="button" data-buy="1" data-k="buy" data-snd="none"><span class="bl">${label}</span><span class="bp">${money(cost)}</span></div>`;
-    if (state === 'no') return `<div class="f buy no ${extraCls}" role="button" data-buy="1" data-k="buy" data-snd="none"><span class="bl">NEED ${money(need)} MORE</span><span class="bp">${money(cost)}</span></div>`;
+    if (state === 'no') return `<div class="f buy no ${extraCls}" role="button" data-buy="1" data-k="buy" data-snd="none"><span class="bl"><small>NOT ENOUGH CASH</small>NEED ${money(need)} MORE</span><span class="bp">${money(cost)}</span></div>`;
     if (state === 'max') return `<div class="f buy max dis ${extraCls}" role="button"><span class="bl">MAXED OUT</span></div>`;
     if (state === 'active') return `<div class="f buy max dis ${extraCls}" role="button"><span class="bl">${icon('check')} ACTIVE</span></div>`;
     if (state === 'select') return `<div class="f buy ok pressable ${extraCls}" role="button" data-select="1" data-k="buy" data-snd="none"><span class="bl">SELECT</span></div>`;
@@ -223,9 +223,9 @@ export class GarageScreen {
       return id ? `<div class="lo-slot"><b>${i + 1}</b><span class="lo-w">${weaponIcon(id)}</span><em>${esc(WEAPONS[id].name)}</em></div>` : `<div class="lo-slot empty"><b>${i + 1}</b><em>EMPTY</em></div>`;
     }).join('');
     const vest = p.upgrades.vest || 0;
-    this.q.load.innerHTML = `<div class="lo-truck"><span class="lo-k">RIDE</span><b>${esc(spec.name)}</b>${pips(spec.tier, 4, -1, 'tier')}</div>
-      <div class="lo-slots"><span class="lo-k">LOADOUT</span><div class="lo-row">${slots}</div></div>
-      <div class="lo-gear"><span class="lo-k">GUNNER</span><b>${icon('vest')}${ARMOR_NAME[vest] || 'ARMOR'}</b></div>`;
+    const u = p.upgrades, perks = [['grenades', 'GRENADES'], ['medkit', 'MEDKITS']].map(([k, n]) => `<i>${n} <b>${u[k] || 0}</b></i>`).join('');
+    this.q.load.innerHTML = `<div class="lo-slots"><span class="lo-k">EQUIPPED &middot; ${esc(spec.name)} <em>T${spec.tier}</em></span><div class="lo-row">${slots}</div></div>
+      <div class="lo-gear"><span class="lo-k">GUNNER</span><b>${icon('vest')}${ARMOR_NAME[vest] || 'ARMOR'}</b><span class="lo-perks">${perks}</span></div>`;
   }
   renderReady() {
     const e = this.extra, pt = e.partner;

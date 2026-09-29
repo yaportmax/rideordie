@@ -7,23 +7,26 @@ import * as THREE from 'three';
 import { seaLevel, COLS, EDGE } from './terrain_gen.js';
 import { smoothstep, lerp } from '../core/util.js';
 import { lookAt } from './look.js';
-import { ATMO_GLSL, KEY } from './atmosphere.js';
+import { ATMO_GLSL, KEY, noiseTexture } from './atmosphere.js';
 
+// Gerstner-like swell as analytic slopes. Each wave fades out once it drops below ~4 pixels of screen footprint `fw` (metres
+// per pixel, from derivatives: grazing angles included) => no distant stripe aliasing; the variance it no longer resolves is
+// returned in .z and turned into micro-roughness by the caller (duller, bluer reflections far away, like a real sea).
 const WAVES = /* glsl */`
-  vec2 dwave(vec2 p, vec2 dir, float wl, float speed, float slope, float dist, float t) {
+  vec3 dwave(vec2 p, vec2 dir, float wl, float speed, float slope, float fw, float t) {
     float f = 6.2831853 / wl;
-    float lodw = smoothstep(dist / 130.0, dist / 30.0, wl);
-    return dir * (cos(dot(p, dir) * f + t * speed) * slope * lodw);
+    float lodw = 1.0 - smoothstep(wl * 0.12, wl * 0.3, fw);
+    return vec3(dir * (cos(dot(p, dir) * f + t * speed) * slope * lodw), slope * slope * (1.0 - lodw));
   }
-  vec2 waveGrad(vec2 p, float dist, float t) {
-    vec2 g = vec2(0.0);
-    g += dwave(p, normalize(vec2(0.95, 0.31)), 82.0, 0.85, 0.030, dist, t);
-    g += dwave(p, normalize(vec2(0.55, 0.83)), 37.0, 1.10, 0.036, dist, t);
-    g += dwave(p, normalize(vec2(-0.30, 0.95)), 17.0, 1.50, 0.045, dist, t);
-    g += dwave(p, normalize(vec2(0.85, -0.52)), 8.3, 1.9, 0.050, dist, t);
-    g += dwave(p, normalize(vec2(-0.76, -0.65)), 3.9, 2.6, 0.055, dist, t);
-    g += dwave(p, normalize(vec2(0.20, -0.98)), 1.7, 3.3, 0.050, dist, t);
-    g += dwave(p, normalize(vec2(-0.93, 0.37)), 0.8, 4.4, 0.045, dist, t);
+  vec3 waveGrad(vec2 p, float fw, float t) {
+    vec3 g = vec3(0.0);
+    g += dwave(p, normalize(vec2(0.95, 0.31)), 82.0, 0.85, 0.040, fw, t);
+    g += dwave(p, normalize(vec2(0.55, 0.83)), 37.0, 1.10, 0.050, fw, t);
+    g += dwave(p, normalize(vec2(-0.30, 0.95)), 17.0, 1.50, 0.060, fw, t);
+    g += dwave(p, normalize(vec2(0.85, -0.52)), 8.3, 1.9, 0.070, fw, t);
+    g += dwave(p, normalize(vec2(-0.76, -0.65)), 3.9, 2.6, 0.075, fw, t);
+    g += dwave(p, normalize(vec2(0.20, -0.98)), 1.7, 3.3, 0.070, fw, t);
+    g += dwave(p, normalize(vec2(-0.93, 0.37)), 0.8, 4.4, 0.060, fw, t);
     return g;
   }`;
 
@@ -42,25 +45,38 @@ const WATER_FRAG = /* glsl */`
 #include <fog_pars_fragment>
 ${ATMO_GLSL}
 uniform float uTime; uniform vec3 uDeep; uniform vec3 uShallow; uniform float uFade; uniform float uGlint;
-uniform vec3 uKeyDir; uniform vec3 uKeyCol;
+uniform vec3 uKeyDir; uniform vec3 uKeyCol; uniform sampler2D uNoise;
 varying vec3 vWPos;
 ${WAVES}
+// detail normals from the shared tileable noise (two scrolling layers): breaks up the regular swell into choppy water
+vec2 noiseGrad(vec2 p, float e) {
+  float c = texture2D(uNoise, p).g, x = texture2D(uNoise, p + vec2(e, 0.0)).g, z = texture2D(uNoise, p + vec2(0.0, e)).g;
+  return vec2(x - c, z - c) / e;
+}
 void main() {
   vec3 rel = vWPos - cameraPosition;
   float dist = length(rel);
   vec3 V = -rel / max(dist, 1e-3);
-  vec2 g = waveGrad(vWPos.xz, dist, uTime);
+  float fw = max(length(dFdx(vWPos.xz)), length(dFdy(vWPos.xz)));
+  vec3 w = waveGrad(vWPos.xz, fw, uTime);
+  vec2 g = w.xy;
+  g += noiseGrad(vWPos.xz * 0.011 + vec2(uTime * 0.004, uTime * 0.0023), 1.0 / 256.0) * 0.006;
+  g += noiseGrad(vWPos.xz * 0.043 + vec2(-uTime * 0.009, uTime * 0.006), 1.0 / 256.0) * 0.002;
   vec3 N = normalize(vec3(-g.x, 1.0, -g.y));
+  // unresolved slope variance (rough, distant water): reflections tilt up into the bluer sky, Fresnel drops (shadowing /
+  // masking of the facets at grazing angles), more body colour shows through
+  float rough = clamp(sqrt(w.z) * 3.0, 0.0, 1.0);
   float NV = max(dot(N, V), 0.0);
-  float F = 0.02 + 0.98 * pow(1.0 - NV, 5.0);
-  vec3 R = reflect(-V, N); R.y = abs(R.y);
+  float F = 0.02 + 0.98 * pow(1.0 - NV, 5.0) / (1.0 + 2.5 * rough);
+  vec3 R = reflect(-V, N); R.y = max(abs(R.y), 0.03 + 0.2 * rough);
+  R = normalize(R);
   vec3 sky = atmSky(R);
   // light scattered up out of the water body; wave faces tilted toward the key light catch a little more (subsurface)
   vec3 body = mix(uShallow, uDeep, smoothstep(15.0, 450.0, dist));
   float sss = pow(max(dot(N, normalize(uKeyDir + vec3(0.0, 0.6, 0.0))), 0.0), 4.0);
   body *= 0.85 + 0.5 * sss;
   // key-light glints: tight sparkle lobe + broad sun path (HDR => bloom)
-  float rs = max(dot(R, uKeyDir), 0.0);
+  float rs = max(dot(reflect(-V, N), uKeyDir), 0.0);
   vec3 glint = uKeyCol * (pow(rs, 1400.0) * 55.0 + pow(rs, 120.0) * 1.1) * uGlint;
   vec3 col = mix(body, sky, F) + glint * (0.3 + 0.7 * F);
   gl_FragColor = vec4(col, uFade);
@@ -71,7 +87,7 @@ void main() {
 function makeWaterMaterial(u) {
   const m = new THREE.ShaderMaterial({
     name: 'water', transparent: true, depthWrite: true, fog: true,
-    uniforms: { ...THREE.UniformsUtils.merge([THREE.UniformsLib.fog]), ...u, ...KEY },
+    uniforms: { ...THREE.UniformsUtils.merge([THREE.UniformsLib.fog]), ...u, ...KEY, uNoise: { value: noiseTexture() } },
     vertexShader: WATER_VERT, fragmentShader: WATER_FRAG,
   });
   return m;
@@ -117,8 +133,8 @@ const _c = new THREE.Color();
 const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 // water body albedo (deep / shallow) per body of water
 const BODY = {
-  coast: { deep: new THREE.Color(0.018, 0.075, 0.105), shallow: new THREE.Color(0.035, 0.17, 0.18) },
-  dam: { deep: new THREE.Color(0.022, 0.06, 0.06), shallow: new THREE.Color(0.05, 0.13, 0.11) },
+  coast: { deep: new THREE.Color(0.012, 0.07, 0.11), shallow: new THREE.Color(0.03, 0.2, 0.2) },
+  dam: { deep: new THREE.Color(0.016, 0.06, 0.07), shallow: new THREE.Color(0.04, 0.14, 0.12) },
 };
 
 export class Water {
@@ -127,7 +143,10 @@ export class Water {
     const u = { uTime: { value: 0 }, uDeep: { value: new THREE.Color() }, uShallow: { value: new THREE.Color() }, uFade: { value: 1 }, uGlint: { value: 1 } };
     const g = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     const a = new THREE.Mesh(g, makeWaterMaterial(u)); a.frustumCulled = false;
-    const b = new THREE.Mesh(g, makeFoamMaterial(u)); b.frustumCulled = false;
+    // the shoreline ribbons have no normals (vertexNormals is part of the program key)
+    const fg = new THREE.BufferGeometry();
+    fg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 0, 1], 3)); fg.setAttribute('aFoam', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1], 2));
+    const b = new THREE.Mesh(fg, makeFoamMaterial(u)); b.frustumCulled = false;
     return [a, b];
   }
 

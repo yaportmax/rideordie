@@ -7,8 +7,10 @@
 //   look sway (lags the aim) + turn tilt, truck suspension / cornering inertia (spring driven by the eye's acceleration), road buzz,
 //   breathing, bed walking bob, per-weapon recoil springs, ADS blend (sight socket exactly on the view axis), weapon swap,
 //   reload choreography (mag out / in, rack, pump per shell, bolt, crane, belt box, rocket), grenade throw, own muzzle flash.
-// Arms: the hero gunner's own skinned arms (triangles cut out of hero_gunner.glb), analytic two-bone IK with clavicle assist;
-//   hands are placed exactly on the weapon's grip sockets through the character's hand sockets (socket_hand_R/L).
+// Arms: the dedicated first-person arms asset (FP_ARMS_URL) when present, else the hero gunner's arms cut out of hero_gunner.glb
+//   (forearms replaced by fitted sleeve tubes); analytic two-bone IK with clavicle assist and wrist-twist sharing; hands are placed
+//   exactly on the weapon's grip sockets through the hand sockets (socket_hand_R/L); finger shapes from the pose_* clips.
+// Debug: window.__vmDbg = {noGun, noArms, inspect:{pos, yaw, noIK}, view:{rot:[pitch,yaw], c, d}} (tuning captures, shots/gunfeel).
 // FX alignment: world-space effects (tracers, smoke, casings) start from `muzzleWorld()` / `ejectWorld()`, the APPARENT positions
 //   (the world point that the main camera projects to the same pixel as the viewmodel muzzle).
 import * as THREE from 'three';
@@ -17,6 +19,8 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { WeaponView } from './weapon_view.js';
 
 export const FP_ARMS_URL = '/models/characters/fp_arms.glb';
+const SHELL_HULL = new THREE.MeshStandardMaterial({ color: 0x9a1c12, roughness: 0.55, metalness: 0.0 });
+const SHELL_BRASS = new THREE.MeshStandardMaterial({ color: 0xc89a40, roughness: 0.3, metalness: 0.9 });
 let FP_GLB = null, FP_TRIED = false;
 /** Start loading the dedicated first-person arms early (null when the file does not exist yet). */
 function fpArmsLoad() { if (!FP_TRIED) { FP_TRIED = true; Assets.loadGLB(FP_ARMS_URL).then((g) => { FP_GLB = g || null; }).catch(() => {}); } return Assets.loadGLB(FP_ARMS_URL); }
@@ -28,10 +32,18 @@ const VM_NEAR = 0.012, VM_FAR = 6;
 export const VMU = { vmProj: { value: new THREE.Matrix4() }, wrapCol: { value: new THREE.Color(0.030, 0.032, 0.022) }, wrapDetail: { value: 0.0 } };
 const VM_GLSL = `\n  gl_Position = vmProj * mvPosition;\n  gl_Position.z = (gl_Position.z + gl_Position.w) * ${BAND.toFixed(4)} - gl_Position.w;\n`;
 const vmCache = new Map();
+/** Up close the weapon receivers / sleeves are seen at grazing angles: 8x anisotropic filtering on every viewmodel texture. */
+function sharpen(mat) {
+  for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap']) {
+    const t = mat[k];
+    if (t && t.anisotropy < 8) { t.anisotropy = 8; t.needsUpdate = true; }
+  }
+}
 /** Clone + patch a scene material for the viewmodel pass (cached per source material). */
 export function vmMaterial(src) {
   let m = vmCache.get(src);
   if (m) return m;
+  sharpen(src);
   m = src.clone();
   m.onBeforeCompile = (sh) => {
     sh.uniforms.vmProj = VMU.vmProj;
@@ -59,6 +71,7 @@ function vmLensMaterial(src) {
 let ARMS_MAT = null;
 function armsMaterial(src) {
   if (ARMS_MAT) return ARMS_MAT;
+  sharpen(src);
   const m = src.clone();
   m.onBeforeCompile = (sh) => {
     sh.uniforms.vmProj = VMU.vmProj; sh.uniforms.wrapCol = VMU.wrapCol; sh.uniforms.wrapDetail = VMU.wrapDetail;
@@ -86,8 +99,8 @@ float sleeveK = 0.0;
 const SLEEVE_ALBEDO = /* glsl */`
   sleeveK = smoothstep(0.35, 0.65, vSleeve);
   if (sleeveK > 0.001) {
-    // wraps: the tiny atlas islands (a coarse checker at first-person distance) become smooth cloth tape: soft tonal variation of a
-    // blurred mip + procedural folds / grime in rest-pose object space (no swimming, no seams)
+    // sleeve (ARM_STYLE 'sleeve': upper arm) or wrap tape ('wrap': the tiny atlas islands that read as a coarse checker up close):
+    // soft tonal variation of a blurred mip + procedural folds / grime in rest-pose object space (no swimming, no seams)
     vec3 soft = textureLod(map, vMapUv, 4.0).rgb;
     float lum = dot(soft, vec3(0.3, 0.59, 0.11)) / 0.18;
     float folds = vmNoise(vRest * 90.0) * 0.55 + vmNoise(vRest * 220.0) * 0.3 + vmNoise(vRest * 25.0) * 0.4;
@@ -104,10 +117,10 @@ const SLEEVE_ALBEDO = /* glsl */`
 export const TUNE = {
   pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
   revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_pistol', rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.12, fov: [62, 54], pose: 'pose_rifle', rec: [0.016, 1.6, 0.9, 1.5], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
+  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.17, fov: [62, 56], pose: 'pose_rifle', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
   shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], pose: 'pose_rifle', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
-  rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rec: [0.024, 2.2, 0.8, 1.6], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
-  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_rifle', rec: [0.026, 2.0, 1.1, 2.2], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
+  rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rec: [0.032, 3.0, 1.0, 2.0], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
+  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_rifle', rec: [0.032, 2.7, 1.4, 2.6], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
   sniper: { hip: [0.165, -0.27, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_rifle', rec: [0.10, 9, 1.5, 4], reload: 'mag', bolt: true, blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rpg: { hip: [0.16, -0.24, -0.28], hipRot: [0, 2, -2], relief: 0.02, fov: [62, 50], pose: 'pose_launcher', rec: [0.10, 6, 1.5, 3], reload: 'rpg', blade: -0.45, sh: [0.02, -0.24, 0.04] },
 };
@@ -128,6 +141,10 @@ export const ANCH = {
 
 // ------------------------------------------------------------------------------------------------ small math helpers
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+// reload timeline helpers (module state instead of per-frame closures): _RR = normalised reload time of the current frame
+let _RR = 0;
+const seg = (a, b) => sstep(a, b, _RR);
+function tween(lh, t0, t1, a, b, arc = 0.04) { if (_RR >= t0) { lh.a = a; lh.b = b; lh.w = sstep(t0, t1, _RR); lh.arc = arc; } }
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _p = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3();
@@ -322,6 +339,9 @@ uniform sampler2D map; uniform vec3 uCol; uniform float uI;
 varying vec2 vUv;
 void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(uCol * t.rgb * t.a * uI, 1.0); }`;
 let FLASH_TEX = null;
+const ANCHOR_NODE = { charge: 'charging_handle', slide: 'slide', cover: 'feed_cover', tray: 'belt', rocket: 'rocket', bolt: 'bolt_handle' };
+const FLASH_SIZE = { pistol: 0.8, revolver: 1.3, smg: 0.75, shotgun: 1.6, rifle: 1.0, lmg: 1.15, sniper: 1.6, rpg: 1.8 };
+const FLASH_CELLS = [[0, 0.5], [0.25, 0.5], [0.5, 0.5], [0.5, 0]];   // star cells of muzzle_flash_sheet.png (u, v of the cell)
 function flashTexture() {
   if (!FLASH_TEX) {
     FLASH_TEX = new THREE.TextureLoader().load('/textures/particles/muzzle_flash_sheet.png');
@@ -361,7 +381,7 @@ export class ViewModel {
     this.pos = new THREE.Vector3(); this.quat = new THREE.Quaternion();           // final gun transform (camera space)
     this.recP = new Spring(3, 11, 0.42); this.recR = new Spring(3, 8.5, 0.45);   // recoil: position, rotation (pitch, yaw, roll)
     this.swayS = new Spring(5, 5.5, 0.62);                                       // look sway: x, y, pitch, yaw, roll
-    this.inert = new Spring(4, 4.2, 0.35);                                       // truck inertia: x, y, z, pitch
+    this.inert = new Spring(4, 4.0, 0.55);                                       // truck inertia: x, y, z, pitch
     this.jolt = new Spring(2, 9, 0.5);                                           // mag slap / pump jolts: y, pitch
     this.prevQ = new THREE.Quaternion(); this.hasPrev = false; this.angV = new THREE.Vector3();
     this.prevEye = new THREE.Vector3(); this.prevEyeV = new THREE.Vector3(); this.eyeA = new THREE.Vector3(); this.hasEye = 0;
@@ -379,6 +399,12 @@ export class ViewModel {
     this.flashStar2 = new THREE.Mesh(quad, flashMaterial(false));
     for (const f of [this.flashStar, this.flashCone, this.flashStar2]) { f.frustumCulled = false; f.renderOrder = 998; f.visible = false; }
     this.reticle = new THREE.Mesh(quad, reticleMaterial()); this.reticle.frustumCulled = false; this.reticle.renderOrder = 999; this.reticle.visible = false;
+    // 12 ga shell held in the left hand while loading the shotgun (red hull + brass head), axis along the hand socket's +Z
+    this.shell = new THREE.Group(); this.shell.visible = false;
+    const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.0106, 0.0106, 0.058, 14).rotateX(Math.PI / 2), vmMaterial(SHELL_HULL));
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.0112, 0.0112, 0.014, 14).rotateX(Math.PI / 2), vmMaterial(SHELL_BRASS));
+    hull.position.z = 0.012; head.position.z = -0.024;
+    for (const m of [hull, head]) { m.frustumCulled = false; m.castShadow = false; m.receiveShadow = true; this.shell.add(m); }
     this.root.visible = false;
   }
 
@@ -469,6 +495,9 @@ export class ViewModel {
     const vm = new ViewModel();
     for (const id of Object.keys(TUNE)) { const g = vm._gunFor(id); g.root.visible = true; }
     for (const f of [vm.flashStar, vm.flashCone, vm.reticle]) { f.visible = true; vm.root.add(f); }
+    vm.shell.visible = true; vm.root.add(vm.shell);
+    // the thrown grenade / fired rocket meshes (WorldView: plain MeshStandardMaterial, default shadow flags) share this program
+    vm.root.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0x33402a, roughness: 0.6 })));
     vm.root.visible = true; vm.root.position.set(0, -5000, 0);
     return vm.root;
   }
@@ -482,7 +511,7 @@ export class ViewModel {
   update(dt, s, show) {
     const L = s.local, cam = L.camera, G = L.gunner;
     if (!cam || !G) return;
-    if (this.root.parent !== cam) cam.add(this.root);
+    if (this.root.parent !== cam) { cam.add(this.root); for (const id of G.slots) this._gunFor(id); }   // build the loadout up front (no hitch on swap)
     this.setVisible(show); this.scopedNow = !!L.scoped;
     dt = Math.min(dt, 0.05);
     this.t += dt;
@@ -515,12 +544,11 @@ export class ViewModel {
     }
     this.prevQ.copy(cam.quaternion); this.hasPrev = true;
     if (L.eye) {
-      if (this.hasEye > 0) { _v.copy(L.eye).sub(this.prevEye).multiplyScalar(1 / Math.max(dt, 1e-3)); if (this.hasEye > 1) { _v2.copy(_v).sub(this.prevEyeV).multiplyScalar(1 / Math.max(dt, 1e-3)); _v2.applyQuaternion(_q.copy(cam.quaternion).invert()); _v2.clampLength(0, 60); this.eyeA.lerp(_v2, 0.5); } this.prevEyeV.copy(_v); }
+      if (this.hasEye > 0) { _v.copy(L.eye).sub(this.prevEye).multiplyScalar(1 / Math.max(dt, 1e-3)); if (this.hasEye > 1) { _v2.copy(_v).sub(this.prevEyeV).multiplyScalar(1 / Math.max(dt, 1e-3)); _v2.applyQuaternion(_q.copy(cam.quaternion).invert()); _v2.clampLength(0, 25); this.eyeA.lerp(_v2, 1 - Math.exp(-dt * 14)); } this.prevEyeV.copy(_v); }
       this.prevEye.copy(L.eye); this.hasEye = Math.min(2, this.hasEye + 1);
     }
     const speed = s.vel ? Math.hypot(s.vel.x, s.vel.z) : 0, spd01 = clamp(speed / 55, 0, 1);
     // ---------------------------------------------------------------- ADS
-    const scopeW = !!W.scope;
     const ads = sstep(0, 1, clamp(L.adsK || 0, 0, 1)) * (cur ? 1 : 0);
     const adsE = ads;
     // ---------------------------------------------------------------- recoil impulses
@@ -531,10 +559,13 @@ export class ViewModel {
     }
     // ---------------------------------------------------------------- springs
     const av = this.angV, sa = 1 - ads * 0.82;
-    const swayT = [clamp(av.y * 0.0045, -0.03, 0.03) * sa, clamp(-av.x * 0.0045, -0.03, 0.03) * sa, clamp(-av.x * 0.028, -0.07, 0.07) * sa, clamp(-av.y * 0.028, -0.07, 0.07) * sa, clamp(av.y * 0.035, -0.1, 0.1) * sa];
+    const swayT = this._swT || (this._swT = new Float32Array(5));
+    swayT[0] = clamp(av.y * 0.0045, -0.03, 0.03) * sa; swayT[1] = clamp(-av.x * 0.0045, -0.03, 0.03) * sa; swayT[2] = clamp(-av.x * 0.028, -0.07, 0.07) * sa; swayT[3] = clamp(-av.y * 0.028, -0.07, 0.07) * sa; swayT[4] = clamp(av.y * 0.035, -0.1, 0.1) * sa;
     this.swayS.step(dt, swayT);
     const a = this.eyeA, ia = 0.0011 * (1 - ads * 0.6);
-    this.inert.step(dt, [clamp(-a.x * ia, -0.03, 0.03), clamp(-a.y * ia, -0.035, 0.035), clamp(-a.z * ia * 0.6, -0.03, 0.03), clamp(-a.y * 0.0012, -0.04, 0.04) * (1 - ads * 0.6)]);
+    const inT = this._inT || (this._inT = new Float32Array(4));
+    inT[0] = clamp(-a.x * ia, -0.02, 0.02); inT[1] = clamp(-a.y * ia, -0.025, 0.025); inT[2] = clamp(-a.z * ia * 0.6, -0.02, 0.02); inT[3] = clamp(-a.y * 0.0009, -0.03, 0.03) * (1 - ads * 0.6);
+    this.inert.step(dt, inT);
     this.recP.step(dt, null); this.recR.step(dt, null); this.jolt.step(dt, null);
     // bed walking
     _v.set(G.pos.x, 0, G.pos.z); const walk = _v.distanceTo(this.prevBed) / Math.max(dt, 1e-3); this.prevBed.copy(_v);
@@ -568,7 +599,7 @@ export class ViewModel {
     if (lower > 0) { const e = lower * lower * (3 - 2 * lower); py -= e * 0.28; pz += e * 0.06; rx -= e * 0.6; rz -= e * 0.35; }
     // grenade throw: gun ducks down-right while the left hand throws
     const thr = G.throwing > 0 ? 1 - G.throwing / 0.62 : 0;
-    if (thr > 0) { const e = sstep(0, 0.22, thr) * (1 - sstep(0.72, 1, thr)); py -= e * 0.2; px += e * 0.05; rx -= e * 0.5; rz -= e * 0.4; }
+    if (thr > 0) { const e = sstep(0, 0.12, thr) * (1 - sstep(0.45, 0.85, thr)); py -= e * 0.2; px += e * 0.06; rx -= e * 0.55; rz -= e * 0.45; }
     // reload choreography (gun offsets + parts + left/right hand anchors)
     const R = this._reload(dt, G, W, T, cur);
     px += R.p[0]; py += R.p[1]; pz += R.p[2]; rx += R.r[0] * DEG; ry += R.r[1] * DEG; rz += R.r[2] * DEG;
@@ -635,7 +666,7 @@ export class ViewModel {
 
   /** Pump (shotgun) / bolt (sniper) cycling after a shot: returns gun offsets + part params. */
   _action(G, W, T) {
-    const o = { rx: 0, rz: 0, py: 0 };
+    const o = this._act || (this._act = { rx: 0, rz: 0, py: 0 }); o.rx = o.rz = o.py = 0; o.pump = o.bolt = o.boltHand = undefined;
     if (W.mode === 'pump' && G.pumpT > 0 && W.pumpTime) {
       const k = 1 - G.pumpT / W.pumpTime;                 // 0 -> 1
       const pump = sstep(0.12, 0.45, k) * (1 - sstep(0.55, 0.9, k));
@@ -657,7 +688,7 @@ export class ViewModel {
     const R = this._R || (this._R = { p: [0, 0, 0], r: [0, 0, 0], parts: {}, lh: { a: 'grip', b: 'grip', w: 0, arc: 0 }, rh: null });
     R.p[0] = R.p[1] = R.p[2] = 0; R.r[0] = R.r[1] = R.r[2] = 0; const P = R.parts;
     P.mag = P.magVisible = P.magOff = P.rack = P.cover = P.crane = P.rocket = P.rocketVisible = P.rocketOff = P.pump = P.bolt = P.shell = undefined;
-    R.lh.a = 'grip'; R.lh.b = 'grip'; R.lh.w = 0; R.lh.arc = 0; R.rh = null; R.hideMag = false;
+    R.lh.a = 'grip'; R.lh.b = 'grip'; R.lh.w = 0; R.lh.arc = 0; R.rh = null; R.hideMag = false; R.showShell = false;
     const kind = T.reload, rel = cur && G.reloading;
     // shotgun: a pump when the reload finishes (chambers a round)
     if (kind === 'shotgun') {
@@ -667,8 +698,7 @@ export class ViewModel {
     } else this.reloadPrev = G.reloading;
     if (!rel) { this.relAmt = damp(this.relAmt || 0, 0, 10, dt); return R; }
     const r = clamp(G.reloadT / Math.max(0.05, W.reload), 0, 1);
-    const seg = (a, b) => sstep(a, b, r);
-    const tween = (lh, t0, t1, a, b, arc = 0.04) => { if (r >= t0) { lh.a = a; lh.b = b; lh.w = sstep(t0, t1, r); lh.arc = arc; } };
+    _RR = r;
     const tilt = seg(0.0, 0.12) * (1 - seg(0.88, 1.0));
     const lh = R.lh;
     switch (kind) {
@@ -701,7 +731,7 @@ export class ViewModel {
         break;
       }
       case 'lmg': {
-        R.r[0] = -tilt * 4; R.r[1] = -tilt * 6; R.r[2] = tilt * 26; R.p[0] = -tilt * 0.09; R.p[1] = tilt * 0.02; R.p[2] = -tilt * 0.06;
+        R.r[0] = -tilt * 2; R.r[1] = -tilt * 8; R.r[2] = tilt * 18; R.p[0] = -tilt * 0.035; R.p[1] = -tilt * 0.015; R.p[2] = -tilt * 0.03;
         P.cover = (seg(0.04, 0.12) * (1 - seg(0.74, 0.8))) * 0.75;
         const out = seg(0.14, 0.24); P.mag = r < 0.34 ? out * 1.5 : 1.5 * (1 - seg(0.44, 0.52));
         P.magOff = r < 0.34 ? seg(0.24, 0.32) : 1 - seg(0.36, 0.46); P.magVisible = !(r > 0.31 && r < 0.37);
@@ -716,12 +746,15 @@ export class ViewModel {
       }
       case 'shotgun': {                  // per shell: reloadT runs 0..W.reload for every shell
         const t2 = sstep(0, 0.3, (this.relAmt = damp(this.relAmt || 0, 1, 8, dt)));
-        R.r[2] = -t2 * 22; R.r[0] = t2 * 6; R.p[0] = -t2 * 0.04; R.p[1] = t2 * 0.03;
+        R.r[2] = -t2 * 34; R.r[0] = t2 * 12; R.r[1] = -t2 * 6; R.p[0] = -t2 * 0.07; R.p[1] = t2 * 0.08; R.p[2] = t2 * 0.02;
         // hand: pocket (0..0.35) -> port (0.35..0.75) -> push (0.75..0.9) -> back
         lh.a = 'pocket'; lh.b = 'port'; lh.w = sstep(0.25, 0.7, r) * (1 - sstep(0.9, 1.0, r)); lh.arc = 0.03;
         if (G.reloadT < 0.02 && this.shellCycle === 0) { lh.a = 'grip'; lh.b = 'pocket'; lh.w = 1; }
         P.shell = sstep(0.7, 0.88, r);
-        if (r > 0.82 && r < 0.95) this._jolt(r, 0.86, 0.004);
+        if (r < (this._shR ?? 0) - 0.3) this._joltAt = null;   // next shell
+        this._shR = r;
+        if (r > 0.82 && r < 0.95) this._jolt(r, 0.86, 0.006);
+        R.showShell = lh.w > 0.15 && r < 0.9;
         break;
       }
       case 'revolver': {
@@ -768,7 +801,7 @@ export class ViewModel {
       const n = W.nodes.mag; if (n) { P.copy(n.position); if (n.parent !== W.model) { n.getWorldPosition(P); root.worldToLocal(P); } } else P.copy(W.loc.mag_well ? W.loc.mag_well.p : _v.set(0, 0, 0.1));
       Q.setFromEuler(_e.set(A.rot[0] * DEG, A.rot[1] * DEG, A.rot[2] * DEG)); P.add(_v.fromArray(A.off));
     } else if (name === 'charge' || name === 'slide' || name === 'cover' || name === 'tray' || name === 'rocket' || name === 'bolt') {
-      const nodeName = { charge: 'charging_handle', slide: 'slide', cover: 'feed_cover', tray: 'belt', rocket: 'rocket', bolt: 'bolt_handle' }[name];
+      const nodeName = ANCHOR_NODE[name];
       const n = W.nodes[nodeName] || W.nodes.bolt || W.nodes.body;
       if (n) { n.getWorldPosition(P); root.worldToLocal(P); } else P.set(0, 0.1, 0);
       const a = ANCH[name] || ANCH.charge; Q.setFromEuler(_e.set(a.rot[0] * DEG, a.rot[1] * DEG, a.rot[2] * DEG)); P.add(_v.fromArray(a.off));
@@ -815,11 +848,14 @@ export class ViewModel {
       if (R.lh.b === 'grip' && T.lRot) aT.q.multiply(_q.setFromEuler(_e.set(T.lRot[0] * DEG, T.lRot[1] * DEG, T.lRot[2] * DEG)));
       const w = R.lh.w; aL.p.lerp(aT.p, w); aL.q.slerp(aT.q, w); aL.p.y += Math.sin(Math.PI * w) * (R.lh.arc || 0);
     }
-    if (thr > 0) {         // grenade: left hand drops out of view, throws forward
-      const e = sstep(0.05, 0.25, thr) * (1 - sstep(0.8, 1, thr)), f = sstep(0.3, 0.55, thr);
-      aL.p.lerp(_v.set(-0.22 + f * 0.1, -0.35 + f * 0.25 + Math.sin(f * Math.PI) * 0.15, -0.1 - f * 0.45), e);
+    if (thr > 0) {         // grenade (released on the key press): the left arm follows through - flick forward-up, then drop away
+      const e = sstep(0.0, 0.08, thr) * (1 - sstep(0.5, 0.8, thr)), f = sstep(0.0, 0.22, thr), dn = sstep(0.28, 0.6, thr);
+      aL.p.lerp(_v.set(-0.12 + f * 0.04, -0.16 + Math.sin(f * Math.PI) * 0.12 - dn * 0.3, -0.32 - f * 0.22), e);
     }
     this._handTo('Left', aL, rootInv);
+    const so = this.B.socket_hand_L;
+    if (so && this.shell.parent !== so) { so.add(this.shell); this.shell.position.set(0.0, 0.0, 0.035); }
+    this.shell.visible = !!R.showShell;
   }
 
   /** Two-bone IK the arm so the hand's grip socket lands on the anchor (camera-space transform). */
@@ -859,9 +895,8 @@ export class ViewModel {
     if (W.mode === 'launcher' && this.flashT < 1 && this.visible) { st.visible = true; }
     if (!st.visible) return;
     const k = Math.max(0, 1 - this.flashT), e = k * k;
-    const big = { pistol: 0.8, revolver: 1.3, smg: 0.75, shotgun: 1.6, rifle: 1.0, lmg: 1.15, sniper: 1.6, rpg: 1.8 }[W.id] || 1;
-    const cells = [[0, 0.5], [0.25, 0.5], [0.5, 0.5], [0.5, 0]];
-    const c = cells[(this.flashPick * cells.length) | 0];
+    const big = FLASH_SIZE[W.id] || 1;
+    const c = FLASH_CELLS[(this.flashPick * FLASH_CELLS.length) | 0];
     const u = st.material.uniforms; u.uCell.value.set(c[0], c[1], 0.25, 0.5); u.uSize.value = 0.13 * big * (0.9 + 0.3 * (1 - k)) * (1 - ads * 0.45); u.uRot.value = this.flashRot; u.uI.value = 7 * e * (1 - ads * 0.65);
     const u2 = s2.material.uniforms; u2.uCell.value.set(0.5, 0, 0.25, 0.5); u2.uSize.value = 0.34 * big * (1 - ads * 0.4); u2.uRot.value = -this.flashRot; u2.uI.value = 1.6 * e * (1 - ads * 0.7);
     const uc = co.material.uniforms; uc.uCell.value.set(this.flashPick > 0.5 ? 0 : 0.25, 0, 0.25, 0.5); uc.uLen.value = 0.34 * big; uc.uSize.value = 0.12 * big; uc.uI.value = 5 * e * (1 - ads * 0.5);

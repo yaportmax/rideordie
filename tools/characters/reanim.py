@@ -25,7 +25,9 @@ from glb import Glb  # noqa: E402
 OUT_DIR = "C:/Dev/rideordie/public/models/characters"
 IDS = ["hero_gunner", "hero_driver", "raider_a", "raider_b", "raider_c", "raider_d", "raider_driver"]
 # per-character clip parameters (keep in sync with the c_<id>.py builds: ctx.bulk / ctx.seat)
-ANIM_PARAMS = {"raider_c": dict(bulk=1.25), "hero_driver": dict(seat=dict(wheel_up=0.37, wheel_fwd=0.66))}
+ANIM_PARAMS = {"raider_c": dict(bulk=1.25, role="gunner"), "hero_driver": dict(seat=dict(wheel_up=0.37, wheel_fwd=0.66), role="driver"),
+               "raider_driver": dict(role="driver"), "hero_gunner": dict(role="gunner"), "raider_a": dict(role="gunner"),
+               "raider_b": dict(role="gunner"), "raider_d": dict(role="gunner")}
 
 _NP = {5126: np.float32, 5123: np.uint16, 5125: np.uint32, 5121: np.uint8, 5120: np.int8, 5122: np.int16}
 _NC = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}
@@ -190,11 +192,24 @@ def compact_without_animations(js, binb):
     return g
 
 
-def reanim(cid, only=None, out_dir=OUT_DIR, verbose=True):
+def reanim(cid, only=None, out_dir=OUT_DIR, verbose=True, recompress=False, src=None):
     t0 = time.time()
-    path = os.path.join(OUT_DIR, cid + ".glb")
+    path = src or os.path.join(out_dir, cid + ".glb")
+    if not os.path.exists(path):
+        path = os.path.join(OUT_DIR, cid + ".glb")
     js, binb = read_glb(path)
     heads, bone_nodes = rest_heads(js)
+    if recompress:
+        clips = existing_clips(js, binb, bone_nodes)
+        keep = anim.role_filter(ANIM_PARAMS.get(cid, {}).get("role"))
+        if keep is not None:
+            clips = {k: v for k, v in clips.items() if keep(k)}
+        g = compact_without_animations(js, binb)
+        anim.write_clips(g, bone_nodes, clips)
+        os.makedirs(out_dir, exist_ok=True)
+        size = g.save(os.path.join(out_dir, cid + ".glb"))
+        print("%s: recompressed %d clips, %.2f MB, %.1fs" % (cid, len(clips), size / 1e6, time.time() - t0), flush=True)
+        return clips
     mesh = body_mesh(js, binb)
     kw = dict(ANIM_PARAMS.get(cid, {}))
     clips = anim.build_clips(heads, only=only, mesh=mesh, foot_sole=0.0, **kw)
@@ -224,5 +239,12 @@ if __name__ == "__main__":
         i = args.index("--out")
         out = args[i + 1]
         del args[i:i + 2]
+    rec = "--recompress" in args
+    src_dir = None
+    if "--src" in args:
+        i = args.index("--src")
+        src_dir = args[i + 1]
+        del args[i:i + 2]
+    args = [a for a in args if a != "--recompress"]
     for cid in (args or IDS):
-        reanim(cid, only, out)
+        reanim(cid, only, out, recompress=rec, src=os.path.join(src_dir, cid + ".glb") if src_dir else None)

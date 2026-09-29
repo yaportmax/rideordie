@@ -106,15 +106,32 @@ def fabric_painter(color, dust=0.5, dust_col=(0.42, 0.34, 0.24), drape=0.0018, h
         alb *= (1.0 + PC.grain(shape, seed, 1.6, grain))[..., None]
         m1 = U.fbm(shape, 170.0, 3, seed + 5)
         alb *= ((1 - mott / 2) + mott * m1)[..., None]
-        h = PC.drape(bk, fit.belt_y + hem_off, amp=drape * folds_scale, width=0.024, length=0.18, gather=0.28, seed=seed + 2)
+        # trousers: folds gather at the waist and stack above the boots; the thighs/shins stay mostly smooth
+        h = PC.drape(bk, fit.belt_y + hem_off, amp=drape * folds_scale, width=0.024, length=0.18, gather=0.28, seed=seed + 2,
+                     base=0.08 if legs else 0.25)
         h += PC.side_seams(bk, fit) + PC.edge_roll(bk, 0.014, edge)
         if legs:
             for key in ("L_leg", "R_leg"):
                 kn = fit.limb_len(key, 1)
-                h += PC.wrinkles(bk, fit, key, kn, 0.06, 0.0008 * folds_scale, 0.07, 0.010, seed=seed + 3)
-                h += PC.wrinkles(bk, fit, key, fit.limb_len(key, 2) - 0.02, 0.10, 0.0008 * folds_scale, 0.08, 0.011, seed=seed + 4)
-                h += PC.wrinkles(bk, fit, key, 0.07, 0.08, 0.0006 * folds_scale, 0.07, 0.009, seed=seed + 5)
-            h += PC.drape(bk, fit.ankle_y, amp=0.0012, width=0.03, length=0.2, gather=0.9, base=0.6, seed=seed + 6)
+                h += PC.wrinkles(bk, fit, key, kn, 0.06, 0.0010 * folds_scale, 0.07, 0.010, seed=seed + 3)
+                h += PC.wrinkles(bk, fit, key, fit.limb_len(key, 2) - 0.02, 0.10, 0.0010 * folds_scale, 0.08, 0.011, seed=seed + 4)
+                h += PC.wrinkles(bk, fit, key, 0.07, 0.08, 0.0007 * folds_scale, 0.07, 0.009, seed=seed + 5)
+            h += PC.drape(bk, fit.ankle_y, amp=0.0011, width=0.03, length=0.2, gather=0.35, base=0.08, seed=seed + 6)
+            # large-scale wear: faded knees and thigh fronts, darker grime on the seat, inner thighs and shins
+            th = fit.theta(bk.P.reshape(-1, 3)).reshape(shape)
+            front = np.clip(np.cos(th), 0, 1)
+            kn_y = fit.ankle_y + 0.40
+            knee = np.exp(-((bk.Y - kn_y) / 0.09) ** 2) * front
+            thigh = U.smoothstep(kn_y + 0.05, kn_y + 0.25, bk.Y) * (1 - U.smoothstep(fit.belt_y - 0.12, fit.belt_y, bk.Y)) * front
+            wn = U.fbm(shape, 60.0, 3, seed + 31)
+            fade = np.clip(0.55 * knee + 0.22 * thigh, 0, 1) * (0.55 + 0.7 * wn)
+            grey = alb.mean(axis=-1, keepdims=True)
+            alb = alb * (1 - 0.45 * fade[..., None]) + (grey * 1.55 + 0.02) * 0.45 * fade[..., None]
+            back = np.clip(-np.cos(th), 0, 1)
+            seat = U.smoothstep(fit.belt_y - 0.25, fit.belt_y - 0.10, bk.Y) * back
+            shin = (1 - U.smoothstep(fit.ankle_y + 0.05, fit.ankle_y + 0.35, bk.Y))
+            gr = np.clip(0.30 * seat + 0.25 * shin, 0, 0.5) * (0.6 + 0.8 * U.fbm(shape, 40.0, 2, seed + 33))
+            alb *= (1 - gr)[..., None]
         if arms:
             for key in ("L_arm", "R_arm"):
                 el = fit.limb_len(key, 1)

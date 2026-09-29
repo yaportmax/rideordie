@@ -248,6 +248,49 @@ def mirror(pt, base, side, arm=0.20, size=(0.02, 0.16, 0.22), rear=True, m='plas
     pt.box(glass, (c[0] - side * (size[0] / 2 - 0.002), c[1], c[2]), (0.004, size[1] * 0.86, size[2] * 0.86), bev=0.002, seg=1)
 
 
+def mirror2(pt, side, f_att, z_att, x_door, lim, W=0.14, H=0.2, m='paint', frame='metal_dark', style='truck'):
+    """Door mirror whose head faces rearward with a flat rear face (the runtime puts live mirror glass on it).
+    The head's inner edge sits just outside `lim` (= |x| of the door glass + 0.1, see src/view/cockpit.js) so the part of the
+    arms beyond lim is short and the live glass (sized from that bbox) matches the head.  Returns the glass centre (x, f, z)."""
+    D = 0.05
+    xi = lim + 0.2 * W
+    xc = side * (xi + W / 2)
+    fr = f_att - 0.03                   # rear face
+    zc = z_att + 0.03 + H / 2
+    rings = []
+    for (df, sc, r) in ((0.0, 1.0, 0.022), (0.006, 1.03, 0.026), (D * 0.55, 1.0, 0.03), (D, 0.78, 0.03)):
+        rings.append([(xc + a, fr + df, zc + b) for (a, b) in _rr2(W * sc, H * sc, r * sc)])
+    pt.loft_grid(m, rings, cap=True)
+    # bezel + recessed glass on the rear face
+    pt.plate(frame, _rr2(W - 0.012, H - 0.012, 0.016), lambda a, b: (xc + a, fr - 0.001, zc + b), out=(0, -1, 0), thick=0.003, bev=0.0)
+    pt.plate('chrome', _rr2(W - 0.03, H - 0.03, 0.01), lambda a, b: (xc + a, fr - 0.0015, zc + b), out=(0, -1, 0), thick=0.001, bev=0.0)
+    # arms: upper (from the window-frame corner) and lower (from the door skin), plus a pivot knuckle each
+    xo = side * (xi + 0.012)
+    up0 = (side * (x_door - 0.01), f_att - 0.01, z_att + 0.12)
+    lo0 = (side * x_door, f_att + 0.01, z_att - 0.06)
+    if style == 'truck':
+        pt.tube(frame, [up0, (side * (x_door + 0.05), f_att + 0.01, zc + H * 0.32), (xo, fr + D * 0.5, zc + H * 0.32)], 0.0085, n=8, rad=0.03, k=3)
+        pt.tube(frame, [lo0, (side * (x_door + 0.04), f_att + 0.01, zc - H * 0.32), (xo, fr + D * 0.5, zc - H * 0.32)], 0.0085, n=8, rad=0.03, k=3)
+        for zz in (zc + H * 0.32, zc - H * 0.32):
+            pt.cyl(frame, (xo, fr + D * 0.5, zz), 0.013, 0.02, axis='z', n=8, bev=0.003)
+        for p in (up0, lo0):
+            pt.box(frame, (p[0] - side * 0.004, p[1], p[2]), (0.012, 0.06, 0.04), bev=0.005)
+    else:
+        pt.tube(frame, [lo0, (side * (x_door + 0.03), f_att, z_att), (xo, fr + D * 0.5, zc - H * 0.2)], 0.012, n=8, rad=0.03, k=3)
+        pt.box(frame, (lo0[0] - side * 0.004, lo0[1], lo0[2]), (0.014, 0.07, 0.05), bev=0.006)
+    return (xc, fr - 0.006, zc)
+
+
+def _rr2(w, h, r, k=3):
+    r = min(r, w / 2 - 1e-4, h / 2 - 1e-4)
+    pts = []
+    for cx, cy, a0 in ((w / 2 - r, -h / 2 + r, -90), (w / 2 - r, h / 2 - r, 0), (-w / 2 + r, h / 2 - r, 90), (-w / 2 + r, -h / 2 + r, 180)):
+        for s in range(k + 1):
+            a = math.radians(a0 + 90 * s / k)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
 def door_handle(pt, c, side, length=0.13, m='chrome'):
     x, f, z = c
     pt.box('metal_dark', (x, f, z), (0.014, length + 0.03, 0.05), bev=0.006, seg=1)

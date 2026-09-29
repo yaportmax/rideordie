@@ -8,6 +8,9 @@ export const ENEMY_GUNS = {
   rifle:   { rate: 6.0, burst: [3, 6], pause: [0.9, 1.7], dmg: 5.5, speed: 200, spread: 1.6, range: 150, aimRate: 2.1, pellets: 1, react: [0.6, 1.1] },
   shotgun: { rate: 1.3, burst: [1, 2], pause: [1.0, 2.0], dmg: 3.2, speed: 125, spread: 5.5, range: 42, aimRate: 2.0, pellets: 7, react: [0.6, 1.1] },
   mg:      { rate: 11,  burst: [8, 18], pause: [1.2, 2.4], dmg: 3.3, speed: 185, spread: 2.5, range: 140, aimRate: 1.5, pellets: 1, react: [0.9, 1.5], heavy: true },
+  // SCRAPJAW's turret: long, readable sweeps with real breathers between them (the first warlord must be beatable on a starter rig)
+  mg_warlord: { rate: 9, burst: [9, 15], pause: [2.4, 3.6], dmg: 2.8, speed: 185, spread: 2.8, range: 140, aimRate: 1.3, pellets: 1, react: [1.0, 1.5], heavy: true, model: 'hmg' },
+  hmg_warlord: { rate: 8, burst: [8, 16], pause: [2.0, 3.2], dmg: 4.6, speed: 210, spread: 2.2, range: 160, aimRate: 1.2, pellets: 1, react: [1.0, 1.5], heavy: true, model: 'hmg' },
   hmg:     { rate: 8,   burst: [10, 22], pause: [1.3, 2.4], dmg: 5.2, speed: 215, spread: 2.1, range: 165, aimRate: 1.3, pellets: 1, react: [1.0, 1.6], heavy: true },
   rpg:     { rate: 0.35, burst: [1, 1], pause: [5.5, 8.0], dmg: 0, speed: 60, spread: 1.3, range: 150, aimRate: 1.4, pellets: 1, react: [1.3, 2.0], rocket: { speed: 58, blast: 8, blastDmg: 60, direct: 36 } },
 };
@@ -48,6 +51,21 @@ export const ENCOUNTERS = {
   tanker:   { minLevel: 0.42, weight: 2, cars: [{ k: 'e_tanker', role: 'leader', at: 'ahead' }, { k: 'e_buggy', role: 'flanker', at: 'behind', side: 1 }, { k: 'e_buggy', role: 'flanker', at: 'behind', side: -1 }] },
   // rocket van blocks ahead, technical hunts from behind
   hammer:   { minLevel: 0.36, weight: 3, cars: [{ k: 'e_van', role: 'leader', at: 'ahead' }, { k: 'e_technical', role: 'chaser', at: 'behind' }, { k: 'e_muscle', role: 'rammer', at: 'behind', minLevel: 0.5 }] },
+  // ---- set pieces (never picked at random: minLevel 9; the director fires each once per run at SET_PIECES[].s)
+  gauntlet: { minLevel: 9, weight: 0, cars: [{ k: ['e_sedan', 'e_buggy'], role: 'leader', at: 'park', side: 1 }, { k: ['e_sedan', 'e_buggy'], role: 'flanker', at: 'park', side: -1 }, { k: ['e_sedan', 'e_buggy'], role: 'flanker', at: 'park', side: 1 }, { k: 'e_muscle', role: 'rammer', at: 'park', side: -1 }] },
+  stampede: { minLevel: 9, weight: 0, cars: [{ k: 'e_muscle', role: 'rammer', at: 'behind', side: 1 }, { k: 'e_muscle', role: 'rammer', at: 'behind', side: -1 }, { k: 'e_muscle', role: 'rammer', at: 'behind' }, { k: 'e_technical', role: 'leader', at: 'ahead' }] },
+  fuelrun:  { minLevel: 9, weight: 0, cars: [{ k: 'e_tanker', role: 'heavy', at: 'ahead' }, { k: 'e_technical', role: 'flanker', at: 'ahead', side: 1 }, { k: 'e_technical', role: 'flanker', at: 'ahead', side: -1 }, { k: 'e_buggy', role: 'chaser', at: 'behind' }] },
+  blockade: { minLevel: 9, weight: 0, cars: [{ k: 'e_van', role: 'blocker', at: 'ahead', gap: -12 }, { k: 'e_van', role: 'leader', at: 'ahead' }, { k: 'e_muscle', role: 'rammer', at: 'behind', side: 1 }, { k: 'e_muscle', role: 'rammer', at: 'behind', side: -1 }] },
+  cityswarm: { minLevel: 9, weight: 0, cars: [{ k: 'e_buggy', role: 'flanker', at: 'behind', side: 1 }, { k: 'e_buggy', role: 'flanker', at: 'behind', side: -1 }, { k: 'e_buggy', role: 'chaser', mode: 'overtake', next: 'leader', at: 'behind', side: 1 }, { k: 'e_buggy', role: 'chaser', mode: 'overtake', next: 'flanker', at: 'behind', side: -1 }, { k: ['e_sedan', 'e_technical'], role: 'leader', at: 'park', side: 1 }, { k: ['e_sedan', 'e_technical'], role: 'flanker', at: 'park', side: -1 }] },
   // everything at once
   swarm:    { minLevel: 0.6, weight: 3, cars: [{ k: ['e_buggy', 'e_technical'], role: 'flanker', at: 'behind', side: 1 }, { k: ['e_buggy', 'e_technical'], role: 'flanker', at: 'behind', side: -1 }, { k: ['e_sedan', 'e_van'], role: 'leader', at: 'ahead' }, { k: 'e_muscle', role: 'rammer', at: 'behind' }] },
 };
+
+/** One scripted set piece per biome, fired once per run as you reach `s` (announced with a banner). */
+export const SET_PIECES = [
+  { s: 4600, key: 'gauntlet', title: 'AMBUSH', sub: 'THE SCRAP RATS ARE WAITING UP THE ROAD' },
+  { s: 14600, key: 'stampede', title: 'STAMPEDE', sub: 'RAMMERS ON YOUR TAIL — WATCH THE HORNS' },
+  { s: 24600, key: 'fuelrun', title: 'FUEL CONVOY', sub: 'HIT THE TANKER WHEN THEY BUNCH UP' },
+  { s: 35200, key: 'blockade', title: 'BLOCKADE', sub: 'THEY WANT THE ROAD — BREAK THROUGH' },
+  { s: 45200, key: 'cityswarm', title: 'SWARM', sub: 'THE CITY GANGS POUR OUT' },
+];

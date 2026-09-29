@@ -101,7 +101,7 @@ class BodyMixin:
         for sx in (-0.26 * k, 0.26 * k):
             path = [(sx, fr0 + 0.10, zs(sx, fr0 + 0.10) + 0.004), (sx, (fr0 + fr1) / 2, zs(sx, (fr0 + fr1) / 2) + 0.004), (sx * 0.93, fr1 - 0.22, zs(sx * 0.93, fr1 - 0.22) + 0.004)]
             path = [(x, f, zs(x, f) + 0.004) for x, f in [(p[0], p[1]) for p in self._resample(path, 14)]]
-            pt.sweep('paint', path, [(0.018, 0.0), (0.012, 0.006), (-0.012, 0.006), (-0.018, 0.0), (-0.012, -0.004), (0.012, -0.004)], up=(1, 0, 0))
+            pt.sweep('paint', path, [(0.03, -0.002), (0.016, 0.0025), (0.0, 0.0035), (-0.016, 0.0025), (-0.03, -0.002), (0.0, -0.004)], up=(0, 0, 1))
         # hinges + latch on the underside
         for sg in (1, -1):
             pt.box('metal_dark', (sg * (hw - 0.12), fr0 + 0.03, zr - 0.035), (0.09, 0.06, 0.03), bev=0.005)

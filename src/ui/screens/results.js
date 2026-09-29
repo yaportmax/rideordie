@@ -1,7 +1,10 @@
-// RESULTS: run summary (stats tiles, route progress), cash breakdown that counts up with tick hooks, total -> BACK TO GARAGE. VICTORY variant.
+// RESULTS: run summary over the live death / finale camera. Title slam (WRECKED / VICTORY) + cause, stat tiles (with best-run
+// comparison), route to the Leviathan (reached + best markers), cash breakdown that counts up with tick hooks, a "NEXT UP" purchase
+// suggestion that jumps straight to that item in the garage, BACK TO GARAGE. VICTORY variant with confetti.
 import { h, tween } from '../comp.js';
-import { esc, money, fmtNum, icon, hints } from '../glyphs.js';
+import { esc, money, fmtNum, icon, hints, weaponIcon } from '../glyphs.js';
 import { BIOME_PLAN, MINIBOSS_S, BOSS_S } from '../../data/biomes.js';
+import { suggestNext } from '../garage_stats.js';
 
 const fmtTime = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const BIOME_SHORT = { desert: 'SCORCHED HWY', canyon: 'RED CANYON', coast: 'COASTAL CLIFFS', mountain: 'IRON PEAKS', city: 'ASHEN CITY', dam: 'THE DAM' };
@@ -9,15 +12,15 @@ const BIOME_COL = { desert: '#c98a3c', canyon: '#b1502a', coast: '#5f8fa8', moun
 
 export class ResultsScreen {
   constructor(ui, run, profile, cb) {
-    this.ui = ui; this.cb = cb; this.kind = 'results'; this.bg = 'dim';
+    this.ui = ui; this.cb = cb; this.kind = 'results'; this.bg = 'results';
     this.run = run || {}; this.profile = profile || null;
     this.timers = []; this.cancels = []; this.done = false;
     this.win = !!this.run.won;
-    this.el = h(`<div class="screen results ${this.win ? 'win' : 'lose'}"><div class="safe"></div></div>`);
-    this.safe = this.el.firstElementChild;
+    this.el = h(`<div class="screen results ${this.win ? 'win' : 'lose'}"><div class="flashv"></div><div class="safe"></div></div>`);
+    this.safe = this.el.querySelector('.safe');
     this.build();
     this.el.addEventListener('click', (e) => this.onClick(e));
-    this.timers.push(setTimeout(() => this.start(), 450));
+    this.timers.push(setTimeout(() => this.start(), 700));
   }
   lines() {
     const r = this.run; let ls = Array.isArray(r.breakdown) && r.breakdown.length ? r.breakdown.map((l) => ({ label: String(l.label), amount: Math.round(l.amount) })) : [];
@@ -27,32 +30,32 @@ export class ResultsScreen {
     return { ls, total };
   }
   build() {
-    const r = this.run, p = this.profile, best = (p && p.best) || {};
-    const nb = r.newBest || { distance: !!(p && r.distance > 0 && r.distance >= (best.distance || 0) && (p.runs || 0) > 1), time: !!(p && r.time > 0 && r.time >= (best.time || 0) && (p.runs || 0) > 1), kills: !!(p && r.kills > 0 && r.kills >= (best.kills || 0) && (p.runs || 0) > 1) };
+    const r = this.run, p = this.profile, prev = r.bestBefore || (p && p.best) || {};
+    const nb = r.newBest || {};
     const acc = r.shots > 0 ? Math.round(100 * (r.hits || 0) / r.shots) : null;
+    const bestSub = (k, fmt) => (nb[k] && prev[k] ? `PREV ${fmt(prev[k])}` : !nb[k] && prev[k] ? `BEST ${fmt(prev[k])}` : '');
     const tiles = [
-      { k: 'distance', ic: 'road', label: 'DISTANCE', to: r.distance / 1000, fmt: (v) => v.toFixed(1), unit: 'KM', nb: nb.distance },
-      { k: 'time', ic: 'clock', label: 'TIME SURVIVED', to: r.time, fmt: (v) => fmtTime(v), unit: '', nb: nb.time },
-      { k: 'kills', ic: 'skull', label: 'KILLS', to: r.kills || 0, fmt: (v) => fmtNum(v), unit: '', nb: nb.kills },
+      { k: 'distance', ic: 'road', label: 'DISTANCE', to: r.distance / 1000, fmt: (v) => v.toFixed(1), unit: 'KM', nb: nb.distance, sub: bestSub('distance', (v) => (v / 1000).toFixed(1) + ' KM') },
+      { k: 'time', ic: 'clock', label: 'TIME SURVIVED', to: r.time, fmt: (v) => fmtTime(v), unit: '', nb: nb.time, sub: bestSub('time', fmtTime) },
+      { k: 'kills', ic: 'skull', label: 'KILLS', to: r.kills || 0, fmt: (v) => fmtNum(v), unit: '', nb: nb.kills, sub: bestSub('kills', fmtNum) },
       { k: 'crash', ic: 'bolt', label: 'CRASH KILLS', to: r.crashKills || 0, fmt: (v) => fmtNum(v), unit: '' },
       { k: 'streak', ic: 'medal', label: 'BEST STREAK', to: r.bestStreak || 0, fmt: (v) => '×' + fmtNum(v), unit: '' },
-      { k: 'shots', ic: 'crosshair', label: 'SHOTS FIRED', to: r.shots || 0, fmt: (v) => fmtNum(v), unit: '' },
-      { k: 'acc', ic: 'crosshair', label: 'ACCURACY', to: acc == null ? 0 : acc, fmt: (v) => (acc == null ? '—' : Math.round(v) + '%'), unit: '' },
-      r.maxSpeed ? { k: 'top', ic: 'bolt', label: 'TOP SPEED', to: r.maxSpeed * 3.6, fmt: (v) => fmtNum(v), unit: 'KM/H' } : { k: 'biome', ic: 'flag', label: 'REACHED', to: 0, fmt: () => (r.biome ? String(r.biome).toUpperCase() : '—'), unit: '', text: true },
+      { k: 'acc', ic: 'crosshair', label: 'ACCURACY', to: acc == null ? 0 : acc, fmt: (v) => (acc == null ? '—' : Math.round(v) + '%'), unit: '', sub: r.shots ? `${fmtNum(r.hits || 0)} / ${fmtNum(r.shots)} HITS` : '' },
     ];
     this.tiles = tiles;
     const { ls, total } = this.lines(); this.ls = ls; this.total = total;
     const title = this.win ? 'VICTORY' : 'WRECKED';
-    const eyebrow = this.win ? 'THE LEVIATHAN IS DEAD' : (r.biome ? String(r.biome).toUpperCase() : 'RUN OVER');
-    const cause = r.cause ? `<div class="rs-cause">${this.win ? icon('flag') : icon('skull')}<span>${this.win ? '' : 'CAUSE OF DEATH &nbsp;&middot;&nbsp; '}<b>${esc(r.cause).toUpperCase()}</b></span></div>` : '';
+    const eyebrow = this.win ? 'THE LEVIATHAN IS DEAD' : `RUN #${p ? p.runs : ''} ${r.biome ? '&middot; ' + esc(String(r.biome).toUpperCase()) : ''}`;
+    const cause = r.cause ? `<div class="rs-cause">${this.win ? icon('flag') : icon('skull')}<span>${this.win ? 'THE ROAD IS YOURS' : 'CAUSE OF DEATH &nbsp;&middot;&nbsp; '}<b>${this.win ? '' : esc(r.cause).toUpperCase()}</b></span></div>` : '';
     const confetti = this.win ? `<div class="confetti">${Array.from({ length: 34 }, (_, i) => `<i style="left:${(i * 29.7) % 100}%;animation-delay:${(i % 11) * 0.37}s;animation-duration:${3.4 + (i % 5) * 0.55}s;--h:${i % 3}"></i>`).join('')}</div>` : '';
-    const tileHtml = tiles.map((t, i) => `<div class="tile stg ${t.text ? 'txt' : ''}" style="--i:${i + 2}" data-t="${t.k}"><span class="ti">${icon(t.ic)}</span><div><label>${t.label}${t.nb ? '<em class="nb">NEW BEST</em>' : ''}</label><b class="tv num">${t.text ? esc(t.fmt(0)) : t.fmt(0)}</b>${t.unit ? `<small>${t.unit}</small>` : ''}</div></div>`).join('');
+    const tileHtml = tiles.map((t, i) => `<div class="tile stg" style="--i:${i + 3}" data-t="${t.k}"><span class="ti">${icon(t.ic)}</span><div class="tb"><label>${t.label}${t.nb ? '<em class="nb">NEW BEST</em>' : ''}</label><b class="tv num">${t.fmt(0)}</b>${t.unit ? `<small>${t.unit}</small>` : ''}${t.sub ? `<span class="tsub">${t.sub}</span>` : ''}</div></div>`).join('');
     const lineHtml = ls.map((l, i) => `<div class="rs-l" data-i="${i}"><span class="rs-ln">${esc(l.label)}</span><span class="rs-ld"></span><b class="rs-la num">$0</b></div>`).join('');
     this.safe.innerHTML = `${confetti}
-      <div class="rs-title stg" style="--i:0"><div class="eyebrow">${esc(eyebrow)}</div><h1>${title}</h1>${cause}</div>
+      <div class="rs-title"><div class="eyebrow stg" style="--i:1">${eyebrow}</div><h1 class="slam">${title}</h1>${cause}</div>
       <div class="rs-stats">${tileHtml}</div>
-      <div class="rs-route stg" style="--i:10">${this.routeHtml()}</div>
-      <div class="rs-cash plate trans stg" style="--i:3">
+      <div class="rs-route stg" style="--i:9">${this.routeHtml()}</div>
+      <div class="rs-next stg" style="--i:10">${this.win ? this.campaignHtml() : this.nextHtml()}</div>
+      <div class="rs-cash plate trans stg" style="--i:4">
         <div class="rs-ch"><span>CASH EARNED</span><i class="ico">${icon('coin')}</i></div><div class="hazbar"></div>
         <div class="rs-cls">${lineHtml}</div>
         <div class="rs-ct"><span>TOTAL</span><b class="num" data-total>$0</b></div>
@@ -63,17 +66,34 @@ export class ResultsScreen {
     this.q = { total: this.safe.querySelector('[data-total]'), cont: this.safe.querySelector('.cont'), fill: this.safe.querySelector('.rt-fill') };
   }
   routeHtml() {
-    const r = this.run, total = BOSS_S;
+    const r = this.run, total = BOSS_S, best = Math.max((this.profile && this.profile.best && this.profile.best.distance) || 0, r.distance || 0);
     let acc = 0;
-    const segs = BIOME_PLAN.filter((b) => b.id !== 'dam' || true).map((b) => {
-      const len = b.id === 'dam' ? 0 : b.len; const s = acc; acc += len; return { id: b.id, s, len };
-    }).filter((s) => s.len > 0);
-    const mini = MINIBOSS_S.map((m) => `<i class="rt-mini" style="left:${(m / total) * 100}%"></i>`).join('');
+    const segs = BIOME_PLAN.map((b) => { const len = b.id === 'dam' ? 0 : b.len; const s = acc; acc += len; return { id: b.id, s, len }; }).filter((s) => s.len > 0);
+    const mini = MINIBOSS_S.map((m) => `<i class="rt-mini ${(r.distance || 0) >= m ? 'past' : ''}" style="left:${(m / total) * 100}%"></i>`).join('');
     const seg = segs.map((s) => `<span class="rt-seg" style="width:${(s.len / total) * 100}%;--bc:${BIOME_COL[s.id]}"><b>${BIOME_SHORT[s.id]}</b></span>`).join('');
     const pct = Math.min(100, (Math.max(0, r.distance || 0) / total) * 100);
+    const bestPct = Math.min(100, (best / total) * 100);
     this.routePct = pct;
-    return `<div class="rt-head"><span>ROUTE TO THE DAM</span><em>${((r.distance || 0) / 1000).toFixed(1)} / ${(total / 1000).toFixed(0)} KM</em></div>
-      <div class="rt-bar"><div class="rt-segs">${seg}</div><div class="rt-fill" style="width:0"></div>${mini}<i class="rt-boss">${icon('skull')}</i><i class="rt-you" style="left:0"></i></div>`;
+    const left = Math.max(0, (total - (r.distance || 0)) / 1000);
+    return `<div class="rt-head"><span>ROUTE TO THE LEVIATHAN</span><em>${this.win ? 'CONVOY BROKEN' : `<b>${left.toFixed(1)} KM</b> TO GO`}</em></div>
+      <div class="rt-bar"><div class="rt-segs">${seg}</div><div class="rt-fill" style="width:0"></div>${mini}${best > (r.distance || 0) + 50 ? `<i class="rt-best" style="left:${bestPct}%"><span>BEST</span></i>` : ''}<i class="rt-boss">${icon('skull')}</i><i class="rt-you" style="left:0"></i></div>`;
+  }
+  nextHtml() {
+    const p = this.profile; if (!p) return '';
+    const s = this.sug = suggestNext(p, this.run.cause);
+    if (!s) return '';
+    const art = s.tab === 'weapons' ? weaponIcon(s.id) : icon(s.tab === 'truck' ? 'truck' : s.tab === 'gunner' ? 'vest' : 'wrench');
+    return `<div class="f nextup ${s.need ? 'save' : 'afford'}" role="button" data-act="next" data-k="next">
+      <span class="nu-k">${s.need ? 'SAVE UP FOR' : 'NEXT UP'}</span>
+      <span class="nu-art ${s.tab === 'weapons' ? 'gun' : ''}">${art}</span>
+      <span class="nu-main"><em>${esc(s.kind)}</em><b>${esc(s.name)}</b><small>${esc(s.why)}</small></span>
+      <span class="nu-price"><b>${money(s.cost)}</b><small>${s.need ? `NEED ${money(s.need)} MORE` : 'YOU CAN AFFORD IT'}</small></span>
+      <span class="nu-go">${icon('wrench')}<i>SHOP</i></span></div>`;
+  }
+  campaignHtml() {
+    const p = this.profile; if (!p) return '';
+    return `<div class="nextup afford campaign"><span class="nu-k">CAMPAIGN COMPLETE</span><span class="nu-art">${icon('medal')}</span>
+      <span class="nu-main"><em>${p.runs} RUNS &middot; ${money(p.totalCash || 0)} EARNED</em><b>THE HIGHWAY IS YOURS</b><small>KEEP RIDING FOR THE HIGH SCORE</small></span></div>`;
   }
   // ---------------------------------------------------------------- animation
   clearAnim() { this.timers.forEach(clearTimeout); this.timers = []; this.cancels.forEach((c) => c()); this.cancels = []; }
@@ -83,7 +103,6 @@ export class ResultsScreen {
     this.ui.snd('menu_open');
     // stat tiles count up (staggered)
     this.tiles.forEach((t, i) => {
-      if (t.text) return;
       const el = this.safe.querySelector(`[data-t="${t.k}"] .tv`);
       this.timers.push(setTimeout(() => { this.cancels.push(tween(0, t.to, 900, (v) => { el.textContent = t.fmt(v); }, () => { el.textContent = t.fmt(t.to); })); }, i * 70));
     });
@@ -110,7 +129,7 @@ export class ResultsScreen {
   skip() {
     if (this.done) return;
     this.clearAnim();
-    this.tiles.forEach((t) => { const el = this.safe.querySelector(`[data-t="${t.k}"] .tv`); if (!t.text) el.textContent = t.fmt(t.to); });
+    this.tiles.forEach((t) => { const el = this.safe.querySelector(`[data-t="${t.k}"] .tv`); el.textContent = t.fmt(t.to); });
     this.safe.querySelectorAll('.rs-l').forEach((row, i) => { row.classList.add('in'); row.querySelector('.rs-la').textContent = money(this.ls[i].amount); });
     this.q.fill.style.width = this.routePct + '%'; const you = this.safe.querySelector('.rt-you'); if (you) you.style.left = this.routePct + '%';
     this.q.total.parentElement.classList.add('in'); this.q.total.textContent = money(this.total);
@@ -119,13 +138,16 @@ export class ResultsScreen {
   finish(fx) {
     if (this.done) return; this.done = true;
     this.q.cont.classList.remove('pending');
+    this.el.classList.add('is-done');
     if (fx) this.ui.snd(this.win ? 'go' : 'upgrade_unlock');
     const total = this.q.total.parentElement; total.classList.add('pop');
   }
   onClick(e) {
     const t = e.target.closest('.f');
     if (!this.done) { this.ui.snd('click'); this.skip(); if (t && t.dataset.act === 'cont') return; if (!t) return; }
-    if (t && t.dataset.act === 'cont' && this.done) { this.ui.snd('menu_close'); this.cb.onContinue && this.cb.onContinue(); }
+    if (!t || !this.done) return;
+    if (t.dataset.act === 'cont') { this.ui.snd('menu_close'); this.cb.onContinue && this.cb.onContinue(); }
+    else if (t.dataset.act === 'next' && this.sug) { this.ui.snd('go'); if (this.cb.onShop) this.cb.onShop(this.sug.tab, this.sug.id); else if (this.cb.onContinue) this.cb.onContinue(); }
   }
   initialFocus() { return this.q.cont; }
   back() { if (!this.done) { this.skip(); return true; } return true; }

@@ -58,7 +58,9 @@ def kit(T):
         # handle recess + mirror
         pt.box('metal_dark', (sg * (xp + 0.004), f_r + 0.24, C.z_belt - 0.10), (0.01, 0.20, 0.06), bev=0.0)
         pt.box('chrome', (sg * (xp + 0.012), f_r + 0.24, C.z_belt - 0.10), (0.014, 0.15, 0.024), bev=0.004)
-        mirror(pt, (sg * (xp + 0.01), f_f - 0.10, C.z_belt + 0.18), sg, arm=0.17, size=(0.035, 0.11, 0.15), m='armor')
+        gc = mirror2(pt, sg, f_f - 0.1, C.z_belt + 0.1, xp + 0.03, xp + 0.06, W=0.15, H=0.22, m='armor', style='truck')
+        T.mirror_glass = getattr(T, 'mirror_glass', {})
+        T.mirror_glass['L' if sg > 0 else 'R'] = (gc, 0.12, 0.19, nm)
 
     # ================================================================== WINDSHIELD ARMOR (slit visor, detachable)
     pw = T.part('panel_armor_windshield', (0, ws['fb'], ws['zb']))

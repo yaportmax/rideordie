@@ -25,17 +25,17 @@ def kit(T):
     # rope wraps around the post
     for i in range(4):
         b.torus('canvas', (px_, pf_, zb + 0.72 - i * 0.014), 0.029, 0.0095, axis='z', nR=10, nr=5)
-    # ---- duct tape over the windshield crack
-    ws = T.ws
-    for (u, s, ang, L) in ((-0.30, ws['slope'] * 0.55, 20.0, 0.34), (-0.22, ws['slope'] * 0.50, -55.0, 0.30)):
-        du, ds = math.cos(math.radians(ang)) * L / 2, math.sin(math.radians(ang)) * L / 2
-        p0, p1 = T.wpos(u - du, s - ds, 0.006), T.wpos(u + du, s + ds, 0.006)
-        b.sweep('chrome', [p0, p1], [(0.02, 0.0015), (-0.02, 0.0015), (-0.02, -0.0015), (0.02, -0.0015)], up=(0, 1, 0.3))
     # ---- fuzzy dice from the mirror
-    m0 = T.wpos(0.12 * k, ws['slope'] - 0.08, -0.03)
-    for i, x in enumerate((0.09, 0.15)):
-        b.box('fabric', (x * k, m0[1] - 0.06, m0[2] - 0.22 - i * 0.02), (0.045, 0.045, 0.045), bev=0.008, rot=(15 * i, 30 + 40 * i, 10))
-        b.cyl2('rubber', (x * k, m0[1] - 0.06, m0[2] - 0.20 - i * 0.02 + 0.02), (x * k, m0[1] - 0.05, m0[2] - 0.075), 0.002, n=4)
+    mx, mf, mz = T.rvm_c
+    for i, x in enumerate((-0.03, 0.03)):
+        d = (mx + x, mf + 0.03, mz - 0.13 - i * 0.022)
+        b.swatch('red')
+        b.box('decal', d, (0.03, 0.03, 0.03), bev=0.008, seg=2, rot=(15 * i, 30 + 40 * i, 10))
+        b.swatch('white')
+        for (px, py, pz) in ((0.0, -0.0155, 0.0), (0.0155, 0.0, 0.005), (-0.005, 0.0, 0.0155)):
+            b.sph('decal', (d[0] + px, d[1] + py, d[2] + pz), 0.004, n=6, sc=(1, 0.4, 1) if py else ((0.4, 1, 1) if px else (1, 1, 0.4)))
+        b.swatch(None)
+        b.cyl2('fabric', (d[0], d[1], d[2] + 0.017), (mx + x * 0.3, mf + 0.03, mz - 0.03), 0.0015, n=4)
     # ---- bent whip aerial on the right front fender
     b.tube('metal_dark', [(-C.fender_hw + 0.06, C.fa + 0.1, C.fender_top - 0.02), (-C.fender_hw + 0.05, C.fa + 0.1, C.fender_top + 0.35), (-C.fender_hw + 0.02, C.fa + 0.14, C.fender_top + 0.62), (-C.fender_hw - 0.10, C.fa + 0.18, C.fender_top + 0.70)], 0.004, n=5)
     b.cyl('metal_dark', (-C.fender_hw + 0.06, C.fa + 0.1, C.fender_top), 0.014, 0.03, axis='z', n=8)

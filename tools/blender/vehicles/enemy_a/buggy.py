@@ -7,10 +7,12 @@ from veh_pipeline import *
 from veh_parts import *
 from veh_decals import *
 from buggy_parts import *
+from veh_kit import *
 
-STYLE = dict(seed=11, rust=0.75, dirt=0.95, wear=0.75, scratch=0.7)
+STYLE = dict(seed=11, rust=0.7, dirt=0.95, wear=0.75, scratch=0.7, dust=0.9, wheels=[(1.20, 0.37, 0.37), (-1.10, 0.46, 0.46)])
 V = Vehicle("e_buggy", style=STYLE)
 M = V.M
+reset_wheel_cache()
 XMARK = make_image("xmark", xmark_alpha(512))
 TALLY = make_image("tally", tally_alpha(512))
 SKULL = make_image("skull", skull_alpha(512))
@@ -42,9 +44,11 @@ def gusset(f0, z0, f1, z1, f2, z2, x0, x1, m="armor", g="body"):
 # ------------------------------------------------------------------------------------------ wheels
 def build_wheels():
     for nm, x, f in (("FL", TRK_F, AX_F), ("FR", -TRK_F, AX_F)):
-        build_buggy_wheel(V, "wheel_" + nm, (x, f, R_F), 1 if x > 0 else -1, R_F, W_F, RIM_F, kind="offroad", spokes=6, key="front")
+        build_wheel2(V, "wheel_" + nm, (x, f, R_F), 1 if x > 0 else -1, R_F, W_F, RIM_F, tire="mud", rim_style="steel", spokes=6, lugs=5, key="bfront")
+        caliper("caliper", (x, f, R_F), 1 if x > 0 else -1, RIM_F, W_F, front=True)
     for nm, x, f in (("RL", TRK_R, AX_R), ("RR", -TRK_R, AX_R)):
-        build_buggy_wheel(V, "wheel_" + nm, (x, f, R_R), 1 if x > 0 else -1, R_R, W_R, RIM_R, kind="paddle", spokes=6, key="rear")
+        build_wheel2(V, "wheel_" + nm, (x, f, R_R), 1 if x > 0 else -1, R_R, W_R, RIM_R, tire="paddle", rim_style="beadlock", spokes=8, lugs=6, key="brear", N=44)
+        caliper("caliper", (x, f, R_R), 1 if x > 0 else -1, RIM_R, W_R, front=False)
 
 
 # ------------------------------------------------------------------------------------------ chassis
@@ -220,9 +224,10 @@ def build_engine():
         bx("mount", (sd * 0.30, ef, ez - 0.24), (0.06, 0.30, 0.06), "metal_dark", g="body")
     # rear light housings on the engine hoop
     for sd in (1, -1):
-        bx("tl_house", (sd * 0.36, -1.685, 0.86), (0.13, 0.05, 0.10), "metal_dark", bevel=0.008, seg=1, g="body")
-        bx("tl_lens", (sd * 0.36, -1.712, 0.86), (0.11, 0.012, 0.08), "light_tail", g="body")
-        bx("tl_brake", (sd * 0.36, -1.712, 0.76), (0.11, 0.012, 0.03), "light_amber" if "light_amber" in M else "light_tail", g="body")
+        tail_lamp("tl_%s" % ("L" if sd > 0 else "R"), (sd * 0.36, -1.712, 0.84), 0.12, 0.12, d=(0, -1, 0), depth=0.05, g="body",
+                  housing="metal_dark", bezel="metal_dark", ribs=3, reverse=0.0, broken=(sd < 0))
+        cyl("tl_amber", (sd * 0.36, -1.70, 0.745), 0.028, 0.04, "f", "light_amber", sides=10, g="body")
+        bx("tl_brk", (sd * 0.36, -1.67, 0.80), (0.05, 0.05, 0.14), "metal_dark", g="body")
 
 
 # ------------------------------------------------------------------------------------------ bodywork (fibreglass)
@@ -285,82 +290,100 @@ def build_body():
 
 
 # ------------------------------------------------------------------------------------------ interior
-def bucket_seat(x, f, z):
-    bx("seat_pan", (x, f, z), (0.40, 0.44, 0.09), "fabric", bevel=0.03, seg=2, g="body")
-    bx("seat_back", (x, f - 0.20, z + 0.33), (0.40, 0.10, 0.60), "fabric", bevel=0.035, seg=2, pitch=10, g="body")
-    for sd in (1, -1):
-        bx("bolster", (x + sd * 0.185, f - 0.14, z + 0.22), (0.05, 0.16, 0.36), "fabric", bevel=0.02, seg=1, pitch=10, g="body")
-        bx("bolster2", (x + sd * 0.18, f + 0.03, z + 0.06), (0.05, 0.30, 0.10), "fabric", bevel=0.02, seg=1, g="body")
-    bx("headrest", (x, f - 0.26, z + 0.72), (0.24, 0.07, 0.16), "fabric", bevel=0.03, seg=1, pitch=10, g="body")
-    bx("seat_rail", (x, f, z - 0.075), (0.30, 0.46, 0.04), "metal_dark", g="body")
-    # harness
-    for sd in (1, -1):
-        bx("belt", (x + sd * 0.12, f - 0.19, z + 0.36), (0.05, 0.012, 0.62), "cloth_dark", pitch=10, g="body")
-    bx("lapbelt", (x, f + 0.10, z + 0.055), (0.42, 0.04, 0.012), "cloth_dark", g="body")
-    bx("buckle", (x, f + 0.10, z + 0.07), (0.05, 0.02, 0.03), "metal_bare", g="body")
-
-
 def build_interior():
-    bucket_seat(0.36, 0.14, 0.40)
-    bucket_seat(-0.36, 0.14, 0.40)
-    # dash + steering
+    for sd in (1, -1):
+        bucket_seat("bucket", sd * 0.36, 0.17, 0.35, w=0.44, m="fabric" if sd > 0 else "leather", recline=8, g="body",
+                    belt="cloth_red" if sd > 0 else "cloth_dark", h=0.64)
+        bx("seat_mount", (sd * 0.36, 0.17, 0.33), (0.36, 0.40, 0.03), "metal_dark", g="body")
+    # dash panel + gauges + switches
     bx("dash", (0, 0.88, 0.84), (0.90, 0.05, 0.26), "interior", bevel=0.01, seg=1, pitch=-8, g="body")
-    for i, x in enumerate((0.50, 0.36, 0.22)):
-        cyl("gauge", (x, 0.845, 0.87), 0.036, 0.02, "f", "metal_bare", sides=12, g="body")
+    gauge_cluster("gauges", (0.36, 0.853, 0.875), n=3, r=0.032, g="body", d=(0, -1, 0.14))
     for i in range(4):
         bx("switch", (-0.10 - i * 0.07, 0.845, 0.80), (0.03, 0.02, 0.03), "metal_bare", g="body")
-    wc = (0.36, 0.60, 0.88)
-    ang = 26
-    nrm = (0, math.cos(ang * D2R), -math.sin(ang * D2R))
-    tube("swheel", ring_pts(wc, nrm, 0.145, 16), 0.013, "interior", closed=True, g="body")
-    tube("swspoke", [(wc[0] - 0.145, wc[1], wc[2]), (wc[0] + 0.145, wc[1], wc[2])], 0.011, "interior", g="body")
-    tube("column", [(wc[0], wc[1] + 0.03, wc[2] - 0.015), (wc[0], 0.88, 0.70)], 0.024, "metal_dark", g="body")
-    cyl("swhub", (wc[0], wc[1] + 0.01, wc[2] - 0.004), 0.035, 0.04, "f", "metal_bare", sides=10, pitch=-ang, g="body")
-    # shifter, pedals, hand brake
+        bx("switch_tog", (-0.10 - i * 0.07, 0.83, 0.80), (0.008, 0.02, 0.008), "chrome", g="body", pitch=20)
+    steering_wheel((0.36, 0.60, 0.88), 26, R=0.15, g="steer", rim_m="leather", spokes=3, hub_m="metal_dark")
+    tube("column", [(0.36, 0.63, 0.866), (0.36, 0.88, 0.70)], 0.024, "metal_dark", g="body")
     tube("shifter", [(0.0, 0.10, 0.34), (0.0, 0.18, 0.66)], 0.011, "metal_dark", g="body")
     cyl("shiftknob", (0.0, 0.185, 0.68), 0.024, 0.05, "z", "interior", sides=8, g="body")
     tube("handbrake", [(0.10, -0.06, 0.34), (0.10, 0.02, 0.62)], 0.012, "metal_dark", g="body")
+    cyl("hb_grip", (0.10, 0.025, 0.63), 0.016, 0.07, "z", "cloth_red", sides=8, g="body")
     for x in (0.30, 0.42):
         bx("pedal", (x, 0.86, 0.40), (0.06, 0.03, 0.10), "metal_dark", pitch=-30, g="body")
-    # extinguisher
-    cyl("extinguisher", (-0.36, -0.13, 0.62), 0.04, 0.28, "z", "paint2", sides=10, g="body")
+    cyl("extinguisher", (-0.36, -0.13, 0.62), 0.04, 0.28, "z", "cloth_red", sides=10, g="body")
+    bx("ext_strap", (-0.36, -0.13, 0.66), (0.09, 0.09, 0.02), "metal_dark", g="body")
 
 
 # ------------------------------------------------------------------------------------------ lights, antennas, gear
 def build_details():
-    # round headlights on the nose frame + guard hoops
+    # headlights on the nose frame (left caged, right taped) with mounts
     for sd in (1, -1):
-        cyl("hl_bucket", (sd * 0.30, 1.585, 0.72), 0.085, 0.10, "f", "metal_dark", sides=16, g="body")
-        cyl("hl_refl", (sd * 0.30, 1.628, 0.72), 0.078, 0.02, "f", "metal_bare", sides=16, g="body")
-        cyl("hl_lens", (sd * 0.30, 1.642, 0.72), 0.070, 0.012, "f", "light_head", sides=16, g="body")
-        cyl("hl_rim", (sd * 0.30, 1.640, 0.72), 0.092, 0.014, "f", "metal_bare", sides=16, g="body")
-    # roof light bar
-    bx("lightbar", (0, 0.64, 1.60), (0.70, 0.06, 0.08), "metal_dark", bevel=0.008, seg=1, g="body")
-    bx("lightbar_lens", (0, 0.672, 1.60), (0.64, 0.008, 0.055), "light_head", g="body")
-    for i in range(-3, 4):
-        bx("lb_div", (i * 0.09, 0.676, 1.60), (0.008, 0.008, 0.058), "metal_dark", g="body")
-    # spare tyre on the right cage side + strap, jerry can on the platform
-    cyl("spare", (-0.66, -0.50, 0.99), 0.36, 0.25, "x", "rubber_tire", sides=28, g="body")
-    cyl("spare_rim", (-0.795, -0.50, 0.99), 0.22, 0.02, "x", "rim", sides=16, g="body")
-    cyl("spare_hub", (-0.81, -0.50, 0.99), 0.06, 0.02, "x", "metal_bare", sides=10, g="body")
-    tube("spare_strap", [(-0.54, -0.50, 1.36), (-0.79, -0.50, 1.36), (-0.79, -0.50, 0.62), (-0.54, -0.50, 0.62)], 0.008, "cloth_dark", g="body")
-    bx("jerry", (0.34, -0.90, PLAT_Z + 0.20), (0.32, 0.17, 0.38), "armor", bevel=0.015, seg=1, g="body")
-    bx("jerry_cap", (0.34, -0.90, PLAT_Z + 0.42), (0.06, 0.06, 0.04), "metal_bare", g="body")
-    tube("jerry_handle", [(0.20, -0.90, PLAT_Z + 0.36), (0.20, -0.90, PLAT_Z + 0.44), (0.48, -0.90, PLAT_Z + 0.44), (0.48, -0.90, PLAT_Z + 0.36)], 0.011, "armor", fillet=0.03, g="body")
-    # whip antennas + flags
+        lamp("hl_%s" % ("L" if sd > 0 else "R"), (sd * 0.30, 1.642, 0.72), 0.075, d=(0, 1, 0), depth=0.10, housing="metal_dark", bowl="chrome",
+             bezel="chrome", g="body", sides=16, cage=(sd > 0), tape=("cloth_tan" if sd < 0 else None))
+        tube("hl_mount", [(sd * 0.30, 1.56, 0.72), (sd * 0.32, 1.50, 0.74)], 0.012, "metal_dark", g="body")
+    # two caged spot lamps on the front roof bar
+    for sx in (0.26, -0.26):
+        lamp("spot", (sx, 0.70, 1.64), 0.07, d=(0, 1, -0.04), depth=0.09, housing="metal_dark", bowl="chrome", g="body", cage=True, sides=14)
+        beam("spot_brk", (sx, 0.62, 1.585), (sx, 0.64, 1.64), 0.03, 0.01, "metal_dark", u=(1, 0, 0), g="body")
+    # spare wheel on the right side of the cage + strap
+    spare_tyre("spare", (-0.66, -0.50, 0.99), (-1, 0, 0), R=0.36, W=0.25, rim_r=0.215, g="body", sides=24)
+    tube("spare_strap", [(-0.54, -0.50, 1.36), (-0.80, -0.50, 1.36), (-0.80, -0.50, 0.62), (-0.54, -0.50, 0.62)], 0.008, "cloth_dark", g="body")
+    tube("spare_brk", [(-0.52, -0.50, 0.99), (-0.66, -0.50, 0.99)], 0.02, "metal_dark", g="body")
+    # jerry cans: one on the platform, one in a side rack on the left
+    jerry_can("jerry", (0.30, -0.88, PLAT_Z), yaw=90, m="armor", g="body")
+    jerry_can("jerry2", (0.64, -0.70, 0.64), yaw=0, m="cloth_red", g="body", s=0.9)
+    tube("can_rack", [(0.54, -0.86, 0.64), (0.72, -0.86, 0.64), (0.72, -0.54, 0.64), (0.54, -0.54, 0.64)], 0.01, "metal_dark", g="body")
+    strap("can_strap", [(0.55, -0.87, 0.95), (0.735, -0.87, 0.95), (0.735, -0.53, 0.95), (0.55, -0.53, 0.95)], w=0.03, m="cloth_dark", g="body", normal=(0, 0, 1))
+    # shovel strapped on the left side pod
+    tube("shovel_handle", [(0.58, 0.88, 0.665), (0.58, -0.18, 0.67)], 0.016, "wood", g="body")
+    tube("shovel_grip", [(0.54, -0.18, 0.67), (0.62, -0.18, 0.67)], 0.012, "wood", g="body")
+    quad_slab("shovel_blade", [(0.66, 0.88, 0.668), (0.50, 0.88, 0.668), (0.52, 1.14, 0.658), (0.64, 1.14, 0.658)], 0.004, "metal_bare", out=(0, 0, 1), g="body")
+    for f in (0.55, 0.05):
+        strap("shovel_strap", [(0.49, f, 0.64), (0.54, f, 0.69), (0.62, f, 0.69), (0.67, f, 0.64)], w=0.03, m="cloth_dark", g="body", normal=(0, 1, 0))
+    # whip antennas + tattered flags
     for sd, col in ((1, "cloth_red"), (-1, "cloth_tan")):
         base = (sd * 0.55, -1.00, 1.60)
         tube("ant", [base, (sd * 0.56, -1.04, 2.05), (sd * 0.58, -1.10, 2.55)], 0.0045, "metal_bare", g="body")
-        strip_wave("flag", (sd * 0.58, -1.10, 2.52), 0.50, 0.17, 0.07, 3.0, col, direction=(0, -1, 0), nseg=9, droop=0.04, g="body")
-    # tow strap / chain hung on the rear hoop
-    tube("chain", [(0.35, -1.001, 1.55), (0.20, -1.01, 1.36), (0.0, -1.01, 1.32), (-0.20, -1.01, 1.36), (-0.35, -1.001, 1.55)], 0.009, "metal_bare", fillet=0.05, g="body")
-    # skid plate under the engine, mud flaps
+        strip_wave("flag", (sd * 0.58, -1.10, 2.52), 0.52, 0.20, 0.07, 2.5, col, direction=(0, -1, 0), nseg=9, droop=0.05, g="body")
+        strip_wave("flag_t", (sd * 0.58, -1.10, 2.33), 0.36, 0.05, 0.05, 3.0, col, direction=(0, -1, -0.15), nseg=6, droop=0.05, g="body")
+    chain("chain", [(0.35, -1.01, 1.55), (0.20, -1.02, 1.38), (0.0, -1.02, 1.34), (-0.20, -1.02, 1.38), (-0.35, -1.01, 1.55)], link=0.06, g="body")
     bx("skidR", (0, -1.30, 0.235), (0.60, 0.70, 0.016), "armor", bevel=0.004, seg=1, g="body")
-    # frame number plate
     bx("numplate", (0, 1.53, 0.88), (0.24, 0.02, 0.15), "metal_bare", bevel=0.004, seg=1, g="panel_hood")
-    # hood vent slots
     for i in range(4):
         bx("vent", (-0.22 + i * 0.03, 1.02, 0.882), (0.012, 0.16, 0.004), "metal_dark", g="panel_hood")
+
+    # canvas sun tarp over the front half of the cage, sagging between the bars, torn rear edge
+    def zbar(f):
+        return 1.56 + (1.72 - 1.56) * max(0.0, min(1.0, (0.62 - f) / 0.82)) ** 0.7 + 0.03
+    st = []
+    for f in (0.60, 0.42, 0.24, 0.06, -0.12):
+        top = []
+        n = 11
+        drop = 0.10 + 0.04 * math.sin(f * 9.0)
+        for i in range(n):
+            u = i / (n - 1)
+            if i == 0 or i == n - 1:
+                x = -0.52 if i == 0 else 0.52
+                top.append((x, zbar(f) - drop))
+                continue
+            x = -0.49 + 0.98 * (i - 1) / (n - 3)
+            sag = -0.055 * math.sin(math.pi * (i - 1) / (n - 3)) ** 2 * (0.35 if abs(f - 0.24) < 0.01 else 1.0)
+            top.append((x, zbar(f) + sag))
+        ring = top + [(x * (0.985 if abs(x) > 0.5 else 1.0), z - 0.008) for x, z in reversed(top)]
+        st.append((f, ring))
+    loft_f("tarp", st, "canvas", cap=True, g="body", smooth=True)
+    strip_wave("tarp_tail", (0.30, -0.12, zbar(-0.12) - 0.01), 0.22, 0.10, 0.03, 1.5, "canvas", direction=(0, -1, -0.8), up=(0, 1, 0), nseg=5, droop=0.02, g="body")
+    for sx in (0.46, -0.46):
+        for f in (0.58, -0.10):
+            tube("tarp_tie", [(sx, f, zbar(f) + 0.004), (sx * 1.05, f, zbar(f) - 0.05)], 0.006, "cloth_tan", g="body")
+    # expanded-metal side panels on the lower rear cage (gunner protection)
+    for sd in (1, -1):
+        grille("sidemesh", [(sd * 0.515, -0.16, 0.87), (sd * 0.525, -0.96, 0.905), (sd * 0.525, -0.96, 1.095), (sd * 0.515, -0.16, 1.055)], 8, 3,
+               bar=0.007, frame=0.012, m="metal_dark", g="body", diag=True, depth=0.008)
+    # spike ridge along the nose cowl (rides on the hood panel)
+    spikes("nose_spikes", [((0.0, f, z), (0, 0.35, 1.0), 0.020, 0.075) for f, z in ((1.44, 0.722), (1.32, 0.772), (1.20, 0.815))], g="panel_hood", collar=False)
+    # extra spikes on the front bumper hoop
+    spikes("bf_spikes", [((x, 1.815, 0.70), (0, 1, 0.15), 0.022, 0.10) for x in (-0.18, 0.0, 0.18)] +
+           [((sd * 0.52, 1.75, 0.54), (sd * 0.4, 1, 0), 0.022, 0.10) for sd in (1, -1)], g="panel_bumper_F", collar=False)
 
 
 def build_sockets():
@@ -377,7 +400,7 @@ def build_sockets():
     sock("nitro_L", 0.14, -1.84, 0.52, yaw=180)
     sock("nitro_R", -0.14, -1.84, 0.52, yaw=180)
     sock("smoke_engine", 0.0, -1.36, 0.90)
-    sock("fuel_cap", 0.36, -0.55, 0.50, yaw=90)
+    sock("fuel_cap", 0.36, -0.55, 0.50, yaw=-90)       # matches the shipped GLB (game uses the position only)
     sock("roof_top", 0.0, 0.22, 1.72)
     sock("camera_hood", 0.0, 1.22, 0.96)
 

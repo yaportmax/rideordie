@@ -34,7 +34,7 @@ export class Game {
     this.hud = new Hud(); this.hud.setVisible(false);
     // player headlights: always in the scene (intensity 0 by day) so the light count never changes => no shader recompiles
     this.lampLights = new NightLights(this.scene);   // pooled street-lamp point lights (constant light count)
-    this.headlights = [0, 1].map(() => { const l = new THREE.SpotLight(0xfff1d6, 0, 90, 0.42, 0.55, 1.2); l.castShadow = false; this.scene.add(l, l.target); return l; });
+    this.headlights = [0, 1].map(() => { const l = new THREE.SpotLight(0xffe6c4, 0, 95, 0.5, 0.85, 1.35); l.castShadow = false; this.scene.add(l, l.target); return l; });
     this.run = null; this.look = null; this.frames = 0; this.last = performance.now();
     this.fx = null; this.audio = null; this.post = null; this.ui = null; this.garage = null;
     this.mode = 'menu';           // menu | garage | run
@@ -202,7 +202,7 @@ export class Game {
         const x = i ? -0.62 : 0.62, fz = run.spec.length / 2;
         l.position.set(x, 0.8 - p.ride.restComHeight, fz - 0.2).applyQuaternion(p.quat).add(p.pos);
         l.target.position.set(x * 1.6, -2.2 - p.ride.restComHeight, fz + 30).applyQuaternion(p.quat).add(p.pos);
-        l.intensity = p.exploded ? 0 : Math.min(1, night) * 900 / Math.max(1, this.look.exp * 1.7);   // night exposure is ~2.4x: keep the beams from blowing out
+        l.intensity = p.exploded ? 0 : Math.min(1, night) * 900 / Math.max(1, this.look.exp * 2.1);   // night exposure is ~2.4x: keep the beams from blowing out
       });
     }
     if (this.post && p) {
@@ -226,6 +226,10 @@ export class Game {
     const P = this.perf; P.sim = P.sim * 0.95 + (t1 - t0) * 0.05; P.render = P.render * 0.95 + (t3 - t2) * 0.05; P.frame = P.frame * 0.95 + dt * 1000 * 0.05; P.fps = 1000 / P.frame;
     const st = this.post?.stats; P.calls = st ? st.calls : this.renderer.info.render.calls; P.tris = st ? st.triangles : this.renderer.info.render.triangles; P.worst = Math.max(P.worst * 0.99, dt * 1000);
     this.fx?.update?.(dt);
+    // particles / decals light themselves from the sun + hemi lights; at night the scene is lit mostly by exposure,
+    // moon, lamps and emissives, so give them a cool moonlit floor (otherwise smoke turns into black blobs)
+    const fl = this.fx?.U?.uLight?.value, nk = this.look ? Math.min(1, Math.max(0, (this.look.night - 0.05) / 0.55)) : 0;
+    if (fl && nk > 0) fl.set(Math.max(fl.x, 0.2 * nk), Math.max(fl.y, 0.23 * nk), Math.max(fl.z, 0.32 * nk));
     if (run.finished && this.onRunEnd) { const cb = this.onRunEnd; this.onRunEnd = null; cb(run); }
   }
 

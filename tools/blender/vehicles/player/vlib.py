@@ -297,6 +297,18 @@ class Part:
         self.cur_decal = 0 if name is None else decal_spec('sw_' + name)
         return self
 
+    def quad(self, m, c, nrm, up, w, h):
+        """single flat quad (2 tris) centred at c facing nrm, `up` in-plane (game coords)"""
+        n = PV(nrm).normalized()
+        upv = PV(up)
+        upv = (upv - n * upv.dot(n)).normalized()
+        rt = upv.cross(n).normalized()
+        cc = P(*c)
+        bm = bmesh.new()
+        bv = [bm.verts.new(v) for v in (cc - rt * w / 2 - upv * h / 2, cc + rt * w / 2 - upv * h / 2, cc + rt * w / 2 + upv * h / 2, cc - rt * w / 2 + upv * h / 2)]
+        bm.faces.new(bv)
+        self.add_bm(bm, m)
+
     def sticker(self, name, c, nrm, up, w, h, lift=0.0015, sub=None, rot=0.0):
         """Flat quad sticker (atlas rect `name`) centred at c (game coords) on a surface with normal nrm, `up` = sticker up direction."""
         n = PV(nrm).normalized()

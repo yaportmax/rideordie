@@ -13,8 +13,11 @@ const ROWS = {
   video: [
     { key: 'quality', type: 'seg', label: 'GRAPHICS QUALITY', desc: 'Shadows, particles and post-processing.', opts: ['LOW', 'MEDIUM', 'HIGH', 'ULTRA'] },
     { key: 'resScale', type: 'slider', label: 'RESOLUTION SCALE', desc: 'Render resolution. Lower is faster, higher is sharper.', min: 0.5, max: 1.5, step: 0.05, fmt: pctFmt },
-    { key: 'fov', type: 'slider', label: 'FIELD OF VIEW', desc: 'Vertical field of view of the game camera.', min: 60, max: 100, step: 1, fmt: (v) => Math.round(v) + '°' },
+    { key: 'fov', type: 'slider', label: 'FIELD OF VIEW (FIRST PERSON)', desc: 'Vertical field of view in the cockpit and the truck bed.', min: 60, max: 100, step: 1, fmt: (v) => Math.round(v) + '°' },
     { key: 'shake', type: 'slider', label: 'CAMERA SHAKE', desc: 'Screen shake from crashes and explosions.', min: 0, max: 1, step: 0.05, fmt: pctFmt },
+    { key: 'motionBlur', type: 'toggle', label: 'MOTION BLUR', desc: 'Camera motion blur at speed.' },
+    { key: 'chromatic', type: 'toggle', label: 'CHROMATIC ABERRATION', desc: 'Colour fringing at the screen edges and on hits.' },
+    { key: 'grain', type: 'toggle', label: 'FILM GRAIN', desc: 'Subtle noise over the image.' },
   ],
   audio: [
     { key: 'master', type: 'slider', label: 'MASTER VOLUME', desc: 'Overall loudness.', min: 0, max: 1, step: 0.05, fmt: pctFmt },
@@ -25,6 +28,7 @@ const ROWS = {
     { key: 'mouseSens', type: 'slider', label: 'MOUSE SENSITIVITY', desc: 'Aim speed with the mouse (gunner and solo).', min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×' },
     { key: 'padSens', type: 'slider', label: 'GAMEPAD SENSITIVITY', desc: 'Aim speed with the right stick.', min: 0.3, max: 2.5, step: 0.05, fmt: (v) => v.toFixed(2) + '×' },
     { key: 'invertY', type: 'toggle', label: 'INVERT Y AXIS', desc: 'Push up to look down. Mouse and gamepad.' },
+    { key: 'aimAssist', type: 'toggle', label: 'AIM ASSIST', desc: 'Gamepad gunner: the aim slows and nudges onto raiders.' },
     { key: 'vibration', type: 'toggle', label: 'CONTROLLER VIBRATION', desc: 'Rumble on hits, crashes and explosions.' },
   ],
 };

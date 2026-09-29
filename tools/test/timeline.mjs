@@ -14,6 +14,7 @@ page.on('console', (m) => { if (m.type() === 'error') console.log('[console.erro
 await page.goto(`${opt.base || 'http://localhost:5180'}/index.html?${q}`);
 await page.waitForFunction('window.__ready === true', null, { timeout: 90000 });
 await page.waitForFunction(() => window.__run.sim ? window.__run.sim.state === 'run' : true, null, { timeout: 60000 });
+await page.evaluate(() => document.getElementById('boot')?.remove());
 if (opt.setup) await page.evaluate(opt.setup);
 const t0 = Date.now();
 for (let i = 0; i < at.length; i++) {

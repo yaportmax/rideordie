@@ -21,6 +21,9 @@ features, landmarks, backdrop), `water.js`.
 `src/game/world_view.js` (cars, crews, debris, boss view, LOD switching), `view/car_view.js` (+ `car_lod.js` far LOD), `view/crew_view.js` (rigged characters,
 spine aim + two-bone IK to weapon grips / steering wheel, deaths), `view/weapon_view.js` (gun mechanics), `view/boss_view.js`, `view/fx.js` + `view/fx/*`,
 `view/post.js` + `view/post/*`, `core/audio.js` + `view/audio_bridge.js`, `view/camera_rig.js` (chase + gunner cams), `ui/hud.js`, `ui/ui.js` + `ui/screens/*`.
+First-person gunner: `view/viewmodel.js` (FP arms + weapon rig: own projection/depth band, sway/bob/recoil springs, ADS, reload choreography,
+FP muzzle flash; arms from `models/characters/fp_arms.glb` or cut from hero_gunner), `ui/gunner_hud.js` (crosshair, hit/kill markers, damage arcs,
+ammo, scope overlays). Capture harness for gun feel: `shots/gunfeel/cap.mjs <plan>` (plans in `shots/gunfeel/plans.mjs`).
 
 ## Network
 `net/transport.js` (PeerJS signalling + reliable channel + extra unreliable RTCDataChannel), `net/snapshot.js` (binary 30 Hz snapshots incl. boss, client

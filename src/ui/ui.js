@@ -50,19 +50,43 @@ import { ControlsScreen } from './screens/controls.js';
 
 const cssText = [baseCss, garageCss, lobbyCss, resultsCss, settingsCss].join('\n');
 
-const noiseUri = (alpha, freq, size = 200, seed = 3) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="2" seed="${seed}" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 ${alpha} 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>`;
-  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
-};
-const grimeUri = (size = 240) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency=".012 .05" numOctaves="3" seed="8" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.6 -.55"/></filter><rect width="100%" height="100%" filter="url(#g)"/></svg>`;
-  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
-};
+// Texture overlays are generated ONCE as small raster PNGs (tileable value noise). They used to be SVG feTurbulence filters, which
+// Chrome re-rasterizes per element and per size on the main thread: every screen with many plates/keys hitched by 100s of ms.
+function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+/** Tileable fractal value noise (size x size, values 0..1). cells = lattice cells across the tile for the first octave. */
+function valueNoise(size, cells, octaves, seed) {
+  const out = new Float32Array(size * size); const rnd = mulberry(seed);
+  let amp = 0.5, total = 0;
+  for (let o = 0; o < octaves; o++) {
+    const n = Math.max(1, Math.round(cells * (1 << o))), lat = new Float32Array(n * n);
+    for (let i = 0; i < lat.length; i++) lat[i] = rnd();
+    for (let y = 0; y < size; y++) {
+      const fy = (y / size) * n, y0 = Math.floor(fy), ty = fy - y0, sy = ty * ty * (3 - 2 * ty), ya = (y0 % n) * n, yb = ((y0 + 1) % n) * n;
+      for (let x = 0; x < size; x++) {
+        const fx = (x / size) * n, x0 = Math.floor(fx), tx = fx - x0, sx = tx * tx * (3 - 2 * tx), xa = x0 % n, xb = (x0 + 1) % n;
+        const a = lat[ya + xa] + (lat[ya + xb] - lat[ya + xa]) * sx, b = lat[yb + xa] + (lat[yb + xb] - lat[yb + xa]) * sx;
+        out[y * size + x] += (a + (b - a) * sy) * amp;
+      }
+    }
+    total += amp; amp *= 0.5;
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= total;
+  return out;
+}
+function pngUri(size, alphaOf, rgb = 255) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'), img = g.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) { const a = alphaOf(i); img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = rgb; img.data[i * 4 + 3] = Math.max(0, Math.min(255, a * 255)); }
+  g.putImageData(img, 0, 0);
+  return `url("${c.toDataURL('image/png')}")`;
+}
+/** Fine grain: white with noisy alpha (~feTurbulence at a per-pixel frequency). */
+const noiseUri = (alpha, size = 192, seed = 3) => { const n = valueNoise(size, size / 1.2, 2, seed); return pngUri(size, (i) => n[i] * alpha * 1.25); };
+/** Grunge mask: opaque with speckled holes (used to distress the logo). */
+const grungeUri = (size = 256) => { const n = valueNoise(size, 96, 3, 21); return pngUri(size, (i) => 8.8 - 12 * (0.5 + (n[i] - 0.5) * 1.1), 0); };
 
-const grungeUri = (size = 256) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency=".2 .28" numOctaves="4" seed="21" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -12 8.8"/></filter><rect width="100%" height="100%" filter="url(#g)"/></svg>`;
-  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
-};
+let texCache = null;
+function uiTextures() { return texCache || (texCache = { noise: noiseUri(0.55, 192, 3), soft: noiseUri(0.16, 192, 5), grunge: grungeUri() }); }
 
 function stubInput() {
   return { bindings: defaultBindings(), sens: { mouse: 0.0022, padYaw: 3.1, padPitch: 2.3 }, invertY: false, lastDevice: 'kbm' };
@@ -84,11 +108,10 @@ export class Ui {
     const el = this.el = document.createElement('div');
     el.className = 'rod-ui'; el.style.display = 'none';
     el.dataset.dev = this.input.lastDevice || 'kbm'; el.dataset.pad = 'xbox';
-    el.style.setProperty('--noise', noiseUri(0.55, 0.85));
-    el.style.setProperty('--noise-soft', noiseUri(0.16, 0.9, 200, 5));
-    el.style.setProperty('--noise-hard', noiseUri(0.9, 0.7, 160, 11));
-    el.style.setProperty('--grime', grimeUri());
-    el.style.setProperty('--grunge', grungeUri());
+    const tex = uiTextures();
+    el.style.setProperty('--noise', tex.noise);
+    el.style.setProperty('--noise-soft', tex.soft);
+    el.style.setProperty('--grunge', tex.grunge);
     const stage = this.stage = document.createElement('div');
     stage.className = 'rod-stage';
     stage.innerHTML = `<div class="bg" data-mode="none">${opts.backdrop === false ? '' : backdropSvg()}</div>
@@ -174,7 +197,7 @@ export class Ui {
     const s = this.screen();
     const bg = s ? (s.bg || 'none') : 'none';
     // over live 3D (backdrop:false): title = left scrim for the logo + menu, dim = even darkening, results = heavy left-to-right scrim
-    this.bgEl.dataset.mode = bg === 'veil' ? 'veil' : this.opts.backdrop !== false ? (bg === 'results' ? 'dim' : bg) : ({ title: 'scrim', dim: 'dim3d', results: 'results3d' }[bg] || 'none');
+    this.bgEl.dataset.mode = bg === 'veil' ? 'veil' : this.opts.backdrop !== false ? (bg === 'results' ? 'dim' : bg === 'garage' ? 'none' : bg) : ({ title: 'scrim', dim: 'dim3d', results: 'results3d', garage: 'garage3d' }[bg] || 'none');
     this.el.classList.toggle('has-screen', !!s);
   }
   /** Free area of the garage screen between its panels (CSS px) - the 3D camera frames the subject inside it. */

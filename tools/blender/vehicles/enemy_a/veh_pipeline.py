@@ -173,29 +173,29 @@ class G:
 # per material: base colour a, dust/dirt colour, rust colour, edge-wear colour, roughness, metallic, rustiness (0..1 how much rust shows on it)
 # bump: height recipe for the baked normal map (dist = bump distance in metres; the other keys weight height layers)
 RECIPES = {
-    "paint":       dict(a=(0.80, 0.80, 0.80), dust=(0.52, 0.49, 0.45), rustc=(0.16, 0.13, 0.11), edgec=(0.60, 0.60, 0.60), rough=0.40, metal=0.10, rusty=1.0, dirty=1.0, mottle=0.10,
+    "paint":       dict(a=(0.80, 0.80, 0.80), dust=(0.52, 0.49, 0.45), rustc=(0.16, 0.13, 0.11), edgec=(0.60, 0.60, 0.60), rough=0.50, metal=0.06, rusty=1.0, dirty=1.0, mottle=0.10,
                         bump=dict(dist=0.0022, rust=1.0, chip=1.0, scr=1.0, grain=0.10, dent=1.0)),
-    "paint2":      dict(a=(0.80, 0.80, 0.80), dust=(0.56, 0.53, 0.49), rustc=(0.16, 0.13, 0.11), edgec=(0.60, 0.60, 0.60), rough=0.46, metal=0.08, rusty=1.0, dirty=1.0, mottle=0.12,
+    "paint2":      dict(a=(0.80, 0.80, 0.80), dust=(0.56, 0.53, 0.49), rustc=(0.16, 0.13, 0.11), edgec=(0.60, 0.60, 0.60), rough=0.55, metal=0.05, rusty=1.0, dirty=1.0, mottle=0.12,
                         bump=dict(dist=0.0022, rust=1.0, chip=1.0, scr=1.0, grain=0.10, dent=1.0)),
-    "rust":        dict(a=(0.26, 0.095, 0.04), dust=(0.20, 0.13, 0.08), rustc=(0.07, 0.028, 0.014), edgec=(0.48, 0.21, 0.07), rough=0.9, metal=0.1, rusty=0.0, dirty=0.6, mottle=0.9,
+    "rust":        dict(a=(0.20, 0.068, 0.028), dust=(0.20, 0.13, 0.08), rustc=(0.06, 0.024, 0.012), edgec=(0.40, 0.17, 0.06), rough=0.9, metal=0.1, rusty=0.0, dirty=0.12, mottle=0.85,
                         bump=dict(dist=0.004, crust=1.0, grain=0.6)),
-    "metal_dark":  dict(a=(0.055, 0.055, 0.058), dust=(0.20, 0.17, 0.14), rustc=(0.16, 0.065, 0.028), edgec=(0.30, 0.30, 0.31), rough=0.62, metal=0.55, rusty=0.6, dirty=1.0, mottle=0.4,
+    "metal_dark":  dict(a=(0.05, 0.05, 0.052), dust=(0.20, 0.17, 0.14), rustc=(0.14, 0.058, 0.025), edgec=(0.30, 0.30, 0.31), rough=0.6, metal=0.25, rusty=0.6, dirty=0.8, mottle=0.4,
                         bump=dict(dist=0.002, grain=0.5, rust=0.8, chip=0.4)),
     "metal_bare":  dict(a=(0.26, 0.26, 0.27), dust=(0.22, 0.19, 0.15), rustc=(0.20, 0.08, 0.032), edgec=(0.55, 0.55, 0.57), rough=0.42, metal=1.0, rusty=0.6, dirty=0.8, mottle=0.45,
                         bump=dict(dist=0.002, grain=0.5, rust=0.8, scr=1.0, pit=0.5)),
-    "armor":       dict(a=(0.085, 0.09, 0.083), dust=(0.26, 0.22, 0.17), rustc=(0.20, 0.075, 0.028), edgec=(0.40, 0.40, 0.40), rough=0.58, metal=0.8, rusty=0.9, dirty=1.0, mottle=0.5,
-                        bump=dict(dist=0.0035, grain=0.4, rust=1.0, chip=0.8, scr=1.0, hammer=1.0, dent=1.0)),
-    "rim":         dict(a=(0.10, 0.10, 0.105), dust=(0.24, 0.19, 0.14), rustc=(0.20, 0.08, 0.03), edgec=(0.40, 0.40, 0.42), rough=0.55, metal=0.55, rusty=1.0, dirty=1.2, mottle=0.4,
+    "armor":       dict(a=(0.075, 0.076, 0.07), dust=(0.24, 0.20, 0.155), rustc=(0.18, 0.068, 0.026), edgec=(0.36, 0.36, 0.37), rough=0.62, metal=0.3, rusty=0.9, dirty=0.8, mottle=0.5,
+                        bump=dict(dist=0.003, grain=0.3, rust=1.0, chip=0.8, scr=1.0, dent=0.6)),
+    "rim":         dict(a=(0.07, 0.07, 0.072), dust=(0.24, 0.19, 0.14), rustc=(0.18, 0.07, 0.028), edgec=(0.38, 0.38, 0.40), rough=0.5, metal=0.3, rusty=1.0, dirty=0.45, mottle=0.4,
                         bump=dict(dist=0.002, grain=0.4, rust=0.8, chip=0.6)),
     "interior":    dict(a=(0.065, 0.057, 0.048), dust=(0.20, 0.17, 0.13), rustc=(0.12, 0.06, 0.03), edgec=(0.2, 0.17, 0.14), rough=0.85, metal=0.0, rusty=0.2, dirty=1.0, mottle=0.4,
                         bump=dict(dist=0.0015, grain=0.8, crinkle=0.4)),
-    "fabric":      dict(a=(0.16, 0.115, 0.08), dust=(0.30, 0.24, 0.17), rustc=(0.05, 0.03, 0.02), edgec=(0.26, 0.21, 0.15), rough=0.95, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5,
+    "fabric":      dict(a=(0.085, 0.062, 0.045), dust=(0.30, 0.24, 0.17), rustc=(0.05, 0.03, 0.02), edgec=(0.26, 0.21, 0.15), rough=0.95, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5,
                         bump=dict(dist=0.002, weave=1.0, crinkle=0.6)),
     "leather":     dict(a=(0.11, 0.05, 0.022), dust=(0.24, 0.18, 0.12), rustc=(0.05, 0.02, 0.01), edgec=(0.26, 0.15, 0.08), rough=0.62, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5,
                         bump=dict(dist=0.0015, crinkle=1.0)),
-    "wood":        dict(a=(0.22, 0.13, 0.065), dust=(0.30, 0.23, 0.15), rustc=(0.08, 0.05, 0.03), edgec=(0.34, 0.24, 0.14), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.7,
+    "wood":        dict(a=(0.20, 0.115, 0.055), dust=(0.30, 0.23, 0.15), rustc=(0.08, 0.05, 0.03), edgec=(0.34, 0.24, 0.14), rough=0.85, metal=0.0, rusty=0.0, dirty=0.5, mottle=0.6,
                         bump=dict(dist=0.003, wood=1.0)),
-    "canvas":      dict(a=(0.33, 0.29, 0.20), dust=(0.40, 0.34, 0.25), rustc=(0.12, 0.09, 0.06), edgec=(0.44, 0.38, 0.28), rough=0.95, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.5,
+    "canvas":      dict(a=(0.25, 0.195, 0.12), dust=(0.40, 0.34, 0.25), rustc=(0.12, 0.09, 0.06), edgec=(0.44, 0.38, 0.28), rough=0.95, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.5,
                         bump=dict(dist=0.004, weave=0.6, crinkle=1.0)),
     "cloth_red":   dict(a=(0.30, 0.018, 0.012), dust=(0.30, 0.16, 0.10), rustc=(0.10, 0.02, 0.01), edgec=(0.4, 0.1, 0.06), rough=0.95, metal=0.0, rusty=0.0, dirty=1.2, mottle=0.5,
                         bump=dict(dist=0.002, weave=1.0, crinkle=0.5)),
@@ -205,16 +205,16 @@ RECIPES = {
                         bump=dict(dist=0.002, weave=1.0, crinkle=0.5)),
     "rubber":      dict(a=(0.02, 0.02, 0.02), dust=(0.10, 0.09, 0.07), rustc=(0.02, 0.02, 0.02), edgec=(0.09, 0.085, 0.08), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3,
                         bump=dict(dist=0.0015, grain=0.8)),
-    "rubber_tire": dict(a=(0.026, 0.025, 0.024), dust=(0.17, 0.14, 0.105), rustc=(0.02, 0.02, 0.02), edgec=(0.10, 0.09, 0.08), rough=0.9, metal=0.0, rusty=0.0, dirty=1.5, mottle=0.3,
+    "rubber_tire": dict(a=(0.024, 0.023, 0.022), dust=(0.13, 0.11, 0.085), rustc=(0.02, 0.02, 0.02), edgec=(0.07, 0.065, 0.06), rough=0.9, metal=0.0, rusty=0.0, dirty=0.45, mottle=0.3,
                         bump=dict(dist=0.0015, grain=1.0)),
-    "plastic":     dict(a=(0.04, 0.04, 0.042), dust=(0.18, 0.16, 0.13), rustc=(0.04, 0.04, 0.04), edgec=(0.2, 0.2, 0.2), rough=0.6, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3,
+    "plastic":     dict(a=(0.03, 0.03, 0.032), dust=(0.18, 0.16, 0.13), rustc=(0.04, 0.04, 0.04), edgec=(0.2, 0.2, 0.2), rough=0.62, metal=0.0, rusty=0.0, dirty=0.45, mottle=0.3,
                         bump=dict(dist=0.001, grain=0.5)),
     "spike":       dict(a=(0.24, 0.24, 0.25), dust=(0.20, 0.16, 0.12), rustc=(0.20, 0.08, 0.032), edgec=(0.55, 0.55, 0.57), rough=0.38, metal=1.0, rusty=0.5, dirty=0.7, mottle=0.4,
                         bump=dict(dist=0.0015, grain=0.5, pit=0.6)),
     "brass":       dict(a=(0.55, 0.38, 0.10), dust=(0.22, 0.16, 0.08), rustc=(0.10, 0.09, 0.04), edgec=(0.75, 0.55, 0.2), rough=0.4, metal=1.0, rusty=0.2, dirty=1.0, mottle=0.4,
                         bump=dict(dist=0.001, grain=0.5)),
-    "chrome":      dict(a=(0.62, 0.62, 0.64), dust=(0.22, 0.18, 0.14), rustc=(0.22, 0.09, 0.035), edgec=(0.75, 0.75, 0.78), rough=0.16, metal=1.0, rusty=1.2, dirty=1.0, mottle=0.35,
-                        bump=dict(dist=0.0012, pit=1.0, rust=0.8)),
+    "chrome":      dict(a=(0.55, 0.55, 0.57), dust=(0.22, 0.18, 0.14), rustc=(0.20, 0.08, 0.032), edgec=(0.70, 0.70, 0.72), rough=0.13, metal=1.0, rusty=1.2, dirty=0.7, mottle=0.25,
+                        bump=dict(dist=0.0008, pit=0.4, rust=0.8)),
     "gun_metal":   dict(a=(0.06, 0.06, 0.065), dust=(0.16, 0.13, 0.10), rustc=(0.20, 0.08, 0.032), edgec=(0.42, 0.42, 0.44), rough=0.42, metal=0.9, rusty=0.5, dirty=0.8, mottle=0.4,
                         bump=dict(dist=0.0012, grain=0.4, chip=0.4)),
 }
@@ -286,13 +286,13 @@ def build_wear(m, S, img_hooks=None):
         sn = nz(1.0, 3.0, 0.5, 0.0, (40, 40, 1.2))
         run = g.clamp(g.mul(g.mul(acc, vs), g.new_map_range(sn, 0.42, 0.62)))
     # ---- dirt: grime low on the body, in crevices, streaks under ledges, dust on horizontals, mud around the wheels
-    dirt = g.add(g.mul(low, g.lin(n_m, 1.1, 0.15)), g.mul(g.sub(1.0, cav), 0.45))
+    dirt = g.add(g.mul(low, g.lin(n_m, 0.35 if is_cloth else 1.1, 0.05 if is_cloth else 0.15)), g.mul(g.sub(1.0, cav), 0.30 if is_cloth else 0.45))
     dirt = g.add(dirt, g.mul(g.new_map_range(streak, 0.5, 0.75), g.mul(g.sub(1.0, top), g.mul(g.new_map_range(pz, 0.2, 0.9), 0.28))))
-    dust_top = g.mul(top, g.mul(g.new_map_range(n_l, 0.35, 0.75), 0.45 * S.get("dust", 1.0)))
+    dust_top = g.mul(top, g.mul(g.new_map_range(n_l, 0.35, 0.75), (0.10 if is_cloth else 0.26) * S.get("dust", 1.0)))
     dirt = g.add(dirt, dust_top)
     dirt = g.add(dirt, g.mul(under, 0.6))
     mud = None
-    for (wf, wz, wr) in S.get("wheels", []):
+    for (wf, wz, wr) in (S.get("wheels", []) if m.name not in ("rubber_tire", "rim") else []):
         dy = g.sub(py, -wf)
         dzz = g.sub(pz, wz)
         d = g.math("SQRT", g.add(g.mul(dy, dy), g.mul(dzz, dzz)))
@@ -310,7 +310,7 @@ def build_wear(m, S, img_hooks=None):
     fchip = g.mul(g.new_map_range(fch, 0.70 - 0.05 * wearS, 0.715 - 0.05 * wearS), wearS)
     fring = g.mul(g.new_map_range(fch, 0.655 - 0.05 * wearS, 0.67 - 0.05 * wearS), wearS)
     scrl = g.mul(g.new_map_range(scr, 0.80 - 0.1 * wearS, 0.87), 0.85 * S.get("scratch", 0.5))
-    chip = g.clamp(g.add(g.add(chip, scrl), fchip if is_paint or m.name == "armor" else 0.0))
+    chip = g.clamp(g.add(g.add(chip, scrl), fchip if is_paint else 0.0))
     # ---- colours
     nl = g.new_map_range(n_l, 0.30, 0.70)
     colr = g.mixc(nl, R["a"], tuple(x * (1.0 - R["mottle"]) for x in R["a"]))
@@ -318,7 +318,7 @@ def build_wear(m, S, img_hooks=None):
     colr = g.mixc(g.mul(grain, 0.10), colr, tuple(x * 0.7 for x in R["a"]))
     if is_paint:
         # sun fade: tops bleached lighter + chalky; sides keep more depth
-        colr = g.mixc(g.mul(top, g.lin(n_l, 0.5, 0.25)), colr, (0.93, 0.93, 0.93))
+        colr = g.mixc(g.mul(top, g.lin(n_l, 0.30, 0.05)), colr, (0.90, 0.90, 0.90))
         # primer ring round the random chips
         colr = g.mixc(g.clamp(fring), colr, (0.62, 0.62, 0.62))
     colr = g.mixc(g.mul(dirt, 0.88), colr, R["dust"])
@@ -335,8 +335,7 @@ def build_wear(m, S, img_hooks=None):
         colr = hook(ctx, colr)
     colr = g.mixc(g.clamp(g.add(g.mul(g.sub(1.0, cav), 0.26), g.mul(g.sub(1.0, ao), 0.12))), colr, (0, 0, 0))
     rough = g.add(g.add(R["rough"], g.mul(g.sub(n_m, 0.5), 0.24)), g.add(g.mul(dirt, 0.42), g.sub(g.mul(rustm, 0.42), g.mul(g.clamp(chip), 0.10))))
-    if is_paint:
-        rough = g.add(rough, g.mul(top, 0.22))
+    rough = g.add(rough, g.mul(top, 0.30 if is_paint else 0.18))
     rough = g.clamp(rough)
     metal = g.clamp(g.mul(g.sub(1.0, g.mul(g.add(dirt, rustm), 0.8)), R["metal"]))
     if is_paint:
@@ -344,7 +343,7 @@ def build_wear(m, S, img_hooks=None):
     # ---- height for the normal-map bake
     h = g.mul(g.sub(n_f, 0.5), B.get("grain", 0.0) * 0.5)
     if B.get("dent"):
-        h = g.add(h, g.mul(g.sub(nz(3.0, 2.0, 0.5), 0.5), 2.2 * B["dent"]))
+        h = g.add(h, g.mul(g.sub(nz(3.0, 2.0, 0.5), 0.5), 1.0 * B["dent"]))
     if B.get("rust"):
         crust = g.add(g.mul(rustm, 0.55), g.mul(g.mul(rustm, n_r3), 0.9))
         h = g.add(h, g.mul(crust, B["rust"]))
@@ -686,7 +685,7 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
     run("orm", img_o, max(samples, 32))
     tlog("orm done")
     if img_n is not None:
-        run_normal(img_n, 4)
+        run_normal(img_n, 1)
         tlog("normal done")
     if not argv().get("nofill"):
         _fill_spots(img_a, img_o, tex, res, orm_res, S, img_n=img_n, nres=nres)
@@ -945,6 +944,15 @@ class Vehicle:
 
     def finish(self, bake=True):
         args = self.args
+        if args.get("parts"):
+            agg = defaultdict(int)
+            for gname, lst in REG.items():
+                for o in lst:
+                    if o.type == "MESH":
+                        base = o.name.split(".")[0]
+                        agg[(gname if gname.startswith("wheel") is False else "wheel", base)] += tri_count([o])
+            for (gname, base), t in sorted(agg.items(), key=lambda kv: -kv[1])[:60]:
+                print("PART %-16s %-22s %6d" % (gname, base, t))
         root_body = bpy.data.objects.new("body", None)
         root_body.empty_display_type = "PLAIN_AXES"
         root_body.empty_display_size = 0.3
@@ -1015,6 +1023,15 @@ class Vehicle:
             bake_all(self.vid, self.style, res=int(args.get("res", 2048)), orm_res=int(args.get("orm", 1024)), samples=int(args.get("samples", 24)))
         else:
             self._flat_fallback()
+            done = set()
+            for o in bpy.context.scene.objects:
+                if o.type == "MESH" and o.data.name not in done:
+                    done.add(o.data.name)
+                    bm = bmesh.new()
+                    bm.from_mesh(o.data)
+                    bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
+                    bm.to_mesh(o.data)
+                    bm.free()
         if args.get("areas"):
             area_report()
         self.report()

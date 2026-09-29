@@ -3,7 +3,7 @@
 // a neon sign, a weapons workbench with a pegboard, tyre racks, drums, crates, a stripped project car and a container.
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
-import { makeSkyMaterial } from './title_scene.js';
+import { makeSkyMaterial, makeRidges } from './title_scene.js';
 
 const W = 30, D = 24, H = 8.6;                 // interior: x -15..15, z -11..13, height
 export const BACK_Z = -11, LEFT_X = -15, RIGHT_X = 15, FRONT_Z = 13;
@@ -142,6 +142,7 @@ export function buildGarageSet(scene) {
   // ---------------------------------------------------------------- outside: sunset desert seen through the door
   const out = new THREE.Group(); S.add(out);
   const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), makeSkyMaterial(SUN_DIR, { hot: 1.15 })); sky.renderOrder = -10; sky.frustumCulled = false; out.add(sky);
+  out.add(makeRidges({ radius: 520, seed: 7, count: 22, hMin: 25, hMax: 110, top: 0x4a2830, base: 0x9a5a48 }));
   const sand = pbr('sand', 60, 60, { color: 0xb7825e, env: 0.2 });
   const g = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200).rotateX(-Math.PI / 2), sand); g.position.set(0, -0.03, -560); g.receiveShadow = true; out.add(g);
   const apron = pbr('concrete_cracked', 6, 3, { color: 0xa08a78 });
@@ -171,7 +172,7 @@ export function buildGarageSet(scene) {
 
   // ---------------------------------------------------------------- neon sign on the left wall + wall-hung tyres
   const neon = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.4), new THREE.MeshBasicMaterial({ map: neonTex('RIDE OR DIE', 'CUSTOM  ·  REPAIRS  ·  ARMOR'), color: new THREE.Color(5.5, 2.4, 1.0), transparent: true, depthWrite: false, toneMapped: false }));
-  neon.rotation.y = Math.PI / 2; neon.position.set(LEFT_X + 0.1, 5.4, -4.2); S.add(neon);
+  neon.rotation.y = Math.PI / 2; neon.position.set(LEFT_X + 0.1, 5.4, -0.6); S.add(neon);
   const tyreMat = new THREE.MeshStandardMaterial({ color: 0x151414, roughness: 0.85 });
   const tyreGeo = new THREE.TorusGeometry(0.42, 0.17, 12, 28);
   for (let i = 0; i < 4; i++) { const t = new THREE.Mesh(tyreGeo, tyreMat); t.rotation.y = Math.PI / 2; t.position.set(LEFT_X + 0.25, 3.4, 8.2 + i * 1.05); add(t); }
@@ -186,8 +187,20 @@ export function buildGarageSet(scene) {
     const b = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), bulbMat); b.position.set(x, y - 0.14, z); S.add(b);
   }
 
+  // baked light pools under the lamps + a glow halo on the wall around the neon (no real lights: cheap to shade and compile)
+  const poolTex = canvasTex(128, 128, (g2, w2) => { const gr = g2.createRadialGradient(w2 / 2, w2 / 2, 0, w2 / 2, w2 / 2, w2 / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g2.fillStyle = gr; g2.fillRect(0, 0, w2, w2); });
+  const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, color: new THREE.Color(0.22, 0.13, 0.06), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  for (const [x, , z] of lampPos) { const m = new THREE.Mesh(new THREE.PlaneGeometry(6, 6).rotateX(-Math.PI / 2), poolMat); m.position.set(x, 0.008, z); m.renderOrder = 2; S.add(m); }
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(10, 5.5), new THREE.MeshBasicMaterial({ map: poolTex, color: new THREE.Color(0.55, 0.2, 0.06), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+  halo.rotation.y = Math.PI / 2; halo.position.set(LEFT_X + 0.06, 5.3, -0.6); halo.renderOrder = 3; S.add(halo);
+  // warm wall washes under the pendant lamps (baked, additive): the back and side walls read as a lit room, not a void
+  const washMat = new THREE.MeshBasicMaterial({ map: poolTex, color: new THREE.Color(0.2, 0.12, 0.06), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+  for (const [x, y, z, ry, w, h] of [[-9, 3.2, BACK_Z + 0.08, 0, 9, 7], [11.5, 3.6, BACK_Z + 0.08, 0, 7, 7], [RIGHT_X - 0.08, 3.4, -2, -Math.PI / 2, 12, 7], [RIGHT_X - 0.08, 3.2, 8, -Math.PI / 2, 8, 6], [LEFT_X + 0.08, 3.0, 8, Math.PI / 2, 9, 6]]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), washMat); m.rotation.y = ry; m.position.set(x, y, z); m.renderOrder = 2; S.add(m);
+  }
+
   // ---------------------------------------------------------------- dust motes in the door light
-  const motes = makeMotes(420);
+  const motes = makeMotes(320);
   S.add(motes.points);
 
   // ---------------------------------------------------------------- god rays: additive sheets along the sun direction from the door
@@ -218,7 +231,7 @@ async function placeProps(S) {
     ['skeleton_car_frame', 11.2, -3.6, 1.9], ['shipping_container', -11.6, -2.2, 0], ['debris_pile', 13.2, -9.2, 0.7], ['jersey_barrier', 11.2, -14.8, 0.1],
     ['jersey_barrier', -3.4, -14.2, 0.05], ['sign_warning', 14.6, 1.2, -1.57], ['bollard', DOOR.x0 - 0.5, -10.7, 0], ['bollard', DOOR.x1 + 0.5, -10.7, 0],
     ['cactus_saguaro', -14, -40, 1], ['cactus_saguaro', 20, -55, 2], ['utility_pole', 26, -30, 0.3], ['utility_pole', 40, -70, 0.3], ['shrub_desert_scrub', 8, -24, 0], ['shrub_dry_bush', -6, -20, 0],
-    ['rock_06', 30, -60, 1], ['boulder_03', -30, -70, 2], ['mesa_a', -200, -520, 0.4], ['mesa_b', 150, -620, 2.4], ['hoodoo_a', 60, -240, 1],
+    ['rock_06', 30, -60, 1], ['boulder_03', -30, -70, 2],
   ];
   const urls = [...new Set(want.map((w) => `/models/${/^(mesa|hoodoo|shipping)/.test(w[0]) ? 'structures' : 'props'}/${w[0]}.glb`))];
   await Assets.preload(urls);
@@ -248,7 +261,7 @@ function makeMotes(n) {
         p.x += sin(t * 1.3 + seed) * 0.6; p.y += sin(t * 0.9 + seed * 2.0) * 0.4 + mod(uTime * 0.05 + seed, 1.0) * 0.3; p.z += cos(t * 1.1) * 0.5;
         vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
         float inShaft = smoothstep(${(-1).toFixed(1)}, 1.0, p.x) * (1.0 - smoothstep(${(DOOR.x1).toFixed(1)}, ${(DOOR.x1 + 3).toFixed(1)}, p.x));
-        vA = (0.25 + 0.75 * inShaft) * (0.5 + 0.5 * sin(seed * 7.0 + uTime * 0.8)); vS = fract(seed * 13.7);
+        vA = (0.04 + 0.96 * inShaft) * (0.5 + 0.5 * sin(seed * 7.0 + uTime * 0.8)); vS = fract(seed * 13.7);
         gl_PointSize = uPx * (1.5 + vS * 2.5) * (6.0 / max(1.0, -mv.z)); }`,
     fragmentShader: /* glsl */`varying float vA; varying float vS; void main() { vec2 d = gl_PointCoord - 0.5; float a = smoothstep(0.5, 0.0, length(d)); gl_FragColor = vec4(vec3(1.0, 0.72, 0.42) * 1.6 * a * vA, 1.0); }`,
   });

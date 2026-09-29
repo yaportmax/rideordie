@@ -1,0 +1,36 @@
+{
+ "id": "wreck_van",
+ "file": "models/structures/wreck_van.glb",
+ "tris": 688,
+ "collision_tris": 12,
+ "size_kb": 59.3,
+ "bbox_min": [
+  -1.13,
+  0.0,
+  -2.75
+ ],
+ "bbox_max": [
+  1.51,
+  2.05,
+  2.57
+ ],
+ "dims": [
+  2.63,
+  2.05,
+  5.32
+ ],
+ "materials": [
+  "metal_dark",
+  "paint",
+  "rubber"
+ ],
+ "nodes": {
+  "paint": 264,
+  "metal_dark": 248,
+  "rubber": 176
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+ }
+}

@@ -69,6 +69,39 @@ vec3 atmApply(vec3 col, vec3 rel) {
 /** Key light (sun by day, moon by night) for custom shaders (water glints, ...). Written by SkyRig. */
 export const KEY = { uKeyDir: { value: new THREE.Vector3(0, 1, 0) }, uKeyCol: { value: new THREE.Color(1, 1, 1) } };
 
+/** Tileable value-noise fbm baked into a small RGBA texture (r: 5 octaves from period 4, g: 5 octaves from period 8, other seed). */
+function makeNoise(size = 256) {
+  const data = new Uint8Array(size * size * 4);
+  const lattice = (seed, per) => { const L = new Float32Array(per * per); let s = seed >>> 0; for (let i = 0; i < L.length; i++) { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; L[i] = s / 4294967296; } return L; };
+  const chan = (c, seed, base) => {
+    const oct = [];
+    for (let o = 0; o < 5; o++) oct.push({ per: base << o, L: lattice(seed + o * 7919, base << o), a: Math.pow(0.5, o) });
+    const out = new Float32Array(size * size); let mn = 1e9, mx = -1e9;
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      let v = 0;
+      for (const { per, L, a } of oct) {
+        const fx = (x / size) * per, fy = (y / size) * per, ix = Math.floor(fx), iy = Math.floor(fy);
+        let tx = fx - ix, ty = fy - iy; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+        const x0 = ix % per, x1 = (ix + 1) % per, y0 = iy % per, y1 = (iy + 1) % per;
+        const a0 = L[y0 * per + x0] + (L[y0 * per + x1] - L[y0 * per + x0]) * tx, a1 = L[y1 * per + x0] + (L[y1 * per + x1] - L[y1 * per + x0]) * tx;
+        v += (a0 + (a1 - a0) * ty) * a;
+      }
+      out[y * size + x] = v; if (v < mn) mn = v; if (v > mx) mx = v;
+    }
+    for (let i = 0; i < out.length; i++) data[i * 4 + c] = Math.round(((out[i] - mn) / (mx - mn)) * 255);
+  };
+  chan(0, 1337, 4); chan(1, 4242, 8);
+  for (let i = 0; i < size * size; i++) { data[i * 4 + 2] = 0; data[i * 4 + 3] = 255; }
+  const t = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true; t.anisotropy = 4; t.colorSpace = THREE.NoColorSpace; t.needsUpdate = true;
+  return t;
+}
+
+let _noise = null;
+/** Shared tileable noise texture (sky clouds, water detail normals). */
+export function noiseTexture() { return _noise || (_noise = makeNoise()); }
+
 // ------------------------------------------------------------------------------------------ install into three's chunks
 let installed = false;
 /** Patch three's fog chunks + built-in uniform tables. Idempotent; must run before the first material compiles. */

@@ -63,6 +63,8 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
   const R = { tContact: null, tNear: null, hits: new Array(BANDS.length).fill(0), dmg: new Array(BANDS.length).fill(0), time: new Array(BANDS.length).fill(0), fwd: 0, side: 0, ahead: 0, t: 0, reg: { ahead: 0, beside: 0, behind: 0, far: 0 }, why: null, dby: null, crewBy: {}, kills: 0, crashKills: 0, chain: 0, driverKills: 0, dkCrash: 0, events: {} };
   const dkWatch = new Map(); // driver-killed car id -> time
   let crewDmgBy = {};
+  const origCar = sim.damageCar.bind(sim);
+  sim.damageCar = (car, dmg, info = {}) => { if (car === P && opt.srclog) { const o = sim.cars.get(info.src); const k = (o ? (o.elite ? 'WARLORD' : o.spec.id) : 'none') + ':' + (info.cause || '?'); (R.srcDmg || (R.srcDmg = {}))[k] = ((R.srcDmg || {})[k] || 0) + dmg; } if (car.elite && opt.elitelog) { const k = car.elite.name.slice(0, 6) + '#' + car.id + ':' + (info.cause || '?'); (R.eliteDmg || (R.eliteDmg = {}))[k] = ((R.eliteDmg || {})[k] || 0) + dmg; } return origCar(car, dmg, info); };
   const origCrew = sim.damageCrew.bind(sim);
   sim.damageCrew = (car, role, dmg, info = {}) => { const d = origCrew(car, role, dmg, info); if (car === P && d > 0) crewDmgBy[info.cause || '?'] = (crewDmgBy[info.cause || '?'] || 0) + d; return d; };
   globalThis.__crashLog = [];
@@ -92,6 +94,7 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
       const gs = P.crew.gunner; gs.aimYaw = gunner.yaw; gs.aimPitch = gunner.pitch; gs.crouch = gunner.crouch > 0.5;
     }
     sim.step(DT);
+    if (opt.traceelite && i % 240 === 0 && sim.director.activeElite) console.log(`  t${sim.time.toFixed(0)} P v${(P.veh.vf * 3.6) | 0} d${P.d.toFixed(1)} hp${P.hp | 0} | ` + sim.director.activeElite.cars.map((c) => `#${c.id} ${(c.s - P.s).toFixed(0)}/${c.d.toFixed(1)} v${(c.veh.vf * 3.6) | 0} hp${c.hp | 0}${c.exploded ? 'X' : ''}${c.driverless ? 'D' : ''} ${c.ai?.behavior}${c.ai?.atk ? '!' + c.ai.atk.kind + '.' + c.ai.atk.phase : ''}`).join(' | '));
     const b = bandOf(P.s);
     if (sim.state === 'run') { R.time[b] += DT; R.t += DT; }
     // view presence
@@ -112,6 +115,7 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
     }
     for (const e of sim.drainEvents()) {
       R.events[e.t] = (R.events[e.t] || 0) + 1;
+      if (e.t === 'hit' && e.enemy && e.carId === 1 && opt.srclog) { const o = sim.cars.get(e.src); }
       if ((e.t === 'hit' && e.enemy && e.carId === 1) || (e.t === 'crewHit' && e.id === 1 && e.dmg > 0 && !(e.t === 'crewHit' && false))) {
         if (e.t === 'hit') { R.hits[b]++; if (R.tContact === null) R.tContact = sim.time; }
       }
@@ -126,13 +130,14 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
       if (e.t === 'crash' && dkWatch.has(e.id) && e.other >= 0 && sim.time - dkWatch.get(e.id) < 6) { R.dkCrash++; dkWatch.delete(e.id); }
       if (e.t === 'explode' && e.cause === 'crash') R.chain++;
     }
-    if (sim.state === 'over') { if (R.mbFight) (R.mbLog || (R.mbLog = [])).push(`${R.mbFight.name} KILLED US after ${(sim.time - R.mbFight.t0).toFixed(0)}s`); break; }
+    if ((i % 3600) === 0) { if (R.lastS !== undefined && P.s - R.lastS < 40 && sim.time > 40) { R.stuck = (R.stuck || 0) + 1; if (R.stuck >= 2) { R.why = 'stuck'; break; } } else R.stuck = 0; R.lastS = P.s; }
+    if (sim.state === 'over') { if (R.mbFight) (R.mbLog || (R.mbLog = [])).push(`${R.mbFight.name} KILLED US after ${(sim.time - R.mbFight.t0).toFixed(0)}s (warlord hp ${((sim.director.activeElite?.hp01 ?? 0) * 100) | 0}%)`); break; }
   }
   const dmgNow = (sim.stats.damageTaken || 0) + Object.values(crewDmgBy).reduce((a, x) => a + x, 0);
   R.scenery = {}; for (const x of globalThis.__crashLog) if (x.other === -1 && x.force > 150000) R.scenery[x.what.replace(/\d+$/, '')] = (R.scenery[x.what.replace(/\d+$/, '')] || 0) + 1;
   R.dmgTotal = dmgNow; R.won = sim.won; R.truck = spec.id; R.weapon = effects.weapons[0];
   const dist = sim.stats.distance - START;
-  R.cash = cash + Math.round(dist * ECONOMY.perMeter * (1 + ECONOMY.perMeterLevel * sim.director.level) * effects.cashMul) + Math.round(sim.time * ECONOMY.perSecond * effects.cashMul) + (sim.won ? ECONOMY.bossBounty : 0); R.why = sim.result?.why || (sim.state === 'over' ? '?' : 'alive'); R.dby = { ...(sim.stats.damageBy || {}) }; R.crewBy = crewDmgBy; R.dist = P.s - START; R.level = sim.director.level;
+  R.cash = cash + Math.round(dist * ECONOMY.perMeter * (1 + ECONOMY.perMeterLevel * sim.director.level) * effects.cashMul) + Math.round(sim.time * ECONOMY.perSecond * effects.cashMul) + (sim.won ? ECONOMY.bossBounty : 0); R.why = R.why || sim.result?.why || (sim.state === 'over' ? '?' : 'alive'); R.dby = { ...(sim.stats.damageBy || {}) }; R.crewBy = crewDmgBy; R.dist = P.s - START; R.level = sim.director.level;
   return R;
 }
 
@@ -183,6 +188,8 @@ for (let k = 0; k < RUNS; k++) {
   if (!opt.quiet) {
     const dby = Object.entries(r.dby).map(([a, b]) => `${a}:${b | 0}`).join(' '), cby = Object.entries(r.crewBy).map(([a, b]) => `${a}:${b | 0}`).join(' ');
     if (r.mbLog) console.log('     warlords: ' + r.mbLog.join(' | '));
+    if (r.srcDmg) console.log('     truck damage by source: ' + JSON.stringify(Object.fromEntries(Object.entries(r.srcDmg).sort((a, b) => b[1] - a[1]).map(([a, b]) => [a, b | 0]))));
+    if (r.eliteDmg) console.log('     warlord damage by cause: ' + JSON.stringify(Object.fromEntries(Object.entries(r.eliteDmg).map(([a, b]) => [a, b | 0]))));
     console.log(`run ${k}: ${(r.t / 60).toFixed(1)} min ${(r.dist / 1000).toFixed(1)} km ${r.why} | contact ${r.tContact?.toFixed(1) ?? '-'}s near ${r.tNear?.toFixed(1) ?? '-'}s | hits/min ${(r.hits.reduce((a, x) => a + x, 0) / Math.max(r.t / 60, 0.01)).toFixed(1)} | fwd ${(100 * r.fwd / r.t).toFixed(0)}% side ${(100 * r.side / r.t).toFixed(0)}% ahead ${(100 * r.ahead / r.t).toFixed(0)}% | kills ${r.kills} crash ${r.crashKills} chain ${r.chain} drvKill ${r.driverKills}->crash ${r.dkCrash} | truck ${dby} | crew ${cby}`);
   }
 }

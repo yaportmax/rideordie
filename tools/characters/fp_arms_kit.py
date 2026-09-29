@@ -22,15 +22,27 @@ def loft_rings(rings, closed=True, cap0=False, cap1=False):
             b = k * n + (i + 1) % n
             faces.append((a, b, b + n, a + n))
     extra = []
+
+    def cap(ring, base, flip):
+        # inset ring (same plane) + small fan: keeps the cap shading flat instead of a smooth-shaded 'pyramid'
+        c = ring.mean(0)
+        inner = c + (ring - c) * 0.72
+        b0 = len(verts) + len(extra)
+        extra.extend(list(inner))
+        ci = len(verts) + len(extra)
+        extra.append(c)
+        for i in range(n):
+            j = (i + 1) % n
+            if flip:
+                faces.append((base + i, b0 + i, b0 + j, base + j))
+                faces.append((b0 + i, ci, b0 + j))
+            else:
+                faces.append((base + j, b0 + j, b0 + i, base + i))
+                faces.append((b0 + j, ci, b0 + i))
     if cap0:
-        c = len(verts) + len(extra)
-        extra.append(rings[0].mean(0))
-        faces += [(c, (i + 1) % n, i) for i in range(n)]
+        cap(rings[0], 0, True)
     if cap1:
-        c = len(verts) + len(extra)
-        extra.append(rings[-1].mean(0))
-        base = (len(rings) - 1) * n
-        faces += [(c, base + i, base + (i + 1) % n) for i in range(n)]
+        cap(rings[-1], (len(rings) - 1) * n, False)
     if extra:
         verts = np.concatenate([verts, np.array(extra)])
     return verts, faces
@@ -76,16 +88,24 @@ def band_on(field, s_c, width, t, n=56, base_off=0.0, rows=(0.0, 0.0, 0.12, 0.5,
             faces.append((a, a + n, b + n, b))
     mid = rings[len(rings) // 2]
     circ = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(mid, axis=0), axis=1))])
+    total = circ[-1] + np.linalg.norm(mid[0] - mid[-1])
     uv = [(circ[i], v * width) for v in rr for i in range(n)]
-    return verts, faces, np.array(uv)
+    return verts, faces, np.array(uv), total
 
 
-def set_strip_uv(ob, uv):
+def set_strip_uv(ob, uv, closed_len=None):
+    """Per-corner strip coords; faces that close a loop (u jumps back to 0) get u + closed_len on their low corners."""
     me = ob.data
     uvl = me.uv_layers.get("strip") or me.uv_layers.new(name="strip")
+    uv = np.asarray(uv, float)
     for poly in me.polygons:
+        us = [uv[me.loops[li].vertex_index][0] for li in poly.loop_indices]
+        span = max(us) - min(us)
         for li in poly.loop_indices:
-            uvl.data[li].uv = tuple(uv[me.loops[li].vertex_index])
+            u, v = uv[me.loops[li].vertex_index]
+            if closed_len and span > closed_len * 0.5 and u < closed_len * 0.5:
+                u += closed_len
+            uvl.data[li].uv = (float(u), float(v))
 
 
 def box_pts(c, frame, size, bevel=0.0):
@@ -151,7 +171,7 @@ def build_strap(sk, side, gfield):
     L = gfield.L
     s_c = 1.0 - CUFF_LEN * 0.52 / L
     tu = ulnar_theta(sk, gfield, side)
-    v1, f1, uv1 = band_on(gfield, s_c, 0.016, 1.3 * MM, n=64, base_off=0.15 * MM)
+    v1, f1, uv1, tot = band_on(gfield, s_c, 0.016, 1.3 * MM, n=44, base_off=0.15 * MM)
     sgn = 1.0 if side == "Left" else -1.0
     th0, th1 = tu - sgn * 0.2, tu - sgn * 1.5
     n = 18
@@ -177,7 +197,8 @@ def build_strap(sk, side, gfield):
             f2.append((a, a + 1, a + n + 1, a + n) if sgn > 0 else (a, a + n, a + n + 1, a + 1))
     V_, F_ = join_parts([(v1, f1), (v2, f2)])
     strap = mesh_from("strap_" + side, V_, F_)
-    set_strip_uv(strap, np.concatenate([uv1, np.array(uv)]))
+    strap["turn_len"] = 0.1
+    set_strip_uv(strap, np.concatenate([uv1, np.array(uv)]), tot)
     # snap button on the tab
     tb = th0 + (th1 - th0) * 0.66
     cen, fr = surface_frame(gfield, s_c, tb, 2.75 * MM)
@@ -191,16 +212,17 @@ def build_watch(sk, side, wfield):
     L = wfield.L
     s_w = 1.0 - (CUFF_LEN + 0.020) / L
     th_face = math.pi                                   # palmar side
-    v1, f1, uv1 = band_on(wfield, s_w, 0.021, 2.1 * MM, n=64, base_off=0.2 * MM)
+    v1, f1, uv1, tot = band_on(wfield, s_w, 0.021, 2.1 * MM, n=44, base_off=0.2 * MM)
     strap = mesh_from("watchstrap_" + side, v1, f1)
-    set_strip_uv(strap, uv1)
+    strap["turn_len"] = 0.1
+    set_strip_uv(strap, uv1, tot)
     base, fr = surface_frame(wfield, s_w, th_face, 2.4 * MM)
     a, c, nrm = fr
     R = 20.0 * MM
     prof = [(R * 0.84, -1.6 * MM), (R * 0.95, -0.2 * MM), (R, 1.6 * MM), (R, 7.2 * MM), (R * 0.975, 8.4 * MM),
             (R * 0.955, 8.8 * MM), (R * 0.99, 9.0 * MM), (R * 0.995, 10.7 * MM), (R * 0.94, 11.7 * MM), (R * 0.80, 12.1 * MM),
             (R * 0.745, 11.8 * MM), (R * 0.735, 10.9 * MM)]
-    N = 60
+    N = 48
     rings = lathe(prof, N, fr, base)
     ang = np.linspace(0, 2 * np.pi, N, endpoint=False)
     lobes = np.cos(ang * 6) ** 8                          # 12 grip lobes
@@ -229,7 +251,7 @@ def build_bracelet(sk, side, wfield):
     """Paracord (cobra weave) bracelet with a side-release buckle on the right wrist, over the wraps."""
     L = wfield.L
     s_b = 1.0 - (CUFF_LEN + 0.017) / L
-    n, ring_n = 56, 10
+    n, ring_n = 48, 9
     th = np.linspace(0, 2 * np.pi, n, endpoint=False)
     ph = np.linspace(0, 2 * np.pi, ring_n, endpoint=False)
     W_, T_ = 0.0092, 2.5 * MM
@@ -253,7 +275,8 @@ def build_bracelet(sk, side, wfield):
         for k in range(ring_n):
             uv.append((circ * i / n, k / ring_n * 0.03))
     cord = mesh_from("cord_" + side, verts, faces)
-    set_strip_uv(cord, np.array(uv))
+    set_strip_uv(cord, np.array(uv), circ)
+    cord["turn_len"] = 0.09
     b0, bfr = surface_frame(wfield, s_b, 0.25, 6.2 * MM)
     buckle = mesh_from("cordbuckle_" + side, *box_pts(b0, bfr, (20 * MM, 26 * MM, 6.0 * MM), bevel=2.0 * MM))
     return cord, buckle

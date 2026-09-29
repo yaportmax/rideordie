@@ -23,6 +23,8 @@ const PRESET = {
   side: [[-1, 1.6, 0], [-40, 3, 25], 70],
   left: [[1, 1.6, 0], [40, 3, 25], 70],
   far: [[0, 2.2, 0], [0, 1.5, 100], 55],
+  sky: [[0, 30, 0], [0, 60, 1000], 60],
+  skyL: [[0, 30, 0], [1000, 60, 200], 60],
   back: [[0, 1.6, 0], [0, 1.2, -40], 72],
   signR: [[-3, 1.4, 0], [-11, 0.9, 22], 40],
   zoomR: [[-3, 1.4, 0], [-11.2, 0.95, 26], 7],
@@ -41,7 +43,7 @@ for (const b of only) {
   page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 300)); });
   try {
     await page.goto(`${base}/index.html?solo&as=gunner&s=${s}&seed=${opt.seed || 7}${opt.q ? '&' + opt.q : ''}`, { waitUntil: 'load' });
-    await page.waitForFunction('window.__ready === true', null, { timeout: 120000 }).catch(() => errs.push('__ready not set'));
+    await page.waitForFunction('window.__ready === true', null, { timeout: 120000 }).then(() => page.evaluate(() => document.getElementById('boot')?.remove())).catch(() => errs.push('__ready not set'));
     await page.evaluate(({ speed, lat }) => { window.__autodrive = { speed, lat }; }, { speed: +(opt.speed ?? 25), lat: +(opt.lat || 0) });
     await page.waitForTimeout(+(opt.drive || 6000));
     for (const v of views) {

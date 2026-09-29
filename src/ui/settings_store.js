@@ -12,8 +12,10 @@ export const DEFAULT_SETTINGS = {
   mouseSens: 1,      // multiplier on Input.sens.mouse
   padSens: 1,        // multiplier on Input.sens.padYaw/padPitch
   invertY: false,
+  aimAssist: true,   // gamepad aim assist (gunner)
   master: 0.8, sfx: 1, music: 0.7,
   vibration: true,
+  motionBlur: true, chromatic: true, grain: true,   // post-processing toggles (Post.setFeatures)
 };
 /** Baseline numbers of Input.sens that the multipliers scale. */
 export const BASE_SENS = { mouse: 0.0022, padYaw: 3.1, padPitch: 2.3 };

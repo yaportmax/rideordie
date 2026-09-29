@@ -11,6 +11,7 @@ from PIL import Image, ImageFilter
 SRC = os.environ.get('ROD_PROP_TEX', 'C:/Dev/art_cache/rideordie/props_tex')
 OUT = 'public/textures/cover/cover_atlas.png'
 CELLS = ['card_grass_dry', 'card_grass_green', 'card_grass_stalks_dry', 'card_bush_scrub']
+GAIN = [1.08, 1.08, 1.1, 1.85]      # sRGB brightness per cell (the scrub card is authored very dark; at eye level it read as a black blob)
 C = 512
 atlas = Image.new('RGBA', (2 * C, 2 * C), (0, 0, 0, 0))
 for i, n in enumerate(CELLS):
@@ -32,6 +33,7 @@ for i, n in enumerate(CELLS):
     for _ in range(24):
         blur = np.asarray(Image.fromarray(filled.astype(np.uint8)).filter(ImageFilter.BoxBlur(3))).astype(np.float32)
         filled[~mask] = blur[~mask]
+    filled = filled * GAIN[i]
     out = np.concatenate([filled, a[..., 3:]], axis=-1).clip(0, 255).astype(np.uint8)
     atlas.paste(Image.fromarray(out, 'RGBA'), ((i % 2) * C, (i // 2) * C))
 os.makedirs(os.path.dirname(OUT), exist_ok=True)

@@ -189,6 +189,17 @@ def gen_crack(s=1024):
     save_gray('a_crack.png', np.clip(a, 0, 1))
 
 
+def gen_wood(s=512):
+    """weathered plank / wood-grain albedo modulation, grain along u (image x)."""
+    rng = np.random.default_rng(18)
+    yy, xx = np.mgrid[0:s, 0:s].astype(float)
+    warp = blur(fft_noise(rng, s, 2.4, aniso=(0.15, 1.0)), 2) * 9.0
+    rings = np.sin((yy + warp) * 2 * np.pi / 11.0) * 0.5 + 0.5
+    fine = blur(fft_noise(rng, s, 1.0, aniso=(0.05, 1.0)), 0.6)
+    a = 0.72 + 0.16 * rings ** 3 + 0.06 * fine - 0.08 * np.clip(blur(fft_noise(rng, s, 2.2), 6), 0, 3)
+    save_gray('a_wood.png', np.clip(a, 0, 1))
+
+
 # ------------------------------------------------------------------------------------------------ decal atlas
 ATLAS = 1024
 RECTS = {}
@@ -396,3 +407,4 @@ if __name__ == '__main__':
     gen_ribbed()
     gen_carbon()
     gen_crack()
+    gen_wood()

@@ -8,9 +8,34 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   canvas { display: block; }
+  /* boot screen: shown from the first paint until the menu stages are loaded and warmed (removed by the App) */
+  #boot { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4.2vh;
+    background: radial-gradient(ellipse 70% 60% at 50% 62%, #3a1a0c 0%, #140a06 55%, #050303 100%); transition: opacity .7s ease; font-family: Bahnschrift, 'Segoe UI Semibold', 'Arial Narrow', sans-serif; }
+  #boot.done { opacity: 0; pointer-events: none; }
+  #boot .lg { font: 400 min(15vh, 12vw)/.86 Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; letter-spacing: .05em; text-align: center; transform: skewX(-10deg);
+    color: transparent; background: linear-gradient(180deg, #fff4b8 0%, #ffd03a 30%, #f08a2b 62%, #a13c0e 100%); -webkit-background-clip: text; background-clip: text;
+    filter: drop-shadow(0 .6vh 0 #0d0907) drop-shadow(0 0 3vh rgba(232,121,43,.45)); animation: bootIn .9s cubic-bezier(.2,.8,.2,1) both; }
+  #boot .lg span { display: block; font-size: .46em; letter-spacing: .075em; }
+  #boot .lg span.l2 { font-size: 1em; margin-top: -.02em; }
+  #boot .bar { position: relative; width: min(46vw, 620px); height: 1.3vh; min-height: 9px; background: #140f0b; box-shadow: 0 0 0 2px #3d342b; transform: skewX(-18deg); overflow: hidden; }
+  #boot .bar i { position: absolute; inset: 0; width: 0; background: repeating-linear-gradient(-45deg, #ffc21a 0 12px, #b07c0a 12px 24px); box-shadow: 0 0 16px rgba(255,194,26,.6);
+    animation: bootFill 7s cubic-bezier(.15,.7,.3,1) forwards, bootStripe .6s linear infinite; background-size: 34px 100%; }
+  #boot.done .bar i { width: 100% !important; animation: none; }
+  #boot .st { font-size: max(1.6vh, 12px); font-weight: 700; letter-spacing: .4em; color: #b3ab97; text-transform: uppercase; }
+  #boot .tip { position: absolute; bottom: 5vh; left: 0; right: 0; text-align: center; font-size: max(1.6vh, 12px); font-weight: 600; letter-spacing: .22em; color: #82796a; text-transform: uppercase; }
+  #boot .tip b { color: #e8792b; font-weight: 800; }
+  @keyframes bootIn { from { opacity: 0; transform: skewX(-10deg) translateY(2vh) scale(.96); } }
+  @keyframes bootFill { 0% { width: 2%; } 100% { width: 88%; } }
+  @keyframes bootStripe { to { background-position: 34px 0; } }
 </style>
 </head>
 <body>
+<div id="boot"><div class="lg"><span>RIDE OR</span><span class="l2">DIE</span></div><div class="bar"><i></i></div><div class="st">FUELLING UP</div>
+  <div class="tip"><b>TIP</b> &nbsp;SHOOT THE DRIVER AND THE CAR SWERVES INTO ITS FRIENDS</div></div>
+<script>
+  // dev shortcuts go straight into a run (no menus): no boot screen
+  if (/[?&](solo|devnet)(=|&|$)/.test(location.search)) { var b = document.getElementById('boot'); if (b) b.remove(); }
+</script>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

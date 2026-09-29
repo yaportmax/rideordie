@@ -30,7 +30,7 @@ void main() {
   vec3 h = mix(horFar, hor, pow(sd, 3.0));
   vec3 c = mix(h, mid, smoothstep(0.0, 0.16, y));
   c = mix(c, zen, smoothstep(0.1, 0.6, y));
-  c += vec3(1.3, 0.55, 0.18) * pow(sd, 22.0) * 0.9 + vec3(1.0, 0.5, 0.2) * pow(sd, 5.0) * 0.25;
+  c += vec3(1.3, 0.55, 0.18) * pow(sd, 28.0) * 0.7 + vec3(1.0, 0.5, 0.2) * pow(sd, 6.0) * 0.18;
   // thin stratus bands lit from below near the sun
   vec2 cp = vec2(atan(d.x, -d.z) * 3.0, y * 26.0);
   float cl = smoothstep(0.52, 0.8, fbm(cp * vec2(1.0, 1.0) + vec2(uTime * 0.004, 0.0))) * smoothstep(0.015, 0.06, y) * (1.0 - smoothstep(0.1, 0.28, y));
@@ -50,6 +50,36 @@ export function makeSkyMaterial(sunDir, o = {}) {
     uniforms: { uSun: { value: sunDir.clone().normalize() }, uTime: { value: 0 }, uHot: { value: o.hot ?? 1 } } });
 }
 
+/**
+ * Distant mesa ridges: a ring strip whose height profile is a sum of flat-topped, steep-sided buttes + low hills, vertex-coloured
+ * from a hazy base to a darker top. Reads as silhouettes against the dusk sky from any angle (the low-poly mesa GLBs look blocky here).
+ */
+export function makeRidges({ radius = 900, seed = 3, count = 26, hMin = 30, hMax = 140, top = 0x3a1e24, base = 0x7a4640, arc = [0, Math.PI * 2] } = {}) {
+  const rnd = mulberry(seed), N = 900;
+  const buttes = Array.from({ length: count }, () => ({ a: arc[0] + rnd() * (arc[1] - arc[0]), w: 0.02 + rnd() * 0.09, h: hMin + rnd() * (hMax - hMin), s: 0.25 + rnd() * 0.3 }));
+  const height = (a) => {
+    let h = 8 + Math.sin(a * 7 + seed) * 5 + Math.sin(a * 23 + seed * 2) * 3;
+    for (const b of buttes) {
+      let d = Math.abs(Math.atan2(Math.sin(a - b.a), Math.cos(a - b.a))) / b.w;       // 0 at the centre, 1 at the rim edge
+      const edge = Math.min(1, Math.max(0, (1 + b.s - d) / b.s));                        // steep sides, flat top
+      h = Math.max(h, b.h * edge * edge * (3 - 2 * edge) + (edge > 0.99 ? Math.sin(a * 90) * 1.5 : 0));
+    }
+    return h;
+  };
+  const pos = [], col = [], idx = [];
+  const cTop = new THREE.Color(top), cBase = new THREE.Color(base), c = new THREE.Color();
+  for (let i = 0; i <= N; i++) {
+    const a = arc[0] + (i / N) * (arc[1] - arc[0]), h = height(a), x = Math.sin(a) * radius, z = -Math.cos(a) * radius;
+    pos.push(x, h, z, x, -40, z);
+    c.copy(cBase).lerp(cTop, Math.min(1, h / (hMax * 0.8)) * 0.85); col.push(c.r, c.g, c.b, cBase.r, cBase.g, cBase.b);
+    if (i < N) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }));
+  m.frustumCulled = false; m.renderOrder = -5;
+  return m;
+}
+
 function tex(set, n, srgb, repX, repY) {
   const t = new THREE.TextureLoader().load(`/textures/${set}/${n}.jpg`);
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repX, repY); t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8;
@@ -57,18 +87,20 @@ function tex(set, n, srgb, repX, repY) {
 }
 
 const PROPS = ['cactus_saguaro', 'cactus_prickly_pear', 'cactus_barrel', 'shrub_desert_scrub', 'shrub_dry_bush', 'rock_05', 'rock_06', 'rock_03', 'boulder_01', 'boulder_02', 'boulder_03', 'dead_tree_a', 'dead_tree_c', 'utility_pole', 'sign_speed', 'sign_warning', 'mile_marker', 'skeleton_car_frame'];
-const STRUCTS = ['mesa_a', 'mesa_b', 'hoodoo_a', 'hoodoo_b'];
+const STRUCTS = [];
+const HERO_GUNS = ['smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'];
 
 export class TitleScene {
   constructor(renderer) {
     this.renderer = renderer;
     const s = this.scene = new THREE.Scene();
-    s.fog = new THREE.FogExp2(0x8a4a3a, 0.0032);
+    s.fog = new THREE.FogExp2(0x7a4640, 0.0019);
     this.camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.2, 4000);
-    this.t = 0; this.ready = false; this.shotT = 0; this.shot = 0;
+    this.t = 0; this.ready = false; this.shotT = 0.4; this.shot = 0; this.cutFade = 0;
     // sky + environment
     const skyMat = makeSkyMaterial(SUN_DIR);
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(1500, 48, 24), skyMat); this.sky.renderOrder = -10; this.sky.frustumCulled = false; s.add(this.sky);
+    s.add(makeRidges({ radius: 1250, seed: 5, count: 30, hMin: 60, hMax: 190, top: 0x4a2830, base: 0x8a4a40 }), makeRidges({ radius: 820, seed: 11, count: 14, hMin: 25, hMax: 90, top: 0x2a1418, base: 0x7a4038 }));
     const envScene = new THREE.Scene(); envScene.add(new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat));
     const gnd = new THREE.Mesh(new THREE.CircleGeometry(100, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x3a2014 })); gnd.position.y = -2; envScene.add(gnd);
     const pm = new THREE.PMREMGenerator(renderer);
@@ -79,8 +111,8 @@ export class TitleScene {
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
     const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 10; sc.far = 220;
     s.add(sun, sun.target);
-    s.add(new THREE.HemisphereLight(0x8a78b8, 0x6a3a22, 1.05));
-    const bounce = new THREE.DirectionalLight(0xff9a70, 0.6); bounce.position.set(-0.4, 0.3, 1).multiplyScalar(50); s.add(bounce);
+    s.add(new THREE.HemisphereLight(0x7a78c8, 0x5a3424, 1.0));
+    const bounce = new THREE.DirectionalLight(0xffb898, 1.1); bounce.position.set(-0.5, 0.35, 1).multiplyScalar(50); s.add(bounce);
     // ground + road (in a scroll group that wraps every WRAP metres)
     this.scroll = new THREE.Group(); s.add(this.scroll);
     const L = 1800;
@@ -93,7 +125,7 @@ export class TitleScene {
     // fx
     this.dust = new PuffSystem(520, { tex: 'dust_puff' });
     this.dust.setLight(SUN_DIR, new THREE.Color(1.5, 0.75, 0.36), new THREE.Color(0.34, 0.25, 0.25));
-    this.dust.mat.uniforms.uFwd.value = 1.4;
+    this.dust.mat.uniforms.uFwd.value = 0.9;
     this.dust.mat.uniforms.uTint.value.set(1.0, 0.86, 0.72);
     this.dust.wind.set(0, 0, -V * 0.8);
     s.add(this.dust.mesh);
@@ -131,9 +163,10 @@ float paint(vec2 r) {
     // camera shots, in the hero truck's frame (+Z forward, +X left side of the truck). The menu covers the left of the screen:
     // subjects are kept right of centre via a view offset.
     this.shots = [
-      { name: 'front34', dur: 11, pos: [-4.6, 1.25, 8.2], look: [0.6, 1.25, -9], fov: 34, drift: [1.2, 0.25, -1.4], shift: 0.2 },
-      { name: 'side', dur: 9, pos: [-8.5, 1.9, -2.5], look: [1.0, 1.3, -10], fov: 32, drift: [0.4, 0.2, 2.6], shift: 0.18 },
-      { name: 'bed', dur: 9, pos: [-1.6, 2.7, 3.6], look: [1.2, 1.6, -18], fov: 40, drift: [0.5, 0.1, -0.6], shift: 0.16 },
+      { name: 'hero', dur: 10, pos: [-1.2, 0.9, 9.5], look: [1.6, 1.7, -14], fov: 34, drift: [0.7, 0.12, -1.8], shift: 0.14 },
+      { name: 'front', dur: 8, pos: [3.8, 0.6, 5.0], look: [-1.5, 1.6, -3], fov: 38, drift: [0.5, 0.15, 1.4], shift: 0.18 },
+      { name: 'gunner', dur: 8, pos: [-3.0, 3.0, 5.5], look: [2.5, 1.2, -20], fov: 36, drift: [1.0, -0.3, -0.9], shift: 0.12 },
+      { name: 'return', dur: 8, pos: [6.5, 0.8, 2.5], look: [-0.5, 1.2, -6], fov: 34, drift: [-0.4, 0.1, -1.6], shift: 0.3 },
     ];
   }
 
@@ -145,7 +178,7 @@ float paint(vec2 r) {
       const g = new THREE.Group();
       this._buildProps(g);
       if (this.post) await warmGroup(this.renderer, g, this.camera, this.scene, this.post);
-      this.scene.add(g);
+      this.scene.add(g); (window.__menuLog || (window.__menuLog = [])).push([+(performance.now() / 1000).toFixed(2), 'titleProps']);
     });
     this.ready = true;
   }
@@ -158,10 +191,6 @@ float paint(vec2 r) {
       m.traverse((o) => { if (o.isMesh) { o.castShadow = shadow; o.receiveShadow = true; } });
       root.add(m); return m;
     };
-    // far landmarks (static; parallax at 500+ m is negligible)
-    const far = [['mesa_a', -520, -900, 0.3, 1.6], ['mesa_b', 380, -1050, 2.2, 1.8], ['mesa_a', 900, -700, 1.2, 1.3], ['mesa_b', -1100, -600, 0.8, 1.5], ['hoodoo_a', 210, -420, 0.2, 1.4], ['hoodoo_b', -260, -380, 1.9, 1.2],
-      ['mesa_b', -900, 300, 0.5, 1.4], ['mesa_a', 700, 500, 2.0, 1.5], ['hoodoo_a', -520, -60, 1, 1.5], ['mesa_a', -700, -250, 2.8, 1.2]];
-    for (const [id, x, z, r, s] of far) put(id, x, z, r, s);
     // roadside props that stream past (recycled)
     const rnd = mulberry(7);
     const span = 520, z0 = -420;
@@ -184,17 +213,20 @@ float paint(vec2 r) {
     for (const c of this.cars) { c.view.dispose(); for (const cr of c.crew) cr.dispose(); }
     this.cars = [];
     const spec = VEHICLES[truckId] || VEHICLES.truck_t1;
-    this.hero = this._car(spec, { paint, x: 1.85, z: 0, weave: 0.45, wf: 0.31, crew: { gunner: 'hero_gunner', driver: 'hero_driver', weapon: weapon || 'rifle' }, sand: 0.25 });
+    const heroGun = HERO_GUNS.includes(weapon) ? weapon : 'rifle';   // key art: never a pea-shooter
+    this.hero = this._car(spec, { paint, x: 1.85, z: 0, weave: 0.45, wf: 0.31, crew: { gunner: 'hero_gunner', driver: 'hero_driver', weapon: heroGun }, sand: 0.25 });
     this._car(VEHICLES.e_technical, { paint: 0x6a2a1c, x: -2.2, z: -14, weave: 1.4, wf: 0.43, ph: 1.2, crew: { gunner: 'raider_a', driver: 'raider_driver', enemyGun: 'smg' }, sand: 0.4 });
     this._car(VEHICLES.e_buggy, { paint: 0x3a3a34, x: 7.2, z: -24, weave: 1.8, wf: 0.37, ph: 2.6, crew: { gunner: 'raider_b', driver: 'raider_driver', enemyGun: 'rifle' }, sand: 1 });
-    this._car(VEHICLES.e_muscle, { paint: 0x1c1c1c, x: -7.8, z: -35, weave: 2.2, wf: 0.29, ph: 4.1, crew: { driver: 'raider_driver' }, sand: 1 });
-    this._car(VEHICLES.e_sedan, { paint: 0x5a4a30, x: 3.0, z: -52, weave: 2.4, wf: 0.25, ph: 0.4, crew: { driver: 'raider_driver' }, sand: 0.7 });
+    // the two far chasers: far LOD body, no crew, no shadow (silhouettes in the dust; keeps the menu cheap)
+    this._car(VEHICLES.e_muscle, { paint: 0x1c1c1c, x: -7.8, z: -35, weave: 2.2, wf: 0.29, ph: 4.1, crew: {}, sand: 1, far: true });
+    this._car(VEHICLES.e_sedan, { paint: 0x5a4a30, x: 3.0, z: -52, weave: 2.4, wf: 0.25, ph: 0.4, crew: {}, sand: 0.7, far: true });
     for (const c of this.cars) c.view.update(c.st, 0);
     this.fireT = 0.6; this.burst = 0; this.target = 1;
   }
 
   _car(spec, o) {
-    const view = new CarView(spec, { paint: o.paint, paint2: 0x2a2826, lod: false });
+    const view = new CarView(spec, { paint: o.paint, paint2: 0x2a2826, lod: !!o.far });
+    if (o.far) { view.setLod(true); view.root.traverse((m) => { if (m.isMesh) m.castShadow = false; }); }
     const st = makeCarState(this.cars.length, spec.id, spec.kind);
     for (let i = 0; i < st.L.length; i++) st.L[i] = st.ride.restLen;
     const c = { spec, view, st, crew: [], gunner: null, x0: o.x, z0: o.z, weave: o.weave, wf: o.wf, ph: o.ph || 0, sand: o.sand, yaw: 0, vx: 0, ax: 0, bump: Math.random() * 10, emit: 0 };
@@ -314,6 +346,8 @@ float paint(vec2 r) {
     this.shotT += dt;
     if (this.shotT > sh.dur && !this.lockShot) { this.shotT = 0; this.shot = (this.shot + 1) % this.shots.length; this.onCut?.(); }
     const s = this.shots[this.shot], k = this.shotT / s.dur;
+    const sm = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+    this.cutFade = this.lockShot ? 0 : Math.max(sm(s.dur - 0.32, s.dur, this.shotT), 1 - sm(0, 0.32, this.shotT)) * 0.92;
     const h = this.hero.view.root.position;
     const e = k - 0.5;
     const cam = this.camera;

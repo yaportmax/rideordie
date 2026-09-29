@@ -78,7 +78,7 @@ export class EnemyBrain {
   }
 
   /** How eager this raider is: attack cooldown in seconds, shrinking with difficulty. */
-  _cooldown(base) { return base * lerp(1.35, 0.55, clamp(this.level, 0, 1.2)) * this.r.range(0.75, 1.3); }
+  _cooldown(base) { return base * lerp(1.35, 0.55, clamp(this.level, 0, 1.2)) * this.r.range(0.75, 1.3) * (this.car.elite ? 0.6 : 1); }
 
   _tell(kind, extra) { this.sim.emit({ t: 'enemyTell', id: this.car.id, kind, ...extra }); }
 
@@ -148,7 +148,8 @@ export class EnemyBrain {
     }
     dT = P.d + slotLat;
     // speed: close on the slot; the approach from far away is quick, the final metres are gentle
-    vDes = pv + clamp((gap - slotGap) * 0.45, -12, 24);
+    // (the closing speed shrinks with the pace: at 200 km/h a +24 m/s lunge ends in the desert)
+    vDes = pv + clamp((gap - slotGap) * 0.45, -12, lerp(24, 11, clamp(pv / 60, 0, 1)));
     if (this.launchT !== undefined && this.t - this.launchT < 3) nitro = true;   // peel-out
     // chasers get bored and come forward (they are the gunner's problem at first, the driver's next)
     if (this.behavior === 'chaser' && this.mode === 'engage' && this.atkCd <= 0 && gap < 45) {
@@ -206,7 +207,7 @@ export class EnemyBrain {
       if (this.t - this.lastSummon > every) {
         this.lastSummon = this.t;
         const alive = [...sim.cars.values()].filter((c) => c.kind === 'enemy' && !c.exploded).length;
-        if (alive < 9) {
+        if (alive < (this.pattern?.summonCap ?? 5)) {
           const kinds = this.pattern?.summonKinds || ['e_buggy', 'e_buggy'];
           kinds.forEach((k, i) => sim.director.spawn(sim, k, L, { behavior: 'flanker', side: i % 2 ? 1 : -1, at: { s: P.s - 105 - i * 12, d: (i % 2 ? 1 : -1) * 3.4, speed: pv + 14 } }));
           sim.emit({ t: 'summon', id: car.id });
@@ -258,14 +259,26 @@ export class EnemyBrain {
     dT = clamp(dT, -lim, lim);
     vDes = Math.min(vDes, this.maxSpeed + (nitro ? 8 : 0));
     // curve caution: slow down for tight corners
-    const look = clamp(speed * 0.55 + 8, 10, 42);
-    const smK = road.sample(car.s + look * 1.8, _pt).k;
-    vDes = Math.min(vDes, Math.sqrt(Math.max(400, 26 * (1 / Math.max(Math.abs(smK), 1 / 900)) * 0.9)));
+    const look = clamp(speed * 0.6 + 8, 10, 64);
+    const smK = Math.max(Math.abs(road.sample(car.s + look * 1.8, _pt).k), Math.abs(road.sample(car.s + look * 0.9, _pt).k), Math.abs(road.sample(car.s + 10, _pt).k));
+    vDes = Math.min(vDes, Math.sqrt(Math.max(400, 15.5 / Math.max(smK, 1 / 1500))));   // ~15 m/s² of cornering grip (like the AI driver)
+    // off the asphalt: slow down and get back on it
+    const off = Math.abs(car.d) - (HALF_ROAD + 1.5);
+    if (off > 0) vDes = Math.min(vDes, Math.max(18, 45 - off * 4));
     // pure pursuit toward a point on the road ahead at the target lateral offset
+    // lane target moves at most ~8 m/s sideways: no twitchy full-lock swerves at 200 km/h when a slot flips sides
+    const rate = this.atk && this.atk.phase === 'hit' ? 12 : 8;
+    this.dTs = this.dTs === undefined ? car.d : this.dTs + clamp(dT - this.dTs, -rate * dt, rate * dt);
+    dT = this.dTs; this._lastDT = dT;
     const tp = road.pointAt(car.s + look, dT, this._tp || (this._tp = {}));
     const desired = Math.atan2(tp.x - veh.pos.x, tp.z - veh.pos.z);
     const heading = Math.atan2(veh.fwd.x, veh.fwd.z);
-    let steer = clamp(wrapAngle(desired - heading) * (2.2 + 0.6 * this.skill), -1, 1);
+    // proper pure pursuit: the yaw rate that arcs onto the target point, as a fraction of what the tyres allow at this speed
+    // (the vehicle's steering is a yaw-rate command), plus a little direct heading gain for low-speed jostling
+    const err = wrapAngle(desired - heading), sp = car.spec, vv = Math.max(Math.abs(speed), 4);
+    const aLat = 0.81 * Math.min(sp.grip.front, sp.grip.rear) * (17.5 + (sp.downforce ?? 0.35) * vv * vv * 0.01);
+    const rMax = Math.min(sp.yawRateMax ?? 2.3, aLat / vv);
+    let steer = clamp((2 * Math.sin(err) * vv / look) / rMax * 1.15 + err * (0.5 + 0.4 * this.skill), -1, 1);
     // avoid other cars ahead (not the player when attacking it; wrecks and runaway cars are noticed late -> pile-ups)
     let brakeAvoid = 0;
     const attacking = this.atk && (this.atk.phase === 'hit' || this.atk.kind === 'ram');
@@ -280,7 +293,9 @@ export class EnemyBrain {
         if (o.veh.vf < speed - 2 && ahead < 10 + speed * 0.2) brakeAvoid = Math.max(brakeAvoid, chaos ? 0.3 : 0.6);
       }
     }
-    veh.input.steer = clamp(steer, -1, 1);
+    // at speed, full lock just breaks traction (and the drift governor takes over): keep the input under the grip limit
+    const sLim = clamp(1.9 - Math.max(0, speed) / 40, 0.8, 1);
+    veh.input.steer = clamp(steer, -sLim, sLim);
     const dv = vDes - speed;
     veh.input.throttle = brakeIn > 0.5 ? 0 : dv > 0 ? clamp(dv * 0.5, 0, 1) : 0;
     veh.input.brake = Math.max(brakeAvoid, brakeIn, dv < -3 ? clamp(-dv * 0.18, 0, 1) : 0);
@@ -381,7 +396,7 @@ export class EnemyBrain {
             // wind-up: the gunner shoulders the gun (visible glint) before the burst — this is the driver's cue to jink
             st.mode = 'aim'; st.t = this.r.range(gun.react[0], gun.react[1]) * lerp(1.2, 0.8, this.skill);
             // far away they shoot at the truck; up close they go for the crew
-            const u = this.r(), close = dist < 32;
+            const u = this.r(), close = dist < 32 && !car.elite; // (warlords work on the truck itself: their HP pressure, not crew one-shots)
             st.aimAt = close ? (u < 0.5 ? 'body' : u < 0.72 ? 'cab' : u < 0.94 ? 'bed' : 'tire') : (u < 0.7 ? 'body' : u < 0.8 ? 'cab' : u < 0.9 ? 'bed' : 'tire');
           }
           break;
@@ -423,7 +438,7 @@ export class EnemyBrain {
       sim.emit({ t: 'shot', src: car.id, weapon: 'rpg', origin: origin.toArray(), dir: d.toArray(), rocket: true, speed: gun.rocket.speed });
       return;
     }
-    const dmg = gun.dmg * (1 + 0.9 * this.level) * (car.elite ? 1.25 : 1);
+    const dmg = gun.dmg * (1 + 0.9 * this.level) * (car.elite ? 1.1 : 1);
     const rays = [];
     for (let p = 0; p < gun.pellets; p++) {
       const d = dir.clone();

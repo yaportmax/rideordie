@@ -32,7 +32,9 @@
 .rod-ui .bg[data-mode=dim]::before{background:rgba(8,5,4,.68)}
 .rod-ui .bg[data-mode=title]::before{background:linear-gradient(90deg,rgba(8,5,4,.9) 0,rgba(8,5,4,.72) 30%,rgba(8,5,4,.1) 62%,rgba(8,5,4,0) 100%)}
 .rod-ui .bg[data-mode=scrim]::before{background:linear-gradient(90deg,rgba(8,5,4,.84) 0,rgba(8,5,4,.62) 30%,rgba(8,5,4,.14) 55%,rgba(8,5,4,0) 72%)}
-.rod-ui .bg[data-mode=dim3d],.rod-ui .bg[data-mode=results3d]{background:transparent}
+.rod-ui .bg[data-mode=dim3d],.rod-ui .bg[data-mode=results3d],.rod-ui .bg[data-mode=garage3d]{background:transparent}
+.rod-ui .bg[data-mode=garage3d]::before{background:linear-gradient(0deg,rgba(6,4,3,.72) 0,rgba(6,4,3,0) 13%),linear-gradient(90deg,rgba(8,5,4,.55) 0,rgba(8,5,4,.12) 32%,rgba(8,5,4,0) 50%,rgba(8,5,4,.12) 68%,rgba(8,5,4,.5) 100%)}
+.rod-ui .bg[data-mode=garage3d]::after{height:22%; background:linear-gradient(180deg,rgba(6,4,3,.62),transparent)}
 .rod-ui .bg[data-mode=dim3d]::before{background:rgba(8,5,4,.74)}
 .rod-ui .bg[data-mode=results3d]::before{background:radial-gradient(ellipse 60% 70% at 62% 58%,rgba(8,5,4,.35),rgba(8,5,4,.8) 100%),linear-gradient(90deg,rgba(8,5,4,.72),rgba(8,5,4,.25) 60%,rgba(8,5,4,.55))}
 .rod-ui .bg[data-mode=results3d]::after{height:34%; background:linear-gradient(180deg,rgba(6,4,3,.8),transparent)}

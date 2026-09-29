@@ -61,7 +61,13 @@ def unwrap(ob, method="MH"):
         return
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    if method == "MH":
+    if method == "SEAMS":
+        bpy.ops.object.mode_set(mode="OBJECT")
+        mark_seams_by_region(ob)
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.uv.unwrap(method="ANGLE_BASED", margin=0.002, fill_holes=True)
+    elif method == "MH":
         bpy.ops.uv.seams_from_islands(mark_seams=True)
         bpy.ops.object.mode_set(mode="OBJECT")
         mark_seams_by_region(ob)

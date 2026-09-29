@@ -53,9 +53,10 @@ page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[console]', m.type(), m.text().slice(0, 300)); });
 await page.goto(base + '/index.html', { waitUntil: 'load' });
 await page.waitForFunction('window.__ready === true', null, { timeout: 120000 });
-await page.waitForTimeout(1500);
+await page.evaluate('window.__app.game.garage.ready');
+await page.waitForTimeout(800);
 const probe = `(async () => { const t = []; let last = performance.now(); await new Promise((res) => { const f = (now) => { t.push(now - last); last = now; if (t.length < 90) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
-  t.shift(); t.sort((a, b) => a - b); const avg = t.reduce((a, b) => a + b, 0) / t.length; return { avgMs: +avg.toFixed(2), p95: +t[Math.floor(t.length * 0.95)].toFixed(2), max: +t[t.length - 1].toFixed(2), calls: window.__game.renderer.info.render.calls, tris: window.__game.renderer.info.render.triangles }; })()`;
+  t.shift(); t.sort((a, b) => a - b); const avg = t.reduce((a, b) => a + b, 0) / t.length; return { avgMs: +avg.toFixed(2), p95: +t[Math.floor(t.length * 0.95)].toFixed(2), max: +t[t.length - 1].toFixed(2), calls: (window.__game.mode === 'garage' ? window.__game.garage.post.stats?.calls : window.__game.renderer.info.render.calls), tris: (window.__game.mode === 'garage' ? window.__game.garage.post.stats?.tris : window.__game.renderer.info.render.triangles) }; })()`;
 for (const [name, js] of steps) {
   if (only && !only.has(name)) { await page.evaluate(`(async () => { ${js} })()`).catch(() => {}); continue; }
   try { await page.evaluate(`(async () => { ${js} })()`); } catch (e) { console.log('[step error]', name, e.message.slice(0, 300)); }

@@ -28,7 +28,7 @@ for (const sh of spec) {
     await page.goto(`${base}/${q}`, { waitUntil: 'load' });
     await page.waitForFunction('window.__ready === true', null, { timeout: 120000 });
     const res = await page.evaluate((sh) => new Promise((resolve) => {
-      window.__hitches = []; window.__spikes = [];
+      window.__hitches = []; window.__spikes = []; document.getElementById('boot')?.remove();
       window.__autodrive = { speed: sh.speed ?? 30, lat: sh.lat || 0 };
       if (sh.cam) window.__camOverride = sh.cam;
       const long = []; let last = performance.now(); const t0 = last;

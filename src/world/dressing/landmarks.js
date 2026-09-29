@@ -7,6 +7,7 @@ import { terrainPoint, EDGE } from '../terrain_gen.js';
 import { groundAt, rngOf, strId, CHUNK_LEN } from './util.js';
 import { need, useSpec } from './furniture.js';
 import { seaLevel } from '../terrain_gen.js';
+import { cityDens, cityExclusions, CITY_PROPS } from './city.js';
 
 // ------------------------------------------------------------------------------------------------ tables
 // part: { a asset, u (metres along the road from the anchor; number or [min,max]), v (lateral distance from the road centre), yaw: 'face' | 'oncoming' | 'free' | 'along',
@@ -158,6 +159,8 @@ export class LandmarkPlanner {
     road.extendTo(sc + 800);
     const sm = road.sample(sc, {}), th = sm.th;
     const seaY = biomeId === 'coast' ? seaLevel(road, 'coast') : biomeId === 'dam' ? seaLevel(road, 'dam') : -1e9;
+    // the dense city has its own procedural street wall (city.js): industrial set pieces only on the outskirts
+    if (biomeId === 'city' && cityDens(sc) > 0.22) return [];
     // avoid road features
     for (const f of road.featuresIn(sc - 90, sc + 90)) if ((f.type === 'bridge' || f.type === 'tunnel' || f.type === 'overpass') && sc > f.s0 - 90 && sc < f.s1 + 90) return [];
     const placements = [];
@@ -235,54 +238,9 @@ export class LandmarkPlanner {
   }
 }
 
-// ------------------------------------------------------------------------------------------------ city skyline
+// ------------------------------------------------------------------------------------------------ city (procedural, see city.js)
 const RUINS = ['ruin_lowrise_a', 'ruin_lowrise_b', 'ruin_lowrise_c', 'ruin_apartment_a', 'ruin_apartment_b'];
 const TOWERS = ['ruin_office_a', 'ruin_office_b', 'ruin_office_c'];
-
-function skyline(ctx, sA, sB) {
-  // rows: near (lowrise / apartments), mid (mixed), far (towers). Slot pitch per row; two sides.
-  const { road, seed, kit } = ctx;
-  const rows = [
-    { pitch: 62, v: [24, 34], set: RUINS, chance: 0.8, sy: [0.9, 1.2], tag: 1 },
-    { pitch: 74, v: [58, 74], set: [...RUINS, ...TOWERS], chance: 0.78, sy: [0.85, 1.25], tag: 2 },
-    { pitch: 110, v: [104, 128], set: TOWERS, chance: 0.75, sy: [0.9, 1.35], tag: 3 },
-    { pitch: 150, v: [190, 250], set: TOWERS, chance: 0.6, sy: [1.1, 1.6], tag: 4 },
-  ];
-  const out = [];
-  for (const row of rows) {
-    for (let side = -1; side <= 1; side += 2) {
-      const kA = Math.floor(sA / row.pitch) - 1, kB = Math.ceil(sB / row.pitch) + 1;
-      for (let k = kA; k <= kB; k++) {
-        const s = k * row.pitch + (hash2(k, 81 + row.tag, seed + side) - 0.5) * row.pitch * 0.25;
-        if (s < sA || s >= sB) continue;
-        const bio = biomeAt(s), w = bio.a === 'city' ? 1 - bio.w : bio.b === 'city' ? bio.w : 0;
-        if (w < 0.55) continue;
-        const key = `sky:${row.tag}:${side}:${k}`;
-        const cached = ctx.lm.cache.get(key);
-        if (cached !== undefined) { if (cached) out.push(cached); continue; }
-        const rnd = rngOf(seed, k * 13 + row.tag, side + 5);
-        if (rnd() > row.chance * w) { ctx.lm.cache.set(key, null); continue; }
-        const name = row.set[Math.floor(rnd() * row.set.length) % row.set.length];
-        const st = kit.state(name); if (st === 'idle') kit.request(name);
-        if (st === 'loading') return null;
-        const a = kit.get(name); if (!a) { ctx.lm.cache.set(key, null); continue; }
-        road.extendTo(s + 400);
-        const th = road.sample(s, {}).th, psi = facingYaw(th, side) + (rnd() - 0.5) * (row.tag === 1 ? 0.35 : 0.2);
-        const zf = a.box.max.z;                                     // front extent
-        const v = rr(rnd, row.v) + zf;
-        const d0 = side * v;
-        const fp = footprint(ctx, a, s, d0, psi, th, -1e9);
-        if (fp.max - fp.min > 5.5) { ctx.lm.cache.set(key, null); continue; }
-        const g = groundAt(road, seed, s, d0, {});
-        const sy = rr(rnd, row.sy), sxz = 0.92 + rnd() * 0.16;
-        const p = { asset: name, x: g.x, y: fp.min + (fp.max - fp.min) * 0.25 - 0.3, z: g.z, yaw: psi, sc: sxz, sy, r: Math.max(a.size.x, a.size.z) * 0.55 + 6, s,
-          found: fp.max - fp.min > 0.4 ? { ymin: fp.min - 3, ytop: fp.min + (fp.max - fp.min) * 0.25 - 0.3 + 0.1, box: a.box, sc: sxz } : null, tint: 0.85 + rnd() * 0.25 };
-        ctx.lm.cache.set(key, p); out.push(p);
-      }
-    }
-  }
-  return out;
-}
 
 // ------------------------------------------------------------------------------------------------ hand-placed specials (coast, canyon arch, dam)
 function assetReady(ctx, names) {
@@ -291,16 +249,6 @@ function assetReady(ctx, names) {
   return !wait;
 }
 
-
-/** The colossal dam wall standing in the lake across from the road (lake = right side), downstream face (-Z) toward the road. */
-function damWall(ctx, s, dist) {
-  const { road, seed, kit } = ctx;
-  const wall = kit.get('dam_wall_backdrop'); if (!wall) return null;
-  const seaY = seaLevel(road, 'dam');
-  road.extendTo(s + 900);
-  const th = road.sample(s, {}).th, g = groundAt(road, seed, s, -dist, {});
-  return { asset: 'dam_wall_backdrop', x: g.x, y: seaY - 1.5, z: g.z, yaw: th - Math.PI / 2, sc: 1.0, r: 60, s, found: null, wall: true };
-}
 
 function specials(ctx, sA, sB) {
   const { road, seed, kit } = ctx;
@@ -391,7 +339,7 @@ function specials(ctx, sA, sB) {
   }
   // ---- the dam: gate, control tower, floodlights, banners, boss arena
   if (sB > DAM_START - 200) {
-    const names = ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'dam_wall_backdrop', 'boss_arena_lights'];
+    const names = ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'boss_arena_lights'];
     if (!assetReady(ctx, names)) return null;
     if (!push(cached('dam:gate', () => {
       road.extendTo(DAM_START + 800);
@@ -405,7 +353,6 @@ function specials(ctx, sA, sB) {
         res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: Math.atan2(gp.x - g.x, gp.z - g.z), sc: 1, r: 4, s: gs + ds, found: null });
         void t2;
       }
-      const w0 = damWall(ctx, DAM_START + 700, 560); if (w0) res.push(w0);
       for (let i = 0; i < 12; i++) {
         const s = DAM_START + 130 + i * 55, side = i % 2 ? 1 : -1, d = side * 14.5;
         const g = groundAt(road, seed, s, d, {}), t2 = road.sample(s, {}).th;
@@ -423,7 +370,6 @@ function specials(ctx, sA, sB) {
           res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: Math.atan2(c.x - g.x, c.z - g.z), sc: 1, r: 4, s: BOSS_S + ds, found: null });
           void t2;
         }
-        const w1 = damWall(ctx, BOSS_S + 380, 430); if (w1) res.push(w1);
         return res;
       }))) return null;
     }
@@ -457,9 +403,8 @@ export function buildLandmarks(ctx, chunk) {
   ctx.road.extendTo(s1 + 900);
   // placements can drift up to ~±300 m from the slot that owns them (compounds, turbine rows, arch search): plan a margin, keep what lands here
   const list = ctx.lm.plan(s0 - SLOT_MARGIN, s1 + SLOT_MARGIN);
-  const sky = list ? skyline(ctx, s0, s1) : null;
-  if (!list || !sky) return false;
-  const all = list.concat(sky);
+  if (!list) return false;
+  const all = list;
   for (const p of all) {
     if (p.s < s0 || p.s >= s1) continue;
     const tag = `lm:${p.asset}:${Math.round(p.x)}:${Math.round(p.z)}`;
@@ -494,10 +439,10 @@ export function landmarkAssets(id) {
   const out = new Set();
   for (const it of (KINDS[id] || { items: [] }).items) for (const q of it.parts) out.add(q.a);
   for (const it of (BACKDROPS[id] || { items: [] }).items) for (const a of it.a) out.add(a);
-  if (id === 'city') for (const a of [...RUINS, ...TOWERS]) out.add(a);
+  if (id === 'city') for (const a of [...RUINS, ...TOWERS, ...CITY_PROPS]) out.add(a);
   if (id === 'coast') for (const a of ['sea_stack_a', 'sea_stack_b', 'sea_stack_c', 'lighthouse', 'wharf_ruin']) out.add(a);
   if (id === 'canyon') out.add('natural_arch');
-  if (id === 'dam') for (const a of ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'dam_wall_backdrop', 'boss_arena_lights']) out.add(a);
+  if (id === 'dam') for (const a of ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'boss_arena_lights']) out.add(a);
   return [...out];
 }
 
@@ -506,10 +451,9 @@ export function landmarkExclusions(ctx, sA, sB) {
   if (!ctx.lm) ctx.lm = new LandmarkPlanner(ctx);
   const out = [];
   const list = ctx.lm.plan(sA - SLOT_MARGIN, sB + SLOT_MARGIN);
-  const sk = list ? skyline(ctx, sA - 120, sB + 120) : null;
-  if (!list || !sk) return null;
+  if (!list) return null;
   for (const p of list) if (p.s > sA - p.r - 60 && p.s < sB + p.r + 60) out.push([p.x, p.z, p.r]);
-  for (const p of sk) out.push([p.x, p.z, p.r]);
+  for (const c of cityExclusions(ctx, sA, sB)) out.push(c);
   return out;
 }
 

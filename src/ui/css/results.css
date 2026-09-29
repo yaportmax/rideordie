@@ -7,8 +7,8 @@
 .rod-ui .rs-cause b{color:var(--bone); font-weight:800}
 .rod-ui .rs-cause .ic{width:30px; height:30px; color:#ff6a55}
 .rod-ui .results.win .rs-cause .ic{color:var(--haz)}
-.rod-ui .rs-stats{position:absolute; left:56px; top:236px; width:980px; display:grid; grid-template-columns:1fr 1fr; gap:14px 18px}
-.rod-ui .tile{position:relative; display:flex; align-items:center; gap:20px; height:104px; padding:0 26px 0 30px; background:var(--noise-soft),linear-gradient(90deg,rgba(38,32,26,.96),rgba(22,18,14,.96)); border:2px solid #41372d; transform:skewX(-5deg)}
+.rod-ui .rs-stats{position:absolute; left:56px; top:226px; width:980px; display:grid; grid-template-columns:1fr 1fr; gap:14px 18px}
+.rod-ui .tile{position:relative; display:flex; align-items:center; gap:20px; height:110px; padding:0 26px 0 30px; background:var(--noise-soft),linear-gradient(90deg,rgba(38,32,26,.96),rgba(22,18,14,.96)); border:2px solid #41372d; transform:skewX(-5deg)}
 .rod-ui .tile>*{transform:skewX(5deg)}
 .rod-ui .tile::before{content:''; position:absolute; left:-2px; top:-2px; bottom:-2px; width:8px; background:var(--rust)}
 .rod-ui .tile .ti{flex:none; width:54px; height:54px; color:var(--rust); opacity:.95}
@@ -18,7 +18,7 @@
 .rod-ui .tile small{margin-left:10px; font-size:20px; font-weight:800; letter-spacing:.14em; color:var(--bone-d)}
 .rod-ui .tile .nb{font-style:normal; font-size:13px; letter-spacing:.2em; padding:3px 9px; background:var(--haz); color:#1a1206; animation:nbBlink 1.2s infinite}
 @keyframes nbBlink{50%{filter:brightness(1.35)}}
-.rod-ui .rs-route{position:absolute; left:56px; top:744px; width:980px}
+.rod-ui .rs-route{position:absolute; left:56px; top:624px; width:980px}
 .rod-ui .rt-head{display:flex; justify-content:space-between; font-size:17px; font-weight:800; letter-spacing:.28em; color:var(--mute); margin-bottom:22px}
 .rod-ui .rt-head em{font-style:normal; color:var(--bone-d)}
 .rod-ui .rt-bar{position:relative; height:26px; background:#0b0907; border:2px solid #41372d}
@@ -29,7 +29,7 @@
 .rod-ui .rt-mini{position:absolute; top:-7px; width:5px; height:38px; background:#e9e2d0; opacity:.7; transform:skewX(-14deg)}
 .rod-ui .rt-boss{position:absolute; right:-22px; top:-20px; width:62px; height:62px; color:var(--red); filter:drop-shadow(0 2px 0 #000)}
 .rod-ui .rt-you{position:absolute; top:-18px; width:0; height:0; border-left:11px solid transparent; border-right:11px solid transparent; border-top:17px solid #fff; transform:translateX(-50%); filter:drop-shadow(0 2px 2px #000)}
-.rod-ui .rs-cash{position:absolute; right:56px; top:236px; width:760px; padding-bottom:26px}
+.rod-ui .rs-cash{position:absolute; right:56px; top:226px; width:760px; padding-bottom:26px}
 .rod-ui .rs-cash .rs-ch{display:flex; align-items:center; justify-content:space-between; padding:26px 34px 16px}
 .rod-ui .rs-cash .rs-ch span{font:400 38px var(--disp); letter-spacing:.1em; transform:skewX(-8deg)}
 .rod-ui .rs-cash .rs-ch .ico{width:44px; height:44px; color:var(--haz)}
@@ -55,3 +55,45 @@
 .rod-ui .confetti i{position:absolute; bottom:-30px; width:10px; height:20px; background:var(--haz); opacity:0; animation:rise linear infinite}
 .rod-ui .confetti i:nth-child(3n){background:var(--rust)} .rod-ui .confetti i:nth-child(3n+1){background:var(--bone); width:7px}
 @keyframes rise{0%{transform:translateY(0) rotate(0); opacity:0}10%{opacity:.9}100%{transform:translateY(-1150px) rotate(560deg); opacity:0}}
+
+/* results over the live death camera: title slam, flash, best-run sublines, route best marker, NEXT UP card */
+.rod-ui .results .flashv{position:absolute; inset:0; pointer-events:none; opacity:0; animation:rsFlash 1.1s ease-out .15s both}
+.rod-ui .results.lose .flashv{background:radial-gradient(ellipse at 30% 20%,rgba(226,65,47,.55),rgba(120,20,10,.2) 60%,transparent)}
+.rod-ui .results.win .flashv{background:radial-gradient(ellipse at 30% 20%,rgba(255,210,90,.6),rgba(232,121,43,.2) 60%,transparent)}
+@keyframes rsFlash{0%{opacity:0}12%{opacity:1}100%{opacity:0}}
+.rod-ui .rs-title h1.slam{animation:slam .6s cubic-bezier(.15,1.4,.35,1) .2s both}
+@keyframes slam{0%{opacity:0; transform:skewX(-9deg) scale(2.1); filter:blur(8px) brightness(2)}55%{opacity:1; filter:blur(0) brightness(1.4)}100%{transform:skewX(-9deg) scale(1); filter:none}}
+.rod-ui .results.lose .rs-title h1{color:#f4ece0}
+.rod-ui .rs-title .rs-cause{animation:sIn .5s cubic-bezier(.2,.8,.2,1) .55s both}
+.rod-ui .tile .tb{display:flex; flex-wrap:wrap; align-items:baseline; column-gap:0; min-width:0}
+.rod-ui .tile .tb label{flex-basis:100%}
+.rod-ui .tile .tsub{flex-basis:100%; margin-top:2px; font-size:14px; font-weight:800; letter-spacing:.2em; color:var(--mute)}
+.rod-ui .tile .tb small{margin-left:10px}
+.rod-ui .rt-head em b{color:var(--haz); font-weight:800}
+.rod-ui .rt-mini.past{background:var(--haz); opacity:.95}
+.rod-ui .rt-best{position:absolute; top:-8px; bottom:-8px; width:4px; margin-left:-2px; background:#fff; box-shadow:0 0 10px rgba(255,255,255,.7); z-index:2}
+.rod-ui .rt-best span{position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px; font-size:12px; font-weight:800; letter-spacing:.2em; color:#fff; white-space:nowrap}
+.rod-ui .rs-next{position:absolute; left:56px; top:770px; width:980px}
+.rod-ui .nextup{position:relative; display:flex; align-items:center; gap:26px; height:132px; padding:0 30px 0 34px; background:var(--noise-soft),linear-gradient(90deg,rgba(44,34,22,.95),rgba(22,17,13,.95));
+  border:2px solid #5a4a36; transform:skewX(-5deg); transition:transform .14s cubic-bezier(.2,.9,.3,1.3),box-shadow .14s,border-color .14s}
+.rod-ui .nextup>*{transform:skewX(5deg)}
+.rod-ui .nextup::before{content:''; position:absolute; left:-2px; top:-2px; bottom:-2px; width:10px; background:repeating-linear-gradient(-45deg,var(--haz) 0 7px,#14110f 7px 14px); transform:none}
+.rod-ui .nextup .nu-k{position:absolute; left:34px; top:-13px; padding:3px 12px; font-size:13px; font-weight:800; letter-spacing:.28em; background:var(--haz); color:#1a1206; transform:skewX(-5deg)}
+.rod-ui .nextup.save .nu-k{background:#5a4a36; color:var(--bone)}
+.rod-ui .nu-art{flex:none; width:120px; height:72px; display:flex; align-items:center; justify-content:center; color:var(--haz)}
+.rod-ui .nu-art .ic{width:64px; height:64px} .rod-ui .nu-art.gun .wic{width:120px; height:48px; color:var(--bone)}
+.rod-ui .nu-main{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px}
+.rod-ui .nu-main em{font-style:normal; font-size:14px; font-weight:800; letter-spacing:.24em; color:var(--rust)}
+.rod-ui .nu-main b{font:400 44px/1 var(--disp); letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.rod-ui .nu-main small{font-size:15px; font-weight:700; letter-spacing:.12em; color:var(--bone-d); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.rod-ui .nu-price{flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:4px}
+.rod-ui .nu-price b{font:400 44px/1 var(--disp); letter-spacing:.05em; color:var(--haz)}
+.rod-ui .nextup.save .nu-price b{color:#c4523f}
+.rod-ui .nu-price small{font-size:13px; font-weight:800; letter-spacing:.18em; color:var(--green)}
+.rod-ui .nextup.save .nu-price small{color:var(--mute)}
+.rod-ui .nu-go{flex:none; display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; color:var(--bone-d); font-size:12px; font-weight:800; letter-spacing:.2em}
+.rod-ui .nu-go .ic{width:30px; height:30px} .rod-ui .nu-go i{font-style:normal}
+.rod-ui .nextup.is-f{border-color:var(--haz); box-shadow:0 0 0 3px var(--haz),0 0 36px rgba(255,194,26,.45); transform:skewX(-5deg) translateX(8px)}
+.rod-ui .nextup.is-f .nu-go{color:var(--haz)}
+.rod-ui .nextup.campaign{cursor:default}
+.rod-ui .results:not(.is-done) .nextup{pointer-events:none}

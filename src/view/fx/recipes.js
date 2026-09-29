@@ -332,7 +332,14 @@ function fpMuzzle(fx, cfg, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy, scoped = fals
 /** RPG launch: small front flash + big backblast (fire jet + smoke cloud) behind the tube. */
 export function rocketBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy, fp = false) {
   const r = fx.rng, p = fx.p;
-  if (!fp) glow(fx, ox + dx * 0.3, oy + dy * 0.3, oz + dz * 0.3, 1.8, 0.1, 8, 5, 2.4, true, 1.5);
+  if (fp) {
+    // first person: the backblast leaves the tube behind the shooter's shoulder (out of view); only the rocket's front puff
+    // and the light show. Emitting it at the (apparent) muzzle would blast fire and sparks straight through the camera.
+    for (let i = 0; i < 4; i++) { const s = r.range(4, 9); puff(fx, ox + dx * 1.2, oy + dy * 1.2, oz + dz * 1.2, vx * 0.8 + dx * s + r.sym(1), vy * 0.8 + dy * s + r.range(0.3, 1.2), vz * 0.8 + dz * s + r.sym(1), 0.3, r.range(1.6, 2.6), r.range(0.8, 1.4), 0.8, 0.77, 0.72, 0.35, 0.3, 0.5); }
+    fx.flashLight(ox + dx * 1.5, oy + dy * 1.5 + 0.3, oz + dz * 1.5, 1.0, 0.65, 0.3, 90, 18, 0.18, 1);
+    return;
+  }
+  glow(fx, ox + dx * 0.3, oy + dy * 0.3, oz + dz * 0.3, 1.8, 0.1, 8, 5, 2.4, true, 1.5);
   for (let i = 0; i < 3; i++) {                                    // fire jet backwards
     p.reset(); p.pos(ox - dx * 0.2, oy - dy * 0.2, oz - dz * 0.2).vel(vx - dx * r.range(16, 26) + r.sym(1), vy - dy * 20 + r.sym(1), vz - dz * r.range(16, 26) + r.sym(1));
     p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = r.int(16); p.nPlay = 16; p.fps = 30; p.len = 4.2; p.size(1.2, 2.0); p.drag = 2.5; p.life = r.range(0.16, 0.3);

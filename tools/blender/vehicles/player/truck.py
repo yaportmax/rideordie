@@ -8,6 +8,10 @@ from parts import *  # noqa
 from truck_body import BodyMixin
 from truck_cab import CabMixin
 from truck_bed import BedMixin
+from interior import InteriorMixin
+from interior_cab import InteriorCabMixin
+from interior_dash import InteriorDashMixin
+from gunner_dress import GunnerDressMixin
 
 C_PROF = [(-0.5, 0.5), (0.5, 0.5), (0.5, 0.5 - 0.11), (-0.5 + 0.11, 0.5 - 0.11), (-0.5 + 0.11, -0.5 + 0.11), (0.5, -0.5 + 0.11), (0.5, -0.5), (-0.5, -0.5)]
 
@@ -16,7 +20,7 @@ def cprof(w, h, mirror=False):
     return [((-a if mirror else a) * w, b * h) for a, b in C_PROF]
 
 
-class Truck(BodyMixin, CabMixin, BedMixin):
+class Truck(BodyMixin, InteriorMixin, InteriorCabMixin, InteriorDashMixin, GunnerDressMixin, CabMixin, BedMixin):
     def __init__(self, C, seed=1):
         self.C = C
         C.z_db = C.z_sill + 0.075
@@ -270,5 +274,6 @@ class Truck(BodyMixin, CabMixin, BedMixin):
         self.gunner_frame()
         if kit is not None:
             kit(self)
+        self.gunner_dress()
         self.wheels_build()
         self.sockets()

@@ -36,6 +36,9 @@ import { buildLandmarks, landmarkExclusions, landmarkAssets } from './dressing/l
 import { FURNITURE_SPECS } from './dressing/furniture.js';
 import { FEATURE_SPECS } from './dressing/features.js';
 import { BIOMES } from '../data/biomes.js';
+import { buildCity } from './dressing/city.js';
+import { CITY_U } from './dressing/city_mat.js';
+import { SetPieces } from './dressing/setpieces.js';
 
 const QUALITY = [
   { far: 0.6, shadow: 0, budget: 2.0 },
@@ -71,6 +74,7 @@ export class Dressing {
     this.water = new Water(scene, road, {});
     this.backdrop = new Backdrop(scene);
     this.chunks = new Map();
+    this.sets = new SetPieces(this);
     this.cam = new THREE.Vector3(); this.s = 0; this.fwd = { x: 0, z: 1 }; this.useFwd = false;
     this._lastRebuild = { x: 1e9, y: 0, z: 0, fx: 0, fz: 0, t: 0 };
     this._clock = 0; this._needRebuild = true; this._poolOk = true; this._loaded = false;
@@ -80,7 +84,7 @@ export class Dressing {
       exclusions: (a, b) => landmarkExclusions(this.ctx, a, b),
       tunnelsNear: (a, b) => road.featuresIn(a, b, 'tunnel'),
     };
-    this.stats = { chunksBuilt: 0, jobMs: 0, rebuilds: 0, rebuildMs: 0, rebuildMax: 0, stepMax: [0, 0, 0, 0, 0, 0, 0, 0] };
+    this.stats = { chunksBuilt: 0, jobMs: 0, rebuilds: 0, rebuildMs: 0, rebuildMax: 0, stepMax: [0, 0, 0, 0, 0, 0, 0, 0, 0] };
   }
 
   /** Asset names a biome can use (scatter + furniture + road features + landmarks). */
@@ -126,10 +130,10 @@ export class Dressing {
   }
 
   // ------------------------------------------------------------------------------------------------ jobs
-  /** stages: 0 ground grid, 1 furniture, 2 road features, 3 landmarks, 4 far scatter tier, 5 mid tier, 6 near tier. A chunk is done when step >= want. */
+  /** stages: 0 ground grid, 1 furniture, 2 road features, 3 landmarks, 4 procedural sets (city), 5 far scatter tier, 6 mid tier, 7 near tier. A chunk is done when step >= want. */
   _wantStep(ch) {
     const dist = Math.abs(ch.s0 + CHUNK_LEN / 2 - this.s);
-    return dist < 340 ? 7 : dist < 1000 ? 6 : 5;
+    return dist < 340 ? 8 : dist < 1000 ? 7 : 6;
   }
   _runStep(ch) {
     const ctx = this.ctx;
@@ -151,9 +155,10 @@ export class Dressing {
       case 1: if (buildFurniture(ctx, ch)) ch.step = 2; break;
       case 2: if (buildFeatures(ctx, ch, this._deadline)) ch.step = 3; break;
       case 3: if (buildLandmarks(ctx, ch)) ch.step = 4; break;
-      case 4: if (runScatter(ctx, ch, 1, this._deadline)) ch.step = 5; break;
-      case 5: if (runScatter(ctx, ch, 2, this._deadline)) ch.step = 6; break;
-      case 6: if (runScatter(ctx, ch, 3, this._deadline)) ch.step = 7; break;
+      case 4: if (buildCity(ctx, ch)) ch.step = 5; break;
+      case 5: if (runScatter(ctx, ch, 1, this._deadline)) ch.step = 6; break;
+      case 6: if (runScatter(ctx, ch, 2, this._deadline)) ch.step = 7; break;
+      case 7: if (runScatter(ctx, ch, 3, this._deadline)) ch.step = 8; break;
       default: break;
     }
   }
@@ -200,8 +205,10 @@ export class Dressing {
     const nk = smoothstep(0.12, 0.6, lookAt(s).night);
     for (const g of this.pool.glow) g.m[g.prop] = g.m.name === 'light_amber' ? Math.max(g.base, g.base * (0.6 + 1.2 * nk)) : g.base * nk;
     if (this.kit.nightMats) for (const g of this.kit.nightMats) g.m[g.prop] = g.base * nk;
+    CITY_U.uNight.value = smoothstep(0.05, 0.7, lookAt(s).night); CITY_U.uTime.value = this._clock % 3600;
     this._jobs(QUALITY[this.quality].budget * (this.chunks.size > 6 && this._warm ? 1 : 3));
     this._warm = true;
+    this.sets.update(s, 1.5);
     for (const ch of this.chunks.values()) if (ch.dirty) { ch.dirty = false; this._needRebuild = true; }
     // fwd for behind-culling
     let fx = 0, fz = 1, useFwd = false;
@@ -234,7 +241,7 @@ export class Dressing {
 
   dispose() {
     for (const [c] of [...this.chunks]) this.onChunkDrop(c);
-    this.pool.dispose(); this.kit.dispose(); this.water.dispose(); this.backdrop.dispose();
+    this.pool.dispose(); this.kit.dispose(); this.water.dispose(); this.backdrop.dispose(); this.sets.dispose();
     this.scene.remove(this.extraGroup);
   }
 }

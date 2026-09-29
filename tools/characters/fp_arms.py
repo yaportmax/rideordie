@@ -91,9 +91,17 @@ def stage1():
     Wk[:, 0] += np.maximum(rest, 0.0)
     Wk /= Wk.sum(1, keepdims=True)
     heads = ch.heads_final                            # (52, 3) game space, all bones (hero_gunner skeleton)
+    # fingertips + MakeHuman's per-finger flexion planes (tip, middle joint, wrist) -> hinge axes, game space
+    tips, planes = {}, {}
+    for s, sfx in (("Left", "L"), ("Right", "R")):
+        for fi, f in enumerate(FINGER_NAMES, start=1):
+            j = lambda n: mh.to_final(mh.to_game(ch.body.joint(n)) + ch.lift)
+            tips["%s%s" % (s, f)] = j("finger%d-3.%s____tail" % (fi, sfx))
+            planes["%s%s" % (s, f)] = np.array([j(p) for p in ch.body.skel["planes"]["finger%d-2.%s____plane" % (fi, sfx)]])
     os.makedirs(CACHE, exist_ok=True)
     np.savez(SRC_NPZ, pos=P, quads=quads, quv=quv, weights=Wk.astype(np.float32), bones=np.array(keep),
-             heads=heads, all_bones=np.array(names), parents=np.array(mh.PARENTS), scale=ch.scale)
+             heads=heads, all_bones=np.array(names), parents=np.array(mh.PARENTS), scale=ch.scale,
+             tip_keys=np.array(list(tips)), tips=np.array(list(tips.values())), planes=np.array([planes[k] for k in tips]))
     print("stage1: %d verts, %d quads, %.1fs" % (len(P), len(quads), time.time() - t0))
 
 
@@ -130,7 +138,7 @@ def main_driver(argv):
         run_blender(extra)
     if 3 in stages:
         import fp_arms_paint
-        fp_arms_paint.stage3(GEO_NPZ, SRC_NPZ, OUT_GLB, ATLAS)
+        fp_arms_paint.stage3(GEO_NPZ, SRC_NPZ, OUT_GLB, ATLAS, quick="--quick" in argv, reuse="--reuse" in argv)
 
 
 if __name__ == "__main__":

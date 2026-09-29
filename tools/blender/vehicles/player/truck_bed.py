@@ -217,6 +217,17 @@ class BedMixin:
         S.append(socket('seat_driver', (dx, C.seat_f - 0.03, C.seat_z + 0.10)))
         wc = self.wheel_c
         S.append(socket('steering_wheel', wc, rot=(-25, 0, 0)))
+        if getattr(self, 'shifter_knob', None):
+            S.append(socket('shifter_knob', self.shifter_knob))
+        # mirror glass centres (+Z faces rearward): door mirrors ride on their door / armour panel (parented in build.py)
+        self.socket_parent = {}
+        for side, (gc, w, h, pnl) in sorted(getattr(self, 'mirror_glass', {}).items()):
+            s_ = socket('mirror_' + side, gc, rot=(0, 180, 0))
+            S.append(s_)
+            self.socket_parent[s_.name] = pnl
+        if getattr(self, 'rvm_c', None):
+            mx, mf, mz = self.rvm_c
+            S.append(socket('mirror_C', (mx, mf - 0.003, mz), rot=(0, 180, 0)))
         S.append(socket('seat_gunner', (0, self.gunner_f, C.z_bed + 0.005)))
         hx = C.hood_hw - 0.03
         zl = C.z_hood_f - 0.19 * k

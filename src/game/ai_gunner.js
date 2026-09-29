@@ -3,6 +3,7 @@
 // right tool (shotgun close, sniper far, RPG for heavies/boss), throws grenades at bunched cars, pops medkits.
 import * as THREE from 'three';
 import { clamp, wrapAngle, lerp } from '../core/util.js';
+import { carPoint } from '../sim/ai.js';
 
 const _p = new THREE.Vector3(), _d = new THREE.Vector3();
 const BOSS_ORDER = ['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R', 'part_turret_main', 'part_tank_L', 'part_tank_R', 'panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_engine'];
@@ -30,6 +31,8 @@ export class AIGunner {
       if (d.alive) { const s = car.spec.seats.driver; out.push({ p: _pt(car, s[0], s[1] + 0.55 - up, s[2]), car, score: base * (dist < 60 ? 1.1 : 0.8), kind: 'driver' }); }
       if (car.spec.explosive || car.spec.mass > 4000) out.push({ p: _pt(car, 0, 0.62 - up, -car.spec.length / 2 + 0.6), car, score: base * 1.3, kind: 'fuel' });
       out.push({ p: car.veh.pos.clone(), car, score: base * 0.5, kind: 'body' });
+      // warlords only really die through their glowing weak point: that is THE target once one is in the fight
+      if (car.elite && car.weakPoint) out.push({ p: carPoint(car, car.weakPoint.c, new THREE.Vector3()), car, score: base * 2.6 + 1.5, kind: 'weak' });
     }
     const B = sim.boss;
     if (B && !B.dead && B.pos.distanceTo(P.veh.pos) < 180) {
@@ -67,7 +70,7 @@ export class AIGunner {
       const slots = gunner.slots;
       const has = (id) => slots.indexOf(id);
       let want = gunner.cur;
-      const heavy = t.boss || (t.car && (t.car.spec.mass > 2500 || t.car.elite));
+      const heavy = t.boss || t.kind === 'weak' || (t.car && (t.car.spec.mass > 2500 || t.car.elite));
       if (has('rpg') >= 0 && heavy && dist > 18 && dist < 140) want = has('rpg');
       else if (has('shotgun') >= 0 && dist < 14) want = has('shotgun');
       else if (has('sniper') >= 0 && dist > 90) want = has('sniper');

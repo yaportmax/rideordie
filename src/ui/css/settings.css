@@ -9,7 +9,7 @@
 .rod-ui .st-rows{position:absolute; left:0; right:0; top:82px; bottom:104px; padding:20px 38px 10px 38px}
 .rod-ui .st-foot{position:absolute; left:0; right:0; bottom:0; height:104px; display:flex; justify-content:flex-end; align-items:center; gap:22px; padding:0 40px 8px}
 .rod-ui .btn.small{height:64px; min-width:240px; font-size:25px; padding:0 34px}
-.rod-ui .srow{position:relative; display:flex; align-items:center; justify-content:space-between; height:94px; padding:0 40px 0 34px; margin:0 0 12px; background:var(--noise-soft),linear-gradient(90deg,#2b241d,#211b16); border:2px solid #3b322a; transform:skewX(-4deg); transition:border-color .1s,background .1s}
+.rod-ui .srow{position:relative; display:flex; align-items:center; justify-content:space-between; height:78px; padding:0 40px 0 34px; margin:0 0 9px; background:var(--noise-soft),linear-gradient(90deg,#2b241d,#211b16); border:2px solid #3b322a; transform:skewX(-4deg); transition:border-color .1s,background .1s}
 .rod-ui .srow>*{transform:skewX(4deg)}
 .rod-ui .srow .sl b{display:block; font-size:26px; font-weight:800; letter-spacing:.12em}
 .rod-ui .srow .sl small{display:block; margin-top:5px; font-size:18px; letter-spacing:.05em; color:var(--mute)}

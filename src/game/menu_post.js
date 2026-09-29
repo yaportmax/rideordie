@@ -80,7 +80,7 @@ export class MenuPost {
       vertexShader: VERT, fragmentShader: FRAG, depthTest: false, depthWrite: false, toneMapped: false,
       uniforms: {
         tScene: { value: this.rt.texture }, uExposure: { value: 1 }, uVig: { value: 0.55 }, uGrain: { value: 0.035 }, uTime: { value: 0 }, uFade: { value: 0 },
-        uSat: { value: 1.05 }, uAspect: { value: 16 / 9 }, uShadowTint: { value: new THREE.Color(0.93, 0.97, 1.06) }, uHighTint: { value: new THREE.Color(1.04, 1.0, 0.94) },
+        uSat: { value: 1.05 }, uAspect: { value: 16 / 9 }, uShadowTint: { value: new THREE.Color(0.9, 0.95, 1.1) }, uHighTint: { value: new THREE.Color(1.05, 1.0, 0.92) },
       },
     });
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat); this.quad.frustumCulled = false;
@@ -114,6 +114,7 @@ export class MenuPost {
     const prevTM = r.toneMapping, prevAC = r.autoClear, prevExp = r.toneMappingExposure;
     r.toneMapping = THREE.NoToneMapping; r.autoClear = true; r.toneMappingExposure = 1;
     r.setRenderTarget(this.rt); r.clear(); r.render(scene, camera);
+    this.stats = { calls: r.info.render.calls, tris: r.info.render.triangles };
     if (this.bloom.strength > 0.001) this.bloom.render(r, null, this.rt, dt, false);
     r.setRenderTarget(null); r.render(this.fsScene, this.fsCam);
     r.toneMapping = prevTM; r.autoClear = prevAC; r.toneMappingExposure = prevExp;

@@ -31,7 +31,7 @@ for (const b of only) {
     const url = `${base}/index.html?solo&as=${v}&s=${s}&seed=${seed}${opt.q ? '&' + opt.q : ''}`;
     try {
       await page.goto(url, { waitUntil: 'load' });
-      await page.waitForFunction('window.__ready === true', null, { timeout: 120000 }).catch(() => errs.push('__ready not set'));
+      await page.waitForFunction('window.__ready === true', null, { timeout: 120000 }).then(() => page.evaluate(() => document.getElementById('boot')?.remove())).catch(() => errs.push('__ready not set'));
       await page.waitForTimeout(+(opt.wait || 800));
       const r = await page.evaluate(({ drive, speed, cam, lat }) => new Promise((res) => {
         window.__autodrive = { speed, lat };

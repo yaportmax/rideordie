@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { LAYERS } from './terrain_gen.js';
 import { coverPrewarmMeshes } from './dressing/groundcover.js';
+import { furniturePrewarmMeshes } from './dressing/furniture.js';
 
 /** Metres covered by one texture tile, per layer (all divide TEX_WRAP = 720). */
 const TILE = { sand: 6, dirt_red: 5, gravel: 3, dry_grass: 4, rock_red: 9, rock_grey: 9, snow: 6, forest_floor: 4, grass_green: 4, concrete: 5, cliff: 12, concrete_cracked: 5 };
@@ -99,6 +100,14 @@ const GROUND_GLSL = /* glsl */`
   // Whiteout-blended world normal of one layer. uv conventions: image up = +z (top), +y (sides) - the array rows start at the image top.
   // Gradients come from gDx/gDy (d tp / d screen, computed once outside every loop / branch: no undefined derivatives).
   vec3 gDx, gDy;
+  // triplanar projection sample + a half-scale mirrored copy (anti-tiling; half scale keeps the TEX_WRAP period, strata stay horizontal)
+  void triS(float fi, vec2 uv, vec2 g1, vec2 g2, float aw, out vec4 a, out vec4 m) {
+    a = textureGrad(uAlbedo, vec3(uv, fi), g1, g2); m = textureGrad(uNRA, vec3(uv, fi), g1, g2);
+    vec2 uv2 = vec2(-uv.x, uv.y) * 0.5 + vec2(0.37, 0.21), k = vec2(-0.5, 0.5);
+    vec4 a2 = textureGrad(uAlbedo, vec3(uv2, fi), g1 * k, g2 * k), m2 = textureGrad(uNRA, vec3(uv2, fi), g1 * k, g2 * k);
+    m2.x = 1.0 - m2.x;
+    a = mix(a, a2, aw); m = mix(m, m2, aw);
+  }
   void gLayer(int i, vec3 tp, vec3 N, vec3 bl, float antiW, float fadeN, out vec3 alb, out vec3 nW, out vec2 ra) {
     float sc = uTile[i], fi = float(i);
     if (uTri[i] > 0.5) {
@@ -107,21 +116,21 @@ const GROUND_GLSL = /* glsl */`
       alb = vec3(0.0); nW = vec3(0.0); ra = vec2(0.0);
       if (bl.x > 0.02) {
         vec2 uv = vec2(tp.z * sg.x, -tp.y) * sc, g1 = vec2(gDx.z * sg.x, -gDx.y) * sc, g2 = vec2(gDy.z * sg.x, -gDy.y) * sc;
-        vec4 a = textureGrad(uAlbedo, vec3(uv, fi), g1, g2), m = textureGrad(uNRA, vec3(uv, fi), g1, g2);
+        vec4 a, m; triS(fi, uv, g1, g2, antiW, a, m);
         vec3 t = vec3((m.xy * 2.0 - 1.0) * fadeN, 1.0); t.x *= sg.x;
         t = vec3(t.xy + N.zy, t.z * aN.x); t.z *= sg.x;
         alb += a.rgb * bl.x; nW += t.zyx * bl.x; ra += m.zw * bl.x;
       }
       if (bl.y > 0.02) {
         vec2 uv = vec2(tp.x * sg.y, -tp.z) * sc, g1 = vec2(gDx.x * sg.y, -gDx.z) * sc, g2 = vec2(gDy.x * sg.y, -gDy.z) * sc;
-        vec4 a = textureGrad(uAlbedo, vec3(uv, fi), g1, g2), m = textureGrad(uNRA, vec3(uv, fi), g1, g2);
+        vec4 a, m; triS(fi, uv, g1, g2, antiW, a, m);
         vec3 t = vec3((m.xy * 2.0 - 1.0) * fadeN, 1.0); t.x *= sg.y;
         t = vec3(t.xy + N.xz, t.z * aN.y); t.z *= sg.y;
         alb += a.rgb * bl.y; nW += t.xzy * bl.y; ra += m.zw * bl.y;
       }
       if (bl.z > 0.02) {
         vec2 uv = vec2(-tp.x * sg.z, -tp.y) * sc, g1 = vec2(-gDx.x * sg.z, -gDx.y) * sc, g2 = vec2(-gDy.x * sg.z, -gDy.y) * sc;
-        vec4 a = textureGrad(uAlbedo, vec3(uv, fi), g1, g2), m = textureGrad(uNRA, vec3(uv, fi), g1, g2);
+        vec4 a, m; triS(fi, uv, g1, g2, antiW, a, m);
         vec3 t = vec3((m.xy * 2.0 - 1.0) * fadeN, 1.0); t.x *= -sg.z;
         t = vec3(t.xy + N.xy, t.z * aN.z); t.z *= sg.z;
         alb += a.rgb * bl.z; nW += t.xyz * bl.z; ra += m.zw * bl.z;
@@ -181,8 +190,8 @@ const GROUND_GLSL = /* glsl */`
     }
     float rockStreak = 1.0;
     if (bl.x + bl.z > 0.05) {
-      float sx = textureGrad(uMacroT, vec2(tp.z / 11.0, tp.y / 95.0), vec2(gDx.z / 11.0, gDx.y / 95.0), vec2(gDy.z / 11.0, gDy.y / 95.0)).y;
-      float sz = textureGrad(uMacroT, vec2(tp.x / 11.0, tp.y / 95.0 + 0.5), vec2(gDx.x / 11.0, gDx.y / 95.0), vec2(gDy.x / 11.0, gDy.y / 95.0)).y;
+      float sx = textureGrad(uMacroT, vec2(tp.z / 12.0, tp.y / 95.0), vec2(gDx.z / 12.0, gDx.y / 95.0), vec2(gDy.z / 12.0, gDy.y / 95.0)).y;
+      float sz = textureGrad(uMacroT, vec2(tp.x / 12.0, tp.y / 95.0 + 0.5), vec2(gDx.x / 12.0, gDx.y / 95.0), vec2(gDy.x / 12.0, gDy.y / 95.0)).y;
       float st = (sx * bl.x + sz * bl.z) / (bl.x + bl.z);
       rockStreak = 1.0 - 0.32 * smoothstep(0.5, 0.78, st) * smoothstep(0.05, 0.3, bl.x + bl.z) + 0.08 * smoothstep(0.35, 0.1, st);
     }
@@ -352,9 +361,9 @@ export function makeRoadMaterial(tex) {
         // ---------------- tar-sealed cracks: transverse, along the lane joints, and meandering "tar snakes"
         float tar = 0.0;
         for (int k = -1; k <= 1; k++) {
-          float ci = floor(s / 7.0) + float(k), hc = h21(vec2(ci, seg + 3.1));
+          float ci = floor(s / 8.0) + float(k), hc = h21(vec2(ci, seg + 3.1));
           if (hc < 0.42) {
-            float sc = ci * 7.0 + 1.0 + h11(ci + seg * 13.0) * 5.0;
+            float sc = ci * 8.0 + 1.0 + h11(ci + seg * 13.0) * 6.0;
             float wig = (textureLod(uMacroT, vec2(d / 9.0, hc * 7.3), 0.0).y - 0.5) * 1.3 + d * (h11(ci * 3.1) - 0.5) * 0.14;
             float span = step(abs(d - (h11(ci * 1.7) - 0.5) * 10.0), 2.5 + h11(ci * 2.3) * 7.0);
             tar = max(tar, boxCov(s - sc - wig, 0.018 + 0.02 * h11(ci * 5.9), fw.y + fw.x * 0.15) * span);
@@ -373,9 +382,9 @@ export function makeRoadMaterial(tex) {
         float skid = 0.0;
         float streakN = texture(uMacroT, vec2(d * 2.0, s / 12.0)).z;
         for (int k = -1; k <= 0; k++) {
-          float ci = floor(s / 60.0) + float(k), hs = h21(vec2(ci, seg + 11.7));
+          float ci = floor(s / 64.0) + float(k), hs = h21(vec2(ci, seg + 11.7));
           if (hs < 0.38) {
-            float s0 = ci * 60.0 + h11(ci * 1.3 + seg) * 30.0, len = 14.0 + h11(ci * 2.1 + seg) * 38.0, t = (s - s0) / len;
+            float s0 = ci * 64.0 + h11(ci * 1.3 + seg) * 30.0, len = 14.0 + h11(ci * 2.1 + seg) * 38.0, t = (s - s0) / len;
             if (t > 0.0 && t < 1.0) {
               float dc = (h11(ci * 3.7 + seg) - 0.5) * 9.0 + (h11(ci * 5.1 + seg) - 0.5) * 6.0 * t * t;
               float m = boxCov(d - dc - 0.82, 0.11, fw.x) + boxCov(d - dc + 0.82, 0.11, fw.x);
@@ -405,6 +414,16 @@ export function makeRoadMaterial(tex) {
           paintA = t.y; paintL = t.x;
           if (d > 0.0) paintTint = vec3(0.9, 0.6, 0.1);
         }
+        // milled rumble strip just outside the edge lines (rural highway): 0.3 m pitch grooves, box-filtered so it never shimmers
+        float rumble = 0.0;
+        if (city < 0.5 && abs(ad - 6.98) < 0.2) {
+          float gv = mod(s, 0.3) - 0.15;
+          float across = boxCov(ad - 6.98, 0.13, fw.x);
+          float fy = fw.y; float gr = fy > 0.2 ? 0.45 : boxCov(gv, 0.075, fy);
+          rumble = across * gr * (1.0 - city) * smoothstep(0.2, 0.45, nA.x + 0.3);
+          alb *= 1.0 - 0.3 * rumble; ao = mix(ao, ao * 0.7, rumble);
+          nxy.y += (fy > 0.2 ? 0.0 : sign(gv) * 0.55) * across * (1.0 - city);
+        }
         paintA *= mix(0.55, 1.0, smoothstep(0.25, 0.6, nB.z)) * (1.0 - 0.28 * dusty) * (1.0 - 0.6 * tar);
         alb = mix(alb, paintTint * (0.7 + 0.35 * paintL), paintA);
         rough = mix(rough, 0.5, paintA); nxy *= 1.0 - 0.6 * paintA; ao = mix(ao, 1.0, paintA);
@@ -428,7 +447,7 @@ export function makeRoadMaterial(tex) {
         // ---------------- wet: damp stretches, puddles in dips and ruts
         float pf = nC.w * 0.5 + nB.z * 0.5 + (1.0 - smoothstep(0.1, 0.2, abs(abs(lu - 0.5) - 0.24))) * 0.08 + smoothstep(6.0, 7.1, ad) * 0.07;
         float pth = 0.9 - 0.08 * wet;
-        float pud = smoothstep(pth, pth + 0.05, pf) * smoothstep(0.3, 0.5, wet) * (1.0 - sandM);
+        float pud = smoothstep(pth, pth + 0.05, pf) * smoothstep(0.3, 0.5, wet) * (1.0 - sandM) * city;
         float damp = wet * (0.6 + 0.4 * smoothstep(pth - 0.2, pth, pf));
         alb *= 1.0 - 0.35 * damp; rough = mix(rough, 0.42, damp * 0.7);
         alb = mix(alb, alb * 0.55, pud); rough = mix(rough, 0.12, pud); nxy *= 1.0 - 0.9 * pud;
@@ -446,9 +465,9 @@ export function makeRoadMaterial(tex) {
           float band = 1.0 - smoothstep(0.0, 0.7, ad - asphEnd);
           vAlb *= 1.0 - 0.18 * band * (0.5 + 0.5 * nC.z);
           // snow banks on the high mountain passes
-          float snowM = snow * smoothstep(7.15, 7.7, ad) * (1.0 - smoothstep(8.7, 9.45, ad)) * smoothstep(0.5, 0.62, nB.x * 0.7 + nC.z * 0.3);
+          float snowM = snow * smoothstep(7.15, 7.7, ad) * (1.0 - smoothstep(8.4, 9.45, ad)) * smoothstep(0.58, 0.68, nB.x * 0.7 + nC.z * 0.3) * smoothstep(0.3, 0.5, nC.x);
           vec3 snA = textureGrad(uAlbedo, vec3(vec2(vTexPos.x, -vTexPos.z) / 6.0, 6.0), vec2(gDx.x, -gDx.z) / 6.0, vec2(gDy.x, -gDy.z) / 6.0).rgb;
-          snA *= mix(vec3(0.72, 0.7, 0.66), vec3(1.0), smoothstep(0.55, 0.8, nB.x + (ad - 8.0) * 0.2));   // grimy near the asphalt
+          snA *= mix(vec3(0.5, 0.48, 0.46), vec3(0.85), smoothstep(0.6, 0.85, nB.x + (ad - 8.0) * 0.2));   // old, grimy roadside snow
           vAlb = mix(vAlb, snA, snowM); vRough = mix(vRough, 0.75, snowM); vN = normalize(mix(vN, normalize(vWNrm), snowM * 0.7));
         }
         // city / dam: concrete kerb + sidewalk slabs instead of a gravel shoulder
@@ -497,13 +516,14 @@ export function makeRoadMaterial(tex) {
   return mat;
 }
 
-/** Throw-away meshes that use the terrain, road and ground-cover programs with the same flags as in play (add them to Game.prewarm's
- *  group so these big shaders compile before the run instead of on the first streamed chunk). */
+/** Throw-away meshes that use the terrain, road, ground-cover and procedural-furniture programs with the same flags as in play (added to
+ *  Game.prewarm's group so these shaders compile before the run instead of on the first streamed chunk). */
 export function groundPrewarmMeshes(terrainMat, roadMat) {
   const out = [];
   const add = (mat) => { if (!mat) return; const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), mat); m.receiveShadow = true; m.castShadow = true; out.push(m); };
   add(terrainMat); add(roadMat);
   for (const m of coverPrewarmMeshes()) out.push(m);
+  for (const m of furniturePrewarmMeshes()) out.push(m);
   return out;
 }
 

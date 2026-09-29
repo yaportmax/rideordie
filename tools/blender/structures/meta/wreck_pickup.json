@@ -1,0 +1,36 @@
+{
+ "id": "wreck_pickup",
+ "file": "models/structures/wreck_pickup.glb",
+ "tris": 556,
+ "collision_tris": 12,
+ "size_kb": 49.2,
+ "bbox_min": [
+  -1.13,
+  0.0,
+  -2.9
+ ],
+ "bbox_max": [
+  1.51,
+  1.75,
+  2.72
+ ],
+ "dims": [
+  2.63,
+  1.75,
+  5.62
+ ],
+ "materials": [
+  "metal_dark",
+  "rubber",
+  "rust"
+ ],
+ "nodes": {
+  "rust": 224,
+  "metal_dark": 200,
+  "rubber": 132
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "id": "wreck_sedan",
+ "file": "models/structures/wreck_sedan.glb",
+ "tris": 490,
+ "collision_tris": 12,
+ "size_kb": 44.6,
+ "bbox_min": [
+  -1.06,
+  0.0,
+  -2.55
+ ],
+ "bbox_max": [
+  1.45,
+  1.65,
+  2.37
+ ],
+ "dims": [
+  2.51,
+  1.65,
+  4.92
+ ],
+ "materials": [
+  "metal_dark",
+  "rubber",
+  "rust"
+ ],
+ "nodes": {
+  "rust": 224,
+  "metal_dark": 178,
+  "rubber": 88
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+ }
+}
