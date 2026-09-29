@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import * as Assets from '/src/core/assets.js';
-import { ViewModel, VMU, FP_ARMS_URL } from '/src/view/viewmodel.js';
+import { ViewModel, VMU, FP_ARMS_URL, TUNE } from '/src/view/viewmodel.js';
 import { weaponStats } from '/src/data/weapons.js';
 
 const q = new URLSearchParams(location.search);
@@ -44,6 +44,8 @@ const urls = [FP_ARMS_URL, '/models/characters/hero_gunner.glb', ...['pistol', '
 await Assets.preload(urls);
 await Assets.loadGLB(FP_ARMS_URL);
 await new Promise((r) => setTimeout(r, 50));
+// pose=<clip> previews another finger clip on this gun (e.g. the per-weapon pose_<gun> clips of fp_arms.glb)
+if (q.has('pose') && TUNE[gun]) TUNE[gun].pose = q.get('pose');
 const vm = new ViewModel(); window.__vm = vm;
 await new Promise((r) => setTimeout(r, 50));
 
