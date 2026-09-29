@@ -40,6 +40,7 @@ CLIP = {"rifle": "pose_rifle", "pistol": "pose_pistol", "rpg": "pose_launcher", 
 SCAN_R = False
 # manual right-hand adjustments per gun (mm): (along the grip axis, fore-aft across it, lateral) from the index-to-trigger start
 R_ADJ = {}
+R_FIX = {"revolver": (4.0, -10.0, 1.0, 0.0, 0.0, -26.0)}
 # manual left-hand adjustments (mm, G axes) from the handguard-bottom contact point under the authored grip_L
 L_ADJ = {}
 LEFT_KIND = {"rifle": "hg", "smg": "hg", "shotgun": "hg", "lmg": "hg", "sniper": "hg", "pistol": "cup", "revolver": "cup", "rpg": "vgrip"}
@@ -366,8 +367,12 @@ def fit_right(gun, rig, geo, S, verbose=True):
     else:
         # height fixed (index plane at the trigger, + manual R_ADJ); settle the palm onto the panel: lateral / fore-aft scan
         adj = R_ADJ.get(gun.name, (0, 0, 0))
-        x, _ = grid_min(lambda v: cost((adj[0], v[0], v[1]), 0.0), [np.arange(-8, 8.1, 1.0), np.arange(-10, 4.1, 1.0)])
-        pl.x = np.array([adj[0], x[0] + adj[1], x[1] + adj[2], 0, 0, 0], float)
+        if gun.name in R_FIX:            # hand-placed (visual check in fp_qa): (along the axis, fore-aft, lateral)
+            fx = list(R_FIX[gun.name]) + [0.0] * (6 - len(R_FIX[gun.name]))
+            pl.x = np.array(fx, float)
+        else:
+            x, _ = grid_min(lambda v: cost((adj[0], v[0], v[1]), 0.0), [np.arange(-8, 8.1, 1.0), np.arange(-10, 4.1, 1.0)])
+            pl.x = np.array([adj[0], x[0] + adj[1], x[1] + adj[2], 0, 0, 0], float)
     FH = F.FHI
     specs = {"Middle": dict(x0=(75, 90, 45), lo=(20, 30, 10), hi=FH), "Ring": dict(x0=(78, 90, 45), lo=(20, 30, 10), hi=FH),
              "Pinky": dict(x0=(80, 85, 45), lo=(20, 30, 10), hi=FH),

@@ -33,6 +33,7 @@ export class Cockpit {
       if (changed) o.material = arr ? mats : mats[0];
     });
     this._measure();
+    this._sunStrip();
     this._mirrors();
     this._cluster();
     this._windshield();
@@ -101,6 +102,29 @@ export class Cockpit {
       this.rvm = !f.isEmpty() && w > 0.12 && w < 0.4 && h > 0.035 && h < 0.16 ? f : null; }
     // the driver's eye (model space) -- run.js refines it from the head bone, this is for aiming the mirrors
     this.eye = new THREE.Vector3(this.seatPos.x, this.seatPos.y + 0.78, this.seatPos.z + 0.1);
+  }
+
+  /** The windshield sun-strip decal reads mirror-reversed from inside and eats the top of the view: in the cockpit swap the
+   *  body decal mesh for a copy without the triangles on the upper windshield (dash/door stickers stay). */
+  _sunStrip() {
+    const S = this.shield; this.decalSwap = [];
+    const inv = new THREE.Matrix4().copy(this.model.matrixWorld).invert();
+    this.model.traverse((o) => {
+      if (!o.isMesh || Array.isArray(o.material) || o.material?.name !== 'decal' || !o.geometry.index) return;
+      for (let p = o.parent; p && p !== this.model; p = p.parent) if (/^panel_/.test(p.name)) return;
+      const g = o.geometry, pos = g.attributes.position, idx = g.index, mw = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      const keep = []; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+      let cut = 0;
+      for (let i = 0; i < idx.count; i += 3) {
+        a.fromBufferAttribute(pos, idx.getX(i)).applyMatrix4(mw); b.fromBufferAttribute(pos, idx.getX(i + 1)).applyMatrix4(mw); c.fromBufferAttribute(pos, idx.getX(i + 2)).applyMatrix4(mw);
+        const y = (a.y + b.y + c.y) / 3, z = (a.z + b.z + c.z) / 3;
+        if (y > S.top - 0.3 && z > this.wheelPos.z - 0.05) { cut++; continue; }
+        keep.push(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
+      }
+      if (!cut) return;
+      const g2 = g.clone(); g2.setIndex(keep);
+      this.decalSwap.push({ mesh: o, full: g, cut: g2 });
+    });
   }
 
   // ---------------------------------------------------------------- mirrors
@@ -303,6 +327,7 @@ export class Cockpit {
     // armoured visor: from inside it would leave a letterbox slit above the road -- the driver looks past it (outside it's still there)
     const visor = this.cv.panels.get('armor_windshield');
     if (visor && !visor.userData.gone) visor.visible = !on;
+    for (const d of this.decalSwap || []) d.mesh.geometry = on ? d.cut : d.full;
     for (const m of this.glass) { const b = m.userData.base; m.opacity = on ? 0.05 : b.opacity; m.envMapIntensity = on ? 0.12 : b.env; if (on) m.color.setRGB(0.85, 0.88, 0.9).multiplyScalar(0.5); else m.color.copy(b.color); }
   }
   /** d: run.hud2. night: 0..1. */
@@ -340,7 +365,8 @@ export class Cockpit {
     const vis = playerRoot.visible; playerRoot.visible = false;
     const auto = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
     const prev = renderer.getRenderTarget();
-    renderer.setRenderTarget(this.rt); renderer.render(scene, cam); renderer.setRenderTarget(prev);
+    // the post pipeline turns autoClear off: clear colour+depth ourselves or every frame smears into the last (ghost trails)
+    renderer.setRenderTarget(this.rt); renderer.clear(true, true, true); renderer.render(scene, cam); renderer.setRenderTarget(prev);
     renderer.shadowMap.autoUpdate = auto; playerRoot.visible = vis;
   }
   /** World position of the look-back camera. */
@@ -351,6 +377,7 @@ export class Cockpit {
     this.rt.dispose(); this.faceTex.dispose(); this.crackTex.dispose();
     for (const m of this.meshes) m.geometry?.dispose();
     for (const m of this.glass) m.dispose();
+    for (const d of this.decalSwap || []) { d.mesh.geometry = d.full; d.cut.dispose(); }
     this.dark.dispose(); this.glassMat.dispose(); this.faceMat.dispose(); this.needleMat.dispose(); this.crackMat.dispose();
   }
 }

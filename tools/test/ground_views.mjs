@@ -12,8 +12,9 @@ const prefix = pos[0] || 'shots/ground/v';
 const base = opt.base || 'http://localhost:5180';
 const SPOTS = { desert: 3500, canyon: 13000, coast: 23600, mountain: 34000, city: 44600, dam: 53000 };
 const only = opt.only ? opt.only.split(',') : Object.keys(SPOTS);
-const views = (opt.views || 'eye,verge,road,side').split(',');
+let views = (opt.views || 'eye,verge,road,side').split(',');
 // [offset (x left, y above road, z fwd), look, fov]
+const PRESET_ORB = {};
 const PRESET = {
   eye: [[0.45, 1.3, 1.6], [0.45, 0.9, 40], 72],
   gun: [[0, 2.2, -1.2], [0, 1.2, 30], 72],
@@ -33,6 +34,8 @@ const PRESET = {
   zoomL2: [[3, 1.8, 0], [11.4, 1.9, 30], 12],
   signL: [[3, 1.4, 0], [11, 0.9, 22], 40],
 };
+// --orbit=r,h[,n]: n views orbiting the truck at radius r / height h (death-cam style), looking at the truck
+if (opt.orbit) { const [r, h, n = 6] = opt.orbit.split(',').map(Number); views = []; for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; const k = 'orb' + i; views.push(k); PRESET_ORB[k] = [[Math.sin(a) * r, h, Math.cos(a) * r], [0, 0.8, 0], 60]; } }
 fs.mkdirSync(path.dirname(prefix), { recursive: true });
 const browser = await chromium.launch({
   executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true,
@@ -50,7 +53,7 @@ for (const b of only) {
     await page.evaluate(({ speed, lat, hold }) => { if (hold) window.__forceInput = { throttle: 0, brake: 1, steer: 0, handbrake: true }; else window.__autodrive = { speed, lat }; }, { speed: +(opt.speed ?? 25), lat: +(opt.lat || 0), hold: !!opt.hold });
     await page.waitForTimeout(+(opt.drive || 6000));
     for (const v of views) {
-      const [o, l, fov] = PRESET[v];
+      const [o, l, fov] = PRESET[v] || PRESET_ORB[v];
       await page.evaluate(({ o, l, fov }) => {
         const run = window.__run, p = run.states.get(1), road = run.sim.road;
         const n = road.nearest(p.pos.x, p.pos.z, run.playerS || 0, 60, {});

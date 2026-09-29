@@ -7,7 +7,7 @@ const BINDINGS_KEY = 'rideordie.bindings.v1';
 export const DEFAULT_SETTINGS = {
   quality: 2,        // 0 low .. 3 ultra
   resScale: 1,       // render resolution scale 0.5 .. 1.5
-  fov: 75,           // vertical fov, degrees (60..100)
+  fov: 80,           // vertical fov, degrees (60..100) -- first person
   shake: 1,          // camera shake amount 0..1
   mouseSens: 1,      // multiplier on Input.sens.mouse
   padSens: 1,        // multiplier on Input.sens.padYaw/padPitch

@@ -564,6 +564,10 @@ def export_gltf(path):
     except TypeError:
         kw.pop("export_vertex_color", None)
         bpy.ops.export_scene.gltf(**kw)
+    # part geometry one node down (keeps every animated node alive through the game's load-time mesh merge)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import fix_mesh_nodes
+    fix_mesh_nodes.split_mesh_nodes(path)
     print("EXPORTED", path, "%.1f KB" % (os.path.getsize(path) / 1024))
 
 

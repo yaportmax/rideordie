@@ -447,8 +447,8 @@ export class Run {
       g.audio?.setCabin?.(ck && ck.active ? 1 : 0);
       const cl = g.cabinLight;
       if (cl) {
-        const on = ck && ck.active ? clamp(((g.look?.night ?? 0) - 0.1) / 0.5, 0, 1) : 0;
-        cl.intensity = on * 0.25;
+        const nightK = clamp(((g.look?.night ?? 0) - 0.1) / 0.5, 0, 1), on = ck && ck.active ? 1 : 0;
+        cl.intensity = on * (0.07 + 0.18 * nightK); // a faint daytime fill too: shaded cabs (canyon, mountains) went near-black
         if (on > 0) cl.position.copy(cockpitEye).addScaledVector(_f.set(0, 0, 1).applyQuaternion(pst.quat), 0.42).addScaledVector(_v.set(0, 1, 0).applyQuaternion(pst.quat), -0.28);
       }
       this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion);
@@ -501,7 +501,7 @@ export class Run {
     if (head) {
       head.getWorldPosition(_v);
       _v.sub(pst.pos).applyQuaternion(_q2.copy(pst.quat).invert()); _v.y += pst.ride.restComHeight;   // -> truck-local (ground origin)
-      _v.z -= 0.1; _v.y += 0.11;                                                                        // behind/above the head joint: a natural distance to the wheel and glass, over the hood kit, no own shoulders in view
+      _v.z -= 0.05; _v.y += 0.14;                                                                        // behind/above the head joint: a natural distance to the wheel and glass, over the hood kit, no own shoulders in view
       const k = 1 - Math.exp(-dt * 10); loc.lerp(_v, k);
     }
     return out.set(loc.x, loc.y - pst.ride.restComHeight, loc.z).applyQuaternion(pst.quat).add(pst.pos);
