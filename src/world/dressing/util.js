@@ -58,17 +58,41 @@ function locate(s, d, s0, rows) {
 /** Cached LOD0 terrain grid of one chunk (2 sides x 33 rows x 33 cols). sample() returns exactly what the terrain mesh shows. */
 export class ChunkGround {
   constructor(road, seed, c, bridges) {
+    this.road = road; this.seed = seed; this.bridges = bridges;
     this.c = c; this.s0 = c * CHUNK_LEN; this.rows = CHUNK_LEN / DS + 1; this.nc = COLS.length;
     this.pos = new Float32Array(2 * this.rows * this.nc * 3);
-    const P = {};
-    let o = 0;
+    this.next = 0; // rows computed so far (both sides count: 0 .. 2*rows)
+  }
+  get done() { return this.next >= 2 * this.rows; }
+  /** Copy the grid out of a LOD0 terrain mesh built by the terrain worker (identical numbers, zero cost). */
+  fromTerrainMesh(rec) {
+    if (!rec || rec.lod !== 0 || !rec.mesh) return false;
+    const src = rec.mesh.geometry.attributes.position.array, a = rec.mesh.position;
+    const per = this.rows * this.nc, sideStride = per + 2 * this.nc + this.rows; // grid + first/last-row skirts + outer-column skirt
+    if (src.length < (sideStride + per) * 3) return false;
     for (let si = 0; si < 2; si++) {
-      const side = si === 0 ? 1 : -1;
-      for (let r = 0; r < this.rows; r++) for (let k = 0; k < this.nc; k++) {
-        terrainPoint(road, seed, this.s0 + r * DS, side * (EDGE + COLS[k]), P, bridges);
-        this.pos[o++] = P.x; this.pos[o++] = P.y; this.pos[o++] = P.z;
+      const base = si * sideStride * 3, o0 = si * per * 3;
+      for (let i = 0; i < per; i++) {
+        this.pos[o0 + i * 3] = src[base + i * 3] + a.x; this.pos[o0 + i * 3 + 1] = src[base + i * 3 + 1] + a.y; this.pos[o0 + i * 3 + 2] = src[base + i * 3 + 2] + a.z;
       }
     }
+    this.next = 2 * this.rows;
+    return true;
+  }
+  /** Compute up to `maxRows` rows (time slicing). */
+  build(maxRows = 1e9) {
+    const P = {};
+    let n = 0;
+    while (this.next < 2 * this.rows && n < maxRows) {
+      const si = this.next >= this.rows ? 1 : 0, r = this.next - si * this.rows, side = si === 0 ? 1 : -1;
+      let o = ((si * this.rows + r) * this.nc) * 3;
+      for (let k = 0; k < this.nc; k++) {
+        terrainPoint(this.road, this.seed, this.s0 + r * DS, side * (EDGE + COLS[k]), P, this.bridges);
+        this.pos[o++] = P.x; this.pos[o++] = P.y; this.pos[o++] = P.z;
+      }
+      this.next++; n++;
+    }
+    return this.done;
   }
   sample(s, d, o = {}) {
     const [r, c, u, v] = locate(s, d, this.s0, this.rows);

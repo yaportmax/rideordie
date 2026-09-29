@@ -25,7 +25,10 @@ import { buildFurniture } from './dressing/furniture.js';
 import { Water } from './water.js';
 import { Backdrop } from './dressing/backdrop.js';
 import { buildFeatures, updateBoostAnim } from './dressing/features.js';
-import { buildLandmarks, landmarkExclusions } from './dressing/landmarks.js';
+import { buildLandmarks, landmarkExclusions, landmarkAssets } from './dressing/landmarks.js';
+import { FURNITURE_SPECS } from './dressing/furniture.js';
+import { FEATURE_SPECS } from './dressing/features.js';
+import { BIOMES } from '../data/biomes.js';
 
 const QUALITY = [
   { far: 0.6, shadow: 0, budget: 2.0 },
@@ -66,12 +69,32 @@ export class Dressing {
       exclusions: (a, b) => landmarkExclusions(this.ctx, a, b),
       tunnelsNear: (a, b) => road.featuresIn(a, b, 'tunnel'),
     };
-    this.stats = { chunksBuilt: 0, jobMs: 0, rebuilds: 0, rebuildMs: 0 };
+    this.stats = { chunksBuilt: 0, jobMs: 0, rebuilds: 0, rebuildMs: 0, rebuildMax: 0, stepMax: [0, 0, 0, 0, 0, 0, 0, 0] };
+  }
+
+  /** Asset names a biome can use (scatter + furniture + road features + landmarks). */
+  assetsFor(id) {
+    const out = new Set([...Object.keys(FURNITURE_SPECS), ...Object.keys(FEATURE_SPECS), 'sign_gas', ...landmarkAssets(id)]);
+    for (const e of SCATTER) {
+      if (!(e.w[id] > 0) || !((BIOMES[id].scatter[e.key] ?? 0) > 0)) continue;
+      out.add(e.id); if (e.fallback) out.add(e.fallback);
+      if (e.lods && !e.lodCells) for (const l of e.lods) out.add(l.asset);
+    }
+    for (const n of ['guardrail_lod', 'jersey_lod', 'utility_pole_lod']) out.delete(n);
+    return [...out];
+  }
+  /** Start loading the assets of the biome at s (not awaited unless you await it). */
+  prefetch(s) {
+    const b = biomeAt(s), ids = new Set([b.a, b.b]);
+    const all = []; for (const id of ids) if (!this._fetched.has(id)) { this._fetched.add(id); all.push(...this.assetsFor(id)); }
+    return this.kit.requestMany(all);
   }
 
   async load(startS = 0) {
     await this.kit.init();
     registerProcedural(this.kit);
+    this._fetched = new Set();
+    await Promise.all([this.prefetch(startS), this.prefetch(startS + 2500)]);
     this._loaded = true;
     return this;
   }
@@ -92,28 +115,34 @@ export class Dressing {
   }
 
   // ------------------------------------------------------------------------------------------------ jobs
-  /** stages: 0 ground, 1 structures, 2 far tier, 3 mid tier, 4 near tier. A chunk is done when step >= want. */
+  /** stages: 0 ground grid, 1 furniture, 2 road features, 3 landmarks, 4 far scatter tier, 5 mid tier, 6 near tier. A chunk is done when step >= want. */
   _wantStep(ch) {
     const dist = Math.abs(ch.s0 + CHUNK_LEN / 2 - this.s);
-    return dist < 340 ? 5 : dist < 1000 ? 4 : 3;
+    return dist < 340 ? 7 : dist < 1000 ? 6 : 5;
   }
   _runStep(ch) {
     const ctx = this.ctx;
     switch (ch.step) {
       case 0: {
         const road = this.road;
-        road.extendTo(ch.s0 + CHUNK_LEN + 600);
-        const bridges = road.features.filter((f) => f.type === 'bridge' && f.s1 > ch.s0 - 300 && f.s0 < ch.s0 + CHUNK_LEN + 300);
-        ch.ground = new ChunkGround(road, this.seed, ch.c, bridges);
+        if (!ch.ground) {
+          road.extendTo(ch.s0 + CHUNK_LEN + 600);
+          const bridges = road.features.filter((f) => f.type === 'bridge' && f.s1 > ch.s0 - 300 && f.s0 < ch.s0 + CHUNK_LEN + 300);
+          ch.ground = new ChunkGround(road, this.seed, ch.c, bridges);
+          ch.ground.fromTerrainMesh(ch.rec);
+        }
+        if (!ch.ground.build(22)) break;              // ~1.5 ms slices
         const bio = biomeAt(ch.s0 + CHUNK_LEN / 2);
         ch.seaY = bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : bio.a === 'dam' || bio.b === 'dam' ? seaLevel(road, 'dam') : -1e9;
         if (ch.seaY > -1e8) this.water.buildChunk(ch, bio.a === 'dam' || bio.b === 'dam' ? 'dam' : 'coast');
         ch.step = 1; break;
       }
-      case 1: { const a = buildFurniture(ctx, ch), b = buildFeatures(ctx, ch), c = buildLandmarks(ctx, ch); if (a && b && c) ch.step = 2; break; }
-      case 2: if (runScatter(ctx, ch, 1)) ch.step = 3; break;
-      case 3: if (runScatter(ctx, ch, 2)) ch.step = 4; break;
-      case 4: if (runScatter(ctx, ch, 3)) ch.step = 5; break;
+      case 1: if (buildFurniture(ctx, ch)) ch.step = 2; break;
+      case 2: if (buildFeatures(ctx, ch)) ch.step = 3; break;
+      case 3: if (buildLandmarks(ctx, ch)) ch.step = 4; break;
+      case 4: if (runScatter(ctx, ch, 1, this._deadline)) ch.step = 5; break;
+      case 5: if (runScatter(ctx, ch, 2, this._deadline)) ch.step = 6; break;
+      case 6: if (runScatter(ctx, ch, 3, this._deadline)) ch.step = 7; break;
       default: break;
     }
   }
@@ -133,9 +162,11 @@ export class Dressing {
         if (d < bd) { bd = d; best = ch; }
       }
       if (!best) break;
-      const before = best.step;
+      const before = best.step, ts = performance.now();
+      best._more = false; this._deadline = t0 + budgetMs;
       this._runStep(best);
-      if (best.step === before) best._blockedUntil = performance.now() + 40; // waiting for assets to load
+      const tsd = performance.now() - ts; if (tsd > this.stats.stepMax[before]) this.stats.stepMax[before] = tsd;
+      if (best.step === before && !best._more && !(before === 0 && best.ground && !best.ground.done)) best._blockedUntil = performance.now() + 40; // waiting for assets to load
       else this.stats.chunksBuilt++;
     }
     this.stats.jobMs = performance.now() - t0;
@@ -153,6 +184,7 @@ export class Dressing {
     this.cam.copy(cameraPos); this.s = s;
     WIND.uTime.value += dt; this._clock += dt;
     this.water.update(dt, this.cam, s); this.backdrop.update(dt, this.cam, s, this.road); updateBoostAnim(dt);
+    if ((this._pf = (this._pf || 0) + dt) > 1) { this._pf = 0; this.prefetch(s + 3000); }
     this._jobs(QUALITY[this.quality].budget * (this.chunks.size > 6 && this._warm ? 1 : 3));
     this._warm = true;
     for (const ch of this.chunks.values()) if (ch.dirty) { ch.dirty = false; this._needRebuild = true; }
@@ -163,10 +195,10 @@ export class Dressing {
     const L = this._lastRebuild;
     const moved = Math.hypot(this.cam.x - L.x, this.cam.z - L.z) + Math.abs(this.cam.y - L.y) * 0.5;
     const turned = useFwd ? fx * L.fx + fz * L.fz < 0.966 : false;
-    if ((this._needRebuild && this._clock - L.t > 0.05) || moved > 6 || turned || this._clock - L.t > 0.4) {
+    if ((this._needRebuild && this._clock - L.t > 0.2) || moved > 10 || turned || this._clock - L.t > 0.5) {
       const t0 = performance.now();
       this._poolOk = this.pool.rebuild(this.chunks.values(), this.cam, useFwd ? { x: fx, z: fz } : NO_FWD, this._shadowInfo(s));
-      this.stats.rebuilds++; this.stats.rebuildMs = performance.now() - t0;
+      this.stats.rebuilds++; this.stats.rebuildMs = performance.now() - t0; if (this.stats.rebuildMs > this.stats.rebuildMax) this.stats.rebuildMax = this.stats.rebuildMs;
       L.x = this.cam.x; L.y = this.cam.y; L.z = this.cam.z; L.fx = fx; L.fz = fz; L.t = this._clock;
       this._needRebuild = !this._poolOk;
     }

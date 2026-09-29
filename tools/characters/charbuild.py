@@ -91,7 +91,13 @@ def _save_final(self, path=None, hidden_groups=(), split_by_label=False, extras=
     try:
         import anim
         heads = self.ch.heads_final
-        clips = anim.build_clips(heads)
+        prims = [p for p in self.groups.get("main", []) if p.get("_label") not in ("hair", "brows", "eyes")]
+        mesh = None
+        if prims:
+            mesh = (np.concatenate([p["pos"] for p in prims]), np.concatenate([np.asarray(p["joints"]) for p in prims]),
+                    np.concatenate([np.asarray(p["weights"]) for p in prims]))
+        clips = anim.build_clips(heads, bulk=getattr(self, "bulk", 1.0), mesh=mesh, foot_sole=0.0,
+                                 seat=getattr(self, "seat", None))
         sp, sr = anim.socket_frames(heads, clips)
     except ImportError:
         print("  (anim.py not available: exporting without clips)")

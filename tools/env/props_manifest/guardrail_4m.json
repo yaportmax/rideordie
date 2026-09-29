@@ -16,5 +16,5 @@
  ],
  "notes": "W-beam guardrail, 4.0 m along Z (glTF); traffic side is +X (right shoulder when driving +Z; rotate 180 deg about Y for the left shoulder). Posts at z=+-1.0 so instances placed every 4.0 m keep a uniform 2 m post spacing; rail runs edge to edge.",
  "segment_length": 4.0,
- "kb": 375.8
+ "kb": 376.8
 }

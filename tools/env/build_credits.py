@@ -7,7 +7,7 @@ CACHE = "C:/Dev/art_cache/rideordie/env"
 false_pos = {"rock_01", "pebbles"}    # our own prop / texture names that collide with unused Poly Haven ids
 skip = {"tex_fetch.py", "ph_list.py", "ph_thumbs.py", "cache_sheet.py", "build_credits.py"}
 text = ""
-for p in glob.glob(os.path.join(ROOT, "tools", "env", "**", "*.py"), recursive=True):
+for p in glob.glob(os.path.join(ROOT, "tools", "env", "**", "*.py"), recursive=True) + glob.glob(os.path.join(ROOT, "tools", "env", "**", "*.sh"), recursive=True):
     if os.path.basename(p) in skip:
         continue
     text += open(p, encoding="utf-8", errors="ignore").read() + "\n"

@@ -39,9 +39,12 @@ PBR photoscan sources - **Poly Haven (polyhaven.com), CC0 1.0** (https://creativ
 - `red_bricks_02` (Red Bricks 02) - Rob Tuytel
 - `red_dirt_mud_01` (Red Dirt Mud 01) - Rob Tuytel
 - `rock_face_03` (Rock Face 03) - Dario Barresi, Rico Cilliers
+- `rough_wood` (Rough Wood) - Rob Tuytel
 - `rust_coarse_01` (Rust Coarse 01) - Dimitrios Savva, Rico Cilliers
+- `rusty_metal_02` (Rusty Metal 02) - Rob Tuytel
 - `sandy_gravel_02` (Sandy Gravel 02) - Dario Barresi
 - `snow_02` (Snow 02) - Rob Tuytel
+- `weathered_brown_planks` (Weathered Brown Planks) - Dimitrios Savva, Rico Cilliers
 - `withered_grass` (Withered Grass) - Charlotte Baglioni
 
 <!-- ENV-CREDITS-END -->

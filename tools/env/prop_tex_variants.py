@@ -22,7 +22,15 @@ if __name__ == "__main__":
         for suf in ("albedo", "normal", "arm"):
             shutil.copyfile(os.path.join(PT, f"galv_rust_{suf}.jpg"), os.path.join(PT, f"galv_rust_orig_{suf}.jpg"))
     variant("galv_rust_orig", "galv_rust", (92, 84, 72), sat=1.0, contrast=1.1)
-    _a = load(os.path.join(PT, "galv_rust_orig_arm.jpg")); _a[..., 2] *= 0.55; _a[..., 1] = np.clip(_a[..., 1] + 0.20, 0, 1)   # less mirror-like
+    # the source scan is light zinc with orange rust; tone() would push the neutral zinc toward blue, so rebuild it explicitly: zinc grey + rust mask
+    _o = s2l(load(os.path.join(PT, "galv_rust_orig_albedo.jpg")))
+    _L = lum(_o)
+    _rust = smoothstep((_o[..., 0] - _o[..., 2]) / (_L + 0.02), 0.5, 1.3)[..., None]
+    _d = (_L / _L.mean()) ** 0.8
+    _zinc = s2l(np.array([128, 124, 116], np.float32) / 255.0) * _d[..., None]
+    _rc = s2l(np.array([112, 66, 38], np.float32) / 255.0) * _d[..., None] * 1.1
+    save_jpg(np.clip(l2s(np.clip(_zinc * (1 - _rust) + _rc * _rust, 0, 1)), 0, 1), os.path.join(PT, "galv_rust_albedo.jpg"), 88, 2)
+    _a = load(os.path.join(PT, "galv_rust_orig_arm.jpg")); _a[..., 2] *= 0.35; _a[..., 1] = np.clip(_a[..., 1] + 0.28, 0, 1)   # weathered zinc: mostly dielectric grime, rough (no blue sky mirror)
     save_jpg(_a, os.path.join(PT, "galv_rust_arm.jpg"), 88, 2)
     variant("wood_rough", "wood_crate", (112, 88, 64), sat=1.0, contrast=1.1)
     variant("wood_rough", "wood_pole", (70, 56, 44), sat=0.9, contrast=1.15)

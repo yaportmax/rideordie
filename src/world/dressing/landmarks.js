@@ -84,6 +84,18 @@ const BACKDROPS = {
   dam: { pitch: 900, chance: 0.0, items: [] },
 };
 
+const SLOT_MARGIN = 320;
+const _near = {};
+/** Local collision mesh -> world (yaw about +Y, scale xz / y). */
+function xformMesh(m, x, y, z, yaw, sxz, sy) {
+  const c = Math.cos(yaw), sn = Math.sin(yaw), src = m.pos, out = new Float32Array(src.length);
+  for (let i = 0; i < src.length; i += 3) {
+    const lx = src[i] * sxz, ly = src[i + 1] * sy, lz = src[i + 2] * sxz;
+    out[i] = x + lx * c + lz * sn; out[i + 1] = y + ly; out[i + 2] = z - lx * sn + lz * c;
+  }
+  return { pos: out, idx: m.idx };
+}
+
 // ------------------------------------------------------------------------------------------------ geometry helpers
 const _tp = {};
 function facingYaw(th, side) { return side > 0 ? th - Math.PI / 2 : th + Math.PI / 2; }
@@ -280,6 +292,17 @@ function assetReady(ctx, names) {
   return !wait;
 }
 
+
+/** The colossal dam wall standing in the lake across from the road (lake = right side), downstream face (-Z) toward the road. */
+function damWall(ctx, s, dist) {
+  const { road, seed, kit } = ctx;
+  const wall = kit.get('dam_wall_backdrop'); if (!wall) return null;
+  const seaY = seaLevel(road, 'dam');
+  road.extendTo(s + 900);
+  const th = road.sample(s, {}).th, g = groundAt(road, seed, s, -dist, {});
+  return { asset: 'dam_wall_backdrop', x: g.x, y: seaY - 1.5, z: g.z, yaw: th - Math.PI / 2, sc: 1.0, r: 60, s, found: null, wall: true };
+}
+
 function specials(ctx, sA, sB) {
   const { road, seed, kit } = ctx;
   const out = [];
@@ -353,16 +376,17 @@ function specials(ctx, sA, sB) {
         const a = kit.get('natural_arch'); if (!a) return [];
         const rnd = rngOf(seed, k, 511); if (rnd() > 0.9) return [];
         road.extendTo(s + 400);
-        for (let t = 0; t < 10; t++) {
-          const s1 = s + (t - 5) * 24, sm = road.sample(s1, {});
-          if (road.featureAt(s1) || road.featuresIn(s1 - 60, s1 + 60).some((f) => f.type === 'bridge' || f.type === 'tunnel')) continue;
-          const yl = groundAt(road, seed, s1, 24, {}).y - sm.y, yr = groundAt(road, seed, s1, -24, {}).y - sm.y;
-          if (yl < 9 || yr < 9) continue;
-          const y2 = groundAt(road, seed, s1 + 14, 24, {}).y - sm.y, y3 = groundAt(road, seed, s1 + 14, -24, {}).y - sm.y;
-          if (y2 < 8 || y3 < 8) continue;
-          return [{ asset: 'natural_arch', x: sm.x, y: sm.y - 0.1, z: sm.z, yaw: sm.th, sc: 1, r: 30, s: s1, found: null, arch: true }];
+        let best = null, bestScore = -3;
+        for (let t = 0; t < 12; t++) {
+          const s1 = s + (t - 6) * 22, sm = road.sample(s1, {});
+          if (road.featureAt(s1) || road.featuresIn(s1 - 60, s1 + 60).some((f) => f.type === 'bridge' || f.type === 'tunnel' || f.type === 'ramp')) continue;
+          if (Math.abs(sm.k) > 1 / 260) continue;                                     // needs a fairly straight bit so the legs clear the road
+          let score = 1e9;
+          for (const ds of [0, 7, 14]) for (const d of [22, -22]) score = Math.min(score, groundAt(road, seed, s1 + ds, d, {}).y - road.sample(s1 + ds, {}).y);
+          if (score > bestScore) { bestScore = score; best = { s1, sm }; }
         }
-        return [];
+        if (!best) return [];
+        return [{ asset: 'natural_arch', x: best.sm.x, y: best.sm.y - 0.6, z: best.sm.z, yaw: best.sm.th, sc: 1, r: 30, s: best.s1, found: null, arch: true }];
       }))) return null;
     }
   }
@@ -379,8 +403,10 @@ function specials(ctx, sA, sB) {
       res.push({ asset: 'dam_control_tower', x: tp.x, y: tp.y - 0.2, z: tp.z, yaw: facingYaw(road.sample(gs + 45, {}).th, 1), sc: 1, r: 18, s: gs + 45, found: { ymin: tp.y - 6, ytop: tp.y - 0.14, box: kit.get('dam_control_tower').box, sc: 1 } });
       for (const [ds, d] of [[-30, 15.5], [-30, -15.5], [26, 15.5], [26, -15.5]]) {
         const g = groundAt(road, seed, gs + ds, d, {}), t2 = road.sample(gs + ds, {}).th;
-        res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: t2 + (ds < 0 ? 0 : Math.PI), sc: 1, r: 4, s: gs + ds, found: null });
+        res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: Math.atan2(gp.x - g.x, gp.z - g.z), sc: 1, r: 4, s: gs + ds, found: null });
+        void t2;
       }
+      const w0 = damWall(ctx, DAM_START + 700, 560); if (w0) res.push(w0);
       for (let i = 0; i < 12; i++) {
         const s = DAM_START + 130 + i * 55, side = i % 2 ? 1 : -1, d = side * 14.5;
         const g = groundAt(road, seed, s, d, {}), t2 = road.sample(s, {}).th;
@@ -394,14 +420,11 @@ function specials(ctx, sA, sB) {
         const res = [];
         for (const [ds, d] of [[-34, 15.5], [-34, -14], [34, 15.5], [34, -14]]) {
           const g = groundAt(road, seed, BOSS_S + ds, d, {}), t2 = road.sample(BOSS_S + ds, {}).th;
-          res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: t2 + (ds < 0 ? 0 : Math.PI), sc: 1, r: 4, s: BOSS_S + ds, found: null });
+          const c = road.pointAt(BOSS_S, 0, {});
+          res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: Math.atan2(c.x - g.x, c.z - g.z), sc: 1, r: 4, s: BOSS_S + ds, found: null });
+          void t2;
         }
-        // dam wall looming on the downstream (left) side, its face toward the road
-        const wall = kit.get('dam_wall_backdrop');
-        if (wall) {
-          const th = road.sample(BOSS_S, {}).th, d = 170, g = groundAt(road, seed, BOSS_S, d, {});
-          res.push({ asset: 'dam_wall_backdrop', x: g.x, y: g.y - 4, z: g.z, yaw: th + Math.PI / 2, sc: 1.0, r: 200, s: BOSS_S, found: null, wall: true });
-        }
+        const w1 = damWall(ctx, BOSS_S + 380, 430); if (w1) res.push(w1);
         return res;
       }))) return null;
     }
@@ -435,7 +458,8 @@ export function buildLandmarks(ctx, chunk) {
   if (!ctx.lm) ctx.lm = new LandmarkPlanner(ctx);
   const s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
   ctx.road.extendTo(s1 + 900);
-  const list = ctx.lm.plan(s0, s1);
+  // placements can drift up to ~±300 m from the slot that owns them (compounds, turbine rows, arch search): plan a margin, keep what lands here
+  const list = ctx.lm.plan(s0 - SLOT_MARGIN, s1 + SLOT_MARGIN);
   const sky = list ? skyline(ctx, s0, s1) : null;
   if (!list || !sky) return false;
   const all = list.concat(sky);
@@ -449,6 +473,14 @@ export function buildLandmarks(ctx, chunk) {
     const t = p.tint || (0.92 + hash2(Math.round(p.x), Math.round(p.z), ctx.seed) * 0.16);
     const sy = p.sy || p.sc;
     chunk.list(p.asset).push(p.x, p.y, p.z, p.yaw, p.sc, sy, p.sc, 0, 1, 0, 0, a.sphere.radius * Math.max(p.sc, sy) * 1.1, t, t, t);
+    // collider request for anything a car can reach (within ~70 m of the road centre)
+    if (a.collision) {
+      const near = ctx.road.nearest(p.x, p.z, p.s, 120, _near);
+      if (near.dist - a.radius * p.sc < 70) {
+        const id = `static:${p.asset}:${Math.round(p.x)}:${Math.round(p.z)}`; chunk.hooks.push(id);
+        ctx.hook({ type: 'static', id, asset: p.asset, pos: [p.x, p.y, p.z], yaw: p.yaw, scale: [p.sc, sy, p.sc], collision: xformMesh(a.collision, p.x, p.y, p.z, p.yaw, p.sc, sy) });
+      }
+    }
     if (p.found) {
       const b = p.found.box, w = (b.max.x - b.min.x) * p.found.sc + 1.5, d = (b.max.z - b.min.z) * p.found.sc + 1.5, h = p.found.ytop - p.found.ymin;
       const g = new THREE.BoxGeometry(w, h, d);
@@ -463,14 +495,26 @@ export function buildLandmarks(ctx, chunk) {
   return true;
 }
 
+/** Every landmark asset a biome may use (for preloading). */
+export function landmarkAssets(id) {
+  const out = new Set();
+  for (const it of (KINDS[id] || { items: [] }).items) for (const q of it.parts) out.add(q.a);
+  for (const it of (BACKDROPS[id] || { items: [] }).items) for (const a of it.a) out.add(a);
+  if (id === 'city') for (const a of [...RUINS, ...TOWERS]) out.add(a);
+  if (id === 'coast') for (const a of ['sea_stack_a', 'sea_stack_b', 'sea_stack_c', 'lighthouse', 'wharf_ruin']) out.add(a);
+  if (id === 'canyon') out.add('natural_arch');
+  if (id === 'dam') for (const a of ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'dam_wall_backdrop', 'boss_arena_lights']) out.add(a);
+  return [...out];
+}
+
 /** Exclusion circles [x, z, r] for scatter within [sA, sB]. Never blocks (returns what is already planned). */
 export function landmarkExclusions(ctx, sA, sB) {
   if (!ctx.lm) ctx.lm = new LandmarkPlanner(ctx);
   const out = [];
-  const list = ctx.lm.plan(sA - 120, sB + 120);
+  const list = ctx.lm.plan(sA - SLOT_MARGIN, sB + SLOT_MARGIN);
   const sk = list ? skyline(ctx, sA - 120, sB + 120) : null;
   if (!list || !sk) return null;
-  for (const p of list) out.push([p.x, p.z, p.r]);
+  for (const p of list) if (p.s > sA - p.r - 60 && p.s < sB + p.r + 60) out.push([p.x, p.z, p.r]);
   for (const p of sk) out.push([p.x, p.z, p.r]);
   return out;
 }

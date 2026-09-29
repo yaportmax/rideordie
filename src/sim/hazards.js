@@ -12,7 +12,7 @@ const V = THREE.Vector3;
 export class Hazards {
   constructor() {
     this.active = new Map();   // feature -> {bodies:[rb]}
-    this.oil = []; this.mines = [];
+    this.oil = []; this.mines = []; this.enemyMines = [];
     this.pending = []; this._t = 0;
   }
 
@@ -39,6 +39,13 @@ export class Hazards {
     }
     // oil slicks: slippery surface handled in Sim.surfaceFor via sim.oilAt
     for (let i = this.oil.length - 1; i >= 0; i--) { const o = this.oil[i]; o.t -= dt * 2; if (o.t <= 0) this.oil.splice(i, 1); }
+    // enemy mines (burning barrels) vs the player
+    for (let i = this.enemyMines.length - 1; i >= 0; i--) {
+      const m = this.enemyMines[i]; m.arm -= dt; m.life -= dt;
+      if (m.life <= 0) { this.enemyMines.splice(i, 1); continue; }
+      if (m.arm > 0 || P.exploded) continue;
+      if (P.veh.pos.distanceTo(m.pos) < 3.4) { this.enemyMines.splice(i, 1); sim.emit({ t: 'boom', pos: m.pos.toArray(), radius: m.blast, kind: 'mine' }); sim.blast(m.pos, m.blast, m.dmg, 0.8, null, m.owner); }
+    }
     // mines
     for (let i = this.mines.length - 1; i >= 0; i--) {
       const m = this.mines[i]; m.arm -= dt;
@@ -54,6 +61,11 @@ export class Hazards {
     const p = car.veh.pos.clone().addScaledVector(car.veh.fwd, -3.5);
     this.oil.push({ pos: p, r: 5.5, t: 8 });
     sim.emit({ t: 'oil', pos: p.toArray(), r: 5.5, dir: [car.veh.fwd.x, car.veh.fwd.z] });
+  }
+  dropEnemyMine(sim, car, blast, dmg) {
+    const p = car.veh.pos.clone().addScaledVector(car.veh.fwd, -car.spec.length / 2 - 1.5); p.y = car.veh.pos.y - car.veh.restComHeight + 0.15;
+    this.enemyMines.push({ pos: p, arm: 0.5, blast, dmg, owner: car.id, life: 20 });
+    sim.emit({ t: 'mineDrop', pos: p.toArray(), enemy: true });
   }
   dropMine(sim, car, blast, dmg) {
     const p = car.veh.pos.clone().addScaledVector(car.veh.fwd, -3.2); p.y = car.veh.pos.y - car.veh.restComHeight + 0.1;

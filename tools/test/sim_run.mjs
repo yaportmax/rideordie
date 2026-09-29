@@ -34,7 +34,7 @@ function gunnerBot(dt) {
   sim.applyHit({ carId: best.id, zone: zone.kind, zoneIndex: zone.index ?? -1, dmg: dps * 0.2 * (0.6 + 0.8 * Math.random()), through: false, point: [best.veh.pos.x, best.veh.pos.y + 1, best.veh.pos.z], dir: [0, 0, 1], weapon: 'bot' });
 }
 const N = Math.round(secs / DT);
-const counts = { explode: 0, kill: 0, crash: 0, shot: 0, hit: 0, crewDead: 0 };
+const counts = { explode: 0, kill: 0, crash: 0, shot: 0, hit: 0, crewDead: 0, minibossSpawn: 0, minibossDown: 0, mineDrop: 0, summon: 0 };
 for (let i = 0; i < N; i++) {
   bot(DT); gunnerBot(DT);
   sim.step(DT);

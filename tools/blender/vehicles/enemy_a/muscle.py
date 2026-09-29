@@ -92,6 +92,11 @@ def box_fz(x0, x1, f0, f1, z0, z1):
     return ((x0 + x1) / 2, (f0 + f1) / 2, (z0 + z1) / 2), (abs(x1 - x0), abs(f1 - f0), abs(z1 - z0))
 
 
+def hood_z_at(f):
+    """Approximate hood surface height at |x| ~ 0.3 for station f."""
+    return _interp([(0.85, 1.005), (1.30, 0.995), (1.75, 0.985), (2.15, 0.965), (2.27, 0.945)], f) - 0.008
+
+
 def build_shell():
     tub = make_tub()
     for f, hz, r in ((AX_F, HZ_F, ARCH_F), (AX_R, HZ_R, ARCH_R)):
@@ -118,6 +123,10 @@ def build_shell():
     c, s = box_fz(-0.80, 0.80, 0.70 + g, 2.26 - g, 0.90, 1.10)
     hole = box_fz(-0.285, 0.285, 1.10, 1.80, 0.80, 1.30)
     extract("hood", c, s, "panel_hood", "paint2", mat="paint2", holes=[hole])
+    for sd in (1, -1):
+        beam("hole_trim", (sd * 0.30, 1.09, hood_z_at(1.09) + 0.006), (sd * 0.30, 1.81, hood_z_at(1.81) + 0.006), 0.035, 0.018, "armor", u=(1, 0, 0), g="panel_hood")
+    for f in (1.085, 1.815):
+        beam("hole_trim", (0.32, f, hood_z_at(f) + 0.006), (-0.32, f, hood_z_at(f) + 0.006), 0.035, 0.018, "armor", u=(0, 1, 0), g="panel_hood")
     # trunk lid (paint2)
     c, s = box_fz(-0.80, 0.80, -2.30 + g, -1.96 - g, 0.90, 1.10)
     extract("trunk", c, s, "panel_trunk", "paint2", mat="paint2")
@@ -206,12 +215,12 @@ def door_extras(sd, grp):
     gl = quad_slab("dglass", q, 0.008, "glass", out=(sd, 0, 0), g=grp)
     deform_verts(gl, lambda v: Vector((v.x - sd * 0.40 * max(v.z - BELT, 0), v.y, v.z)))
     xt = 0.845 - 0.40 * (top - BELT) - 0.005
-    beam("rail", (sd * xt, 0.14, top + 0.012), (sd * xt, -0.64, top + 0.012), 0.04, 0.03, "chrome", u=(1, 0, 0), g=grp)
+    beam("rail", (sd * xt, 0.14, top + 0.012), (sd * xt, -0.64, top + 0.012), 0.04, 0.03, "metal_dark", u=(1, 0, 0), g=grp)
     beam("post", (sd * (xt + 0.03), -0.63, BELT), (sd * xt, -0.63, top + 0.01), 0.05, 0.03, "paint", u=(0, 1, 0), g=grp, bevel=0.003)
     beam("sash", (sd * 0.89, 0.62, BELT), (sd * xt, 0.12, top + 0.01), 0.03, 0.04, "paint", u=(1, 0, 0), g=grp)
-    bx("mir_arm", (sd * 0.95, 0.55, 1.03), (0.10, 0.025, 0.025), "chrome", g=grp)
-    bx("mir_head", (sd * 1.01, 0.55, 1.05), (0.05, 0.14, 0.09), "chrome", bevel=0.012, seg=1, g=grp)
-    bx("handle", (sd * 0.955, -0.62, 0.86), (0.02, 0.13, 0.02), "chrome", bevel=0.005, seg=1, g=grp)
+    bx("mir_arm", (sd * 0.95, 0.55, 1.03), (0.10, 0.025, 0.025), "metal_dark", g=grp)
+    bx("mir_head", (sd * 1.01, 0.55, 1.05), (0.05, 0.14, 0.09), "metal_dark", bevel=0.012, seg=1, g=grp)
+    bx("handle", (sd * 0.955, -0.62, 0.86), (0.02, 0.13, 0.02), "metal_dark", bevel=0.005, seg=1, g=grp)
     bx("scallop", (sd * 0.946, -0.05, 0.50), (0.014, 1.0, 0.03), "interior", g=grp)
 
 
@@ -271,30 +280,30 @@ def build_nose():
     bx("slot_bk", (0, 2.25, 0.78), (1.56, 0.02, 0.16), "metal_dark", g="body")
     for i in range(5):
         bx("slot_bar", (0, 2.28, 0.72 + i * 0.03), (1.56, 0.02, 0.012), "metal_dark", g="body")
-    bx("slot_mid", (0, 2.29, 0.78), (0.05, 0.03, 0.17), "chrome", g="body")
+    bx("slot_mid", (0, 2.29, 0.78), (0.05, 0.03, 0.17), "metal_dark", g="body")
     for sd in (1, -1):
         cyl("lamp_ring", (sd * 0.56, 2.29, 0.78), 0.088, 0.03, "f", "chrome", sides=20, g="body")
         cyl("lamp_bk", (sd * 0.56, 2.27, 0.78), 0.075, 0.02, "f", "chrome", sides=16, g="body")
         cyl("lamp_lens", (sd * 0.56, 2.298, 0.78), 0.070, 0.02, "f", "light_head", sides=20, g="body")
-        bx("slot_end", (sd * 0.80, 2.29, 0.78), (0.03, 0.03, 0.17), "chrome", g="body")
-    bx("slot_top", (0, 2.29, 0.868), (1.62, 0.025, 0.02), "chrome", g="body")
-    bx("slot_bot", (0, 2.29, 0.692), (1.62, 0.025, 0.02), "chrome", g="body")
+        bx("slot_end", (sd * 0.80, 2.29, 0.78), (0.03, 0.03, 0.17), "metal_dark", g="body")
+    bx("slot_top", (0, 2.29, 0.868), (1.62, 0.025, 0.02), "metal_dark", g="body")
+    bx("slot_bot", (0, 2.29, 0.692), (1.62, 0.025, 0.02), "metal_dark", g="body")
 
 
 def build_tail():
     # rear bumper: slim blackened bar + overriders
     poly = [(-0.90, -2.40), (0.90, -2.40), (0.97, -2.36), (0.99, -2.29), (0.92, -2.29), (0.88, -2.34), (-0.88, -2.34), (-0.92, -2.29), (-0.99, -2.29), (-0.97, -2.36)]
-    prism("bumper_R", poly[::-1], "xf", 0.29, 0.47, "chrome", bevel=0.010, seg=1, g="panel_bumper_R")
+    prism("bumper_R", poly[::-1], "xf", 0.29, 0.47, "metal_dark", bevel=0.010, seg=1, g="panel_bumper_R")
     for sd in (1, -1):
-        cyl("overrider", (sd * 0.62, -2.43, 0.38), 0.038, 0.10, "f", "chrome", sides=10, r2=0.03, g="panel_bumper_R")
+        cyl("overrider", (sd * 0.62, -2.43, 0.38), 0.038, 0.10, "f", "metal_dark", sides=10, r2=0.03, g="panel_bumper_R")
     # tail lamp bar: two lenses + centre dark panel
     for sd in (1, -1):
         x = sd * 0.47
         bx("tl_lens", (x, -2.285, 0.76), (0.72, 0.016, 0.085), "light_tail", g="body")
         bx("tl_refl", (x, -2.27, 0.76), (0.74, 0.014, 0.10), "chrome", g="body")
         for dz, sz in ((0.052, 0.014), (-0.052, 0.014)):
-            bx("tl_bezel", (x, -2.30, 0.76 + dz), (0.76, 0.02, sz), "chrome", g="body")
-        bx("tl_end", (sd * 0.845, -2.30, 0.76), (0.014, 0.02, 0.12), "chrome", g="body")
+            bx("tl_bezel", (x, -2.30, 0.76 + dz), (0.76, 0.02, sz), "metal_dark", g="body")
+        bx("tl_end", (sd * 0.845, -2.30, 0.76), (0.014, 0.02, 0.12), "metal_dark", g="body")
         bx("rev", (sd * 0.125, -2.29, 0.76), (0.04, 0.02, 0.07), "light_head", g="body")
     bx("tl_centre", (0, -2.29, 0.76), (0.16, 0.02, 0.10), "metal_dark", g="body")
     # ducktail spoiler + plate on the trunk lid
@@ -317,18 +326,28 @@ def build_engine():
             f = 1.22 + i * 0.16
             tube("header", [(sd * 0.36, f, 0.66), (sd * 0.44, f, 0.52), (sd * 0.47, min(f, 1.05) - 0.0, 0.34)], 0.022, "rust", fillet=0.05, g="body")
         tube("collector", [(sd * 0.47, 1.08, 0.36), (sd * 0.55, 0.96, 0.27), (sd * 0.90, 0.92, 0.22)], 0.05, "rust", fillet=0.08, g="body")
-    # roots blower + scoop
-    bx("blower", (0, 1.45, 0.845), (0.42, 0.54, 0.17), "metal_bare", bevel=0.015, seg=1, g="body")
-    for i in range(7):
-        bx("blower_rib", (0, 1.22 + i * 0.075, 0.935), (0.44, 0.012, 0.03), "metal_bare", g="body")
-    bx("blower_lid", (0, 1.45, 0.94), (0.30, 0.42, 0.03), "metal_dark", bevel=0.008, seg=1, g="body")
-    bx("scoop", (0, 1.52, 1.075), (0.30, 0.40, 0.23), "metal_dark", bevel=0.012, seg=1, taper=(0.9, 1.0), g="body")
-    bx("scoop_mouth", (0, 1.735, 1.09), (0.24, 0.02, 0.16), "metal_bare", g="body")
-    bx("scoop_slot", (0, 1.745, 1.09), (0.20, 0.012, 0.12), "interior", g="body")
-    bx("scoop_frame", (0, 1.738, 1.09), (0.29, 0.014, 0.21), "chrome", g="body")
+    # roots blower: lofted rounded case + side fins, adapter plate, bug-catcher scoop with butterflies
+    bx("adapter", (0, 1.45, 0.80), (0.46, 0.60, 0.04), "metal_dark", bevel=0.006, seg=1, g="body")
+    case = rrect(0.40, 0.21, 0.075, n=4)
+    loft_f("blower", [(1.20, [(u, 0.925 + v) for u, v in rrect(0.36, 0.17, 0.06, n=4)]),
+                      (1.23, [(u, 0.925 + v) for u, v in case]),
+                      (1.67, [(u, 0.925 + v) for u, v in case]),
+                      (1.70, [(u, 0.925 + v) for u, v in rrect(0.36, 0.17, 0.06, n=4)])], "metal_bare", g="body", smooth=True)
     for sd in (1, -1):
-        cyl("clamp", (sd * 0.20, 1.45, 1.0), 0.016, 0.02, "z", "chrome", sides=8, g="body")
-    beam("strap", (0.22, 1.45, 0.935), (-0.22, 1.45, 0.935), 0.03, 0.012, "chrome", u=(0, 1, 0), g="body")
+        for k in range(4):
+            bx("blower_fin", (sd * 0.207, 1.45, 0.87 + k * 0.035), (0.016, 0.42, 0.010), "metal_bare", g="body")
+        cyl("snout", (sd * 0.0, 1.17, 0.925), 0.055, 0.06, "f", "metal_bare", sides=12, g="body")
+    bolts("blower_bolts", [((sx * 0.215, f, 0.822), (0, 0, 1)) for sx in (1, -1) for f in (1.22, 1.36, 1.50, 1.64)], 0.011, 0.012, "chrome", g="body")
+    # bug-catcher hat: sloped wedge (low at the rear, open mouth at the front)
+    prism("scoop", [(1.28, 1.03), (1.28, 1.10), (1.66, 1.22), (1.70, 1.21), (1.70, 1.03)], "fz", -0.15, 0.15, "metal_dark", bevel=0.01, seg=1, g="body")
+    bx("scoop_base", (0, 1.49, 1.035), (0.32, 0.44, 0.02), "chrome", bevel=0.004, seg=1, g="body")
+    bx("scoop_mouth", (0, 1.702, 1.12), (0.25, 0.012, 0.15), "interior", g="body")
+    for k in range(4):
+        bx("butterfly", (0, 1.708, 1.06 + k * 0.035), (0.25, 0.01, 0.008), "chrome", g="body")
+    for sd in (1, -1):
+        bx("mouth_rim", (sd * 0.14, 1.705, 1.12), (0.02, 0.02, 0.18), "chrome", g="body")
+    bx("mouth_rim_t", (0, 1.705, 1.205), (0.30, 0.02, 0.02), "chrome", g="body")
+    beam("strap", (0.21, 1.45, 0.985), (-0.21, 1.45, 0.985), 0.025, 0.012, "chrome", u=(0, 1, 0), g="body")
     # belt drive
     cyl("pulley_b", (0, 1.16, 0.855), 0.075, 0.03, "f", "chrome", sides=16, g="body")
     cyl("pulley_c", (0, 1.16, 0.46), 0.07, 0.04, "f", "metal_bare", sides=16, g="body")

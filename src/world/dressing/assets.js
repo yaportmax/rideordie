@@ -8,6 +8,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const KEEP = new Set(['position', 'normal', 'uv', 'color']);
 
+/** Structures whose drivable surface stays visible in the merged far LOD (the road strip does not run over them). */
+const MERGE_ROAD = new Set(['jump_ramp', 'jump_ramp_small', 'overpass_concrete']);
+
 /** Shared wind uniforms (updated by Dressing.update). */
 export const WIND = {
   uTime: { value: 0 },
@@ -64,6 +67,7 @@ export class AssetKit {
           this.assets.set(name, asset);
           const plan = this.lodPlan.get(name);
           if (plan) plan.forEach((div, i) => this.assets.set(`${name}@${i + 1}`, deriveLod(asset, div)));
+          if (asset.kind === 'struct' && asset.parts.length > 3) this.deriveMerged(name, { includeRoad: MERGE_ROAD.has(name) });
           return asset;
         }
       }

@@ -3,7 +3,6 @@ Units mm, G frame (+X fwd, +Y left, +Z up).  Origin = wrist centre where the rig
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gunlib
-# import bevel_clean            # local fix: clean degenerate faces after bevel/boolean
 from gunlib import *
 
 G = Gun("shotgun")

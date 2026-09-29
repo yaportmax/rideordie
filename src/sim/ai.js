@@ -70,6 +70,19 @@ export class EnemyBrain {
         if (gap > 5) { this.behavior = 'chaser'; this.gapTarget = 28; }
         break;
       }
+      case 'dropper': {
+        // stay 40-70 m ahead in the player's lane, lay burning mines
+        dT = P.d + Math.sin(this.t * 0.5) * 2;
+        vDes = pv + clamp((-55 - gap) * 0.4, -10, 14);
+        if (gap < -25 && gap > -110 && this.t - (this.lastDrop || 0) > 2.6) { this.lastDrop = this.t; sim.hazards.dropEnemyMine(sim, car, 8, 55 + 50 * this.level); }
+        break;
+      }
+      case 'summoner': {
+        dT = clamp(P.d + this.side * 4, -laneLimit, laneLimit);
+        vDes = pv + clamp((gap - 18) * 0.3, -10, 12);
+        if (this.t - (this.lastSummon || 0) > 14) { this.lastSummon = this.t; for (let k = 0; k < 2; k++) sim.director.spawn(sim, 'e_buggy', this.level, { behavior: 'flanker' }); sim.emit({ t: 'summon', id: car.id }); }
+        break;
+      }
       case 'heavy': {
         dT = clamp(P.d + this.lat * 0.5, -laneLimit, laneLimit);
         vDes = pv + clamp((gap - this.gapTarget) * 0.3, -10, 12);

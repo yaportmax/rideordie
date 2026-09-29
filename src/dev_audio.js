@@ -222,7 +222,7 @@ secMusic.append(
 
 // ---- missing / stats
 const secMiss = panel('Missing names (expected by AudioBridge / engine but not in manifest)');
-const missDiv = h('div', { class: 'miss' }), statsDiv = h('div', { class: 'mono' }, '');
+const missDiv = h('div', { class: 'miss' }), statsDiv = h('div', { class: 'mono', style: 'white-space:pre-wrap' }, '');
 secMiss.append(missDiv);
 const secStats = panel('Node graph / voices / buffers (live)', statsDiv);
 const secTests = panel('Self tests (offline renders + analysis)', h('div', {}, btn('run self tests', () => runSelfTests().then(showReport)), btn('scenario spectrogram', () => runScenario(true))), h('div', { class: 'mono', id: 'testout' }, ''), h('canvas', { id: 'spec', width: 900, height: 240 }));
@@ -230,7 +230,6 @@ secTests.classList.add('wide');
 secMiss.classList.add('wide');
 
 app.append(h('div', { class: 'grid' }, secTop, secPos, secEvents, secMusic, secFly, secCars, secStats, secMiss, secTests, secEng));
-window.__lab = { runSelfTests, runScenario, report };
 function setStatus(t) { statusEl.textContent = t; }
 
 // ------------------------------------------------------------------------------------------------------------ frame loop
@@ -273,7 +272,8 @@ function slow() {
   const mi = audio.music.info();
   musicInfo.textContent = `music: ${JSON.stringify(mi)}\nlast: ${JSON.stringify(audio.music.log.slice(-2))}\nambience: ${audio.ambience.biome} bed=${audio.ambience.bed ? audio.ambience.bed.stems.length + ' layers' : 'none'}  wind=${audio.ambience.windLevel.toFixed(2)}\nengines: ${[...audio.engines.values()].map((e) => JSON.stringify(e.info())).join('\n         ')}`;
   const g = audio.graphStats();
-  statsDiv.textContent = JSON.stringify({ ...g, created: undefined, released: undefined, live: g.live, bridge: bridge.counts, loadQueue: audio.loadingCount() }, null, 1).replace(/\n\s+/g, ' ');
+  statsDiv.textContent = Object.entries({ ...g, created: undefined, released: undefined, bridge: bridge.counts, loadQueue: audio.loadingCount(), meter: { peakDb: +db(audio.meterState.peakMax).toFixed(1), clips: audio.meterState.clip } })
+    .filter(([, v]) => v !== undefined).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
   const miss = audio.reportMissing();
   const have = EXPECTED_NAMES.length - miss.filter((n) => EXPECTED_NAMES.includes(n)).length;
   missDiv.replaceChildren(h('span', { class: 'tag ok' }, `${have}/${EXPECTED_NAMES.length} expected names present`), ...miss.map((n) => h('span', { class: 'tag bad' }, n)));
@@ -674,9 +674,15 @@ async function runScenario(draw) {
     at('engineDead', 9.5, () => { br.handleEvent({ t: 'engineDead', id: 6 }, ctxE); cars[5].engineHp01 = 0; });
     at('own', 10.0, () => br.handleEvent({ t: 'crash', id: 1, other: 4, dv: 14, speed: 20, pos: [P.pos.x, 0.8, P.pos.z] }, ctxE));
     at('down', 12.0, () => { cars[0].hp01 = 0.1; br.handleEvent({ t: 'playerDown', why: 'car' }, ctxE); });
+    if (t >= 13.2) { // teardown: back to the garage
+      if (!o.ev.reset) { o.ev.reset = 1; br.reset(); A.music.stop(0.5); A.ambience.stop(0.5); }
+      if (t > 15.6 && !o.end) { o.end = A.graphStats(); o.end.nonStingerVoices = [...A.voices].filter((v) => v.bus !== 'stinger').map((v) => v.def.key); o.end.stingerVoices = [...A.voices].filter((v) => v.bus === 'stinger').length; }
+      br.update(dt, ctxE); return;
+    }
     for (const c of cars) br.updateCar(c, dt, { surface: 'asphalt' });
     br.update(dt, ctxE);
     o.peakVoices = Math.max(o.peakVoices, A.voices.size);
+    { let n = 0; for (const e of A.engines.values()) if (e.built && e.allowed) n++; o.maxEng = Math.max(o.maxEng || 0, n); }
     o.minDuck = Math.min(o.minDuck ?? 1, A._musicDuckV); o.maxConc = Math.max(o.maxConc ?? 0, A._conc); o.maxDanger = Math.max(o.maxDanger ?? 0, A._danger);
   } });
   const o = r.ctxObj, sec = [];
@@ -692,8 +698,10 @@ async function runScenario(draw) {
   ck('scenario: bounded voice count', o.peakVoices <= r.A.maxVoices, o.peakVoices, `<= ${r.A.maxVoices}`);
   ck('scenario: bridge + engines cost < 1 ms of JS per frame (10 cars, gunfire, explosions)', r.jsAvgMs < 1.0, NS(r.jsAvgMs), '< 1 ms');
   ck('scenario: explosions duck the music and the player crash triggers the concussion filter', o.minDuck < 0.75 && o.maxConc > 0.25, `${NS(o.minDuck)} / ${NS(o.maxConc)}`, 'duck < 0.75, conc > 0.25');
-  ck('scenario: <= 10 engines audible', g.enginesAllowed <= 10, g.enginesAllowed, '<= 10');
+  ck('scenario: 1..10 engines audible during the run (6 cars, 2 blown up)', o.maxEng >= 4 && o.maxEng <= 10, o.maxEng, '4..10');
   ck('scenario: bridge produced sounds for the events', r.A.stats.played > 100, r.A.stats.played, '> 100');
+  res.afterReset = o.end;
+  ck('scenario: after bridge.reset() + music/ambience stop, only the still-playing game_over stinger remains; every engine / loop / panner freed', o.end && o.end.live.src === o.end.stingerVoices && o.end.nonStingerVoices.length === 0 && o.end.enginesBuilt === 0 && o.end.live.panner === 0, o.end && JSON.stringify({ live: o.end.live, voices: o.end.nonStingerVoices, stingers: o.end.stingerVoices, engines: o.end.enginesBuilt }), 'only the game_over stinger tail left');
   if (draw) drawSpectrogram(r.x, r.sr);
   return res;
 }
@@ -915,6 +923,7 @@ function showReport() {
 }
 
 // ------------------------------------------------------------------------------------------------------------ go
+window.__lab = { runSelfTests, runScenario, report };
 if (AUTO) {
   await runSelfTests(); showReport();
   window.__ready = true;

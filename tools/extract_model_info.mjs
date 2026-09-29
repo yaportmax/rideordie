@@ -42,8 +42,9 @@ for (const f of fs.readdirSync(dir)) {
       subtree(i, (k) => { const bb = meshBox(k, M(k)); if (!bb.isEmpty()) b.union(bb); });
       info.wheels[name.slice(6)] = { x: +p.x.toFixed(3), y: +p.y.toFixed(3), z: +p.z.toFixed(3), r: b.isEmpty() ? 0.35 : +((b.max.y - b.min.y) / 2).toFixed(3), w: b.isEmpty() ? 0.25 : +(b.max.x - b.min.x).toFixed(3) };
       const bb = b; if (!bb.isEmpty()) all.union(bb);
-    } else if (/^(seat_|steering_wheel|gun_mount|light_head_|light_tail_|exhaust|smoke_engine|fuel_cap|nitro_|camera_hood|roof_top|turret|rocket_pod|flame_|muzzle|floodlight|smoke_stack)/.test(name)) {
+    } else if (/^(seat_|steering_wheel|gun_mount|light_head_|light_tail_|exhaust|smoke_engine|fuel_cap|nitro_|camera_hood|roof_top|turret|rocket_pod|flame_|muzzle|floodlight|smoke_stack|part_|weak_|ramp_|panel_armor)/.test(name)) {
       const p = pos(i); info.sockets[name] = [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)];
+      if (/^(part_|weak_|panel_armor|ramp_)/.test(name)) { const b = new THREE.Box3(); subtree(i, (k) => { const bb = meshBox(k, M(k)); if (!bb.isEmpty()) b.union(bb); }); if (!b.isEmpty()) (info.parts || (info.parts = {}))[name] = { min: b.min.toArray().map((v) => +v.toFixed(2)), max: b.max.toArray().map((v) => +v.toFixed(2)) }; }
     }
   });
   info.bbox = { min: all.min.toArray().map((v) => +v.toFixed(3)), max: all.max.toArray().map((v) => +v.toFixed(3)) };

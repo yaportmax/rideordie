@@ -454,6 +454,8 @@ def merge(objs, name):
 
 
 def sock(name, x, f, z, pitch=0.0, yaw=0.0, roll=0.0, size=0.12):
+    if name in bpy.data.objects:                      # sockets own their contract names: rename any mesh part that took it
+        bpy.data.objects[name].name = name + "_part"
     o = bpy.data.objects.new(name, None)
     o.empty_display_type = "PLAIN_AXES"
     o.empty_display_size = size

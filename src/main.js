@@ -1,42 +1,43 @@
 import { Game } from './game/game.js';
-import { DEFAULT_PROFILE } from './data/upgrades.js';
+import { App } from './app.js';
+import { DEFAULT_PROFILE, UPGRADES } from './data/upgrades.js';
 import { Session } from './net/session.js';
 
 const q = new URLSearchParams(location.search);
 const game = new Game();
 window.__game = game;
 await game.boot();
-const profile = DEFAULT_PROFILE();
-if (q.get('truck')) { profile.truck = q.get('truck'); profile.trucks.push(profile.truck); }
-if (q.get('weapons')) { for (const id of q.get('weapons').split(',')) { profile.weapons[id] = { dmg: 0, mag: 0, rel: 0, hnd: 0 }; if (!profile.loadout.includes(id)) profile.loadout.push(id); } }
-const seed = +(q.get('seed') || 7);
-const netMode = q.get('net');
+game.loop();
 
-if (!netMode) {
-  // dev: solo run straight away
-  const run = await game.startRun({ role: 'solo', seed, profile, paint: 0x8f6a3d, startS: +(q.get('s') || 40) });
-  window.__run = run;
-  game.loop();
-  window.__ready = true;
-} else {
-  // dev network path (the real lobby UI replaces this): ?net=host&role=driver   /   ?net=join&code=ABCDE
+const devProfile = () => {
+  const p = DEFAULT_PROFILE();
+  if (q.get('truck')) { p.truck = q.get('truck'); p.trucks.push(p.truck); }
+  if (q.has('maxed')) { p.truck = 'truck_t4'; p.trucks = ['truck_t1', 'truck_t2', 'truck_t3', 'truck_t4']; for (const u of UPGRADES) p.upgrades[u.id] = u.costs.length; p.weapons = { lmg: { dmg: 3, mag: 3, rel: 3, hnd: 3 }, rpg: { dmg: 3, mag: 3, rel: 3, hnd: 3 }, sniper: { dmg: 3, mag: 3, rel: 3, hnd: 3 } }; p.loadout = ['lmg', 'rpg', 'sniper']; }
+  if (q.get('weapons')) for (const id of q.get('weapons').split(',')) { p.weapons[id] = { dmg: 0, mag: 0, rel: 0, hnd: 0 }; if (!p.loadout.includes(id)) p.loadout.push(id); }
+  return p;
+};
+
+if (q.has('solo')) {
+  // dev shortcut: straight into a solo run
+  const run = await game.startRun({ role: 'solo', seed: +(q.get('seed') || 7), profile: devProfile(), paint: 0x8f6a3d, startS: +(q.get('s') || 40) });
+  window.__run = run; window.__ready = true;
+} else if (q.get('devnet')) {
+  // dev shortcut for automated 2-browser tests: ?devnet=host&role=driver   /   ?devnet=join&code=ABCDE
   const session = new Session(); window.__session = session;
+  const profile = devProfile();
   const startAs = async (cfg) => { const run = await game.startRun({ ...cfg, net: session, paint: 0x8f6a3d, startS: +(q.get('s') || 40) }); window.__run = run; window.__ready = true; };
-  session.on({
-    run: (m) => game.run && game.run.onNet(m), fast: (b) => game.run && game.run.onFast(b),
-    disconnect: () => console.log('peer disconnected'),
-    start: (cfg) => startAs(cfg),
-  });
-  game.loop();
-  if (netMode === 'host') {
-    const code = await session.host(profile); window.__code = code; console.log('ROOM', code);
+  session.on({ run: (m) => game.run && game.run.onNet(m), fast: (b) => game.run && game.run.onFast(b), start: (cfg) => startAs(cfg) });
+  if (q.get('devnet') === 'host') {
+    const code = await session.host(profile); window.__code = code;
     const role = q.get('role') || 'driver';
     session.tp.onOpen = () => {
-      session.connected = true; session.tp.send({ t: 'hello', name: 'Host', campaign: profile.campaignId });
+      session.connected = true; session.tp.send({ t: 'hello', name: 'Host' });
       session.me.role = role; session.me.ready = true;
-      setTimeout(() => { if (session.other) { session.other.role = role === 'driver' ? 'gunner' : 'driver'; session.other.ready = true; } const cfg = session.startRun({ seed }); startAs(cfg); }, 800);
+      setTimeout(() => { session.other = { name: 'Guest', role: role === 'driver' ? 'gunner' : 'driver', ready: true }; startAs(session.startRun({ seed: +(q.get('seed') || 7) })); }, 800);
     };
-  } else {
-    await session.join(q.get('code'), profile); console.log('JOINED');
-  }
+  } else await session.join(q.get('code'), profile);
+} else {
+  const app = new App(game);
+  app.title();
+  window.__ready = true;
 }

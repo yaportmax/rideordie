@@ -67,6 +67,19 @@ class SkinBake:
         self.top = np.rint(img[..., 7]).astype(int)
         self.G = {k: img[..., 8 + i] for i, k in enumerate(_GKEYS)}
         self.Y = self.P[..., 1]
+        # coverage of the FULL-resolution MakeHuman UVs (the original texture is only valid there)
+        full = getattr(ch, "full", None)
+        if full is not None:
+            fuv = full["vt"][full["tt"]].reshape(-1, 2)
+            fuv = np.stack([fuv[:, 0], 1.0 - fuv[:, 1]], axis=1)
+            _, fm = U.rasterize(fuv, np.arange(len(fuv)).reshape(-1, 3), np.zeros((len(fuv), 1)), size)
+            self.src_mask = fm
+        else:
+            self.src_mask = mask
+
+    def fill_gutters(self, img):
+        """Replace texels outside the source texture's UV islands by the nearest valid texel (kills pale seams)."""
+        return U.dilate(np.asarray(img, np.float32), self.src_mask)
 
     def bone_mask(self, *names, thresh=0.5):
         m = np.zeros(self.mask.shape, np.float32)
@@ -169,15 +182,25 @@ def tribal_band(a, s, s0, s1, period, amp=0.02, seed=0):
     return U.blur(m.astype(np.float32), 0.7)
 
 
-def flame_sleeve(a, s, s0, s1, seed=0, scale=0.05):
-    """Dense blackwork: domain-warped noise thresholded, fading toward s1."""
-    sh = a.shape
-    n = U.fbm(sh, 22.0, 3, seed, wrap=False)
-    n2 = U.fbm(sh, 60.0, 2, seed + 1, wrap=False)
-    fade = 1.0 - U.smoothstep(s0, s1, s)
-    thr = 0.5 - 0.22 * fade
-    m = ((n * 0.7 + n2 * 0.3) > thr + 0.08).astype(np.float32) * (s > s0) * (s < s1 + 0.02)
-    return U.blur(m, 0.8)
+def flame_sleeve(a, s, s0, s1, seed=0, scale=0.05, period=0.034):
+    """Graphic flame tattoo licking up the limb from s1 toward s0 (a = metres around the limb, s = along it):
+    tongues of varying height with thin cut-outs; returns a 0..1 mask."""
+    rng = np.random.default_rng(seed)
+    ph = rng.uniform(0, 6.28, 3)
+    k = 2 * np.pi / period
+    tong = 0.5 + 0.5 * np.sin(a * k + 1.7 * np.sin(a * k * 0.43 + ph[0]) + ph[1])
+    tong = tong ** 1.6
+    L = s1 - s0
+    top = s1 - L * (0.25 + 0.75 * tong)                     # flames rise from s1 toward s0
+    body = (s > top) & (s < s1)
+    # inner cut-out: a thinner flame inside each tongue
+    tong2 = 0.5 + 0.5 * np.sin(a * k + 1.7 * np.sin(a * k * 0.43 + ph[0]) + ph[1] + 0.0)
+    inner_top = s1 - L * (0.12 + 0.45 * tong2 ** 2.2)
+    width_ok = np.abs(np.sin(a * k * 0.5 + ph[1] * 0.5 + 0.9 * np.sin(a * k * 0.43 + ph[0]))) > 0.82
+    cut = width_ok & (s > inner_top) & (s < s1 - 0.012)
+    base = (s > s1) & (s < s1 + 0.006)                      # solid rim at the base of the flames
+    m = (body & ~cut) | base
+    return U.blur(m.astype(np.float32), 0.7)
 
 
 def line_mask_3d(P, pts, width):
@@ -244,7 +267,10 @@ def stubble(alb, sb, ch, seed=1, amount=0.6, colour=(0.07, 0.055, 0.045), cheeks
     y = (P[..., 1] - c[1]) / u
     front = N[..., 2] < 0.55
     face = sb.G["Head"] > 0.5
-    reg = face & front & (y < -0.043) & (y > -0.128) & (x < 0.078) & (P[..., 2] < c[2] + 0.06 * u)
+    reg = (face & front & (y > -0.128) & (x < 0.078) & (P[..., 2] < c[2] + 0.06 * u)).astype(np.float32)
+    # soft, slightly irregular cheek line (higher toward the sideburns)
+    cheek_line = -0.050 + 0.012 * np.clip(x / 0.07, 0, 1) + 0.004 * (U.fbm(sb.mask.shape, 12.0, 2, seed + 7, wrap=False) - 0.5)
+    reg = reg * (1.0 - U.smoothstep(cheek_line - 0.006, cheek_line + 0.006, y))
     # jaw line falloff
     jaw = 1.0 - U.smoothstep(0.045, 0.078, x + np.maximum(-y - 0.09, 0) * 0.6)
     n = U.fbm(sb.mask.shape, 1.9, 2, seed, wrap=False)
@@ -281,7 +307,7 @@ def face_bands(alb, sb, ch, paint):
     u = half / 0.032
     x = (P[..., 0] - c[0]) / u
     y = (P[..., 1] - c[1]) / u
-    front = ((N[..., 2] < 0.6) & (sb.G["Head"] > 0.5)).astype(np.float32)
+    front = ((N[..., 2] < 0.3) & (P[..., 2] < c[2] + 0.035 * u) & (sb.G["Head"] > 0.5)).astype(np.float32)
     for mask, colour, strength in paint(x, y, front):
         alb = blend(alb, colour, np.clip(U.blur((mask * front).astype(np.float32), 0.6) * strength, 0, 1))
     return alb

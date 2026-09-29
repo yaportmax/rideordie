@@ -3,7 +3,6 @@ Units mm, G frame (+X fwd, +Y left, +Z up).  Origin = grip centre (right palm)."
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gunlib
-# import bevel_clean            # local fix: clean degenerate faces after bevel/boolean (see module docstring)
 from gunlib import *
 import gunlook
 import numpy as np

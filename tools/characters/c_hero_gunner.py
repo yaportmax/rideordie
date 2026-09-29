@@ -87,6 +87,7 @@ def skin_texture(ctx, fit, tris):
     import body as B
     base = B.skin_image(ch.spec["skin"], 2048).astype(np.float32) / 255.0
     sb = SP.SkinBake(ch, fit, 2048, tris=(ch.tv, ch.tt))
+    base = sb.fill_gutters(base)
     alb = SP.tone(base, mul=(1.02, 1.0, 0.97), gamma=0.95)
     alb = SP.blend(alb, (0.30, 0.22, 0.15), SP.dirt(sb, 4, 0.5))
     # tattoos: tribal band on the right upper arm, blackwork sleeve fading down the left forearm
@@ -97,7 +98,7 @@ def skin_texture(ctx, fit, tris):
     farm = sb.bone_mask("LeftForeArm") > 0.4
     a, s, r = SP.limb_uv(sb, "L_arm", (-1.0, 0.0, 0.0), sel=farm)
     up = fit.limb_len("L_arm", 1)
-    m = SP.flame_sleeve(a, s, up + 0.02, up + 0.22, seed=6) * farm
+    m = SP.flame_sleeve(a, s, up + 0.05, up + 0.20, seed=6) * farm
     alb = SP.ink(alb, m, (0.06, 0.07, 0.10), 0.75)
     # scar through the left eyebrow (internal space: left = -x)
     e = eye_point(ch, "L")

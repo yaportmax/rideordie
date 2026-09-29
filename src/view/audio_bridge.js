@@ -396,10 +396,11 @@ export class AudioBridge {
     const A = this.audio, now = A.now;
     const burning = st.burning || c.burning || (st.exploded && now < c.wreckUntil);
     const near = A.listener.distTo(st.pos) < 140;
-    if (burning && near && !c.fire) {
+    if (burning && near && !c.fire && now >= (c.fireRetry || 0)) {
       const o = { pos: st.pos, vel: st.vel, loop: true, refDist: 6, randomOffset: true, pitchVar: 0.08 };
       c.fire = this._play('explosions/fire_loop', { ...o, gain: 0.85 });
       c.crackle = this._play('explosions/fire_crackle_loop', { ...o, gain: 0.5, refDist: 5 });
+      if (c.fire.isNull) { c.fire = c.crackle = null; c.fireRetry = now + 0.5; } // context not running yet / missing: retry later
     } else if ((!burning || !near) && c.fire) { c.fire.stop(0.8); c.crackle?.stop(0.8); c.fire = c.crackle = null; }
     else if (c.fire) { c.fire.setPos(st.pos, st.vel); c.crackle?.setPos(st.pos, st.vel); }
     if (st.exploded && now >= c.wreckUntil && c.wreckUntil > 0) c.burning = false;
@@ -428,7 +429,12 @@ export class AudioBridge {
     this.cars.delete(id); this.lastCrash.delete(id); this.lastFlesh.delete(id); this.enemyShotT.delete(id);
   }
   /** New run / back to the garage: drop every car sound. */
-  reset() { for (const id of [...this.cars.keys()]) this._removeCar(id); for (const r of this.rockets) r.h.stop(0.05); this.rockets.length = 0; this._cancelFoley(); this.audio.setDanger(0); }
+  reset() {
+    for (const id of [...this.cars.keys()]) this._removeCar(id);
+    for (const r of this.rockets) r.h.stop(0.05);
+    this.rockets.length = 0; this._cancelFoley(); this.audio.setDanger(0); this.crewDanger = 0;
+    this.audio.ambience.stopWind(0.4);
+  }
 
   // ------------------------------------------------------------------------------------------------ run flow helpers
   runStart() { const A = this.audio; A.stinger('run_start'); A.music.setState('run'); A.music.setIntensity(0.1); }

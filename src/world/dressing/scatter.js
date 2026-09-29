@@ -31,8 +31,8 @@ function resolve(ctx, e) {
 
 const _g = {}, _rs = {};
 
-/** @returns {boolean} false when some asset is still loading (call again later for the same tier). */
-export function runScatter(ctx, chunk, tier) {
+/** @returns {boolean} false when some asset is still loading or the time slice ran out (chunk._more = true); call again later for the same tier. */
+export function runScatter(ctx, chunk, tier, deadline = Infinity) {
   const { road, seed, kit, pool } = ctx;
   const s0 = chunk.s0;
   const bios = [biomeAt(s0), biomeAt(s0 + 48), biomeAt(s0 + CHUNK_LEN)];
@@ -41,14 +41,15 @@ export function runScatter(ctx, chunk, tier) {
   if (!excl) return false;
   const tun = ctx.tunnelsNear(s0 - 60, s0 + CHUNK_LEN + 60);
   const seaY = chunk.seaY;
-  let ready = true;
+  let ready = true, worked = 0;
   for (const e of SCATTER) {
     if (tierOf(e) !== tier || chunk.done.has(e.id)) continue;
+    if (worked > 0 && performance.now() > deadline) { chunk._more = true; return false; }
     let wmax = 0; for (const b of bios) wmax = Math.max(wmax, entryDens(e, b));
     if (wmax <= 0) { chunk.done.add(e.id); continue; }
     const res = resolve(ctx, e);
     if (res === 'wait') { ready = false; continue; }
-    chunk.done.add(e.id);
+    chunk.done.add(e.id); worked++;
     if (!res) continue;
     const asset = kit.get(res.id); if (!asset) continue;
     pool.register(res.id, specOfEntry(e, res.id));

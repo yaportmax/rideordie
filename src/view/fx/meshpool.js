@@ -19,7 +19,7 @@ export class MeshPool {
     this.mesh.setColorAt(0, _col.set(0xffffff)); this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
     scene.add(this.mesh);
     this.gravity = opts.gravity ?? 9.8; this.rest = opts.restitution ?? 0.38; this.fric = opts.friction ?? 0.55; this.rad = opts.radius ?? 0.5; this.fadeTime = opts.fadeTime ?? 0.5;
-    this.drag = opts.drag ?? 0.05;
+    this.drag = opts.drag ?? 0.05; this.upright = !!opts.upright;
     this.px = new Float32Array(n); this.py = new Float32Array(n); this.pz = new Float32Array(n);
     this.vx = new Float32Array(n); this.vy = new Float32Array(n); this.vz = new Float32Array(n);
     this.q = new Float32Array(n * 4); this.av = new Float32Array(n * 3); this.sc = new Float32Array(n * 3);
@@ -38,7 +38,8 @@ export class MeshPool {
     this.sc[i * 3] = sx; this.sc[i * 3 + 1] = sy; this.sc[i * 3 + 2] = sz;
     this.av[i * 3] = avx; this.av[i * 3 + 1] = avy; this.av[i * 3 + 2] = avz;
     // random orientation from the angular velocity direction (cheap, deterministic enough)
-    _q.set(Math.sin(avx * 1.7 + 0.3), Math.sin(avy * 2.3 + 1.1), Math.sin(avz * 1.3 + 2.1), Math.cos(avx + avy * 0.7 + 0.2)).normalize();
+    if (this.upright) _q.setFromAxisAngle(_ax.set(0, 1, 0), avy * 7.3);   // upright props (mines, barrels): yaw only
+    else _q.set(Math.sin(avx * 1.7 + 0.3), Math.sin(avy * 2.3 + 1.1), Math.sin(avz * 1.3 + 2.1), Math.cos(avx + avy * 0.7 + 0.2)).normalize();
     this.q[i * 4] = _q.x; this.q[i * 4 + 1] = _q.y; this.q[i * 4 + 2] = _q.z; this.q[i * 4 + 3] = _q.w;
     this.life[i] = life; this.age[i] = 0; this.trailT[i] = 0; this.flags[i] = trail ? 1 : 0; this.frames[i] = frame; this.floorY[i] = floorY;
     this.gy[i] = (this.groundFn && !frame) ? this.groundFn(x, z) : y - 1;

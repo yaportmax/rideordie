@@ -39,6 +39,7 @@ const hh = num('h', 5), back = num('back', 16), yawOff = num('yaw', 0) * Math.PI
 const tmp = {};
 let frames = 0, t0 = performance.now(), idleFrames = 0;
 const fpsRing = [];
+const updStats = { last: 0, max: 0, sum: 0, n: 0, over4: 0 };
 function frame() {
   const now = performance.now(), dtRaw = (now - t0) / 1000; t0 = now;
   const dt = Math.min(0.05, dtRaw);
@@ -52,7 +53,9 @@ function frame() {
   const th = sm.th + yawOff;
   camera.lookAt(camera.position.x + Math.sin(th) * 50, camera.position.y + Math.tan(pitchOff) * 50, camera.position.z + Math.cos(th) * 50);
   camera.updateMatrixWorld();
+  const tu = performance.now();
   dressing.update(dt, camera.position, s, camera);
+  const du = performance.now() - tu; updStats.last = du; updStats.max = Math.max(updStats.max, du); updStats.sum += du; updStats.n++; if (du > 4) updStats.over4++;
   sky.update(dt, camera, camera.position);
   renderer.render(scene, camera);
   frames++;
@@ -60,12 +63,12 @@ function frame() {
   const info = renderer.info;
   const avg = fpsRing.reduce((a, b) => a + b, 0) / fpsRing.length;
   hud.textContent = `s=${s.toFixed(0)} chunks=${streamer.chunks.size} pend=${streamer.pending.size} tris=${info.render.triangles} calls=${info.render.calls} fps=${(1 / avg).toFixed(0)}\n` +
-    `pool inst=${dressing.pool.stats.instances} meshes=${dressing.pool.stats.drawn} rebuild=${dressing.stats.rebuildMs.toFixed(1)}ms job=${dressing.stats.jobMs.toFixed(1)}ms idle=${dressing.idle} tex=${info.memory.textures} geo=${info.memory.geometries}\n` +
+    `upd ${updStats.last.toFixed(2)}ms max ${updStats.max.toFixed(1)} avg ${(updStats.sum / Math.max(1, updStats.n)).toFixed(2)} >4ms:${updStats.over4}  pool inst=${dressing.pool.stats.instances} meshes=${dressing.pool.stats.drawn} rebuild=${dressing.stats.rebuildMs.toFixed(1)}ms job=${dressing.stats.jobMs.toFixed(1)}ms idle=${dressing.idle} tex=${info.memory.textures} geo=${info.memory.geometries}\n` +
     `hooks ${JSON.stringify(hooks)}`;
   if (ready && dressing.idle) idleFrames++; else idleFrames = 0;
-  if (idleFrames > 12 && frames > 30) window.__ready = true;
+  if (idleFrames > 12 && frames > 30 && !window.__ready) { window.__ready = true; Object.assign(updStats, { max: 0, sum: 0, n: 0, over4: 0 }); dressing.stats.stepMax.fill(0); dressing.stats.rebuildMax = 0; }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
-window.__dress = { road, streamer, sky, scene, camera, renderer, dressing, hooks, setS: (v) => { s = v; } };
+window.__dress = { road, streamer, sky, scene, camera, renderer, dressing, hooks, updStats, setS: (v) => { s = v; } };

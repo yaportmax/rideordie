@@ -227,7 +227,7 @@ function quadGeometry() {
 export function makeParticleUniforms(atlas) {
   return {
     uTime: { value: 0 }, uMap: { value: atlas.texture }, uRect: { value: atlas.rect }, uGrid: { value: atlas.grid },
-    uWind: { value: new THREE.Vector3(1.2, 0.0, 0.4) }, uLight: { value: new THREE.Vector3(1, 0.9, 0.75) },
+    uWind: { value: new THREE.Vector3(1.2, 0.0, 0.4) }, uLight: { value: new THREE.Vector3(1, 0.9, 0.75) }, uSunDir: { value: new THREE.Vector3(0.4, 0.7, 0.3) },
     uPix: { value: 0.002 }, uFogD: { value: 0 }, uFogCol: { value: new THREE.Color(0xd9b48a) },
     uInset: { value: new THREE.Vector2(0.5 / atlas.size[0], 0.5 / atlas.size[1]) }, uFrameBlend: { value: 1 },
   };

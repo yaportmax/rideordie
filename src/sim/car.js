@@ -62,7 +62,7 @@ export class Car {
   crewAlive() { return Object.values(this.crew).filter((c) => c.alive).length; }
 }
 
-function raySphere(o, d, c, r) {
+export function raySphere(o, d, c, r) {
   const ox = o.x - c[0], oy = o.y - c[1], oz = o.z - c[2];
   const b = ox * d.x + oy * d.y + oz * d.z, cc = ox * ox + oy * oy + oz * oz - r * r;
   const disc = b * b - cc;
@@ -70,7 +70,7 @@ function raySphere(o, d, c, r) {
   const t = -b - Math.sqrt(disc);
   return t >= 0 ? t : (cc < 0 ? 0 : -1);
 }
-function rayBox(o, d, c, h) {
+export function rayBox(o, d, c, h) {
   let tmin = 0, tmax = 1e9;
   const oo = [o.x - c[0], o.y - c[1], o.z - c[2]], dd = [d.x, d.y, d.z];
   for (let i = 0; i < 3; i++) {

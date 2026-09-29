@@ -30,5 +30,5 @@ if (!fs.existsSync('shots/weapons/_sheet/_blank.png')) spawnSync('ffmpeg', ['-y'
 const n = files.length;
 const layout = files.map((_, i) => `${(i % cols) * W}_${Math.floor(i / cols) * H}`).join('|');
 const fc = `xstack=inputs=${n}:layout=${layout}:fill=0x1a1d22,scale=2400:-1`;
-const r = spawnSync('ffmpeg', ['-y', ...inputs, '-filter_complex', fc, '-frames:v', '1', 'shots/weapons/weapons_preview.png'], { stdio: 'inherit' });
+const r = spawnSync('ffmpeg', ['-y', ...inputs, '-filter_complex', fc, '-frames:v', '1', '-update', '1', 'shots/weapons/weapons_preview.png'], { stdio: 'inherit' });
 console.log('sheet exit', r.status);

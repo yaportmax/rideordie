@@ -61,7 +61,8 @@ def skin_texture(ctx, fit):
     import body as B
     base = B.skin_image(ch.spec["skin"], 1024).astype(np.float32) / 255.0
     sb = SP.SkinBake(ch, fit, 1024)
-    alb = SP.tone(base, mul=(1.0, 0.94, 0.90), gamma=0.95)
+    base = sb.fill_gutters(base)
+    alb = SP.tone(base, mul=(0.86, 0.72, 0.60), gamma=1.05)
     alb = SP.sunburn(alb, sb, ch, amount=0.55)
     alb = SP.blend(alb, (0.25, 0.19, 0.13), SP.dirt(sb, 6, 0.7))
     alb = SP.stubble(alb, sb, ch, seed=4, amount=0.85, colour=(0.09, 0.07, 0.055), cheeks=0.7)
@@ -71,7 +72,7 @@ def skin_texture(ctx, fit):
     alb = SP.ink(alb, SP.tribal_band(a, s, 0.06, 0.16, 0.05, 0.03, seed=5) * rsel, (0.06, 0.08, 0.1), 0.8)
     lsel = (sb.bone_mask("LeftArm", "LeftForeArm") > 0.4)
     a, s, r = SP.limb_uv(sb, "L_arm", (-1.0, 0.0, 0.0), sel=lsel)
-    alb = SP.ink(alb, SP.flame_sleeve(a, s, 0.03, 0.42, seed=9) * lsel, (0.07, 0.09, 0.12), 0.7)
+    alb = SP.ink(alb, SP.flame_sleeve(a, s, 0.14, 0.40, seed=9) * lsel, (0.07, 0.09, 0.12), 0.8)
     # chest scars
     c = mh.to_game(ch.body.mh_bone("spine01")[0]) + ch.lift
     for k, dx in enumerate((-0.03, 0.02)):
@@ -134,7 +135,7 @@ def add_gear(ctx, fit, pcs, gl):
     for g_ in gl:
         common.add_tiled_piece(ctx, cloth.finish(g_, fit), glove_m, label="glove")
     # goggles over the eyes (round dark lenses)
-    gg = gear.goggles(ctx, brc, up=0.0, hair=0.004, lens_r=0.027, spacing=0.0335, tilt=-4.0, seg=14, ring_n=26)
+    gg = gear.goggles(ctx, brc, up=0.0, hair=0.004, lens_r=0.027, spacing=0.0335, tilt=-4.0, seg=12, ring_n=22)
     strap_m = common.gear_material(ctx, "webbing_strap", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
     lens_m = common.plain_material(ctx, "glass_lens", (0.03, 0.045, 0.05), rough=0.06, alpha=0.86, double_sided=True)
     rim_m = common.gear_material(ctx, "metal_rim", "metal_dark", color=(0.42, 0.40, 0.36), rough=1.0, metal=1.0)
@@ -154,7 +155,7 @@ def add_gear(ctx, fit, pcs, gl):
         m["uv"] = m["uv"] * 0.5
         common.add_gear(ctx, m, bmat, binder, bone="Head", label="bandana_tail")
     # rolled trims
-    for g_, m_, r_ in ((pcs["g_vest"], leather_dk, 0.0045), (pcs["g_pants"], canvas, 0.0055)):
+    for g_, m_, r_ in ((pcs["g_vest"], leather_dk, 0.0045),):
         for tube in cloth.bindings(g_, radius=r_, min_len=0.14, sides=4, spacing=0.03):
             common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), m_, binder, label="trim")
     ctx.brc, ctx.binder = brc, binder
@@ -164,7 +165,7 @@ def build():
     t0 = time.time()
     ctx = charbuild.Ctx(NAME, SPEC)
     ch = ctx.ch
-    lod.decimate(ch, 0.30)
+    lod.decimate(ch, 0.27)
     fit = cloth.CFit(ch)
     ctx.fit = fit
     vest = cloth.torso_top(fit, "tank", off=0.020, bridge=0.03, hem=-0.03, open_front=0.085, strap=0.145, neck_half=0.07, neck=(-0.02, -0.03))

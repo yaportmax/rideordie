@@ -63,6 +63,7 @@ def skin_texture(ctx, fit):
     import body as B
     base = B.skin_image(ch.spec["skin"], 2048).astype(np.float32) / 255.0
     sb = SP.SkinBake(ch, fit, 2048)
+    base = sb.fill_gutters(base)
     alb = SP.tone(base, mul=(0.86, 0.73, 0.60), gamma=1.0, sat=1.05)
     alb = SP.blend(alb, (0.38, 0.28, 0.20), SP.dirt(sb, 5, 0.22))
     alb = SP.freckles(alb, sb, ch, seed=3, amount=0.5)

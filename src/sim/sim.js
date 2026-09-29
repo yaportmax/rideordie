@@ -52,6 +52,7 @@ export class Sim {
     this.timeScale = 1;
     this.hitStop = 0;
     this.enemyDamageMul = 1; this.playerDamageMul = 1;
+    this.boss = null; this.won = false;
     this.projectiles = this.use(new Projectiles());
     this.director = this.use(new Director(opts.director || {}));
     this.hazards = this.use(new Hazards());
@@ -127,6 +128,7 @@ export class Sim {
     for (const sys of this.systems) sys.update(dt, this);
     if ((this.tick & 1) === 0 && this.state === 'run') for (const car of this.cars.values()) if (car.ai) car.ai.update(dt * 2);
 
+    if (this.boss) this.boss.update(dt);
     for (const car of this.cars.values()) {
       if (car.held) continue;
       car.age += dt;
@@ -281,6 +283,7 @@ export class Sim {
   /** Area damage + impulse. sourceCar is excluded; ownerId attributes kills (1 = the player's weapons). */
   blast(pos, radius, damage, impulseScale, sourceCar, ownerId) {
     const src = ownerId ?? (sourceCar ? sourceCar.id : -1);
+    if (this.boss && src === 1) this.boss.blastParts(pos, radius, damage);
     for (const car of this.cars.values()) {
       if (car === sourceCar) continue;
       if (src === 1 && car.kind === 'player') continue; // no friendly fire from the player's own weapons
@@ -303,6 +306,11 @@ export class Sim {
 
   /** The gunner's client reports a hit it detected against the cars it sees. */
   applyHit(rep) {
+    if (this.boss && rep.carId === this.boss.id) {
+      const d = this.boss.damage(rep.zone, rep.dmg * this.playerDamageMul, { point: rep.point });
+      if (d > 0) this.stats.hits++;
+      return d > 0;
+    }
     const car = this.cars.get(rep.carId);
     if (!car || (car.exploded && !rep.wreck)) return false;
     const P = this.player;
@@ -335,6 +343,11 @@ export class Sim {
     const P = this.player;
     if (!P) return;
     if (this.state === 'countdown') return;
+    if (this.state === 'run' && this.boss && this.boss.exploded) {
+      this.wonT = (this.wonT || 0) + dt;
+      if (this.wonT > 5) { this.won = true; this.state = 'over'; this.result = { why: 'victory' }; this.emit({ t: 'runOver', why: 'victory' }); }
+      return;
+    }
     if (this.state === 'run') {
       const why = P.exploded ? 'car' : !P.crew.driver.alive ? 'driver' : (P.crew.gunner && !P.crew.gunner.alive) ? 'gunner' : null;
       if (why) { this.state = 'dying'; this.stateT = 0; this.result = { why }; this.emit({ t: 'playerDown', why }); }

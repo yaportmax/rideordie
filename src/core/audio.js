@@ -260,6 +260,12 @@ export class LoopLayer {
     try { this.src.disconnect(); } catch { /* */ }
     A._rel('src'); this.src = null;
   }
+  /** Fade to silence and stop the source (does not need further set() calls). */
+  fadeStop(fade = 0.3) {
+    if (!this.src) return;
+    this.set(0, this._lr ?? 1, fade / 3);
+    this.A._later(fade + 0.1, () => { if (this.cur <= 0.003) this._stop(); });
+  }
   release() {
     this._stop();
     if (this.gain) { this.A._free(this.gain, 'gain'); this.gain = null; }
@@ -474,7 +480,8 @@ export class MusicSys {
 }
 
 // ------------------------------------------------------------------------------------------------------------ Tyres
-function surfaceKind(s) { return !s || s === 'asphalt' || s === 'road' || s === 'tarmac' || s === 'concrete' || s === 'bridge' ? 'asphalt' : 'dirt'; }
+/** Sim surface ('asphalt' | 'gravel' | 'oil' | biome dirt kinds, or a {kind} object) -> tyre layer. */
+function surfaceKind(s) { if (s && typeof s === 'object') s = s.kind; return !s || s === 'asphalt' || s === 'road' || s === 'tarmac' || s === 'concrete' || s === 'bridge' || s === 'oil' ? 'asphalt' : 'dirt'; }
 
 /** Tyre roar (asphalt / dirt crossfade by surface) + skid squeal (asphalt / gravel) loops. */
 export class TyreSet {
@@ -644,6 +651,15 @@ export class EngineSound {
       const slope = (rpm01 - this.prevRpm01) / Math.max(dt, 1e-3);
       if (this.player && slope < -1.4 && speed > 8 && now - this.lastShift > 0.7) { this.lastShift = now; this._shot('vehicles/gear_shift', ex, { gain: 0.3, pitch: 0.95 + A.rand() * 0.1 }); }
       this.prevRpm01 = rpm01;
+      this._extrasOn = true;
+    } else if (this._extrasOn) {
+      // far LOD: only the dominant stage loop; fade the extra layers out (their sources stop after ~0.7 s of silence)
+      this._extrasOn = false;
+      for (const l of [this.turboL, this.superL, this.nitroL, this.dmgL]) l.set(0, 1, 0.08);
+      if (this.tyreS) this.tyreS.update(0, ex.surface, 0, 0, dt);
+    } else {
+      for (const l of [this.turboL, this.superL, this.nitroL, this.dmgL]) if (l.active) l.set(0, 1, 0.08);
+      if (this.tyreS && (this.tyreS.la.active || this.tyreS.ld.active || this.tyreS.sa.active || this.tyreS.sg.active)) this.tyreS.update(0, ex.surface, 0, 0, dt);
     }
     this.airborne = !!ex.airborne;
   }
@@ -738,7 +754,16 @@ export class AmbienceSys {
       if (this._resolveBed(this.want).length) { const w = this.want, o = this.wantOpts; this.biome = null; this.setBiome(w, o); }
     }
   }
-  stop(fade = 1) { this._req++; if (this.bed) { this.bed.fadeOut(fade); this.fading.push(this.bed); this.bed = null; } this.biome = null; this.want = null; }
+  /** Stops the biome bed, the wind layer and the player-roar layer. */
+  stop(fade = 1) {
+    this._req++; if (this.bed) { this.bed.fadeOut(fade); this.fading.push(this.bed); this.bed = null; } this.biome = null; this.want = null; this._noBed = false;
+    this.stopWind(fade);
+  }
+  stopWind(fade = 0.5) {
+    if (this.windLayer) this.windLayer.fadeStop(fade);
+    if (this.tyres) for (const l of [this.tyres.la, this.tyres.ld, this.tyres.sa, this.tyres.sg]) l.fadeStop(fade);
+    this.windLevel = 0;
+  }
 }
 
 // ------------------------------------------------------------------------------------------------------------ AudioSys
@@ -757,7 +782,7 @@ export class AudioSys {
     this.voices = new Set(); this._dyn = new Set(); this.maxVoices = opts.maxVoices || 64;
     this.maxEngines = opts.maxEngines || 10; this.engineCull = opts.engineCull || 180;
     this._cnt = { gain: 0, src: 0, filter: 0, panner: 0 }; this._relc = { gain: 0, src: 0, filter: 0, panner: 0 };
-    this.stats = { played: 0, culled: 0, stolen: 0, notLoaded: 0, dropped: 0, fetched: 0, failed: 0, bytes: 0 };
+    this.stats = { played: 0, culled: 0, stolen: 0, notLoaded: 0, dropped: 0, fetched: 0, failed: 0, fetchedBytes: 0 };
     this._queue = []; this._active = 0; this._maxActive = opts.maxConcurrent || 4; this._seq = 0;
     this._timers = []; this._ducks = []; this._conc = 0; this._concHold = 0; this._danger = 0; this._dangerT = 0;
     this._lastFast = 0; this.dopplerScale = 1; this.eventLog = [];
@@ -966,9 +991,9 @@ export class AudioSys {
         try {
           const r = await fetch(def.urls[i], { cache: this.fetchCache });
           if (!r.ok) throw new Error(def.urls[i] + ' ' + r.status);
-          const ab = await r.arrayBuffer();
+          const ab = await r.arrayBuffer(), nb = ab.byteLength; // decodeAudioData detaches `ab`
           const buf = await this.ctx.decodeAudioData(ab);
-          def.bufs[i] = buf; this.stats.fetched++; this.stats.bytes += ab.byteLength;
+          def.bufs[i] = buf; this.stats.fetched++; this.stats.fetchedBytes += nb;
           if (def.waiters.length) { const ws = def.waiters.splice(0); for (const w of ws) w.attach(this._pickBuf(def)); }
           res(buf);
         } catch (e) { this.stats.failed++; def.failed[i] = true; def.loading[i] = null; rej(e); }
@@ -1015,7 +1040,7 @@ export class AudioSys {
   bufferStats() {
     let count = 0, bytes = 0;
     for (const d of this.defs.values()) for (const b of d.bufs) if (b) { count++; bytes += b.length * b.numberOfChannels * 4; }
-    return { count, bytes, queued: this._queue.length, active: this._active, ...this.stats };
+    return { ...this.stats, count, bytes, queued: this._queue.length, active: this._active };
   }
 
   // -------------------------------------------------------------------------------------------------- unlock

@@ -7,7 +7,8 @@
 //   optional:   fx.setGround((x, z) => groundY)   fx.setQuality(q)   fx.updateProjectiles([{k:1|2,x,y,z}], dt)   fx.wreck(state, carView)
 //
 // Files: fx/particles.js (GPU pool + shader), fx/atlas.js (sprite atlas), fx/recipes.js (explosion, muzzle, tracer, impact),
-//        fx/carfx.js (per-car tyre smoke / dust / nitro / smoke / sparks), fx/skid.js (SkidMarks), fx/decals.js, fx/meshpool.js, fx/wreck.js.
+//        fx/carfx.js (per-car tyre smoke / dust / nitro / smoke / sparks), fx/skid.js (SkidMarks), fx/decals.js, fx/meshpool.js, fx/wreck.js,
+//        fx/boss.js (THE LEVIATHAN: flamers, cannon, part fires, death + mushroom cloud), fx/hazards.js (mines, burning barrels, oil, boost pads).
 import * as THREE from 'three';
 import { buildAtlas, loadDecalTextures, SPR } from './fx/atlas.js';
 import { ParticleSystem, PDesc, MODE, makeParticleUniforms } from './fx/particles.js';
@@ -20,6 +21,9 @@ import { WEAPONS } from '../data/weapons.js';
 import * as R from './fx/recipes.js';
 import { CarRec, updateCarFx } from './fx/carfx.js';
 import { paintHexOf } from './fx/wreck.js';
+import { BossFx } from './fx/boss.js';
+import { HazardFx } from './fx/hazards.js';
+import { BOSS_ID } from '../data/boss.js';
 
 export { SkidMarks } from './fx/skid.js';
 
@@ -53,6 +57,8 @@ export class Fx {
     this._carMs = 0; this._lightT = 0; this._projSeen = false;
     this.pProj = []; for (let i = 0; i < 16; i++) this.pProj.push({ live: false, k: 0, x: 0, y: 0, z: 0, seen: false });
     this.rockets = []; this.grenadeSlots = [];
+    this.pimp = []; for (let i = 0; i < 64; i++) this.pimp.push({ live: false, t: 0, s: 'metal', x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0 });
+    this.pimpHead = 0; this._views = null;
     this.viewH = (typeof innerHeight !== 'undefined' ? innerHeight : 1080) * Math.min((typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1) || 1, 1.5);
     if (typeof addEventListener !== 'undefined') addEventListener('resize', () => { this.viewH = innerHeight * Math.min(devicePixelRatio || 1, 1.5); });
   }
@@ -89,6 +95,9 @@ export class Fx {
       const l = new THREE.PointLight(0xffaa55, 0, 60, 2); l.castShadow = false; this.scene.add(l);
       this.lights.push({ light: l, mode: 0, t: 0, dur: 1, I0: 0, I: 0, key: 0, stamp: 0 });
     }
+    this.boss = new BossFx(this);
+    this.haz = new HazardFx(this);
+    await this.haz.load(this.scene, this.U);
     this.setQuality(this.q);
     this._syncLighting(true);
     this.loaded = true;
@@ -104,7 +113,7 @@ export class Fx {
     this.stats.cap = this.cfg.capA + this.cfg.capF;
   }
   /** Ground height query used by debris / casings / sparks: (x,z) -> y. Without it, effects use the height they spawn at. */
-  setGround(fn) { this.groundFn = fn; for (const m of [this.chunks, this.plates, this.grenades]) if (m) m.groundFn = fn; }
+  setGround(fn) { this.groundFn = fn; for (const m of [this.chunks, this.plates, this.grenades]) if (m) m.groundFn = fn; if (this.haz) this.haz.setGround(fn); }
   groundAt(x, z, fb) { return this.groundFn ? this.groundFn(x, z) : fb; }
   setWind(x, y, z) { this.U.uWind.value.set(x, y, z); }
   /** Manual sun/ambient tint for smoke & dust; normally auto-detected from the scene lights. */
@@ -230,7 +239,7 @@ export class Fx {
 
   // ------------------------------------------------------------------------------------------------ per-car
   updateCar(state, carView, dt, surface = 'asphalt') {
-    if (!this.loaded) return;
+    if (!this.loaded || !state.spec || !state.spec.wheels || !carView.wheelNodes) return;
     const t0 = performance.now();
     const rec = this._rec(state, carView);
     updateCarFx(this, rec, state, carView, Math.min(dt, 0.05), surface);
@@ -280,7 +289,7 @@ export class Fx {
     let r = 0, g = 0, b = 0;
     for (const o of this.scene.children) {
       if (!o.isLight || o.visible === false) continue;
-      if (o.isDirectionalLight) { const k = o.intensity * 0.3; r += o.color.r * k; g += o.color.g * k; b += o.color.b * k; }
+      if (o.isDirectionalLight) { const k = o.intensity * 0.3; r += o.color.r * k; g += o.color.g * k; b += o.color.b * k; if (o.intensity > 0.05 && o.target) this.U.uSunDir.value.copy(o.position).sub(o.target.position).normalize(); }
       else if (o.isHemisphereLight) { const k = o.intensity * 0.55; r += (o.color.r * 0.72 + o.groundColor.r * 0.28) * k; g += (o.color.g * 0.72 + o.groundColor.g * 0.28) * k; b += (o.color.b * 0.72 + o.groundColor.b * 0.28) * k; }
       else if (o.isAmbientLight) { r += o.color.r * o.intensity * 0.5; g += o.color.g * o.intensity * 0.5; b += o.color.b * o.intensity * 0.5; }
     }
@@ -308,8 +317,11 @@ export class Fx {
     this.U.uTime.value = this.time; this.timeU.value = this.time;
     this.U.uPix.value = (2 * Math.tan((cam.fov || 60) * Math.PI / 360)) / this.viewH;
     this._runJobs(dt);
+    this.boss.update(dt);
+    this.haz.update(dt);
     this._updateRockets(dt);
     this._updateTracked(dt);
+    this._updateImpacts();
     this.chunks.update(dt); this.plates.update(dt); this.casings.update(dt); this.grenades.update(dt);
     // lights
     let lit = 0;
@@ -330,6 +342,7 @@ export class Fx {
   handleEvent(evt, ctx = {}) {
     if (!this.loaded) return;
     this._shake = ctx.shake || this._shake;
+    if (ctx.carViews) this._views = ctx.carViews;
     const cp = ctx.cameraPos; if (cp) this.camPos.copy(cp);
     const rng = this.rng;
     switch (evt.t) {
@@ -357,6 +370,7 @@ export class Fx {
         break;
       }
       case 'explode': {
+        if (evt.spec === 'boss' || evt.id === BOSS_ID) { this.boss.explode(evt); break; }
         const p = evt.pos, cv = ctx.carViews && ctx.carViews.get(evt.id), st = ctx.states && ctx.states.get(evt.id);
         const S = evt.size || 1;
         const gy = this.groundAt(p[0], p[2], cv ? cv.root.position.y : p[1] - 0.8);
@@ -369,8 +383,10 @@ export class Fx {
         const p = evt.pos, kind = evt.kind || 'rocket';
         const gy = this.groundAt(p[0], p[2], p[1] - 0.2);
         R.boom(this, p[0], p[1], p[2], evt.radius || 10, kind, gy);
-        _v.set(p[0], p[1], p[2]); this.shakeReq(_v, 0.7, 90);
+        const big = kind === 'tank' ? 1.0 : Math.min(0.9, 0.45 + (evt.radius || 10) * 0.03);
+        _v.set(p[0], p[1], p[2]); this.shakeReq(_v, big, kind === 'tank' ? 140 : 90);
         this._killProjectileNear(p[0], p[1], p[2]);
+        if (kind === 'mine') this.haz.removeNear(p[0], p[1], p[2]);
         break;
       }
       case 'tirePop': {
@@ -384,6 +400,13 @@ export class Fx {
       }
       case 'engineDead': case 'smoke': case 'fire': case 'fuelLeak': this._damagePop(evt, ctx); break;
       case 'grenadeThrow': this._grenadeThrow(evt, ctx); break;
+      case 'bossSpawn': case 'bossPhase': case 'bossFlame': case 'bossCharge': case 'bossCannon': case 'bossPart':
+      case 'bossDeflect': case 'bossVolley': case 'bossRamp': case 'bossDying': this.boss.handleEvent(evt, ctx); break;
+      case 'mineDrop': this.haz.mineDrop(evt); break;
+      case 'oil': case 'oilSlick': if (evt.pos) this.haz.oilSlick(evt); break;
+      case 'boostPad': this.haz.boostPad(evt, ctx); break;
+      case 'unflip': this.haz.unflip(evt, ctx); break;
+      case 'medkit': this.haz.medkit(evt, ctx); break;
       case 'crewHit': {
         if (!evt.point || !this.near(evt.point[0], evt.point[1], evt.point[2], 90)) break;
         R.dust(this, evt.point[0], evt.point[1], evt.point[2], rng.sym(0.6), rng.range(0.3, 1), rng.sym(0.6), 0.15, 0.7, 0.5, 0.6, 0.5, 0.42, 0.4, -1e4, 2.5, 0);
@@ -414,30 +437,52 @@ export class Fx {
   _shot(evt, ctx) {
     const o = evt.origin; if (!o) return;
     const wid = evt.weapon, player = evt.src === 'player';
-    const sst = ctx.states && ctx.states.get(player ? ctx.playerId : evt.src);
-    const vx = sst ? sst.vel.x : 0, vy = sst ? sst.vel.y : 0, vz = sst ? sst.vel.z : 0;
+    const boss = evt.src === BOSS_ID;
+    if (boss) { this.boss.view = this.boss._findView(); this.boss.root = this.boss.view ? this.boss.view.root : null; }
+    const sst = boss ? null : ctx.states && ctx.states.get(player ? ctx.playerId : evt.src);
+    const sv = boss ? this.boss.vel : sst ? sst.vel : null;
+    const vx = sv ? sv.x : 0, vy = sv ? sv.y : 0, vz = sv ? sv.z : 0;
     const rays = evt.rays;
     let dx, dy, dz;
     if (evt.dir) { dx = evt.dir[0]; dy = evt.dir[1]; dz = evt.dir[2]; }
     else if (rays && rays.length) { const r0 = rays[0]; if (Array.isArray(r0)) { dx = r0[0]; dy = r0[1]; dz = r0[2]; } else if (r0 && r0.end) { dx = r0.end[0] - o[0]; dy = r0.end[1] - o[1]; dz = r0.end[2] - o[2]; } }
     if (dx === undefined) { dx = 0; dy = 0; dz = 1; }
     const l = Math.hypot(dx, dy, dz) || 1; dx /= l; dy /= l; dz /= l;
+    if (wid === 'cannon') { this.boss.cannonBlast(o[0], o[1], o[2], dx, dy, dz); if (evt.rocket) this._launchRocket(o, dx, dy, dz, evt.speed || 150); return; }
     const d = this.dist(o[0], o[1], o[2]);
-    if (d > (player ? 400 : 300)) return;
+    if (d > (player ? 400 : boss ? 450 : 300)) return;
     const gy = this.groundAt(o[0], o[2], o[1] - 1.6);
-    R.muzzle(this, wid, o[0], o[1], o[2], dx, dy, dz, vx, vy, vz, gy);
+    R.muzzle(this, evt.heavy && wid === 'enemy' ? 'heavy' : wid, o[0], o[1], o[2], dx, dy, dz, vx, vy, vz, gy);
     if (evt.rocket) { this._launchRocket(o, dx, dy, dz, evt.speed || (WEAPONS.rpg.rocket && WEAPONS.rpg.rocket.speed) || 85); return; }
     if (player) {
-      if (rays) for (let i = 0; i < rays.length; i++) { const e = rays[i] && rays[i].end; if (e) R.tracerHit(this, wid, o[0], o[1], o[2], e[0], e[1], e[2]); }
+      if (rays) for (let i = 0; i < rays.length; i++) {
+        const ry = rays[i], e = ry && ry.end; if (!e) continue;
+        R.tracerHit(this, wid, o[0], o[1], o[2], e[0], e[1], e[2]);
+        if (ry.surface) this._queueImpact(ry, Math.hypot(e[0] - o[0], e[1] - o[1], e[2] - o[2]) / 620);   // the sim emits no 'hit' for hitscan rays
+      }
       this._eject(wid, o, dx, dy, dz, ctx);
     } else if (rays) {
       const sp = evt.speed || 120;
       for (let i = 0; i < rays.length; i++) {
         const r0 = rays[i]; if (!Array.isArray(r0)) continue;
-        R.tracerBullet(this, o[0], o[1], o[2], r0[0], r0[1], r0[2], sp, 0, 0, 0);
+        R.tracerBullet(this, o[0], o[1], o[2], r0[0], r0[1], r0[2], sp, 0, 0, 0, !!evt.heavy);
         const tr = this.tracked[this.trackHead]; this.trackHead = (this.trackHead + 1) % this.tracked.length;
         tr.live = true; tr.slot = this.lastSlot; tr.slot2 = this.lastSlot2; tr.birth = this.lastBirth; tr.x = o[0]; tr.y = o[1]; tr.z = o[2]; tr.dx = r0[0]; tr.dy = r0[1]; tr.dz = r0[2]; tr.sp = sp; tr.t = 0;
       }
+    }
+  }
+
+  _queueImpact(ry, delay) {
+    const it = this.pimp[this.pimpHead]; this.pimpHead = (this.pimpHead + 1) % this.pimp.length;
+    const e = ry.end, n = ry.normal;
+    it.live = true; it.t = this.time + delay; it.s = ry.surface; it.x = e[0]; it.y = e[1]; it.z = e[2];
+    if (n) { it.nx = n[0]; it.ny = n[1]; it.nz = n[2]; } else { const l = this.dist(e[0], e[1], e[2]) || 1; it.nx = (this.camPos.x - e[0]) / l; it.ny = (this.camPos.y - e[1]) / l; it.nz = (this.camPos.z - e[2]) / l; }
+  }
+  _updateImpacts() {
+    for (const it of this.pimp) {
+      if (!it.live || this.time < it.t) continue;
+      it.live = false;
+      if (this.near(it.x, it.y, it.z, 170)) R.impact(this, it.s, it.x, it.y, it.z, it.nx, it.ny, it.nz, this.groundAt(it.x, it.z, it.y - 0.3));
     }
   }
 
@@ -539,9 +584,9 @@ export class Fx {
   }
 
   // ------------------------------------------------------------------------------------------------ cleanup
-  clear() { this.pa.clear(); this.pf.clear(); this.skid.clear(); for (const j of this.jobs) j.type = 0; }
+  clear() { this.pa.clear(); this.pf.clear(); this.skid.clear(); for (const j of this.jobs) j.type = 0; this.boss.clear(); this.haz.clear(); for (const it of this.pimp) it.live = false; }
   dispose() {
-    for (const o of [this.pa, this.pf, this.skid, this.decScorch, this.decHoles, this.chunks, this.plates, this.casings, this.grenades]) o && o.dispose();
+    for (const o of [this.pa, this.pf, this.skid, this.decScorch, this.decHoles, this.chunks, this.plates, this.casings, this.grenades, this.haz]) o && o.dispose();
     for (const s of this.lights) { s.light.removeFromParent(); }
     this.atlas && this.atlas.texture.dispose();
     this.loaded = false;

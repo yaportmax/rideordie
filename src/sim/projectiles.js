@@ -63,6 +63,10 @@ export class Projectiles {
         const h = car.raycast(_o, _d, step + 0.3, null);
         if (h && (!best || h.t < best.t)) best = { t: h.t, car, point: h.point };
       }
+      if (sim.boss && r.owner === 1 && !sim.boss.dead && sim.boss.pos.distanceTo(_o) < step + 30) {
+        const h = sim.boss.raycast(_o, _d, step + 0.3);
+        if (h && (!best || h.t < best.t)) best = { t: h.t, car: null, point: h.point, bossZone: h.zone.kind };
+      }
       this.ray.origin.x = _o.x; this.ray.origin.y = _o.y; this.ray.origin.z = _o.z; this.ray.dir.x = _d.x; this.ray.dir.y = _d.y; this.ray.dir.z = _d.z;
       const wh = sim.world.castRayAndGetNormal(this.ray, step + 0.2, true, undefined, RAY_SHOT);
       let boom = null;
@@ -70,6 +74,7 @@ export class Projectiles {
       if (boom || r.life <= 0) {
         const p = boom || _o.clone();
         this.rockets.splice(i, 1);
+        if (best && best.bossZone && r.direct) sim.boss.damage(best.bossZone, r.direct * 1.5, { point: p });
         this._explode(sim, p, r.blast, r.blastDmg, r.owner, r.direct && best ? best.car : null, r.direct);
         continue;
       }

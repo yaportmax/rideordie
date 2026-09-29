@@ -419,7 +419,7 @@ def build_sockets():
     sock("exhaust_L", 0.50, -2.68, 0.27, yaw=180)
     sock("exhaust_R", -0.50, -2.68, 0.27, yaw=180)
     sock("smoke_engine", 0.0, 1.85, 0.86)
-    sock("fuel_cap", 0.985, -2.05, 0.80, yaw=-90)
+    sock("fuel_cap", 0.985, -2.05, 0.80, yaw=90)
     sock("roof_top", 0.0, -0.10, 1.46)
     sock("camera_hood", 0.0, 1.35, 1.02)
 

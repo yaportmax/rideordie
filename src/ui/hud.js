@@ -40,7 +40,7 @@ const CSS = `
 #hud .hitm:after{transform:rotate(-45deg)}
 #hud .arrows{inset:0}
 #hud .arrow{position:absolute;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:16px solid #f43;filter:drop-shadow(0 0 3px #000)}
-#hud .boss{left:50%;top:58px;transform:translateX(-50%);width:520px;text-align:center;display:none}
+#hud .boss{left:50%;top:104px;transform:translateX(-50%);width:520px;text-align:center;display:none}
 #hud .boss .bar{height:16px}
 #hud .boss .bar i{background:linear-gradient(90deg,#a11,#f54)}
 #hud .prog{left:50%;top:76px;transform:translateX(-50%);width:420px;text-align:center;font-size:12px;letter-spacing:2px;opacity:.85}
@@ -82,6 +82,7 @@ export class Hud {
     const q = this.q;
     q.speedBox.style.display = o.driver ? '' : 'none'; q.rpmBox.style.display = o.driver ? '' : 'none'; q.nitroBox.style.display = o.driver ? '' : 'none';
     q.cross.style.display = o.gunner ? '' : 'none'; q.ammo.style.display = o.gunner ? '' : 'none';
+    q.ammo.style.bottom = o.gunner && o.driver ? '156px' : '';
     if (o.gunner && !o.driver) { q.hpbox.style.left = '30px'; }
   }
   setVisible(v) { this.el.style.display = v ? '' : 'none'; }
@@ -100,7 +101,7 @@ export class Hud {
     q.dist.textContent = (d.dist / 1000).toFixed(2) + ' km'; q.time.textContent = fmtTime(d.time); q.biome.textContent = d.biome || '';
     q.progbar.style.transform = `scaleX(${clamp(d.prog01 ?? 0, 0, 1)})`;
     if (d.weapon !== undefined) { q.wname.textContent = d.weapon; q.mag.textContent = d.reloading ? 'RELOAD' : d.mag; q.mag.style.fontSize = d.reloading ? '34px' : ''; }
-    if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
+    q.progbar.parentElement.parentElement.style.display = d.boss ? 'none' : ''; if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
     if (this.vigT > 0) { this.vigT = Math.max(0, this.vigT - dt * 1.4); }
     const lowHp = d.hp01 < 0.3 ? (0.25 + 0.15 * Math.sin(performance.now() / 160)) : 0;
     q.vig.style.opacity = Math.max(this.vigT, lowHp);

@@ -50,7 +50,7 @@
     "galvanized",
     "billboard_ad"
    ],
-   "kb": 1601.1,
+   "kb": 1602.1,
    "notes": "Large faded ad billboard: 12 x 4 m panel (bottom edge 6 m, top 10 m) on two I-beam columns with catwalk, ladder, flood lights; peeling ad texture, torn lower-left corner. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
   },
   "bollard": {
@@ -68,7 +68,7 @@
     "bollard",
     "galvanized"
    ],
-   "kb": 610.1,
+   "kb": 611.1,
    "notes": "1.0 m steel bollard, faded yellow paint (texture) with two reflective bands, flanged base with anchor bolts"
   },
   "boulder_01": {
@@ -226,7 +226,7 @@
     "galvanized",
     "paint_red"
    ],
-   "kb": 426.5,
+   "kb": 427.5,
    "notes": "3 weathered wooden crates (one stacked, slats missing), 2 olive ammo cans, 1 red jerrycan"
   },
   "dead_tree_a": {
@@ -298,7 +298,7 @@
     "galvanized",
     "rust_metal"
    ],
-   "kb": 978.7,
+   "kb": 979.7,
    "notes": "2 m collapsed-building rubble heap: concrete chunks, cinder blocks, planks, sheet metal, bent rebar, pipe"
   },
   "fence_chainlink_4m": {
@@ -317,7 +317,7 @@
     "concrete",
     "chainlink"
    ],
-   "kb": 621.2,
+   "kb": 622.2,
    "notes": "4.0 m chain-link fence section along Z (glTF), 1.9 m high, post at the segment centre so instances tile every 4 m; mesh = alphaMode MASK double-sided card texture, torn hole near the bottom. Mesh sits on the +X side of the post.",
    "alpha_tested": true
   },
@@ -392,7 +392,7 @@
     "galvanized",
     "wood_rough"
    ],
-   "kb": 375.8,
+   "kb": 376.8,
    "notes": "W-beam guardrail, 4.0 m along Z (glTF); traffic side is +X (right shoulder when driving +Z; rotate 180 deg about Y for the left shoulder). Posts at z=+-1.0 so instances placed every 4.0 m keep a uniform 2 m post spacing; rail runs edge to edge."
   },
   "jersey_barrier": {
@@ -429,7 +429,7 @@
     "reflective_white",
     "mile_marker"
    ],
-   "kb": 230.7,
+   "kb": 231.7,
    "notes": "Highway mile marker MILE 87, plate 0.30 x 0.45 m on a 1.36 m post, leaning. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
   },
   "palm_coast": {
@@ -916,7 +916,7 @@
     "galvanized",
     "sign_exit"
    ],
-   "kb": 549.3,
+   "kb": 550.3,
    "notes": "Big green highway EXIT sign 4.0 x 2.0 m on two I-beam posts (plate bottom 2.35 m, top 4.35 m), lamp arms, folded corner. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
   },
   "sign_gas": {
@@ -937,7 +937,7 @@
     "sign_gas_cabinet",
     "sign_gas_prices"
    ],
-   "kb": 1112.8,
+   "kb": 1113.8,
    "notes": "Roadside gas-station pole sign, 8.6 m: double-sided GAS cabinet 3.2 x 1.5 m + hanging price board 1.4 x 1.4 m (right half, one chain broken), concrete pier. Both faces readable (+Y and -Y in Blender)."
   },
   "sign_speed": {
@@ -955,7 +955,7 @@
     "galvanized",
     "sign_speed"
    ],
-   "kb": 386.5,
+   "kb": 387.5,
    "notes": "US-style speed limit 65 plate 0.76 x 0.95 m on a 2.6 m post, dented/bent, bullet holes + rust in the texture. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
   },
   "sign_warning": {
@@ -973,7 +973,7 @@
     "galvanized",
     "sign_warning"
    ],
-   "kb": 422.0,
+   "kb": 423.0,
    "notes": "Chevron / curve-arrow warning plate 0.76 x 0.95 m (arrow points to the viewer's right) on a 2.6 m post, drooping and bent. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
   },
   "skeleton_car_frame": {
@@ -1009,7 +1009,7 @@
     "galvanized",
     "lamp_lens"
    ],
-   "kb": 183.8,
+   "kb": 184.8,
    "notes": "Highway street lamp, 9.3 m: tapered octagonal pole, 2.7 m curved arm toward +X (traffic side), cobra-head luminaire with dark 'lamp_lens' glass (swap for an emissive material if lit)."
   },
   "tire_stack": {
@@ -1046,7 +1046,7 @@
     "insulator_glass",
     "paint_grey"
    ],
-   "kb": 399.0,
+   "kb": 400.0,
    "notes": "10 m leaning wooden utility pole (cross arm along X, 2.5 m), 3 glass insulators, transformer can, step bolts. Wire attach points (glTF x,y,z): (-0.9,9.4,0) (1.0,9.4,0) (0.06,10.2,0) approx; see wire_span."
   },
   "wire_span": {

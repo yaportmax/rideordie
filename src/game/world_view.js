@@ -6,6 +6,9 @@ import { VEHICLES } from '../data/vehicles.js';
 import { ENEMIES } from '../data/enemies.js';
 import * as Assets from '../core/assets.js';
 import { DebrisSystem } from '../view/debris.js';
+import { BossView } from '../view/boss_view.js';
+import { BOSS_ID } from '../data/boss.js';
+import { WEAPONS } from '../data/weapons.js';
 
 const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f, 0x6a2f2f, 0x91856a];
 const _q = new THREE.Quaternion();
@@ -17,6 +20,7 @@ export class WorldView {
     this.scene = opts.scene; this.playerPaint = opts.playerPaint ?? 0x8f6a3d;
     this.fx = opts.fx || null; this.audio = opts.audio || null;
     this.cars = new Map(); // id -> {view, crew:{gunner?,driver?}, state}
+    this.viewMap = new Map(); // id -> CarView (for Fx)
     this.group = new THREE.Group(); this.group.name = 'cars'; this.scene.add(this.group);
     this.night = 0;
     this.groundY = opts.groundY || (() => null);
@@ -43,18 +47,24 @@ export class WorldView {
     rec = { view, specId: st.specId, crew: {}, state: st, wreck: false, id: st.id };
     // crew figures
     const s = st.spec;
-    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); return c; };
+    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunName, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); return c; };
     if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver', s.seats.driver);
     if (s.seats.gunner && (st.kind === 'player' || (s.gunners ?? 0) >= 1)) rec.crew.gunner = mk('gunner', st.kind === 'player' ? 'hero_gunner' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][st.id % 4], s.seats.gunner);
     if (s.seats.gunner2 && (s.gunners ?? 0) >= 2) rec.crew.gunner2 = mk('gunner2', 'raider_b', s.seats.gunner2);
-    this.cars.set(st.id, rec);
+    this.cars.set(st.id, rec); this.viewMap.set(st.id, view);
     return rec;
   }
 
   remove(id) {
     const rec = this.cars.get(id); if (!rec) return;
     for (const c of Object.values(rec.crew)) c.dispose();
-    rec.view.dispose(); this.cars.delete(id);
+    rec.view.dispose(); this.cars.delete(id); this.viewMap.delete(id);
+  }
+
+  updateBoss(bs, dt) {
+    if (!bs) { if (this.boss) { this.boss.dispose(); this.boss = null; this.viewMap.delete(BOSS_ID); } return; }
+    if (!this.boss) { this.boss = new BossView(this.debris); this.scene.add(this.boss.root); this.viewMap.set(BOSS_ID, this.boss); }
+    this.boss.update(bs, dt);
   }
 
   /** states: Map(id -> CarState). ctx: {dt, night, playerId, gunnerState} */
@@ -77,7 +87,7 @@ export class WorldView {
         });
       }
       this._damageVisuals(rec, st);
-      if (st.exploded && !rec.wreck) { rec.wreck = true; this._charCar(rec); this._blowParts(rec, st, 1.0); }
+      if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); this._blowParts(rec, st, 1.0); }
     }
     // remove views for cars that vanished
     for (const id of [...this.cars.keys()]) if (!states.has(id)) this.remove(id);
@@ -91,10 +101,15 @@ export class WorldView {
     const rec = e.id !== undefined ? this.cars.get(e.id) : null;
     if (e.t === 'crewDead' && rec && rec.crew[e.role]) rec.crew[e.role].die(e);
     if (e.t === 'crewHit' && rec && rec.crew[e.role]) rec.crew[e.role].flinch(e);
+    if (e.t === 'shot') {
+      const r = e.src === 'player' ? this.cars.get(1) : this.cars.get(e.src);
+      const crew = r && (r.crew[e.role || 'gunner'] || r.crew.gunner);
+      if (crew) { const w = WEAPONS[e.weapon]; crew.fire(w ? w.rpm / 60 : 8, w ? w.mode : 'auto', w ? (w.pumpTime || w.boltTime) : 0); }
+    }
     if (e.t === 'remove') this.remove(e.id);
     if (e.t === 'crash' && rec && e.dv > 2.2) this._shedPart(rec, e.dv * 0.6, e.other >= 0);
     if (e.t === 'tirePop' && rec) { const w = rec.view.spec.wheels[e.index]; const n = w && rec.view.wheelNodes.get(w.name); if (n) n.userData.flat = true; }
-    if (e.t === 'explode' && rec && !rec.wreck) { rec.wreck = true; this._charCar(rec); this._blowParts(rec, rec.state, 1.4, e.vel); }
+    if (e.t === 'explode' && rec && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); this._blowParts(rec, rec.state, 1.4, e.vel); }
   }
 
   _damageVisuals(rec, st) {
@@ -161,5 +176,5 @@ export class WorldView {
     if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
     return false;
   }
-  dispose() { for (const id of [...this.cars.keys()]) this.remove(id); this.debris.clear(); this.scene.remove(this.group); }
+  dispose() { if (this.boss) { this.boss.dispose(); this.boss = null; } for (const id of [...this.cars.keys()]) this.remove(id); this.debris.clear(); this.scene.remove(this.group); }
 }

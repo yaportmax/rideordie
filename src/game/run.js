@@ -14,8 +14,12 @@ import { ChaseCam, GunnerCam } from '../view/camera_rig.js';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../net/snapshot.js';
 import { WEAPONS } from '../data/weapons.js';
 import { Road } from '../world/road.js';
+import { ECONOMY, KILL_CASH } from '../data/economy.js';
+import { AudioBridge } from '../view/audio_bridge.js';
+import { GhostBoss } from '../sim/boss.js';
+import { BOSS_ID, BOSS_NAMES, MINIBOSSES } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
-import { clamp, damp } from '../core/util.js';
+import { clamp, damp, wrapAngle } from '../core/util.js';
 
 const V3 = THREE.Vector3;
 
@@ -64,6 +68,8 @@ export class Run {
     this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
+    if (g.audio) { this.abridge = new AudioBridge(g.audio, { playerId: 1, localRole: this.role }); this.abridge.preload({ weapons: effects.weapons, truck: spec.id }); }
+    if (g.fx) { g.fx.clear(); g.fx.setGround((x, z) => { const p = this.states.get(1); return this._groundY(x, (p ? p.pos.y : 0) + 30, z) ?? (p ? p.pos.y - 0.6 : 0); }); }
     return this;
   }
 
@@ -73,8 +79,8 @@ export class Run {
     return {
       ownCar: () => run.sim ? run.player : run.ghosts.get(run.playerId),
       targets: function* () {
-        if (run.sim) { for (const c of run.sim.cars.values()) if (c.kind === 'enemy') yield c; }
-        else for (const gh of run.ghosts.values()) if (gh.kind === 'enemy') yield gh;
+        if (run.sim) { for (const c of run.sim.cars.values()) if (c.kind === 'enemy') yield c; if (run.sim.boss && !run.sim.boss.exploded) yield run.sim.boss; }
+        else { for (const gh of run.ghosts.values()) if (gh.kind === 'enemy') yield gh; if (run.ghostBoss && !run.ghostBoss.exploded) yield run.ghostBoss; }
       },
       raycastWorld: (o, d, max) => run._worldRay(o, d, max),
       emit: (e) => run._localEvent(e),
@@ -117,7 +123,7 @@ export class Run {
   // ---------------------------------------------------------------------------------------------- per-frame
   /** Advance sim/net and produce this frame's render data. */
   update(dt, cmds, now) {
-    const g = this.g; this.time += dt;
+    const g = this.g; this.time += dt; this.streakT = Math.max(0, (this.streakT || 0) - dt);
     const P = this.sim ? this.player : null;
     if (this.sim) {
       // countdown -> start once the ground under the truck exists
@@ -126,9 +132,17 @@ export class Run {
         if (P.held && this.streamer.groundReady(P.s)) { this.groundOk = true; }
         if (this.groundOk) {
           this.countdown -= dt;
-          if (this.countdown <= 0) { this.sim.releaseCar(P); this.sim.start(); this.started = true; g.hud.message('GO!', 900, '#ffc21a'); this.g.emitUi && this.g.emitUi('go'); }
+          if (this.countdown <= 0) { this.sim.releaseCar(P); this.sim.start(); this.started = true; g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); if (this.net) this.net.sendJSON({ t: 'go' }); }
           else g.hud.message(String(Math.ceil(this.countdown - 0.2)) || 'GO', 500, '#fff');
         }
+      }
+      if (window.__autodrive && this.driverLocal) {
+        const v = P.veh, B = this.sim.boss, road = this.sim.road;
+        const lat = B ? (Math.sin(this.time * 0.15) > 0 ? 4.5 : -4.5) : (window.__autodrive.lat || 0);
+        const tp = road.pointAt(P.s + 18 + v.speed * 0.45, lat, this._adp || (this._adp = {}));
+        const err = wrapAngle(Math.atan2(tp.x - v.pos.x, tp.z - v.pos.z) - Math.atan2(v.fwd.x, v.fwd.z));
+        const want = B ? B.v + clamp((B.s - P.s - 30) * 0.4, -10, 10) : (window.__autodrive.speed || 40);
+        Object.assign(cmds.driver, { throttle: v.vf < want ? 1 : 0, brake: v.vf > want + 4 ? 0.5 : 0, steer: clamp(err * 2.5, -1, 1), handbrake: false, nitro: false });
       }
       if (this.driverLocal) { P.veh.setInput(cmds.driver); this._driverActions(dt, cmds.driver); }
       if (cmds.gunner.medkit) this._medkit();
@@ -155,6 +169,8 @@ export class Run {
       if (this.role === 'driver' && this.net) this._sendNet(dt);
       this.playerS = P.s;
       this._simEventsToRun();
+      const B = this.sim.boss;
+      if (B) { const bs = this.bossState || (this.bossState = { pos: B.pos, quat: B.quat, vel: B.vel, v: 0, alive: B.alive, phase: 1, dead: false, exploded: false }); bs.v = B.v; bs.phase = B.phase; bs.dead = B.dead; bs.exploded = B.exploded; } else this.bossState = null;
       this.proj = [...this.sim.projectiles.rockets.map((r) => ({ k: 1, x: r.x, y: r.y, z: r.z })), ...this.sim.projectiles.grenades.map((q) => { const t = q.body.translation(); return { k: 2, x: t.x, y: t.y, z: t.z }; })];
     } else {
       // viewer peer: interpolate snapshots
@@ -162,6 +178,8 @@ export class Run {
       if (info) {
         this.states = this.buf.states; this.hud = info.hud; this.playerS = info.hud.dist; this.proj = info.hud.proj;
         this.simState = info.hud.state;
+        this.bossState = this.buf.boss;
+        if (this.bossState) { const gb = this.ghostBoss || (this.ghostBoss = new GhostBoss()); gb.pos.copy(this.bossState.pos); gb.quat.copy(this.bossState.quat); gb.alive = this.bossState.alive; gb.exploded = this.bossState.exploded; } else this.ghostBoss = null;
       }
       this.events = this.netEvents || []; this.netEvents = [];
       for (const [id, st] of this.states) { let gh = this.ghosts.get(id); if (!gh) { gh = new GhostCar(st); this.ghosts.set(id, gh); } gh.sync(st); }
@@ -174,9 +192,16 @@ export class Run {
     if (window.__aimbot && this.gunner && pst) {
       let best = null, bd = 140;
       for (const [id, st] of this.states) { if (st.kind !== 'enemy' || st.exploded) continue; const d = st.pos.distanceTo(pst.pos); if (d < bd) { bd = d; best = st; } }
+      let aimP = best ? _t2.copy(best.pos).add(_f.set(0, 1.2, 0)) : null;
+      const B = this.sim?.boss;
+      if (B && !B.dead && B.pos.distanceTo(pst.pos) < 160) {
+        const order = ['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R', 'part_turret_main', 'part_tank_L', 'part_tank_R', 'panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_engine'];
+        const n = order.find((k) => B.alive[k]); const z = B.zones.find((q) => q.kind === n);
+        if (z) { aimP = B.local(z.c, _t2); best = true; }
+      }
       if (best) {
         this.wv.gunnerPivot(pst, this.pivot);
-        _v.copy(best.pos).add(_f.set(0, 1.2, 0)).sub(this.pivot);
+        _v.copy(aimP).sub(this.pivot);
         this.gunner.yaw = Math.atan2(_v.x, _v.z); this.gunner.pitch = Math.atan2(_v.y, Math.hypot(_v.x, _v.z));
         cmds.gunner.fire = true; cmds.gunner.firePressed = true;
       } else cmds.gunner.fire = false;
@@ -193,8 +218,48 @@ export class Run {
     const localGunner = this.gunner ? { crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload } : null;
     const evs = this.events.concat(this.localEvents.filter(() => !this.sim)); // in solo the local events already went through sim.emit
     this.localEvents.length = 0;
+    this.wv.updateBoss(this.bossState, dt);
     this.wv.update(dt, this.states, evs, { night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
     this.allEvents = evs;
+    for (const e of evs) {
+      if (e.t === 'minibossSpawn') { g.hud.message(e.name, 2600, '#ff5a2a'); }
+      else if (e.t === 'minibossDown') { g.hud.message(`${e.name} WRECKED  +$${ECONOMY.minibossBounty[e.index] || ''}`, 2800, '#ffc21a'); }
+      else if (e.t === 'bossSpawn') { g.hud.message('THE LEVIATHAN', 3500, '#ff3a1a'); this.abridge?.bossIntro(); }
+      else if (e.t === 'bossPhase' && e.phase === 3) g.hud.message('REACTOR EXPOSED!', 2200, '#ffc21a');
+      else if (e.t === 'bossPart' && e.label) g.hud.feed(`${e.label} DESTROYED`, '#ffc21a');
+      else if (e.t === 'bossDown') { g.hud.message('THE LEVIATHAN IS DOWN!', 4000, '#ffc21a'); this.abridge?.victory(); }
+    }
+    const fx = g.fx;
+    if (fx) {
+      const ctx = this._fxCtx || (this._fxCtx = { carViews: this.wv.viewMap, states: null, playerId: 1, cameraPos: g.camera.position, shake: (a) => { const k = a * (g.shakeMul ?? 1); this.chase.shake.add(k); this.gcam.shake.add(k); } });
+      ctx.states = this.states;
+      for (const e of evs) fx.handleEvent(e, ctx);
+      const sc = this._surfCache || (this._surfCache = new Map());
+      const road = this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)));
+      for (const st of this.states.values()) {
+        const v = this.wv.viewMap.get(st.id); if (!v) continue;
+        let c = sc.get(st.id);
+        if (!c || (this.fxTick + st.id) % 8 === 0) { const n = road.nearest(st.pos.x, st.pos.z, c ? c.s : (this.playerS || 0), c ? 60 : 400, this._fxn || (this._fxn = {})); c = { s: n.s, kind: Math.abs(n.d) < 7.2 ? 'asphalt' : Math.abs(n.d) < 9.7 ? 'gravel' : this._surfaceKind(st.pos.x, st.pos.z) }; sc.set(st.id, c); }
+        fx.updateCar(st, v, dt, c.kind);
+      }
+      for (const id of sc.keys()) if (!this.states.has(id)) sc.delete(id);
+      fx.updateProjectiles?.(this.proj, dt);
+      this.fxTick = (this.fxTick || 0) + 1;
+    }
+    const ab = this.abridge;
+    if (ab && pst) {
+      const A = g.audio, ctx = this._fxCtx || { carViews: this.wv.viewMap, states: this.states, playerId: 1, cameraPos: g.camera.position };
+      A.listener.update(g.camera, pst.vel);
+      const sc = this._surfCache;
+      for (const st of this.states.values()) ab.updateCar(st, dt, { surface: sc?.get(st.id)?.kind || 'asphalt', throttle: st.id === 1 && this.sim ? this.player.veh.throttleApplied : undefined });
+      for (const e of evs) ab.handleEvent(e, ctx);
+      ab.update(dt, ctx);
+      const b = biomeAt(this.playerS || 0); A.ambience.setBiome(b.w > 0.5 ? b.b : b.a);
+      let threat = 0; for (const st of this.states.values()) if (st.kind === 'enemy' && !st.exploded) { const d = st.pos.distanceTo(pst.pos); if (d < 120) threat += 1 - d / 120; }
+      this.threat = (this.threat || 0) * 0.97 + Math.min(1, 0.22 + threat / 4 + (this.sim ? this.sim.director.level * 0.4 : 0)) * 0.03;
+      A.music.setIntensity(this.threat);
+      A.setDanger(pst.hp01 < 0.3 ? 1 - pst.hp01 / 0.3 : 0);
+    }
     // cameras
     this._camera(dt, cmds, pst);
     // HUD data
@@ -231,6 +296,11 @@ export class Run {
 
   _simEventsToRun() {
     for (const e of this.events) {
+      if (e.t === 'minibossDown') {
+        const b = Math.round((ECONOMY.minibossBounty[e.index] || 5000) * this.effects.cashMul);
+        this.minibossCash = (this.minibossCash || 0) + b; (this.minibossesKilled || (this.minibossesKilled = [])).push(e.index);
+        this.cash += 0; this.sim.stats.cash = this.cash;
+      }
       if (e.t === 'kill') { g_kill(this, e); }
       if (e.t === 'runOver' && !this.over) { this.over = true; this.overWhy = e.why; }
       if (e.t === 'playerDown') this.g.hud.message(e.why === 'car' ? 'TRUCK DESTROYED' : e.why === 'driver' ? 'DRIVER DOWN' : 'GUNNER DOWN', 2400, '#ff4433');
@@ -258,7 +328,12 @@ export class Run {
   _hudData(pst) {
     const P = this.player;
     const s = this.playerS || 0;
-    const boss = null;
+    let boss = null;
+    if (this.sim) {
+      const B = this.sim.boss, E = this.sim.director.activeElite;
+      if (B && !B.exploded) boss = { name: 'THE LEVIATHAN', hp01: B.coreHp01() };
+      else if (E) boss = { name: E.name, hp01: E.hp01 };
+    } else if (this.hud && this.hud.bossId) boss = { name: BOSS_NAMES[this.hud.bossId] || '', hp01: this.hud.bossHp01 };
     const b = biomeAt(s);
     const d = {
       speed: pst ? pst.speed : 0, rpm01: pst ? pst.rpm01 : 0, nitro01: 0, nitroMax: this.spec.nitro?.capacity || 0,
@@ -292,7 +367,33 @@ export class Run {
   }
 
   _outcome(dt) {
-    if (this.over && !this.finished) { this.overT = (this.overT || 0) + dt; if (this.overT > 0.6) { this.finished = true; } }
+    if (this.over && !this.finished) {
+      this.overT = (this.overT || 0) + dt;
+      if (this.sim && !this.summary && this.overT > 0.3) { this.summary = this.buildSummary(this.sim.won); if (this.net) this.net.sendJSON({ t: 'summary', s: this.summary }); }
+      if (this.overT > 2.2 && (this.summary || this.remoteSummary)) this.finished = true;
+    }
+  }
+
+  /** Sim peer: final results + cash breakdown (the profile owner credits it). */
+  buildSummary(won = false) {
+    const sim = this.sim, st = sim.stats, E = ECONOMY;
+    const L = sim.director.level;
+    const dist = st.distance - (this.cfg.startS ?? 40);
+    const lines = [];
+    lines.push({ label: 'RAIDERS WRECKED', amount: this.cash });
+    const distCash = Math.round(Math.max(0, dist) * E.perMeter * (1 + E.perMeterLevel * L) * this.effects.cashMul);
+    lines.push({ label: `DISTANCE ${(dist / 1000).toFixed(1)} KM`, amount: distCash });
+    const timeCash = Math.round(sim.time * E.perSecond * this.effects.cashMul);
+    lines.push({ label: 'TIME SURVIVED', amount: timeCash });
+    if (this.minibossCash) lines.push({ label: 'WARLORD BOUNTIES', amount: this.minibossCash });
+    if (won) lines.push({ label: 'THE LEVIATHAN', amount: E.bossBounty });
+    const total = lines.reduce((a, l) => a + l.amount, 0);
+    const why = sim.result?.why;
+    return {
+      won, cash: total, breakdown: lines, distance: Math.max(0, dist), time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
+      bestStreak: this.bestMulti || 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
+      biome: BIOMES[biomeAt(st.distance).a].name, minibosses: this.minibossesKilled || [],
+    };
   }
 
   // ---------------------------------------------------------------------------------------------- networking
@@ -301,7 +402,7 @@ export class Run {
     if (this.snapAcc >= 1 / 30) {
       this.snapAcc = 0;
       const P = this.player;
-      const hud = { hp01: P.hp / P.maxHp, dhp01: P.crew.driver.hp / P.crew.driver.max, ghp01: P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1, nitro01: P.veh.nitro / Math.max(0.001, P.veh.nitroMax), cash: this.cash, kills: this.sim.stats.kills, streak: this.sim.stats.streak, level: this.sim.director.level, dist: P.s, medkits: this.medkits };
+      const bossHud = this._bossHud(); const hud = { bossId: bossHud.id, bossHp01: bossHud.hp01, hp01: P.hp / P.maxHp, dhp01: P.crew.driver.hp / P.crew.driver.max, ghp01: P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1, nitro01: P.veh.nitro / Math.max(0.001, P.veh.nitroMax), cash: this.cash, kills: this.sim.stats.kills, streak: this.sim.stats.streak, level: this.sim.director.level, dist: P.s, medkits: this.medkits };
       this.net.sendFast(encodeSnapshot(this.sim, this.sim.tick, hud));
     }
     const out = this.events.filter((e) => !e.remote);
@@ -319,15 +420,24 @@ export class Run {
   /** Called by Game when a network message arrives during a run. */
   onNet(m) {
     if (m.t === 'events') { (this.netEvents || (this.netEvents = [])).push(...m.e); return; }
+    if (m.t === 'feed') { this.g.hud.feed(m.text, m.crash ? '#ffc21a' : '#fff'); if (this.gunner) this.g.hud.hitMarker(true); return; }
+    if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; return; }
+    if (m.t === 'go') { this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }
     if (this.sim) {
       if (m.t === 'g') { const r = this.gunnerRemote; r.yaw = m.y; r.pitch = m.p; r.fire = !!m.f; r.crouch = !!m.c; r.ads = !!m.a; r.weapon = m.w; r.reloading = !!m.r; r.x = m.x; r.z = m.z; }
       else if (m.t === 'hit') this.sim.applyHit(m.h);
       else if (m.t === 'rocket') this.sim.projectiles.addRocket(new V3(...m.o), new V3(...m.d), m.cfg, 1);
       else if (m.t === 'grenade') this.sim.projectiles.addGrenade(this.sim, new V3(...m.o), new V3(...m.v), m.cfg, 1);
-      else if (m.t === 'shotfx') for (const e of m.e) this.sim.emit({ ...e, remote: true });
+      else if (m.t === 'shotfx') for (const e of m.e) { if (e.t === 'shot') this.shots++; this.sim.emit({ ...e, remote: true }); }
       else if (m.t === 'input') this.remoteDriverInput = m.i;
       else if (m.t === 'medkit') { if (this.medkits > 0 && this.sim.useMedkit()) this.medkits--; }
     }
+  }
+  _bossHud() {
+    const B = this.sim.boss, E = this.sim.director.activeElite;
+    if (B && !B.exploded) return { id: BOSS_NAMES.length - 1, hp01: B.coreHp01() };
+    if (E) return { id: E.index + 1, hp01: E.hp01 };
+    return { id: 0, hp01: 0 };
   }
   onFast(buf) {
     if (this.role !== 'gunner') return;
@@ -337,23 +447,28 @@ export class Run {
   }
 
   dispose() {
+    this.g.fx?.clear();
+    this.abridge?.reset();
     this.wv?.dispose();
     this.streamer?.dispose();
   }
 }
 
-const _f = new V3(), _v = new V3();
+const _f = new V3(), _v = new V3(), _t2 = new V3();
 function g_kill(run, e) {
   // cash + style: crash kills and multi-kills pay more
-  const base = { e_sedan: 40, e_buggy: 55, e_muscle: 70, e_technical: 95, e_van: 160, e_heavy: 260, e_tanker: 240 }[e.spec] || 40;
+  const base = KILL_CASH[e.spec] || 60;
   const L = run.sim.director.level;
-  let mult = 1 + L * 1.4;
-  if (e.crash) mult *= 1.4;
-  run.streakT = 3.5; run.multi++;
+  let mult = 1 + L * ECONOMY.killLevel;
+  if (e.crash) { mult *= ECONOMY.crashMul; run.sim.stats.crashKills = (run.sim.stats.crashKills || 0) + 1; }
+  if (run.streakT <= 0) run.multi = 0;
+  run.streakT = 3.5; run.multi++; run.bestMulti = Math.max(run.bestMulti || 0, run.multi);
   if (run.multi >= 2) mult *= 1 + Math.min(run.multi - 1, 5) * 0.15;
   const cash = Math.round(base * mult * run.effects.cashMul);
   run.cash += cash;
   run.sim.stats.cash = run.cash;
-  run.g.hud.feed(`+$${cash}  ${e.crash ? 'CRASH KILL ' : ''}${run.multi >= 2 ? 'x' + run.multi : ''}`, e.crash ? '#ffc21a' : '#fff');
+  const label = `+$${cash}  ${e.crash ? 'CRASH KILL ' : ''}${run.multi >= 2 ? 'x' + run.multi : ''}`;
+  run.g.hud.feed(label, e.crash ? '#ffc21a' : '#fff');
   run.g.hud.hitMarker(true);
+  if (run.net) run.net.sendJSON({ t: 'feed', text: label, crash: !!e.crash });
 }

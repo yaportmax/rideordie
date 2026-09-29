@@ -1,7 +1,7 @@
 {
  "name": "pistol",
- "tris": 19682,
- "glb_kb": 1893,
+ "tris": 19698,
+ "glb_kb": 1890,
  "parts": {
   "body": {
    "pivot": [
@@ -15,6 +15,7 @@
     "polymer",
     "gun_steel",
     "gun_metal",
+    "gun_black",
     "brass"
    ]
   },
@@ -25,7 +26,7 @@
     -20.0
    ],
    "parent": null,
-   "tris": 5448,
+   "tris": 5464,
    "materials": [
     "gun_black",
     "gun_steel",

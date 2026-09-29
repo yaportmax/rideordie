@@ -11,6 +11,7 @@ export const MUZZLE = {
   lmg:      { stars: [6, 0], cones: [7, 3], star: 0.79, coneL: 1.56, coneW: 0.6, life: 0.05, hdr: 6.0, col: [1.0, 0.72, 0.34], smoke: 2, sparks: 4, glow: 1.44, shake: 0.0, casing: 1 },
   sniper:   { stars: [1, 6], cones: [5], star: 1.22, coneL: 3.61, coneW: 0.8, life: 0.09, hdr: 7.0, col: [1.0, 0.8, 0.5], smoke: 4, sparks: 8, glow: 2.16, shake: 0.0, casing: 1 },
   rpg:      { stars: [6], cones: [4], star: 1.01, coneL: 1.64, coneW: 0.96, life: 0.09, hdr: 6.0, col: [1.0, 0.7, 0.3], smoke: 2, sparks: 0, glow: 1.68, shake: 0.0, casing: -1 },
+  heavy:    { stars: [6, 0], cones: [7, 3], star: 1.0, coneL: 2.0, coneW: 0.8, life: 0.055, hdr: 6.0, col: [1.0, 0.62, 0.3], smoke: 2, sparks: 3, glow: 1.8, shake: 0.0, casing: -1 },
   enemy:    { stars: [2, 0], cones: [3, 5], star: 0.61, coneL: 1.23, coneW: 0.4, life: 0.05, hdr: 5.0, col: [1.0, 0.55, 0.28], smoke: 1, sparks: 1, glow: 0.96, shake: 0.0, casing: -1 },
 };
 
@@ -29,3 +30,4 @@ for (const id of Object.keys(WEAPONS)) {
   TRACER[id] = { col: c, len: Math.max(2.4, (w.tracerLen || 3) * 1.6), width: id === 'sniper' ? 0.14 : id === 'shotgun' ? 0.06 : id === 'lmg' ? 0.1 : 0.085, hdr: id === 'sniper' ? 8 : 6 };
 }
 TRACER.enemy = { col: hexLinear(0xff6a30), len: 2.6, width: 0.07, hdr: 6 };
+TRACER.heavy = { col: hexLinear(0xff5a20), len: 4.2, width: 0.13, hdr: 7 };

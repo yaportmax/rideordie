@@ -65,7 +65,7 @@ body.cyl((18.5, 17.6, 15.6), (18.5, 17.0, 15.6), 3.2, mat="gun_metal", segs=16)
 # ================================================================== BARREL group (static, in body)
 # hood with ejection slot
 hood = box_bm((44, 15.0, 15.2), c=(40.0, 0, BORE_Z))
-body.add(hood, "gun_metal", bevel=1.2, cut=[box_bm((22, 9.2, 8), c=(38, 0, BORE_Z + 7.5)), box_bm((14, 1.2, 4), c=(30, 0, 66))])
+body.add(hood, "gun_black", bevel=1.2, cut=[box_bm((22, 9.2, 8), c=(38, 0, BORE_Z + 7.5)), box_bm((14, 1.2, 4), c=(30, 0, 66))])
 # round barrel
 bp = [(60, 7.3), (108, 7.3), (150, 7.3), (156.6, 7.3), (157.8, 6.9), (158.3, 6.4), (158.3, 4.6), (146, 4.6), (146, 0.0)]
 body.lathe(bp, c=(0, 0, BORE_Z), segs=32, mat="gun_metal", bevel=0.0)
@@ -127,8 +127,8 @@ slide.add(fs, "gun_black", bevel=0.45)
 slide.box((11, 5.6, 2.2), c=(145, 0, 68.6), mat="gun_black", bevel=0.4)
 slide.cyl((141.0, 0, 74.2), (140.6, 0, 74.2), 1.1, segs=12, mat="gun_steel", bevel=0.0)
 # extractor (right side of chamber) + loaded-chamber indicator
-slide.prism([(36, 57.0), (64, 57.0), (66.5, 61.0), (64, 68.0), (36, 68.0)], -10.9, -9.2, mat="gun_steel", bevel=0.35, fillet=0.6, fsegs=2)
-slide.box((5, 1.8, 2.6), c=(65.6, -9.4, 61.5), mat="gun_steel", bevel=0.3)
+slide.prism([(1.0, 57.5), (15.5, 57.5), (17.5, 61.0), (15.5, 66.5), (1.0, 66.5)], -13.15, -12.55, mat="gun_black", bevel=0.25, fillet=0.6, fsegs=2)
+slide.box((3.0, 1.2, 2.4), c=(13.5, -13.3, 62.0), mat="gun_steel", bevel=0.3)       # loaded-chamber tab
 # screws / rivets on slide sides
 # rear face: firing pin retaining plate
 slide.box((0.8, 12.5, 8.0), c=(SLIDE_X0 - 0.35, 0, 60.5), mat="gun_steel", bevel=0.3)

@@ -1,8 +1,10 @@
 // Binary snapshot protocol (sim peer -> viewer peer, unreliable channel, ~30 Hz) + client-side interpolation buffer.
 import * as THREE from 'three';
 import { SPEC_IDS, makeCarState } from '../view/car_state.js';
+import { PART_NAMES } from '../data/boss.js';
 
 const QN = 32767;
+const GUNS = ['pistol', 'smg', 'rifle', 'shotgun', 'mg', 'hmg', 'rpg'];
 const F = { dead: 1, exploded: 2, burning: 4, smoking: 8, driverAlive: 16, gunnerAlive: 32, gunner2Alive: 64, braking: 128, boosting: 256, drifting: 512, airborne: 1024, flatAny: 2048 };
 const clamp16 = (v) => (v > 32767 ? 32767 : v < -32768 ? -32768 : v | 0);
 
@@ -13,7 +15,7 @@ export function encodeSnapshot(sim, tick, hud, buf) {
   for (const c of cars) size += 62 + c.veh.wheels.length * 2;
   const p = sim.projectiles;
   const nProj = p.rockets.length + p.grenades.length;
-  size += 2 + nProj * 14;
+  size += 2 + nProj * 14 + 40;
   const ab = buf && buf.byteLength >= size ? buf : new ArrayBuffer(size + 256);
   const dv = new DataView(ab);
   let o = 0;
@@ -59,13 +61,22 @@ export function encodeSnapshot(sim, tick, hud, buf) {
     dv.setInt8(o, Math.round((g?.x || 0) * 100)); dv.setInt8(o + 1, Math.round((g?.z || 0) * 100)); o += 2;
     dv.setInt16(o, clamp16((g2 ? g2.aimYaw : 0) * 5000), true); dv.setInt16(o + 2, clamp16((g2 ? g2.aimPitch : 0) * 10000), true); o += 4;
     dv.setUint8(o, g2 ? (g2.fire ? 1 : 0) : 0); o += 1;
-    dv.setUint8(o, c.kind === 'enemy' && c.tagIdx !== undefined ? c.tagIdx : 0); o += 1;
+    dv.setUint8(o, GUNS.indexOf(c.gunName || '') + 1); o += 1;
     dv.setUint8(o, v.wheels.length); o += 1;
     for (const w of v.wheels) { dv.setUint8(o, Math.round(clamp01((w.L - 0.1) / 0.6) * 255)); dv.setUint8(o + 1, Math.round(clamp01(w.slip) * 127) | (w.grounded ? 128 : 0) | 0); o += 2; }
   }
   dv.setUint16(o, nProj, true); o += 2;
   for (const r of p.rockets) { dv.setUint8(o, 1); dv.setFloat32(o + 1, r.x, true); dv.setFloat32(o + 5, r.y, true); dv.setFloat32(o + 9, r.z, true); dv.setUint8(o + 13, 0); o += 14; }
   for (const g of p.grenades) { const t = g.body.translation(); dv.setUint8(o, 2); dv.setFloat32(o + 1, t.x, true); dv.setFloat32(o + 5, t.y, true); dv.setFloat32(o + 9, t.z, true); dv.setUint8(o + 13, 0); o += 14; }
+  const B = sim.boss;
+  dv.setUint8(o, B ? 1 : 0); o += 1;
+  if (B) {
+    dv.setFloat32(o, B.pos.x, true); dv.setFloat32(o + 4, B.pos.y, true); dv.setFloat32(o + 8, B.pos.z, true); o += 12;
+    const q = B.quat; dv.setInt16(o, clamp16(q.x * QN), true); dv.setInt16(o + 2, clamp16(q.y * QN), true); dv.setInt16(o + 4, clamp16(q.z * QN), true); dv.setInt16(o + 6, clamp16(q.w * QN), true); o += 8;
+    dv.setFloat32(o, B.v, true); o += 4;
+    let mask = 0; PART_NAMES.forEach((n, i) => { if (B.alive[n]) mask |= (1 << i); }); dv.setUint32(o, mask >>> 0, true); o += 4;
+    dv.setUint8(o, B.phase | (B.dead ? 8 : 0) | (B.exploded ? 16 : 0)); o += 1;
+  }
   return ab.slice(0, o);
 }
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -101,6 +112,14 @@ export function decodeSnapshot(ab) {
   }
   const np = dv.getUint16(o, true); o += 2;
   for (let i = 0; i < np; i++) { s.proj.push({ k: dv.getUint8(o), x: dv.getFloat32(o + 1, true), y: dv.getFloat32(o + 5, true), z: dv.getFloat32(o + 9, true) }); o += 14; }
+  if (o < ab.byteLength && dv.getUint8(o)) {
+    o += 1;
+    const b = { x: dv.getFloat32(o, true), y: dv.getFloat32(o + 4, true), z: dv.getFloat32(o + 8, true) }; o += 12;
+    b.qx = dv.getInt16(o, true) / QN; b.qy = dv.getInt16(o + 2, true) / QN; b.qz = dv.getInt16(o + 4, true) / QN; b.qw = dv.getInt16(o + 6, true) / QN; o += 8;
+    b.v = dv.getFloat32(o, true); o += 4; b.mask = dv.getUint32(o, true); o += 4;
+    const f = dv.getUint8(o); o += 1; b.phase = f & 7; b.dead = !!(f & 8); b.exploded = !!(f & 16);
+    s.boss = b;
+  }
   return s;
 }
 
@@ -146,9 +165,17 @@ export class SnapshotBuffer {
       st.hp01 = cb.hp01; st.rpm01 = ca.rpm01 + (cb.rpm01 - ca.rpm01) * t; st.engineHp01 = cb.eng01; st.speed = st.vel.length();
       st.gunner.yaw = cb.gyaw; st.gunner.pitch = cb.gpitch; st.gunner.fire = cb.gfire; st.gunner.crouch = cb.gcrouch; st.gunner.ads = cb.gads; st.gunner.reloading = cb.greload; st.gunner.weapon = cb.gweapon; st.gunner.x = cb.gx; st.gunner.z = cb.gz;
       st.gunner2.yaw = cb.g2yaw; st.gunner2.pitch = cb.g2pitch; st.gunner2.fire = cb.g2fire;
-      st.tagIdx = cb.tagIdx;
+      st.gunName = GUNS[cb.tagIdx - 1] || null;
     }
     for (const id of [...this.states.keys()]) if (!seen.has(id)) this.states.delete(id);
+    if (b.boss) {
+      const ba = a.boss || b.boss, bb = b.boss;
+      const st = this.boss || (this.boss = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), vel: new THREE.Vector3(), v: 0, alive: {}, phase: 1, dead: false, exploded: false });
+      st.pos.set(ba.x + (bb.x - ba.x) * t, ba.y + (bb.y - ba.y) * t, ba.z + (bb.z - ba.z) * t);
+      this._q1.set(ba.qx, ba.qy, ba.qz, ba.qw).normalize(); this._q2.set(bb.qx, bb.qy, bb.qz, bb.qw).normalize(); st.quat.slerpQuaternions(this._q1, this._q2, t);
+      st.v = bb.v; st.vel.set(0, 0, bb.v).applyQuaternion(st.quat); st.phase = bb.phase; st.dead = bb.dead; st.exploded = bb.exploded;
+      PART_NAMES.forEach((n, i) => { st.alive[n] = !!(bb.mask & (1 << i)); });
+    } else this.boss = null;
     return { a, b, t, hud: b };
   }
 }

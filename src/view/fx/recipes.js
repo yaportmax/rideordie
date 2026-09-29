@@ -149,8 +149,8 @@ export function explosion(fx, x, y, z, S, o) {
       r.range(1.2, 2.2) * sS, r.range(4.5, 7.5) * sS, r.range(2.2, 3.6), 0.5, 0.38, 0.26, 0.6, gy, 1.4, 0.15);
   }
   // 7. lingering smoke column (job) + secondary pops
-  fx.startSmokeColumn(x, y, z, S, gy);
-  const np = S > 1.5 ? 3 : 2;
+  if (!o || o.column !== false) fx.startSmokeColumn(x, y, z, S, gy);
+  const np = o && o.pops !== undefined ? o.pops : S > 1.5 ? 3 : 2;
   for (let i = 0; i < np; i++) fx.startPop(x + r.sym(R * 0.5), y + r.range(0, 1), z + r.sym(R * 0.5), S * 0.42, gy, 0.12 + i * 0.16 + r.next() * 0.1);
   // 8. scorch decal, light flash, shake
   if (fx.decScorch) fx.decScorch.add(x, gy, z, 0, 1, 0, 7.5 * S, r.int(4), r.next() * PI2, 55, 0.95, fx.time);
@@ -178,20 +178,108 @@ export function miniPop(fx, x, y, z, S, gy) {
   fx.flashLight(x, y + 1, z, 1.0, 0.6, 0.25, 500 * S, 30, 0.3, S * 0.6);
 }
 
-/** Rocket / grenade impact (non-car explosion). */
+/** Non-car explosion: kind 'rocket' | 'grenade' | 'mine' | 'tank' (boss fuel tank) | 'part' (boss part); size follows the blast radius. */
 export function boom(fx, x, y, z, radius, kind, ground) {
-  const grenade = kind === 'grenade';
-  const S = grenade ? 0.62 : 0.72 * Math.max(0.6, radius / 11) + 0.15;
   const r = fx.rng;
-  const gy = ground !== undefined ? ground : y - 0.15;
-  explosion(fx, x, Math.max(y, gy + 0.9), z, S, { ground: gy, paint: 0x40372d, boom: true });
-  if (grenade) {
-    // extra ground dirt: fountain of dirt chips and a bigger dust cloud
-    for (let i = 0; i < Math.round(14 * fx.qd); i++) {
-      const a = r.next() * PI2, sp = r.range(3, 10);
-      chip(fx, x, gy + 0.2, z, Math.cos(a) * sp, r.range(6, 15), Math.sin(a) * sp, r.range(0.12, 0.3), r.range(1.2, 2.0), 6 + r.int(3), gy, 0.85, 0.75, 0.65);
-    }
+  let S;
+  switch (kind) {
+    case 'grenade': S = 0.62; break;
+    case 'mine': S = 0.45 + radius * 0.035; break;
+    case 'tank': S = Math.max(1.4, radius / 10); break;
+    case 'part': S = 0.5 + radius * 0.06; break;
+    default: S = 0.72 * Math.max(0.6, radius / 11) + 0.15;
   }
+  const gy = ground !== undefined ? ground : y - 0.15;
+  explosion(fx, x, Math.max(y, gy + 0.9), z, S, { ground: gy, paint: kind === 'tank' || kind === 'part' ? 0x2a2622 : 0x40372d, boom: true, pops: kind === 'tank' ? 2 : S > 1.2 ? 1 : 0 });
+  if (kind === 'grenade' || kind === 'mine') {
+    // ground blast: fountain of dirt chips and a bigger dust skirt
+    const n = Math.round((kind === 'mine' ? 22 : 14) * fx.qd);
+    for (let i = 0; i < n; i++) {
+      const a = r.next() * PI2, sp = r.range(3, 10);
+      chip(fx, x, gy + 0.2, z, Math.cos(a) * sp, r.range(6, 16), Math.sin(a) * sp, r.range(0.12, 0.32), r.range(1.2, 2.2), 6 + r.int(3), gy, 0.85, 0.75, 0.65);
+    }
+    if (kind === 'mine') for (let i = 0; i < Math.round(8 * fx.qd); i++) { const a = r.next() * PI2, sp = r.range(2, 6); dust(fx, x, gy + 0.5, z, Math.cos(a) * sp, r.range(4, 9), Math.sin(a) * sp, 1.0, r.range(3.5, 5.5), r.range(1.8, 2.8), 0.55, 0.45, 0.34, 0.65, gy, 1.2, 0.1); }
+  }
+}
+
+/** Boss main cannon: huge muzzle blast along (dx,dy,dz) + shockwave + smoke ring. (vx,vy,vz) = boss velocity. */
+export function cannonBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy) {
+  const r = fx.rng, p = fx.p, qd = fx.qd;
+  const yaw = Math.atan2(dx, dz), pitch = Math.asin(Math.max(-1, Math.min(1, dy)));
+  glow(fx, ox + dx, oy + dy, oz + dz, 7, 0.14, 12, 9, 6, true, 2.0);
+  glow(fx, ox + dx * 3, oy + dy * 3, oz + dz * 3, 16, 0.26, 3.2, 1.4, 0.4, true, 1.4);
+  p.reset(); p.pos(ox + dx * 0.5, oy + dy * 0.5, oz + dz * 0.5).vel(vx, vy, vz); p.spr = SPR.MUZZLE; p.f0 = 6; p.size(5.5); p.life = 0.11; p.rot = r.next() * PI2; p.col(7, 5, 2.4, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0.7; fx.pf.emit(p);
+  for (let k = 0; k < 2; k++) {
+    p.reset(); p.pos(ox - dx * 1.2, oy - dy * 1.2, oz - dz * 1.2).vel(vx, vy, vz); p.spr = SPR.MUZZLE; p.f0 = k ? 3 : 4; p.mode = MODE.FWD; p.pivot = yaw; p.aspect = pitch;
+    p.len = k ? 8 : 12; p.size(k ? 3 : 5.5); p.life = 0.1 + 0.03 * k; p.col(6.5, 4.4, 2, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0.65; fx.pf.emit(p);
+  }
+  // pressure wave: expanding ring in the air + on the road, dust kicked off the ground below
+  p.reset(); p.pos(ox + dx * 2.5, oy + dy * 2.5, oz + dz * 2.5).vel(vx * 0.9, vy * 0.9, vz * 0.9); p.spr = SPR.SHOCK; p.size(1.5, 26); p.sCurve = 0.5; p.life = 0.42; p.col(1.3, 1.1, 0.9, 0.5); p.add0 = p.add1 = 0.8; p.fin = 0.01; p.fout = 0.85; fx.pf.emit(p);
+  p.reset(); p.pos(ox + dx * 3, gy + 0.06, oz + dz * 3); p.mode = MODE.GROUND; p.spr = SPR.SHOCK; p.size(3, 38); p.sCurve = 0.55; p.life = 0.6; p.col(1.2, 1.0, 0.8, 0.45); p.add0 = p.add1 = 0.7; p.fin = 0.01; p.fout = 0.85; p.rot = r.next() * PI2; fx.pf.emit(p);
+  const nd = Math.round(14 * qd);
+  for (let i = 0; i < nd; i++) { const a = (i / nd) * PI2 + r.sym(0.2), sp = r.range(9, 20); dust(fx, ox + dx * 3 + Math.cos(a) * 2, gy + 0.3, oz + dz * 3 + Math.sin(a) * 2, vx * 0.5 + Math.cos(a) * sp, r.range(0.4, 2), vz * 0.5 + Math.sin(a) * sp, 1.2, r.range(4, 7), r.range(1.8, 2.8), 0.55, 0.45, 0.33, 0.55, gy, 1.5, 0.1); }
+  // smoke ring perpendicular to the barrel + fire-lit blast cloud pushed forward
+  let tx = dz, tz = -dx; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;           // horizontal side
+  const bx = dy * tz, by = dz * tx - dx * tz, bz = -dy * tx;                                 // D x T (up-ish)
+  const nr = Math.round(18 * qd) + 4;
+  for (let i = 0; i < nr; i++) {
+    const a = (i / nr) * PI2, c = Math.cos(a), s = Math.sin(a);
+    const rx = tx * c + bx * s, ry = by * s, rz = tz * c + bz * s, f = r.range(10, 15), o = r.range(6.5, 9);
+    puff(fx, ox + dx * 2.5 + rx * 0.8, oy + dy * 2.5 + ry * 0.8, oz + dz * 2.5 + rz * 0.8, vx + dx * f + rx * o, vy + dy * f + ry * o, vz + dz * f + rz * o, 1.1, r.range(4.5, 6), r.range(2.2, 3.2), 0.5, 0.48, 0.45, 0.8, 0.3, 0.2, gy);
+  }
+  const nb = Math.round(12 * qd) + 3;
+  for (let i = 0; i < nb; i++) {
+    coneDir(r, dx, dy, dz, 0.28); const sp = r.range(18, 42);
+    p.reset(); p.pos(ox + dx * 2, oy + dy * 2, oz + dz * 2).vel(vx + D.x * sp, vy + D.y * sp, vz + D.z * sp); p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4;
+    p.size(1.5, r.range(6, 9)); p.sCurve = 0.45; p.drag = 2.4; p.grav = -1; p.life = r.range(1.4, 2.4); p.rot = r.sym(0.6); p.rotV = r.sym(0.3);
+    p.col0(4.2, 1.7, 0.4, 1).col1(0.1, 0.095, 0.09, 0.85); p.cCurve = 0.4; p.add0 = 0.8; p.add1 = 0; p.lit = 0.5; p.fin = 0.02; p.fout = 0.55; p.ground = gy; fx.pa.emit(p);
+  }
+  for (let i = 0; i < Math.round(26 * qd); i++) { coneDir(r, dx, dy, dz, 0.35); const sp = r.range(30, 70); spark(fx, ox + dx * 2, oy + dy * 2, oz + dz * 2, vx + D.x * sp, vy + D.y * sp, vz + D.z * sp, r.range(0.3, 0.8), gy, 1.2, 0.05); }
+  fx.flashLight(ox + dx * 3, oy + dy * 3, oz + dz * 3, 1.0, 0.72, 0.38, 2600, 90, 0.35, 2);
+}
+
+/** THE LEVIATHAN's final blast: a mushroom-cloud fireball (the rising cap / stem / long column is driven by BossFx's job). */
+export function megaExplosion(fx, x, y, z, gy) {
+  const r = fx.rng, p = fx.p, qd = fx.qd;
+  glow(fx, x, y + 4, z, 70, 0.35, 10, 7, 4, true, 1.8);
+  glow(fx, x, y + 6, z, 140, 0.7, 2.6, 1.1, 0.3, true, 1.3);
+  // initial fireball: dense cluster of cooling fire blobs thrown up and out
+  const nb = Math.round(40 * qd) + 8;
+  for (let i = 0; i < nb; i++) {
+    let rx = r.sym(1), ry = r.range(-0.1, 1), rz = r.sym(1); const rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+    const d = 9 * Math.sqrt(r.next()), sp = r.range(6, 20);
+    p.reset(); p.pos(x + rx * d, gy + 3 + ry * d * 0.8, z + rz * d).vel(rx * sp, ry * sp * 0.6 + r.range(10, 22), rz * sp);
+    p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(r.range(7, 11), r.range(18, 26)); p.sCurve = 0.4; p.rot = r.sym(0.6); p.rotV = r.sym(0.25);
+    p.drag = 1.1; p.grav = -3.2; p.life = r.range(3.2, 5.5); p.cCurve = 0.55;
+    const hot = r.next();
+    p.col0(3.4 + 2.4 * hot, 1.2 + 1.6 * hot, 0.2 + 0.4 * hot, 1).col1(0.045, 0.04, 0.036, 0.95); p.add0 = 0.45 + 0.5 * hot; p.add1 = 0;
+    p.fin = 0.02; p.fout = 0.45; p.lit = 0.4; p.turb = 0.8; p.wind = 0.4; p.ground = gy; fx.pa.emit(p);
+  }
+  for (let i = 0; i < Math.round(12 * qd) + 3; i++) {
+    const a = r.next() * PI2, d = 8 * r.next();
+    p.reset(); p.pos(x + Math.cos(a) * d, gy + 0.3, z + Math.sin(a) * d).vel(r.sym(3), r.range(4, 10), r.sym(3)); p.spr = SPR.FIRE; p.mode = MODE.UPRIGHT; p.pivot = 1; p.aspect = 1.6;
+    p.f0 = r.int(16); p.nPlay = 16; p.fps = 20; p.size(r.range(10, 15), r.range(14, 20)); p.sCurve = 0.5; p.drag = 1; p.grav = -1; p.life = r.range(1.2, 2.2);
+    p.col0(2.2, 1.3, 0.6, 1).col1(1.2, 0.4, 0.14, 1); p.add0 = p.add1 = 1; p.fin = 0.04; p.fout = 0.6; p.ground = gy; fx.pf.emit(p);
+  }
+  // ground: shock rings + a huge dust skirt
+  p.reset(); p.pos(x, gy + 0.08, z); p.mode = MODE.GROUND; p.spr = SPR.SHOCK; p.size(6, 150); p.sCurve = 0.5; p.life = 1.0; p.col(1.6, 1.3, 1.0, 0.8); p.add0 = p.add1 = 0.7; p.fin = 0.01; p.fout = 0.8; p.rot = r.next() * PI2; fx.pf.emit(p);
+  p.reset(); p.pos(x, gy + 0.07, z); p.mode = MODE.GROUND; p.spr = SPR.SHOCK; p.size(4, 90); p.sCurve = 0.6; p.life = 0.8; p.col(1.2, 1.0, 0.8, 0.5); p.add0 = p.add1 = 0.9; p.fin = 0.02; p.fout = 0.9; p.rot = r.next() * PI2; fx.pf.emit(p);
+  p.reset(); p.pos(x, y + 5, z); p.spr = SPR.SHOCK; p.size(6, 110); p.sCurve = 0.5; p.life = 0.55; p.col(1.0, 0.85, 0.7, 0.18); p.add0 = p.add1 = 1; p.fin = 0.01; p.fout = 0.9; fx.pf.emit(p);
+  const nd = Math.round(40 * qd) + 8;
+  for (let i = 0; i < nd; i++) {
+    const a = (i / nd) * PI2 + r.sym(0.15), sp = r.range(22, 46);
+    dust(fx, x + Math.cos(a) * 8, gy + 0.5, z + Math.sin(a) * 8, Math.cos(a) * sp, r.range(0.5, 4), Math.sin(a) * sp, r.range(4, 6), r.range(12, 20), r.range(3.5, 6), 0.5, 0.38, 0.26, 0.7, gy, 1.1, 0.15);
+  }
+  // sparks, embers, debris
+  for (let i = 0; i < Math.round(150 * qd); i++) {
+    const el = Math.acos(Math.pow(r.next(), 0.5)), az = r.next() * PI2, sp = r.range(20, 70);
+    spark(fx, x + r.sym(4), y + r.range(0, 4), z + r.sym(6), Math.cos(az) * Math.sin(el) * sp, Math.cos(el) * sp * 0.9 + 8, Math.sin(az) * Math.sin(el) * sp, r.range(1.0, 2.6), gy, 1.2, 0.09, 0.2);
+  }
+  for (let i = 0; i < Math.round(100 * qd); i++) { const a = r.next() * PI2, sp = r.range(3, 22); ember(fx, x + r.sym(6), y + r.range(0, 6), z + r.sym(10), Math.cos(a) * sp, r.range(4, 22), Math.sin(a) * sp, r.range(3, 7), r.range(0.3, 0.6), r.range(0.7, 1.2)); }
+  for (let i = 0; i < 3; i++) fx.debrisBurst(x + r.sym(4), y + 2, z + (i - 1) * 10, 2.4, gy, 0x2a2622);
+  if (fx.decScorch) fx.decScorch.add(x, gy, z, 0, 1, 0, 34, r.int(4), r.next() * PI2, 120, 1.0, fx.time);
+  fx.flashLight(x, y + 6, z, 1.0, 0.62, 0.28, 9000, 220, 1.4, 4);
+  fx.flashLight(x, y + 20, z, 1.0, 0.5, 0.2, 4000, 160, 2.2, 4);
 }
 
 // ------------------------------------------------------------------------------------------------ guns
@@ -258,8 +346,8 @@ export function tracerHit(fx, wid, ox, oy, oz, ex, ey, ez) {
 }
 
 /** Enemy bullet: visible projectile, travels at `speed` along dir until killed (hit event) or 1.8 s. Returns [slot, birth] via fx.lastSlot. */
-export function tracerBullet(fx, ox, oy, oz, dx, dy, dz, speed, vx, vy, vz) {
-  const t = TRACER.enemy, p = fx.p, h = t.hdr;
+export function tracerBullet(fx, ox, oy, oz, dx, dy, dz, speed, vx, vy, vz, heavy = false) {
+  const t = heavy ? TRACER.heavy : TRACER.enemy, p = fx.p, h = t.hdr;
   p.reset(); p.pos(ox, oy, oz).vel(dx * speed + vx, dy * speed + vy, dz * speed + vz); p.life = 1.8;
   p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = t.len; p.size(t.width); p.col(t.col[0] * h, t.col[1] * h, t.col[2] * h, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
   fx.lastSlot = fx.pf.emit(p); fx.lastBirth = fx.pf.time;

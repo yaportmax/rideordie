@@ -25,7 +25,7 @@ export class InstancePool {
     if (a && a.kind === 'struct' && !spec.lods && spec.merge !== false && a.parts.length > 3) {
       const size = Math.max(a.size.x, a.size.y, a.size.z);
       const near = spec.mergeNear ?? (size > 40 ? 230 : size > 15 ? 150 : 100);
-      this.kit.deriveMerged(name, { includeRoad: !!spec.showRoad });
+      if (!this.kit.get(name + '@m')) this.kit.deriveMerged(name, { includeRoad: !!spec.showRoad });
       spec.lods = [{ asset: name, max: near }, { asset: name + '@m', max: 1e9 }];
     }
     this.setSpec(name, spec);
@@ -101,6 +101,26 @@ export class InstancePool {
         const lodSq = lods.map((l) => (Math.min(l.max, far) * (l.max >= 1e8 ? 1 : this.qf)) ** 2);
         const nl = lods.length, m = list.m, col = list.col, behind = spec.behind, canShadow = spec.shadow && shOn;
         const rr = list.rad;
+        // ---- fast path: whole list in the last LOD, inside the far range, in front of the camera and outside the shadow box -> one memcpy
+        if (nl > 1 && ents[nl - 1]) {
+          const ax = Math.max(Math.abs(list.minx - cx), Math.abs(list.maxx - cx)), ay = Math.max(Math.abs(list.miny - cy), Math.abs(list.maxy - cy)), az = Math.max(Math.abs(list.minz - cz), Math.abs(list.maxz - cz));
+          const dmin2 = dx0 * dx0 + dy0 * dy0 + dz0 * dz0, dmax2 = ax * ax + ay * ay + az * az;
+          let front = true;
+          if (behind) for (const [qx, qz] of [[list.minx, list.minz], [list.maxx, list.minz], [list.minx, list.maxz], [list.maxx, list.maxz]]) if ((qx - cx) * fx + (qz - cz) * fz < 0) { front = false; break; }
+          let noShadow = !canShadow;
+          if (!noShadow) { const sx = Math.max(list.minx - rr - sh.fx, 0, sh.fx - list.maxx - rr), sz = Math.max(list.minz - rr - sh.fz, 0, sh.fz - list.maxz - rr); noShadow = sx * sx + sz * sz > (sh.rad + sh.depth) * (sh.rad + sh.depth); }
+          if (front && noShadow && dmin2 > lodSq[nl - 2] && dmax2 < farSq) {
+            const set = ents[nl - 1].sets[0], n = list.n;
+            if (set.n + n > set.cap) this._regrow(set, set.n + n);
+            set.mat.set(m.subarray(0, n * 16), set.n * 16); set.col.set(col.subarray(0, n * 3), set.n * 3);
+            set.n += n; total += n;
+            if (list.minx < set.min.x) set.min.x = list.minx; if (list.maxx > set.max.x) set.max.x = list.maxx;
+            if (list.miny < set.min.y) set.min.y = list.miny; if (list.maxy > set.max.y) set.max.y = list.maxy;
+            if (list.minz < set.min.z) set.min.z = list.minz; if (list.maxz > set.max.z) set.max.z = list.maxz;
+            if (rr > set.rad) set.rad = rr;
+            continue;
+          }
+        }
         for (let i = 0, n = list.n; i < n; i++) {
           const o = i * 16;
           const px = m[o + 12], py = m[o + 13], pz = m[o + 14];

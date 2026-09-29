@@ -29,6 +29,7 @@ export const SURF = {
   dirt:     { dust: [0.55, 0.36, 0.22], dustK: 1.0, smokeK: 0.0, skid: 0.32, skidCol: [0.14, 0.08, 0.05], spray: 0.7, hard: false },
   grass:    { dust: [0.42, 0.40, 0.22], dustK: 0.45, smokeK: 0.0, skid: 0.20, skidCol: [0.05, 0.07, 0.03], spray: 0.5, hard: false },
   snow:     { dust: [0.92, 0.95, 1.00], dustK: 1.0, smokeK: 0.0, skid: 0.35, skidCol: [0.35, 0.38, 0.42], spray: 0.0, hard: false },
+  oil:      { dust: [0.55, 0.53, 0.50], dustK: 0.0, smokeK: 0.35, skid: 0.0, skidCol: [0.02, 0.02, 0.02], spray: 0.0, hard: true },
   rock:     { dust: [0.50, 0.47, 0.44], dustK: 0.5, smokeK: 0.3, skid: 0.0, skidCol: [0.05, 0.05, 0.05], spray: 0.5, hard: true },
 };
 export function surfOf(kind) { return SURF[kind] || SURF.asphalt; }

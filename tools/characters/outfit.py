@@ -111,9 +111,9 @@ def fabric_painter(color, dust=0.5, dust_col=(0.42, 0.34, 0.24), drape=0.0018, h
         if legs:
             for key in ("L_leg", "R_leg"):
                 kn = fit.limb_len(key, 1)
-                h += PC.wrinkles(bk, fit, key, kn, 0.06, 0.0011 * folds_scale, 0.09, 0.008, seed=seed + 3)
-                h += PC.wrinkles(bk, fit, key, fit.limb_len(key, 2) - 0.02, 0.10, 0.0012 * folds_scale, 0.10, 0.009, seed=seed + 4)
-                h += PC.wrinkles(bk, fit, key, 0.07, 0.08, 0.0009 * folds_scale, 0.08, 0.007, seed=seed + 5)
+                h += PC.wrinkles(bk, fit, key, kn, 0.06, 0.0008 * folds_scale, 0.07, 0.010, seed=seed + 3)
+                h += PC.wrinkles(bk, fit, key, fit.limb_len(key, 2) - 0.02, 0.10, 0.0008 * folds_scale, 0.08, 0.011, seed=seed + 4)
+                h += PC.wrinkles(bk, fit, key, 0.07, 0.08, 0.0006 * folds_scale, 0.07, 0.009, seed=seed + 5)
             h += PC.drape(bk, fit.ankle_y, amp=0.0012, width=0.03, length=0.2, gather=0.9, base=0.6, seed=seed + 6)
         if arms:
             for key in ("L_arm", "R_arm"):
