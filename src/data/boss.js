@@ -7,19 +7,21 @@ const MI = MODEL_INFO.boss_warrig || { parts: {}, sockets: {}, wheels: {} };
 export const BOSS_SOCKETS = MI.sockets;
 export const BOSS_WHEELS = MI.wheels;
 
-/** Damageable parts: hp, what destroying them does, and whether they are "core" (count toward the health bar). */
+/** Damageable parts: hp, what destroying them does, and whether they are "core" (count toward the health bar).
+ *  `phase`: the part is sealed (takes no damage) until that phase opens. Pacing: phase 1 lasts <= BOSS.phase1Max s, phase 2 <= phase2Max
+ *  (then the reactor blows its own plates), so a fight runs ~3 min for a perfect aimbot and ~4 min at ~100 dps. */
 export const BOSS_PARTS = {
   part_turret_1: { hp: 2300, core: true, label: 'FRONT TURRET', phase: 1 },
   part_turret_2: { hp: 2300, core: true, label: 'REAR TURRET', phase: 1 },
   part_pod_L: { hp: 1800, core: true, label: 'ROCKET POD', phase: 1 },
   part_pod_R: { hp: 1800, core: true, label: 'ROCKET POD', phase: 1 },
-  part_turret_main: { hp: 3700, core: true, label: 'CANNON', phase: 2 },
-  part_tank_L: { hp: 1500, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
-  part_tank_R: { hp: 1500, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
-  panel_armor_rear_1: { hp: 1600, core: true, label: 'REAR ARMOR', phase: 2 },
-  panel_armor_rear_2: { hp: 1600, core: true, label: 'REAR ARMOR', phase: 2 },
-  panel_armor_rear_3: { hp: 1600, core: true, label: 'REAR ARMOR', phase: 2 },
-  part_engine: { hp: 5200, core: true, label: 'REACTOR', weak: true, phase: 3, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3'] },
+  part_turret_main: { hp: 9000, core: true, label: 'CANNON', phase: 2 },
+  part_tank_L: { hp: 4000, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
+  part_tank_R: { hp: 4000, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
+  panel_armor_rear_1: { hp: 4200, core: true, label: 'REAR ARMOR', phase: 2 },
+  panel_armor_rear_2: { hp: 4200, core: true, label: 'REAR ARMOR', phase: 2 },
+  panel_armor_rear_3: { hp: 4200, core: true, label: 'REAR ARMOR', phase: 2 },
+  part_engine: { hp: 12000, core: true, label: 'REACTOR', weak: true, phase: 3, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3'] },
   part_plow: { hp: 2500, label: 'PLOW' },
   part_stack_L: { hp: 700, label: 'STACK' },
   part_stack_R: { hp: 700, label: 'STACK' },

@@ -30,6 +30,31 @@ export function raycastBoss(b, origin, dir, maxDist) {
   return best;
 }
 
+/**
+ * Where to shoot the boss from `eye`: the best live, unlocked core part that is actually VISIBLE from there (the front guns are
+ * hidden behind the rear trailer when you sit in its wake). Current-phase targets and the exposed reactor come first.
+ * Works for the sim boss and the client GhostBoss. Returns `out` (world point) or null.
+ */
+export function bossAimPoint(b, eye, out = new V3()) {
+  let best = -1e9, found = false;
+  for (const z of b.zones) {
+    if (z.kind === 'body') continue;
+    const def = BOSS_PARTS[z.kind];
+    if (!def || !def.core || !b.alive[z.kind] || (def.needs && def.needs.some((k) => b.alive[k])) || (def.phase || 1) > (b.phase || 1)) continue;
+    for (const dy of [0, 0.7]) {             // the centre, else the top of the part
+      _ap.set(z.c[0], z.c[1] + z.h[1] * dy, z.c[2]).applyQuaternion(b.quat).add(b.pos);
+      _ad.copy(_ap).sub(eye); const len = _ad.length(); if (len < 1) continue; _ad.multiplyScalar(1 / len);
+      const h = raycastBoss(b, eye, _ad, len + 3);
+      if (!h || h.zone.kind !== z.kind) continue;
+      const score = (def.weak ? 50 : 0) + ((def.phase || 2) <= (b.phase || 1) ? 20 : 0) - len * 0.05 - (def.phase || 2);
+      if (score > best) { best = score; out.copy(_ap); found = true; }
+      break;
+    }
+  }
+  return found ? out : null;
+}
+const _ap = new V3(), _ad = new V3();
+
 export class Leviathan {
   constructor(sim, s0, d0 = 0) {
     this.sim = sim; this.id = BOSS_ID; this.kind = 'boss'; this.isBoss = true;
@@ -101,7 +126,7 @@ export class Leviathan {
     if (this.phase === 2 && !this.engineExposed() && this.t - this.phaseT > BOSS.phase2Max) this._overheat();
     if (this.phase < 3 && this.engineExposed()) this._setPhase(3);
     this._beats(dt);
-    const rate = this.phase === 3 ? 1.35 : 1;
+    const rate = this.phase === 3 ? 1.15 : 1;   // (phase 3 lasts longer since the reactor was beefed up for pacing: slightly calmer)
     // ---- attacks
     for (const tu of this.turrets) this._turret(tu, dt * rate, P);
     this._pods(dt * rate, P);
@@ -270,6 +295,8 @@ export class Leviathan {
     const def = BOSS_PARTS[zoneKind];
     if (def.invulnerable) return 0;
     if (def.needs && def.needs.some((n) => this.alive[n])) return 0; // reactor behind armour
+    // phase gating: later-phase parts are sealed until their phase opens (the fight has an order: guns -> tanks/armour -> reactor)
+    if (def.phase && def.phase > this.phase) { if (this.t - (this._sealT || -9) > 0.25) { this._sealT = this.t; this.sim.emit({ t: 'bossDeflect', pos: info.point ? info.point.toArray?.() || info.point : this.pos.toArray() }); } return 0; }
     const mul = def.weak ? 1.6 : 1;
     this.hp[zoneKind] -= dmg * mul;
     this.lastHitT = this.sim.time;
@@ -341,6 +368,6 @@ export class Leviathan {
 
 /** Client stand-in: pose + alive mask come from snapshots. */
 export class GhostBoss {
-  constructor() { this.id = BOSS_ID; this.kind = 'boss'; this.isBoss = true; this.zones = bossZones(); this.pos = new V3(); this.quat = new THREE.Quaternion(); this.vel = new V3(); this.alive = {}; this.exploded = false; this.veh = { pos: this.pos, quat: this.quat, vel: this.vel, restComHeight: 0 }; for (const n of PART_NAMES) this.alive[n] = true; }
+  constructor() { this.id = BOSS_ID; this.kind = 'boss'; this.isBoss = true; this.phase = 1; this.zones = bossZones(); this.pos = new V3(); this.quat = new THREE.Quaternion(); this.vel = new V3(); this.alive = {}; this.exploded = false; this.veh = { pos: this.pos, quat: this.quat, vel: this.vel, restComHeight: 0 }; for (const n of PART_NAMES) this.alive[n] = true; }
   raycast(o, d, max) { return raycastBoss(this, o, d, max); }
 }

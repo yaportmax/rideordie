@@ -52,7 +52,7 @@ export class BossMarks {
     this.group.visible = on; if (!on) return;
     const cam = camera;
     for (const m of this.marks) {
-      const alive = bs.alive[m.n], locked = m.def.needs && m.def.needs.some((k) => bs.alive[k]);
+      const alive = bs.alive[m.n], locked = (m.def.needs && m.def.needs.some((k) => bs.alive[k])) || (m.def.phase || 1) > (bs.phase || 1);   // sealed until its phase
       const vis = alive && !locked;
       m.g.visible = vis; if (!vis) continue;
       const hp = Math.max(0, Math.min(1, hpOf(m.n)));

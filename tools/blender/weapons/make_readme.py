@@ -7,9 +7,12 @@ WDIR = os.path.join(ROOT, "public", "models", "weapons")
 NDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notes")
 ORDER = ["pistol", "revolver", "smg", "shotgun", "rifle", "lmg", "sniper", "rpg", "grenade", "rocket", "shell_9mm", "shell_shotgun", "shell_rifle"]
 TITLES = {
-    "pistol": "9 mm semi-auto pistol", "revolver": ".357 revolver", "smg": "compact 9 mm SMG", "shotgun": "12 ga pump shotgun",
-    "rifle": "assault rifle (AK/M4 hybrid)", "lmg": "belt-fed light machine gun", "sniper": "bolt-action sniper rifle", "rpg": "RPG launcher",
-    "grenade": "frag grenade", "rocket": "RPG rocket (projectile)", "shell_9mm": "9 mm casing", "shell_shotgun": "12 ga shell", "shell_rifle": "rifle casing",
+    "pistol": "Ranger 9 - 9 mm striker-fired pistol (G17 class)", "revolver": "Magnum .357 - 6\" full-lug stainless revolver",
+    "smg": "Viper SMG - 9 mm roller-delayed SMG (MP5A3 class)", "shotgun": "Hammer 12G - 12 ga pump (590 class) with side saddle",
+    "rifle": "Raider AR - 7.62 AK-pattern rifle with a micro red dot", "lmg": "Reaper LMG - belt-fed 5.56 LMG (M249 class)",
+    "sniper": "Longbow .50 - bolt-action sniper (AWM-class chassis, 3-12x scope)", "rpg": "Wrecker RPG - RPG-7-class launcher with optic",
+    "grenade": "frag grenade (F1 pattern)", "rocket": "RPG rocket (projectile)", "shell_9mm": "9 mm casing", "shell_shotgun": "12 ga shell",
+    "shell_rifle": "rifle casing",
 }
 
 

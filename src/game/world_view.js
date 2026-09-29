@@ -128,6 +128,7 @@ export class WorldView {
       const r = e.src === 'player' ? this.cars.get(1) : this.cars.get(e.src);
       const crew = r && (r.crew[e.role || 'gunner'] || r.crew.gunner);
       if (crew) { const w = WEAPONS[e.weapon]; crew.fire(w ? w.rpm / 60 : 8, w ? w.mode : 'auto', w ? (w.pumpTime || w.boltTime) : 0); }
+      if (e.src === 'player' && e.rays && this.boss) for (const r of e.rays) if (r.carId === BOSS_ID && r.zone && r.zone !== 'body') this.boss.flash(r.zone, 1 / e.rays.length);   // part hit flash
     }
     if (e.t === 'remove') this.remove(e.id);
     if (e.t === 'crash' && rec && e.dv > 2.2) { this._shedPart(rec, e.dv * 0.6, e.other >= 0); for (const role in rec.crew) rec.crew[role].impact(e.dv); }

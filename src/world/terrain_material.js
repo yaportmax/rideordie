@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { LAYERS } from './terrain_gen.js';
 import { coverPrewarmMeshes } from './dressing/groundcover.js';
 import { furniturePrewarmMeshes } from './dressing/furniture.js';
+import { WIND } from './dressing/assets.js';
 
 /** Metres covered by one texture tile, per layer (all divide TEX_WRAP = 720). */
 const TILE = { sand: 6, dirt_red: 5, gravel: 3, dry_grass: 4, rock_red: 9, rock_grey: 9, snow: 6, forest_floor: 4, grass_green: 4, concrete: 5, cliff: 12, concrete_cracked: 5 };
@@ -300,7 +301,7 @@ export function makeRoadMaterial(tex) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0 });
   mat.name = 'road';
   const r = resolved;
-  const uniforms = { ...groundUniforms(r || {}), uLines: { value: r ? r.lines : null }, uNight: { value: 0 }, uRoadWet: { value: 0 } };
+  const uniforms = { ...groundUniforms(r || {}), uLines: { value: r ? r.lines : null }, uNight: { value: 0 }, uRoadWet: { value: 0 }, uTime: WIND.uTime };
   if (!r) loadGroundArrays().then((g) => { for (const [k, v] of Object.entries(groundUniforms(g))) uniforms[k].value = v.value; uniforms.uLines.value = g.lines; });   // pages that skip the preload
   mat.userData.uniforms = uniforms;
   mat.onBeforeCompile = (sh) => {
@@ -317,7 +318,7 @@ export function makeRoadMaterial(tex) {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         ${GROUND_GLSL}
-        uniform sampler2DArray uLines; uniform float uNight; uniform float uRoadWet;
+        uniform sampler2DArray uLines; uniform float uNight; uniform float uRoadWet; uniform float uTime;
         varying vec2 vRoadUv; varying vec4 vRA; varying vec4 vRB; varying vec4 vSplat0; varying vec4 vSplat1; varying vec4 vSplat2;
         varying vec3 vTexPos; varying vec3 vWNrm; varying vec2 vAux;
         float h11(float x) { return fract(sin(x * 127.1 + 1.7) * 43758.5453); }
@@ -443,8 +444,8 @@ export function makeRoadMaterial(tex) {
           alb *= 1.0 - 0.14 * rumble; ao = mix(ao, ao * 0.85, rumble);
           nxy.y += (fy > 0.2 ? 0.0 : sign(gv) * 0.22 * (1.0 - smoothstep(0.03, 0.12, fy))) * across * (1.0 - city);
         }
-        paintA *= mix(0.55, 1.0, smoothstep(0.25, 0.6, nB.z)) * (1.0 - 0.28 * dusty) * (1.0 - 0.6 * tar);
-        alb = mix(alb, paintTint * (0.7 + 0.35 * paintL), paintA);
+        paintA *= mix(0.7, 1.0, smoothstep(0.25, 0.6, nB.z)) * (1.0 - 0.18 * dusty) * (1.0 - 0.6 * tar);
+        alb = mix(alb, paintTint * (0.8 + 0.3 * paintL), paintA);
         rough = mix(rough, 0.5, paintA); nxy *= 1.0 - 0.6 * paintA; ao = mix(ao, 1.0, paintA);
         // ---------------- cat's eyes (raised reflective markers): in the lane-line gaps, amber along the median edge
         float eye = 0.0; vec3 eyeCol = vec3(1.0, 0.96, 0.88);
@@ -456,7 +457,7 @@ export function makeRoadMaterial(tex) {
           if (e2 > eye) { eye = e2; eyeCol = d > 0.0 ? vec3(1.0, 0.52, 0.06) : vec3(1.0, 0.96, 0.88); }
         }
         alb = mix(alb, vec3(0.16, 0.16, 0.15), house * 0.8); rough = mix(rough, 0.4, house);           // raised plastic housing
-        alb = mix(alb, eyeCol * 0.6, eye); rough = mix(rough, 0.18, eye);
+        alb = mix(alb, eyeCol * 0.95, eye); rough = mix(rough, 0.12, eye);
         // retro-reflective: the marker only lights up from a distance (grazing headlight angle), never as a slab under the bumper
         float nightK = uNight * (1.0 - smoothstep(90.0, 420.0, dist)) * smoothstep(4.0, 30.0, dist);
         roadEmit = eyeCol * min(eye * 30.0, 2.2) * nightK + paintTint * paintA * 0.06 * nightK * (1.0 - smoothstep(10.0, 80.0, dist));
@@ -467,6 +468,19 @@ export function makeRoadMaterial(tex) {
         float grit = (1.0 - smoothstep(6.3, 7.1, ad)) * smoothstep(6.3, 6.9, ad) * 0.35 + smoothstep(0.62, 0.8, nC.x) * 0.25 * (1.0 - smoothstep(6.0, 7.0, ad));
         alb = mix(alb, sandA * 0.95, sandM); rough = mix(rough, 0.92, sandM); nxy *= 1.0 - 0.6 * sandM;
         alb = mix(alb, alb * vec3(1.18, 1.1, 0.98), grit * (0.4 + dusty));
+        // ---------------- sand snakes (desert / canyon) and powder snow (high passes) blowing across the lanes with the wind
+        float blow = dusty + snow * 0.8;
+        if (blow > 0.02) {
+          // thin streaks stretched along the wind (across the lanes), drifting with it; a slow gust mask lets them come and go in bands
+          float wx = d - uTime * 3.2;
+          float bend = (texture(uMacroT, vec2(wx / 48.0, s / 24.0)).z - 0.5) * 0.9;
+          float st1 = texture(uMacroT, vec2(wx / 24.0, s / 0.75 + bend)).x, st2 = texture(uMacroT, vec2(wx / 11.0 + 0.4, s / 0.5 + bend * 1.3)).y;
+          float streak = smoothstep(0.58, 0.74, st1) * 0.8 + smoothstep(0.64, 0.78, st2) * 0.5;
+          float gust = smoothstep(0.4, 0.7, texture(uMacroT, vec2(wx / 64.0 + 0.3, s / 96.0)).y);
+          float snake = min(streak, 1.0) * gust * blow * (1.0 - smoothstep(35.0, 90.0, dist)) * (0.6 + 0.4 * nC.y);
+          vec3 snakeCol = mix(sandA * 1.05, vec3(0.9, 0.92, 0.95), snow);
+          alb = mix(alb, snakeCol, snake * 0.6); rough = mix(rough, 0.95, snake);
+        }
         // ---------------- wet: damp stretches, puddles in dips and ruts
         float pf = nC.w * 0.5 + nB.z * 0.5 + (1.0 - smoothstep(0.1, 0.2, abs(abs(lu - 0.5) - 0.24))) * 0.08 + smoothstep(6.0, 7.1, ad) * 0.07;
         float pth = 0.9 - 0.08 * wet;
@@ -553,7 +567,18 @@ export function groundPrewarmMeshes(terrainMat, roadMat) {
   add(terrainMat); add(roadMat);
   for (const m of coverPrewarmMeshes()) out.push(m);
   for (const m of furniturePrewarmMeshes()) out.push(m);
+  { const f = makeWorldFloor(); f.visible = true; out.push(f); }
   return out;
+}
+
+export const FLOOR_R = 260;
+let _floorMat = null;
+/** Dark fogged disc used as the floor under the terrain heightfield (shared material; see TerrainStreamer). */
+export function makeWorldFloor() {
+  if (!_floorMat) { _floorMat = new THREE.MeshBasicMaterial({ color: 0x140f0b, side: THREE.DoubleSide, fog: false }); _floorMat.name = 'world_floor'; }
+  const m = new THREE.Mesh(new THREE.CircleGeometry(FLOOR_R, 40).rotateX(-Math.PI / 2), _floorMat);
+  m.renderOrder = 1; m.frustumCulled = false; m.matrixAutoUpdate = false; m.visible = false; m.name = 'world_floor';
+  return m;
 }
 
 /** Per-frame road uniforms (night makes cat's eyes / paint retro-reflect; wet = extra global wetness 0..1). */

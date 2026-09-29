@@ -120,8 +120,8 @@ const SLEEVE_ALBEDO = /* glsl */`
 // when aiming; fov: viewmodel vertical FOV [hip, ads]; rec: [kick back m, climb deg, yaw deg, roll deg]; lRot/rRot: extra hand
 // rotation on the grip sockets (deg, socket axes); sh: shoulder-centre offset (camera space); blade: torso yaw (rad).
 export const TUNE = {
-  pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', support: [0.0424, -0.0214, 0.0081, -0.4666, 0.3715, 0.5124, 0.6178], rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.0424, -0.0214, 0.0081, -0.4666, 0.3715, 0.5124, 0.6178], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', support: [0.02, -0.02, 0.02, 0, 0, 90], rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.02, -0.02, 0.02, 0, 0, 90], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
   smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.17, fov: [62, 56], pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
   shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], pose: 'pose_shotgun', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rec: [0.032, 3.0, 1.0, 2.0], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
@@ -815,8 +815,8 @@ export class ViewModel {
     const W = gun, root = W.root, A = ANCH[name];
     const P = out.p, Q = out.q;
     if (name === 'support') {        // pistols: the support hand wraps the gun hand (relation from the hero's two-handed pose_pistol)
-      const s = W.loc.grip_R, S = this.T.support;
-      P.set(S[0], S[1], S[2]).applyQuaternion(s.q).add(s.p); Q.copy(s.q).multiply(_q3.set(S[3], S[4], S[5], S[6]));
+      const s = W.loc.grip_R, S = this.T.support;     // [x, y, z (m, grip_R frame), rx, ry, rz (deg, XYZ)]
+      P.set(S[0], S[1], S[2]).applyQuaternion(s.q).add(s.p); Q.copy(s.q).multiply(_q3.setFromEuler(_e.set(S[3] * DEG, S[4] * DEG, S[5] * DEG)));
     } else if (name === 'grip') {    // live socket (the shotgun's grip_L rides the pump)
       const s = W.sockets.grip_L || W.sockets.grip_R;
       s.getWorldPosition(P); root.worldToLocal(P);

@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { WEAPONS, weaponStats, GRENADE } from '../data/weapons.js';
 import { clamp, damp, lerp, wrapAngle, D2R } from '../core/util.js';
+import { BOSS_PARTS } from '../data/boss.js';
 
 const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _m = new THREE.Vector3();
 
@@ -236,7 +237,16 @@ export class GunnerController {
       const dmg = w.dmg * fall * (pass > 0 ? 0.6 : 1);
       rays.push({ end: end.toArray(), carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, through: !!hit.through, surface: zone.kind === 'tire' ? 'tire' : /driver|gunner/.test(zone.kind) ? 'flesh' : 'metal', dmg });
       ctx.report({ carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, dmg, through: !!hit.through, point: end.toArray(), dir: dr.toArray(), weapon: w.id, tireMul: w.tireMul || 1, head: /_head$/.test(zone.kind) });
-      this.hitMarker = 0.14; ctx.hitMarker && ctx.hitMarker(/_head$/.test(zone.kind));
+      // feedback class for the HUD: boss part / armour deflect (the war-train's hull and locked parts take no damage) / weak point
+      const car = hit.car; let kind = 'hit';
+      if (car.isBoss) {
+        const def = BOSS_PARTS[zone.kind];
+        const deflect = !def || zone.kind === 'body' || def.invulnerable || !!(def.needs && def.needs.some((k) => car.alive && car.alive[k]));
+        kind = deflect ? 'deflect' : def.weak ? 'weak' : 'part';
+        const B = this.bossHit || (this.bossHit = { part: '', kind: '', n: 0 }); B.part = zone.kind; B.kind = kind; B.n++;
+      } else if (car.zoneMul && (car.zoneMul[zone.kind] ?? 1) > 1.5) kind = 'weak';
+      this.hitKind = kind; this.hitSeq = (this.hitSeq || 0) + 1;
+      this.hitMarker = 0.14; if (kind !== 'deflect') ctx.hitMarker && ctx.hitMarker(/_head$/.test(zone.kind));
       if (pass < pierce) { ro.copy(end).addScaledVector(dr, 0.25); remaining -= ro.distanceTo(o); if (remaining < 2) break; } else break;
     }
     for (const r of rays) out.push(r);

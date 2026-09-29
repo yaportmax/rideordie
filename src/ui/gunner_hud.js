@@ -7,6 +7,7 @@
 // d.hideCross, d.spreadPx, d.mag, d.reloading.
 
 import { inCinematic } from '../view/viewmodel.js';
+import { BOSS_PARTS } from '../data/boss.js';
 
 const CSS = `
 #ghud{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -24,6 +25,14 @@ const CSS = `
 #ghud .hm i{position:absolute;left:-1.5px;top:-7px;width:3px;height:14px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 0 6px rgba(0,0,0,.4);border-radius:1px}
 #ghud .hm.k i{background:#ff3524;box-shadow:0 0 0 1px rgba(40,0,0,.6),0 0 10px rgba(255,40,20,.8)}
 #ghud .hm.hd i{background:#ffd23a;box-shadow:0 0 0 1px rgba(40,20,0,.6),0 0 8px rgba(255,200,40,.7)}
+#ghud .hm.wk i{background:#ff9a1a;box-shadow:0 0 0 1px rgba(40,15,0,.6),0 0 10px rgba(255,140,20,.8)}
+#ghud .hm.df i{background:#9aa0a6;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+#ghud .bp{position:absolute;left:50%;top:calc(50% + 40px);transform:translateX(-50%);text-align:center;opacity:0;font:700 12px 'Bahnschrift','Segoe UI Semibold',sans-serif;letter-spacing:3px;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}
+#ghud .bp .bb{width:120px;height:5px;margin:3px auto 0;background:rgba(0,0,0,.55);box-shadow:0 0 0 1px rgba(255,255,255,.25);transform:skewX(-18deg);overflow:hidden}
+#ghud .bp .bb i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff3a1a,#ffb21a);transform-origin:left}
+#ghud .bp .bb u{display:block;position:relative;top:-5px;height:100%;width:100%;background:rgba(255,255,255,.75);transform-origin:left;text-decoration:none}
+#ghud .bp.df{color:#b8bec4}
+#ghud .bp.df .bb{display:none}
 #ghud .kr{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;border:3px solid rgba(255,60,40,.85);border-radius:50%;opacity:0}
 #ghud .kt{position:absolute;left:50%;top:calc(50% + 46px);transform:translateX(-50%);font:800 italic 17px 'Bahnschrift','Segoe UI Semibold',sans-serif;letter-spacing:3px;color:#ff4a30;text-shadow:0 1px 3px #000,0 0 10px rgba(255,40,20,.6);opacity:0;white-space:nowrap}
 #ghud .dm{position:absolute;left:50%;top:50%;width:0;height:0}
@@ -71,13 +80,15 @@ export class GunnerHud {
       <div class="c"><i class="h"></i><i class="h"></i><i class="v"></i><i class="v"></i><i class="d"></i><i class="ring"></i><i class="chev"></i></div>
       <div class="hm"><i></i><i></i><i></i><i></i></div>
       <div class="kr"></div><div class="kt"></div>
+      <div class="bp"><span class="bpn"></span><div class="bb"><i></i><u></u></div></div>
       <div class="rp"><span>R</span>RELOAD</div>
       <div class="am"><span class="wn"></span><b class="mg">0</b><small>/ ∞</small><div class="bar"><i></i></div></div>`;
     parent.appendChild(el);
     const $ = (s) => el.querySelector(s);
     this.q = { c: $('.c'), h: [...el.querySelectorAll('.c .h')], v: [...el.querySelectorAll('.c .v')], dot: $('.c .d'), ring: $('.c .ring'), chev: $('.c .chev'),
       hm: $('.hm'), hmI: [...el.querySelectorAll('.hm i')], kr: $('.kr'), kt: $('.kt'), dm: [...el.querySelectorAll('.dm div')], am: $('.am'), wn: $('.am .wn'), mg: $('.am .mg'), bar: $('.am .bar i'), rp: $('.rp'),
-      sc: $('.sc'), mk: $('.sc .mk'), svg: $('.sc svg') };
+      sc: $('.sc'), mk: $('.sc .mk'), svg: $('.sc svg'), bp: $('.bp'), bpn: $('.bpn'), bpi: $('.bp .bb i'), bpu: $('.bp .bb u') };
+    this.bpT = 0; this.bpPart = ''; this.bpShown = 1; this.bpLag = 1; this.seq = 0; this.bossSeq = 0;
     this.hitT = 0; this.hitLen = 0.2; this.hitKind = 0; this.killT = 0; this.scopeK = 0; this.scopeKind = null; this.on = true; this.crossKind = -1;
     this.dmg = this.q.dm.map((e) => ({ e, t: 0, a: 0 }));
     this._last = { mag: -1, w: '', cls: '' };
@@ -87,13 +98,13 @@ export class GunnerHud {
   setVisible(v) { this.on = v; this.el.style.display = v ? '' : 'none'; }
   setDriverShown(v) { this.q.am.style.bottom = v ? '156px' : ''; }
 
-  /** kind: 0 body, 1 head, 2 kill (2 + head -> gold/red) */
-  hit(kill = false, head = false) {
+  /** kind: 0 body, 1 head, 2 kill (2 + head -> gold/red); cls: 'weak' (warlord weak point / boss reactor) | 'deflect' (no damage) */
+  hit(kill = false, head = false, cls = '') {
     if (!this.on) return;
-    const k = kill ? 2 : head ? 1 : 0;
+    const k = kill ? 2 : head || cls === 'weak' ? 1 : cls === 'deflect' ? -1 : 0;
     if (this.hitT > 0 && this.hitKind > k) return;       // a kill marker is not overwritten by the pellets that caused it
-    this.hitKind = k; this.hitLen = kill ? 0.55 : head ? 0.3 : 0.2; this.hitT = this.hitLen;
-    this.q.hm.className = 'hm' + (kill ? ' k' : head ? ' hd' : '');
+    this.hitKind = k; this.hitLen = kill ? 0.55 : head || cls === 'weak' ? 0.3 : cls === 'deflect' ? 0.12 : 0.2; this.hitT = this.hitLen;
+    this.q.hm.className = 'hm' + (kill ? ' k' : head ? ' hd' : cls === 'weak' ? ' wk' : cls === 'deflect' ? ' df' : '');
     if (kill) { this.killT = 0.6; this.q.kt.textContent = head ? 'HEADSHOT' : 'KILL'; this.q.kt.style.color = head ? '#ffc93a' : ''; }
   }
 
@@ -108,6 +119,39 @@ export class GunnerHud {
       if (src) this._damage(src, cam, e.t === 'hit' ? (e.dmg || 8) : 30, e.t === 'hit' ? 0.45 : 0.9);
     }
   }
+  /** Weak-point / deflect markers from the controller's hit class + the boss part readout (name + hp bar) under the crosshair. */
+  _bossPart(dt, G) {
+    const q = this.q;
+    if (G.hitSeq !== undefined && G.hitSeq !== this.seq) {
+      this.seq = G.hitSeq;
+      if (G.hitKind === 'weak' || G.hitKind === 'deflect') this.hit(false, false, G.hitKind);
+    }
+    const B = G.bossHit;
+    if (B && B.n !== this.bossSeq) {
+      this.bossSeq = B.n; this.bpT = B.kind === 'deflect' ? 0.7 : 1.6;
+      if (B.part !== this.bpPart || B.kind !== this.bpKind) {
+        this.bpPart = B.part; this.bpKind = B.kind;
+        const def = BOSS_PARTS[B.part];
+        q.bpn.textContent = B.kind === 'deflect' ? (def && def.needs ? 'SHIELDED - BREAK THE REAR ARMOR' : 'ARMORED - HIT THE WEAPONS') : (def && def.label) || B.part;
+        q.bp.className = 'bp' + (B.kind === 'deflect' ? ' df' : '');
+        this.bpLag = this.bpShown = this._partHp(B.part);
+      }
+    }
+    if (this.bpT <= 0) { if (q.bp.style.opacity !== '0') q.bp.style.opacity = 0; return; }
+    this.bpT -= dt;
+    const hp = this._partHp(this.bpPart);
+    this.bpShown = hp; this.bpLag = Math.max(hp, this.bpLag - dt * 0.35);        // white chunk trails the bar (damage just dealt)
+    q.bpi.style.transform = `scaleX(${hp.toFixed(3)})`; q.bpu.style.transform = `scaleX(${this.bpLag.toFixed(3)})`; q.bpu.style.opacity = 0.8;
+    q.bp.style.opacity = Math.min(1, this.bpT * 3);
+  }
+  _partHp(part) {
+    const b = typeof window !== 'undefined' && window.__run && window.__run.sim && window.__run.sim.boss;   // the sim peer knows part hp
+    const def = BOSS_PARTS[part];
+    if (!b || !b.hp || !def) { this.q.bpi.parentElement.style.display = 'none'; return 1; }
+    this.q.bpi.parentElement.style.display = this.bpKind === 'deflect' ? 'none' : '';
+    return Math.max(0, Math.min(1, b.hp[part] / def.hp));
+  }
+
   _damage(p, cam, dmg, k = 1) {
     // bearing relative to the view: 0 = ahead, +pi/2 = right
     const e = cam.matrixWorld.elements;
@@ -125,6 +169,7 @@ export class GunnerHud {
     if (!G || !this.on || d.cinematic || inCinematic()) { this.el.style.display = 'none'; return; }
     this.el.style.display = '';
     this._events(d);
+    this._bossPart(dt, G);
     const W = G.weapon;
     // ---------------------------------------------------------------- crosshair
     const kind = W.crosshair ?? 2;

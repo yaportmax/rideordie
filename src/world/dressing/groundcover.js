@@ -19,29 +19,31 @@ import { HALF_ROAD } from '../road.js';
 /** Cover window around the player (m along the road): chunks overlapping it are drawn. */
 export const COVER_BEHIND = 125, COVER_AHEAD = 150;   // behind: the gunner watches pursuers, cover must be faded before it drops
 const A0 = -2.2, A1 = 36;                         // lateral band, metres beyond the road-strip edge (negative = on the gravel shoulder)
-const KINDS = ['grass', 'scrub', 'flower', 'pebble', 'debris', 'tumble'];
+const KINDS = ['grass', 'scrub', 'flower', 'pebble', 'debris', 'tumble', 'devil'];
 // density per m2 at the road side (before clumping / falloff); dry = share of dry grass cards; tints are linear multipliers [a, b]
 const COVER = {
-  desert:   { debris: 0.024, tumble: 1 / 70, grass: 0.3, scrub: 0.05, flower: 0.0, pebble: 0.42, dry: 1.0, g: [[1.08, 1.0, 0.86], [0.92, 0.82, 0.66]], s: [[1.95, 1.8, 1.35], [1.7, 1.52, 1.18]], f: [0xe8d27a, 0xd9a05a], p: [0xb89878, 0x8a6048] },
-  canyon:   { debris: 0.018, tumble: 1 / 130, grass: 0.22, scrub: 0.06, flower: 0.0, pebble: 0.85, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.62, 1.25], [1.7, 1.42, 1.1]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
-  coast:    { debris: 0.014, tumble: 0, grass: 1.3, scrub: 0.05, flower: 0.14, pebble: 0.14, dry: 0.22, g: [[1.12, 1.12, 0.78], [1.22, 1.12, 0.72]], s: [[1.5, 1.65, 1.2], [1.68, 1.62, 1.22]], f: [0xf2efe4, 0xf0cc48], p: [0x9a978f, 0x75726c] },
-  mountain: { debris: 0.012, tumble: 0, grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.4, 1.55, 1.15], [1.6, 1.5, 1.15]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
-  city:     { debris: 0.06, tumble: 1 / 260, grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.45, 1.45, 1.15], [1.55, 1.45, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },
-  dam:      { debris: 0.02, tumble: 1 / 200, grass: 0.6, scrub: 0.05, flower: 0.03, pebble: 0.3, dry: 0.65, g: [[0.98, 0.96, 0.82], [1.05, 0.96, 0.78]], s: [[1.55, 1.55, 1.2], [1.65, 1.55, 1.2]], f: [0xf2efe4, 0xf0cc48], p: [0x97948e, 0x72706a] },
+  desert:   { devil: 1 / 380, debris: 0.024, tumble: 1 / 70, grass: 0.3, scrub: 0.05, flower: 0.0, pebble: 0.42, dry: 1.0, g: [[1.08, 1.0, 0.86], [0.92, 0.82, 0.66]], s: [[1.95, 1.8, 1.35], [1.7, 1.52, 1.18]], f: [0xe8d27a, 0xd9a05a], p: [0xb89878, 0x8a6048] },
+  canyon:   { devil: 0, debris: 0.018, tumble: 1 / 130, grass: 0.22, scrub: 0.06, flower: 0.0, pebble: 0.85, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.62, 1.25], [1.7, 1.42, 1.1]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
+  coast:    { devil: 0, debris: 0.014, tumble: 0, grass: 1.3, scrub: 0.05, flower: 0.14, pebble: 0.14, dry: 0.22, g: [[1.12, 1.12, 0.78], [1.22, 1.12, 0.72]], s: [[1.5, 1.65, 1.2], [1.68, 1.62, 1.22]], f: [0xf2efe4, 0xf0cc48], p: [0x9a978f, 0x75726c] },
+  mountain: { devil: 0, debris: 0.012, tumble: 0, grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.4, 1.55, 1.15], [1.6, 1.5, 1.15]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
+  city:     { devil: 0, debris: 0.06, tumble: 1 / 260, grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.45, 1.45, 1.15], [1.55, 1.45, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },
+  dam:      { devil: 1 / 1000, debris: 0.02, tumble: 1 / 200, grass: 0.6, scrub: 0.05, flower: 0.03, pebble: 0.3, dry: 0.65, g: [[0.98, 0.96, 0.82], [1.05, 0.96, 0.78]], s: [[1.55, 1.55, 1.2], [1.65, 1.55, 1.2]], f: [0xf2efe4, 0xf0cc48], p: [0x97948e, 0x72706a] },
 };
 const HEX = (h) => new THREE.Color().setHex(h);
 const LIN = {};
 for (const [b, c] of Object.entries(COVER)) LIN[b] = { g: c.g.map((v) => new THREE.Color(...v)), s: c.s.map((v) => new THREE.Color(...v)), f: c.f.map(HEX), p: c.p.map(HEX) };
-const KEY = { grass: 'g', scrub: 's', flower: 'f', pebble: 'p', debris: 'p', tumble: 's' };
-const SCALE = { grass: [0.5, 1.15], scrub: [0.5, 1.2], flower: [0.7, 1.15], pebble: [0.05, 0.26], debris: [0.85, 1.15], tumble: [0.75, 1.3] };
-const FADE = { grass: [80, 120], scrub: [90, 124], flower: [60, 90], pebble: [38, 62], debris: [90, 125], tumble: [110, 140] };
-const SWAY = { grass: 0.11, scrub: 0.04, flower: 0.12, pebble: 0, debris: 0, tumble: 0 };
+const KEY = { grass: 'g', scrub: 's', flower: 'f', pebble: 'p', debris: 'p', tumble: 's', devil: 's' };
+const SCALE = { grass: [0.5, 1.15], scrub: [0.5, 1.2], flower: [0.7, 1.15], pebble: [0.05, 0.26], debris: [0.85, 1.15], tumble: [1.0, 1.7], devil: [0.7, 1.3] };
+const FADE = { grass: [80, 120], scrub: [90, 124], flower: [60, 90], pebble: [38, 62], debris: [90, 125], tumble: [110, 140], devil: [260, 330] };
+const SWAY = { grass: 0.11, scrub: 0.04, flower: 0.12, pebble: 0, debris: 0, tumble: 0, devil: 0 };
 // litter variants (baked into one geometry, selected per instance): weight, colour palette (instance tint; null = neutral)
 const DEBRIS = [
   [0.2, null], [0.14, null], [0.2, null], [0.12, null], [0.12, null],               // tyre flat, tyre leaning, tread strip, plank, scrap sheet
   [0.08, [0xb03a2a, 0x3a5a8a, 0xc89a2a, 0x6a7a4a]], [0.07, null], [0.07, [0x5a6a3a, 0xa03a2a, 0x3a3a3a]],   // bucket, hubcap, jerrycan
 ];
-const TUMBLE_L = 36;                               // metres a tumbleweed rolls (centred on the road) before it loops
+const TUMBLE_L = 36;
+/** Dust devils are drawn from a wider window than the rest of the cover (they stand 40-220 m off the road). */
+export const DEVIL_BEHIND = 220, DEVIL_AHEAD = 340;                               // metres a tumbleweed rolls (centred on the road) before it loops
 const CELL = { dry: 0, green: 1, stalks: 2, bush: 3 };
 
 // ------------------------------------------------------------------------------------------------ geometry
@@ -61,6 +63,13 @@ function cards(n, w, h, seed) {
   g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('aHead', new THREE.Float32BufferAttribute(H, 1));
   g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(P.length).fill(1), 3));
   g.setIndex(I); g.computeBoundingSphere();
+  return g;
+}
+/** Dust devil: open unit cylinder (y 0..1), shaped / twisted in the vertex shader. */
+function devilGeo() {
+  const g = new THREE.CylinderGeometry(1, 1, 1, 18, 12, true).translate(0, 0.5, 0);
+  g.deleteAttribute('normal');
+  g.computeBoundingSphere();
   return g;
 }
 /** Tumbleweed: three orthogonal cards through the centre (a twig ball of radius 0.5), bush cell. */
@@ -103,7 +112,7 @@ function debrisGeo() {
     for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setY(i, p.getY(i) + 0.03 + 0.18 * Math.max(0, x - 0.1) + 0.04 * Math.sin(p.getZ(i) * 7)); }
     add(g, 4, [0.36, 0.17, 0.08], 0.5); }
   add(new THREE.CylinderGeometry(0.15, 0.13, 0.34, 9).rotateZ(Math.PI / 2).translate(0, 0.14, 0), 5, [0.8, 0.8, 0.8], 0.2);
-  add(new THREE.CylinderGeometry(0.21, 0.21, 0.035, 12).rotateX(0.12).translate(0, 0.03, 0), 6, [0.62, 0.64, 0.66], 0.25);
+  add(new THREE.CylinderGeometry(0.19, 0.19, 0.03, 12).rotateX(0.12).translate(0, 0.03, 0), 6, [0.34, 0.35, 0.36], 0.25);
   add(new THREE.BoxGeometry(0.35, 0.44, 0.16).rotateZ(1.35).translate(0, 0.1, 0), 7, [0.8, 0.8, 0.8], 0.15);
   const g = mergeGeometries(parts, false);
   g.computeBoundingSphere();
@@ -142,9 +151,50 @@ function pebble() {
 }
 const BASE_ATTRS = ['position', 'normal', 'uv', 'color', 'aHead', 'aVar'];
 const MESH_KINDS = KINDS;
+const NEAR_KINDS = KINDS.filter((k) => k !== 'devil');
 const ROCKLIKE = new Set(['pebble', 'debris']);
 
 // ------------------------------------------------------------------------------------------------ materials
+/** Dust devil: unlit, alpha-blended twisting dust column (scrolling macro noise, soft silhouette, fades at top / bottom / distance). */
+function devilMaterial(noise) {
+  const m = new THREE.MeshBasicMaterial({ color: 0xd8b98c, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true });
+  m.name = 'cover_devil';
+  const u = { uFade: { value: new THREE.Vector2(FADE.devil[0], FADE.devil[1]) }, uNoise: { value: noise } };
+  m.userData.u = u;
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = WIND.uTime; sh.uniforms.uFade = u.uFade; sh.uniforms.uNoise = u.uNoise;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+        attribute vec4 aInst; attribute vec4 aInst2;
+        uniform float uTime; uniform vec2 uFade;
+        varying vec2 vDv; varying float vDy; varying float vFac; varying float vFadeD;`)
+      .replace('#include <begin_vertex>', `
+        float y = position.y, ph = aInst2.z * 37.0, H = 30.0 * aInst2.x;
+        float ang = atan(position.z, position.x);
+        float r = mix(0.7, 5.5, pow(y, 1.5)) * aInst2.x * (0.85 + 0.15 * sin(ang * 3.0 + y * 9.0 - uTime * 3.0 + ph));
+        vec2 lean = vec2(sin(uTime * 0.45 + ph + y * 2.0), cos(uTime * 0.37 + ph * 1.3 + y * 1.6)) * y * y * 3.5 * aInst2.x;
+        vec3 transformed = vec3(cos(ang) * r + lean.x, y * H, sin(ang) * r + lean.y) + aInst.xyz;
+        vec3 wp = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vec3 nrm = normalize(vec3(cos(ang), 0.0, sin(ang)));
+        vFac = abs(dot(nrm, normalize(cameraPosition - wp)));
+        vDv = vec2(ang / 6.2831853 * 3.0 + y * 1.4 - uTime * 0.55 + aInst2.z, y * 2.2 - uTime * 0.3);
+        vDy = y;
+        vFadeD = 1.0 - smoothstep(uFade.x, uFade.y, distance((modelMatrix * vec4(aInst.xyz, 1.0)).xyz, cameraPosition));
+        vFadeD *= smoothstep(0.0, 0.25, fract(uTime / 47.0 + aInst2.z)) * (1.0 - smoothstep(0.7, 1.0, fract(uTime / 47.0 + aInst2.z)));   // come and go`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform sampler2D uNoise;
+        varying vec2 vDv; varying float vDy; varying float vFac; varying float vFadeD;`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float nz = texture2D(uNoise, vDv).x * 0.65 + texture2D(uNoise, vDv * vec2(2.0, 1.4) + 0.3).y * 0.35;
+        float a = smoothstep(0.38, 0.75, nz) * smoothstep(0.0, 0.08, vDy) * (1.0 - smoothstep(0.45, 1.0, vDy)) * pow(vFac, 1.6) * vFadeD;
+        diffuseColor.rgb *= 0.85 + 0.3 * (1.0 - vDy);
+        diffuseColor.a = a * 0.5;`);
+  };
+  m.customProgramCacheKey = () => 'cover-devil';
+  return m;
+}
+
 function coverMaterial(kind, atlas) {
   const rock = ROCKLIKE.has(kind);
   const m = rock
@@ -227,9 +277,10 @@ function shared() {
   if (_shared) return _shared;
   const atlas = new THREE.TextureLoader().load('/textures/cover/cover_atlas.png');
   atlas.colorSpace = THREE.SRGBColorSpace; atlas.anisotropy = 4;
-  const geos = { grass: cards(3, 1, 1, 11), scrub: cards(2, 1.2, 1, 12), flower: flowers(13), pebble: pebble(), debris: debrisGeo(), tumble: tumbleGeo() };
+  const geos = { grass: cards(3, 1, 1, 11), scrub: cards(2, 1.2, 1, 12), flower: flowers(13), pebble: pebble(), debris: debrisGeo(), tumble: tumbleGeo(), devil: devilGeo() };
   for (const g of Object.values(geos)) if (!g.attributes.aVar) g.setAttribute('aVar', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count), 1));
-  _shared = { geos, atlas, mats: Object.fromEntries(KINDS.map((k) => [k, coverMaterial(k, atlas)])), ready: false, warming: false };
+  const noise = new THREE.TextureLoader().load('/textures/detail/macro_noise.png'); noise.wrapS = noise.wrapT = THREE.RepeatWrapping;
+  _shared = { geos, atlas, mats: Object.fromEntries(KINDS.map((k) => [k, k === 'devil' ? devilMaterial(noise) : coverMaterial(k, atlas)])), ready: false, warming: false };
   return _shared;
 }
 /** True once the cover programs are compiled (meshes stay hidden until then). */
@@ -241,13 +292,13 @@ function warm(ctx) {
   S.warming = true;
   const w = ctx.pool && ctx.pool.warmer;
   if (!w) { S.ready = true; return; }
-  const dummies = ['grass', 'pebble'].map((k) => makeMesh(k, new Float32Array(8), 1, [0, -5000, 0]));
+  const dummies = ['grass', 'pebble', 'devil'].map((k) => makeMesh(k, new Float32Array(8), 1, [0, -5000, 0]));
   w(dummies).then(() => { S.ready = true; for (const d of dummies) disposeCoverMesh(d); }, () => { S.ready = true; });
 }
 
 /** Meshes using every cover program (for Game.prewarm: compiled up front, so the runtime warm-up is instant). */
 export function coverPrewarmMeshes() {
-  return ['grass', 'pebble'].map((k) => { const m = makeMesh(k, new Float32Array(8), 1, [0, 0, 0]); m.visible = true; return m; });
+  return ['grass', 'pebble', 'devil'].map((k) => { const m = makeMesh(k, new Float32Array(8), 1, [0, 0, 0]); m.visible = true; return m; });
 }
 
 function makeMesh(kind, data, n, anchor) {
@@ -312,7 +363,7 @@ function buildCover2(ctx, chunk, deadline) {
     if (st.data && _owner !== st) st.data = null;          // another chunk used the scratch buffer meanwhile: redo this kind (deterministic)
     if (!st.data) {
       let D = 0; for (const b of st.bios) D = Math.max(D, bdens(b, kind));
-      st.nCand = kind === 'tumble' ? Math.ceil(D * CHUNK_LEN * 2) : Math.ceil(D * qk * CHUNK_LEN * 2 * (A1 - A0)); st.D = D;
+      st.nCand = kind === 'tumble' || kind === 'devil' ? Math.ceil(D * CHUNK_LEN * 2) : Math.ceil(D * qk * CHUNK_LEN * 2 * (A1 - A0)); st.D = D;
       if (_scratch.length < st.nCand * 8) _scratch = new Float32Array(Math.ceil(st.nCand * 1.25) * 8);   // reused: no per-chunk garbage
       st.data = _scratch; _owner = st; st.n = 0; st.i = 0;
       st.rnd = rngOf(seed, chunk.c, strId('cover:' + kind));
@@ -325,6 +376,7 @@ function buildCover2(ctx, chunk, deadline) {
       const uSide = rnd(), uA = rnd(), uS = rnd(), uAcc = rnd(), uYaw = rnd(), uSc = rnd(), uCol = rnd(), uCl = rnd(), uV = rnd();
       const side = uSide < 0.5 ? 1 : -1;
       if (kind === 'tumble') { if (placeTumble(ctx, chunk, st, uS, uAcc, uSc, uCol, uV, side)) st.n++; continue; }
+      if (kind === 'devil') { if (placeDevil(ctx, chunk, st, uS, uA, uAcc, uSc, uV, side)) st.n++; continue; }
       const a = A0 + (A1 - A0) * (kind === 'pebble' ? uA * uA : kind === 'debris' ? uA * uA * uA * 0.4 : Math.pow(uA, 1.35));
       const s = s0 + uS * CHUNK_LEN;
       const bio = biomeAt(s);
@@ -379,6 +431,21 @@ function buildCover2(ctx, chunk, deadline) {
   return true;
 }
 
+/** One dust devil 40-220 m off the road on open, level ground. */
+const _dg = {};
+function placeDevil(ctx, chunk, st, uS, uA, uAcc, uSc, uV, side) {
+  const { road } = ctx, s = chunk.s0 + uS * CHUNK_LEN, bio = biomeAt(s);
+  if (uAcc * st.D > bdens(bio, 'devil')) return false;
+  const d = side * (EDGE + 40 + 180 * uA), g = chunk.ground.sample(s, d, _dg);
+  if (g.ny < 0.93 || g.y < chunk.seaY + 1) return false;
+  for (const z of st.excl) { const dx = g.x - z[0], dz = g.z - z[1]; if (dx * dx + dz * dz < (z[2] + 10) * (z[2] + 10)) return false; }
+  void road;
+  const o = st.n * 8, a = st.anchor, data = st.data;
+  data[o] = g.x - a.x; data[o + 1] = g.y - a.y - 0.5; data[o + 2] = g.z - a.z; data[o + 3] = 0;
+  data[o + 4] = SCALE.devil[0] + (SCALE.devil[1] - SCALE.devil[0]) * uSc; data[o + 5] = 0; data[o + 6] = uV; data[o + 7] = 0;
+  return true;
+}
+
 /** One tumbleweed rolling across the road at s (path centred on the road, only where the verges are level with the road). */
 const _tg = {}, _tsm = {};
 function placeTumble(ctx, chunk, st, uS, uAcc, uSc, uCol, uV, side) {
@@ -393,7 +460,7 @@ function placeTumble(ctx, chunk, st, uS, uAcc, uSc, uCol, uV, side) {
   const scl = SCALE.tumble[0] + (SCALE.tumble[1] - SCALE.tumble[0]) * uSc;
   const dx = sm.nx * side, dz = sm.nz * side;                              // rolls toward `side`
   let yaw = Math.atan2(dx, dz); if (yaw < 0) yaw += Math.PI * 2;
-  _c.setRGB(1.2, 1.02, 0.74).multiplyScalar(0.85 + 0.3 * uCol);
+  _c.setRGB(1.75, 1.42, 0.95).multiplyScalar(0.85 + 0.3 * uCol);
   const o = st.n * 8, a = st.anchor, data = st.data;
   data[o] = sm.x - a.x; data[o + 1] = sm.y - a.y - 0.05; data[o + 2] = sm.z - a.z; data[o + 3] = yaw + CELL.bush * 8;
   data[o + 4] = scl; data[o + 5] = -Math.tan(sm.bank) * side; data[o + 6] = uV; data[o + 7] = packCol(_c);
@@ -411,17 +478,18 @@ export class CoverField {
   /** chunks: Map<chunkIndex, terrain record>; s: player distance along the road. */
   update(chunks, s) {
     const c0 = Math.floor((s - COVER_BEHIND) / CHUNK_LEN), c1 = Math.floor((s + COVER_AHEAD) / CHUNK_LEN);
+    const d0 = Math.floor((s - DEVIL_BEHIND) / CHUNK_LEN), d1 = Math.floor((s + DEVIL_AHEAD) / CHUNK_LEN);
     let key = '';
-    for (let c = c0; c <= c1; c++) { const r = chunks.get(c); if (r && r.cover) key += c + ':' + r.coverVersion + ','; }
+    for (let c = Math.min(c0, d0); c <= Math.max(c1, d1); c++) { const r = chunks.get(c); if (r && r.cover) key += c + ':' + r.coverVersion + ','; }
     const ready = coverReady();
-    if (key !== this.key) { this.key = key; this._fill(chunks, c0, c1); }
+    if (key !== this.key) { this.key = key; this._fill(chunks, c0, c1, NEAR_KINDS); this._fill(chunks, d0, d1, ['devil']); }
     for (const k of MESH_KINDS) { const m = this.meshes[k]; m.visible = ready && m.geometry.instanceCount > 0; }
   }
-  _fill(chunks, c0, c1) {
-    const recs = []; for (let c = c0; c <= c1; c++) { const r = chunks.get(c); if (r && r.cover) recs.push(r); }
-    if (!recs.length) { for (const k of MESH_KINDS) this.meshes[k].geometry.instanceCount = 0; return; }
+  _fill(chunks, c0, c1, kinds) {
+    const recs = []; for (let c = c0; c <= c1; c++) { const r = chunks.get(c); if (r && r.cover && r.cover.length) recs.push(r); }
+    if (!recs.length) { for (const k of kinds) this.meshes[k].geometry.instanceCount = 0; return; }
     const o = recs[0].cover[0].anchor; this.origin = o;
-    for (const k of MESH_KINDS) {
+    for (const k of kinds) {
       let n = 0; for (const r of recs) for (const e of r.cover) if (e.kind === k) n += e.n;
       let mesh = this.meshes[k];
       if (n > this.cap[k]) {                                     // grow (rare): new buffer, same program
@@ -444,7 +512,7 @@ export class CoverField {
       mesh.geometry.instanceCount = n;
       buf.clearUpdateRanges(); buf.addUpdateRange(0, n * 8); buf.needsUpdate = true;
       mesh.position.set(o[0], o[1], o[2]); mesh.updateMatrix();
-      if (n) { mesh.geometry.boundingSphere.center.set((mnx + mxx) / 2, (mny + mxy) / 2, (mnz + mxz) / 2); mesh.geometry.boundingSphere.radius = 0.5 * Math.hypot(mxx - mnx, mxy - mny, mxz - mnz) + (k === 'tumble' ? TUMBLE_L / 2 + 2 : 3); }
+      if (n) { mesh.geometry.boundingSphere.center.set((mnx + mxx) / 2, (mny + mxy) / 2, (mnz + mxz) / 2); mesh.geometry.boundingSphere.radius = 0.5 * Math.hypot(mxx - mnx, mxy - mny, mxz - mnz) + (k === 'tumble' ? TUMBLE_L / 2 + 2 : k === 'devil' ? 45 : 3); }
     }
   }
   dispose() { for (const k of MESH_KINDS) { this.parent.remove(this.meshes[k]); disposeCoverMesh(this.meshes[k]); } }

@@ -20,7 +20,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `pistol.glb` - 9 mm semi-auto pistol
+## `pistol.glb` - Ranger 9 - 9 mm striker-fired pistol (G17 class)
 
 - **Triangles:** 13610   **File:** 1040 KB   **Materials:** `polymer`, `gun_steel`, `gun_metal`, `gun_black`, `brass`
 - **Bounding box (m):** x -0.017..0.017 (width 0.035), y -0.091..0.077 (height 0.168), z -0.047..0.161 (**length 0.208**)
@@ -61,10 +61,10 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `revolver.glb` - .357 revolver
+## `revolver.glb` - Magnum .357 - 6" full-lug stainless revolver
 
-- **Triangles:** 22662   **File:** 1475 KB   **Materials:** `gun_steel`, `gun_metal`, `gun_black`, `paint2`, `wood`, `brass`
-- **Bounding box (m):** x -0.020..0.022 (width 0.042), y -0.056..0.100 (height 0.155), z -0.039..0.252 (**length 0.291**)
+- **Triangles:** 23432   **File:** 1611 KB   **Materials:** `gun_steel`, `gun_metal`, `gun_black`, `paint2`, `wood`, `brass`
+- **Bounding box (m):** x -0.020..0.022 (width 0.042), y -0.054..0.100 (height 0.153), z -0.041..0.252 (**length 0.293**)
 - **Textures:** revolver_normal (webp), revolver_orm (webp), revolver_albedo (webp)
 
 **Nodes** (pivot = node origin, metres in model space):
@@ -82,7 +82,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 | socket | position (m) | local orientation |
 |---|---|---|
 | `eject` | (-0.000, 0.060, 0.054) | **local +X = ejection direction** = model (-0.000, 0.000, -1.000), i.e. rearward |
-| `grip_L` | (0.008, -0.027, 0.036) | fitted hand frame, quat (x, y, z, w) (0.183, -0.183, 0.683, 0.683) |
+| `grip_L` | (0.007, -0.028, 0.042) | fitted hand frame, quat (x, y, z, w) (0.183, -0.183, 0.683, 0.683) |
 | `grip_R` | (0.001, 0.007, -0.008) | fitted hand frame, quat (x, y, z, w) (0.034, -0.225, 0.008, 0.974) |
 | `mag_well` | (-0.000, 0.060, 0.077) | +Z forward, +Y up |
 | `muzzle` | (0.000, 0.074, 0.252) | +Z forward, +Y up |
@@ -106,7 +106,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `smg.glb` - compact 9 mm SMG
+## `smg.glb` - Viper SMG - 9 mm roller-delayed SMG (MP5A3 class)
 
 - **Triangles:** 17336   **File:** 1135 KB   **Materials:** `gun_black`, `gun_steel`, `gun_metal`, `polymer`, `rubber`, `brass`
 - **Bounding box (m):** x -0.023..0.033 (width 0.055), y -0.187..0.115 (height 0.302), z -0.322..0.334 (**length 0.656**)
@@ -150,7 +150,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `shotgun.glb` - 12 ga pump shotgun
+## `shotgun.glb` - Hammer 12G - 12 ga pump (590 class) with side saddle
 
 - **Triangles:** 25476   **File:** 1428 KB   **Materials:** `gun_black`, `gun_steel`, `gun_metal`, `paint2`, `polymer`, `rubber`, `brass`, `paint`
 - **Bounding box (m):** x -0.025..0.040 (width 0.065), y -0.065..0.096 (height 0.161), z -0.317..0.683 (**length 1.000**)
@@ -193,7 +193,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `rifle.glb` - assault rifle (AK/M4 hybrid)
+## `rifle.glb` - Raider AR - 7.62 AK-pattern rifle with a micro red dot
 
 - **Triangles:** 29912   **File:** 1607 KB   **Materials:** `gun_black`, `gun_metal`, `gun_steel`, `polymer`, `wood`, `brass`, `glass_lens`
 - **Bounding box (m):** x -0.035..0.025 (width 0.059), y -0.190..0.178 (height 0.368), z -0.336..0.568 (**length 0.904**)
@@ -241,7 +241,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `lmg.glb` - belt-fed light machine gun
+## `lmg.glb` - Reaper LMG - belt-fed 5.56 LMG (M249 class)
 
 - **Triangles:** 24156   **File:** 1449 KB   **Materials:** `gun_black`, `gun_metal`, `gun_steel`, `polymer`, `rubber`, `brass`
 - **Bounding box (m):** x -0.052..0.097 (width 0.149), y -0.074..0.152 (height 0.226), z -0.410..0.652 (**length 1.062**)
@@ -291,7 +291,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `sniper.glb` - bolt-action sniper rifle
+## `sniper.glb` - Longbow .50 - bolt-action sniper (AWM-class chassis, 3-12x scope)
 
 - **Triangles:** 26410   **File:** 1389 KB   **Materials:** `paint`, `gun_black`, `gun_metal`, `polymer`, `rubber`, `gun_steel`, `brass`, `glass_lens`
 - **Bounding box (m):** x -0.077..0.031 (width 0.108), y -0.064..0.156 (height 0.220), z -0.378..0.774 (**length 1.152**)
@@ -338,7 +338,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `rpg.glb` - RPG launcher
+## `rpg.glb` - Wrecker RPG - RPG-7-class launcher with optic
 
 - **Triangles:** 28504   **File:** 1561 KB   **Materials:** `gun_metal`, `gun_black`, `gun_steel`, `wood`, `rubber`, `polymer`, `glass_lens`, `paint`
 - **Bounding box (m):** x -0.044..0.098 (width 0.142), y -0.066..0.139 (height 0.205), z -0.400..0.872 (**length 1.272**)
@@ -381,7 +381,7 @@ For each moving node the table gives `kind`: **translate** = offset along a loca
 
 ---
 
-## `grenade.glb` - frag grenade
+## `grenade.glb` - frag grenade (F1 pattern)
 
 - **Triangles:** 8900   **File:** 471 KB   **Materials:** `paint`, `gun_steel`, `gun_metal`
 - **Bounding box (m):** x -0.043..0.034 (width 0.077), y -0.030..0.030 (height 0.060), z -0.039..0.063 (**length 0.102**)

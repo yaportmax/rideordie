@@ -21,7 +21,7 @@ import { WEAPONS } from '../data/weapons.js';
 import { Road } from '../world/road.js';
 import { ECONOMY, KILL_CASH } from '../data/economy.js';
 import { AudioBridge } from '../view/audio_bridge.js';
-import { GhostBoss } from '../sim/boss.js';
+import { GhostBoss, bossAimPoint } from '../sim/boss.js';
 import { AIDriver } from './ai_driver.js';
 import { AIGunner } from './ai_gunner.js';
 import { Dressing } from '../world/dressing.js';
@@ -241,9 +241,7 @@ export class Run {
       let aimP = best ? _t2.copy(best.pos).add(_f.set(0, 1.2, 0)) : null;
       const B = this.sim?.boss;
       if (B && !B.dead && B.pos.distanceTo(pst.pos) < 160) {
-        const order = ['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R', 'part_turret_main', 'part_tank_L', 'part_tank_R', 'panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_engine'];
-        const n = order.find((k) => B.alive[k]); const z = B.zones.find((q) => q.kind === n);
-        if (z) { aimP = B.local(z.c, _t2); best = true; }
+        if (bossAimPoint(B, this.eye, _t2)) { aimP = _t2; best = true; }   // the best part it can actually SEE from the bed
       }
       if (best) {
         this.pivot.copy(this.eye);

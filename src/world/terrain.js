@@ -2,15 +2,17 @@
 // swaps LODs, disposes what is behind / too far. Chunk = CHUNK_LEN metres along the road.
 import * as THREE from 'three';
 import { CHUNK_LEN } from './terrain_gen.js';
-import { setRoadNight } from './terrain_material.js';
+import { Road } from './road.js';
+import { setRoadNight, makeWorldFloor, FLOOR_R } from './terrain_material.js';
 import { lookAt } from './look.js';
 import { CoverField } from './dressing/groundcover.js';
 import { RAPIER, GROUPS } from '../sim/physics.js';
 
 /** Private look output (lookAt's default output object is shared by the render loop: never overwrite it from here). */
 const _look = (() => { const src = lookAt(0), o = {}; for (const [k, v] of Object.entries(src)) o[k] = v && v.isColor ? v.clone() : k === 'grade' ? { con: 0, sat: 1, shT: [0, 0, 0], hiT: [1, 1, 1] } : v; return o; })();
+const _fs = {}, _fs2 = {};
 const LOD_DIST = [320, 850, 5000];      // chunk-centre distance thresholds (m) for LOD0/1/2
-const AHEAD = 2100, BEHIND = 260;      // streaming window along s
+const AHEAD = 2100, BEHIND = 420;      // streaming window along s (behind: the gunner looks back at pursuers)
 const COLLIDE_AHEAD = 400, COLLIDE_BEHIND = 330;
 
 export class TerrainStreamer {
@@ -35,6 +37,10 @@ export class TerrainStreamer {
     }
     this.stats = { built: 0, tris: 0 };
     this.cover = new CoverField(this.group);
+    // world floor: a dark disc well below the terrain around the player. Invisible in normal play (always under the ground); a camera that
+    // ends up inside a hill or canyon wall (death orbit) sees dark rock all round instead of the void under the heightfield.
+    this.floor = makeWorldFloor(); this.group.add(this.floor);
+    this.road = new Road(this.seed);       // main-thread copy of the deterministic road (floor placement only)
     this.onChunk = null; // callback(chunkIndex, record)
     this._sLast = 0;
   }
@@ -70,6 +76,11 @@ export class TerrainStreamer {
       else this._collision(c, rec, s);
     }
     this.cover.update(this.chunks, s);   // near-road ground cover: one draw per kind for the chunks around the player
+    if (this.road) {
+      const r = this.road, a = r.sample(s, _fs);
+      const y = Math.min(a.y, r.sample(Math.max(0, s - FLOOR_R), _fs2).y, r.sample(s + FLOOR_R, _fs2).y) - 85;
+      this.floor.position.set(a.x, y, a.z); this.floor.updateMatrix(); this.floor.visible = true;
+    }
   }
 
   _onMsg(w, m) {
@@ -168,5 +179,5 @@ export class TerrainStreamer {
     }
     return true;
   }
-  dispose() { for (const w of this.workers) w.terminate(); for (const [c, r] of this.chunks) this._dispose(c, r); this.cover.dispose(); this.scene.remove(this.group); }
+  dispose() { for (const w of this.workers) w.terminate(); for (const [c, r] of this.chunks) this._dispose(c, r); this.cover.dispose(); this.floor.geometry.dispose(); this.scene.remove(this.group); }
 }

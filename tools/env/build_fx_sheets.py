@@ -198,12 +198,11 @@ def fireball_sheet(N=64, S=128, cols=8, steps=56):
 
 
 # ------------------------------------------------------------------------------------------------ normal-lit smoke / dust
-def lit_puffs(fam=4, life=4, S=256, steps=48, dust=False, seed=31):
-    SS = 1
-    s = S * SS
+def lit_puffs(fam=4, life=4, S=256, steps=56, dust=False, seed=31):
+    s = S
     V = 64
-    vol = noise3(V, beta=2.0 if not dust else 1.6, seed=seed)
-    vol2 = noise3(V, beta=1.3, seed=seed + 1)
+    vol = noise3(V, beta=2.0 if not dust else 1.7, seed=seed, fmax=12)
+    vol2 = noise3(V, beta=1.4, seed=seed + 1, fmax=24)
     yy, xx = np.mgrid[0:s, 0:s].astype(np.float32)
     px = (xx + 0.5) / s * 2 - 1
     py = 1 - (yy + 0.5) / s * 2
@@ -212,59 +211,62 @@ def lit_puffs(fam=4, life=4, S=256, steps=48, dust=False, seed=31):
     rng = np.random.default_rng(seed)
     frames = []
     for f in range(fam):
-        # a cluster of lumpy spheres (a billow), flatter + wider for dust
         nb = 7 if not dust else 9
-        blobs = [(0.0, 0.0, 0.0, 0.34 if not dust else 0.28)]
+        blobs = [(0.0, -0.06, 0.0, 0.46 if not dust else 0.40)]
         for i in range(nb - 1):
-            a = rng.uniform(0, 2 * math.pi); e = rng.uniform(-0.6, 0.8)
-            rr = rng.uniform(0.18, 0.34)
-            blobs.append((math.cos(a) * rr * (1.35 if dust else 1.0), math.sin(e) * rr * (0.55 if dust else 0.9), math.sin(a) * rr, rng.uniform(0.13, 0.24) * (0.9 if dust else 1.0)))
+            a = rng.uniform(0, 2 * math.pi); e = rng.uniform(-0.5, 0.9)
+            rr = rng.uniform(0.22, 0.40)
+            blobs.append((math.cos(a) * rr * (1.3 if dust else 1.0), math.sin(e) * rr * (0.5 if dust else 0.8), math.sin(a) * rr * 0.8, rng.uniform(0.20, 0.32) * (0.9 if dust else 1.0)))
+        # cauliflower: small lumps sitting on the surface of the big ones (multi-scale billows)
+        big = list(blobs)
+        for i in range(26 if not dust else 18):
+            bx, by, bz, br = big[rng.integers(len(big))]
+            v = rng.normal(size=3); v /= np.linalg.norm(v)
+            if dust: v[1] *= 0.5
+            blobs.append((bx + v[0] * br * 0.8, by + v[1] * br * 0.8, bz + v[2] * br * 0.8, br * rng.uniform(0.34, 0.6)))
         off = rng.uniform(0, 64, 3)
+
+        def F(X, Y, Z, t):
+            acc = np.zeros_like(X)
+            for (bx, by, bz, br) in blobs:
+                d = np.sqrt((X - bx) ** 2 + (Y - by) ** 2 + (Z - bz) ** 2)
+                acc += np.exp((1 - d / br) * br / 0.035)
+            field = 0.035 * np.log(acc + 1e-12)               # smooth union, in metres-ish (distance inside the surface)
+            nx, ny, nz = X * 3.5 + off[0], Y * 3.5 + off[1] + t * 1.5, Z * 3.5 + off[2]
+            n1 = samp3(vol, nx, ny, nz)
+            n2 = samp3(vol2, nx * 2.6, ny * 2.6, nz * 2.6)
+            return field + 0.085 * n1 + 0.05 * n2 - 0.09 * t * (0.6 + 0.4 * n2), n2
+
         for L in range(life):
             t = L / (life - 1)
-            grow = 1.0 + 0.32 * t
+            grow = 1.0 + 0.24 * t
             T = np.ones((s, s), np.float32)
             Nx = np.zeros((s, s), np.float32); Ny = np.zeros((s, s), np.float32); Nz = np.zeros((s, s), np.float32)
             tau = np.zeros((s, s), np.float32)
+            e = 0.05
             for z in zs:
                 X, Y, Z = px / grow, py / grow, np.full_like(px, z) / grow
-                field = np.full_like(px, -1.0)
-                for (bx, by, bz, br) in blobs:
-                    d = np.sqrt((X - bx) ** 2 + (Y - by) ** 2 + (Z - bz) ** 2)
-                    field = np.maximum(field, 1 - d / br)
-                nx, ny, nz = X * 7 + off[0], Y * 7 + off[1] + t * 2.5, Z * 7 + off[2]
-                n1 = samp3(vol, nx, ny, nz)
-                n2 = samp3(vol2, nx * 2.6, ny * 2.6, nz * 2.6)
-                f3 = field + 0.30 * n1 + 0.12 * n2 - 0.35 * t * (0.6 + 0.4 * sstep(n2, -1, 1))
-                dens = sstep(f3, 0.0, 0.35) * (1.0 - (0.35 if dust else 0.15) * t)
-                if not dens.any():
+                f3, n2 = F(X, Y, Z, t)
+                dens = sstep(f3, -0.07, 0.24) * (1.0 - (0.35 if dust else 0.25) * t)
+                if not (dens > 1e-3).any():
                     continue
-                # gradient of the (smooth) field for the normal (pointing out of the puff)
-                sig = dens * dz * (5.5 if not dust else 3.6)
+                sig = dens * dz * (3.4 if not dust else 2.4)
                 w = T * (1 - np.exp(-sig))
-                # analytic-ish normal: radial direction from the nearest blob mixed with noise gradient
-                gx = np.zeros_like(px); gy = np.zeros_like(px); gz = np.zeros_like(px)
-                best = np.full_like(px, -9.0)
-                for (bx, by, bz, br) in blobs:
-                    d = np.sqrt((X - bx) ** 2 + (Y - by) ** 2 + (Z - bz) ** 2) + 1e-4
-                    v = 1 - d / br
-                    m = v > best
-                    best = np.where(m, v, best)
-                    gx = np.where(m, (X - bx) / d, gx); gy = np.where(m, (Y - by) / d, gy); gz = np.where(m, (Z - bz) / d, gz)
-                e = 0.6
-                gnx = samp3(vol, nx + e, ny, nz) - samp3(vol, nx - e, ny, nz)
-                gny = samp3(vol, nx, ny + e, nz) - samp3(vol, nx, ny - e, nz)
-                gnz = samp3(vol, nx, ny, nz + e) - samp3(vol, nx, ny, nz - e)
-                Nx += w * (gx - 0.55 * gnx); Ny += w * (gy - 0.55 * gny); Nz += w * (-gz - 0.55 * -gnz)
+                if (w > 1e-3).any():
+                    gx = F(X + e, Y, Z, t)[0] - F(X - e, Y, Z, t)[0]
+                    gy = F(X, Y + e, Z, t)[0] - F(X, Y - e, Z, t)[0]
+                    gz = F(X, Y, Z + e, t)[0] - F(X, Y, Z - e, t)[0]
+                    gl = np.sqrt(gx * gx + gy * gy + gz * gz) + 1e-6
+                    # outward normal = -grad (the field grows inward); z: toward the viewer is -Z here
+                    Nx += w * (-gx / gl); Ny += w * (-gy / gl); Nz += w * (gz / gl)
                 tau += sig
                 T *= np.exp(-sig)
             alpha = 1 - T
             nl = np.sqrt(Nx * Nx + Ny * Ny + Nz * Nz) + 1e-6
-            nxv, nyv, nzv = Nx / nl, Ny / nl, np.abs(Nz / nl)
-            # soften toward the view vector where coverage is thin (edges read as wisps, not hard spheres)
-            k = sstep(alpha, 0.0, 0.6)
+            nxv, nyv = Nx / nl, Ny / nl
+            k = sstep(alpha, 0.0, 0.5)
             nxv *= k; nyv *= k
-            thin = np.exp(-tau * 0.55)
+            thin = np.exp(-tau * 0.5)
             rgb = np.dstack([nxv * 0.5 + 0.5, nyv * 0.5 + 0.5, thin])
             a = alpha * sstep(alpha, 0.004, 0.05)
             frames.append(to_img(rgb, a, srgb=False))
