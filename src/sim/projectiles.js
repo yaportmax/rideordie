@@ -29,7 +29,8 @@ export class Projectiles {
         if (wh) worldT = wh.timeOfImpact;
       }
       if (hit && hit.t <= worldT) {
-        const dmg = b.dmg * sim.enemyDamageMul * (P.spec.bulletResist ?? 1);
+        const fromBoss = sim.boss && b.owner === sim.boss.id;
+        const dmg = b.dmg * (fromBoss ? (sim.bossDamageMul ?? sim.enemyDamageMul) : sim.enemyDamageMul) * (P.spec.bulletResist ?? 1);
         sim.damageZone(P, hit, dmg, { cause: 'bullet', src: b.owner, point: hit.point, weapon: b.weapon });
         sim.emit({ t: 'hit', pos: hit.point.toArray(), normal: [-_d.x, -_d.y, -_d.z], surface: /driver|gunner/.test(hit.zone.kind) ? 'flesh' : hit.zone.kind === 'tire' ? 'tire' : 'metal', carId: P.id, zone: hit.zone.kind, dmg, enemy: true });
         this.bullets.splice(i, 1); continue;

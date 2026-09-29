@@ -229,6 +229,13 @@ export class Leviathan {
     const zone = this.zones.find((z) => z.kind === n);
     const p = zone ? this.local(zone.c) : this.pos.clone();
     this.sim.emit({ t: 'bossPart', part: n, label: def.label || '', pos: p.toArray(), explodes: !!def.explodes });
+    // salvage from the war-train: every part torn off patches the truck and steadies the crew (relief beats in the fight)
+    const P = this.sim.player;
+    if (P && !P.exploded) {
+      const before = P.hp; P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.06);
+      for (const c of Object.values(P.crew)) if (c && c.alive) c.hp = Math.min(c.max, c.hp + c.max * 0.3);
+      this.sim.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: true });
+    }
     if (def.explodes) {
       this.sim.emit({ t: 'boom', pos: p.toArray(), radius: BOSS.tankBlast.radius, kind: 'tank' });
       this.sim.blast(p, BOSS.tankBlast.radius, BOSS.tankBlast.dmg, 1.2, null, this.id);

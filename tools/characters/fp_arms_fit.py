@@ -178,8 +178,11 @@ def fit_finger(hand, f, sdf, lo, hi, x0, target=None, tw=0.0, contact_w=1.0, spr
         if target is not None:
             c += tw * np.sum((g["P"][-1] - np.asarray(target)) ** 2) * 0.05
         if pad_target is not None:
-            pad = (g["pads"][4] + g["pads"][5]) * 0.5
-            c += pw * np.sum((pad - np.asarray(pad_target)) ** 2) * 0.05
+            # contact anywhere from the DIP crease to the distal pad centre (distal pad preferred)
+            P_ = g["pads"]
+            cand = np.array([P_[3], (P_[3] + P_[4]) * 0.5, P_[4], (P_[4] + P_[5]) * 0.5])
+            d2 = np.sum((cand - np.asarray(pad_target)) ** 2, axis=1) + np.array([30.0, 16.0, 6.0, 0.0])
+            c += pw * d2.min() * 0.05
         # natural coupling: dip ~ 0.6 pip
         if f != "Thumb":
             c += 0.002 * (x[2] - 0.6 * x[1]) ** 2
@@ -233,16 +236,15 @@ def solve_poses(rig, S):
     pR, RR, gR = socket_R(rig, S)
     pL, RL, gL = socket_L(rig, S)
     pj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_cache", "fp_arms", "hand_poses.json")
+    fitted = {}
     if os.path.exists(pj):
         J = json.load(open(pj))
-        clips = {}
         for name, v in J.items():
-            clips[name] = {s: {k: (tuple(x) if isinstance(x, list) else x) for k, x in v[s].items() if not k.startswith("_")}
-                           for s in ("Right", "Left")}
+            fitted[name] = {s: {k: (tuple(x) if isinstance(x, list) else x) for k, x in v.get(s, {}).items() if not k.startswith("_")}
+                            for s in ("Right", "Left")}
+    if all(fitted.get(n, {}).get("Right") and fitted.get(n, {}).get("Left") for n in ("pose_rifle", "pose_pistol", "pose_launcher")):
+        clips = dict(fitted)
         clips["pose_open"] = RIG.POSES["pose_open"]
-        for need in ("pose_rifle", "pose_pistol", "pose_launcher"):
-            if need not in clips:
-                raise RuntimeError("hand_poses.json lacks %s: run fp_arms_place.py" % need)
         q = {"socket_hand_R": (pR, socket_quat(RR)), "socket_hand_L": (pL, socket_quat(RL))}
         return clips, q, dict(R=(pR, RR, gR), L=(pL, RL, gL))
     Rz90 = R.from_euler("z", -90, degrees=True).as_matrix()      # game TUNE.lRot = [0, 0, +90] (socket = grip * lRot)
@@ -279,6 +281,12 @@ def solve_poses(rig, S):
             "Ring": dict(x0=(78, 90, 40), lo=FLO, hi=FHI), "Pinky": dict(x0=(82, 88, 40), lo=FLO, hi=FHI),
             "Thumb": dict(x0=(20, 25, 20, 30, 20), lo=TLO, hi=THI, target=(20.0, -18.0, 38.0), tw=1.0, contact_w=0.4)}))}
     clips["pose_open"] = RIG.POSES["pose_open"]
+    # partial fits from fp_arms_place.py override the analytic ones side by side (work in progress)
+    for name, sides in fitted.items():
+        base = clips.setdefault(name, {"Right": dict(clips["pose_rifle"]["Right"]), "Left": dict(clips["pose_rifle"]["Left"])})
+        for s_, p_ in sides.items():
+            if p_:
+                base[s_] = p_
     q = {"socket_hand_R": (pR, socket_quat(RR)), "socket_hand_L": (pL, socket_quat(RL))}
     return clips, q, dict(R=(pR, RR, gR), L=(pL, RL, gL))
 

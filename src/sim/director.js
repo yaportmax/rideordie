@@ -41,7 +41,11 @@ export class Director {
     this._bosses(sim, P, L);
     if (sim.boss && !sim.boss.dead) {
       // the Leviathan brings its own raiders (ramp); its fight keeps the damage scaling it was tuned with
-      sim.enemyDamageMul = 0.7 + 0.9 * L; sim.enemyRamMul = 1; sim.playerBlastMul = 0.6; sim.playerCarBlastMul = 1;
+      // (tuned when raider rounds never landed: its OWN guns keep that scaling; its raider escort now fires for real, so the
+      // escort uses the normal late curve, and blasts sting a bit less -- the gunner stands in the open for the whole fight)
+      sim.bossDamageMul = 0.55 + 0.45 * L;
+      sim.enemyDamageMul = 0.55 + 0.4 * Math.min(L, 0.55) + 0.12 * Math.max(0, L - 0.55);
+      sim.enemyRamMul = 0.8; sim.playerBlastMul = 0.45; sim.playerCarBlastMul = 0.8;
       this._cleanup(sim, P); return;
     }
     // how much the raiders hurt, by level: rounds (x the per-round growth in ai.shoot), rams, blasts next to you

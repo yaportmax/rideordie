@@ -12,7 +12,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
+ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 P = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]], float)      # G (x fwd, y left, z up) -> glTF (x left, y up, z fwd)
 
 

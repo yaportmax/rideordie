@@ -37,6 +37,11 @@ POSE_JSON = os.path.join(CACHE, "hand_poses.json")
 RAKE = {"rifle": 20.0, "pistol": 20.0, "revolver": 22.0, "smg": 16.0, "shotgun": 18.0, "lmg": 14.0, "sniper": 4.0, "rpg": 12.0}
 CLIP = {"rifle": "pose_rifle", "pistol": "pose_pistol", "rpg": "pose_launcher", "smg": "pose_smg", "shotgun": "pose_shotgun",
         "lmg": "pose_lmg", "sniper": "pose_sniper", "revolver": "pose_revolver"}
+SCAN_R = False
+# manual right-hand adjustments per gun (mm): (along the grip axis, fore-aft across it, lateral) from the index-to-trigger start
+R_ADJ = {}
+# manual left-hand adjustments (mm, G axes) from the handguard-bottom contact point under the authored grip_L
+L_ADJ = {}
 LEFT_KIND = {"rifle": "hg", "smg": "hg", "shotgun": "hg", "lmg": "hg", "sniper": "hg", "pistol": "cup", "revolver": "cup", "rpg": "vgrip"}
 
 
@@ -261,115 +266,6 @@ class Placement:
         return p @ Rg.T + t
 
 
-def finger_cost_fn(hand, hm, pl, field, f, pose, spec):
-    """Cost of one finger's angles against the real gun surface, using the finger's own skinned vertices."""
-    m = hm.fw[f] > 0.02
-    seg = hm.seg[f][m]
-    dist = hm.fw[f][m] > 0.5
-    base = clean_pose(pose)
-    is_t = f == "Thumb"
-    cw = spec.get("contact_w", 1.0)
-    segw = spec.get("seg_w", (0.4, 1.0, 1.0))
-    tgt = spec.get("target")
-    ptg = spec.get("pad_target")
-    avoid = spec.get("avoid")          # optional extra field the finger must stay out of (and not count as contact)
-    prior = (np.asarray(spec["prior"][0], float), spec["prior"][1]) if spec.get("prior") else None
-
-    def cost(x):
-        p = dict(base)
-        if is_t:
-            p["Thumb"], p["thumb"] = (x[0], x[1], x[2]), (x[3], x[4])
-        else:
-            p[f] = (x[0], x[1], x[2])
-        V = pl.to_w(hand.to_g(hm.posed(p, m)))
-        sd = field.sd(V)
-        c = np.sum(np.maximum(-sd - 0.3, 0.0) ** 2) * 2.0
-        if avoid is not None:
-            c += np.sum(np.maximum(-avoid.sd(V) - 0.3, 0.0) ** 2) * 2.0
-        if cw > 0:
-            for k in range(3):
-                mk = dist & (seg == k)
-                if mk.any():
-                    c += cw * segw[k] * max(sd[mk].min(), 0.0) ** 2
-        if tgt is not None or ptg is not None:
-            g = hand.finger(f, p[f] if not is_t else p["Thumb"], p.get("spread", 0.0), p.get("thumb", (0, 0)))
-            if tgt is not None:
-                c += spec.get("tw", 1.0) * 0.05 * np.sum((pl.to_w(g["P"][-1]) - tgt) ** 2)
-            if ptg is not None:
-                # trigger contact anywhere from the middle-phalanx pad (DIP crease) to the distal pad; the distal pad is preferred
-                cand = pl.to_w(np.array([g["pads"][3], (g["pads"][3] + g["pads"][4]) * 0.5, g["pads"][4], (g["pads"][4] + g["pads"][5]) * 0.5]))
-                d2 = np.sum((cand - ptg) ** 2, axis=1) + np.array([30.0, 16.0, 6.0, 0.0])
-                c += spec.get("pw", 1.0) * 0.05 * d2.min()
-        if not is_t:
-            c += 0.004 * (x[2] - 0.65 * x[1]) ** 2
-        if prior is not None:
-            c += prior[1] * np.sum((np.asarray(x[:len(prior[0])]) - prior[0]) ** 2)
-        return c
-    return cost
-
-
-def fit_finger_mesh(hand, hm, pl, field, f, pose, spec):
-    lo, hi = spec["lo"], spec["hi"]
-    cost = finger_cost_fn(hand, hm, pl, field, f, pose, spec)
-    if f == "Thumb":
-        x0 = np.array(tuple(pose.get("Thumb", spec["x0"][:3])) + tuple(pose.get("thumb", spec["x0"][3:])), float)
-    else:
-        x0 = np.array(pose.get(f, spec["x0"]), float)
-    best, bx = cost(x0), x0
-    if f != "Thumb":
-        for a in np.arange(lo[0], hi[0] + 1, 10.0):
-            for b in np.arange(lo[1], hi[1] + 1, 12.0):
-                for r in (0.4, 0.65, 0.9):
-                    x = np.array([a, b, min(hi[2], b * r)])
-                    c = cost(x)
-                    if c < best:
-                        best, bx = c, x
-    else:
-        rng = np.random.default_rng(3)
-        for _ in range(500):
-            x = np.array([rng.uniform(l_, h_) for l_, h_ in zip(lo, hi)])
-            c = cost(x)
-            if c < best:
-                best, bx = c, x
-    r = minimize(cost, bx, method="Powell", bounds=list(zip(lo, hi)), options=dict(xtol=0.2, ftol=1e-4, maxiter=4000))
-    x = r.x if r.fun <= best else bx
-    if f == "Thumb":
-        pose["Thumb"], pose["thumb"] = tuple(round(float(v), 1) for v in x[:3]), tuple(round(float(v), 1) for v in x[3:])
-    else:
-        pose[f] = tuple(round(float(v), 1) for v in x)
-    pose["_cost_" + f] = round(float(min(r.fun, best)), 2)
-    return pose
-
-
-def place_cost(pl, x, field, ps, palm, finger_w, pads=None, pad_goal=None, pad_w=0.05, fix=None, reg=0.02, contact_w=0.5,
-               web=None, web_w=10.0, push=None):
-    pw = pl.to_w(ps, x)
-    sd = field.sd(pw)
-    c = np.sum(finger_w * np.maximum(-sd - 0.4, 0.0) ** 2)
-    sp = np.sort(sd[palm])[: max(8, palm.sum() // 3)]
-    c += contact_w * np.mean(np.maximum(sp, 0.0) ** 2) * 10.0
-    if web is not None and web.any():
-        c += web_w * max(np.sort(sd[web])[:6].mean(), 0.0) ** 2
-    if push is not None:             # constant force (per mm) along a direction, e.g. up the grip into the tang (high grip)
-        c -= push[1] * float(np.dot(x[:3], push[0]))
-    if pads is not None:
-        c += pad_w * np.sum((pl.to_w(pads, x) - pad_goal) ** 2)
-    if fix is not None:              # stay near the authored position (the arm reach was tuned for it)
-        c += fix[1] * (x[fix[0]]) ** 2
-    c += reg * np.sum(x[3:] ** 2)
-    return c
-
-
-def optimise_place(pl, cost, starts, bounds):
-    best = None
-    for s in starts:
-        r = minimize(cost, np.asarray(s, float), method="Powell", bounds=bounds, options=dict(xtol=0.1, ftol=1e-4, maxiter=4000))
-        if best is None or r.fun < best.fun:
-            best = r
-    pl.x = best.x
-    return best.fun
-
-
 def report(tag, pl, hand, hm, field, pose, extra=""):
     V = pl.to_w(hand.to_g(hm.posed(clean_pose(pose))))
     sd = field.sd(V)
@@ -379,8 +275,67 @@ def report(tag, pl, hand, hm, field, pose, extra=""):
         tag, np.round(t, 1), euler_g(Rg), int((sd < -1).sum()), -sd.min(), np.median(np.sort(sd[hm.palm])[:20]), extra, fing))
 
 
-def fit_right(gun, rig, geo, S, verbose=True, iters=3):
-    """Right hand: palm on the right grip panel, web of the hand up against the backstrap / tang (high grip), then the fingers."""
+def fit_fingers(hand, pl, field, specs, pose, order):
+    """Analytic finger model (joint axes + pad points, fp_arms_fit.fit_finger) against the real gun field."""
+    Rg, t = pl.mat()
+    sdf_s = lambda p: field.sd(p @ Rg.T + t)          # noqa: E731
+    to_s = lambda p: (np.asarray(p, float) - t) @ Rg  # noqa: E731
+    for f in order:
+        fs = specs[f]
+        if f == "Thumb":
+            x0 = tuple(pose.get("Thumb", fs["x0"][:3])) + tuple(pose.get("thumb", fs["x0"][3:]))
+        else:
+            x0 = tuple(pose.get(f, fs["x0"]))
+        tgt = fs.get("target_s")
+        if tgt is None and fs.get("target") is not None:
+            tgt = to_s(fs["target"])
+        ptg = to_s(fs["pad_target"]) if fs.get("pad_target") is not None else None
+        ang, th, c = F.fit_finger(hand, f, sdf_s, fs["lo"], fs["hi"], x0, tgt, fs.get("tw", 0.0), fs.get("contact_w", 1.0),
+                                  pose.get("spread", 0.0), pad_target=ptg, pw=fs.get("pw", 0.0))
+        pose[f] = tuple(round(float(a), 1) for a in ang)
+        if f == "Thumb":
+            pose["thumb"] = tuple(round(float(a), 1) for a in th)
+        pose["_cost_" + f] = round(float(c), 2)
+    return pose
+
+
+class Contact:
+    """Penetration / palm-contact measures of the rigid hand (fingers excluded) for a Placement."""
+
+    def __init__(self, hand, hm, pose, field, pl, thumb_w=0.6):
+        psf = hand.to_g(hm.posed(clean_pose(pose)))
+        fsum = sum(hm.fw[f] for f in F.FING)
+        side = hand.side
+        bi = [hm.rig.bones.index("%sHandThumb%d" % (side, k)) for k in (1, 2, 3)]
+        t1 = hm.W[:, bi[0]]
+        t23 = hm.W[:, bi[1]] + hm.W[:, bi[2]]
+        # rigid part = palm / back of the hand / thumb metacarpal; phalanges are re-fitted afterwards
+        w = np.where((fsum > 0.35) | (t23 > 0.35), 0.0, np.where(t1 > 0.5, thumb_w, 1.0))
+        keep = (w > 0) | hm.palm
+        self.ps, self.w, self.palm = psf[keep], w[keep], hm.palm[keep]
+        self.field, self.pl = field, pl
+
+    def terms(self, x):
+        sd = self.field.sd(self.pl.to_w(self.ps, x))
+        pen = float(np.sum(self.w * np.maximum(-sd - 0.3, 0.0) ** 2))
+        gap = float(np.mean(np.maximum(np.sort(sd[self.palm])[:20], 0.0)))
+        return pen, gap
+
+
+def grid_min(fn, axes):
+    """Brute force over a small grid: axes = list of 1D arrays -> (best x, best value)."""
+    best, bx = None, None
+    for x in np.stack(np.meshgrid(*axes, indexing="ij"), -1).reshape(-1, len(axes)):
+        v = fn(x)
+        if best is None or v < best:
+            best, bx = v, x
+    return bx, best
+
+
+def fit_right(gun, rig, geo, S, verbose=True):
+    """Right hand on the pistol grip: grip axis aligned (rake), palm on the right panel, the hand slid UP the grip until the web
+    meets the tang (high grip); then the fingers are fitted on the real surface, the index pad on the trigger face."""
+    t1 = time.time()
     pR, RR, gR = F.socket_R(rig, S)
     hand = F.Hand(rig, "Right", pR, RR)
     hm = HandMesh(rig, geo, "Right")
@@ -389,67 +344,67 @@ def fit_right(gun, rig, geo, S, verbose=True, iters=3):
     ga = RAKE[gun.name]
     R0 = R.from_euler("y", ga - F.RAKE_R, degrees=True).as_matrix()
     ax = np.array([np.sin(np.radians(ga)), 0.0, np.cos(np.radians(ga))])
-    h = (trig[2] - 26.0) / ax[2]
     fp = np.array([np.cos(np.radians(ga)), 0.0, -np.sin(np.radians(ga))])
-    # the grip centre stays on the grip axis: x = (along the axis, fore-aft across it, lateral) + small rotations
-    pl = Placement(R0, ax * h, basis=np.stack([ax, fp, [0.0, 1.0, 0.0]], axis=1))
+    h0 = (trig[2] - 26.0) / ax[2]
+    pl = Placement(R0, ax * h0, basis=np.stack([ax, fp, [0.0, 1.0, 0.0]], axis=1))
     pose = {"spread": -3.0, "Thumb": (15, 25, 15), "thumb": (30, 20), "Index": (30, 45, 25), "Middle": (75, 90, 45),
             "Ring": (78, 90, 45), "Pinky": (80, 85, 45)}
+    ct = Contact(hand, hm, pose, field, pl)
+
+    def cost(hdy, push=0.5):
+        x = np.array([hdy[0], hdy[1], hdy[2], 0.0, 0.0, 0.0])
+        pen, gap = ct.terms(x)
+        return pen + 4.0 * gap ** 2 - push * hdy[0] + 0.3 * hdy[1] ** 2 + 0.3 * hdy[2] ** 2
+    # palm onto the panel (lateral / fore-aft) at the start height, then slide up the grip, then settle again
+    if SCAN_R:
+        x, _ = grid_min(lambda v: cost((0.0, v[0], v[1]), 0.0), [np.arange(-6, 6.1, 1.5), np.arange(-5, 5.1, 1.0)])
+        d, y = x
+        x, _ = grid_min(lambda v: cost((v[0], d, y)), [np.arange(-40, 40.1, 1.0)])
+        hh = x[0]
+        x, _ = grid_min(lambda v: cost((hh + v[0], v[1], v[2])), [np.arange(-2, 2.1, 1.0), np.arange(-6, 6.1, 1.5), np.arange(-5, 5.1, 1.0)])
+        pl.x = np.array([hh + x[0], x[1], x[2], 0, 0, 0], float)
+    else:
+        # height fixed (index plane at the trigger, + manual R_ADJ); settle the palm onto the panel: lateral / fore-aft scan
+        adj = R_ADJ.get(gun.name, (0, 0, 0))
+        x, _ = grid_min(lambda v: cost((adj[0], v[0], v[1]), 0.0), [np.arange(-8, 8.1, 1.0), np.arange(-10, 4.1, 1.0)])
+        pl.x = np.array([adj[0], x[0] + adj[1], x[1] + adj[2], 0, 0, 0], float)
     FH = F.FHI
-    wrap = (25, 35, 10)
-    specs = {"Middle": dict(x0=(75, 90, 45), lo=wrap, hi=FH, prior=((72, 88, 50), 0.002)),
-             "Ring": dict(x0=(78, 90, 45), lo=wrap, hi=FH, prior=((76, 90, 50), 0.002)),
-             "Pinky": dict(x0=(80, 85, 45), lo=wrap, hi=FH, prior=((80, 88, 50), 0.002)),
-             "Index": dict(x0=(30, 45, 25), lo=(-5, 15, 5), hi=FH, pad_target=trig, pw=1.0, contact_w=0.0, prior=((30, 50, 30), 0.001)),
-             "Thumb": dict(x0=(15, 25, 15, 30, 20), lo=F.TLO, hi=F.THI, contact_w=0.6, seg_w=(0.0, 0.5, 1.0),
-                           target=np.array([25.0, 22.0, 40.0]), tw=0.15)}
-    for it in range(iters):
-        t1 = time.time()
-        psf = hand.to_g(hm.posed(clean_pose(pose)))
-        # web of the hand = whatever skin crosses behind the grip's mid-plane (thenar / thumb metacarpal / purlicue)
-        web = (np.abs(psf[:, 1]) < 9.0) & (psf[:, 0] < -12.0) & (psf[:, 2] > -10.0) & (hm.fw["Thumb"] < 0.9)
-        m = hm.sub
-        ps = psf[m]
-        fsum = sum(hm.fw[f] for f in F.FING)
-        fwt = np.where(fsum > 0.5, 0.15, np.where(hm.fw["Thumb"] > 0.5, 0.5, 1.0))[m]
-        # the thumb target lives in the socket frame -> weapon frame for the finger fit
-        Rg, t = pl.mat()
-        specs["Thumb"]["target"] = np.array([25.0, 22.0, 40.0]) @ Rg.T + t
-        cost = lambda x: place_cost(pl, x, field, ps, hm.palm[m], fwt, contact_w=0.5, web=web[m], web_w=4.0,  # noqa: E731
-                                    push=(np.array([1.0, 0, 0]), 0.6), reg=0.08)
-        x0 = pl.x.copy()
-        starts = [x0] if it else [x0, x0 + [10, 0, 0, 0, 0, 0], x0 + [-10, 0, 0, 0, 0, 0]]
-        b = [(-45, 45), (-6, 6), (-4, 4), (-6, 6), (-6, 6), (-6, 6)]
-        optimise_place(pl, cost, starts, b)
-        Rg, t = pl.mat()
-        specs["Thumb"]["target"] = np.array([25.0, 22.0, 40.0]) @ Rg.T + t
-        for f in ("Middle", "Ring", "Pinky", "Index", "Thumb"):
-            fit_finger_mesh(hand, hm, pl, field, f, pose, specs[f])
-        if verbose:
-            g = hand.finger("Index", pose["Index"], pose["spread"])
-            padw = pl.to_w((g["pads"][4] + g["pads"][5]) * 0.5)
-            wsd = field.sd(pl.to_w(psf[web]))
-            report("R it%d (%.0fs)" % (it, time.time() - t1), pl, hand, hm, field, pose,
-                   "pad->trig %.1f  web gap %.1f (%d verts)" % (np.linalg.norm(padw - trig), np.sort(wsd)[:6].mean(), web.sum()))
+    specs = {"Middle": dict(x0=(75, 90, 45), lo=(20, 30, 10), hi=FH), "Ring": dict(x0=(78, 90, 45), lo=(20, 30, 10), hi=FH),
+             "Pinky": dict(x0=(80, 85, 45), lo=(20, 30, 10), hi=FH),
+             "Index": dict(x0=(30, 45, 25), lo=(-10, 10, 5), hi=FH, pad_target=trig, pw=1.0, contact_w=0.0),
+             "Thumb": dict(x0=(15, 25, 15, 30, 20), lo=F.TLO, hi=F.THI, target_s=np.array([25.0, 22.0, 40.0]), tw=0.3, contact_w=0.5)}
+    fit_fingers(hand, pl, field, specs, pose, ("Middle", "Ring", "Pinky", "Index", "Thumb"))
+    if verbose:
+        pen, gap = ct.terms(pl.x)
+        g = hand.finger("Index", pose["Index"], pose["spread"])
+        P_ = pl.to_w(g["pads"][3:6])
+        dt = min(np.linalg.norm(P_ - trig, axis=1))
+        report("R (%.0fs) h %.1f d %.1f y %.1f" % (time.time() - t1, pl.x[0], pl.x[1], pl.x[2]), pl, hand, hm, field, pose,
+               "pen %.1f trig %.1f mm" % (pen, dt))
     return pl, pose, hand, hm, field
 
 
 def left_specs(kind):
-    FL, FH = F.FLO, F.FHI
+    FH = F.FHI
     if kind == "vgrip":
-        return {"Index": dict(x0=(70, 85, 40), lo=FL, hi=FH), "Middle": dict(x0=(72, 88, 40), lo=FL, hi=FH),
-                "Ring": dict(x0=(78, 90, 40), lo=FL, hi=FH), "Pinky": dict(x0=(82, 88, 40), lo=FL, hi=FH),
-                "Thumb": dict(x0=(20, 25, 20, 30, 20), lo=F.TLO, hi=F.THI, contact_w=0.6, seg_w=(0.0, 0.5, 1.0))}, -2.0
+        w = (25, 30, 10)
+        return {"Index": dict(x0=(70, 85, 40), lo=w, hi=FH), "Middle": dict(x0=(72, 88, 40), lo=w, hi=FH),
+                "Ring": dict(x0=(78, 90, 40), lo=w, hi=FH), "Pinky": dict(x0=(82, 88, 40), lo=w, hi=FH),
+                "Thumb": dict(x0=(20, 25, 20, 30, 20), lo=F.TLO, hi=F.THI, contact_w=0.5)}, -2.0
     if kind == "cup":
-        return {"Index": dict(x0=(55, 70, 30), lo=FL, hi=FH), "Middle": dict(x0=(60, 72, 32), lo=FL, hi=FH),
-                "Ring": dict(x0=(64, 74, 34), lo=FL, hi=FH), "Pinky": dict(x0=(68, 74, 34), lo=FL, hi=FH),
-                "Thumb": dict(x0=(20, 10, 5, 5, 5), lo=F.TLO, hi=F.THI, contact_w=0.5, seg_w=(0.0, 0.5, 1.0))}, -2.0
-    return {"Index": dict(x0=(45, 60, 30), lo=FL, hi=FH), "Middle": dict(x0=(50, 65, 32), lo=FL, hi=FH),
-            "Ring": dict(x0=(55, 66, 34), lo=FL, hi=FH), "Pinky": dict(x0=(60, 68, 34), lo=FL, hi=FH),
-            "Thumb": dict(x0=(10, 15, 10, 20, 20), lo=F.TLO, hi=F.THI, contact_w=0.5, seg_w=(0.0, 0.5, 1.0))}, 2.0
+        w = (10, 15, 5)
+        return {"Index": dict(x0=(55, 70, 30), lo=w, hi=FH), "Middle": dict(x0=(60, 72, 32), lo=w, hi=FH),
+                "Ring": dict(x0=(64, 74, 34), lo=w, hi=FH), "Pinky": dict(x0=(68, 74, 34), lo=w, hi=FH),
+                "Thumb": dict(x0=(20, 10, 5, 5, 5), lo=F.TLO, hi=F.THI, contact_w=0.4)}, -2.0
+    # handguard C-grip: fingers wrap up the right side, thumb lies forward along the left side (tip ~ at the centre height)
+    w = (10, 15, 5)
+    return {"Index": dict(x0=(45, 60, 30), lo=w, hi=FH), "Middle": dict(x0=(50, 65, 32), lo=w, hi=FH),
+            "Ring": dict(x0=(55, 66, 34), lo=w, hi=FH), "Pinky": dict(x0=(60, 68, 34), lo=w, hi=FH),
+            "Thumb": dict(x0=(0, 0, 0, 0, 15), fixed=True)}, 2.0     # thumb straight along the left side (checked in fp_qa)
 
 
-def fit_left(gun, rig, geo, S, right=None, verbose=True, iters=3):
+def fit_left(gun, rig, geo, S, right=None, verbose=True):
+    t1 = time.time()
     pL, RL, gL = F.socket_L(rig, S)
     hand = F.Hand(rig, "Left", pL, RL)
     hm = HandMesh(rig, geo, "Left")
@@ -461,43 +416,49 @@ def fit_left(gun, rig, geo, S, right=None, verbose=True, iters=3):
         Pw = plR.to_w(handR.to_g(hmR.posed(clean_pose(poseR))))
         field = Union(field, Field(Pw[hmR.tri], spacing=1.0))
     specs, spread = left_specs(kind)
+    pose = {"spread": spread}
+    for f, fs in specs.items():
+        if f == "Thumb":
+            pose["Thumb"], pose["thumb"] = tuple(fs["x0"][:3]), tuple(fs["x0"][3:])
+        else:
+            pose[f] = tuple(fs["x0"])
     if kind == "hg":
         R0s = [np.eye(3)]
     else:
-        # palm toward the gun's right side: roll +90 about the barrel axis, then spin about the palm normal
+        # palm toward the gun's right side (roll +90 about the barrel), spun about the palm normal
         # (cup: thumb forward along the frame, fingers down-forward over the right fist; vgrip: fingers forward round the grip)
         R0s = [R.from_euler("x", 90, degrees=True).as_matrix() @ R.from_euler("z", a, degrees=True).as_matrix()
                for a in ((-30, 0, 30) if kind == "cup" else (45, 65, 85))]
-    fix = (0, 0.02) if kind == "hg" else None
     best = None
     for R0 in R0s:
         pl = Placement(R0, g0.copy())
-        pose = {"spread": spread}
-        for f, fs in specs.items():
-            if f == "Thumb":
-                pose["Thumb"], pose["thumb"] = tuple(fs["x0"][:3]), tuple(fs["x0"][3:])
-            else:
-                pose[f] = tuple(fs["x0"])
-        fwt = np.where(hm.body, 1.0, 0.25)[hm.sub]
-        for it in range(iters):
-            t1 = time.time()
-            ps = hand.to_g(hm.posed(clean_pose(pose)))[hm.sub]
-            cost = lambda x: place_cost(pl, x, field, ps, hm.palm[hm.sub], fwt, fix=fix, contact_w=1.0)  # noqa: E731
-            x0 = pl.x.copy()
-            b = [(-25, 25), (-35, 35), (-35, 35), (-40, 40), (-40, 40), (-40, 40)]
-            starts = [x0] if it else [x0, x0 + [0, 0, -10, 0, 0, 0], x0 + [0, 10, 0, 0, 0, 0], x0 + [0, -10, 0, 0, 0, 0]]
-            optimise_place(pl, cost, starts, b)
-            for f in ("Index", "Middle", "Ring", "Pinky", "Thumb"):
-                fit_finger_mesh(hand, hm, pl, field, f, pose, specs[f])
-            if verbose:
-                report("L it%d (%.0fs)" % (it, time.time() - t1), pl, hand, hm, field, pose)
-        ps = hand.to_g(hm.posed(clean_pose(pose)))[hm.sub]
-        score = place_cost(pl, pl.x, field, ps, hm.palm[hm.sub], fwt, fix=fix, contact_w=1.0) + \
-            sum(v for k, v in pose.items() if k.startswith("_cost"))
+        ct = Contact(hand, hm, pose, field, pl, thumb_w=0.3)
+        if kind == "hg":
+            # the socket is the palm contact point: put it on the handguard's bottom surface under the bore (y = 0)
+            zs = np.arange(g0[2] - 40.0, g0[2] + 60.0, 0.25)
+            col = np.stack([np.full_like(zs, g0[0]), np.full_like(zs, L_ADJ.get(gun.name, (0, 0, 0))[1]), zs], -1)
+            sdz = field.sd(col)
+            zb = zs[np.argmax(sdz < 0)] if (sdz < 0).any() else g0[2]
+            adj = L_ADJ.get(gun.name, (0, 0, 0))
+            pl.x = np.array([adj[0], adj[1] - g0[1], zb - g0[2] + adj[2], 0, 0, 0])
+            c = 0.0
+        else:
+            def cost(v):
+                pen, gap = ct.terms(np.array([v[0], v[1], v[2], 0, 0, 0]))
+                return pen + 4.0 * gap ** 2 + 0.01 * (v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
+            x, c = grid_min(cost, [np.arange(-30, 30.1, 4.0)] * 3)
+            x2, c = grid_min(cost, [x[k] + np.arange(-4, 4.1, 1.0) for k in range(3)])
+            pl.x = np.array([x2[0], x2[1], x2[2], 0, 0, 0])
+        p2 = dict(pose)
+        order = [f for f in ("Index", "Middle", "Ring", "Pinky", "Thumb") if not specs[f].get("fixed")]
+        fit_fingers(hand, pl, field, specs, p2, order)
+        score = c + sum(v for k, v in p2.items() if k.startswith("_cost"))
         if verbose:
-            print("   start score %.1f" % score)
+            pen, gap = ct.terms(pl.x)
+            report("L (%.0fs) x %s" % (time.time() - t1, np.round(pl.x[:3], 1)), pl, hand, hm, field, p2,
+                   "pen %.1f score %.1f" % (pen, score))
         if best is None or score < best[0]:
-            best = (score, pl, pose)
+            best = (score, pl, p2)
     return best[1], best[2], hand, hm, field
 
 
@@ -516,6 +477,13 @@ def main(guns):
     for name in guns:
         print("==", name)
         gun = Gun(name)
+        if LEFT_ONLY:
+            plL, poseL, *_ = fit_left(gun, rig, geo, S, right=None)
+            socks.setdefault(name, {})["grip_L"] = socket_entry(plL)
+            poses.setdefault(CLIP[name], {"Right": {}})["Left"] = {k: (list(v) if isinstance(v, tuple) else v) for k, v in poseL.items()}
+            json.dump(socks, open(SOCK_JSON, "w"), indent=1)
+            json.dump(poses, open(POSE_JSON, "w"), indent=1)
+            continue
         right = fit_right(gun, rig, geo, S)
         if RIGHT_ONLY:
             socks.setdefault(name, {})["grip_R"] = socket_entry(right[0])
@@ -534,6 +502,7 @@ def main(guns):
 
 
 RIGHT_ONLY = "--right" in sys.argv
+LEFT_ONLY = "--left" in sys.argv
 
 if __name__ == "__main__":
     main([a for a in sys.argv[1:] if not a.startswith("--")] or ["rifle", "pistol", "shotgun", "smg", "lmg", "sniper", "rpg", "revolver"])
