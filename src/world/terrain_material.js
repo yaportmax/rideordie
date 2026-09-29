@@ -251,7 +251,9 @@ function groundUniforms(arrays) {
 
 /** Shared terrain material. `arrays` from loadGroundArrays(). */
 export function makeTerrainMaterial(arrays) {
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0 });
+  // double-sided: a camera that ends up inside a hill / canyon wall (death orbit, far chase) sees dark rock instead of the void through
+  // culled back faces. Shadows keep casting from the back side only (same as the single-sided default).
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, shadowSide: THREE.BackSide });
   mat.name = 'terrain';
   const uniforms = groundUniforms(arrays);
   mat.userData.uniforms = uniforms;
@@ -277,11 +279,12 @@ export function makeTerrainMaterial(arrays) {
         // wet band just above the sea / lake
         float shoreWet = 1.0 - smoothstep(0.3, 2.6, vTexPos.y - vAux.y);
         gs.alb *= 1.0 - 0.42 * shoreWet; gs.rough = mix(gs.rough, 0.22, shoreWet);
-        diffuseColor.rgb = gs.alb * mix(0.72, 1.0, gs.ao);`)
+        diffuseColor.rgb = gs.alb * mix(0.72, 1.0, gs.ao);
+        if (!gl_FrontFacing) diffuseColor.rgb = gs.alb * 0.28;              // inside the rock`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = clamp(gs.rough, 0.2, 1.0);`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        normal = normalize((viewMatrix * vec4(gs.n, 0.0)).xyz);`);
+        normal = normalize((viewMatrix * vec4(gl_FrontFacing ? gs.n : -gs.n, 0.0)).xyz);`);
   };
   return mat;
 }

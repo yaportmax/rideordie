@@ -116,7 +116,7 @@
  "raider_driver": {
   "tris_total": 11179,
   "tris_body": 11179,
-  "bytes": 1145936,
+  "bytes": 1164172,
   "groups": {},
   "materials": [
    "armor",
@@ -138,7 +138,7 @@
    "webbing_black"
   ],
   "height": 1.7799999713897705,
-  "seconds": 68.4
+  "seconds": 75.6
  },
  "hero_gunner": {
   "tris_total": 35859,

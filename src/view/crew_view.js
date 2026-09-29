@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { WeaponView } from './weapon_view.js';
 import { ViewModel, inCinematic } from './viewmodel.js';
-import { setCutaway } from './fp_cutaway.js';
+import { setCutaway, prepareCutaway } from './fp_cutaway.js';
 import { clamp } from '../core/util.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
@@ -283,7 +283,10 @@ export class CrewView {
     if (useVm && !this.vm) { this.vm = new ViewModel(); s.local.gunner.vm = this.vm; }
     this.useVm = useVm;
     this._setShadowOnly(useVm);
-    if (this.role !== 'driver' && s.local) setCutaway(this.car, useVm);   // clear sight lines: cut truck parts in the gunner's eye line
+    if (this.role !== 'driver' && s.local) {   // clear sight lines: cut truck parts in the gunner's eye line (split on the first frame)
+      if (!this._cutPrepared) { this._cutPrepared = true; prepareCutaway(this.car); }
+      setCutaway(this.car, useVm);
+    }
     this.body.visible = useVm || !(fp && s.local.scoped);
     // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
     if (this.bones && this.bones.Head) { const k = fp && !useVm ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); if (this.bones.Neck && this.role === 'driver') this.bones.Neck.scale.setScalar(fp ? 0.2 : 1); }
@@ -373,12 +376,16 @@ export class CrewView {
     if (!s.reloading && this.wasReloading && this.ov && this.ov.kind === 'reload' && !this.ai) this._endOv(0.15);
     this.wasReloading = !!s.reloading;
     if (this.ai && !this.ov) {
+      // expressive raiders: point / yell at you after a burst and every few seconds while you are close
+      if (this.wasFire && !s.fire && Math.random() < 0.45) this.tauntDelay = rnd(0.2, 0.45);
       if (this.shots >= MAG_OF[this.cls] && !s.fire && this.sinceShot > 0.25) { this.shots = 0; this._play('reload_' + this.cls, 'reload', { fin: 0.15, fout: 0.2 }); }
+      else if (this.tauntDelay >= 0 && (this.tauntDelay -= dt) < 0) { if (!s.fire && !s.ads) this._gesture(); }
       else if ((this.tauntT -= dt) <= 0) {
-        this.tauntT = rnd(8, 18);
-        if (!s.fire && this.sinceShot > 1.5) this._play(Math.random() < 0.55 ? 'shout' : 'taunt', 'taunt', { fin: 0.15, fout: 0.2 });
+        this.tauntT = rnd(3, 6.5);
+        if (!s.fire && !s.ads && s.player && this.root.getWorldPosition(_v1).distanceToSquared(s.player) < 38 * 38) this._gesture();
       }
     }
+    this.wasFire = !!s.fire;
     if (this.ov && s.fire && this.ov.kind === 'taunt') this._endOv(0.1);
     const wo = this._ovWeight(dt);
     const rest = 1 - wo;
@@ -394,6 +401,8 @@ export class CrewView {
     if (this.aHands) this.aHands.setEffectiveWeight(0);
     return wo;
   }
+
+  _gesture() { this._play(Math.random() < 0.6 ? 'shout' : 'taunt', 'taunt', { fin: 0.12, fout: 0.2, scale: rnd(1.05, 1.25) }); }
 
   /** Third-person gunner: muzzle onto the aim line (Spine2 correction), support hand onto the real weapon grip, grenade prop. */
   _clipWeapon(s, wo) {
@@ -626,7 +635,8 @@ export class CrewView {
   }
 
   // ---- reactions --------------------------------------------------------------------------------------------------------------
-  /** Hit reaction. e.point (world) picks the direction, e.dmg / e.head the weight. */
+  /** Hit reaction: every hit is a visible jolt (procedural whip: bend away from the shot, spin for side hits, head snap) on top
+   *  of the clip (additive light hit, exaggerated; the heavy stagger on bigger / head hits and at random). */
   flinch(e = {}) {
     this.flinchT = 0.3;
     if (!this.alive || !this.mixer || !this.bones) return;
@@ -637,35 +647,45 @@ export class CrewView {
       dir = Math.abs(z) >= Math.abs(x) * 0.8 ? (z > 0 ? 'front' : 'back') : (x > 0 ? 'left' : 'right');
     }
     this.lastHitDir = dir;
+    const d = dir || (Math.random() < 0.6 ? 'front' : Math.random() < 0.5 ? 'left' : 'right');
+    const sc = clamp(0.9 + (e.dmg || 8) / 28, 0.9, 1.7) * (e.head ? 1.3 : 1) * (this.role === 'driver' ? 0.75 : 1);
+    const side = Math.random() < 0.5 ? -1 : 1;
+    // whip impulse (rad/s): body frame, x = pitch (+ forward), y = twist (+ left), z = roll (+ toward -X)
+    this.whipV.x += (d === 'front' ? -10 : d === 'back' ? 9 : rnd(-3, 3)) * sc;
+    this.whipV.z += (d === 'left' ? 8 : d === 'right' ? -8 : rnd(-3, 3)) * sc;
+    this.whipV.y += (d === 'left' ? 9 : d === 'right' ? -9 : 7 * side) * sc;
     if (this.role === 'driver') {
       const a = this._act('sit_hit', true);
-      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(1); a.play(); this.hitRT = 0.25; }
+      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(1.6); a.play(); this.hitRT = 0.25; }
       return;
     }
-    if (this.lastMode !== 'clip') return;                  // first person: the procedural flinch above
-    const d = dir || 'front', now = performance.now() / 1000;
-    const heavy = (e.dmg || 0) >= 18 || !!e.head;
-    if (heavy && !(this.ov && (this.ov.kind === 'throw' || this.ov.kind === 'hit')) && now - this.lastHeavy > 0.4) {
-      this.lastHeavy = now; this._play('hit_' + d + '_heavy', 'hit', { fin: 0.04, fout: 0.22 });
+    if (this.lastMode !== 'clip') { this.whip.set(0, 0, 0); this.whipV.set(0, 0, 0); return; }   // first person: the procedural flinch
+    const now = performance.now() / 1000;
+    const heavy = (e.dmg || 0) >= 10 || !!e.head || Math.random() < 0.35;
+    if (heavy && !(this.ov && (this.ov.kind === 'throw' || this.ov.kind === 'hit')) && now - this.lastHeavy > 0.7) {
+      this.lastHeavy = now; this._play('hit_' + d + '_heavy', 'hit', { fin: 0.03, fout: 0.22 });
     } else {
       const a = this._act('hit_' + d, true);
-      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(1); a.play(); }
+      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(1.8); a.play(); }
     }
+    if (this.ov && this.ov.kind === 'taunt') this._endOv(0.08);
   }
 
   /** Crash jolt (world_view: 'crash' events, dv = impact speed change). */
   impact(dv) {
     if (!this.alive || !this.mixer) return;
     const s = clamp(dv / 8, 0.3, 1);
+    this.whipV.x += clamp(dv, 0, 12) * (this.role === 'driver' ? 0.9 : 1.1);      // thrown forward
+    this.whipV.y += rnd(-1, 1) * clamp(dv, 0, 12) * 0.5;
     if (this.role === 'driver') {
       this.shaken = Math.max(this.shaken, 0.35 + 0.1 * dv);
       const a = this._act('sit_impact', true);
-      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(s); a.play(); }
+      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(s * 1.3); a.play(); }
       return;
     }
-    if (this.lastMode !== 'clip') return;
-    if (dv > 6 && !this.ov) this._play('hit_back_heavy', 'hit', { fin: 0.05, fout: 0.2 });      // lurches forward
-    else { const a = this._act('hit_back', true); if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(s); a.play(); } }
+    if (this.lastMode !== 'clip') { this.whip.set(0, 0, 0); this.whipV.set(0, 0, 0); return; }
+    if (dv > 5 && !this.ov) this._play('hit_back_heavy', 'hit', { fin: 0.05, fout: 0.2 });      // lurches forward
+    else { const a = this._act('hit_back', true); if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(s * 1.5); a.play(); } }
   }
 
   /** A kill by this crew's car: taunt (third-person gunners only). */
@@ -689,7 +709,6 @@ export class CrewView {
     if (this.deadT >= 0) return;
     this.alive = false; this.deadT = 0;
     if (this.vm) { this.vm.setVisible(false); this._setShadowOnly(false); this.useVm = false; }
-    if (this.role !== 'driver') setCutaway(this.car, false);
     this.body.visible = true;
     if (this.bones) { this.bones.Head?.scale.setScalar(1); this.bones.Neck?.scale.setScalar(1); }     // the death camera sees us
     if (this.nade) this.nade.visible = false;
@@ -697,30 +716,39 @@ export class CrewView {
     this.ov = null;
     let name;
     if (this.role === 'driver') {
-      const st = this.steer;
-      name = Math.abs(st) > 0.06 && Math.random() < 0.75 ? (st > 0 ? 'death_sit_jerk_L' : 'death_sit_jerk_R')
+      const st = this._wheelAngle(0, null);
+      name = Math.abs(st) > 0.15 && Math.random() < 0.75 ? (st > 0 ? 'death_sit_jerk_L' : 'death_sit_jerk_R')
         : ['death_sit_slump', 'death_sit_slump', 'death_sit_headback', Math.random() < 0.5 ? 'death_sit_jerk_L' : 'death_sit_jerk_R'][(Math.random() * 4) | 0];
       this.sitIK = SIT_DEATH_IK[name] || [0.1, 0.4];
+      this.whipV.x -= 8; this.whipV.y += rnd(-4, 4);          // the shot snaps the head back before the slump
     } else {
-      const moving = this.lastSpeed > 3, r = Math.random(), hd = this.lastHitDir;
+      const moving = this.lastSpeed > 6, r = Math.random(), hd = this.lastHitDir;
+      if (this.weapon) this.weapon.root.visible = false;
+      // thrown clear: a real ballistic flight with a tumble, then the ground impact clips (the big, readable death)
+      const canFly = this.car && this.bones.Hips && this._act('fall_flail') && this._act('land_back') && this._act('land_front');
+      if (canFly && (e.cause === 'explosion' || (moving && r < 0.72))) { this._flyStart(e); return; }
       if (e.cause === 'explosion') name = 'death_blown_up';
-      else if (this.car && RAIL_CARS.has(this.car.spec?.id) && Math.abs(this.bodyYaw) < 0.8 && r < 0.4) name = 'death_slump_rail';
-      else if (e.head && r < 0.65) name = 'death_crumple';
+      else if (this.car && RAIL_CARS.has(this.car.spec?.id) && Math.abs(this.bodyYaw) < 0.8 && r < 0.55) name = 'death_slump_rail';
+      else if (e.head && r < 0.75) name = 'death_crumple';
       else if (hd === 'left') name = 'death_thrown_right';
       else if (hd === 'right') name = 'death_thrown_left';
       else name = moving ? 'death_thrown_back' : 'death_fall';
       if (!this._act(name)) name = 'death_fall';
-      if (this.weapon) this.weapon.root.visible = false;
       const win = LEAVES[name];
       if (win && this.car && (moving || name === 'death_blown_up' || /thrown/.test(name))) this._detach(win, name === 'death_blown_up');
     }
+    this._playDeath(name, 0.1);
+  }
+
+  _playDeath(name, fade) {
     const a = this._act(name);
-    if (!a) return;
-    for (const x of this.acts.values()) if (x && x !== a && x.isRunning()) x.fadeOut(0.1);
-    if (this.aHands) this.aHands.fadeOut(0.1);
-    if (this.aAuto) this.aAuto.fadeOut(0.1);
-    a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.setEffectiveWeight(1); a.fadeIn(0.1); a.play();
+    if (!a) return null;
+    for (const x of this.acts.values()) if (x && x !== a && x.isRunning()) x.fadeOut(fade);
+    if (this.aHands) this.aHands.fadeOut(fade);
+    if (this.aAuto) this.aAuto.fadeOut(fade);
+    a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.setEffectiveWeight(1); a.fadeIn(fade); a.play();
     this.deathName = name;
+    return a;
   }
 
   /** Leave the vehicle: world-space root, upright with the body's facing, keeps the vehicle's horizontal momentum. */
@@ -737,6 +765,80 @@ export class CrewView {
   }
   _scene() { let o = this.root; while (o.parent) o = o.parent; return o.isScene ? o : null; }
 
+  /** Thrown off the vehicle: launch the hips on a ballistic arc (vehicle momentum + a kick away from the shot / outward + up),
+   *  flail in the air while the body tumbles about a horizontal axis, and arrive lying (back or face down) for land_*. */
+  _flyStart(e) {
+    const scene = this._scene(); if (!scene) return;
+    const blast = e.cause === 'explosion';
+    const H = new THREE.Vector3(); this.bones.Hips.getWorldPosition(H);
+    (this.car.root || this.root).getWorldQuaternion(_q);
+    _ax.set(1, 0, 0).applyQuaternion(_q); _az.set(0, 0, 1).applyQuaternion(_q);
+    // push: away from the shot (body frame -> world), outward to a side of the car, a little backward
+    const hd = this.lastHitDir, out = new THREE.Vector3();
+    this.body.getWorldQuaternion(_q2);
+    if (hd === 'front') out.set(0, 0, -1).applyQuaternion(_q2); else if (hd === 'back') out.set(0, 0, 1).applyQuaternion(_q2);
+    else if (hd === 'left') out.set(-1, 0, 0).applyQuaternion(_q2); else if (hd === 'right') out.set(1, 0, 0).applyQuaternion(_q2);
+    out.multiplyScalar(0.8).addScaledVector(_ax, (Math.random() < 0.5 ? -1 : 1) * 0.7).addScaledVector(_az, -0.35); out.y = 0;
+    if (out.lengthSq() < 1e-4) out.copy(_ax);
+    out.normalize();
+    const lv = this.lastVel;
+    const v = new THREE.Vector3(lv ? lv.x * 0.95 : 0, (lv ? lv.y * 0.5 : 0) + (blast ? rnd(6, 8) : rnd(3.4, 4.6)), lv ? lv.z * 0.95 : 0);
+    v.addScaledVector(out, blast ? rnd(4, 6.5) : rnd(3, 4.5));
+    const faceDown = !blast && Math.random() < 0.45;
+    const yaw = Math.atan2(out.x, out.z) + (faceDown ? 0 : Math.PI);     // tumble axis = the root's X
+    const g0 = this.groundY ? this.groundY(H.x, H.y, H.z) : null, ground = g0 ?? H.y - 1.4;
+    const h = Math.max(0, H.y - (ground + 0.3)), T = (v.y + Math.sqrt(v.y * v.y + 2 * G * h)) / G;
+    const A = (faceDown ? 1 : -1) * (Math.PI / 2 + (T > 1.0 ? 2 * Math.PI : 0));
+    scene.attach(this.root); this.body.rotation.y = 0; this.body.updateMatrix();
+    this.fly = { H, v, t: 0, T: Math.max(0.35, T), A, yaw, face: faceDown ? 'front' : 'back', ground, roll: rnd(-0.7, 0.7) };
+    this.detached = true; this.leave = null;
+    const a = this._playDeath('fall_flail', 0.08);
+    if (a) { a.setLoop(THREE.LoopRepeat, Infinity); a.clampWhenFinished = false; a.time = rnd(0, 0.8); }
+    this.deathName = 'fly';
+    this._flyUpdate(0);
+  }
+
+  _flyUpdate(dt) {
+    const f = this.fly, r = this.root;
+    f.t += dt; f.v.y -= G * dt; f.H.addScaledVector(f.v, dt);
+    const u = Math.min(1, f.t / f.T), e = 1 - (1 - u) * (1 - u);
+    _yq.setFromAxisAngle(_up, f.yaw);
+    r.quaternion.copy(_yq).multiply(_hq.setFromAxisAngle(_v2.set(1, 0, 0), f.A * e)).multiply(_hq.setFromAxisAngle(_v2.set(0, 0, 1), f.roll * Math.sin(Math.PI * u)));
+    // pivot about the hips: the hips follow the ballistic path exactly
+    _v1.copy(this.bones.Hips.position).add(this.model.position).applyQuaternion(r.quaternion);
+    r.position.copy(f.H).sub(_v1);
+    if (f.t > 0.12) {
+      const gy = this.groundY ? this.groundY(f.H.x, f.H.y, f.H.z) : null;
+      const gnd = gy ?? f.ground;
+      if ((f.v.y < 0 && f.H.y <= gnd + 0.3) || f.t > f.T + 0.8) this._land(gnd);
+    }
+  }
+
+  /** Ground impact: switch to land_back / land_front (lying, upright root), then bounce, spin and slide to a stop. */
+  _land(gnd) {
+    const f = this.fly; this.fly = null;
+    this._playDeath('land_' + f.face, 0.06);
+    this.root.quaternion.setFromAxisAngle(_up, f.yaw);
+    this.root.position.set(f.H.x, gnd, f.H.z);
+    const hs = Math.hypot(f.v.x, f.v.z);
+    this.slide = { vx: f.v.x, vz: f.v.z, t: 0, hop: clamp(hs * 0.02 - f.v.y * 0.035, 0.1, 0.5), spin: hs > 5 ? (Math.random() < 0.5 ? -1 : 1) * Math.min(5, hs * 0.18) : 0, yaw: f.yaw, gnd, gT: 0 };
+  }
+
+  _slideUpdate(dt) {
+    const sl = this.slide, r = this.root;
+    sl.t += dt;
+    const sp = Math.hypot(sl.vx, sl.vz);
+    if (sp > 1e-3) { const k = Math.max(0, sp - 12 * dt) / sp; sl.vx *= k; sl.vz *= k; }
+    r.position.x += sl.vx * dt; r.position.z += sl.vz * dt;
+    sl.spin *= Math.exp(-dt * 1.8); sl.yaw += sl.spin * dt; r.quaternion.setFromAxisAngle(_up, sl.yaw);
+    // a hop off the road right after the slam, then a small one
+    const t = sl.t - 0.07; let hop = 0;
+    if (t > 0 && t < 0.42) hop = sl.hop * Math.sin(Math.PI * t / 0.42);
+    else if (t >= 0.42 && t < 0.66) hop = sl.hop * 0.3 * Math.sin(Math.PI * (t - 0.42) / 0.24);
+    if ((sl.gT -= dt) <= 0 && sp > 0.2) { sl.gT = 0.1; const gy = this.groundY ? this.groundY(r.position.x, sl.gnd + 1.5, r.position.z) : null; if (gy !== null) sl.gnd = gy; }
+    r.position.y = sl.gnd + hop;
+  }
+
   _dead(dt, s) {
     this.deadT += dt;
     this.mixer?.update(dt);
@@ -749,6 +851,9 @@ export class CrewView {
       return;
     }
     if (!this.detached) return;
+    if (this.deadT > 9) this.root.visible = false;
+    if (this.fly) { this._flyUpdate(dt); return; }
+    if (this.slide) { this._slideUpdate(dt); return; }
     const r = this.root, win = this.leave;
     r.position.x += this.fallVel.x * dt; r.position.z += this.fallVel.z * dt;
     if (this.deadT > win[1]) {                                     // sliding / tumbling to a stop on the ground
@@ -759,7 +864,6 @@ export class CrewView {
     if (gy !== null) this.yGround = gy; else if (this.yGround === null) this.yGround = this.y0 - 1.0;
     const u = clamp((this.deadT - win[0]) / (win[1] - win[0]), 0, 1);
     r.position.y = this.y0 + (Math.min(this.yGround, this.y0) - this.y0) * u * u;
-    if (this.deadT > 9) r.visible = false;
   }
 
   headWorld(out) { if (!this.head) return false; this.head.getWorldPosition(out); return true; }

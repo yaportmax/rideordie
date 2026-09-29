@@ -26,9 +26,9 @@ NAME = "raider_d"
 SPEC = dict(macro=dict(gender=1.0, age=0.40, muscle=0.42, weight=0.18, height=0.5, race={"african": 0.7, "asian": 0.3}),
             extra=[("neck/neck-scale-horiz-decr", 0.4)], height=1.75, skin="young_african_male")
 
-HOODIE = (0.16, 0.18, 0.14)
-JACKET = (0.06, 0.055, 0.05)
-PANTS = (0.14, 0.12, 0.08)
+HOODIE = (0.72, 0.55, 0.12)
+JACKET = (0.12, 0.11, 0.10)
+PANTS = (0.38, 0.33, 0.22)
 SCARF = (0.30, 0.22, 0.13)
 
 
@@ -160,7 +160,7 @@ def add_gear(ctx, fit, pcs):
     can_m = common.gear_material(ctx, "metal_canister", "metal_dark", color=(0.30, 0.33, 0.24), rough=0.9, metal=0.7)
     menace.respirator(ctx, brc, binder, dict(rubber=olive, metal=metal, dark=rubber, canister=can_m, strap=webbing), scale=1.0)
     gg = gear.goggles(ctx, brc, up=0.0, hair=0.008, lens_r=0.026, spacing=0.034, tilt=-4.0, seg=10, ring_n=18)
-    lens_m = common.plain_material(ctx, "glass_lens", (0.35, 0.22, 0.05), rough=0.05, alpha=0.9, double_sided=True)
+    lens_m = common.plain_material(ctx, "glass_lens", (0.95, 0.55, 0.08), rough=0.08, alpha=0.9, double_sided=True, emissive=(0.4, 0.18, 0.0))
     for f in gg["frames"]:
         common.add_gear(ctx, f, rubber, binder, bone="Head", label="goggle_frame")
     for f in gg["rims"]:

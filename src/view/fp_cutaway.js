@@ -12,6 +12,8 @@ export const CUTS = {
   truck_t2: [
     [-1.0, 0.9, -0.95, 1.0, 2.62, -0.68],        // roll hoop behind the cab + light bar + its four lamps
     [-0.75, 1.95, -0.5, 0.75, 2.42, 0.55],       // roof cargo: spare wheel, rim, straps, jerry can
+    [0.85, 1.35, -1.85, 1.05, 2.36, -0.78],      // diagonal braces hoop -> bed rail (right / left): would float without the hoop
+    [-1.05, 1.35, -1.85, -0.85, 2.36, -0.78],
   ],
   truck_t4: [
     [-0.62, 2.0, -0.46, 0.62, 2.8, 0.72],        // gun turret: ring, shield, centre post
@@ -24,8 +26,15 @@ const _m = new THREE.Matrix4(), _p = new THREE.Vector3();
 
 function inside(b, box) { return b[0] >= box[0] && b[1] >= box[1] && b[2] >= box[2] && b[3] <= box[3] && b[4] <= box[4] && b[5] <= box[5]; }
 
+const splitCache = new Map();   // source geometry -> split (clones share geometry, so later runs are free)
 /** Split one mesh's index into kept / cut triangles. Returns null when nothing is cut. */
 function splitMesh(mesh, toModel, boxes) {
+  if (splitCache.has(mesh.geometry)) return splitCache.get(mesh.geometry);
+  const r = splitMeshNow(mesh, toModel, boxes);
+  splitCache.set(mesh.geometry, r);
+  return r;
+}
+function splitMeshNow(mesh, toModel, boxes) {
   const g = mesh.geometry, pos = g.attributes.position, idx = g.index ? g.index.array : null;
   if (!idx || !pos) return null;
   const n = pos.count, par = new Int32Array(n);
@@ -69,8 +78,8 @@ function shadowOnly(m) {
   return c;
 }
 
-/** Build (once) the split for a truck view. */
-function prepare(cv) {
+/** Build (once) the split for a truck view (call early: the first split of a truck type costs 40-80 ms). */
+export function prepareCutaway(cv) {
   if (cv._fpCut !== undefined) return cv._fpCut;
   const boxes = CUTS[cv.spec.id];
   if (!boxes || !cv.model) { cv._fpCut = null; return null; }
@@ -98,7 +107,7 @@ function prepare(cv) {
 export function setCutaway(cv, on) {
   if (!cv || cv._fpCutOn === on) return;
   if (!on && !cv._fpCutOn) { cv._fpCutOn = false; return; }
-  const parts = prepare(cv);
+  const parts = prepareCutaway(cv);
   cv._fpCutOn = on;
   if (!parts) return;
   for (const p of parts) { p.mesh.geometry = on ? p.keep : p.full; p.twin.visible = on; }

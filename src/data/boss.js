@@ -9,17 +9,17 @@ export const BOSS_WHEELS = MI.wheels;
 
 /** Damageable parts: hp, what destroying them does, and whether they are "core" (count toward the health bar). */
 export const BOSS_PARTS = {
-  part_turret_1: { hp: 2600, core: true, label: 'FRONT TURRET' },
-  part_turret_2: { hp: 2600, core: true, label: 'REAR TURRET' },
-  part_pod_L: { hp: 2000, core: true, label: 'ROCKET POD' },
-  part_pod_R: { hp: 2000, core: true, label: 'ROCKET POD' },
-  part_turret_main: { hp: 4200, core: true, label: 'CANNON' },
-  part_tank_L: { hp: 1700, core: true, label: 'FUEL TANK', explodes: true },
-  part_tank_R: { hp: 1700, core: true, label: 'FUEL TANK', explodes: true },
-  panel_armor_rear_1: { hp: 1800, core: true, label: 'REAR ARMOR' },
-  panel_armor_rear_2: { hp: 1800, core: true, label: 'REAR ARMOR' },
-  panel_armor_rear_3: { hp: 1800, core: true, label: 'REAR ARMOR' },
-  part_engine: { hp: 6000, core: true, label: 'REACTOR', weak: true, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3'] },
+  part_turret_1: { hp: 2300, core: true, label: 'FRONT TURRET', phase: 1 },
+  part_turret_2: { hp: 2300, core: true, label: 'REAR TURRET', phase: 1 },
+  part_pod_L: { hp: 1800, core: true, label: 'ROCKET POD', phase: 1 },
+  part_pod_R: { hp: 1800, core: true, label: 'ROCKET POD', phase: 1 },
+  part_turret_main: { hp: 3700, core: true, label: 'CANNON', phase: 2 },
+  part_tank_L: { hp: 1500, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
+  part_tank_R: { hp: 1500, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
+  panel_armor_rear_1: { hp: 1600, core: true, label: 'REAR ARMOR', phase: 2 },
+  panel_armor_rear_2: { hp: 1600, core: true, label: 'REAR ARMOR', phase: 2 },
+  panel_armor_rear_3: { hp: 1600, core: true, label: 'REAR ARMOR', phase: 2 },
+  part_engine: { hp: 5200, core: true, label: 'REACTOR', weak: true, phase: 3, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3'] },
   part_plow: { hp: 2500, label: 'PLOW' },
   part_stack_L: { hp: 700, label: 'STACK' },
   part_stack_R: { hp: 700, label: 'STACK' },
@@ -55,6 +55,11 @@ export const BOSS = {
   flame: { range: 16, dps: 55 },
   ramp: { every: [13, 18], cars: ['e_buggy', 'e_sedan', 'e_buggy', 'e_muscle'] },
   tankBlast: { radius: 16, dmg: 160, coreDmg: 0.06 },
+  // pacing (3-4 min fight with beats): phase 1 (guns) ends when <= 1 gun is left or after phase1Max s; phase 2 (cannon, flamers,
+  // tanks, rear armour) ends when the rear armour is gone or after phase2Max s (the overheating reactor blows its own plates off)
+  phase1Max: 50, phase2Max: 95,
+  blockadeAt: 16,           // s into the fight: the train smashes through a wall of wrecks up the road
+  waves: { 2: ['e_buggy', 'e_sedan', 'e_muscle'], 3: ['e_buggy', 'e_buggy'] },   // escort drops when a phase starts
   bounty: 50000,
 };
 

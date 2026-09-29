@@ -344,7 +344,7 @@ export class Run {
     if (this.threatHud) {
       const dying = this.sim ? this.sim.state !== 'run' : this.simState !== 'run';
       this.threatHud.setVisible(!dying && !g.paused && !window.__camOverride);
-      this.threatHud.update(dt, g.camera, this.states, pst, (st) => !!this.sim?.cars.get(st.id)?.elite);
+      this.threatHud.update(dt, g.camera, this.states, pst, (st) => !!this.sim?.cars.get(st.id)?.elite, this.cockpit?.active ? { cy: 0.37, ry: 0.2, rx: 0.36 } : null);
     }
     // HUD data
     this.hud2 = this._hudData(pst);
@@ -399,9 +399,12 @@ export class Run {
     const g = this.g;
     if (!pst) return;
     const B = this.bossState;
+    this.cinematic = false;
     if (B && (B.dead || B.exploded) && !this.finaleDone) {
       this.finaleT = (this.finaleT || 0) + dt;
       if (this.finaleT < 9) {
+        // cinematic: no first-person gun/arms, no cockpit, no HUD over the war-train's death
+        this.cinematic = true; this.introOutside = true; this.cockpit?.setActive(false); g.hud.setVisible(false);
         const a = this.finaleT * 0.25 + 0.6, r = 42 - this.finaleT * 1.5;
         g.camera.position.set(B.pos.x + Math.sin(a) * r, B.pos.y + 9 + this.finaleT * 0.6, B.pos.z + Math.cos(a) * r);
         // keep the camera out of bridges / cliffs: pull it in front of the first obstruction
@@ -411,7 +414,7 @@ export class Run {
         g.camera.lookAt(B.pos.x, B.pos.y + 4, B.pos.z);
         return;
       }
-      this.finaleDone = true;
+      this.finaleDone = true; this.introOutside = false; g.hud.setVisible(true);
     }
     const co = window.__camOverride; // dev: {offset:[x,y,z] in truck frame, look:[x,y,z] in truck frame}
     if (co) { const q = pst.quat; g.camera.position.set(...co.offset).applyQuaternion(q).add(pst.pos); _v.set(...co.look).applyQuaternion(q).add(pst.pos); g.camera.lookAt(_v); if (co.fov) { g.camera.fov = co.fov; g.camera.updateProjectionMatrix(); } return; }
@@ -423,9 +426,14 @@ export class Run {
         _f.set(0, 0, 1).applyQuaternion(pst.quat); this.deathYaw = Math.atan2(-_f.x, -_f.z) + 0.6; // start behind-left of the truck
       }
       this.deathCamT = (this.deathCamT || 0) + dt;
+      this.cinematic = true;
       const a = this.deathYaw + this.deathCamT * 0.3;
-      const r = 9 + this.deathCamT * 1.2;
-      g.camera.position.set(pst.pos.x + Math.sin(a) * r, pst.pos.y + 3.5 + this.deathCamT * 0.5, pst.pos.z + Math.cos(a) * r);
+      // a low, tight orbit (never high enough to see past the terrain streaming ring), pulled in front of obstructions
+      const r = Math.min(13, 8 + this.deathCamT * 1.0), hgt = Math.min(4.6, 2.6 + this.deathCamT * 0.35);
+      g.camera.position.set(pst.pos.x + Math.sin(a) * r, pst.pos.y + hgt, pst.pos.z + Math.cos(a) * r);
+      { const from = _t2.set(pst.pos.x, pst.pos.y + 1.2, pst.pos.z), dir = _v.copy(g.camera.position).sub(from); const len = dir.length(); dir.multiplyScalar(1 / len);
+        const hit = this._worldRay(from, dir, len); if (hit && hit.t < len) g.camera.position.copy(from).addScaledVector(dir, Math.max(2.5, hit.t - 0.6));
+        const gy = this._groundY(g.camera.position.x, g.camera.position.y + 20, g.camera.position.z); if (gy !== null && g.camera.position.y < gy + 1.2) g.camera.position.y = gy + 1.2; }
       g.camera.lookAt(pst.pos.x, pst.pos.y + 0.8, pst.pos.z);
       const k = smooth01(this.deathCamT / 1.4);
       if (k < 1) {
@@ -483,7 +491,7 @@ export class Run {
     _v.set(lerp(a[0], b[0], f), lerp(a[1], b[1], f) - up, lerp(a[2], b[2], f)).applyQuaternion(pst.quat).add(pst.pos);
     _f.set(lerp(la[0], lb[0], f), lerp(la[1], lb[1], f) - up, lerp(la[2], lb[2], f)).applyQuaternion(pst.quat).add(pst.pos);
     cam.position.copy(_v); cam.lookAt(_f);
-    this.introOutside = k < 0.86;
+    this.introOutside = k < 0.86; this.cinematic = this.introOutside;
     if (k > 0.72) {
       const t = smooth01((k - 0.72) / 0.28);
       cam.position.lerp(fpPos, t); cam.quaternion.slerp(fpQuat, t);

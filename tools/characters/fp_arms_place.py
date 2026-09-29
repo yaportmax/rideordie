@@ -1,17 +1,22 @@
-"""fp_arms: fit both hands onto the REAL weapon meshes (numpy / scipy venv).
+"""fp_arms: put both hands on the REAL weapon meshes and fit the fingers (numpy / scipy venv).
 
-For every weapon the posed hand (skinned fp_arms mesh) is placed rigidly on the gun and its fingers are re-fitted against the gun
-surface, alternating a few times:
-  * right hand: palm pressed on the pistol grip, no interpenetration, index distal pad on the trigger face, thumb over the left panel;
-  * left hand : palm on the handguard / fore-end (C-grip) or round the vertical front grip (RPG), or - pistols - cupping the right
-                fist and the left grip panel (the field is then gun + posed right hand).
-The rigid placement becomes the weapon's grip_R / grip_L socket (position + rotation, G frame); the finger angles become the pose
-clips (pose_rifle = rifle, pose_pistol = pistol, pose_launcher = rpg, and per-weapon pose_<gun> clips for the others).
+Per weapon (signed distance field of the exported GLB: dense surface samples + winding-number occupancy):
+  * right hand: the fp_arms hand frame (socket_hand_R, a 18 deg raked grip) is aligned with the gun's grip rake and slid along the
+    grip axis until the index plane meets the trigger, then settled laterally / fore-aft onto the right panel (min. penetration
+    of the palm, back of the hand and thumb metacarpal) - or hand-placed (R_FIX, checked in fp_qa);
+  * left hand : handguard guns - palm contact point on the handguard bottom under the authored grip_L, thumb laid forward along
+    the left side (fixed pose); pistol / revolver - the support hand cups the right fist and the left grip panel (field = gun +
+    posed right hand), found by a grid search (+ L_SHIFT); RPG - fist round the vertical front grip;
+  * fingers: joint-axis / pad model (fp_arms_fit.fit_finger) against the field: pads touching, no penetration, the index pad (or
+    DIP crease) on the trigger face.
+The placement becomes the weapon's grip_R / grip_L socket (position + rotation, G frame); the finger angles become the clips
+(pose_rifle = rifle, pose_pistol = pistol, pose_launcher = rpg, plus per-weapon pose_smg / pose_shotgun / pose_lmg / pose_sniper /
+pose_revolver).
 
 Inputs : tools/characters/_cache/fp_arms/gun_<name>.npz   (tools/blender/weapons/grip_extract.py, Blender)
-Outputs: tools/blender/weapons/hand_sockets.json          (read by the weapon build scripts + patch_hand_sockets.py)
-         tools/characters/_cache/fp_arms/hand_poses.json  (read by fp_arms_fit.solve_poses -> fp_arms.glb clips)
-    python tools/characters/fp_arms_place.py [gun ...]
+Outputs: tools/blender/weapons/hand_sockets.json          (read by gunlib at build time + patch_hand_sockets.py for in-place GLBs)
+         tools/characters/fp_arms_poses.json              (read by fp_arms_fit.solve_poses -> fp_arms.glb clips)
+    python tools/characters/fp_arms_place.py [gun ...] [--right | --left]
 """
 import json
 import os
@@ -31,7 +36,7 @@ import fp_arms_fit as F  # noqa: E402
 CACHE = os.path.join(HERE, "_cache", "fp_arms")
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 SOCK_JSON = os.path.join(ROOT, "tools", "blender", "weapons", "hand_sockets.json")
-POSE_JSON = os.path.join(CACHE, "hand_poses.json")
+POSE_JSON = os.path.join(HERE, "fp_arms_poses.json")
 
 # grip rake (deg) of each weapon's pistol grip (G frame: top forward), used for the initial placement only
 RAKE = {"rifle": 20.0, "pistol": 20.0, "revolver": 22.0, "smg": 16.0, "shotgun": 18.0, "lmg": 14.0, "sniper": 4.0, "rpg": 12.0}

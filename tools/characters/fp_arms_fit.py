@@ -229,13 +229,13 @@ TLO, THI = (-20, -10, -10, -30, -30), (60, 70, 70, 80, 60)
 
 def solve_poses(rig, S):
     """Clips + hand sockets. Returns ({clip: {side: pose}}, sockets {name: (pos_model, quat)}, info).
-    The clips come from fp_arms_place.py (fingers fitted on the real weapon meshes, _cache/fp_arms/hand_poses.json) when present,
+    The clips come from fp_arms_place.py (fingers fitted on the real weapon meshes, tools/characters/fp_arms_poses.json) when present,
     else from the analytic grip solids below."""
     import json
     import os
     pR, RR, gR = socket_R(rig, S)
     pL, RL, gL = socket_L(rig, S)
-    pj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_cache", "fp_arms", "hand_poses.json")
+    pj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fp_arms_poses.json")
     fitted = {}
     if os.path.exists(pj):
         J = json.load(open(pj))

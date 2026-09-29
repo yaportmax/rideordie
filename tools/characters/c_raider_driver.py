@@ -26,9 +26,9 @@ SPEC = dict(macro=dict(gender=1.0, age=0.62, muscle=0.45, weight=0.72, height=0.
             extra=[("stomach/stomach-pregnant-incr", 0.35), ("neck/neck-scale-horiz-incr", 0.5), ("head/head-fat-incr", 0.3)],
             height=1.78, skin="middleage_caucasian_male")
 
-JACKET = (0.16, 0.085, 0.045)
-PANTS = (0.13, 0.12, 0.08)
-TEE = (0.10, 0.10, 0.10)
+JACKET = (0.36, 0.18, 0.09)
+PANTS = (0.32, 0.30, 0.22)
+TEE = (0.58, 0.55, 0.48)
 
 
 def skin_texture(ctx, fit):
@@ -43,6 +43,13 @@ def skin_texture(ctx, fit):
     # grizzled short beard: dense dark stubble layer + a grey salt-and-pepper layer on top
     alb = SP.stubble(alb, sb, ch, seed=6, amount=1.25, colour=(0.09, 0.075, 0.06), cheeks=1.0)
     alb = SP.stubble(alb, sb, ch, seed=9, amount=0.55, colour=(0.42, 0.40, 0.37), cheeks=0.8)
+
+    def paint(x, y, front):
+        # eye-black war paint: two thick bars under each eye (reads through the side window at 20 m)
+        for yy in (-0.026, -0.040):
+            bar = (np.abs(y - yy) < 0.0048) & (np.abs(x) > 0.016) & (np.abs(x) < 0.058)
+            yield bar.astype(np.float32), (0.02, 0.02, 0.02), 0.95
+    alb = SP.face_bands(alb, sb, ch, paint)
     return np.clip(alb * 255 + 0.5, 0, 255).astype(np.uint8)
 
 
@@ -196,7 +203,7 @@ def add_gear(ctx, fit, pcs):
     hi = gear.head_info(ctx, brc)
     rubber = common.gear_material(ctx, "rubber", "rubber", color=(0.09, 0.09, 0.09), rough=1.0, metal=0.0)
     gold = common.gear_material(ctx, "metal_rim", "metal_dark", color=(0.85, 0.66, 0.30), rough=0.6, metal=1.0)
-    lens_m = common.plain_material(ctx, "glass_lens", (0.10, 0.08, 0.05), rough=0.04, alpha=0.88, double_sided=True)
+    lens_m = common.plain_material(ctx, "glass_lens", (0.85, 0.55, 0.12), rough=0.05, alpha=0.9, double_sided=True, metal=0.6)
     chain_m = common.gear_material(ctx, "metal_chain", "metal_dark", color=(0.75, 0.62, 0.35), rough=0.7, metal=1.0)
     knit = common.gear_material(ctx, "leather_collar", "leather", color=JACKET, rough=0.75, metal=0.0)
     # --- silhouette upgrades: spiked scrap pauldron on the LEFT (door side, visible through the window), goggles on the cap
@@ -285,7 +292,7 @@ def build():
     common.cloth_group(ctx, "cloth_tee", [pc_tee], outfit.fabric_painter(TEE, dust=0.5, seed=101, sweat=0.3))
     common.cloth_group(ctx, "cloth_jacket", [pc_j], outfit.leather_painter(JACKET, scuff_col=(0.36, 0.22, 0.12), dust=0.45, seed=103, wear=0.8), rough=0.7)
     common.cloth_group(ctx, "cloth_pants", [pc_p], outfit.fabric_painter(PANTS, dust=0.7, seed=107, legs=True))
-    common.cloth_group(ctx, "paint", [pc_cap, pc_brim], cap_painter(), color=(0.55, 0.12, 0.08, 1.0), rough=0.9, ppm=500)
+    common.cloth_group(ctx, "paint", [pc_cap, pc_brim], cap_painter(), color=(0.82, 0.10, 0.06, 1.0), rough=0.9, ppm=500)
     pcs = dict(jacket=pc_j, gloves=gloves, g_cap=cap)
     add_gear(ctx, fit, pcs)
     ctx.report()

@@ -28,8 +28,8 @@ SPEC = dict(macro=dict(gender=1.0, age=0.55, muscle=1.0, weight=0.85, height=0.5
                    ("armslegs/l-hand-scale-incr", 0.5), ("armslegs/r-hand-scale-incr", 0.5), ("head/head-scale-horiz-decr", 0.2)],
             height=1.92, skin="middleage_caucasian_male", sole=0.035)
 
-TROUSERS = (0.075, 0.07, 0.06)
-UNDER = (0.10, 0.095, 0.085)
+TROUSERS = (0.28, 0.25, 0.20)
+UNDER = (0.30, 0.28, 0.24)
 
 
 def mask_painter():
@@ -60,7 +60,7 @@ def mask_painter():
             x0 = -0.045 + 0.016 * k
             u_ = (x - x0) * 0.8 + (y - 0.02) * 0.6
             v_ = -(x - x0) * 0.6 + (y - 0.02) * 0.8
-            sl = np.maximum(sl, ((np.abs(u_) < 0.0035 * (1 - np.abs(v_) / 0.05)) & (np.abs(v_) < 0.05)).astype(np.float32))
+            sl = np.maximum(sl, ((np.abs(u_) < 0.0065 * (1 - np.abs(v_) / 0.055)) & (np.abs(v_) < 0.05)).astype(np.float32))
         sl = U.blur(sl, 0.8)
         alb = alb * (1 - 0.9 * sl[..., None]) + np.array([0.45, 0.03, 0.02], np.float32) * 0.9 * sl[..., None]
         # cracks + grime toward the edges
@@ -140,7 +140,7 @@ def add_gear(ctx, fit, pcs):
     rc_t = outfit.rc_from_pieces([pcs["under"]])
     rc_p = outfit.rc_from_pieces([pcs["trousers"]])
     armor = common.gear_material(ctx, "armor", "scrap", color=(0.62, 0.58, 0.54), rough=1.0, metal=1.0)
-    paint = ctx.material("paint", base_tex=ctx.glb.texture_array("paint_tex", _paint_tex(), "jpg", 88), color=(0.24, 0.33, 0.36, 1.0), rough=0.7, metallic=0.25)
+    paint = ctx.material("paint", base_tex=ctx.glb.texture_array("paint_tex", _paint_tex(), "jpg", 88), color=(0.66, 0.15, 0.08, 1.0), rough=0.7, metallic=0.25)
     metal = common.gear_material(ctx, "metal_dark", "metal_dark", color=(0.42, 0.42, 0.40), rough=1.0, metal=1.0)
     rubber = common.gear_material(ctx, "rubber", "rubber", color=(0.08, 0.08, 0.08), rough=1.0, metal=0.0)
     leather = common.gear_material(ctx, "leather", "leather", color=(0.13, 0.08, 0.05), rough=0.85, metal=0.0)

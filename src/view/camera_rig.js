@@ -88,14 +88,14 @@ ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
   if (back) {
     // look back: a camera over the tailgate facing backwards (instant cut, like every racing game)
     cam.position.copy(opts.lookBackEye).add(so);
-    cam.quaternion.setFromEuler(_e.set(this.cockPitch - 0.07, _e.y, this.cockRoll, 'YXZ'));
+    cam.quaternion.setFromEuler(_e.set(this.cockPitch - 0.13, _e.y - 0.1, this.cockRoll, 'YXZ'));
   } else {
     cam.position.copy(opts.cockpitEye).add(so).add(_v.copy(this.head).applyQuaternion(carQuat));
     // cameras look down -Z, the truck faces +Z: turn 180 degrees (which also flips the sign of pitch and roll)
     cam.quaternion.setFromEuler(_e.set(-this.cockPitch + this.lookPitch - 0.035, _e.y + Math.PI + this.lookYaw, -this.cockRoll + so.x * 0.02, 'YXZ'));
   }
   const speed = Math.hypot(vel.x, vel.z), spd01 = smoothstep(5, 62, speed);
-  const targetFov = back ? 70 : (opts.fovBase ?? 80) + spd01 * 12 + (opts.boosting ? 8 : 0);
+  const targetFov = back ? 78 : (opts.fovBase ?? 80) + spd01 * 12 + (opts.boosting ? 8 : 0);
   this.fov = damp(this.fov, targetFov, back ? 30 : 4, dt);
   if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
   if (cam.near !== 0.05) { cam.near = 0.05; cam.updateProjectionMatrix(); }

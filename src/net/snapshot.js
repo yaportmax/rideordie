@@ -1,7 +1,7 @@
 // Binary snapshot protocol (sim peer -> viewer peer, unreliable channel, ~30 Hz) + client-side interpolation buffer.
 import * as THREE from 'three';
 import { SPEC_IDS, makeCarState } from '../view/car_state.js';
-import { PART_NAMES } from '../data/boss.js';
+import { PART_NAMES, BOSS_PARTS } from '../data/boss.js';
 
 const QN = 32767;
 const GUNS = ['pistol', 'smg', 'rifle', 'shotgun', 'mg', 'hmg', 'rpg'];
@@ -16,7 +16,7 @@ export function encodeSnapshot(sim, tick, hud, buf) {
   for (const c of cars) size += 62 + c.veh.wheels.length * 2;
   const p = sim.projectiles;
   const nProj = p.rockets.length + p.grenades.length;
-  size += 2 + nProj * 14 + 40;
+  size += 2 + nProj * 14 + 40 + PART_NAMES.length;
   const ab = buf && buf.byteLength >= size ? buf : new ArrayBuffer(size + 256);
   const dv = new DataView(ab);
   let o = 0;
@@ -78,6 +78,7 @@ export function encodeSnapshot(sim, tick, hud, buf) {
     dv.setFloat32(o, B.v, true); o += 4;
     let mask = 0; PART_NAMES.forEach((n, i) => { if (B.alive[n]) mask |= (1 << i); }); dv.setUint32(o, mask >>> 0, true); o += 4;
     dv.setUint8(o, B.phase | (B.dead ? 8 : 0) | (B.exploded ? 16 : 0)); o += 1;
+    for (const n of PART_NAMES) { dv.setUint8(o, Math.round(clamp01(B.hp[n] / BOSS_PARTS[n].hp) * 255)); o += 1; }   // per-part health (HUD bars)
   }
   return ab.slice(0, o);
 }
@@ -120,6 +121,7 @@ export function decodeSnapshot(ab) {
     b.qx = dv.getInt16(o, true) / QN; b.qy = dv.getInt16(o + 2, true) / QN; b.qz = dv.getInt16(o + 4, true) / QN; b.qw = dv.getInt16(o + 6, true) / QN; o += 8;
     b.v = dv.getFloat32(o, true); o += 4; b.mask = dv.getUint32(o, true); o += 4;
     const f = dv.getUint8(o); o += 1; b.phase = f & 7; b.dead = !!(f & 8); b.exploded = !!(f & 16);
+    b.hp = new Float32Array(PART_NAMES.length); for (let i = 0; i < PART_NAMES.length && o < ab.byteLength; i++) { b.hp[i] = dv.getUint8(o) / 255; o += 1; }
     s.boss = b;
   }
   return s;
@@ -176,7 +178,8 @@ export class SnapshotBuffer {
       st.pos.set(ba.x + (bb.x - ba.x) * t, ba.y + (bb.y - ba.y) * t, ba.z + (bb.z - ba.z) * t);
       this._q1.set(ba.qx, ba.qy, ba.qz, ba.qw).normalize(); this._q2.set(bb.qx, bb.qy, bb.qz, bb.qw).normalize(); st.quat.slerpQuaternions(this._q1, this._q2, t);
       st.v = bb.v; st.vel.set(0, 0, bb.v).applyQuaternion(st.quat); st.phase = bb.phase; st.dead = bb.dead; st.exploded = bb.exploded;
-      PART_NAMES.forEach((n, i) => { st.alive[n] = !!(bb.mask & (1 << i)); });
+      if (!st.hp) st.hp = {};
+      PART_NAMES.forEach((n, i) => { st.alive[n] = !!(bb.mask & (1 << i)); st.hp[n] = bb.hp ? bb.hp[i] : 1; });   // st.hp: 0..1 per part
     } else this.boss = null;
     return { a, b, t, hud: b };
   }

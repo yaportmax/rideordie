@@ -16,7 +16,7 @@ export class ThreatHUD {
   setVisible(v) { this.visible = v; this.canvas.style.display = v ? 'block' : 'none'; }
 
   /** camera: the view camera; states: Map of CarState; player: the local player's state. */
-  update(dt, camera, states, player, isBoss = null) {
+  update(dt, camera, states, player, isBoss = null, layout = null) {
     if (!this.visible) return;
     const c = this.canvas, dpr = Math.min(2, devicePixelRatio || 1);
     const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
@@ -26,7 +26,8 @@ export class ThreatHUD {
     this.t += dt;
     camera.getWorldDirection(_f); _r.set(1, 0, 0).applyQuaternion(camera.quaternion); _u.set(0, 1, 0).applyQuaternion(camera.quaternion);
     // ellipse kept inside the HUD corners (health bars bottom-left, speed/ammo bottom-right)
-    const cx = W / 2, cy = H * 0.47, rx = W * 0.40, ry = H * 0.34;
+    // ring at windshield height, clear of the HUD corners (cockpit: flatter, so 'behind' sits above the dash, not on the gauges)
+    const cx = W / 2, cy = H * (layout?.cy ?? 0.42), rx = W * (layout?.rx ?? 0.40), ry = H * (layout?.ry ?? 0.30);
     const seen = new Set();
     x.textAlign = 'center'; x.textBaseline = 'middle';
     for (const st of states.values()) {
@@ -50,7 +51,7 @@ export class ThreatHUD {
       const col = ram ? [255, 140, 20] : boss ? [255, 194, 26] : (intent === 'shoot' || st.gunnerAlive) ? [255, 58, 44] : [235, 150, 90];
       const pulse = ram || block ? 0.6 + 0.4 * Math.sin(this.t * 20) : 1;
       const alpha = b.k * (0.45 + 0.55 * near) * pulse;
-      const size = (boss ? 30 : 18 + near * 22) * (ram ? 1.35 : 1) * dpr;
+      const size = (boss ? 34 : 22 + near * 24) * (ram ? 1.35 : 1) * dpr;
       const px = cx + Math.sin(ang) * rx, py = cy - Math.cos(ang) * ry;
       x.save(); x.translate(px, py); x.rotate(ang);
       x.globalAlpha = alpha;
@@ -62,12 +63,17 @@ export class ThreatHUD {
       x.restore();
       // label: distance for close threats, RAM! / BRAKE! when a raider commits
       if (dist < 45 || ram || block) {
-        const lx = cx + Math.sin(ang) * (rx - size * 1.9), ly = cy - Math.cos(ang) * (ry - size * 1.9);
-        x.globalAlpha = Math.min(1, alpha * 1.2);
-        x.font = `700 ${Math.round((ram || block ? 17 : 13) * dpr)}px Bahnschrift, Segoe UI, sans-serif`;
+        // label on the outer side of its chevron (never drifting into the view where it could be read as another car's)
+        const lx = Math.min(W - 60 * dpr, Math.max(60 * dpr, px + Math.sin(ang) * size * 1.9)), ly = Math.min(H - 40 * dpr, Math.max(40 * dpr, py - Math.cos(ang) * size * 1.7));
+        x.globalAlpha = Math.min(1, alpha * 1.25);
+        const big = ram || block, fs = Math.round((big ? 28 : 20) * dpr);
+        x.font = `800 ${fs}px Bahnschrift, Segoe UI, sans-serif`;
         const txt = ram ? 'RAM!' : block ? 'BRAKE!' : `${Math.round(dist)} m`;
-        x.lineWidth = 3 * dpr; x.strokeStyle = 'rgba(0,0,0,0.7)'; x.strokeText(txt, lx, ly);
-        x.fillStyle = ram || block ? '#ffd24a' : '#f2e6dc'; x.fillText(txt, lx, ly);
+        const tw = x.measureText(txt).width, pw = tw + fs * 0.9, ph = fs * 1.35;
+        x.fillStyle = big ? 'rgba(120,20,10,0.78)' : 'rgba(10,10,12,0.62)';
+        x.beginPath(); x.roundRect ? x.roundRect(lx - pw / 2, ly - ph / 2, pw, ph, 4 * dpr) : x.rect(lx - pw / 2, ly - ph / 2, pw, ph); x.fill();
+        x.lineWidth = 3 * dpr; x.strokeStyle = 'rgba(0,0,0,0.75)'; x.strokeText(txt, lx, ly + fs * 0.04);
+        x.fillStyle = big ? '#ffd24a' : '#f2e6dc'; x.fillText(txt, lx, ly + fs * 0.04);
       }
     }
     for (const id of this.blips.keys()) if (!seen.has(id)) this.blips.delete(id);

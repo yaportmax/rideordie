@@ -39,6 +39,7 @@ export class Leviathan {
     this.hp = {}; this.alive = {}; this.maxCore = 0;
     for (const n of PART_NAMES) { this.hp[n] = BOSS_PARTS[n].hp; this.alive[n] = true; if (BOSS_PARTS[n].core) this.maxCore += BOSS_PARTS[n].hp; }
     this.phase = 1; this.t = 0; this.dead = false; this.deathT = 0; this.exploded = false;
+    this.phaseT = 0; this.dropQ = []; this.blockQ = []; this.wall = []; this.blockadeDone = false;   // pacing beats (see BOSS.phase1Max ...)
     this.r = rng(sim.seed * 13 + 777);
     this.cd = { pods: 6, cannon: 99, ramp: 99, charge: 0 };
     this.turrets = ['part_turret_1', 'part_turret_2'].map((n, i) => ({ part: n, socket: 'turret_' + (i + 1), yaw: 0, pitch: 0, mode: 'idle', t: 1 + i, burst: 0, fireT: 0 }));
@@ -95,8 +96,11 @@ export class Leviathan {
     if (!P || P.exploded) return;
     // ---- phases
     const weaponsLeft = ['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R'].filter((n) => this.alive[n]).length;
-    if (this.phase === 1 && (weaponsLeft <= 1 || this.t > 100)) this._setPhase(2);
+    if (this.phase === 1 && (weaponsLeft <= 1 || this.t > BOSS.phase1Max)) this._setPhase(2);
+    // the fight can't stall in phase 2: the overheating reactor blows its own armour off (-> phase 3)
+    if (this.phase === 2 && !this.engineExposed() && this.t - this.phaseT > BOSS.phase2Max) this._overheat();
     if (this.phase < 3 && this.engineExposed()) this._setPhase(3);
+    this._beats(dt);
     const rate = this.phase === 3 ? 1.35 : 1;
     // ---- attacks
     for (const tu of this.turrets) this._turret(tu, dt * rate, P);
@@ -107,9 +111,59 @@ export class Leviathan {
   engineExposed() { return !this.alive.panel_armor_rear_1 && !this.alive.panel_armor_rear_2 && !this.alive.panel_armor_rear_3; }
 
   _setPhase(p) {
-    this.phase = p;
-    if (p === 2) { this.cd.cannon = 3; this.cd.ramp = 4; }
+    this.phase = p; this.phaseT = this.t;
+    if (p === 2) { this.cd.cannon = 3; this.cd.ramp = 9; }
+    // an escort wave comes down the ramp as each phase opens (staggered: one car at a time)
+    (BOSS.waves[p] || []).forEach((k, i) => this.dropQ.push({ k, t: this.t + 1.5 + i * 1.4 }));
     this.sim.emit({ t: 'bossPhase', phase: p });
+  }
+
+  /** Phase-2 timeout: the reactor overheats and blasts its rear plates off (a scripted beat, not a stall). */
+  _overheat() {
+    this.sim.emit({ t: 'bossBeat', kind: 'overheat', pos: this.socket('weak_engine', _p).toArray() });
+    for (const n of ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3']) if (this.alive[n]) this._destroyPart(n);
+  }
+
+  /** Scripted beats: escort drops, and the wreck blockade the train smashes through early in the fight. */
+  _beats(dt) {
+    const sim = this.sim;
+    for (let i = this.dropQ.length - 1; i >= 0; i--) {
+      const q = this.dropQ[i]; if (this.t < q.t) continue;
+      this.dropQ.splice(i, 1);
+      if ([...sim.cars.values()].filter((c) => c.kind === 'enemy' && !c.exploded).length > 7) continue;
+      sim.emit({ t: 'bossRamp', pos: this.socket('ramp_rear', _p).toArray() });
+      sim.director.spawnAt(sim, q.k, this.s - 24, this.d, this.v - 2, { behavior: this.r() < 0.5 ? 'flanker' : 'chaser', side: this.r() < 0.5 ? 1 : -1 });
+    }
+    if (!this.blockadeDone && this.t > BOSS.blockadeAt && this.phase < 3) {
+      this.blockadeDone = true;
+      const s0 = this.s + 18 + 95;
+      if (!sim.ground?.hasColliderAt || sim.ground.hasColliderAt(s0 + 10)) {
+        [-5.3, -1.8, 1.8, 5.3].forEach((d, i) => this.blockQ.push({ s: s0 + this.r.range(-2, 2) + (i % 2) * 3, d, t: this.t + i * 0.15 }));
+        sim.emit({ t: 'bossBeat', kind: 'blockade', s: s0 });
+      }
+    }
+    // spawn the blockade wrecks one per tick (no 4-car-views-in-one-frame hitch)
+    if (this.blockQ.length && this.t >= this.blockQ[0].t) {
+      const b = this.blockQ.shift();
+      const c = sim.spawnCar(this.r.pick(['e_sedan', 'e_van', 'e_technical', 'e_sedan']), { s: b.s, d: b.d, speed: 0, kind: 'enemy', yawOff: this.r.range(-0.7, 0.7) + (this.r() < 0.3 ? Math.PI / 2 : 0) });
+      c.exploded = c.dead = true; c.hp = 0; c.driverless = true; c.veh.driverAlive = false; c.wreckT = 0; c.bossProp = true; c.tag = 'WRECK';
+      for (const cr of Object.values(c.crew)) { cr.alive = false; cr.hp = 0; }
+      this.wall.push(c);
+    }
+    // ... and the train ploughs through them: wrecks tumble into the air and burst
+    const front = this.s + 16;
+    for (let i = this.wall.length - 1; i >= 0; i--) {
+      const w = this.wall[i];
+      if (!sim.cars.has(w.id)) { this.wall.splice(i, 1); continue; }
+      if (front < w.s - 2.5 || Math.abs(w.d - this.d) > 7) continue;
+      this.wall.splice(i, 1);
+      const m = w.veh.mass, sm = sim.road.sample(w.s), side = (w.d - this.d >= 0 ? 1 : -1);
+      w.veh.body.applyImpulse({ x: (sm.fx * (this.v + 8) + sm.nx * side * 9) * m, y: m * this.r.range(8, 12), z: (sm.fz * (this.v + 8) + sm.nz * side * 9) * m }, true);
+      w.veh.body.applyTorqueImpulse({ x: (this.r() - 0.5) * m * 14, y: (this.r() - 0.5) * m * 8, z: (this.r() - 0.5) * m * 14 }, true);
+      const p = w.veh.pos;
+      sim.emit({ t: 'explode', id: w.id, pos: [p.x, p.y + 0.5, p.z], size: 1.3, cause: 'boss', spec: w.spec.id, vel: [sm.fx * this.v, 6, sm.fz * this.v] });
+      sim.emit({ t: 'bossBeat', kind: 'smash', pos: [p.x, p.y, p.z] });
+    }
   }
 
   _aimAt(P, muzzle, speed, out) {

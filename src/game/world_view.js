@@ -74,6 +74,7 @@ export class WorldView {
   /** states: Map(id -> CarState). ctx: {dt, night, playerId, gunnerState} */
   update(dt, states, events, ctx = {}) {
     this.night = ctx.night ?? this.night;
+    const pPos = states.get(ctx.playerId ?? 1)?.pos || null;           // raiders look at / gesture toward the player's truck
     for (const st of states.values()) {
       const rec = this.ensure(st);
       rec.state = st;
@@ -101,7 +102,7 @@ export class WorldView {
           alive, aimYaw: gs ? gs.yaw : 0, aimPitch: gs ? gs.pitch : 0, fire: gs ? gs.fire : false, crouch: gs ? gs.crouch : false, ads: gs ? gs.ads : false,
           reloading: gs ? gs.reloading : false, weaponId: st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null, steer: st.steer, speed: st.speed, quat: st.quat, vel: st.vel,
           local: st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null, exploded: st.exploded,
-          bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0, airborne: !!st.airborne, far: farCrew,
+          bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0, airborne: !!st.airborne, far: farCrew, player: st.kind === 'player' ? null : pPos, intent: st.intent,
         });
       }
       this._damageVisuals(rec, st);

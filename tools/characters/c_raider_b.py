@@ -28,7 +28,7 @@ SPEC = dict(macro=dict(gender=1.0, age=0.40, muscle=0.58, weight=0.12, height=0.
             height=1.80, skin="young_asian_male")
 
 VEST = (0.035, 0.032, 0.03)
-JEANS = (0.07, 0.085, 0.11)
+JEANS = (0.22, 0.30, 0.42)
 
 
 def jeans_extra(bk, alb, h):
@@ -66,13 +66,18 @@ def skin_texture(ctx, fit):
     alb = SP.stubble(alb, sb, ch, seed=4, amount=0.45, colour=(0.07, 0.055, 0.045), cheeks=0.3)
 
     def paint(x, y, front):
-        eye_band = (np.abs(y - 0.004) < 0.019 + 0.004 * np.cos(x * 60)) & (np.abs(x) < 0.064 - 0.01 * np.abs(y) / 0.02)
-        yield eye_band.astype(np.float32), (0.02, 0.02, 0.022), 0.95
-        # skull jaw: pale band over the chin/jaw with dark vertical 'teeth' lines across the lips
-        jaw = (y < -0.060) & (y > -0.125) & (np.abs(x) < 0.058)
-        yield jaw.astype(np.float32), (0.70, 0.68, 0.62), 0.6
-        teeth = jaw & (np.abs(y + 0.078) < 0.012) & (np.abs(((x + 0.004) / 0.0085) % 1.0 - 0.5) < 0.12)
-        yield teeth.astype(np.float32), (0.03, 0.03, 0.03), 0.9
+        # full skull face: bone-white base over the whole face, big black sockets, black nose, stitched teeth
+        face = (y < 0.075) & (y > -0.13) & (np.abs(x) < 0.074 - 0.02 * np.clip(-y - 0.06, 0, 1) / 0.07)
+        yield face.astype(np.float32), (0.86, 0.85, 0.80), 0.92
+        for sx in (-1.0, 1.0):
+            sock = ((x - sx * 0.032) / 0.024) ** 2 + ((y - 0.002) / 0.021) ** 2 < 1.0
+            yield sock.astype(np.float32), (0.015, 0.015, 0.018), 0.98
+        nose = (y < -0.02) & (y > -0.052) & (np.abs(x) < 0.004 + 0.012 * (-0.02 - y) / 0.032)
+        yield nose.astype(np.float32), (0.02, 0.02, 0.02), 0.95
+        mouth = (np.abs(y + 0.078) < 0.0035) & (np.abs(x) < 0.036)
+        yield mouth.astype(np.float32), (0.02, 0.02, 0.02), 0.95
+        teeth = (np.abs(y + 0.078) < 0.016) & (np.abs(x) < 0.034) & (np.abs(((x + 0.004) / 0.0085) % 1.0 - 0.5) < 0.1)
+        yield teeth.astype(np.float32), (0.03, 0.03, 0.03), 0.95
     alb = SP.face_bands(alb, sb, ch, paint)
     # tattoos: blackwork across the chest and both upper arms
     for key, sub, d in (("L_arm", "LeftArm", (-1.0, 0, 0)), ("R_arm", "RightArm", (1.0, 0, 0))):

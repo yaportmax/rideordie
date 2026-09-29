@@ -26,8 +26,8 @@ SPEC = dict(macro=dict(gender=1.0, age=0.46, muscle=0.6, weight=0.6, height=0.5,
             extra=[("torso/torso-vshape-incr", 0.25), ("neck/neck-scale-horiz-incr", 0.5)],
             height=1.78, skin="middleage_caucasian_male")
 
-VEST = (0.11, 0.075, 0.05)
-PANTS = (0.12, 0.10, 0.07)
+VEST = (0.34, 0.19, 0.10)
+PANTS = (0.42, 0.36, 0.24)
 BANDANA_TINT = (0.62, 0.10, 0.07)
 
 
@@ -142,7 +142,7 @@ def add_gear(ctx, fit, pcs, gl):
     # goggles over the eyes (round dark lenses)
     gg = gear.goggles(ctx, brc, up=0.0, hair=0.004, lens_r=0.027, spacing=0.0335, tilt=-4.0, seg=10, ring_n=18)
     strap_m = common.gear_material(ctx, "webbing_strap", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
-    lens_m = common.plain_material(ctx, "glass_lens", (0.03, 0.045, 0.05), rough=0.06, alpha=0.86, double_sided=True)
+    lens_m = common.plain_material(ctx, "glass_lens", (0.95, 0.52, 0.06), rough=0.08, alpha=0.9, double_sided=True, emissive=(0.35, 0.16, 0.0))
     rim_m = common.gear_material(ctx, "metal_rim", "metal_dark", color=(0.42, 0.40, 0.36), rough=1.0, metal=1.0)
     frame_m = common.gear_material(ctx, "rubber_frame", "rubber", color=(0.06, 0.06, 0.06), rough=1.0, metal=0.0)
     common.add_gear(ctx, gg["strap"], strap_m, binder, bone="Head", label="goggle_strap")
