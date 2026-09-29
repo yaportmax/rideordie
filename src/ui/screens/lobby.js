@@ -47,7 +47,7 @@ export class LobbyScreen {
     const canStart = this.canStart(), host = !!s.isHost;
     const readyBtn = `<div class="f btn ready-btn ${me && me.ready ? 'is-ready' : 'primary'} ${me && me.seat ? '' : 'inactive'}" role="button" data-act="ready" data-k="ready" data-snd="none"><span>${me && me.ready ? icon('check') + ' READY' : 'READY UP'}${me && me.ready ? '<small>PRESS TO CANCEL</small>' : ''}</span></div>`;
     const startBtn = host
-      ? `<div class="f btn start-btn ${canStart ? 'primary' : 'inactive'}" role="button" data-act="start" data-k="start" data-snd="none"><span>START RUN${canStart ? '' : '<small>BOTH PLAYERS MUST BE READY</small>'}</span></div>`
+      ? `<div class="f btn start-btn ${canStart ? 'primary' : 'inactive'}" role="button" data-act="start" data-k="start" data-snd="none"><span>TO THE GARAGE${canStart ? '' : '<small>BOTH PLAYERS MUST BE READY</small>'}</span></div>`
       : '<div class="waithost"><i></i>WAITING FOR HOST TO START</div>';
     this.safe.innerHTML = `
       <div class="lb-title stg" style="--i:0"><div class="eyebrow">CO-OP LOBBY</div><h1>THE CONVOY</h1></div>
