@@ -32,6 +32,13 @@ def rotm(rot):
     return Euler([a * D2R for a in rot], "XYZ").to_matrix().to_4x4()
 
 
+def hand_sockets():
+    """Fitted grip_R / grip_L transforms per gun (G frame mm + Euler XYZ deg), see tools/characters/fp_arms_place.py."""
+    import json
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hand_sockets.json")
+    return json.load(open(p)) if os.path.exists(p) else {}
+
+
 def xform(loc=(0, 0, 0), rot=(0, 0, 0), scale=1.0):
     return Matrix.Translation(loc) @ rotm(rot) @ Matrix.Scale(scale, 4)
 
@@ -668,7 +675,13 @@ class Gun:
         return p
 
     def socket(self, name, pos, rot=(0, 0, 0), parent=None, size=0.02):
-        """Empty socket. rot (deg, G frame) is relative to the canonical orientation (+Z fwd, +Y up in glTF)."""
+        """Empty socket. rot (deg, G frame) is relative to the canonical orientation (+Z fwd, +Y up in glTF).
+        grip_R / grip_L: if hand_sockets.json (fitted by tools/characters/fp_arms_place.py against the fp_arms hands) has an
+        entry for this gun, its position + rotation replace the authored ones (the authored values stay as the fallback)."""
+        if name in ("grip_R", "grip_L"):
+            hs = hand_sockets().get(self.name, {}).get(name)
+            if hs:
+                pos, rot = hs["pos"], tuple(hs["rot"])
         self.sockets[name] = (Vector(pos), rot, parent, size)
 
     def motion(self, node, kind, axis, amount, note=""):

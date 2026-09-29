@@ -324,6 +324,13 @@ export class Sim {
       if (src === 1 || (car.lastHitBy === 1 && this.time - car.lastHitT < 6)) {
         this.stats.streak++;
         this.emit({ t: 'kill', id: car.id, spec: car.spec.id, cause, pos: [p.x, p.y, p.z], crash: cause === 'ram' || cause === 'crash' || (src > 1) });
+        // salvage: every wreck you make patches your truck a little (a warlord a lot) -- aggression keeps you rolling
+        const P = this.player;
+        if (P && !P.exploded && this.state === 'run') {
+          const k = car.elite ? 0.14 : (car.spec.mass > 4000 ? 0.012 : 0.006);
+          const before = P.hp; P.hp = Math.min(P.maxHp, P.hp + P.maxHp * k);
+          if (P.hp > before) this.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: !!car.elite });
+        }
       }
     }
   }

@@ -45,6 +45,9 @@ export class AIDriver {
       if (ahead > 3 && ahead < lookCar && Math.abs(car.d - want) < wide) want = car.d > P.d ? car.d - (wide + 1.1) : car.d + (wide + 1.1);
     }
     want = clamp(want, -HALF_ROAD + 1.4, HALF_ROAD - 1.4);
+    // guard rails: keep a wider berth on a railed side (scraping one at 200 km/h shreds the truck)
+    const gr = road.featuresIn(P.s - 10, P.s + 120, 'guard')[0];
+    if (gr) { const L = gr.side === 'L' || gr.side === 'both', R = gr.side === 'R' || gr.side === 'both'; want = clamp(want, R ? -HALF_ROAD + 2.6 : -HALF_ROAD + 1.4, L ? HALF_ROAD - 2.6 : HALF_ROAD - 1.4); }
     // rammers closing in from the side: flinch away (and keep a gunner-friendly spacing)
     if (this.swerveT > 0) this.swerveT -= dt; else this.swerve = 0;
     for (const car of sim.cars.values()) {

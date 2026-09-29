@@ -301,6 +301,7 @@ export class Run {
       else if (e.t === 'bossSpawn') { g.hud.message('THE LEVIATHAN', 3500, '#ff3a1a'); this.abridge?.bossIntro(); }
       else if (e.t === 'bossPhase' && e.phase === 3) g.hud.message('REACTOR EXPOSED!', 2200, '#ffc21a');
       else if (e.t === 'bossPart' && e.label) g.hud.feed(`${e.label} DESTROYED`, '#ffc21a');
+      else if (e.t === 'repair' && e.big) g.hud.feed(`SALVAGE  +${Math.round(e.amount)} HP`, '#7fdc7f');
       else if (e.t === 'bossDown') { g.hud.message('THE LEVIATHAN IS DOWN!', 5000, '#ffc21a'); this.abridge?.victory(); }
       else if (e.t === 'bossDying') { g.hud.message('REACTOR CRITICAL', 2000, '#ff5a2a'); }
     }

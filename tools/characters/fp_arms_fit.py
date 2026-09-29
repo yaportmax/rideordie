@@ -225,9 +225,26 @@ TLO, THI = (-20, -10, -10, -30, -30), (60, 70, 70, 80, 60)
 
 
 def solve_poses(rig, S):
-    """Fit all clips. Returns ({clip: {side: pose}}, sockets {name: (pos_model, quat)})."""
+    """Clips + hand sockets. Returns ({clip: {side: pose}}, sockets {name: (pos_model, quat)}, info).
+    The clips come from fp_arms_place.py (fingers fitted on the real weapon meshes, _cache/fp_arms/hand_poses.json) when present,
+    else from the analytic grip solids below."""
+    import json
+    import os
     pR, RR, gR = socket_R(rig, S)
     pL, RL, gL = socket_L(rig, S)
+    pj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_cache", "fp_arms", "hand_poses.json")
+    if os.path.exists(pj):
+        J = json.load(open(pj))
+        clips = {}
+        for name, v in J.items():
+            clips[name] = {s: {k: (tuple(x) if isinstance(x, list) else x) for k, x in v[s].items() if not k.startswith("_")}
+                           for s in ("Right", "Left")}
+        clips["pose_open"] = RIG.POSES["pose_open"]
+        for need in ("pose_rifle", "pose_pistol", "pose_launcher"):
+            if need not in clips:
+                raise RuntimeError("hand_poses.json lacks %s: run fp_arms_place.py" % need)
+        q = {"socket_hand_R": (pR, socket_quat(RR)), "socket_hand_L": (pL, socket_quat(RL))}
+        return clips, q, dict(R=(pR, RR, gR), L=(pL, RL, gL))
     Rz90 = R.from_euler("z", -90, degrees=True).as_matrix()      # game TUNE.lRot = [0, 0, +90] (socket = grip * lRot)
     handR = Hand(rig, "Right", pR, RR)
     handL = Hand(rig, "Left", pL, RL)
