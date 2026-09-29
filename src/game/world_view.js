@@ -92,7 +92,7 @@ export class WorldView {
         crew.update(dt, {
           alive, aimYaw: gs ? gs.yaw : 0, aimPitch: gs ? gs.pitch : 0, fire: gs ? gs.fire : false, crouch: gs ? gs.crouch : false, ads: gs ? gs.ads : false,
           reloading: gs ? gs.reloading : false, weaponId: st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null, steer: st.steer, speed: st.speed, quat: st.quat, vel: st.vel,
-          local: st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : null, exploded: st.exploded,
+          local: st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null, exploded: st.exploded,
           bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0,
         });
       }

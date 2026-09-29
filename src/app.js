@@ -42,8 +42,8 @@ export class App {
     this.game.audio?.music?.setState?.('title');
     this.ui.showTitle({
       onSolo: async () => {
-        const pick = await this.ui.modal({ title: 'SINGLE PLAYER', text: 'Pick your seat. An AI partner takes the other one.', buttons: [
-          { label: 'DRIVE', id: 'driver', kind: 'primary' }, { label: 'SHOOT', id: 'gunner', kind: 'primary' }, { label: 'BOTH (DRIVE + SHOOT)', id: 'both' }, { label: 'BACK', id: null, cancel: true }] });
+        const pick = await this.ui.modal({ title: 'SINGLE PLAYER', text: 'Pick your seat - an AI partner takes the other. DRIVE: you drive, the AI shoots. SHOOT: you man the guns, the AI drives. BOTH: you do everything.', buttons: [
+          { label: 'DRIVE', id: 'driver', kind: 'primary' }, { label: 'SHOOT', id: 'gunner', kind: 'primary' }, { label: 'BOTH', id: 'both' }, { label: 'BACK', id: null, cancel: true }] });
         if (!pick) return;
         this.soloRole = pick; this.mode = 'solo'; this.garage();
       },

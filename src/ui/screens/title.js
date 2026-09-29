@@ -34,7 +34,7 @@ export class TitleScreen {
     this.viewEl.innerHTML = `<nav class="menu">
       ${btn('host', 'HOST GAME', 'CREATE A ROOM &middot; SHARE THE CODE', 2, 'primary')}
       ${btn('join', 'JOIN GAME', 'ENTER A ROOM CODE', 3)}
-      ${btn('solo', 'SOLO', 'PRACTICE &middot; DRIVE WITH WASD, AIM WITH THE MOUSE', 4)}
+      ${btn('solo', 'SINGLE PLAYER', 'DRIVE OR SHOOT &middot; AN AI PARTNER TAKES THE OTHER SEAT', 4)}
       ${btn('settings', 'SETTINGS', 'VIDEO &middot; AUDIO &middot; INPUT &middot; KEY BINDINGS', 5)}
       ${btn('controls', 'CONTROLS', 'KEYBOARD, MOUSE &amp; GAMEPAD LAYOUTS', 6)}
       ${cb.onQuit ? btn('quit', 'QUIT', 'EXIT TO DESKTOP', 7, 'danger') : ''}

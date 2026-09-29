@@ -22,33 +22,33 @@ export class Shaker {
 export class ChaseCam {
   constructor(camera) {
     this.camera = camera; this.yaw = 0; this.init = false;
-    this.mode = 0; // 0 chase, 1 far chase, 2 hood
+    this.mode = 0; // 0 cockpit (first person), 1 chase, 2 far chase
+    this.cockPitch = 0; this.cockRoll = 0;
     this.shake = new Shaker(); this.fov = 68; this.roll = 0; this.lookYaw = 0; this.lookPitch = 0; this.lift = 0;
     this.back = 7.2; this.height = 2.7; this.dy = 0;
   }
   toggle() { this.mode = (this.mode + 1) % 3; }
+  get firstPerson() { return this.mode === 0; }
   update(dt, carPos, carQuat, vel, opts = {}) {
     const cam = this.camera;
+    if (this.mode === 0 && opts.cockpitEye) { this._cockpit(dt, carQuat, vel, opts); return; }
     const fwd = _v.set(0, 0, 1).applyQuaternion(carQuat);
     const heading = Math.atan2(fwd.x, fwd.z);
     const speed = Math.hypot(vel.x, vel.z);
     const velHeading = speed > 6 ? Math.atan2(vel.x, vel.z) : heading;
-    const target = heading + wrapAngle(velHeading - heading) * (this.mode === 2 ? 0 : 0.5);
+    const target = heading + wrapAngle(velHeading - heading) * 0.5;
     if (!this.init) { this.yaw = target; this.init = true; }
-    this.yaw += wrapAngle(target - this.yaw) * (1 - Math.exp(-dt * (this.mode === 2 ? 20 : 4.2)));
+    this.yaw += wrapAngle(target - this.yaw) * (1 - Math.exp(-dt * 4.2));
     this.lookYaw = damp(this.lookYaw, (opts.lookX || 0) * -1.4, 8, dt);
     this.lookPitch = damp(this.lookPitch, (opts.lookY || 0) * 0.5, 8, dt);
     const y = this.yaw + this.lookYaw;
     const boost = opts.boosting ? 1 : 0;
     const spd01 = smoothstep(5, 62, speed);
-    this.back = damp(this.back, this.mode === 1 ? 10.5 : 7.2 + spd01 * 1.6 + boost * 0.8, 3, dt);
-    this.height = damp(this.height, this.mode === 1 ? 4.0 : 2.7 + spd01 * 0.35, 3, dt);
+    this.back = damp(this.back, this.mode === 2 ? 10.5 : 7.2 + spd01 * 1.6 + boost * 0.8, 3, dt);
+    this.height = damp(this.height, this.mode === 2 ? 4.0 : 2.7 + spd01 * 0.35, 3, dt);
     this.lift = damp(this.lift, clamp(vel.y * -0.02, -0.4, 0.4) + (opts.airborne ? 0.6 : 0), 3, dt);
     let px, py, pz, lx, ly, lz;
-    if (this.mode === 2 && opts.hoodPos) {
-      px = opts.hoodPos.x; py = opts.hoodPos.y; pz = opts.hoodPos.z;
-      lx = px + Math.sin(y) * 30; ly = py - 0.5 + this.lookPitch * 6; lz = pz + Math.cos(y) * 30;
-    } else {
+    {
       // soften the truck's vertical bounce a little (relative offset, so it cannot drift / lag with speed)
       this.dy = damp(this.dy, 0, 10, dt);
       px = carPos.x - Math.sin(y) * this.back; pz = carPos.z - Math.cos(y) * this.back; py = carPos.y + this.height + this.lift + this.dy;
@@ -61,12 +61,32 @@ export class ChaseCam {
     const roll = clamp(-(opts.yawRate || 0) * 0.018 * spd01 * 4, -0.09, 0.09) + so.x * 0.02;
     this.roll = damp(this.roll, roll, 6, dt);
     cam.rotateZ(this.roll);
-    const targetFov = (this.mode === 2 ? 78 : 66) + spd01 * 20 + boost * 12;
+    const targetFov = 66 + spd01 * 20 + boost * 12;
     this.fov = damp(this.fov, targetFov, 4, dt);
     if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
     if (cam.near !== 0.15) { cam.near = 0.15; cam.updateProjectionMatrix(); }
   }
 }
+
+ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
+  // first person from the driver's seat: yaw locked to the truck, a damped share of its pitch/roll (so the suspension
+  // doesn't shake the view), free look on the right stick. Position = the eye point attached to the truck (no lag).
+  const cam = this.camera;
+  _e.setFromQuaternion(carQuat, 'YXZ');
+  this.cockPitch = damp(this.cockPitch, _e.x * 0.7, 12, dt); this.cockRoll = damp(this.cockRoll, _e.z * 0.55, 12, dt);
+  this.lookYaw = damp(this.lookYaw, (opts.lookX || 0) * -1.6, 8, dt);
+  this.lookPitch = damp(this.lookPitch, (opts.lookY || 0) * -0.5, 8, dt);
+  this.shake.update(dt);
+  const so = this.shake.offset(_v2, 0.18);
+  cam.position.copy(opts.cockpitEye).add(so);
+  // cameras look down -Z, the truck faces +Z: turn 180 degrees (which also flips the sign of pitch and roll)
+  cam.quaternion.setFromEuler(_e.set(-this.cockPitch + this.lookPitch - 0.06, _e.y + Math.PI + this.lookYaw, -this.cockRoll + so.x * 0.02, 'YXZ'));
+  const speed = Math.hypot(vel.x, vel.z), spd01 = smoothstep(5, 62, speed);
+  const targetFov = 74 + spd01 * 14 + (opts.boosting ? 10 : 0);
+  this.fov = damp(this.fov, targetFov, 4, dt);
+  if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
+  if (cam.near !== 0.05) { cam.near = 0.05; cam.updateProjectionMatrix(); }
+};
 
 export class GunnerCam {
   constructor(camera) {

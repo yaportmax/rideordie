@@ -271,7 +271,8 @@ export class Run {
     this.wv.updateBoss(this.bossState, dt);
     if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
     g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
-    this.wv.update(dt, this.states, evs, { cameraPos: g.camera.position, frustum: this._frustum, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
+    const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson } : null;
+    this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
     this.allEvents = evs;
     for (const e of evs) {
       if (e.t === 'minibossSpawn') { g.hud.message(e.name, 2600, '#ff5a2a'); }
@@ -394,7 +395,8 @@ export class Run {
       return;
     }
     if (this.role === 'driver') {
-      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
+      const cockpitEye = this._cockpitEye(dt, pst, _t2);
+      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
       if (cmds.driver.cameraToggle) this.chase.toggle();
       this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion);
     } else if (this.gunner) {
@@ -402,6 +404,21 @@ export class Run {
       const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
       this.camDir.copy(dir);
     }
+  }
+
+  /** Driver's eye: the (hidden) head of the seated driver, expressed in the truck frame and smoothed there (no lag, no judder). */
+  _cockpitEye(dt, pst, out) {
+    const sd = pst.spec.seats.driver || [0.4, 0.6, 0.5];
+    const loc = this._eyeLocal || (this._eyeLocal = new THREE.Vector3(sd[0], sd[1] + 0.68, sd[2] + 0.14));
+    const crew = this.wv.cars.get(1)?.crew.driver;
+    const head = crew?.bones?.Head;
+    if (head) {
+      head.getWorldPosition(_v);
+      _v.sub(pst.pos).applyQuaternion(_q2.copy(pst.quat).invert()); _v.y += pst.ride.restComHeight;   // -> truck-local (ground origin)
+      _v.z += 0.1; _v.y += 0.08;                                                                        // eyes sit ahead/above the head joint
+      const k = 1 - Math.exp(-dt * 10); loc.lerp(_v, k);
+    }
+    return out.set(loc.x, loc.y - pst.ride.restComHeight, loc.z).applyQuaternion(pst.quat).add(pst.pos);
   }
 
   /** The local gunner's eye: attached to the truck frame (seat + standing/crouch height + position in the bed), render-interpolated. */
@@ -547,7 +564,7 @@ export class Run {
   }
 }
 
-const _f = new V3(), _v = new V3(), _t2 = new V3(), _aiDir = new V3();
+const _f = new V3(), _v = new V3(), _t2 = new V3(), _aiDir = new V3(), _q2 = new THREE.Quaternion();
 function g_kill(run, e) {
   // cash + style: crash kills and multi-kills pay more
   const base = KILL_CASH[e.spec] || 60;

@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { WeaponView } from './weapon_view.js';
+import { clamp } from '../core/util.js';
 
 const ENEMY_GUN_MODEL = { pistol: 'pistol', smg: 'smg', rifle: 'rifle', shotgun: 'shotgun', mg: 'lmg', hmg: 'lmg', rpg: 'rpg' };
 const ONE_HANDED = new Set(['pistol', 'revolver']);
@@ -122,7 +123,7 @@ export class CrewView {
     const fp = !!(s.local && s.local.firstPerson);
     this.body.visible = !(fp && s.local.scoped);
     // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
-    if (this.bones && this.bones.Head) { const k = fp ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); }
+    if (this.bones && this.bones.Head) { const k = fp ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); if (this.bones.Neck && this.role === 'driver') this.bones.Neck.scale.setScalar(fp ? 0.2 : 1); }
     if (this.seat && this.role !== 'driver') this.root.position.set(this.seat[0] + (s.local ? s.local.bedX : s.bedX || 0), this.seat[1], this.seat[2] + (s.local ? s.local.bedZ : s.bedZ || 0));
     if (this.role === 'driver') { this._driver(dt, s); return; }
     // ---------------- gunner: aim is world space; convert to the vehicle frame
@@ -222,8 +223,15 @@ export class CrewView {
     if (this.bones && wheel && this.arm.Right && this.arm.Left) {
       this.model.updateMatrixWorld(true);
       wheel.updateWorldMatrix(true, false);
+      // slide forward on the seat until the hands can reach the rim (trucks put the wheel at different distances)
+      if (this.driverShift === undefined) {
+        this.arm.Right.u.getWorldPosition(_b); _t.set(0, 0.12, 0).applyMatrix4(wheel.matrixWorld);
+        const reach = _b.distanceTo(_t), sum = this.arm.Right.lens[0] + this.arm.Right.lens[1];
+        this.driverShift = clamp(reach - sum * 0.9, 0, 0.45);
+        this.model.position.z += this.driverShift; this.model.updateMatrixWorld(true);
+      }
       const rot = -this.steer * 2.6;
-      for (const [side, base] of [['Left', 2.3], ['Right', 0.84]]) {
+      for (const [side, base] of [['Left', 0.84], ['Right', 2.3]]) {
         const a = base + rot, R = 0.18;
         _t.set(Math.cos(a) * R, Math.sin(a) * R, 0).applyMatrix4(wheel.matrixWorld);
         const arm = this.arm[side]; arm.u.getWorldPosition(_b);
