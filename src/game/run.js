@@ -17,11 +17,13 @@ import { Road } from '../world/road.js';
 import { ECONOMY, KILL_CASH } from '../data/economy.js';
 import { AudioBridge } from '../view/audio_bridge.js';
 import { GhostBoss } from '../sim/boss.js';
+import { AIDriver } from './ai_driver.js';
+import { AIGunner } from './ai_gunner.js';
 import { Dressing } from '../world/dressing.js';
 import { StructureColliders } from '../sim/structure_colliders.js';
 import { BOSS_ID, BOSS_NAMES, MINIBOSSES } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
-import { clamp, damp, wrapAngle } from '../core/util.js';
+import { clamp, damp, lerp, wrapAngle } from '../core/util.js';
 
 const V3 = THREE.Vector3;
 
@@ -32,9 +34,13 @@ export class Run {
    */
   constructor(g, cfg) {
     this.g = g; this.cfg = cfg; this.role = cfg.role; this.seed = cfg.seed; this.net = cfg.net || null;
-    this.simPeer = this.role === 'solo' || this.role === 'driver';
-    this.gunnerLocal = this.role === 'solo' || this.role === 'gunner';
-    this.driverLocal = this.role === 'solo' || this.role === 'driver';
+    // single player with an AI partner: cfg.ai = 'gunner' (you drive) | 'driver' (you shoot); the sim then runs locally
+    this.ai = cfg.ai || null;
+    this.simPeer = this.role === 'solo' || this.role === 'driver' || !this.net;
+    this.humanGunner = this.role === 'solo' || this.role === 'gunner';
+    this.humanDriver = this.role === 'solo' || this.role === 'driver';
+    this.gunnerLocal = this.humanGunner || this.ai === 'gunner';   // a GunnerController runs here (human or AI)
+    this.driverLocal = this.humanDriver || this.ai === 'driver';
     this.sim = null; this.streamer = null; this.wv = null; this.gunner = null; this.gwv = null;
     this.states = new Map(); this.ghosts = new Map(); this.events = []; this.localEvents = [];
     this.acc = 0; this.tick = 0; this.snapAcc = 0; this.gunnerSendAcc = 0; this.time = 0;
@@ -74,12 +80,15 @@ export class Run {
     try {
       this.dressing = new Dressing(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed))), this.seed, { quality: g.quality, physicsHook: (r) => this.structures.hook(r) });
       await this.dressing.load(cfg.startS ?? 40);
+      this.dressing.pool.warmer = (meshes) => g.warmMeshes(meshes);
       this.streamer.onChunk = (c, rec) => this.dressing.onChunk(c, rec);
       this.streamer.onChunkDrop = (c) => this.dressing.onChunkDrop(c);
     } catch (e) { console.warn('dressing disabled', e); this.dressing = null; }
     this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
+    if (this.ai === 'driver') this.aiDriver = new AIDriver(this);
+    if (this.ai === 'gunner') this.aiGunner = new AIGunner(this);
     if (g.audio) { this.abridge = new AudioBridge(g.audio, { playerId: 1, localRole: this.role }); this.abridge.preload({ weapons: effects.weapons, truck: spec.id }); }
     if (g.fx) { g.fx.clear(); g.fx.setGround((x, z) => { const p = this.states.get(1); return this._groundY(x, (p ? p.pos.y : 0) + 30, z) ?? (p ? p.pos.y - 0.6 : 0); }); }
     return this;
@@ -100,7 +109,7 @@ export class Run {
       fireRocket: (o, d, w) => { const cfg = { ...w.rocket, direct: w.dmg }; if (run.sim) run.sim.projectiles.addRocket(o, d, cfg, 1); else run.net.sendJSON({ t: 'rocket', o: o.toArray(), d: d.toArray(), cfg }); },
       throwGrenade: (o, v, cfg) => { if (run.sim) run.sim.projectiles.addGrenade(run.sim, o, v, cfg, 1); else run.net.sendJSON({ t: 'grenade', o: o.toArray(), v: v.toArray(), cfg }); },
       kick: (pitch, yaw, kick) => { run.gcam.addRecoil(pitch, yaw); run.gcam.shake.add(kick * 1.2); },
-      hitMarker: (head) => { run.g.hud.hitMarker(false); },
+      hitMarker: (head) => { if (run.humanGunner) run.g.hud.hitMarker(false, head); },
     };
   }
   _worldRay(o, d, max) {
@@ -156,6 +165,7 @@ export class Run {
         const want = B ? B.v + clamp((B.s - P.s - 30) * 0.4, -10, 10) : (window.__autodrive.speed || 40);
         Object.assign(cmds.driver, { throttle: v.vf < want ? 1 : 0, brake: v.vf > want + 4 ? 0.5 : 0, steer: clamp(err * 2.5, -1, 1), handbrake: false, nitro: false });
       }
+      if (this.aiDriver) cmds.driver = this.aiDriver.update(dt);
       if (this.driverLocal) { P.veh.setInput(cmds.driver); this._driverActions(dt, cmds.driver); }
       if (cmds.gunner.medkit) this._medkit();
       else if (this.remoteDriverInput) P.veh.setInput(this.remoteDriverInput);
@@ -172,7 +182,9 @@ export class Run {
       if (this.slowmo >= 1) this.slowmo = 0;
       this.acc += dt * (this.slowmo || 1);
       let steps = 0;
+      const _ts = performance.now();
       while (this.acc >= DT && steps < 8) { this.sim.step(DT); this.acc -= DT; steps++; }
+      { const ms = performance.now() - _ts; if (ms > 15) (window.__spikes || (window.__spikes = [])).push({ what: 'simSteps', ms: +ms.toFixed(1), steps, cars: this.sim.cars.size, at: +(performance.now() / 1000).toFixed(1) }); }
       if (steps === 8) this.acc = 0;
       this.alpha = this.acc / DT;
       // states from sim
@@ -208,6 +220,9 @@ export class Run {
     }
     const pst = this.states.get(this.playerId);
     if (this.streamer) this.streamer.update(this.playerS || 0);
+    if (pst) this._gunnerEye(pst, this.eye || (this.eye = new THREE.Vector3()));
+    if (cmds.gunner.viewToggle && this.humanGunner) this.gcam.toggle();
+    if (this.aiGunner && this.gunner && this.sim) cmds.gunner = this.aiGunner.update(dt, this.gunner, this.eye);
     // debug aimbot (tests only): point the gunner at the nearest enemy
     if (window.__aimbot && this.gunner && pst) {
       let best = null, bd = 140;
@@ -220,7 +235,7 @@ export class Run {
         if (z) { aimP = B.local(z.c, _t2); best = true; }
       }
       if (best) {
-        this.wv.gunnerPivot(pst, this.pivot);
+        this.pivot.copy(this.eye);
         _v.copy(aimP).sub(this.pivot);
         this.gunner.yaw = Math.atan2(_v.x, _v.z); this.gunner.pitch = Math.atan2(_v.y, Math.hypot(_v.x, _v.z));
         cmds.gunner.fire = true; cmds.gunner.firePressed = true;
@@ -232,7 +247,7 @@ export class Run {
       this.gunner.crewAlive = pst.gunnerAlive;
       if (!pst.gunnerAlive || (this.sim && this.sim.state !== 'run')) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
       this.wv.muzzlePos(pst, this.gunner.muzzle);
-      if (g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
+      if (this.humanGunner && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
         const pts = this._assistPts || (this._assistPts = []); pts.length = 0;
         for (const st of this.states.values()) {
           if (st.kind !== 'enemy' || st.exploded) continue;
@@ -244,13 +259,15 @@ export class Run {
         const bs = this.bossState; if (bs && !bs.dead) pts.push({ p: new THREE.Vector3(0, 5, -8).applyQuaternion(bs.quat).add(bs.pos), v: bs.vel });
         this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, pts, pst.vel);
       }
-      this.gunner.update(dt, cmds.gunner, { position: g.camera.position, dir: this.camDir }, carYaw, { carVel: pst.vel });
+      // the AI gunner aims from its own eye along its own aim; a human aims through the camera
+      const aimCam = this.aiGunner ? { position: this.eye, dir: _aiDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch)) } : { position: g.camera.position, dir: this.camDir };
+      this.gunner.update(dt, cmds.gunner, aimCam, carYaw, { carVel: pst.vel });
     }
     // world view
-    const localGunner = this.gunner ? { crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload } : null;
+    const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload } : null;
     const evs = this.events.concat(this.localEvents.filter(() => !this.sim)); // in solo the local events already went through sim.emit
     this.localEvents.length = 0;
-    this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera);
+    { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) (window.__spikes || (window.__spikes = [])).push({ what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
     this.wv.updateBoss(this.bossState, dt);
     if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
     g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
@@ -326,7 +343,7 @@ export class Run {
   }
   _medkit() {
     if (this.medkits <= 0) return;
-    if (this.role === 'gunner') { this.net.sendJSON({ t: 'medkit' }); return; }
+    if (!this.sim) { this.net.sendJSON({ t: 'medkit' }); return; }
     if (this.sim.useMedkit()) { this.medkits--; this.g.hud.message('MEDKIT', 900, '#7fdc7f'); }
   }
 
@@ -381,11 +398,19 @@ export class Run {
       if (cmds.driver.cameraToggle) this.chase.toggle();
       this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion);
     } else if (this.gunner) {
-      this.wv.gunnerPivot(pst, this.pivot);
       const w = this.gunner.weapon;
-      const dir = this.gcam.update(dt, this.pivot, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting });
+      const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
       this.camDir.copy(dir);
     }
+  }
+
+  /** The local gunner's eye: attached to the truck frame (seat + standing/crouch height + position in the bed), render-interpolated. */
+  _gunnerEye(pst, out) {
+    const seat = pst.spec.seats.gunner || [0, 1, -1];
+    const g = this.gunner;
+    const crouch = g ? g.crouch : 0, bx = g ? g.pos.x : 0, bz = g ? g.pos.z : 0;
+    out.set(seat[0] + bx, seat[1] + lerp(1.66, 1.14, crouch) - pst.ride.restComHeight, seat[2] + bz + 0.08).applyQuaternion(pst.quat).add(pst.pos);
+    return out;
   }
 
   _hudData(pst) {
@@ -403,6 +428,7 @@ export class Run {
       hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : (this.hud?.time || 0), biome: BIOMES[b.w > 0.5 ? b.b : b.a].name, prog01: s / BOSS_S, boss,
       spreadPx: this.gunner ? (this.gunner.spreadNow() * Math.PI / 180) / (this.g.camera.fov * Math.PI / 180) * innerHeight : undefined,
       scoped: this.gunner ? !!this.gunner.weapon.scope && this.gunner.ads > 0.85 : false,
+      hideCross: this.gunner ? this.gcam.firstPerson && this.gcam.adsK > 0.6 : false,
       weapon: this.gunner ? this.gunner.weapon.name : undefined, mag: this.gunner ? this.gunner.magNow : 0, reloading: this.gunner ? this.gunner.reloading : false,
       showDriver: this.role !== 'gunner',
     };
@@ -521,7 +547,7 @@ export class Run {
   }
 }
 
-const _f = new V3(), _v = new V3(), _t2 = new V3();
+const _f = new V3(), _v = new V3(), _t2 = new V3(), _aiDir = new V3();
 function g_kill(run, e) {
   // cash + style: crash kills and multi-kills pay more
   const base = KILL_CASH[e.spec] || 60;

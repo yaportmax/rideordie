@@ -119,6 +119,11 @@ export class CrewView {
     if (this.deadT >= 0) { this._dead(dt); return; }
     if (!s.alive) { this.die({}); return; }
     this.mixer?.update(dt);
+    const fp = !!(s.local && s.local.firstPerson);
+    this.body.visible = !(fp && s.local.scoped);
+    // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
+    if (this.bones && this.bones.Head) { const k = fp ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); }
+    if (this.seat && this.role !== 'driver') this.root.position.set(this.seat[0] + (s.local ? s.local.bedX : s.bedX || 0), this.seat[1], this.seat[2] + (s.local ? s.local.bedZ : s.bedZ || 0));
     if (this.role === 'driver') { this._driver(dt, s); return; }
     // ---------------- gunner: aim is world space; convert to the vehicle frame
     _eul.setFromQuaternion(s.quat, 'YXZ');
@@ -130,6 +135,7 @@ export class CrewView {
     const lim = 0.85;
     if (Math.abs(diff) > lim) this.bodyYaw += diff - Math.sign(diff) * lim;
     this.bodyYaw += diff * Math.min(1, dt * 3);
+    if (fp) this.bodyYaw = yawL - 0.15; // first person: the body sits under the camera (slightly bladed)
     this.body.rotation.y = this.bodyYaw;
     if (this.bones) {
       this.body.updateMatrixWorld(true);
@@ -154,6 +160,20 @@ export class CrewView {
     if (rpg) _a.addScaledVector(_up, 0.1).addScaledVector(right, 0.02).addScaledVector(_d, -0.35);
     else if (one) _a.addScaledVector(_d, 0.5 - this.kick * 0.05).addScaledVector(_up, 0.08).addScaledVector(right, 0.12);
     else _a.addScaledVector(_d, -(this.stockZ ?? -0.25) - 0.08 - this.kick * 0.06).addScaledVector(_up, -0.06).addScaledVector(right, 0.07);
+    // first person: the gun's sight comes to the eye when aiming down sights; at the hip it sits low and right
+    if (fp && s.local.eye && this.weapon) {
+      const adsK = s.local.adsK || 0;
+      if (one) { _b.copy(s.local.eye).addScaledVector(_d, 0.5).addScaledVector(_up, -0.13).addScaledVector(right, 0.06); _a.lerp(_b, 1 - adsK); }
+      if (adsK > 0.01 && this.weapon.sockets.sight) {
+        // sight socket position in gun-frame space (gun frame = weapon root at identity)
+        const sg = this.weapon.sockets.sight; sg.updateWorldMatrix(true, false); this.weapon.root.updateWorldMatrix(true, false);
+        _c.setFromMatrixPosition(sg.matrixWorld); this.weapon.root.worldToLocal(_c);
+        _b.copy(_c).applyQuaternion(_q2);
+        _t.copy(s.local.eye).sub(_b).addScaledVector(_d, one ? 0.42 : rpg ? 0.02 : 0.05); // pistols are aimed at arm's length
+        if (this.weaponId === 'lmg') _t.addScaledVector(_up, -0.028); // look over the feed cover, not into it
+        _a.lerp(_t, adsK);
+      }
+    }
     if (this.throwT > 0) { this.throwT -= dt; _a.addScaledVector(_up, -0.35); }
     if (s.reloading) _a.addScaledVector(_up, -0.08).addScaledVector(_d, -0.08);
     this.gun.parent.updateMatrixWorld(true);

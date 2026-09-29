@@ -65,6 +65,10 @@ export class TerrainStreamer {
   }
 
   _onMsg(w, m) {
+    const _t0 = performance.now();
+    try { this._onMsg2(w, m); } finally { const ms = performance.now() - _t0; if (ms > 12) (window.__spikes || (window.__spikes = [])).push({ what: 'terrainMsg', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
+  }
+  _onMsg2(w, m) {
     if (m.type === 'ready') { this.ready++; return; }
     if (m.type !== 'chunk') return;
     w.busy = Math.max(0, w.busy - 1); this.pending.delete(m.key);

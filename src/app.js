@@ -41,7 +41,12 @@ export class App {
     if (this.session) { this.session.leave(); this.session = null; }
     this.game.audio?.music?.setState?.('title');
     this.ui.showTitle({
-      onSolo: () => { this.mode = 'solo'; this.garage(); },
+      onSolo: async () => {
+        const pick = await this.ui.modal({ title: 'SINGLE PLAYER', text: 'Pick your seat. An AI partner takes the other one.', buttons: [
+          { label: 'DRIVE', id: 'driver', kind: 'primary' }, { label: 'SHOOT', id: 'gunner', kind: 'primary' }, { label: 'BOTH (DRIVE + SHOOT)', id: 'both' }, { label: 'BACK', id: null, cancel: true }] });
+        if (!pick) return;
+        this.soloRole = pick; this.mode = 'solo'; this.garage();
+      },
       onHost: () => this.host(),
       onJoin: (code) => this.join(code),
     });
@@ -147,7 +152,10 @@ export class App {
       onPaint: (i) => act('color', i),
       onEquip: (w, slot) => act('equip', w, slot),
       onReady: () => {
-        if (this.mode === 'solo') return this._startRun({ role: 'solo', seed: (Math.random() * 1e9) | 0, profile: this.profile });
+        if (this.mode === 'solo') {
+          const r = this.soloRole || 'both';
+          return this._startRun({ role: r === 'both' ? 'solo' : r, ai: r === 'driver' ? 'gunner' : r === 'gunner' ? 'driver' : null, seed: (Math.random() * 1e9) | 0, profile: this.profile });
+        }
         this.readyMine = !this.readyMine;
         this.session.sendJSON({ t: 'garageReady', ready: this.readyMine });
         this._garageRefresh(); this._maybeStart();

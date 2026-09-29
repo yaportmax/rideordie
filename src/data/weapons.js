@@ -38,7 +38,7 @@ export const WEAPONS = {
   rpg: {
     id: 'rpg', name: 'WRECKER RPG', slot: 1, cost: 9000, mode: 'launcher', rpm: 40, dmg: 260, pellets: 1, mag: 1, reload: 3.6,
     spread: { hip: 0.6, ads: 0.1, bloom: 0, bloomMax: 0, recover: 6 }, recoil: { pitch: 7, yaw: 1.2, kick: 0.25 }, range: 600, falloff: [1, 2, 1],
-    head: 1, tracer: 0xffffff, tracerLen: 0, adsZoom: 1.5, sound: 'rpg', crosshair: 1, rocket: { speed: 85, blast: 11, blastDmg: 240, trail: 0xffaa66 }, desc: 'Turns cars into fireballs.',
+    head: 1, tracer: 0xffffff, tracerLen: 0, adsZoom: 1.5, scope: true, scopeFov: 30, sound: 'rpg', crosshair: 1, rocket: { speed: 85, blast: 11, blastDmg: 240, trail: 0xffaa66 }, desc: 'Turns cars into fireballs.',
   },
 };
 // purchase prices follow the shop's COST_SCALE (1.25, see upgrades.js); baseCost drives upgrade-track prices

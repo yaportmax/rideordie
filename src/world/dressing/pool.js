@@ -68,6 +68,8 @@ export class InstancePool {
       mesh.matrixAutoUpdate = false;
       this.group.add(mesh); set.meshes.push(mesh);
     });
+    // new materials/textures warm up asynchronously before the meshes may be drawn (no mid-run compile/upload stalls)
+    if (this.warmer && set.warm === undefined) { set.warm = false; this.warmer(set.meshes).then(() => { set.warm = true; }); }
   }
   _regrow(set, need) {
     for (const m of set.meshes) { this.group.remove(m); m.dispose(); }
@@ -167,7 +169,7 @@ export class InstancePool {
         }
         for (const mesh of set.meshes) {
           const hide = mesh.userData.role === 'road' && !e.showRoad;
-          mesh.count = set.n; mesh.visible = on && !hide;
+          mesh.count = set.n; mesh.visible = on && !hide && set.warm !== false;
           if (mesh.visible) drawn++;
         }
         if (on) {

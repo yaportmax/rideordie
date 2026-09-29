@@ -51,7 +51,11 @@ class ChunkDress {
     this.step = 0; this.done = new Set(); this.ground = null; this.seaY = -1e9; this.dirty = false; this.rec = null;
   }
   list(name) { let l = this.lists.get(name); if (!l) { l = new InstList(); this.lists.set(name, l); } return l; }
-  addExtra(obj) { this.extras.push(obj); this.dress.extraGroup.add(obj); }
+  addExtra(obj) {
+    this.extras.push(obj); this.dress.extraGroup.add(obj);
+    const w = this.dress.pool.warmer;
+    if (w && obj.visible) { obj.visible = false; const meshes = []; obj.traverse((o) => { if (o.isMesh) meshes.push(o); }); w(meshes.length ? meshes : [obj]).then(() => { obj.visible = true; }); }
+  }
 }
 
 export class Dressing {

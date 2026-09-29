@@ -19,7 +19,8 @@ const devProfile = () => {
 
 if (q.has('solo')) {
   // dev shortcut: straight into a solo run
-  const run = await game.startRun({ role: 'solo', seed: +(q.get('seed') || 7), profile: devProfile(), paint: 0x8f6a3d, startS: +(q.get('s') || 40) });
+  const as = q.get('as'); // ?solo&as=driver (AI gunner) | as=gunner (AI driver)
+  const run = await game.startRun({ role: as || 'solo', ai: as === 'driver' ? 'gunner' : as === 'gunner' ? 'driver' : null, seed: +(q.get('seed') || 7), profile: devProfile(), paint: 0x8f6a3d, startS: +(q.get('s') || 40) });
   window.__run = run; window.__ready = true;
 } else if (q.get('devnet')) {
   // dev shortcut for automated 2-browser tests: ?devnet=host&role=driver   /   ?devnet=join&code=ABCDE

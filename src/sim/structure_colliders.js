@@ -9,6 +9,10 @@ export class StructureColliders {
   constructor(world) { this.world = world; this.bodies = new Map(); this.roadblocks = new Map(); }
 
   hook(req) {
+    const _t0 = performance.now();
+    try { this._hook(req); } finally { const ms = performance.now() - _t0; if (ms > 8 && typeof window !== 'undefined') (window.__spikes || (window.__spikes = [])).push({ what: 'collider:' + req.type, ms: +ms.toFixed(1), n: req.collision?.idx?.length / 3 | 0 }); }
+  }
+  _hook(req) {
     if (req.type === 'remove') {
       const rb = this.bodies.get(req.id); if (rb) { this.world.removeRigidBody(rb); this.bodies.delete(req.id); }
       this.roadblocks.delete(req.id);

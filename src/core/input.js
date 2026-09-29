@@ -12,7 +12,7 @@ export const DEFAULT_BINDINGS = {
   handbrake: ['Space'], nitro: ['ShiftLeft', 'ShiftRight'], reset: ['KeyR'], camera: ['KeyC'], horn: ['KeyH'], special1: ['KeyQ'], special2: ['KeyE'], medkit: ['KeyX'],
   // gunner
   reload: ['KeyR'], grenade: ['KeyG'], crouch: ['ControlLeft', 'KeyC'], slot1: ['Digit1'], slot2: ['Digit2'], slot3: ['Digit3'], slot4: ['Digit4'], slot5: ['Digit5'], slot6: ['Digit6'],
-  moveL: ['KeyA'], moveR: ['KeyD'], moveF: ['KeyW'], moveB: ['KeyS'], lean: ['KeyQ'], melee: ['KeyV'],
+  moveL: ['KeyA'], moveR: ['KeyD'], moveF: ['KeyW'], moveB: ['KeyS'], lean: ['KeyQ'], view: ['KeyV'],
   pause: ['Escape'],
 };
 
@@ -115,7 +115,7 @@ export class Input {
     const mul = this.sens.mouse;
     c.dYaw = -this.mouseDX * mul; c.dPitch = -this.mouseDY * mul * (this.invertY ? -1 : 1);
     c.fire = this.mouse.left; c.firePressed = this.mousePressed.left; c.ads = this.mouse.right;
-    c.reload = this.hit('reload'); c.grenade = this.hit('grenade'); c.crouch = this.down('crouch'); c.melee = this.hit('melee');
+    c.reload = this.hit('reload'); c.grenade = this.hit('grenade'); c.crouch = this.down('crouch'); c.viewToggle = this.hit('view');
     c.swap = -this.wheel; // wheel up => next
     for (let i = 1; i <= 6; i++) if (this.hit('slot' + i)) c.slot = i - 1;
     c.moveX = (this.down('moveL') ? 1 : 0) - (this.down('moveR') ? 1 : 0); c.moveZ = (this.down('moveF') ? 1 : 0) - (this.down('moveB') ? 1 : 0);
@@ -130,7 +130,7 @@ export class Input {
       c.reload = c.reload || this.edge(2); c.grenade = c.grenade || this.edge(5) || this.edge(4);
       c.crouch = c.crouch || this.btn(1);
       if (this.edge(3)) c.swap += 1; if (this.edge(12)) c.slot = 0; if (this.edge(15)) c.slot = 1; if (this.edge(13)) c.slot = 2; if (this.edge(14)) c.slot = 3;
-      c.medkit = c.medkit || this.edge(11); c.melee = false;
+      c.medkit = c.medkit || this.edge(11); c.viewToggle = c.viewToggle || this.edge(8);
       c.moveX += -applyDead(this.pad.axes[0] || 0); c.moveZ += -applyDead(this.pad.axes[1] || 0);
       c.moveX = clamp(c.moveX, -1, 1); c.moveZ = clamp(c.moveZ, -1, 1);
     }

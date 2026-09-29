@@ -70,6 +70,39 @@ export class Game {
     return this;
   }
 
+  /**
+   * Warm meshes before they are ever drawn: upload their textures (one per frame) and compile their programs asynchronously
+   * (KHR_parallel_shader_compile) against the same kind of HDR target the post pipeline renders into. Resolves when done.
+   */
+  warmMeshes(meshes) {
+    const texKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'bumpMap'];
+    const texs = [];
+    for (const m of meshes) for (const mat of [].concat(m.material || [])) for (const k of texKeys) if (mat && mat[k] && !mat[k].__up) { mat[k].__up = true; texs.push(mat[k]); }
+    const q = this._texQueue || (this._texQueue = []);
+    const texDone = texs.length ? new Promise((res) => { q.push(...texs); q.push(res); }) : Promise.resolve();
+    return texDone.then(async () => {
+      if (!this._warmRT) this._warmRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
+      const vis = meshes.map((m) => m.visible);
+      for (const m of meshes) m.visible = true;
+      const prev = this.renderer.getRenderTarget();
+      if (this.post) this.renderer.setRenderTarget(this._warmRT);
+      let p;
+      try { p = this.renderer.compileAsync(meshes.length === 1 ? meshes[0] : Object.assign(new THREE.Group(), { children: meshes }), this.camera, this.scene); } catch (e) { p = Promise.resolve(); }
+      this.renderer.setRenderTarget(prev);
+      meshes.forEach((m, i) => { m.visible = vis[i]; });
+      try { await p; } catch { /* ignore */ }
+    });
+  }
+  _pumpTextures() {
+    const q = this._texQueue; if (!q || !q.length) return;
+    const t0 = performance.now();
+    while (q.length && performance.now() - t0 < 4) {
+      const t = q.shift();
+      if (typeof t === 'function') { t(); continue; }
+      try { this.renderer.initTexture(t); } catch { /* ignore */ }
+    }
+  }
+
   setQuality(q) { this.quality = q; this.post?.setQuality(q); this.fx?.setQuality?.(q); }
 
   showGarage(truckId, paint, loadout) { this.mode = 'garage'; this.garage.setTruck(truckId, paint, loadout); this.hud.setVisible(false); if (this.post) this.post.enabled = false; }
@@ -105,7 +138,7 @@ export class Game {
     await run.init();
     this.run = run; this.mode = 'run'; this.paused = false;
     if (this.post) { this.post.enabled = true; this.post.cut?.(); }
-    this.hud.setVisible(true); this.hud.show({ driver: run.driverLocal, gunner: run.gunnerLocal });
+    this.hud.setVisible(true); this.hud.show({ driver: run.humanDriver, gunner: run.humanGunner });
     const pad = this.input.lastDevice === 'pad';
     const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>Y</b> FLIP' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>R</b> FLIP',
       gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>B</b> DUCK' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>CTRL</b> DUCK',
@@ -126,6 +159,7 @@ export class Game {
     input.poll();
     if (this.mode === 'run' && this.run) this._runFrame(dt, now);
     else if (this.mode === 'garage') { this.garage.update(dt, input); this.garage.render(); }
+    this._pumpTextures();
     this.audio?.update(dt);
     input.endFrame();
     this.frames++;
@@ -135,7 +169,7 @@ export class Game {
     const run = this.run, input = this.input;
     // pause: Esc / Start
     if ((input.hit('pause') || input.edge(9)) && this.onPause && !run.over) this.onPause();
-    const frozen = this.paused && run.role === 'solo';
+    const frozen = this.paused && !run.net;
     let cmds;
     if (run.role === 'solo') cmds = input.solo(dt);
     else if (run.role === 'driver') cmds = { driver: input.driver(dt), gunner: input.gunner(dt) };
@@ -173,7 +207,7 @@ export class Game {
     const t3 = performance.now();
     this.hud.update(dt, run.hud2);
     // mouse capture prompt for mouse users who aim
-    const needLock = !window.__aimbot && !window.__camOverride && run.gunnerLocal && !this.paused && !run.over && this.input.lastDevice !== 'pad' && !this.input.locked;
+    const needLock = !window.__aimbot && !window.__camOverride && run.humanGunner && run.role !== 'driver' && !this.paused && !run.over && this.input.lastDevice !== 'pad' && !this.input.locked;
     if (!this._lockEl) { const e = this._lockEl = document.createElement('div'); e.textContent = 'CLICK TO AIM'; e.style.cssText = 'position:fixed;left:50%;top:58%;transform:translateX(-50%);padding:10px 22px;background:rgba(0,0,0,.55);color:#ffc21a;font:600 16px Bahnschrift,Segoe UI,sans-serif;letter-spacing:4px;border-left:3px solid #ffc21a;pointer-events:none;z-index:4;display:none'; document.body.appendChild(e); }
     this._lockEl.style.display = needLock ? 'block' : 'none';
     if (t3 - t0 > 80) (window.__hitches || (window.__hitches = [])).push({ at: +(performance.now() / 1000).toFixed(1), sim: +(t1 - t0).toFixed(0), look: +(t2 - t1).toFixed(0), render: +(t3 - t2).toFixed(0), chunks: run.streamer?.stats?.built, cars: run.states.size, progs: this.renderer.info.programs?.length, ev: (run.allEvents || []).map((e) => e.t).join(',').slice(0, 120) });

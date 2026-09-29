@@ -111,7 +111,7 @@ export class Hud {
     if (d.spreadPx !== undefined) {
       const g = Math.max(4, Math.min(80, d.spreadPx));
       q.crossH[0].style.left = (-g - 9) + 'px'; q.crossH[1].style.left = g + 'px'; q.crossV[0].style.top = (-g - 9) + 'px'; q.crossV[1].style.top = g + 'px';
-      q.scope.style.display = d.scoped ? 'block' : 'none'; q.cross.style.opacity = d.scoped ? 0 : 1;
+      q.scope.style.display = d.scoped ? 'block' : 'none'; q.cross.style.opacity = d.scoped || d.hideCross ? 0 : 1;
     }
     if (d.weapon !== undefined) { q.wname.textContent = d.weapon; q.mag.textContent = d.reloading ? 'RELOAD' : d.mag; q.mag.style.fontSize = d.reloading ? '34px' : ''; }
     q.progbar.parentElement.parentElement.style.display = d.boss ? 'none' : ''; if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';

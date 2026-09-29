@@ -162,6 +162,7 @@ export class GunnerController {
     const M = this.muzzle; // set by the character view each frame (world position of the gun muzzle)
     if (!M.lengthSq()) M.copy(cam.position).addScaledVector(cam.dir, 1.0);
     this.mag[this.cur]--; this.shots++;
+    const D = this.dbg || (this.dbg = { shots: 0, aimOnCar: 0, rayHit: 0, rayWorld: 0, rayMiss: 0, muzzleDist: 0 }); D.shots++; if (this.aimCar) D.aimOnCar++; D.muzzleDist += M.distanceTo(cam.position);
     this.fireT = 60 / (w.rpm * (w.rate ? 1 : 1));
     if (w.mode === 'pump') this.pumpT = w.pumpTime; if (w.mode === 'bolt') this.boltT = w.boltTime;
     this.recoilAnim = 1;
@@ -173,7 +174,7 @@ export class GunnerController {
       ctx.emit({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), dir: _d.toArray(), rocket: true });
     } else {
       const shotEvents = [];
-      const ignore = new Set(['gunner', 'gunner2']);
+      const ignore = null; // (our own truck is never in the target list)
       for (let p = 0; p < w.pellets; p++) {
         // direction from the muzzle toward the crosshair point, perturbed within the cone
         _d.copy(this.aimPoint).sub(M);
@@ -205,7 +206,8 @@ export class GunnerController {
     for (let pass = 0; pass <= pierce; pass++) {
       // exclude our own truck's bodywork (we stand inside it): ghost/own car raycast skips own id
       const hit = this._raycastAll(ro, dr, remaining, ignore);
-      if (!hit) { rays.push({ end: ro.clone().addScaledVector(dr, remaining).toArray() }); break; }
+      if (!hit) { if (pass === 0 && this.dbg) this.dbg.rayMiss++; rays.push({ end: ro.clone().addScaledVector(dr, remaining).toArray() }); break; }
+      if (pass === 0 && this.dbg) { if (hit.world) this.dbg.rayWorld++; else this.dbg.rayHit++; }
       const end = hit.point;
       const dist = ro.distanceTo(end) + (o.distanceTo(ro));
       const [f0, f1, fm] = w.falloff;
