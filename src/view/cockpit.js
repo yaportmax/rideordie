@@ -117,8 +117,23 @@ export class Cockpit {
   }
   _mirrors() {
     const S = this.shield;
-    // centre mirror: the truck's own one gets live glass; otherwise hang one from the roof at the top of the windshield
-    if (this.rvm) {
+    // preferred: the model's explicit mirror-glass sockets (+Z faces back into the cab; door ones ride on the door panels)
+    const GLASS = { truck_t1: [0.09, 0.14], truck_t2: [0.13, 0.23], truck_t3: [0.12, 0.19], truck_t4: [0.14, 0.21] }[this.cv.spec.id] || [0.12, 0.19];
+    const sC = this.model.getObjectByName('mirror_C'), sL = this.model.getObjectByName('mirror_L'), sR = this.model.getObjectByName('mirror_R');
+    if (sC) {
+      const W = 0.25 * 0.97, H = 0.07 * 0.92, uw = 0.4, vh = (uw * RT_W) / (W / H) / RT_H;
+      const g = this._mirrorGlass(W, H, 0.5 + uw / 2, 0.5 - uw / 2, 0.56 - vh / 2, 0.56 + vh / 2); g.name = 'mirror_centre'; g.position.z = 0.002;
+      sC.add(g); (this.sideGlass || (this.sideGlass = [])).push(g);
+    }
+    for (const [side, sk] of [['L', sL], ['R', sR]]) {
+      if (!sk) continue;
+      const w = GLASS[0] * 0.96, h = GLASS[1] * 0.96, vh2 = 0.52, uw2 = (w / h) * vh2 * RT_H / RT_W;
+      const mg = side === 'L' ? this._mirrorGlass(w, h, 0.86, 0.86 - uw2, 0.5 - vh2 / 2, 0.5 + vh2 / 2) : this._mirrorGlass(w, h, 0.14 + uw2, 0.14, 0.5 - vh2 / 2, 0.5 + vh2 / 2);
+      mg.name = 'mirror_' + side; mg.position.z = 0.002; sk.add(mg); (this.sideGlass || (this.sideGlass = [])).push(mg);
+    }
+    if (sC || sL || sR) { this._mirrorsFromSockets = true; }
+    // fallback (models without mirror sockets): the truck's own rear-view mirror gets live glass; otherwise hang one from the roof
+    if (sC) { /* done */ } else if (this.rvm) {
       const b = this.rvm, W = (b.max.x - b.min.x) * 0.92, H = (b.max.y - b.min.y) * 0.84;
       const uw = 0.4, vh = (uw * RT_W) / (W / H) / RT_H;
       const g = this._mirrorGlass(W, H, 0.5 + uw / 2, 0.5 - uw / 2, 0.56 - vh / 2, 0.56 + vh / 2); g.name = 'mirror_centre';
@@ -137,7 +152,7 @@ export class Cockpit {
     }
     // side mirrors: glass on the rear face of the door housings (children of the door panel: a thrown door takes its mirror along)
     for (const side of ['L', 'R']) {
-      const b = this.housings[side]; if (!b) continue;
+      const b = this.housings[side]; if (!b || this._mirrorsFromSockets) continue;
       const door = this.cv.panels.get('armor_' + side) || this.cv.panels.get('door_' + side) || this.model;
       const w = (b.max.x - b.min.x) * 0.82, h = (b.max.y - b.min.y) * 0.78;
       const vh2 = 0.52, uw2 = (w / h) * vh2 * RT_H / RT_W;

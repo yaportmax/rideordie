@@ -85,7 +85,8 @@ export class WorldView {
       const far = camPos ? st.pos.distanceTo(camPos) > (st.kind === 'player' ? 1e9 : 130) : false;
       const off = frustum && st.kind !== 'player' ? !frustum.intersectsSphere(_sph.set(st.pos, 5)) && !(ctx.frustum2 && ctx.frustum2.intersectsSphere(_sph)) : false;
       const hideCrew = far || off;
-      if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 52 : dd > 62); }
+      let farCrew = false;
+      if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 52 : dd > 62); farCrew = dd > 40; }
       for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) crew.root.visible = !hideCrew;
       if (hideCrew) {
         // bodies thrown off the vehicle live in world space: keep them falling even when their car is off-screen
@@ -100,7 +101,7 @@ export class WorldView {
           alive, aimYaw: gs ? gs.yaw : 0, aimPitch: gs ? gs.pitch : 0, fire: gs ? gs.fire : false, crouch: gs ? gs.crouch : false, ads: gs ? gs.ads : false,
           reloading: gs ? gs.reloading : false, weaponId: st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null, steer: st.steer, speed: st.speed, quat: st.quat, vel: st.vel,
           local: st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null, exploded: st.exploded,
-          bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0, airborne: !!st.airborne,
+          bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0, airborne: !!st.airborne, far: farCrew,
         });
       }
       this._damageVisuals(rec, st);

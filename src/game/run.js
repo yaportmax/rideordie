@@ -437,6 +437,12 @@ export class Run {
       if (cmds.driver.cameraToggle) this.chase.toggle();
       if (ck) { ck.setActive(this.chase.mode === 0 && !lookBackEye && !this.introOutside); ck.update(dt, this.hud2, g.look?.night ?? 0); }
       g.audio?.setCabin?.(ck && ck.active ? 1 : 0);
+      const cl = g.cabinLight;
+      if (cl) {
+        const on = ck && ck.active ? clamp(((g.look?.night ?? 0) - 0.1) / 0.5, 0, 1) : 0;
+        cl.intensity = on * 0.25;
+        if (on > 0) cl.position.copy(cockpitEye).addScaledVector(_f.set(0, 0, 1).applyQuaternion(pst.quat), 0.42).addScaledVector(_v.set(0, 1, 0).applyQuaternion(pst.quat), -0.28);
+      }
       this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion);
     } else if (this.gunner) {
       g.audio?.setCabin?.(0); if (this.abridge) this.abridge.windGain = this.gcam.firstPerson ? 1.3 : 1; // standing in the open bed: the wind roars

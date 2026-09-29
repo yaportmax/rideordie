@@ -278,7 +278,7 @@ export class CrewView {
     this.crouch += ((s.crouch ? 1 : 0) - this.crouch) * Math.min(1, dt * 10);
     this.sinceShot += dt;
     const wo = this._gunnerLayers(dt, s, clipMode);
-    this.mixer?.update(dt);
+    this._tick(dt, s.far);
     // body follows the aim with a lag (spine takes up to ~50 deg of the difference)
     let diff = Math.atan2(Math.sin(yawL - this.bodyYaw), Math.cos(yawL - this.bodyYaw));
     const lim = 0.85;
@@ -292,12 +292,13 @@ export class CrewView {
       const pitch = s.aimPitch;
       const n = this.spine.length || 1;
       for (const b of this.spine) { _q.setFromEuler(_eul.set(-pitch * 0.55 / n, diff / n, 0, 'YXZ')); b.quaternion.premultiply(_q); }
-      if (!clipMode && this.flinchT > 0) { this.flinchT -= dt; const k = Math.sin(Math.min(1, this.flinchT / 0.3) * Math.PI) * 0.35; if (this.spine[0]) this.spine[0].quaternion.premultiply(_q.setFromAxisAngle(_n.set(1, 0, 0), -k)); }
+      if (clipMode) this.flinchT = 0;                  // clip hits handle it (see flinch())
+      else if (this.flinchT > 0) { this.flinchT -= dt; const k = Math.sin(Math.min(1, this.flinchT / 0.3) * Math.PI) * 0.35; if (this.spine[0]) this.spine[0].quaternion.premultiply(_q.setFromAxisAngle(_n.set(1, 0, 0), -k)); }
       this.model.updateMatrixWorld(true);
     }
     const cp = Math.cos(s.aimPitch);
     _d.set(Math.sin(s.aimYaw) * cp, Math.sin(s.aimPitch), Math.cos(s.aimYaw) * cp); // world aim dir
-    if (clipMode) this._clipWeapon(s, wo);
+    if (clipMode) { if (!s.far) this._clipWeapon(s, wo); else if (this.nade) this.nade.visible = false; }
     else this._fpWeapon(dt, s, fp, useVm);
     if (this.weapon) {
       const ovReload = !!(this.ov && this.ov.kind === 'reload');
@@ -309,6 +310,15 @@ export class CrewView {
       if (useVm) this.vm.update(dt, s, !s.local.scoped);
       else { this.vm.setVisible(false); if (s.local && s.local.gunner) s.local.gunner.fp = false; }
     }
+  }
+
+  /** Mixer update; far crews (> 40 m, s.far from world_view) tick at half rate (the pose holds a frame). */
+  _tick(dt, far) {
+    if (!this.mixer) return;
+    this.mixAcc = (this.mixAcc || 0) + dt;
+    if (far && !this.mixSkip) { this.mixSkip = true; return; }
+    this.mixSkip = false;
+    this.mixer.update(this.mixAcc); this.mixAcc = 0;
   }
 
   /** Where the weapon belongs this frame in the clip path (throws move it to the left hand). */
@@ -380,7 +390,7 @@ export class CrewView {
         _q3.copy(_qI.identity()).slerp(_q, aimW * Math.min(1, 0.7 / ang));
         chest.getWorldQuaternion(_q2); _q2.premultiply(_q3);
         chest.parent.getWorldQuaternion(_qp).invert(); chest.quaternion.copy(_qp.multiply(_q2));
-        this.model.updateMatrixWorld(true);
+        chest.updateMatrixWorld(true);
       }
     }
     // support hand: shift it along the weapon by (real grip_L - the class grip_L the clips were authored for)
@@ -486,12 +496,13 @@ export class CrewView {
     const rest = (1 - wo) * (1 - this.braceK);
     if (this.aL) { this.aL.setEffectiveWeight(rest * Math.max(0, k)); this.aR.setEffectiveWeight(rest * Math.max(0, -k)); this.aBase.setEffectiveWeight(rest * (1 - Math.abs(k) * 0.8)); }
     if (this.aBrace) this.aBrace.setEffectiveWeight(this.braceK * (1 - wo));
-    this.mixer?.update(dt);
+    this._tick(dt, s.far);
     // per-hand wheel-IK weight: the shout lets go with the left hand, a hit knocks the right hand off
     let wL = 1, wR = 1;
     if (this.ov && this.ov.kind === 'shout') { const t = this.ov.a.time; wL = 1 - smooth01(SHOUT_IK[0], SHOUT_IK[1], t) * (1 - smooth01(SHOUT_IK[2], SHOUT_IK[3], t)); }
     if (this.hitRT > 0) { this.hitRT -= dt; const t = 0.25 - this.hitRT; wR = 1 - smooth01(0.0, 0.05, t) * (1 - smooth01(0.12, 0.25, t)); }
-    this._wheelIK(wL, wR);
+    if (!s.far || this.driverShift === undefined) this._wheelIK(wL, wR);
+    else if (this.wheelMesh) this.wheelMesh.rotation.z = -this.steer * 2.6;
     if (this.flinchT > 0) { this.flinchT -= dt; }
   }
 

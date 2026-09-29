@@ -46,8 +46,8 @@ export class Director {
     }
     // how much the raiders hurt, by level: rounds (x the per-round growth in ai.shoot), rams, blasts next to you
     sim.enemyDamageMul = 0.55 + 0.4 * Math.min(L, 0.55) + 0.12 * Math.max(0, L - 0.55);   // (flattens on the last stretch: a maxed rig must reach the dam)
-    sim.enemyRamMul = 0.38 + 0.3 * Math.min(L, 1);
-    sim.playerBlastMul = 0.18 + 0.17 * Math.min(L, 1);
+    sim.enemyRamMul = 0.38 + 0.2 * Math.min(L, 1);
+    sim.playerBlastMul = 0.18 + 0.1 * Math.min(L, 1);
     sim.playerCarBlastMul = 0.6;   // raider cars cooking off beside you (the chain-reaction show) sting less than rockets and mines
     // accumulate budget with a slow pulse (waves and lulls)
     this.pulse += dt * (0.45 + 0.2 * L);

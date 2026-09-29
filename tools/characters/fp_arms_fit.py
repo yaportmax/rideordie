@@ -49,7 +49,7 @@ def hand_geo(rig, S, side):
     return dict(d0=d0, lat=lat, palm=palm, wrist=w, mcp=mcp, mc=mc, palm_skin=palm_skin, back_skin=back_skin)
 
 
-def socket_R(rig, S, rake=RAKE_R, half_w=15.0, back=24.0):
+def socket_R(rig, S, rake=RAKE_R, half_w=15.0, back=24.0, high=18.0):
     g = hand_geo(rig, S, "Right")
     X = unit(g["palm"])                                    # the right palm faces the gun's LEFT
     u = unit(-g["lat"] - X * np.dot(-g["lat"], X))         # pinky -> index = up along the grip
@@ -61,7 +61,8 @@ def socket_R(rig, S, rake=RAKE_R, half_w=15.0, back=24.0):
     Z = np.sin(r) * u + np.cos(r) * f
     Rm = np.stack([X, Y, Z], axis=1)
     mid = (g["mcp"]["Index"] + g["mcp"]["Middle"]) * 0.5 * 0.35 + g["mcp"]["Middle"] * 0.65
-    pos = mid - f * (back / 1000.0) + X * (g["palm_skin"] + 0.001 + half_w / 1000.0)
+    # high grip: the web of the hand rides up under the tang -> the grip centre sits `high` mm lower in the hand
+    pos = mid - f * (back / 1000.0) + X * (g["palm_skin"] + 0.001 + half_w / 1000.0) - u * (high / 1000.0)
     return pos, Rm, g
 
 

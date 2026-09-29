@@ -34,6 +34,9 @@ export class Game {
     this.hud = new Hud(); this.hud.setVisible(false);
     // player headlights: always in the scene (intensity 0 by day) so the light count never changes => no shader recompiles
     this.lampLights = new NightLights(this.scene);   // pooled street-lamp point lights (constant light count)
+    // cockpit fill: a dim warm dash/instrument glow so the driver's hands and wheel read at night (always in the scene:
+    // constant light count => no shader recompiles; intensity 0 unless the local driver is in the cockpit at night)
+    this.cabinLight = new THREE.PointLight(0xffc48a, 0, 1.9, 2); this.cabinLight.castShadow = false; this.cabinLight.name = 'cabin_light'; this.scene.add(this.cabinLight);
     this.headlights = [0, 1].map(() => { const l = new THREE.SpotLight(0xffe6c4, 0, 95, 0.5, 0.85, 1.35); l.castShadow = false; this.scene.add(l, l.target); return l; });
     this.run = null; this.look = null; this.frames = 0; this.last = performance.now();
     this.fx = null; this.audio = null; this.post = null; this.ui = null; this.garage = null;

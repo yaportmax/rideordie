@@ -14,6 +14,7 @@ from glb import Glb, FLOAT, UBYTE  # noqa: E402
 import fp_arms_rig as RIG  # noqa: E402
 
 CACHE = os.path.join(HERE, "_cache", "fp_arms")
+SOCKETS = None
 REGION = {"skin": 0, "glove": 1, "glove_palm": 2, "wrap": 3, "watch": 4, "strap": 5, "metal": 6, "cord": 7, "glass": 8, "nail": 9,
           "hem": 10}
 
@@ -47,7 +48,7 @@ def write_glb(path, geo, S, tex, rig, clips):
         p = rig.parent[b]
         if p is not None:
             g.g["nodes"][node[p]].setdefault("children", []).append(node[b])
-    socks = RIG.sockets(S)
+    socks = SOCKETS or RIG.sockets(S)
     for name, (pos, q) in socks.items():
         hb = "RightHand" if name.endswith("_R") else "LeftHand"
         n = g.node(name, t=pos - rig.H[hb], r=q)
@@ -125,7 +126,13 @@ def stage3(geo_npz, src_npz, out_glb, size, quick=False, reuse=False):
     S = np.load(src_npz)
     rig = RIG.FpRig(S)
     assert [str(b) for b in geo["bones"]] == rig.bones
-    clips = {name: rig.finger_locals(p) for name, p in RIG.POSES.items()}
+    import fp_arms_fit as FIT
+    global SOCKETS
+    poses, SOCKETS, _ = FIT.solve_poses(rig, S)
+    for cname, sides in poses.items():
+        print("  %s  R %s | L %s" % (cname, {k: v for k, v in sides["Right"].items() if not k.startswith("_")},
+                                     {k: v for k, v in sides["Left"].items() if not k.startswith("_")}))
+    clips = {name: rig.finger_locals(p) for name, p in poses.items()}
     tex_cache = os.path.join(CACHE, "tex.npz")
     if quick:
         tex = quick_textures(geo, size)

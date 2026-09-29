@@ -210,6 +210,23 @@ Notes
 - Rotations are stored as normalized int16 quaternions (core glTF, three.js rescales on load) with per-track keyframe
   reduction (0.25 deg body / 1 deg fingers / 1 mm hips); all animation data shares one bufferView.
 
+## Runtime (`src/view/crew_view.js`)
+- Third-person gunners (raiders, title / garage / intro / death camera, the co-op partner): weapon on `socket_hand_R`; base
+  `idle_stand` / `idle_pistol` / `idle_launcher` by weapon class, `aim_<class>` while aiming or firing, `crouch_idle`,
+  additive `fire_<class>` kicks per shot and the additive `fire_rifle_auto` loop for fast rifle-class fire; `reload_<class>`
+  on reload (AI crews reload cosmetically after a magazine's worth of shots); `throw_grenade` with the weapon moved to
+  `socket_hand_L`; `taunt` / `shout` idles and a taunt when their car kills one of the player's crew; hits pick
+  `hit_<dir>` (additive) or `hit_<dir>_heavy` from the hit point / damage; a Spine2 correction keeps the muzzle on the aim
+  line and the support hand is IK-shifted to the real weapon's `grip_L`.
+- The local first-person gunner keeps the procedural gun frame + arm IK (shadow-only body, viewmodel draws the arms).
+- Drivers: sit loops + `sit_brace` (airborne / after crashes), additive `sit_impact` on crashes and `sit_hit` on hits,
+  random `sit_glance_L/R`, `sit_shout` in open cabs; wheel-rim IK with per-hand weights; seated deaths fade the IK out.
+- Deaths: explosion -> `death_blown_up`; railed vehicles (`e_buggy`, `e_technical`) facing forward -> sometimes
+  `death_slump_rail`; head shots -> mostly `death_crumple`; side hits -> `death_thrown_left/right`; otherwise
+  `death_thrown_back` (moving) or `death_fall`.  Leaving bodies detach to world space with an upright root, keep 90 % of the
+  vehicle's horizontal speed, ease down to the ground over the clip's airborne window and slide to a stop.
+- Crews beyond 40 m tick their mixer at half rate and skip the aim / IK corrections (~0.12 ms per crew update).
+
 ## Rebuild / QA
 ```
 C:/Dev/conduit/art_src/venv/Scripts/python.exe tools/characters/build_all.py [hero_gunner hero_driver raider_a ...]

@@ -12,7 +12,7 @@ export const ENEMY_GUNS = {
   mg_warlord: { rate: 9, burst: [9, 15], pause: [2.4, 3.6], dmg: 2.8, speed: 185, spread: 2.8, range: 140, aimRate: 1.3, pellets: 1, react: [1.0, 1.5], heavy: true, model: 'hmg' },
   hmg_warlord: { rate: 8, burst: [8, 16], pause: [2.0, 3.2], dmg: 4.6, speed: 210, spread: 2.2, range: 160, aimRate: 1.2, pellets: 1, react: [1.0, 1.5], heavy: true, model: 'hmg' },
   hmg:     { rate: 8,   burst: [10, 22], pause: [1.3, 2.4], dmg: 5.2, speed: 215, spread: 2.1, range: 165, aimRate: 1.3, pellets: 1, react: [1.0, 1.6], heavy: true },
-  rpg:     { rate: 0.35, burst: [1, 1], pause: [5.5, 8.0], dmg: 0, speed: 60, spread: 1.3, range: 150, aimRate: 1.4, pellets: 1, react: [1.3, 2.0], rocket: { speed: 58, blast: 8, blastDmg: 60, direct: 36 } },
+  rpg:     { rate: 0.35, burst: [1, 1], pause: [5.5, 8.0], dmg: 0, speed: 60, spread: 1.3, range: 150, aimRate: 1.4, pellets: 1, react: [1.3, 2.0], rocket: { speed: 58, blast: 8, blastDmg: 48, direct: 28 } },
 };
 
 export const ENEMIES = {
