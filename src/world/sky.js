@@ -9,6 +9,15 @@ export class SkyRig {
     this.shadowSize = opts.shadowSize ?? 4096;
     this.shadowExtent = opts.shadowExtent ?? 55;
     this.sky = new Sky(); this.sky.scale.setScalar(20000); this.sky.material.depthWrite = false;
+    // the visible sky dome can be dimmed toward the sun without dimming the IBL (envSky): keeps the horizon from blowing out
+    this.skyScale = { value: 1 }; this.sunGlow = { value: 1 };
+    this.sky.material.onBeforeCompile = (sh) => {
+      sh.uniforms.uSkyScale = this.skyScale; sh.uniforms.uSunGlow = this.sunGlow;
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform float uSkyScale; uniform float uSunGlow;\nvoid main() {')
+        .replace('gl_FragColor = vec4( texColor, 1.0 );', 'float toSun = max(0.0, dot(normalize(vWorldPosition - cameraPosition), vSunDirection));\n'
+          + 'texColor *= uSkyScale * mix(1.0, uSunGlow, smoothstep(0.2, 0.95, toSun));\ngl_FragColor = vec4( texColor, 1.0 );');
+    };
+    this.sky.material.customProgramCacheKey = () => 'rod_sky';
     scene.add(this.sky);
     this.skyScene = new THREE.Scene();
     this.envSky = new Sky(); this.envSky.scale.setScalar(20000); this.skyScene.add(this.envSky);
@@ -50,6 +59,7 @@ export class SkyRig {
     this.moon.intensity = look.moonI * (1 - sunFade * 0.8);
     this.hemi.color.copy(look.hemiSky); this.hemi.groundColor.copy(look.hemiGnd); this.hemi.intensity = look.hemiI;
     this.fog.color.copy(look.fog); this.fog.density = look.fogD;
+    this.skyScale.value = look.skyScale ?? 0.8; this.sunGlow.value = look.sunGlow ?? 0.55;
     this.renderer.toneMappingExposure = look.exp;
     const key = `${(look.sun / 3) | 0}|${(look.turb) | 0}|${(look.ray * 2) | 0}`;
     if (force || (key !== this._lastEnvKey && this._envAge > 4)) this.rebuildEnv(key);

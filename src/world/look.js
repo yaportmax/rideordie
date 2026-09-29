@@ -6,7 +6,7 @@ import { smoothstep, lerp } from '../core/util.js';
 const C = (h) => new THREE.Color(h);
 // one look per biome, anchored at the biome's midpoint
 export const LOOKS = {
-  desert:   { sun: 38, az: 205, turb: 7, ray: 1.3, mie: 0.0035, exp: 0.95, fog: C(0xd9b48a), fogD: 0.00075, sunCol: C(0xffe6c0), sunI: 2.8, hemiSky: C(0xbcd2ff), hemiGnd: C(0xb08a5e), hemiI: 0.35, moonI: 0, night: 0 },
+  desert:   { sun: 38, az: 205, turb: 4.5, ray: 1.1, mie: 0.0022, exp: 0.9, fog: C(0xcfae8c), fogD: 0.0006, sunCol: C(0xffe6c0), sunI: 2.8, hemiSky: C(0xbcd2ff), hemiGnd: C(0xb08a5e), hemiI: 0.35, moonI: 0, night: 0 },
   canyon:   { sun: 56, az: 190, turb: 6, ray: 1.6, mie: 0.005, exp: 0.90, fog: C(0xd6a37c), fogD: 0.00090, sunCol: C(0xfff2dc), sunI: 3.1, hemiSky: C(0xa8c0ff), hemiGnd: C(0xa0553a), hemiI: 0.35, moonI: 0, night: 0 },
   coast:    { sun: 17, az: 250, turb: 4, ray: 2.1, mie: 0.004, exp: 0.90, fog: C(0xf0a877), fogD: 0.00080, sunCol: C(0xffbb80), sunI: 2.8, hemiSky: C(0x9cb8f0), hemiGnd: C(0x8a6a55), hemiI: 0.35, moonI: 0, night: 0 },
   mountain: { sun: 4,  az: 235, turb: 3, ray: 2.6, mie: 0.005, exp: 0.95, fog: C(0xc98c82), fogD: 0.00110, sunCol: C(0xff8a4c), sunI: 2.6, hemiSky: C(0x9aa6e6), hemiGnd: C(0x6a5860), hemiI: 0.35, moonI: 0.15, night: 0.1 },
