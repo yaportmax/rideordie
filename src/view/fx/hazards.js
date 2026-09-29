@@ -94,6 +94,8 @@ export class HazardFx {
   constructor(fx) {
     this.fx = fx; this.items = []; for (let i = 0; i < 24; i++) this.items.push({ live: false, enemy: false, pool: null, slot: 0, t: 0, a0: 0, a1: 0, a2: 0 });
     this.boosts = []; for (let i = 0; i < 8; i++) this.boosts.push({ live: false, t: 0, cv: null, st: null, acc: 0 });
+    // oil slicks (for oil fires: an explosion / burning barrel on a slick sets it alight)
+    this.slicks = []; for (let i = 0; i < 12; i++) this.slicks.push({ live: false, x: 0, y: 0, z: 0, r: 0, t0: 0, end: 0, burn: -1, a0: 0, a1: 0 });
   }
 
   async load(scene, U) {
@@ -142,6 +144,8 @@ export class HazardFx {
     const dir = e.dir || [0, 1], r = e.r || 5;
     const gy = fx.groundAt(p[0], p[2], p[1] - 0.6);
     this.oil.add(p[0], gy, p[2], r * 1.3, dir[0], dir[1], 8, fx.rng.next() * 10, fx.time);
+    let sl = this.slicks.find((o) => !o.live || fx.time > o.end); if (!sl) sl = this.slicks[0];
+    sl.live = true; sl.x = p[0]; sl.y = gy; sl.z = p[2]; sl.r = r * 1.1; sl.t0 = fx.time; sl.end = fx.time + 8; sl.burn = -1; sl.a0 = sl.a1 = 0;
     if (!fx.near(p[0], gy, p[2], 150)) return;
     const rng = fx.rng;
     for (let i = 0; i < 10 * fx.qd; i++) {                                    // splat droplets
@@ -195,21 +199,41 @@ export class HazardFx {
         if (it.a0 >= per) { it.a0 = 0; R.glow(fx, x, y + 0.08, z, 0.45, 0.12, 6, 0.3, 0.15, false, 1.0); R.glow(fx, x, y + 0.08, z, 1.3, 0.12, 1.2, 0.05, 0.02, true, 1.0); }
         continue;
       }
-      // burning barrel: flames from the open top, black smoke, embers, a glow pool
+      // burning barrel: flames licking out of the open top (leaning with the wind), black smoke, embers, a glow pool
       const top = y + this.barrelH * 0.5;
-      let a = it.a1 + 14 * fx.qd * dt;
+      let a = it.a1 + 16 * fx.qd * dt;
       while (a >= 1) {
-        a -= 1; const q = fx.p.reset(), w = rng.range(0.7, 1.05);
-        q.pos(x + rng.sym(0.15), top - 0.05, z + rng.sym(0.15)).vel(rng.sym(0.3), rng.range(1, 2), rng.sym(0.3)); q.spr = SPR.FIRE; q.mode = MODE.UPRIGHT; q.pivot = 1; q.aspect = 1.8;
-        q.f0 = rng.int(16); q.nPlay = 16; q.fps = 26; q.size(w, w * 0.6); q.drag = 0.8; q.life = rng.range(0.4, 0.65); q.wind = 0.4;
-        q.col0(1.9, 1.05, 0.45, 1).col1(1.2, 0.42, 0.16, 1); q.add0 = q.add1 = 1; q.fin = 0.08; q.fout = 0.55; fx.pf.emit(q);
+        a -= 1; const w = rng.range(0.45, 0.72);
+        R.flame(fx, x + rng.sym(0.14), top - 0.06, z + rng.sym(0.14), rng.sym(0.3), rng.range(0.6, 1.4), rng.sym(0.3), w, w * rng.range(2.0, 2.8), rng.range(0.4, 0.7), 1.1, 3, 0, 1.0, 1.25);
       }
       it.a1 = a;
       let b = it.a2 + 3.5 * fx.qd * dt;
-      while (b >= 1) { b -= 1; R.puff(fx, x, top + 0.8, z, rng.sym(0.3), rng.range(1.5, 2.8), rng.sym(0.3), 0.5, rng.range(2.2, 3.2), rng.range(2.5, 3.5), 0.07, 0.065, 0.06, 0.7, 0.9, 0.5); }
+      while (b >= 1) { b -= 1; R.puff(fx, x, top + 1.0, z, rng.sym(0.3), rng.range(1.5, 2.8), rng.sym(0.3), 0.5, rng.range(2.4, 3.4), rng.range(2.8, 3.8), 0.06, 0.057, 0.054, 0.75, 0.9, 0.5, -1e4, 1.2); }
       it.a2 = b;
       if (rng.next() < dt * 2) R.ember(fx, x, top + 0.2, z, rng.sym(1), rng.range(2, 4), rng.sym(1), rng.range(0.8, 1.5), 0.12, 0.9);
-      R.glow(fx, x, top + 0.2, z, 1.6 + 0.2 * Math.sin(fx.time * 17 + i), 0.05, 1.1, 0.5, 0.14, true, 1.0);
+      R.glow(fx, x, top + 0.25, z, 1.6 + 0.2 * Math.sin(fx.time * 17 + i), 0.05, 0.9, 0.4, 0.11, true, 1.0);
+      // a barrel rolling onto an oil slick lights it
+      if (it.t > 0.3) this.igniteNear(x, z, 0.5);
+    }
+    // oil fires: low, wide flames over the slick, a column of black smoke, one flickering light
+    for (const sl of this.slicks) {
+      if (!sl.live) continue;
+      if (fx.time > sl.end) { sl.live = false; continue; }
+      if (sl.burn < 0) continue;
+      sl.burn += dt;
+      const k = smooth(0, 0.6, sl.burn) * (1 - smooth(sl.end - 2.5, sl.end, fx.time));
+      if (!fx.near(sl.x, sl.y, sl.z, fx.farDist)) continue;
+      let a = sl.a0 + (10 + 5 * sl.r) * k * Math.max(0.5, fx.qd) * dt, n = 0;
+      while (a >= 1 && n < 5) {
+        a -= 1; n++;
+        const ang = rng.next() * PI2, d = sl.r * Math.sqrt(rng.next()) * 0.85, w = rng.range(0.8, 1.5) * (0.6 + 0.4 * k);
+        R.flame(fx, sl.x + Math.cos(ang) * d, sl.y + 0.03, sl.z + Math.sin(ang) * d, rng.sym(0.3), rng.range(0.4, 1.2), rng.sym(0.3), w, w * rng.range(1.3, 2.1), rng.range(0.5, 0.85), 1.05, 2.6, 0, 1.0, 1.3);
+      }
+      sl.a0 = a;
+      let b = sl.a1 + 4 * k * Math.max(0.5, fx.qd) * dt;
+      while (b >= 1) { b -= 1; R.puff(fx, sl.x + rng.sym(sl.r * 0.5), sl.y + 1.6, sl.z + rng.sym(sl.r * 0.5), rng.sym(0.5), rng.range(2.5, 4.5), rng.sym(0.5), 1.0, rng.range(4.5, 6.5), rng.range(4, 6), 0.035, 0.033, 0.032, 0.9, 1.1, 0.7, -1e4, 1.5 * k); }
+      sl.a1 = b;
+      if (k > 0.1) fx.glowLight(sl.x, sl.y + 1.4, sl.z, 1.0, 0.48, 0.16, (60 + 30 * Math.sin(fx.time * 15 + sl.x)) * k, 22, 8000 + (sl.x | 0));
     }
     // boost-pad streak bursts: speed lines pouring off the car for ~0.9 s
     for (const b of this.boosts) {
@@ -233,6 +257,18 @@ export class HazardFx {
     }
   }
 
-  clear() { for (const it of this.items) { if (it.live) it.pool.kill(it.slot); it.live = false; } for (const b of this.boosts) b.live = false; }
+  /** Set any live oil slick within `pad` m of (x,z) on fire (explosions, burning barrels). */
+  igniteNear(x, z, pad = 2) {
+    const fx = this.fx;
+    for (const sl of this.slicks) {
+      if (!sl.live || sl.burn >= 0 || fx.time > sl.end - 1) continue;
+      const dx = x - sl.x, dz = z - sl.z, rr = sl.r + pad;
+      if (dx * dx + dz * dz > rr * rr) continue;
+      sl.burn = 0; sl.end = Math.max(sl.end, fx.time + 7);
+      R.glow(fx, sl.x, sl.y + 0.8, sl.z, sl.r * 2.2, 0.25, 3, 1.4, 0.4, true, 1.3);
+    }
+  }
+
+  clear() { for (const it of this.items) { if (it.live) it.pool.kill(it.slot); it.live = false; } for (const b of this.boosts) b.live = false; for (const sl of this.slicks) sl.live = false; }
   dispose() { this.oil && this.oil.dispose(); this.mines && this.mines.dispose(); this.barrels && this.barrels.dispose(); }
 }

@@ -74,7 +74,7 @@ export class Game {
       const unlock = () => this.audio.unlock();
       addEventListener('pointerdown', unlock); addEventListener('keydown', unlock); addEventListener('gamepadconnected', unlock);
     } catch (e) { console.warn('audio disabled', e); this.audio = null; }
-    try { this.fx = new Fx(this.scene, this.camera, { quality: this.quality }); await this.fx.load(); } catch (e) { console.warn('fx disabled', e); this.fx = null; }
+    try { this.fx = new Fx(this.scene, this.camera, { quality: this.quality }); await this.fx.load(); this.fx.setDepthSource?.(this.post); } catch (e) { console.warn('fx disabled', e); this.fx = null; }
     this.garage = new GarageScene(this.renderer);
     return this;
   }

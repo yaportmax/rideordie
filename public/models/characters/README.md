@@ -8,13 +8,14 @@ procedural garments and gear, procedurally keyed clips).  Metres, **Y up, faces 
 |---|---|---|---|---|---|
 | `hero_gunner.glb` | player gunner: tank top, cargo pants, fingerless gloves, forearm wraps, goggles on the forehead, tattoos, brow scar | 1.83 m | 20.1k body + one armor tier (t1 3.3k, t2 5.9k, t3 6.5k) | 4.25 MB | gunner set (46) |
 | `hero_driver.glb` | player driver (woman): rust-orange leather bomber with crew emblem on the back, black tank, driving gloves, ponytail, pilot goggles on the head | 1.70 m | 25.3k | 3.76 MB | driver set (22) |
-| `raider_a.glb` | grunt: red bandana + matching face scarf (both tintable), round goggles, open leather vest with a painted skull on the back, bare tattooed chest, shell bandolier, **layered scrap pauldron with spikes (left)**, **machete across the back**, knee pads, patched cargo pants | 1.78 m | 11.9k | 1.78 MB | gunner set |
-| `raider_b.glb` | mohawk punk: studded vest with a red kill tally on the back, spiked leather pauldrons, **spiked collar**, spiked bracers, **spiked knee guards**, chains, torn jeans, face paint | 1.80 m (1.97 m incl. mohawk) | 11.3k | 1.71 MB | gunner set |
-| `raider_c.glb` | masked heavy: hockey mask, riveted scrap plates, car-door left pauldron **with spikes**, tyre right shoulder, **two rusted exhaust stacks rising behind the shoulders**, skull on the belt, pipe forearm guards, chain belt | 1.92 m, bulky | 12.5k | 1.67 MB | gunner set |
-| `raider_d.glb` | hooded bomber: hood up, **gas mask with twin filters** + goggles, dynamite vest with detonator (red LED), **backpack with dynamite bundles**, **molotov satchel** on the left hip, trigger in the right hand | 1.75 m | 13.2k | 1.83 MB | gunner set |
-| `raider_driver.glb` | cap with flight goggles, gold aviators, stubble, leather jacket with collar up, **spiked scrap pauldron on the door side (left)**, chain necklace, fingerless gloves | 1.78 m | 11.2k | 1.16 MB | driver set (22) |
+| `raider_a.glb` | grunt: red bandana + matching face scarf (both tintable), amber round goggles, rust-tan vest, khaki pants, open leather vest with a painted skull on the back, bare tattooed chest, shell bandolier, **layered scrap pauldron with spikes (left)**, **machete across the back**, knee pads, patched cargo pants | 1.78 m | 11.9k | 1.78 MB | gunner set |
+| `raider_b.glb` | mohawk punk: full white skull face paint, faded denim, studded vest with a red kill tally on the back, spiked leather pauldrons, **spiked collar**, spiked bracers, **spiked knee guards**, chains, torn jeans, face paint | 1.80 m (1.97 m incl. mohawk) | 11.3k | 1.71 MB | gunner set |
+| `raider_c.glb` | masked heavy: hockey mask with bold red slashes, riveted scrap plates, rust-red car-door left pauldron **with spikes**, tyre right shoulder, **two rusted exhaust stacks rising behind the shoulders**, skull on the belt, pipe forearm guards, chain belt | 1.92 m, bulky | 12.5k | 1.67 MB | gunner set |
+| `raider_d.glb` | hooded bomber: hazard-yellow hood up, **gas mask with twin filters** + amber goggles, dynamite vest with detonator (red LED), **backpack with dynamite bundles**, **molotov satchel** on the left hip, trigger in the right hand | 1.75 m | 13.2k | 1.83 MB | gunner set |
+| `raider_driver.glb` | bright red cap with flight goggles, mirrored gold aviators, eye-black war paint, tan jacket, stubble, leather jacket with collar up, **spiked scrap pauldron on the door side (left)**, chain necklace, fingerless gloves | 1.78 m | 11.2k | 1.16 MB | driver set (22) |
 
 Total: 16.2 MB (was 14 MB with 13 clips per file).  Raiders stay at 3 draw calls (`body`, `hair`, `eyes`; raider_c has no hair).
+Round 2: bolder, higher-contrast palettes (the near-black outfits made every raider a dark blob beyond 10 m).
 Trousers were repainted (folds gather at the waist and stack above the boots instead of full-length streaks; faded knees,
 seat/shin grime) and the crease darkening is softer.
 
@@ -225,7 +226,17 @@ Notes
   `death_slump_rail`; head shots -> mostly `death_crumple`; side hits -> `death_thrown_left/right`; otherwise
   `death_thrown_back` (moving) or `death_fall`.  Leaving bodies detach to world space with an upright root, keep 90 % of the
   vehicle's horizontal speed, ease down to the ground over the clip's airborne window and slide to a stop.
-- Crews beyond 40 m tick their mixer at half rate and skip the aim / IK corrections (~0.12 ms per crew update).
+- Readability layer (procedural, on top of the clips, for 10-30 m): upper-body inertia against the car's real
+  accelerations + a speed-scaled road bob (sway into turns, lurch on braking, head kept level); every hit adds a spring
+  "whip" (bend away from the shot, spin for side hits, head snap, overshoot) and plays the light hit at 1.8x or the heavy
+  stagger (dmg >= 10, head shots, or 35 % of hits); raider drivers work the wheel with a ~10:1 steering ratio + constant
+  sawing corrections, turn head and chest toward the player (locked on while the AI intent is ram / block, repeated looks
+  within 34 m, over the shoulder when you are behind); AI gunners yell / point after bursts and every 3-6 s within 38 m.
+- Deaths: moving gunners (72 %) and every explosion victim are thrown clear on a real ballistic arc (vehicle momentum + a
+  kick away from the shot, up to ~1.5 m high), flailing (`fall_flail`) while the body tumbles; on contact `land_back` /
+  `land_front` plays, the body hops, spins and slides to a stop on the road.  Shot drivers snap back before the slump.
+- Crews beyond 40 m tick their mixer at half rate and skip the aim / IK / readability passes; the readability layer costs
+  ~0.005 ms per crew update (A/B in one session).
 
 ## Rebuild / QA
 ```

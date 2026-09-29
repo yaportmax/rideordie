@@ -61,8 +61,17 @@ def samp3(vol, x, y, z):
     return ndi.map_coordinates(vol, [x.ravel(), y.ravel(), z.ravel()], order=1, mode="grid-wrap").reshape(x.shape)
 
 
-def to_img(rgb_lin, a, srgb=True):
+def edge_mask(h, w, frac=0.06):
+    """1 inside, fading to 0 at the frame border (no hard sprite edges when content reaches the border)"""
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    ex = np.minimum(xx + 0.5, w - xx - 0.5) / (w * frac); ey = np.minimum(yy + 0.5, h - yy - 0.5) / (h * frac)
+    return sstep(np.minimum(ex, ey), 0.0, 1.0)
+
+
+def to_img(rgb_lin, a, srgb=True, mask=True):
     """straight-alpha RGBA uint8. rgb in linear 0..1 is stored gamma-2 encoded (the particle shader squares it)."""
+    if mask:
+        a = a * edge_mask(*a.shape)
     c = np.sqrt(np.clip(rgb_lin, 0, 1)) if srgb else np.clip(rgb_lin, 0, 1)
     arr = np.dstack([c, np.clip(a, 0, 1)[..., None]])
     return (arr * 255 + 0.5).astype(np.uint8)

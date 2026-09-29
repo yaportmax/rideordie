@@ -20,9 +20,9 @@ const PROFILE = {
   dam:      { shape: 5, amp: 700, col: [0.36, 0.38, 0.44], band: [0.44, 0.45, 0.5], snow: 0.45, sea: 0.6, notch: 0.7 },
 };
 const LAYERS = [
-  { r: 3300, k: 1.0, mix: 0.66, seed: 1.3 },
-  { r: 4900, k: 1.3, mix: 0.44, seed: 4.1 },
-  { r: 7100, k: 1.6, mix: 0.25, seed: 7.7 },
+  { r: 3300, k: 1.0, mix: 0.84, seed: 1.3 },
+  { r: 4900, k: 1.3, mix: 0.62, seed: 4.1 },
+  { r: 7100, k: 1.6, mix: 0.4, seed: 7.7 },
 ];
 const N = 360;
 
@@ -131,7 +131,7 @@ const FRAG = /* glsl */`
       float on = step(0.83, h21(wc + uSeed)) * step(y, h - 6.0);
       lit += vec3(1.0, 0.72, 0.4) * on * uNight * 0.9;
     }
-    float haze = uMix * (0.32 + 0.68 * smoothstep(-0.05, 0.85, t));
+    float haze = uMix * (0.55 + 0.45 * smoothstep(-0.05, 0.85, t));
     vec3 c = mix(uFog, lit, haze);
     c = mix(c, uFog, 1.0 - smoothstep(0.0, 0.12, (y + 60.0) / amp));
     gl_FragColor = vec4(c, cov);

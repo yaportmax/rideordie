@@ -39,7 +39,7 @@ export class BossView {
       if (f.k <= 0 && !f.on) continue;
       f.k = Math.max(0, f.k - dt * 7); f.on = f.k > 0;
       for (const x of f.mats) {
-        if (f.k > 0) { x.m.emissive.setRGB(1.0, 0.42, 0.12); x.m.emissiveIntensity = f.k * 1.6; }
+        if (f.k > 0) { x.m.emissive.setRGB(1.0, 0.42, 0.12); x.m.emissiveIntensity = f.k * 2.6; }
         else { x.m.emissive.copy(x.e); x.m.emissiveIntensity = x.i; }
       }
     }

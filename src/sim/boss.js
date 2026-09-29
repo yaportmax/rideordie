@@ -10,6 +10,7 @@ const V3 = THREE.Vector3;
 const _o = new V3(), _d = new V3(), _p = new V3(), _q = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _t = new V3();
 const _sm = {}, _sm2 = {};
 
+const PART_SKIN = 0.9;
 /** Shared by the sim boss and the client-side ghost: raycast the boss parts at a pose. */
 export function raycastBoss(b, origin, dir, maxDist) {
   _qi.copy(b.quat).invert();
@@ -22,8 +23,9 @@ export function raycastBoss(b, origin, dir, maxDist) {
     }
     const t = rayBox(_o, _d, z.c, z.h);
     if (t < 0 || t > maxDist) continue;
-    // parts sitting on the body win if they are within 0.4 m of the body entry
-    if (!best || t < best.t - (z.kind === 'body' ? 0.4 : 0) || (best.zone.kind === 'body' && z.kind !== 'body' && t < best.t + 0.4)) best = { t, zone: z };
+    // parts sitting on / in the body win if they are within PART_SKIN m of the body entry (the rough body boxes swallow the rear
+    // fuel tanks' ends otherwise: they could only be hit from exactly abeam)
+    if (!best || t < best.t - (z.kind === 'body' ? PART_SKIN : 0) || (best.zone.kind === 'body' && z.kind !== 'body' && t < best.t + PART_SKIN)) best = { t, zone: z };
   }
   if (!best) return null;
   best.point = new V3().copy(origin).addScaledVector(dir, best.t); best.car = b; best.throughBody = false;
@@ -123,17 +125,17 @@ export class Leviathan {
     const weaponsLeft = ['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R'].filter((n) => this.alive[n]).length;
     if (this.phase === 1 && (weaponsLeft <= 1 || this.t > BOSS.phase1Max)) this._setPhase(2);
     // the fight can't stall in phase 2: the overheating reactor blows its own armour off (-> phase 3)
-    if (this.phase === 2 && !this.engineExposed() && this.t - this.phaseT > BOSS.phase2Max) this._overheat();
+    if (this.phase === 2 && !this.engineExposed() && this.t - this.phaseT > BOSS.phase2Max && this.overheatT === undefined) this._overheat();
     if (this.phase < 3 && this.engineExposed()) this._setPhase(3);
     this._beats(dt);
-    const rate = this.phase === 3 ? 1.15 : 1;   // (phase 3 lasts longer since the reactor was beefed up for pacing: slightly calmer)
+    const rate = this.phase === 3 ? 1.05 : this.phase === 2 ? 0.88 : 1;   // (phases 2-3 last longer now that the fight is paced: a touch calmer)
     // ---- attacks
     for (const tu of this.turrets) this._turret(tu, dt * rate, P);
     this._pods(dt * rate, P);
     if (this.phase >= 2) { this._cannon(dt * rate, P); this._flames(dt, P); this._ramp(dt * rate, P); }
   }
 
-  engineExposed() { return !this.alive.panel_armor_rear_1 && !this.alive.panel_armor_rear_2 && !this.alive.panel_armor_rear_3; }
+  engineExposed() { return !BOSS_PARTS.part_engine.needs.some((n) => this.alive[n]); }
 
   _setPhase(p) {
     this.phase = p; this.phaseT = this.t;
@@ -145,13 +147,18 @@ export class Leviathan {
 
   /** Phase-2 timeout: the reactor overheats and blasts its rear plates off (a scripted beat, not a stall). */
   _overheat() {
+    // warning first (banner + alarm), then 1.8 s later the plates and the tanks go up: fireworks you can get clear of
+    this.overheatT = this.t + 1.8;
     this.sim.emit({ t: 'bossBeat', kind: 'overheat', pos: this.socket('weak_engine', _p).toArray() });
-    for (const n of ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3']) if (this.alive[n]) this._destroyPart(n);
   }
 
   /** Scripted beats: escort drops, and the wreck blockade the train smashes through early in the fight. */
   _beats(dt) {
     const sim = this.sim;
+    if (this.overheatT !== undefined && this.t >= this.overheatT && this.phase === 2) {
+      this.overheatT = Infinity;
+      for (const n of BOSS_PARTS.part_engine.needs) if (this.alive[n]) this._destroyPart(n);   // plates + tanks
+    }
     for (let i = this.dropQ.length - 1; i >= 0; i--) {
       const q = this.dropQ[i]; if (this.t < q.t) continue;
       this.dropQ.splice(i, 1);

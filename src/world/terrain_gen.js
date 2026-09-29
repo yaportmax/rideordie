@@ -11,7 +11,8 @@ export const LAYERS = ['sand', 'dirt_red', 'gravel', 'dry_grass', 'rock_red', 'r
 const L = Object.fromEntries(LAYERS.map((n, i) => [n, i]));
 
 /** Lateral columns for the terrain strip (offsets beyond EDGE, one side). */
-export const COLS = [0, 1.0, 2.0, 3.2, 4.6, 6.2, 8.0, 10, 12.5, 15.5, 19, 23, 28, 34, 41, 49, 58, 69, 82, 97, 115, 137, 163, 194, 231, 275, 327, 388, 460, 545, 645, 765, 900];
+export const COLS = [0, 1.0, 2.0, 3.2, 4.6, 6.2, 8.0, 10, 12.5, 15.5, 19, 23, 27.5, 32, 37, 42.5, 48.5, 55, 62, 70, 79, 89, 100, 113, 128, 145, 165, 194, 231, 275, 327, 388, 460, 545, 645, 765, 900];
+// (20-170 m: ~6-17 m spacing so canyon / mountain / valley walls carry their gullies, ribs and ledges instead of reading as flat slabs)
 /** Road strip lateral columns (from -EDGE..EDGE). */
 export const ROAD_COLS = [-EDGE, -HALF_ROAD, -5.25, -3.5, -1.75, 0, 1.75, 3.5, 5.25, HALF_ROAD, EDGE];
 export const LOD_STRIDE = [1, 2, 4]; // row stride per LOD (rows are DS = 3 m apart at LOD0)
@@ -30,7 +31,10 @@ const bw = (bio, id) => (bio.a === id ? 1 - bio.w : 0) + (bio.b === id ? bio.w :
 function profile(id, seed, s, a, side, sm) {
   const T = BIOMES[id].terrain;
   const ramp = smoothstep(0, 6, a); // continuity with the road edge
-  const far = T.far * ridged2(s / 700 + side * 3.1, a / 650 + 1.7, 4, seed + 101) * smoothstep(180, 750, a);
+  // far ridges: peaks and saddles (two scales) that crest 550-750 m out and fall away toward the 900 m edge, so the skyline is a
+  // ragged ridgeline instead of the straight cut of the terrain boundary
+  const farW = smoothstep(160, 600, a) * (1 - 0.7 * smoothstep(660, 900, a));
+  const far = T.far * farW * (0.72 * ridged2(s / 700 + side * 3.1, a / 650 + 1.7, 4, seed + 101) + 0.45 * ridged2(s / 160 + side * 1.3, a / 140, 3, seed + 102));
   let h = 0;
   switch (T.kind) {
     case 'dunes': {
@@ -81,8 +85,9 @@ function profile(id, seed, s, a, side, sm) {
       } else {
         // valley wall: buttresses and gullies move the foot in and out, ledges break the face into terraces
         const gul = (ridged2(s / 42, 0.37, 3, seed + 44) - 0.55) * 12 + (fbm1(s / 15, 2, seed + 45) - 0.5) * 4;
-        const t = smoothstep(9 + Math.max(0, gul) * 0.4, 27 + gul, a);
+        const t = smoothstep(9 + Math.max(0, gul) * 0.4, 52 + gul * 1.6, a);
         let v = t * t * 70 * (0.7 + 0.3 * ridged2(s / 80, a / 50, 3, seed + 42));
+        v *= 0.7 + 0.3 * ridged2(s / 60 + 3, a / 400, 3, seed + 47);          // spurs / couloirs
         const st = v / 8.5, fl = Math.floor(st), fr = st - fl;
         v = lerp(v, (fl + smoothstep(0.0, 0.35, fr)) * 8.5, 0.45 * smoothstep(4, 18, v));
         v += (ridged2(s / 24, a / 20, 2, seed + 46) - 0.5) * 5 * smoothstep(14, 30, a);
@@ -96,15 +101,21 @@ function profile(id, seed, s, a, side, sm) {
       const massH = T.mass * (up ? 1 : 0.35) * (0.5 + ridged2(s / 520 + side * 4, a / 300, 4, seed + 52));
       // buttresses: the foot of the slope moves in and out along the road
       const foot = up ? (fbm1(s / 110 + side * 3, 3, seed + 57) - 0.5) * 36 + (ridged2(s / 34, 0.4, 2, seed + 58) - 0.5) * 16 : 0;
-      const slope = smoothstep(4 + Math.max(0, foot) * 0.4, (up ? 92 : 110) + foot, a);
+      // the run of the slope grows with its height (no 250 m sheer walls: ~40-55 deg mountainsides)
+      const run = up ? 70 + massH * 0.75 : 110;
+      const slope = smoothstep(4 + Math.max(0, foot) * 0.4, run + foot, a);
       const detail = (fbm2(s / 45, a / 40, 4, seed + 53) * 2 - 1) * T.amp * smoothstep(0, 30, a);
       // crags, ribs and gullies running up the big slopes (far enough from the road that the drivable verge is unchanged)
       const crag = ((ridged2(s / 55, a / 38, 3, seed + 55) - 0.5) * 22 + (ridged2(s / 21, a / 70, 2, seed + 56) - 0.5) * 16
         + (ridged2(s / 28, a / 260, 2, seed + 59) - 0.55) * 34) * smoothstep(22, 80, a) * (up ? 1 : 0.4);
       let mv = massH * slope * slope * 0.9;
-      if (up) {                                          // benches: the face breaks into ledges (forest / snow collect on them)
+      if (up) {
+        // spurs and couloirs: V-shaped gullies notch the face and the skyline, deeper higher up (ribs keep their full height)
+        const rib = ridged2(s / 85 + side * 5, a / 520, 3, seed + 62), rib2 = ridged2(s / 33 + 7, a / 300, 2, seed + 63);
+        mv *= 0.62 + 0.3 * rib + 0.08 * rib2;
+        // benches: the face breaks into ledges (forest / snow collect on them)
         const terr = 16 + 8 * fbm1(s / 240, 2, seed + 60), st = mv / terr, fl = Math.floor(st), fr = st - fl;
-        mv = lerp(mv, (fl + smoothstep(0.1, 0.55, fr)) * terr, 0.65 * smoothstep(10, 40, mv));
+        mv = lerp(mv, (fl + smoothstep(0.1, 0.55, fr)) * terr, 0.4 * smoothstep(10, 40, mv));
       }
       h = mv + detail + crag;
       if (!up) h -= 55 * smoothstep(6, 55, a) * (0.6 + 0.4 * fbm1(s / 300, 2, seed + 54)); // valley side drops away

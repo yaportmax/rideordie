@@ -247,7 +247,7 @@ export class BossFx {
       if (rage) {
         let b = this.acc[2 + s] + 7 * lod * dt; while (b >= 1) { b -= 1; R.spark(fx, _w.x, _w.y + 0.2, _w.z, V.x * 0.9 + r.sym(3), r.range(5, 13), V.z * 0.9 + r.sym(3), r.range(0.5, 1.1), _w.y - 9, 1, 0.04); } this.acc[2 + s] = b;
         if (r.next() < dt * 1.2) {                                             // flame belch
-          for (let i = 0; i < 3; i++) { const q = fx.p.reset(); q.pos(_w.x, _w.y + 0.2, _w.z).vel(V.x * 0.95 + r.sym(0.6), r.range(6, 10), V.z * 0.95 + r.sym(0.6)); q.spr = SPR.FIRE; q.mode = MODE.UPRIGHT; q.pivot = 1; q.aspect = 1.6; q.f0 = r.int(16); q.nPlay = 16; q.fps = 30; q.size(r.range(1.2, 1.8), 0.6); q.drag = 1.2; q.life = r.range(0.3, 0.5); q.col(2.2, 1.3, 0.55, 1); q.add0 = q.add1 = 1; q.fin = 0.05; q.fout = 0.6; fx.pf.emit(q); }
+          for (let i = 0; i < 3; i++) { const w = r.range(0.9, 1.4); R.flame(fx, _w.x, _w.y + 0.2, _w.z, V.x * 0.95 + r.sym(0.6), r.range(6, 10), V.z * 0.95 + r.sym(0.6), w, w * r.range(2.2, 3), r.range(0.3, 0.5), 1.4, 4, 0, 1.2, 1.2); }
           R.glow(fx, _w.x, _w.y + 0.8, _w.z, 2.5, 0.12, 4, 2, 0.5, true, 1.4);
         }
       }
@@ -270,8 +270,8 @@ export class BossFx {
     for (let i = 0; i < n; i++) {
       const D = R.coneDir(r, Dx, Dy, Dz, 0.12), sp = r.range(32, 42), o = r.range(0, 0.6);
       const p = fx.p.reset(); p.pos(_w.x + D.x * o, _w.y + D.y * o, _w.z + D.z * o).vel(V.x + D.x * sp, V.y + D.y * sp, V.z + D.z * sp);
-      p.spr = SPR.FIRE; p.f0 = r.int(16); p.nPlay = 16; p.fps = 30; p.rot = r.next() * PI2; p.rotV = r.sym(2.5);
-      p.size(r.range(0.6, 0.9), r.range(5, 7)); p.sCurve = 0.7; p.drag = 1.6; p.grav = -2.5; p.life = r.range(0.62, 0.85); p.ground = gy;
+      p.spr = SPR.FIRE; p.f0 = r.int(32); p.nPlay = 32; p.fps = 30; p.rot = r.next() * PI2; p.rotV = r.sym(2.5); p.aspect = 1.6;
+      p.size(r.range(0.6, 0.9), r.range(4, 5.5)); p.sCurve = 0.7; p.drag = 1.6; p.grav = -2.5; p.life = r.range(0.62, 0.85); p.ground = gy;
       p.col0(2.6, 1.7, 0.9, 1).col1(1.4, 0.38, 0.08, 0.9); p.cCurve = 0.8; p.add0 = p.add1 = 1; p.fin = 0.02; p.fout = 0.45;
       fx.pf.emit(p);
     }
@@ -279,17 +279,13 @@ export class BossFx {
     n = this._rate(j, 'a1', 30 * q, dt, 4) + (first ? 5 : 0);
     for (let i = 0; i < n; i++) {
       const D = R.coneDir(r, Dx, Dy, Dz, 0.16), sp = r.range(18, 30), o = r.range(1, 4);
-      const p = fx.p.reset(); p.pos(_w.x + D.x * o, _w.y + D.y * o, _w.z + D.z * o).vel(V.x + D.x * sp, V.y + D.y * sp + 1, V.z + D.z * sp);
-      p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(1.4, r.range(6, 9)); p.sCurve = 0.45; p.rot = r.sym(0.6); p.rotV = r.sym(0.4);
-      p.drag = 1.4; p.grav = -3; p.life = r.range(1.1, 1.6); p.ground = gy; p.lit = 0.4; p.turb = 0.5;
-      p.col0(4.2, 1.6, 0.3, 1).col1(0.06, 0.05, 0.045, 0.85); p.cCurve = 0.5; p.add0 = 0.85; p.add1 = 0; p.fin = 0.03; p.fout = 0.5;
-      fx.pa.emit(p);
+      R.fireBlob(fx, _w.x + D.x * o, _w.y + D.y * o, _w.z + D.z * o, V.x + D.x * sp, V.y + D.y * sp + 1, V.z + D.z * sp, 1.4, r.range(6, 8.5), r.range(1.1, 1.6), 0.9, 0.25, 0, gy);
     }
     // white-hot core streaks right out of the nozzle
     n = this._rate(j, 'a2', 34 * q, dt, 4);
     for (let i = 0; i < n; i++) {
       const D = R.coneDir(r, Dx, Dy, Dz, 0.05), sp = r.range(30, 38);
-      const p = fx.p.reset(); p.pos(_w.x, _w.y, _w.z).vel(V.x + D.x * sp, V.y + D.y * sp, V.z + D.z * sp); p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = r.int(16); p.nPlay = 16; p.fps = 40;
+      const p = fx.p.reset(); p.pos(_w.x, _w.y, _w.z).vel(V.x + D.x * sp, V.y + D.y * sp, V.z + D.z * sp); p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = r.int(32); p.nPlay = 32; p.fps = 40;
       p.len = 1.2; p.lenSpd = 0.1; p.size(0.4, 1.3); p.drag = 2; p.life = r.range(0.16, 0.24); p.col(3.4, 2.5, 1.4, 1); p.add0 = p.add1 = 1; p.fin = 0.02; p.fout = 0.5;
       fx.pf.emit(p);
     }
@@ -337,14 +333,11 @@ export class BossFx {
     const V = this.vel, sk = Math.sqrt(j.k);
     let n = this._rate(j, 'a0', 24 * k * lod, dt, 5);
     for (let i = 0; i < n; i++) {
-      const p = fx.p.reset(), w = r.range(1.4, 2.6) * sk + 0.5;
-      p.pos(W.x + r.sym(0.9 * sk), W.y + r.sym(0.3), W.z + r.sym(0.9 * sk)).vel(V.x * 0.93 + r.sym(0.6), V.y + r.range(2, 3.6), V.z * 0.93 + r.sym(0.6));
-      p.spr = SPR.FIRE; p.mode = MODE.UPRIGHT; p.pivot = 1; p.aspect = 1.7; p.f0 = r.int(16); p.nPlay = 16; p.fps = 26; p.size(w, w * 0.5); p.sCurve = 0.7; p.drag = 0.45;
-      p.life = r.range(0.45, 0.8); p.col0(1.9, 1.05, 0.45, 1).col1(1.2, 0.42, 0.16, 1); p.add0 = p.add1 = 1; p.fin = 0.08; p.fout = 0.55;
-      fx.pf.emit(p);
+      const w = r.range(0.9, 1.6) * sk + 0.35;
+      R.flame(fx, W.x + r.sym(0.9 * sk), W.y + r.sym(0.3), W.z + r.sym(0.9 * sk), V.x * 0.93 + r.sym(0.6), V.y + r.range(1, 2.4), V.z * 0.93 + r.sym(0.6), w, w * r.range(1.8, 2.6), r.range(0.45, 0.8), 1.15, 3, 0, 0.9, 1.3);
     }
     n = this._rate(j, 'a1', (11 * k + 2) * lod, dt, 3);
-    for (let i = 0; i < n; i++) R.puff(fx, W.x + r.sym(0.6), W.y + 1.2, W.z + r.sym(0.6), V.x * 0.8 + r.sym(0.8), V.y + r.range(3, 5.5), V.z * 0.8 + r.sym(0.8), 1.5 * sk, r.range(6, 9) * sk + 1, r.range(4.5, 6.5), 0.07, 0.066, 0.062, 0.9, 1, 0.6);
+    for (let i = 0; i < n; i++) R.puff(fx, W.x + r.sym(0.6), W.y + 1.2, W.z + r.sym(0.6), V.x * 0.8 + r.sym(0.8), V.y + r.range(3, 5.5), V.z * 0.8 + r.sym(0.8), 1.5 * sk, r.range(6, 9) * sk + 1, r.range(4.5, 6.5), 0.06, 0.057, 0.054, 0.9, 1, 0.6, -1e4, 1.2 * k);
     if (r.next() < dt * 3 * k) R.ember(fx, W.x, W.y + 0.5, W.z, V.x * 0.8 + r.sym(2), r.range(3, 8), V.z * 0.8 + r.sym(2), r.range(1, 2.2), 0.18, 1);
     if (k > 0.4) R.glow(fx, W.x, W.y + 0.4, W.z, 2.2 * sk, 0.05, 1.3, 0.55, 0.16, true, 1.05);
   }
@@ -363,16 +356,14 @@ export class BossFx {
     for (let i = 0; i < n; i++) {
       const b = boxes[r.int(boxes.length)], c = b.center, h = b.half;
       this.toWorld(_l.set(c[0] + r.sym(h[0] * 0.9), c[1] + h[1] * r.range(0.1, 1.0), c[2] + r.sym(h[2] * 0.95)), _w);
-      const p = fx.p.reset(), w = r.range(1.6, 3.4);
-      p.pos(_w.x, _w.y, _w.z).vel(V.x * 0.9 + r.sym(0.8), V.y + r.range(2.5, 5), V.z * 0.9 + r.sym(0.8)); p.spr = SPR.FIRE; p.mode = MODE.UPRIGHT; p.pivot = 1; p.aspect = 1.75;
-      p.f0 = r.int(16); p.nPlay = 16; p.fps = 24; p.size(w, w * 0.55); p.sCurve = 0.7; p.drag = 0.5; p.life = r.range(0.55, 0.95);
-      p.col0(1.9, 1.05, 0.45, 1).col1(1.2, 0.42, 0.16, 1); p.add0 = p.add1 = 1; p.fin = 0.08; p.fout = 0.55; fx.pf.emit(p);
+      const w = r.range(1.3, 2.6);
+      R.flame(fx, _w.x, _w.y, _w.z, V.x * 0.9 + r.sym(0.8), V.y + r.range(1.5, 3.5), V.z * 0.9 + r.sym(0.8), w, w * r.range(1.8, 2.5), r.range(0.55, 0.95), 1.15, 3.5, 0, 0.8, 1.3);
     }
     n = this._rate(j, 'a1', 22 * lod, dt, 4);
     for (let i = 0; i < n; i++) {
       const b = boxes[r.int(boxes.length)], c = b.center, h = b.half;
       this.toWorld(_l.set(c[0] + r.sym(h[0] * 0.7), c[1] + h[1], c[2] + r.sym(h[2] * 0.9)), _w);
-      R.puff(fx, _w.x, _w.y + 1, _w.z, V.x * 0.7 + r.sym(1.5), V.y + r.range(5, 10), V.z * 0.7 + r.sym(1.5), 2.5, r.range(9, 14), r.range(5, 8), 0.06, 0.056, 0.052, 0.92, 1.2, 0.8);
+      R.puff(fx, _w.x, _w.y + 1, _w.z, V.x * 0.7 + r.sym(1.5), V.y + r.range(5, 10), V.z * 0.7 + r.sym(1.5), 2.5, r.range(9, 14), r.range(5, 8), 0.055, 0.052, 0.05, 0.92, 1.2, 0.8, -1e4, 1.4);
     }
     n = this._rate(j, 'a2', 10 * lod, dt, 3);
     for (let i = 0; i < n; i++) { this.toWorld(_l.set(r.sym(3), r.range(4, 8), r.sym(16)), _w); R.ember(fx, _w.x, _w.y, _w.z, V.x * 0.8 + r.sym(3), r.range(4, 10), V.z * 0.8 + r.sym(3), r.range(1.5, 3), 0.25, 1); }
@@ -415,23 +406,22 @@ export class BossFx {
       const hot = 1 - smooth(0.4, 2.2, t);
       const p = fx.p.reset(); p.pos(x + c * rc, capH + r.sym(3), z + s * rc).vel(c * sp, capV + r.range(0, 2.5), s * sp);
       p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(r.range(8, 11), r.range(18, 24)); p.sCurve = 0.4; p.rot = r.sym(0.6); p.rotV = r.sym(0.15);
-      p.drag = 0.35; p.grav = -0.6; p.life = r.range(8, 12); p.turb = 1.2; p.wind = 0.8; p.lit = 0.8;
-      p.col0(0.06 + 3.6 * hot, 0.055 + 1.3 * hot, 0.05 + 0.2 * hot, 0.95).col1(0.075, 0.07, 0.066, 0.9); p.cCurve = 0.25; p.add0 = 0.6 * hot; p.add1 = 0; p.fin = 0.05; p.fout = 0.45;
+      p.drag = 0.35; p.grav = -0.6; p.life = r.range(8, 12); p.turb = 1.2; p.wind = 0.8; p.lit = 1; p.glow = 3.5 * hot; p.soft = 4;
+      p.col(0.065, 0.06, 0.056, 0.95); p.fin = 0.05; p.fout = 0.45;
       fx.pa.emit(p);
     }
     n = t < 10 ? this._rate(j, 'a1', 12 * q * (1 - smooth(5, 10, t)), dt, 3) : 0;
     for (let i = 0; i < n; i++) {                                              // stem
       const a = r.next() * PI2, d = r.range(0, 3.5), hot = 1 - smooth(0.5, 3, t);
       const p = fx.p.reset(); p.pos(x + Math.cos(a) * d, gy + r.range(1, 6), z + Math.sin(a) * d).vel(r.sym(1), r.range(9, 15) * (1 - 0.4 * smooth(3, 10, t)), r.sym(1));
-      p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(r.range(4, 6), r.range(9, 13)); p.sCurve = 0.5; p.rot = r.sym(0.6); p.drag = 0.25; p.grav = -0.4; p.life = r.range(5, 8); p.turb = 0.6; p.wind = 0.8; p.lit = 0.8;
-      p.col0(0.07 + 3 * hot, 0.065 + 1.1 * hot, 0.06 + 0.2 * hot, 0.9).col1(0.08, 0.075, 0.07, 0.85); p.cCurve = 0.3; p.add0 = 0.55 * hot; p.add1 = 0; p.fin = 0.06; p.fout = 0.5; p.ground = gy;
+      p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(r.range(4, 6), r.range(9, 13)); p.sCurve = 0.5; p.rot = r.sym(0.6); p.drag = 0.25; p.grav = -0.4; p.life = r.range(5, 8); p.turb = 0.6; p.wind = 0.8; p.lit = 1; p.glow = 3 * hot; p.soft = 3;
+      p.col(0.07, 0.066, 0.062, 0.9); p.fin = 0.06; p.fout = 0.5; p.ground = gy;
       fx.pa.emit(p);
     }
     n = t < 7 ? this._rate(j, 'a2', 12 * q * (1 - smooth(2, 7, t)), dt, 3) : 0;
     for (let i = 0; i < n; i++) {                                              // ground fire at the base
-      const a = r.next() * PI2, d = r.range(0, 9), p = fx.p.reset(), w = r.range(3, 6);
-      p.pos(x + Math.cos(a) * d, gy + 0.2, z + Math.sin(a) * d).vel(r.sym(1), r.range(2, 5), r.sym(1)); p.spr = SPR.FIRE; p.mode = MODE.UPRIGHT; p.pivot = 1; p.aspect = 1.7;
-      p.f0 = r.int(16); p.nPlay = 16; p.fps = 22; p.size(w, w * 0.6); p.drag = 0.6; p.life = r.range(0.7, 1.2); p.col0(1.9, 1.05, 0.45, 1).col1(1.2, 0.42, 0.16, 1); p.add0 = p.add1 = 1; p.fin = 0.08; p.fout = 0.55; fx.pf.emit(p);
+      const a = r.next() * PI2, d = r.range(0, 9), w = r.range(2.4, 4.5);
+      R.flame(fx, x + Math.cos(a) * d, gy + 0.2, z + Math.sin(a) * d, r.sym(1), r.range(1.5, 3.5), r.sym(1), w, w * r.range(1.8, 2.4), r.range(0.7, 1.2), 1.2, 4, 0, 0.7, 1.3);
     }
     n = t > 3 ? this._rate(j, 'a3', 5 * q * (1 - smooth(10, 16, t)), dt, 2) : 0;
     for (let i = 0; i < n; i++) R.puff(fx, x + r.sym(4), gy + r.range(4, 10), z + r.sym(4), r.sym(1), r.range(7, 11), r.sym(1), 4, r.range(12, 17), r.range(8, 12), 0.065, 0.06, 0.056, 0.9, 0.8, 1.0, gy);

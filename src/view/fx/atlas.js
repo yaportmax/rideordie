@@ -1,23 +1,30 @@
 // Sprite atlas for the particle system: all additive/alpha sheets packed into ONE premultiplied texture so every particle
 // (fire, smoke, dust, muzzle flash, sparks, streaks, shockwave, debris sprites) is a single instanced draw call per pool.
+//
+// Sheets flagged `lit` are NORMAL-LIT (rg = sprite-space normal, b = thinness, a = coverage; built by
+// tools/env/build_fx_sheets.py) and are shaded at runtime by the key light + sky; the others carry colour.
 import * as THREE from 'three';
 
-/** Sprite ids (index into the shader's uRect/uGrid tables). */
-export const SPR = { SMOKE: 0, FIRE: 1, DUST: 2, MUZZLE: 3, DEBRIS: 4, SHOCK: 5, FLASH: 6, SPARK: 7, STREAK: 8 };
+/** Sprite ids (index into the shader's uRect/uGrid tables). FIRE is the looping flame-tongue sheet. */
+export const SPR = { SMOKE: 0, FIRE: 1, DUST: 2, MUZZLE: 3, DEBRIS: 4, SHOCK: 5, FLASH: 6, SPARK: 7, STREAK: 8, FIREBALL: 9, SMOKE_FLAT: 10 };
 export const NSPR = 12;
+/** Frame counts of the animated sheets (for callers picking frames / loops). */
+export const FRAMES = { FIRE: 32, FIREBALL: 64 };
 
-const W = 4096, H = 1536;
+const W = 4096, H = 2048;
 // x,y,w,h in atlas pixels (y from the top); cols x rows = frames in the sheet
 const LAYOUT = [
-  { id: SPR.SMOKE, file: 'smoke_sheet.png', x: 0, y: 0, w: 1024, h: 1024, cols: 4, rows: 4 },
-  { id: SPR.FIRE, file: 'fire_sheet.png', x: 1024, y: 0, w: 1024, h: 1024, cols: 4, rows: 4 },
-  { id: SPR.DUST, file: 'dust_puff.png', x: 2048, y: 0, w: 1024, h: 1024, cols: 4, rows: 4 },
-  { id: SPR.MUZZLE, file: 'muzzle_flash_sheet.png', x: 3072, y: 0, w: 1024, h: 512, cols: 4, rows: 2 },
-  { id: SPR.DEBRIS, file: 'debris_sheet.png', x: 3072, y: 512, w: 512, h: 512, cols: 4, rows: 4 },
-  { id: SPR.SHOCK, file: 'shockwave.png', x: 3584, y: 512, w: 512, h: 512, cols: 1, rows: 1 },
-  { id: SPR.FLASH, file: 'blast_flash.png', x: 0, y: 1024, w: 512, h: 512, cols: 1, rows: 1 },
-  { id: SPR.SPARK, file: 'spark.png', x: 512, y: 1024, w: 256, h: 256, cols: 1, rows: 1 },
-  { id: SPR.STREAK, file: 'spark_streak.png', x: 768, y: 1024, w: 256, h: 64, cols: 1, rows: 1 },
+  { id: SPR.SMOKE, file: 'smoke_lit.png', x: 0, y: 0, w: 1024, h: 1024, cols: 4, rows: 4, lit: 1 },
+  { id: SPR.DUST, file: 'dust_lit.png', x: 1024, y: 0, w: 1024, h: 1024, cols: 4, rows: 4, lit: 1 },
+  { id: SPR.FIRE, file: 'flame_sheet.png', x: 2048, y: 0, w: 1024, h: 1024, cols: 8, rows: 4 },
+  { id: SPR.FIREBALL, file: 'fireball_sheet.png', x: 3072, y: 0, w: 1024, h: 1024, cols: 8, rows: 8 },
+  { id: SPR.SMOKE_FLAT, file: 'smoke_sheet.png', x: 0, y: 1024, w: 1024, h: 1024, cols: 4, rows: 4 },
+  { id: SPR.MUZZLE, file: 'muzzle_flash_sheet.png', x: 1024, y: 1024, w: 1024, h: 512, cols: 4, rows: 2 },
+  { id: SPR.DEBRIS, file: 'debris_sheet.png', x: 1024, y: 1536, w: 512, h: 512, cols: 4, rows: 4 },
+  { id: SPR.SHOCK, file: 'shockwave.png', x: 1536, y: 1536, w: 512, h: 512, cols: 1, rows: 1 },
+  { id: SPR.FLASH, file: 'blast_flash.png', x: 2048, y: 1024, w: 512, h: 512, cols: 1, rows: 1 },
+  { id: SPR.SPARK, file: 'spark.png', x: 2560, y: 1024, w: 256, h: 256, cols: 1, rows: 1 },
+  { id: SPR.STREAK, file: 'spark_streak.png', x: 2560, y: 1280, w: 256, h: 64, cols: 1, rows: 1 },
 ];
 
 function loadImage(url) {
@@ -41,7 +48,7 @@ export async function buildAtlas(base = '/textures/particles/') {
   for (let i = 0; i < NSPR; i++) { rect.push(new THREE.Vector4(0, 0, 0, 0)); grid.push(new THREE.Vector4(1, 1, 1, 0)); }
   for (const l of LAYOUT) {
     rect[l.id].set(l.x / W, 1 - (l.y + l.h) / H, l.w / W, l.h / H);
-    grid[l.id].set(l.cols, l.rows, l.cols * l.rows, 0);
+    grid[l.id].set(l.cols, l.rows, l.cols * l.rows, l.lit ? 1 : 0);
   }
   return { texture: tex, rect, grid, size: [W, H] };
 }

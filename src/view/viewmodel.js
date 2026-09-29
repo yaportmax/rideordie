@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { WeaponView } from './weapon_view.js';
+import { splitIslands } from './fp_cutaway.js';
 
 export const FP_ARMS_URL = '/models/characters/fp_arms.glb';
 /** True while a scripted camera owns the view (run.cinematic, intro fly-by, finale orbit, death cam): no viewmodel, no gunner HUD. */
@@ -120,11 +121,11 @@ const SLEEVE_ALBEDO = /* glsl */`
 // when aiming; fov: viewmodel vertical FOV [hip, ads]; rec: [kick back m, climb deg, yaw deg, roll deg]; lRot/rRot: extra hand
 // rotation on the grip sockets (deg, socket axes); sh: shoulder-centre offset (camera space); blade: torso yaw (rad).
 export const TUNE = {
-  pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', support: [0.02, -0.02, 0.02, 0, 0, 90], rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.02, -0.02, 0.02, 0, 0, 90], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.17, fov: [62, 56], pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
+  pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', support: [0.011, 0.0213, -0.0018, -32, 0, 90], rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.0273, -0.0317, 0.0447, 28.7, 22.3, 76.3], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.15, fov: [62, 52], adsCut: [[-0.06, -0.2, -0.4, 0.06, 0.2, -0.085]], pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
   shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], pose: 'pose_shotgun', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
-  rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rec: [0.032, 3.0, 1.0, 2.0], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
+  rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rackR: true, rec: [0.032, 3.0, 1.0, 2.0], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
   lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_lmg', rec: [0.032, 2.7, 1.4, 2.6], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
   sniper: { hip: [0.165, -0.27, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_sniper', rec: [0.10, 9, 1.5, 4], reload: 'mag', bolt: true, blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rpg: { hip: [0.16, -0.24, -0.28], hipRot: [0, 2, -2], relief: 0.02, fov: [62, 50], pose: 'pose_launcher', rec: [0.10, 6, 1.5, 3], reload: 'rpg', blade: -0.45, sh: [0.02, -0.24, 0.04] },
@@ -134,6 +135,7 @@ export const ANCH = {
   mag: { off: [0.03, -0.075, 0.0], rot: [90, 0, 90] },
   pistolMag: { off: [0.0, -0.10, -0.01], rot: [0, 0, 0] },
   charge: { off: [0.0, 0.0, 0.02], rot: [0, 0, 90] },
+  chargeR: { off: [-0.02, 0.0, 0.0], rot: [0, 0, -90] },
   slide: { off: [0.0, 0.01, -0.025], rot: [0, 0, 90] },
   cover: { off: [0.0, 0.03, 0.08], rot: [0, 0, 180] },
   port: { off: [0.0, -0.03, 0.0], rot: [0, 0, 60] },
@@ -149,6 +151,8 @@ const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 // reload timeline helpers (module state instead of per-frame closures): _RR = normalised reload time of the current frame
 let _RR = 0;
 const seg = (a, b) => sstep(a, b, _RR);
+/** Ease-out with a small overshoot (snappy moves that settle). */
+const backOut = (x) => { if (x <= 0) return 0; if (x >= 1) return 1; const c1 = 1.4, c3 = c1 + 1, y = x - 1; return 1 + c3 * y * y * y + c1 * y * y; };
 function tween(lh, t0, t1, a, b, arc = 0.04) { if (_RR >= t0) { lh.a = a; lh.b = b; lh.w = sstep(t0, t1, _RR); lh.arc = arc; } }
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
@@ -344,7 +348,7 @@ uniform sampler2D map; uniform vec3 uCol; uniform float uI;
 varying vec2 vUv;
 void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(uCol * t.rgb * t.a * uI, 1.0); }`;
 let FLASH_TEX = null;
-const ANCHOR_NODE = { charge: 'charging_handle', slide: 'slide', cover: 'feed_cover', tray: 'belt', rocket: 'rocket', bolt: 'bolt_handle' };
+const ANCHOR_NODE = { chargeR: 'charging_handle', charge: 'charging_handle', slide: 'slide', cover: 'feed_cover', tray: 'belt', rocket: 'rocket', bolt: 'bolt_handle' };
 const FLASH_SIZE = { pistol: 0.8, revolver: 1.3, smg: 0.75, shotgun: 1.6, rifle: 1.0, lmg: 1.15, sniper: 1.6, rpg: 1.8 };
 const FLASH_CELLS = [[0, 0.5], [0.25, 0.5], [0.5, 0.5], [0.5, 0]];   // star cells of muzzle_flash_sheet.png (u, v of the cell)
 function flashTexture() {
@@ -394,7 +398,7 @@ export class ViewModel {
     this.walkPh = 0; this.prevBed = new THREE.Vector3(); this.crouchPrev = 0;
     this.muzzleCam = new THREE.Vector3(0.1, -0.1, -0.8); this.ejectCam = new THREE.Vector3(0.1, -0.08, -0.4); this.ejectDirCam = new THREE.Vector3(1, 0.3, 0);
     this.k = 1; this.fov = 56;
-    this.reloadPrev = false; this.pumpAfter = 0; this.shellCycle = 0;
+    this.reloadPrev = false; this.pumpAfter = 0; this.shellCycle = 0; this._fired = new Set(); this._relOn = false; this._dry = false;
     this.magDrop = null;
     fpArmsLoad();
     if (FP_GLB && this._fpFrom(FP_GLB)) { /* dedicated arms */ } else { this._buildArms(); this._tryFpArms(); }
@@ -508,7 +512,10 @@ export class ViewModel {
     w.root.updateMatrixWorld(true); _m.copy(w.root.matrixWorld).invert();
     w.loc = {};
     for (const [n, s] of Object.entries(w.sockets)) { s.updateWorldMatrix(true, false); const mm = new THREE.Matrix4().multiplyMatrices(_m, s.matrixWorld); w.loc[n] = { p: new THREE.Vector3().setFromMatrixPosition(mm), q: new THREE.Quaternion().setFromRotationMatrix(mm) }; }
-    // mag travel axis in weapon space
+    // parts hidden while aiming (the SMG's wire stock would run under the eye): islands inside T.adsCut boxes (weapon space)
+    const cut = TUNE[id] && TUNE[id].adsCut;
+    w.adsCut = [];
+    if (cut) w.root.traverse((o) => { if (o.isMesh && o.parent === w.model || (o.isMesh && o.parent?.name === 'Scene')) { const s = splitIslands(o, cut); if (s) w.adsCut.push({ mesh: o, ...s, on: false }); } });
     this.guns.set(id, w);
     return w;
   }
@@ -656,6 +663,7 @@ export class ViewModel {
     // ---------------------------------------------------------------- muzzle flash + reticle
     this._flash(dt, W, ads);
     for (const l of gun.lenses) l.material.opacity = 0.14 * (1 - 0.75 * ads);
+    for (const c of gun.adsCut) { const on = ads > 0.55; if (on !== c.on) { c.on = on; c.mesh.geometry = on ? c.keep : c.full; } }
     this.reticle.visible = !!T.reticle && cur && show && ads > 0.35;
     this.reticle.material.uniforms.uI.value = sstep(0.35, 0.9, ads);
     this.reticle.material.uniforms.uSize.value = 0.0065;
@@ -710,7 +718,7 @@ export class ViewModel {
     const R = this._R || (this._R = { p: [0, 0, 0], r: [0, 0, 0], parts: {}, lh: { a: 'grip', b: 'grip', w: 0, arc: 0 }, rh: null });
     R.p[0] = R.p[1] = R.p[2] = 0; R.r[0] = R.r[1] = R.r[2] = 0; const P = R.parts;
     P.mag = P.magVisible = P.magOff = P.rack = P.cover = P.crane = P.rocket = P.rocketVisible = P.rocketOff = P.pump = P.bolt = P.shell = undefined;
-    R.lh.a = 'grip'; R.lh.b = 'grip'; R.lh.w = 0; R.lh.arc = 0; R.rh = null; R.hideMag = false; R.showShell = false;
+    R.lh.a = 'grip'; R.lh.b = 'grip'; R.lh.w = 0; R.lh.arc = 0; R.rh = null; R.rhA = 'bolt'; R.hideMag = false; R.showShell = false;
     const kind = T.reload, rel = cur && G.reloading;
     // shotgun: a pump when the reload finishes (chambers a round)
     if (kind === 'shotgun') {
@@ -718,52 +726,72 @@ export class ViewModel {
       this.reloadPrev = G.reloading;
       if (this.pumpAfter > 0) { this.pumpAfter -= dt; const k = 1 - this.pumpAfter / 0.45; P.pump = sstep(0.05, 0.4, k) * (1 - sstep(0.5, 0.95, k)); R.r[0] += P.pump * 3; }
     } else this.reloadPrev = G.reloading;
-    if (!rel) { this.relAmt = damp(this.relAmt || 0, 0, 10, dt); return R; }
+    if (!rel) { this.relAmt = damp(this.relAmt || 0, 0, 10, dt); this._relOn = false; return R; }
     const r = clamp(G.reloadT / Math.max(0.05, W.reload), 0, 1);
     _RR = r;
-    const tilt = seg(0.0, 0.12) * (1 - seg(0.88, 1.0));
+    // reload start: remember whether the gun ran dry (pistol slide lock) and re-arm the contact jolts
+    if (!this._relOn || r < (this._relR ?? 0) - 0.2) { this._relOn = true; this._fired.clear(); this._dry = G.magNow <= 0; }
+    this._relR = r;
     const lh = R.lh;
+    // snappy timing: fast moves (6-8 % of the reload each) with contact jolts, the gun comes back to ready before the reload ends
+    const tin = backOut(seg(0.0, 0.07)), tout = seg(0.86, 0.95);
+    const tilt = tin * (1 - tout);
     switch (kind) {
       case 'mag': {                      // rifle / smg / sniper
         R.r[0] = tilt * 16; R.r[1] = -tilt * 10; R.r[2] = -tilt * 30; R.p[0] = -tilt * 0.08; R.p[1] = tilt * 0.10; R.p[2] = tilt * 0.03;
-        // mag: out 0.10-0.22, away 0.22-0.32 (hidden), new one up 0.40-0.50, in 0.50-0.56
-        const out = seg(0.10, 0.22), away = seg(0.22, 0.32), back = 1 - seg(0.38, 0.5), ins = seg(0.5, 0.56);
-        P.mag = r < 0.34 ? out * 1.25 : 1.25 * (1 - ins);
-        P.magOff = r < 0.34 ? away : back;
-        P.magVisible = !(r > 0.31 && r < 0.39);
-        tween(lh, 0.02, 0.10, 'grip', 'mag'); if (r > 0.1) { lh.a = 'mag'; lh.b = 'mag'; lh.w = 0; }
-        if (r > 0.56) { const rackA = T.bolt ? null : 'charge'; if (rackA) { tween(lh, 0.58, 0.68, 'mag', rackA); P.rack = sstep(0.72, 0.79, r) * (1 - sstep(0.80, 0.83, r)); } else tween(lh, 0.58, 0.7, 'mag', 'grip'); }
-        if (r > 0.84 && !T.bolt) tween(lh, 0.84, 0.95, 'charge', 'grip');
-        if (r > 0.5 && r < 0.6) this._jolt(r, 0.555, 0.012);
+        // mag: release + yank 0.08-0.15, away 0.15-0.23 (hidden 0.22-0.31), new one up 0.31-0.42, seat 0.44-0.48, tap 0.5
+        const out = seg(0.08, 0.15), away = seg(0.15, 0.23), back = 1 - seg(0.31, 0.42), ins = seg(0.44, 0.48);
+        P.mag = r < 0.27 ? out * 1.25 : 1.25 * (1 - ins) * (r < 0.42 ? 1 : 0.35 + 0.65 * (1 - seg(0.42, 0.44)));
+        P.magOff = r < 0.27 ? away : back;
+        P.magVisible = !(r > 0.22 && r < 0.31);
+        tween(lh, 0.02, 0.08, 'grip', 'mag'); if (r > 0.08) { lh.a = 'mag'; lh.b = 'mag'; lh.w = 0; }
+        this._contact(r, 0.08, 0.008); this._contact(r, 0.46, 0.016); this._contact(r, 0.5, 0.006);
         if (T.bolt) {                   // sniper: work the bolt with the right hand after the new mag
-          const b = seg(0.66, 0.72) + seg(0.72, 0.77) + seg(0.77, 0.82) + seg(0.82, 0.87);
-          P.bolt = b >= 4 ? 0 : b; R.rh = r > 0.6 && r < 0.93 ? sstep(0.6, 0.66, r) * (1 - sstep(0.87, 0.93, r)) : 0;
+          if (r > 0.5) tween(lh, 0.5, 0.6, 'mag', 'grip');
+          const b = seg(0.56, 0.61) + seg(0.61, 0.66) + seg(0.66, 0.71) + seg(0.71, 0.76);
+          P.bolt = b >= 4 ? 0 : b; R.rh = r > 0.52 && r < 0.84 ? sstep(0.52, 0.56, r) * (1 - sstep(0.78, 0.84, r)) : 0;
+          this._contact(r, 0.66, 0.01);
+        } else if (T.rackR) {           // AK-style handle on the right: the gun hand racks it, the support hand is back on the guard
+          if (r > 0.5) tween(lh, 0.5, 0.58, 'mag', 'grip', 0.03);
+          R.rh = sstep(0.54, 0.6, r) * (1 - sstep(0.72, 0.78, r)); R.rhA = 'chargeR';
+          P.rack = sstep(0.62, 0.67, r) * (1 - sstep(0.68, 0.7, r));
+          this._contact(r, 0.69, 0.014);
+        } else {
+          if (r > 0.5) tween(lh, 0.52, 0.6, 'mag', 'charge', 0.05);
+          P.rack = sstep(0.62, 0.67, r) * (1 - sstep(0.68, 0.7, r));
+          this._contact(r, 0.69, 0.014);
+          if (r > 0.7) tween(lh, 0.71, 0.8, 'charge', 'grip', 0.03);
         }
         break;
       }
-      case 'pistol': {
+      case 'pistol': {                   // thumb the release (mag drops), fresh mag from the belt, slap, slide release
         R.r[0] = tilt * 22; R.r[1] = -tilt * 8; R.r[2] = -tilt * 26; R.p[0] = -tilt * 0.07; R.p[1] = tilt * 0.08; R.p[2] = tilt * 0.1;
-        const out = seg(0.08, 0.2); P.mag = r < 0.34 ? out * 1.6 + seg(0.2, 0.3) * 2 : 1.3 * (1 - seg(0.5, 0.58));
-        P.magOff = r < 0.34 ? 0 : 1 - seg(0.38, 0.5); P.magVisible = !(r > 0.28 && r < 0.39);
-        tween(lh, 0.06, 0.2, 'grip', 'pocket', 0.02);
-        if (r > 0.34) tween(lh, 0.34, 0.5, 'pocket', 'pistolMag'); if (r > 0.34 && r < 0.58) { lh.a = 'pocket'; lh.b = 'pistolMag'; lh.w = seg(0.36, 0.5); }
-        if (r > 0.58) { tween(lh, 0.6, 0.7, 'pistolMag', 'slide', 0.05); P.rack = sstep(0.74, 0.8, r) * (1 - sstep(0.81, 0.84, r)); }
-        if (r > 0.84) tween(lh, 0.84, 0.96, 'slide', 'grip');
-        if (r > 0.5 && r < 0.62) this._jolt(r, 0.575, 0.01);
+        const drop = seg(0.06, 0.2); P.mag = r < 0.3 ? drop * drop * 3.2 : 1.3 * (1 - seg(0.44, 0.52));
+        P.magOff = r < 0.3 ? 0 : 1 - seg(0.3, 0.44); P.magVisible = !(r > 0.2 && r < 0.32);
+        tween(lh, 0.04, 0.18, 'grip', 'pocket', 0.02);
+        if (r > 0.28) { lh.a = 'pocket'; lh.b = 'pistolMag'; lh.w = seg(0.3, 0.44); lh.arc = 0.04; }
+        if (r > 0.5) tween(lh, 0.54, 0.64, 'pistolMag', 'grip', 0.03);
+        this._contact(r, 0.5, 0.014);
+        // slide: locked back while dry, slams home on the release (thumb) at 0.66
+        const locked = this._dry ? 1 - sstep(0.66, 0.69, r) : 0; P.rack = locked;
+        if (this._dry) this._contact(r, 0.68, 0.016);
         break;
       }
-      case 'lmg': {
-        R.r[0] = -tilt * 2; R.r[1] = -tilt * 8; R.r[2] = tilt * 18; R.p[0] = -tilt * 0.035; R.p[1] = -tilt * 0.015; R.p[2] = -tilt * 0.03;
-        P.cover = (seg(0.04, 0.12) * (1 - seg(0.74, 0.8))) * 0.75;
-        const out = seg(0.14, 0.24); P.mag = r < 0.34 ? out * 1.5 : 1.5 * (1 - seg(0.44, 0.52));
-        P.magOff = r < 0.34 ? seg(0.24, 0.32) : 1 - seg(0.36, 0.46); P.magVisible = !(r > 0.31 && r < 0.37);
+      case 'lmg': {                      // cover up, box out, box in, belt on the tray, cover slam, charge
+        const LP = T.relPose || [-0.06, 0.08, 0.03, 12, -10, -26];
+        R.p[0] = tilt * LP[0]; R.p[1] = tilt * LP[1]; R.p[2] = tilt * LP[2]; R.r[0] = tilt * LP[3]; R.r[1] = tilt * LP[4]; R.r[2] = tilt * LP[5];
+        P.cover = backOut(seg(0.05, 0.1)) * (1 - seg(0.64, 0.68)) * 0.42;    // cracked open (fully open it stands up in front of the eye)
+        const out = seg(0.14, 0.2); P.mag = r < 0.3 ? out * 1.5 : 1.5 * (1 - seg(0.42, 0.47));
+        P.magOff = r < 0.3 ? seg(0.2, 0.28) : 1 - seg(0.32, 0.42); P.magVisible = !(r > 0.27 && r < 0.33);
         tween(lh, 0.0, 0.05, 'grip', 'cover');
-        if (r > 0.1) tween(lh, 0.1, 0.16, 'cover', 'mag');
-        if (r > 0.52) tween(lh, 0.52, 0.6, 'mag', 'tray');
-        if (r > 0.66) tween(lh, 0.66, 0.74, 'tray', 'cover');
-        if (r > 0.8) { tween(lh, 0.8, 0.86, 'cover', 'charge'); P.rack = sstep(0.88, 0.92, r) * (1 - sstep(0.93, 0.95, r)); }
-        if (r > 0.94) tween(lh, 0.94, 1.0, 'charge', 'grip');
-        if (r > 0.74 && r < 0.84) this._jolt(r, 0.79, 0.01);
+        if (r > 0.1) tween(lh, 0.1, 0.14, 'cover', 'mag');
+        if (r > 0.48) tween(lh, 0.48, 0.53, 'mag', 'tray');
+        if (r > 0.53 && r < 0.6) { const k = (r - 0.53) / 0.07; lh.arc = 0; R.p[0] += Math.sin(k * Math.PI * 3) * 0.004; }   // belt tugs
+        if (r > 0.58) tween(lh, 0.58, 0.63, 'tray', 'cover');
+        if (r > 0.68) tween(lh, 0.68, 0.73, 'cover', 'charge');
+        P.rack = sstep(0.74, 0.77, r) * (1 - sstep(0.78, 0.8, r));
+        if (r > 0.8) tween(lh, 0.8, 0.87, 'charge', 'grip');
+        this._contact(r, 0.07, 0.008); this._contact(r, 0.14, 0.01); this._contact(r, 0.45, 0.018); this._contact(r, 0.66, 0.02); this._contact(r, 0.79, 0.014);
         break;
       }
       case 'shotgun': {                  // per shell: reloadT runs 0..W.reload for every shell
@@ -807,6 +835,8 @@ export class ViewModel {
     if (kind !== 'shotgun') this.relAmt = 1;
     return R;
   }
+  /** Contact jolt: fires once per reload when r enters [at, at + 0.06]. */
+  _contact(r, at, amt) { if (r >= at && r < at + 0.06 && !this._fired.has(at)) { this._fired.add(at); this.jolt.kick(0, amt); this.jolt.kick(1, amt * 3); } }
   _jolt(r, at, amt) { if (this._joltAt !== at && r >= at) { this._joltAt = at; this.jolt.kick(0, amt); this.jolt.kick(1, amt * 3); } }
 
   // ---------------------------------------------------------------- hand anchors (virtual grip socket in weapon space)
@@ -825,7 +855,7 @@ export class ViewModel {
     else if (name === 'mag' || name === 'pistolMag') {
       const n = W.nodes.mag; if (n) { P.copy(n.position); if (n.parent !== W.model) { n.getWorldPosition(P); root.worldToLocal(P); } } else P.copy(W.loc.mag_well ? W.loc.mag_well.p : _v.set(0, 0, 0.1));
       Q.setFromEuler(_e.set(A.rot[0] * DEG, A.rot[1] * DEG, A.rot[2] * DEG)); P.add(_v.fromArray(A.off));
-    } else if (name === 'charge' || name === 'slide' || name === 'cover' || name === 'tray' || name === 'rocket' || name === 'bolt') {
+    } else if (name === 'charge' || name === 'chargeR' || name === 'slide' || name === 'cover' || name === 'tray' || name === 'rocket' || name === 'bolt') {
       const nodeName = ANCHOR_NODE[name];
       const n = W.nodes[nodeName] || W.nodes.bolt || W.nodes.body;
       if (n) { n.getWorldPosition(P); root.worldToLocal(P); } else P.set(0, 0.1, 0);
@@ -866,7 +896,7 @@ export class ViewModel {
     const gr = gun.loc.grip_R; aR.p.copy(gr.p).applyQuaternion(gun.root.quaternion).add(gun.root.position); aR.q.copy(gun.root.quaternion).multiply(gr.q);
     if (T.rRot) aR.q.multiply(_q.setFromEuler(_e.set(T.rRot[0] * DEG, T.rRot[1] * DEG, T.rRot[2] * DEG)));
     const bw = Math.max(act.boltHand || 0, R.rh || 0);
-    if (bw > 0.001) { const aB = this._aB || (this._aB = { p: new THREE.Vector3(), q: new THREE.Quaternion() }); this._anchor('bolt', gun, aB); aR.p.lerp(aB.p, bw); aR.q.slerp(aB.q, bw); }
+    if (bw > 0.001) { const aB = this._aB || (this._aB = { p: new THREE.Vector3(), q: new THREE.Quaternion() }); this._anchor(R.rh ? R.rhA || 'bolt' : 'bolt', gun, aB); aR.p.lerp(aB.p, bw); aR.q.slerp(aB.q, bw); }
     this._handTo('Right', aR, rootInv);
     // left hand
     const aL = this._aL || (this._aL = { p: new THREE.Vector3(), q: new THREE.Quaternion() });

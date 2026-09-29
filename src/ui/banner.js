@@ -77,7 +77,7 @@ export class Banner {
       2: { title: 'PHASE 2', sub: 'THE CANNON WAKES — FLAMERS ON ITS FLANKS, HIT THE FUEL TANKS' },
       3: { title: 'REACTOR EXPOSED', sub: 'THE CORE IS OPEN — POUR EVERYTHING INTO IT', color: '#ff3a1a' },
       blockade: { title: 'BRACE', sub: 'IT IS SMASHING THROUGH THE BLOCKADE' },
-      overheat: { title: 'REACTOR OVERHEATING', sub: 'ITS OWN ARMOUR IS BLOWING OFF', color: '#ff3a1a' },
+      overheat: { title: 'REACTOR OVERHEATING', sub: 'ITS TANKS AND PLATES ARE BLOWING — GET CLEAR', color: '#ff3a1a' },
     }[e.t === 'bossPhase' ? e.phase : e.kind];
     if (B) this.event({ k: 'THE LEVIATHAN', ...B });
   }
@@ -91,7 +91,7 @@ export class Banner {
       const guns = n(['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R']), tanks = n(['part_tank_L', 'part_tank_R']), armor = n(['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3']);
       const html = bs.phase <= 1 ? `<b>PHASE 1</b>KNOCK OUT THE GUNS<i>${guns} LEFT</i>`
         : bs.phase === 2 ? `<b>PHASE 2</b>FUEL TANKS <i>${tanks}</i> &nbsp;·&nbsp; REAR ARMOUR <i>${armor}</i>${a.part_turret_main ? ' &nbsp;·&nbsp; CANNON' : ''}`
-        : '<b>PHASE 3</b>SHOOT THE REACTOR — REAR, TOP';
+        : '<b>PHASE 3</b>SHOOT THE REACTOR — REAR, UP TOP';
       if (html !== this._objHtml) { this._objHtml = html; q.obj.innerHTML = html; }
       q.obj.style.display = 'block';
     } else if (this._objHtml) { this._objHtml = null; q.obj.style.display = 'none'; }

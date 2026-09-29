@@ -11,7 +11,7 @@
 //        fx/boss.js (THE LEVIATHAN: flamers, cannon, part fires, death + mushroom cloud), fx/hazards.js (mines, burning barrels, oil, boost pads).
 import * as THREE from 'three';
 import { buildAtlas, loadDecalTextures, SPR } from './fx/atlas.js';
-import { ParticleSystem, PDesc, MODE, makeParticleUniforms } from './fx/particles.js';
+import { ParticleSystem, PDesc, MODE, PF, makeParticleUniforms } from './fx/particles.js';
 import { SkidMarks } from './fx/skid.js';
 import { DecalPool } from './fx/decals.js';
 import { MeshPool } from './fx/meshpool.js';
@@ -19,13 +19,15 @@ import { Rng, clamp01, smooth } from './fx/util.js';
 import { CASING } from './fx/weapons.js';
 import { WEAPONS } from '../data/weapons.js';
 import * as R from './fx/recipes.js';
-import { CarRec, updateCarFx } from './fx/carfx.js';
+import { CarRec, updateCarFx, ownBurst } from './fx/carfx.js';
 import { paintHexOf, patchPaint, makeWreckUniforms } from './fx/wreck.js';
 import * as Assets from '../core/assets.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { BossFx } from './fx/boss.js';
 import { HazardFx } from './fx/hazards.js';
 import { BOSS_ID } from '../data/boss.js';
+import { ATMO, KEY } from '../world/atmosphere.js';
+import { measureCabin } from './fx/cabin.js';
 
 export { SkidMarks } from './fx/skid.js';
 
@@ -43,6 +45,7 @@ class Job { constructor() { this.type = 0; this.t = 0; this.dur = 0; this.x = 0;
 
 const _o3 = [0, 0, 0];
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _pv = new THREE.Matrix4(), _pv2 = new THREE.Matrix4(), _sph = new THREE.Sphere();
+const _qi = new THREE.Quaternion(), _rv = new THREE.Vector3(), _c1 = new THREE.Color(), _c2 = new THREE.Color();
 
 export class Fx {
   constructor(scene, camera, opts = { quality: 2 }) {
@@ -62,6 +65,9 @@ export class Fx {
     this.rockets = []; this.grenadeSlots = [];
     this.pimp = []; for (let i = 0; i < 64; i++) this.pimp.push({ live: false, t: 0, s: 'metal', x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0 });
     this.pimpHead = 0; this._views = null;
+    this.playerId = 1; this._own = null;               // local player truck: { cv, st, rec } (attached frame + cabin clip)
+    this._depthSrc = null;                             // Post (depthTexture getter) for soft particles
+    this.ambGain = 1.0; this.keyGain = 1.0;            // look tuning for the normal-lit smoke / dust
     this.viewH = (typeof innerHeight !== 'undefined' ? innerHeight : 1080) * Math.min((typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1) || 1, 1.5);
     if (typeof addEventListener !== 'undefined') addEventListener('resize', () => { this.viewH = innerHeight * Math.min(devicePixelRatio || 1, 1.5); });
   }
@@ -72,7 +78,9 @@ export class Fx {
     this.atlas = atlas;
     this.U = makeParticleUniforms(atlas);
     this.pa = new ParticleSystem(this.scene, { cap: MAXQ.capA, uniforms: this.U, order: 90, name: 'smoke' });
-    this.pf = new ParticleSystem(this.scene, { cap: MAXQ.capF, uniforms: this.U, order: 91, name: 'fire' });
+    this.pf = new ParticleSystem(this.scene, { cap: MAXQ.capF, uniforms: this.U, order: 91, name: 'fire', strip: true });
+    // per-camera uniforms right before the (first) particle draw: soft-particle depth, attached frame, cabin clip
+    this.pa.mesh.onBeforeRender = (renderer, scene, camera) => this._beforeRender(renderer, camera);
     this.skid = new SkidMarks(this.scene, { maxSegs: this.cfg.skid, minStep: 0.6, texture: dec.skid, uniforms: this.U, order: 55 });
     this.timeU = { value: 0 };
     this.decScorch = dec.scorch ? new DecalPool(this.scene, { texture: dec.scorch, cap: 24, cols: 2, rows: 2, uniforms: this.U, time: this.timeU, tint: [1, 1, 1], order: 58 }) : null;
@@ -89,7 +97,8 @@ export class Fx {
     this.grenades = new MeshPool(this.scene, new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.3 }), { cap: 8, restitution: 0.35, friction: 0.6, radius: 1, fadeTime: 0.05, drag: 0.02 });
     this.chunks.onBounce = (pool, i, x, y, z, imp) => this._chunkBounce(pool, i, x, y, z, imp);
     this.plates.onBounce = this.chunks.onBounce;
-    this.chunks.onTrail = (pool, i, x, y, z, k) => this._chunkTrail(x, y, z, k); this.plates.onTrail = this.chunks.onTrail;
+    this.chunks.onTrail = (pool, i, x, y, z, k) => this._chunkTrail(x, y, z, k, pool.age[i]); this.plates.onTrail = this.chunks.onTrail;
+    this.chunks.trailEvery = this.plates.trailEvery = 0.04;
     this.grenades.onBounce = (pool, i, x, y, z, imp) => this._grenadeBounce(x, y, z, imp);
     for (const m of [this.chunks, this.plates, this.casings, this.grenades]) m.groundFn = null;
     // pooled point lights (always in the scene at intensity 0 so materials never recompile)
@@ -155,7 +164,7 @@ export class Fx {
 
   // ------------------------------------------------------------------------------------------------ jobs
   _job(type) { for (const j of this.jobs) if (j.type === 0) { j.type = type; j.t = 0; j.acc = j.acc2 = j.acc3 = 0; j.cv = j.st = j.rec = null; return j; } return null; }
-  startSmokeColumn(x, y, z, S, gy) { const j = this._job(J.SMOKE); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = 2.6 * Math.sqrt(S); j.c = (34 + 18 * S) * this.qd; }
+  startSmokeColumn(x, y, z, S, gy) { const j = this._job(J.SMOKE); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = 3.5 + 2.5 * S; j.c = (16 + 12 * S) * Math.max(0.5, this.qd); }
   startPop(x, y, z, S, gy, delay) { const j = this._job(J.POP); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = delay; }
 
   _runJobs(dt) {
@@ -167,12 +176,16 @@ export class Fx {
       j.t += dt;
       switch (j.type) {
         case J.SMOKE: {
-          const S = j.a, sS = Math.sqrt(S);
-          j.acc += (j.c / j.dur) * dt; let n = 0;
-          while (j.acc >= 1 && n < 6) {
+          // the explosion's lingering column: dark lit billows rising off the blast, fire-lit for the first seconds, then
+          // leaning with the wind; the rate tapers so the column thins out instead of stopping
+          const S = j.a, sS = Math.sqrt(S), k = clamp01(j.t / j.dur);
+          j.acc += (j.c / j.dur) * 2 * (1 - k) * dt; let n = 0;
+          while (j.acc >= 1 && n < 4) {
             j.acc -= 1; n++;
-            const k = clamp01(j.t / j.dur);
-            R.puff(this, j.x + rng.sym(0.7 * S), j.y + rng.range(0, 1.2), j.z + rng.sym(0.7 * S), rng.sym(1.2), rng.range(6, 12) * sS * (1 - 0.3 * k), rng.sym(1.2), 1.6 * sS, rng.range(5.5, 9) * sS, rng.range(6, 10.5), 0.115, 0.105, 0.097, 0.95, 1.1, 0.7, j.b);
+            if (!this.near(j.x, j.y, j.z, this.farDist * 1.6)) continue;
+            const c = rng.range(0.05, 0.08);
+            R.puff(this, j.x + rng.sym(0.8 * S), j.y + rng.range(0.5, 2.0) * sS, j.z + rng.sym(0.8 * S), rng.sym(1.0), rng.range(4, 8) * sS * (1 - 0.4 * k), rng.sym(1.0),
+              1.8 * sS, rng.range(6.5, 10) * sS, rng.range(6, 9.5), c, c * 0.96, c * 0.92, 0.9, 1.0, 0.9, j.b, 1.4 * (1 - smooth(0.5, 3.5, j.t)));
           }
           if (j.t >= j.dur) j.type = 0;
           break;
@@ -209,27 +222,32 @@ export class Fx {
     if (!cv.root.parent || t > 26) { u.uGlow.value = 0.06; j.type = 0; return; }
     const root = cv.root, q = root.quaternion, P = root.position, spec = st.spec;
     const dx = P.x - this.camPos.x, dy = P.y - this.camPos.y, dz = P.z - this.camPos.z, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const fade = 1 - smooth(10.5, 14, t);
-    if (fade <= 0.001 && t > 14) return;
+    const fade = 1 - smooth(10.5, 15, t);
+    if (fade <= 0.001 && t > 15) return;
+    const burn = fade * (0.55 + 0.45 * (1 - smooth(4, 12, t)));                 // it burns down: fewer, smaller tongues
     // glow light (one pooled light, flickering)
-    if (fade > 0 && d < 70) this.glowLight(P.x, P.y + 1.2, P.z, 1.0, 0.5, 0.18, (70 + 40 * Math.sin(t * 13) * Math.sin(t * 7.3)) * fade, 26, rec.id + 1000);
+    if (fade > 0 && d < 80) this.glowLight(P.x, P.y + 1.2, P.z, 1.0, 0.5, 0.18, (80 + 45 * Math.sin(t * 13) * Math.sin(t * 7.3)) * fade, 28, rec.id + 1000);
     if (d > this.farDist * 1.3 || !this.inView(P, 30)) return;
-    const lod = (1 - smooth(this.lodNear, this.farDist * 1.3, d)) * this.qd * fade;
-    const vel = st.vel, W = spec.width, L = spec.length, H = spec.height;
-    const nf = this._acc(j, 'acc', 15 * lod, dt);
+    const lod = (1 - smooth(this.lodNear, this.farDist * 1.3, d)) * this.qd;
+    const vel = st.vel, W = spec.width, L = spec.length, H = spec.height, sW = Math.sqrt(W / 1.9);
+    // flame tongues licking out of the whole body (engine bay, cab, fuel tank) - they lean with the wind / the wreck's slide
+    const nf = this._acc(j, 'acc', 30 * lod * burn, dt);
     for (let k = 0; k < nf; k++) {
-      _v.set(rng.sym(W * 0.32), H * rng.range(0.42, 0.85), rng.sym(L * 0.36)).applyQuaternion(q).add(P);
-      const p = this.p.reset(); const w = rng.range(0.85, 1.5) * Math.sqrt(W / 1.9);
-      p.pos(_v.x, _v.y, _v.z).vel(vel.x * 0.5 + rng.sym(0.5), rng.range(1.8, 3.6), vel.z * 0.5 + rng.sym(0.5)); p.life = rng.range(0.5, 0.95);
-      p.spr = SPR.FIRE; p.mode = MODE.UPRIGHT; p.pivot = 1; p.aspect = 1.75; p.f0 = rng.int(16); p.nPlay = 16; p.fps = 24; p.size(w, w * 0.55); p.sCurve = 0.7; p.drag = 0.8;
-      p.col0(1.9, 1.05, 0.45, 1).col1(1.2, 0.42, 0.16, 1); p.add0 = p.add1 = 1; p.fin = 0.08; p.fout = 0.55; this.pf.emit(p);
+      const zone = rng.next(), zz = zone < 0.45 ? rng.range(0.1, 0.42) : zone < 0.75 ? rng.range(-0.15, 0.15) : rng.range(-0.42, -0.1);
+      _v.set(rng.sym(W * 0.3), H * rng.range(0.45, 0.8), zz * L).applyQuaternion(q).add(P);
+      const w = rng.range(0.75, 1.35) * sW * (0.6 + 0.4 * burn);
+      R.flame(this, _v.x, _v.y, _v.z, vel.x * 0.6 + rng.sym(0.4), vel.y * 0.3 + rng.range(0.4, 1.4), vel.z * 0.6 + rng.sym(0.4), w, w * rng.range(1.6, 2.5), rng.range(0.55, 0.95), rng.range(0.95, 1.25), 3.2, 0, 1.0, 1.3);
     }
-    const ns = this._acc(j, 'acc2', 10 * lod, dt);
+    // heat bloom at the seat of the fire (keeps the core reading hot between tongues)
+    if (rng.next() < dt * 10 * burn) { _v.set(rng.sym(W * 0.2), H * 0.6, rng.sym(L * 0.25)).applyQuaternion(q).add(P); R.glow(this, _v.x, _v.y, _v.z, L * 0.45, 0.22, 1.1, 0.45, 0.12, true, 1.1); }
+    // thick black smoke, fire-lit underneath while the fire is big, drifting off with the wind
+    const ns = this._acc(j, 'acc2', 11 * lod * (0.3 + 0.7 * fade), dt);
     for (let k = 0; k < ns; k++) {
-      _v.set(rng.sym(W * 0.28), H * rng.range(0.6, 1.0), rng.sym(L * 0.3)).applyQuaternion(q).add(P);
-      R.puff(this, _v.x, _v.y, _v.z, vel.x * 0.55 + rng.sym(1), rng.range(3.5, 7), vel.z * 0.55 + rng.sym(1), 1.3 * j.a, rng.range(5.5, 8) * j.a, rng.range(5, 8), 0.09, 0.085, 0.08, 0.92, 1.0, 0.9);
+      _v.set(rng.sym(W * 0.28), H * rng.range(0.75, 1.05), rng.sym(L * 0.3)).applyQuaternion(q).add(P);
+      const c = rng.range(0.045, 0.075);
+      R.puff(this, _v.x, _v.y, _v.z, vel.x * 0.55 + rng.sym(0.8), rng.range(3.5, 6.5), vel.z * 0.55 + rng.sym(0.8), 1.2 * j.a, rng.range(6, 9) * j.a, rng.range(5.5, 8.5), c, c * 0.95, c * 0.9, 0.92, 1.1, 0.9, -1e4, 1.6 * burn);
     }
-    const ne = this._acc(j, 'acc3', 5 * lod, dt);
+    const ne = this._acc(j, 'acc3', 6 * lod * burn, dt);
     for (let k = 0; k < ne; k++) { _v.set(rng.sym(W * 0.3), H * 0.7, rng.sym(L * 0.3)).applyQuaternion(q).add(P); R.ember(this, _v.x, _v.y, _v.z, vel.x * 0.5 + rng.sym(2), rng.range(3, 8), vel.z * 0.5 + rng.sym(2), rng.range(1.2, 2.6), 0.18, 0.9); }
   }
   _acc(j, key, r, dt) { let a = j[key] + r * dt; let n = 0; while (a >= 1 && n < 4) { a -= 1; n++; } j[key] = a > 1 ? 1 : a; return n; }
@@ -245,6 +263,8 @@ export class Fx {
     if (!this.loaded || !state.spec || !state.spec.wheels || !carView.wheelNodes) return;
     const t0 = performance.now();
     const rec = this._rec(state, carView);
+    rec.local = state.id === this.playerId;
+    if (rec.local) this._setOwn(state, carView, rec);
     updateCarFx(this, rec, state, carView, Math.min(dt, 0.05), surface);
     this._carMs += performance.now() - t0;
   }
@@ -253,14 +273,14 @@ export class Fx {
   debrisBurst(x, y, z, S, gy, paint) {
     const r = this.rng, sS = Math.sqrt(S);
     const n = Math.round((18 * S + 8) * this.qd);
-    const cols = [paint, paint, paint, 0x171614, 0x171614, 0x231f1b, 0x231f1b, 0x4a2410, 0x3c3e40, 0xff7428];
+    const cols = [paint, paint, 0x171614, 0x171614, 0x231f1b, 0x231f1b, 0x2a1a12, 0x4a2410, 0x3c3e40, 0x302c28];
     for (let i = 0; i < n; i++) {
       const az = r.next() * PI2, sp = r.range(5, 24) * sS, vy = r.range(6, 22) * sS;
       const plate = r.next() < 0.34;
       const size = r.range(0.07, 0.3) * sS;
       const pool = plate ? this.plates : this.chunks;
       const hex = cols[r.int(cols.length)];
-      const trail = r.next() < 0.22;
+      const trail = r.next() < 0.3;
       const slot = plate
         ? pool.spawn(x + r.sym(0.8), y + 0.4, z + r.sym(0.8), Math.cos(az) * sp, vy, Math.sin(az) * sp, size * r.range(1.4, 2.8), size * 0.1, size * r.range(1.0, 2.0), r.sym(16), r.sym(16), r.sym(16), r.range(4.5, 7), hex, trail)
         : pool.spawn(x + r.sym(0.8), y + 0.4, z + r.sym(0.8), Math.cos(az) * sp, vy, Math.sin(az) * sp, size * r.range(0.7, 1.4), size * r.range(0.5, 1.1), size * r.range(0.7, 1.4), r.sym(14), r.sym(14), r.sym(14), r.range(4.5, 7), hex, trail);
@@ -273,11 +293,14 @@ export class Fx {
     R.dust(this, x, y, z, r.sym(1), r.range(0.4, 1.4), r.sym(1), size * 0.4, size * 1.6, r.range(0.7, 1.2), 0.6, 0.5, 0.38, 0.4, y - 0.05, 2, 0.1);
     if (imp > 6 && r.next() < 0.5) for (let k = 0; k < 3; k++) R.spark(this, x, y + 0.05, z, r.sym(4), r.range(1, 5), r.sym(4), r.range(0.2, 0.5), y - 0.02, 0.6, 0.03);
   }
-  _chunkTrail(x, y, z, k) {
+  _chunkTrail(x, y, z, k, age) {
     if (!this.near(x, y, z, 160)) return;
-    const r = this.rng;
-    R.puff(this, x, y, z, r.sym(0.5), r.range(0.3, 1), r.sym(0.5), 0.25, 1.3, r.range(0.8, 1.4), 0.11, 0.105, 0.1, 0.6 * k, 0.6, 0.4);
-    if (r.next() < 0.5) R.glow(this, x, y, z, 0.5, 0.12, 2.6, 1.2, 0.3, false, 0.8);
+    const r = this.rng, hot = age < 2.2 ? 1 - age / 2.2 : 0;
+    R.puff(this, x, y, z, r.sym(0.3), r.range(0.2, 0.7), r.sym(0.3), 0.18, r.range(0.8, 1.2), r.range(0.9, 1.5), 0.07, 0.066, 0.063, 0.55 * k, 0.5, 0.25, -1e4, 0.8 * hot);
+    if (hot > 0) {
+      if (r.next() < 0.7) R.flame(this, x, y - 0.05, z, r.sym(0.3), r.range(0.3, 1), r.sym(0.3), 0.22 + 0.2 * hot, (0.22 + 0.2 * hot) * 2.2, 0.22, 1.2, 2.5, 0, 1.5, 1.2);
+      R.glow(this, x, y, z, 0.45 + 0.3 * hot, 0.1, 2.6, 1.1, 0.25, false, 0.8);
+    }
   }
   _grenadeBounce(x, y, z, imp) {
     const r = this.rng;
@@ -288,23 +311,72 @@ export class Fx {
 
   // ------------------------------------------------------------------------------------------------ lighting sync
   _syncLighting(force) {
-    if (this._manualLight) return;
-    let r = 0, g = 0, b = 0;
+    let r = 0, g = 0, b = 0, hemi = null;
     for (const o of this.scene.children) {
       if (!o.isLight || o.visible === false) continue;
       if (o.isDirectionalLight) { const k = o.intensity * 0.3; r += o.color.r * k; g += o.color.g * k; b += o.color.b * k; if (o.intensity > 0.05 && o.target) this.U.uSunDir.value.copy(o.position).sub(o.target.position).normalize(); }
-      else if (o.isHemisphereLight) { const k = o.intensity * 0.55; r += (o.color.r * 0.72 + o.groundColor.r * 0.28) * k; g += (o.color.g * 0.72 + o.groundColor.g * 0.28) * k; b += (o.color.b * 0.72 + o.groundColor.b * 0.28) * k; }
+      else if (o.isHemisphereLight) { hemi = o; const k = o.intensity * 0.55; r += (o.color.r * 0.72 + o.groundColor.r * 0.28) * k; g += (o.color.g * 0.72 + o.groundColor.g * 0.28) * k; b += (o.color.b * 0.72 + o.groundColor.b * 0.28) * k; }
       else if (o.isAmbientLight) { r += o.color.r * o.intensity * 0.5; g += o.color.g * o.intensity * 0.5; b += o.color.b * o.intensity * 0.5; }
     }
     if (r + g + b < 0.05) { r = g = b = 0.7; }
     const Y = 0.3 * r + 0.59 * g + 0.11 * b, k = Math.pow(Math.min(1, Y), 1.5) / Math.max(Y, 0.02);   // night scenes are much darker than their raw light sum
     r *= k; g *= k; b *= k;
-    const U = this.U.uLight.value;
-    U.set(Math.min(1.25, Math.max(0.05, r)), Math.min(1.25, Math.max(0.05, g)), Math.min(1.25, Math.max(0.05, b)));
+    if (!this._manualLight) {
+      const U = this.U.uLight.value;
+      U.set(Math.min(1.25, Math.max(0.05, r)), Math.min(1.25, Math.max(0.05, g)), Math.min(1.25, Math.max(0.05, b)));
+    }
+    // normal-lit sheets: hemisphere ambient (sky above / ground below) + an estimate of the sky IBL every lit material gets
+    const envI = this.scene.environmentIntensity ?? 1, zen = ATMO.uAtmZen.value, hor = ATMO.uAtmHor.value;
+    const hI = hemi ? hemi.intensity / Math.PI : 0.1;
+    const sc = hemi ? hemi.color : _c1.setRGB(0.6, 0.65, 0.75), gc = hemi ? hemi.groundColor : _c2.setRGB(0.4, 0.35, 0.3);
+    const night = 1 - (ATMO.uAtmSun.value.w || 0);
+    const fl = [0.07 * night, 0.085 * night, 0.13 * night];
+    const sky = this.U.uSkyCol.value, gnd = this.U.uGndCol.value;
+    sky.set(sc.r * hI + envI * (0.35 * zen.x + 0.45 * hor.x), sc.g * hI + envI * (0.35 * zen.y + 0.45 * hor.y), sc.b * hI + envI * (0.35 * zen.z + 0.45 * hor.z)).multiplyScalar(this.ambGain);
+    gnd.set(gc.r * hI + envI * 0.25 * hor.x, gc.g * hI + envI * 0.25 * hor.y, gc.b * hI + envI * 0.25 * hor.z).multiplyScalar(this.ambGain);
+    sky.set(Math.max(sky.x, fl[0] * 1.4), Math.max(sky.y, fl[1] * 1.4), Math.max(sky.z, fl[2] * 1.4)); gnd.set(Math.max(gnd.x, fl[0]), Math.max(gnd.y, fl[1]), Math.max(gnd.z, fl[2]));
     const fog = this.scene.fog;
     if (fog && fog.isFogExp2) { this.U.uFogD.value = fog.density; this.U.uFogCol.value.copy(fog.color); }
     else if (fog && fog.isFog) { this.U.uFogD.value = 1.6 / Math.max(1, fog.far); this.U.uFogCol.value.copy(fog.color); }
     else this.U.uFogD.value = 0;
+    void force;
+  }
+
+  // ------------------------------------------------------------------------------------------------ depth / own truck
+  /** Soft particles: `src.depthTexture` (Post: last frame's scene depth, never bound as a render target while we sample it). */
+  setDepthSource(src) { this._depthSrc = src || null; }
+
+  /** The local player's truck: attached-frame particles (hood fire/smoke) + the cabin clip volume. */
+  _setOwn(st, cv, rec) {
+    const o = this._own;
+    if (o && o.cv === cv) { o.st = st; o.rec = rec; return; }
+    if (!rec.cab) { try { rec.cab = measureCabin(cv); } catch (e) { console.warn('fx: cabin measure failed', e); rec.cab = null; } }
+    this._own = { cv, st, rec };
+  }
+
+  _beforeRender(renderer, camera) {
+    const U = this.U;
+    // soft particles: only for the main camera pass (the mirror pass renders a different view into its own target)
+    const src = this._depthSrc, dt = src && camera === this.camera && this.q > 0 ? src.depthTexture : null;
+    if (dt) {
+      const rt = renderer.getRenderTarget();
+      const w = rt ? rt.width : (dt.image && dt.image.width) || 1, h = rt ? rt.height : (dt.image && dt.image.height) || 1;
+      U.uDepth.value = dt; U.uSoftOn.value = 1; U.uDepthInfo.value.set(1 / w, 1 / h, camera.near, camera.far);
+    } else { U.uSoftOn.value = 0; }
+    U.uFovK.value = 2 * Math.tan(((camera.fov || 60) * Math.PI) / 360);
+    // attached frame + cabin clip (current transforms: the scene graph was just updated for this render)
+    const o = this._own, cab = o && o.rec && o.rec.cab;
+    if (o && cab && o.cv.root.parent && !o.st.exploded) {
+      const root = o.cv.root;
+      U.uFrame.value.copy(root.matrixWorld);
+      U.uCabInv.value.copy(root.matrixWorld).invert();
+      _qi.copy(root.quaternion).invert();
+      const v = o.st.vel, w = U.uWind.value;
+      U.uFrameAir.value.set(w.x * 0.5 - v.x, -v.y * 0.3, w.z * 0.5 - v.z).applyQuaternion(_qi);
+      U.uFrameUp.value.set(0, 1, 0).applyQuaternion(_qi);
+      U.uCabMin.value.set(cab.min.x, cab.min.y, cab.min.z, 1); U.uCabMax.value.set(cab.max.x, cab.max.y, cab.max.z, 1);
+      U.uCabPlane.value.copy(cab.plane);
+    } else U.uCabMin.value.w = 0;
   }
 
   // ------------------------------------------------------------------------------------------------ main update
@@ -318,6 +390,8 @@ export class Fx {
     _pv2.copy(cam.matrixWorld).invert(); _pv.multiplyMatrices(cam.projectionMatrix, _pv2); this.frustum.setFromProjectionMatrix(_pv);
     this._lightT -= dt; if (this._lightT <= 0) { this._lightT = 0.4; this._syncLighting(); }
     this.U.uTime.value = this.time; this.timeU.value = this.time;
+    { const kc = KEY.uKeyCol.value, g = this.keyGain / Math.PI; this.U.uKeyCol.value.set(kc.r * g, kc.g * g, kc.b * g); }
+    if (this._own && (!this._own.cv.root.parent || !this.recs.has(this._own.st.id))) this._own = null;
     this.U.uPix.value = (2 * Math.tan((cam.fov || 60) * Math.PI / 360)) / this.viewH;
     this._runJobs(dt);
     this.boss.update(dt);
@@ -346,6 +420,7 @@ export class Fx {
     if (!this.loaded) return;
     this._shake = ctx.shake || this._shake;
     if (ctx.carViews) this._views = ctx.carViews;
+    if (ctx.playerId !== undefined) this.playerId = ctx.playerId;
     const cp = ctx.cameraPos; if (cp) this.camPos.copy(cp);
     const rng = this.rng;
     switch (evt.t) {
@@ -366,8 +441,23 @@ export class Fx {
       }
       case 'crash': {
         const p = evt.pos; if (!this.near(p[0], p[1], p[2], 200)) break;
-        const gy = this.groundAt(p[0], p[2], p[1] - 0.7);
-        R.crash(this, p[0], p[1] - 0.2, p[2], evt.dv, evt.speed, gy);
+        const cst = ctx.states && ctx.states.get(evt.id), ccv = ctx.carViews && ctx.carViews.get(evt.id);
+        let vx = 0, vy = 0, vz = 0;
+        if (cst && ccv && cst.spec) {
+          // sparks where the hulls meet (toward the other car; for walls / rails the side the car is being pushed off),
+          // not at the centre of mass (for our own truck that would be inside the cab)
+          const root = ccv.root, os = evt.other >= 0 && ctx.states.get(evt.other);
+          _qi.copy(root.quaternion).invert();
+          const hw = cst.spec.width * 0.5, hl = cst.spec.length * 0.5;
+          if (os) _v2.copy(os.pos).sub(cst.pos).applyQuaternion(_qi);
+          else { _v2.copy(cst.vel).applyQuaternion(_qi); if (Math.abs(_v2.x) > 1.5) _v2.set(-Math.sign(_v2.x), 0, rng.sym(0.6)); else _v2.set(rng.sym(0.5), 0, 1); }
+          _v2.y = 0; const sx = Math.abs(_v2.x) > 1e-3 ? hw / Math.abs(_v2.x) : 1e9, sz = Math.abs(_v2.z) > 1e-3 ? hl / Math.abs(_v2.z) : 1e9;
+          _v2.multiplyScalar(Math.min(sx, sz)); _v2.y = cst.spec.height * 0.3;                          // root origin = ground level
+          _v.copy(_v2).applyQuaternion(root.quaternion).add(root.position);
+          vx = cst.vel.x; vy = cst.vel.y; vz = cst.vel.z;
+        } else _v.set(p[0], p[1] - 0.2, p[2]);
+        const gy = this.groundAt(_v.x, _v.z, _v.y - 0.7);
+        R.crash(this, _v.x, _v.y, _v.z, evt.dv, evt.speed, gy, vx, vy, vz);
         _v.set(p[0], p[1], p[2]);
         this.shakeReq(_v, Math.min(0.75, evt.dv * 0.06) * (evt.id === ctx.playerId ? 1.4 : 1), 60);
         break;
@@ -378,6 +468,7 @@ export class Fx {
         const S = evt.size || 1;
         const gy = this.groundAt(p[0], p[2], cv ? cv.root.position.y : p[1] - 0.8);
         R.explosion(this, p[0], p[1], p[2], S, { ground: gy, paint: cv ? paintHexOf(cv) : 0x6d4a30 });
+        this.haz.igniteNear(p[0], p[2], 3 * S);
         _v.set(p[0], p[1], p[2]); this.shakeReq(_v, 0.95 * Math.pow(S, 0.7), 120 * Math.pow(S, 0.6));
         if (cv && st) this.wreck(st, cv);
         break;
@@ -386,6 +477,7 @@ export class Fx {
         const p = evt.pos, kind = evt.kind || 'rocket';
         const gy = this.groundAt(p[0], p[2], p[1] - 0.2);
         R.boom(this, p[0], p[1], p[2], evt.radius || 10, kind, gy);
+        this.haz.igniteNear(p[0], p[2], 2);
         const big = kind === 'tank' ? 1.0 : Math.min(0.9, 0.45 + (evt.radius || 10) * 0.03);
         _v.set(p[0], p[1], p[2]); this.shakeReq(_v, big, kind === 'tank' ? 140 : 90);
         this._killProjectileNear(p[0], p[1], p[2]);
@@ -428,6 +520,7 @@ export class Fx {
     const cv = ctx.carViews && ctx.carViews.get(evt.id), st = ctx.states && ctx.states.get(evt.id);
     if (!cv || !st) return;
     const rec = this._rec(st, cv);
+    if (st.id === this.playerId && rec.cab) { ownBurst(this, rec, st, evt.t); return; }
     rec.toWorld(rec.sock.engine, _v);
     if (!this.near(_v.x, _v.y, _v.z, 200)) return;
     const r = this.rng, vel = st.vel;
@@ -560,9 +653,10 @@ export class Fx {
       const f = i / n, x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f, z = z0 + (z1 - z0) * f;
       R.puff(this, x, y, z, r.sym(0.5), r.range(0.1, 0.6), r.sym(0.5), 0.35, r.range(2.0, 3.0), r.range(1.6, 2.4), 0.82, 0.8, 0.77, 0.55, 0.15, 0.5);
       if (i === n) {
-        const p = this.p.reset(); p.pos(x, y, z).vel(dx * 6, dy * 6, dz * 6); p.mode = MODE.FLAME; p.spr = SPR.FIRE; p.f0 = r.int(16); p.nPlay = 16; p.fps = 40; p.len = 2.6; p.size(0.55, 0.3);
+        const p = this.p.reset(); p.pos(x, y, z).vel(dx * 6, dy * 6, dz * 6); p.mode = MODE.FLAME; p.spr = SPR.FIRE; p.f0 = r.int(32); p.nPlay = 32; p.fps = 40; p.len = 2.6; p.size(0.55, 0.3);
         p.life = 0.06; p.col(2.6, 1.7, 0.9, 1); p.add0 = p.add1 = 1; p.fin = 0.05; p.fout = 0.5; this.pf.emit(p);
-        R.glow(this, x, y, z, 1.4, 0.05, 6, 3.2, 1.2, false, 1.2);
+        const gk = Math.min(1, this.dist(x, y, z) / 10);           // right after launch the glow is next to the shooter's eye: keep it small
+        R.glow(this, x, y, z, 1.4 * (0.25 + 0.75 * gk), 0.05, 6 * gk + 1.5, 3.2 * gk + 0.8, 1.2 * gk + 0.3, false, 1.2);
         if (r.next() < 0.5) R.spark(this, x, y, z, -dx * r.range(8, 20) + r.sym(3), -dy * 10 + r.sym(3), -dz * r.range(8, 20) + r.sym(3), r.range(0.2, 0.5), y - 30, 0.9, 0.04);
       }
     }
