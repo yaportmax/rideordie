@@ -19,6 +19,11 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { WeaponView } from './weapon_view.js';
 
 export const FP_ARMS_URL = '/models/characters/fp_arms.glb';
+/** True while a scripted camera owns the view (run.cinematic, intro fly-by, finale orbit, death cam): no viewmodel, no gunner HUD. */
+export function inCinematic() {
+  const R = typeof window !== 'undefined' ? window.__run : null;
+  return !!(R && (R.cinematic || R.introOutside || (R.finaleT > 0 && !R.finaleDone) || R.deathCamT > 0));
+}
 const SHELL_HULL = new THREE.MeshStandardMaterial({ color: 0x9a1c12, roughness: 0.55, metalness: 0.0 });
 const SHELL_BRASS = new THREE.MeshStandardMaterial({ color: 0xc89a40, roughness: 0.3, metalness: 0.9 });
 let FP_GLB = null, FP_TRIED = false;
@@ -641,7 +646,7 @@ export class ViewModel {
     if (gun.loc.muzzle) this.muzzleCam.copy(gun.loc.muzzle.p).applyQuaternion(this.quat).add(this.pos);
     if (gun.loc.eject) { this.ejectCam.copy(gun.loc.eject.p).applyQuaternion(this.quat).add(this.pos); this.ejectDirCam.set(1, 0, 0).applyQuaternion(gun.loc.eject.q).applyQuaternion(this.quat); }
     this.cam = cam; this.eye = L.eye;
-    G.fp = show;
+    G.fp = true; G.vmShown = show;              // fp: first-person rig active (also while scoped); vmShown: arms + gun drawn
     // debug orbit: look at the rig from another angle (view.rot deg around view.c, pushed view.d in front of the camera)
     if (dbg && dbg.view) {
       const V = dbg.view, c = _v.fromArray(V.c || [0.05, -0.15, -0.3]);

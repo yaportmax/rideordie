@@ -143,7 +143,9 @@ export class Vehicle {
     this.reversing = false;
     if (brake > 0.05 && throttle < 0.05 && vfBody < 1.5) { this.reversing = true; }
     // steering smoothing (keyboard ramps, analogue passes straight through)
-    const rate = Math.abs(steerIn) > Math.abs(this.steerSmooth) ? (s.steerRise ?? 10) : (s.steerFall ?? 12);
+    // steering builds a little slower at speed (keyboard taps shouldn't flick a 2-tonne truck at 130 km/h); release stays quick
+    const hiSpd = smoothstep(18, 42, Math.abs(this.vf || 0));
+    const rate = Math.abs(steerIn) > Math.abs(this.steerSmooth) ? (s.steerRise ?? 10) * lerp(1, 0.55, hiSpd) : (s.steerFall ?? 12) * lerp(1, 1.8, hiSpd);
     this.steerSmooth = damp(this.steerSmooth, steerIn, rate, dt);
     if (Math.abs(this.steerSmooth - steerIn) < 0.002) this.steerSmooth = steerIn;
 
@@ -282,7 +284,7 @@ export class Vehicle {
       let muLat = (w.front ? frontMu : rearMu) * surf.grip * w.grip;
       let muLong = (s.grip.long ?? 1.25) * surf.grip * w.grip;
       let rearHb = false;
-      if (handbrake && (w.hb || !w.front)) { muLat *= s.grip.hbLat ?? 0.32; rearHb = true; }
+      if (handbrake && (w.hb || !w.front)) { muLat *= lerp(s.grip.hbLat ?? 0.32, 0.48, smoothstep(18, 36, speed)); rearHb = true; } // less snap at motorway speed
       const hbBrake = rearHb ? this.mass * (s.hbDecel ?? 3.5) / 2 : 0;
       // longitudinal request
       let Fx = 0;
@@ -333,16 +335,19 @@ export class Vehicle {
       if (driftMode) {
         // governor: heading relative to velocity follows the steer input like a damped spring
         const dr = s.drift ?? {};
-        const betaT = -this.steerSmooth * (dr.maxSlip ?? 0.7);
+        const betaT = -this.steerSmooth * (dr.maxSlip ?? 0.7) * lerp(1, 0.62, smoothstep(18, 36, speed)); // shallower slides at motorway speed
         const velHeading = Math.atan2(v.x, v.z);
         const velRate = this.prevVelHeading === undefined ? 0 : wrapAngle(velHeading - this.prevVelHeading) / dt;
         this.velRate = damp(this.velRate ?? 0, velRate, 20, dt);
         const rel = -this.slipAngle, relT = -betaT, relRate = this.yawRate - this.velRate;
-        const wn = dr.wn ?? 5.5, zeta = dr.zeta ?? 0.85;
-        tq = clamp(Iy * (wn * wn * (relT - rel) - 2 * zeta * wn * relRate), -Iy * 9, Iy * 9);
+        const wn = (dr.wn ?? 5.5) * lerp(1, 0.62, smoothstep(18, 36, speed)), zeta = dr.zeta ?? 0.85; // slower, smoother slide entry at speed
+        const tqMax = Iy * 9 * lerp(1, 0.5, smoothstep(18, 36, speed)); // gentler slide entry at motorway speed
+        tq = clamp(Iy * (wn * wn * (relT - rel) - 2 * zeta * wn * relRate), -tqMax, tqMax);
       } else {
         const err = rCmd - this.yawRate;
-        tq = clamp(err * (s.yawAssist ?? 5.5) * Iy, -Iy * 14, Iy * 14);
+        // settle harder when the wheel is centred at speed: no lingering rotation after a keyboard tap
+        const settle = Math.abs(this.steerSmooth) < 0.2 ? lerp(1, 3.2, smoothstep(15, 35, vAbs)) : 1;
+        tq = clamp(err * (s.yawAssist ?? 5.5) * settle * Iy, -Iy * 14, Iy * 14);
       }
       _imp.copy(up).multiplyScalar(tq * dt);
       b.applyTorqueImpulse(_imp, true);

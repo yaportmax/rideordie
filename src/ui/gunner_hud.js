@@ -6,6 +6,8 @@
 // Data: Hud.update(dt, d) passes d.gunner (GunnerController), d.events (this frame's events), d.cam (camera), d.playerId, d.scoped,
 // d.hideCross, d.spreadPx, d.mag, d.reloading.
 
+import { inCinematic } from '../view/viewmodel.js';
+
 const CSS = `
 #ghud{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 #ghud .c{position:absolute;left:50%;top:50%;width:0;height:0;transition:opacity .08s}
@@ -120,7 +122,7 @@ export class GunnerHud {
 
   update(dt, d) {
     const q = this.q, G = d.gunner;
-    if (!G || !this.on) { this.el.style.display = 'none'; return; }
+    if (!G || !this.on || d.cinematic || inCinematic()) { this.el.style.display = 'none'; return; }
     this.el.style.display = '';
     this._events(d);
     const W = G.weapon;

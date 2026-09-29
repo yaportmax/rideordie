@@ -43,6 +43,9 @@ R_ADJ = {}
 R_FIX = {"revolver": (4.0, -10.0, 1.0, 0.0, 0.0, -26.0)}
 # manual left-hand adjustments (mm, G axes) from the handguard-bottom contact point under the authored grip_L
 L_ADJ = {}
+# support hand (cup / vgrip): spin about the palm normal chosen by the search (fixed to save time) + a hand-tuned world shift (mm)
+L_SPIN = {"pistol": 30, "revolver": -30, "rpg": 65}
+L_SHIFT = {"revolver": (0, -12, 0), "pistol": (0, -8, 0)}
 LEFT_KIND = {"rifle": "hg", "smg": "hg", "shotgun": "hg", "lmg": "hg", "sniper": "hg", "pistol": "cup", "revolver": "cup", "rpg": "vgrip"}
 
 
@@ -432,8 +435,10 @@ def fit_left(gun, rig, geo, S, right=None, verbose=True):
     else:
         # palm toward the gun's right side (roll +90 about the barrel), spun about the palm normal
         # (cup: thumb forward along the frame, fingers down-forward over the right fist; vgrip: fingers forward round the grip)
-        R0s = [R.from_euler("x", 90, degrees=True).as_matrix() @ R.from_euler("z", a, degrees=True).as_matrix()
-               for a in ((-30, 0, 30) if kind == "cup" else (45, 65, 85))]
+        angs = (-30, 0, 30) if kind == "cup" else (45, 65, 85)
+        if gun.name in L_SPIN:
+            angs = (L_SPIN[gun.name],)
+        R0s = [R.from_euler("x", 90, degrees=True).as_matrix() @ R.from_euler("z", a, degrees=True).as_matrix() for a in angs]
     best = None
     for R0 in R0s:
         pl = Placement(R0, g0.copy())
@@ -453,7 +458,8 @@ def fit_left(gun, rig, geo, S, right=None, verbose=True):
                 return pen + 4.0 * gap ** 2 + 0.01 * (v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
             x, c = grid_min(cost, [np.arange(-30, 30.1, 4.0)] * 3)
             x2, c = grid_min(cost, [x[k] + np.arange(-4, 4.1, 1.0) for k in range(3)])
-            pl.x = np.array([x2[0], x2[1], x2[2], 0, 0, 0])
+            sh = L_SHIFT.get(gun.name, (0, 0, 0))     # hand-tuned (fp_qa / in-game): e.g. press the palm onto the grip panel
+            pl.x = np.array([x2[0] + sh[0], x2[1] + sh[1], x2[2] + sh[2], 0, 0, 0])
         p2 = dict(pose)
         order = [f for f in ("Index", "Middle", "Ring", "Pinky", "Thumb") if not specs[f].get("fixed")]
         fit_fingers(hand, pl, field, specs, p2, order)

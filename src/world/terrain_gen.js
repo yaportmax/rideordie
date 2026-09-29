@@ -150,7 +150,9 @@ function featureDip(road, s, a, list) {
   return dip;
 }
 
-const _sm = {};
+const _sm = {}, _smC = {};
+/** Layer shown on cut faces (chunk end caps, outer curtains). */
+function capRock(bio) { const id = bio.w > 0.5 ? bio.b : bio.a; return id === 'desert' || id === 'canyon' ? L.rock_red : id === 'mountain' || id === 'city' ? L.rock_grey : L.cliff; }
 const FOLD_U0 = 0.45, FOLD_MAX = 0.85;
 /** World position of terrain at (s, d). Writes into out {x,y,z}. d beyond +-EDGE. */
 export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
@@ -255,10 +257,12 @@ export function genTerrainChunk(road, seed, chunk, lod) {
   const bridges = road.features.filter((f) => f.type === 'bridge' && f.s1 > s0 - 300 && f.s0 < s1 + 300);
   const tunnels = road.features.filter((f) => f.type === 'tunnel' && f.s1 > s0 - 100 && f.s0 < s1 + 100);
   const sides = [1, -1];
+  const caps = [];                               // deferred cap rims: {side, r, bottoms[], outward}
   // vertex layout per side: (rows) x (nCol) + skirt verts on the 3 open edges; we generate two independent grids.
   const vertsPerSide = rowsN * nCol;
   const skirtVerts = rowsN + rowsN + nCol * 2; // outer column skirt, first/last row skirts
-  const totalV = 2 * (vertsPerSide + skirtVerts);
+  const capVerts = 2 * nCol;                     // per side: rim copies of the first/last rows for the end caps (appended after both sides)
+  const totalV = 2 * (vertsPerSide + skirtVerts) + 2 * capVerts;
   const positions = new Float32Array(totalV * 3), normals = new Float32Array(totalV * 3), aux = new Float32Array(totalV * 4);
   const splat = [new Float32Array(totalV * 4), new Float32Array(totalV * 4), new Float32Array(totalV * 4)];
   const offX = wrapOff(ax), offZ = wrapOff(az);
@@ -314,33 +318,58 @@ export function genTerrainChunk(road, seed, chunk, lod) {
         if (side > 0) colIdx.push(a, b, cc, a, cc, dd); else colIdx.push(a, cc, b, a, dd, cc);
       }
     }
-    // skirts: drop copies of edge vertices by 10 m (hides cracks between LODs)
-    const skirt = (r, c, depth = 12) => {
+    // skirts. First / last row: a solid END CAP down to a flat base 40 m under the lowest point of the row (rock-textured, facing out along
+    // the road), so a chunk whose neighbour is not streamed in shows a cut-away cliff instead of an open slab over the void. When the
+    // neighbour exists the cap is buried under the shared seam. Outer column: a 250 m curtain facing outward.
+    const skirt = (r, c, y, onx, onz, rock) => {
       const src = gridIndex(r, c);
-      positions[vi * 3] = positions[src * 3]; positions[vi * 3 + 1] = positions[src * 3 + 1] - depth; positions[vi * 3 + 2] = positions[src * 3 + 2];
-      normals[vi * 3] = normals[src * 3]; normals[vi * 3 + 1] = normals[src * 3 + 1]; normals[vi * 3 + 2] = normals[src * 3 + 2];
-      for (let k = 0; k < 3; k++) splat[k].copyWithin(vi * 4, src * 4, src * 4 + 4);
+      positions[vi * 3] = positions[src * 3]; positions[vi * 3 + 1] = y; positions[vi * 3 + 2] = positions[src * 3 + 2];
+      normals[vi * 3] = onx; normals[vi * 3 + 1] = 0; normals[vi * 3 + 2] = onz;
+      for (let k = 0; k < 3; k++) splat[k].fill(0, vi * 4, vi * 4 + 4);
+      splat[(rock / 4) | 0][vi * 4 + (rock % 4)] = 1;
       aux.copyWithin(vi * 4, src * 4, src * 4 + 4);
       return vi++;
     };
-    // first & last rows
+    const rowMin = (r) => { let m = 1e9; for (let c = 0; c < nCol; c++) m = Math.min(m, positions[gridIndex(r, c) * 3 + 1]); return m; };
+    const smA = road.sample(s0), smB = road.sample(s1);
+    const rockA = capRock(biomeAt(s0)), rockB = capRock(biomeAt(s1));
     const rowFirst = [], rowLast = [];
-    for (let c = 0; c < nCol; c++) { rowFirst.push(skirt(0, c)); }
-    for (let c = 0; c < nCol; c++) { rowLast.push(skirt(rowsN - 1, c)); }
-    for (let c = 0; c < nCol - 1; c++) {
-      const g0 = gridIndex(0, c), g1 = gridIndex(0, c + 1), k0 = rowFirst[c], k1 = rowFirst[c + 1];
-      idx.push(g0, k1, k0, g0, g1, k1);
-      const h0 = gridIndex(rowsN - 1, c), h1 = gridIndex(rowsN - 1, c + 1), m0 = rowLast[c], m1 = rowLast[c + 1];
-      idx.push(h0, m0, m1, h0, m1, h1);
-    }
+    const yA = rowMin(0) - 40, yB = rowMin(rowsN - 1) - 40;
+    for (let c = 0; c < nCol; c++) rowFirst.push(skirt(0, c, yA, -smA.fx, -smA.fz, rockA));
+    for (let c = 0; c < nCol; c++) rowLast.push(skirt(rowsN - 1, c, yB, smB.fx, smB.fz, rockB));
+    caps.push({ side, r: 0, gridIndex, bottoms: rowFirst, onx: -smA.fx, onz: -smA.fz, rock: rockA, first: true });
+    caps.push({ side, r: rowsN - 1, gridIndex, bottoms: rowLast, onx: smB.fx, onz: smB.fz, rock: rockB, first: false });
     // outer column
     const colSk = [];
-    for (let r = 0; r < rowsN; r++) colSk.push(skirt(r, nCol - 1, 250));
+    for (let r = 0; r < rowsN; r++) {
+      const sm = road.sample(s0 + r * DS * stride, _smC), src = gridIndex(r, nCol - 1);
+      colSk.push(skirt(r, nCol - 1, positions[src * 3 + 1] - 250, sm.nx * side, sm.nz * side, capRock(biomeAt(sm.s))));
+    }
     for (let r = 0; r < rowsN - 1; r++) {
       const g0 = gridIndex(r, nCol - 1), g1 = gridIndex(r + 1, nCol - 1), k0 = colSk[r], k1 = colSk[r + 1];
       idx.push(g0, k0, k1, g0, k1, g1);
     }
     // inner edge (toward the road strip): seam vertices sit exactly on the road strip edge, no skirt needed
+  }
+  // end-cap rims: copies of the first / last rows with the cap's outward normal and rock splat (appended after both sides so the per-side
+  // layout that ChunkGround.fromTerrainMesh reads stays unchanged)
+  for (const cp of caps) {
+    const top = [];
+    for (let c = 0; c < nCol; c++) {
+      const src = cp.gridIndex(cp.r, c);
+      positions[vi * 3] = positions[src * 3]; positions[vi * 3 + 1] = positions[src * 3 + 1]; positions[vi * 3 + 2] = positions[src * 3 + 2];
+      normals[vi * 3] = cp.onx; normals[vi * 3 + 1] = 0; normals[vi * 3 + 2] = cp.onz;
+      for (let k = 0; k < 3; k++) splat[k].fill(0, vi * 4, vi * 4 + 4);
+      splat[(cp.rock / 4) | 0][vi * 4 + (cp.rock % 4)] = 1;
+      aux.copyWithin(vi * 4, src * 4, src * 4 + 4);
+      top.push(vi++);
+    }
+    // winding: faces point along the outward normal (first row: backward, last row: forward), mirrored for the right-hand side
+    const flip = (cp.side > 0) === cp.first;
+    for (let c = 0; c < nCol - 1; c++) {
+      const g0 = top[c], g1 = top[c + 1], k0 = cp.bottoms[c], k1 = cp.bottoms[c + 1];
+      if (flip) idx.push(g0, k1, k0, g0, g1, k1); else idx.push(g0, k0, k1, g0, k1, g1);
+    }
   }
   const res = {
     anchor: [ax, ay, az], positions: positions.subarray(0, vi * 3), normals: normals.subarray(0, vi * 3), aux: aux.subarray(0, vi * 4),

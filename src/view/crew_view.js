@@ -15,7 +15,8 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { WeaponView } from './weapon_view.js';
-import { ViewModel } from './viewmodel.js';
+import { ViewModel, inCinematic } from './viewmodel.js';
+import { setCutaway } from './fp_cutaway.js';
 import { clamp } from '../core/util.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
@@ -53,6 +54,18 @@ const LEAVES = { death_thrown_back: [0.10, 0.82], death_thrown_left: [0.10, 0.82
 const OPEN_CABS = new Set(['e_buggy', 'e_technical']);   // sit_shout puts the fist out of the window: only where there is no door glass
 const RAIL_CARS = new Set(['e_buggy', 'e_technical']);   // a waist-high bar in front of the gunner (death_slump_rail folds over it)
 const WHEEL_HANDS = [['Left', 0.84], ['Right', 2.3]];
+// ---- procedural readability layer: everything is exaggerated so it reads at 10-30 m -----------------------------------------
+const SWAY_W = 2 * Math.PI * 1.5, SWAY_Z = 0.42;      // upper-body inertia spring (the car's real accelerations)
+const WHIP_W = 2 * Math.PI * 2.4, WHIP_Z = 0.30;      // hit whip spring (overshoots: jolt, rebound, settle)
+const RAIDER_WHEEL_RATIO = 10;                         // steering-wheel turns per road-wheel angle (raiders; heroes keep 2.6)
+const G = 9.81;
+const _ax = V(), _ay = V(), _az = V(), _hq = new THREE.Quaternion(), _yq = new THREE.Quaternion();
+/** Premultiply `bone` by a rotation of `ang` about `axis` (expressed in the bone parent's frame ~ the body frame). */
+function turn(bone, axis, ang) { if (bone && ang) bone.quaternion.premultiply(_hq.setFromAxisAngle(axis, ang)); }
+function springStep(x, v, target, w, z, dt) {   // critically-ish damped vector spring, in place
+  v.x += (w * w * (target.x - x.x) - 2 * z * w * v.x) * dt; v.y += (w * w * (target.y - x.y) - 2 * z * w * v.y) * dt; v.z += (w * w * (target.z - x.z) - 2 * z * w * v.z) * dt;
+  x.addScaledVector(v, dt);
+}
 const smooth01 = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -112,8 +125,14 @@ export class CrewView {
     this.ov = null;                                                        // current full-body one-shot override
     this.aimK = 0; this.autoK = 0; this.braceK = 0; this.shaken = 0; this.sinceShot = 99; this.shots = 0; this.fireRate = 8;
     this.mountAt = null; this.cls = null; this.wasReloading = false; this.lastHitDir = null; this.lastSpeed = 0; this.hitRT = 0; this.lastHeavy = -9;
-    this.actT = rnd(3, 9); this.tauntT = rnd(6, 14);
+    this.actT = rnd(3, 9); this.tauntT = rnd(2, 6); this.tauntDelay = -1; this.wasFire = false;
     this.ikW = { Left: 1, Right: 1 };
+    // procedural layer state
+    this.pVel = null; this.acc = V();                                     // car-frame acceleration (smoothed)
+    this.sway = V(); this.swayV = V(); this._swT = V();                   // x = roll about car fwd, z = pitch about car left (rad)
+    this.whip = V(); this.whipV = V();                                    // body frame: x = pitch (+ forward), y = twist (+ left), z = roll
+    this.lookW = 0; this.lookYaw = 0; this.lookPitch = 0; this.lookT = rnd(0.5, 2); this.looking = false;
+    this.sawT = rnd(0, 20); this.fly = null; this.slide = null;
     this.gun = new THREE.Group(); this.gun.name = 'gunframe';
     if (model) this._setupRig(model); else this._placeholder();
     this.weapon = null; this.weaponId = null;
@@ -257,12 +276,14 @@ export class CrewView {
     if (this.deadT >= 0) { this._dead(dt, s); return; }
     if (!s.alive) { this.die({}); return; }
     this.lastSpeed = s.speed || 0;
-    const fp = !!(s.local && s.local.firstPerson);
+    // scripted cameras (intro fly-by, finale orbit, death cam) see our crew from outside: never first person there
+    const fp = !!(s.local && s.local.firstPerson) && !(s.local && inCinematic());
     // local first-person gunner: the viewmodel draws arms + gun; this body stays in the scene as an invisible shadow caster
     const useVm = fp && this.role !== 'driver' && this.hero && !!(s.local.camera && s.local.gunner);
     if (useVm && !this.vm) { this.vm = new ViewModel(); s.local.gunner.vm = this.vm; }
     this.useVm = useVm;
     this._setShadowOnly(useVm);
+    if (this.role !== 'driver' && s.local) setCutaway(this.car, useVm);   // clear sight lines: cut truck parts in the gunner's eye line
     this.body.visible = useVm || !(fp && s.local.scoped);
     // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
     if (this.bones && this.bones.Head) { const k = fp && !useVm ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); if (this.bones.Neck && this.role === 'driver') this.bones.Neck.scale.setScalar(fp ? 0.2 : 1); }
@@ -292,7 +313,7 @@ export class CrewView {
       const pitch = s.aimPitch;
       const n = this.spine.length || 1;
       for (const b of this.spine) { _q.setFromEuler(_eul.set(-pitch * 0.55 / n, diff / n, 0, 'YXZ')); b.quaternion.premultiply(_q); }
-      if (clipMode) this.flinchT = 0;                  // clip hits handle it (see flinch())
+      if (clipMode) { this.flinchT = 0; this._react(dt, s, 1); }   // clip hits + procedural whip / inertia sway (see flinch())
       else if (this.flinchT > 0) { this.flinchT -= dt; const k = Math.sin(Math.min(1, this.flinchT / 0.3) * Math.PI) * 0.35; if (this.spine[0]) this.spine[0].quaternion.premultiply(_q.setFromAxisAngle(_n.set(1, 0, 0), -k)); }
       this.model.updateMatrixWorld(true);
     }
@@ -478,15 +499,82 @@ export class CrewView {
     hand.quaternion.slerp(_qp.multiply(_q2), 0.7);
   }
 
+  // ---- procedural readability layer ----------------------------------------------------------------------------------------
+  /** Upper-body inertia against the car's real accelerations (sway into / out of turns, lurch on braking and bumps, head kept
+   *  level) + the hit whip (spring impulse: jolt, overshoot, settle).  Runs after the mixer, before the weapon / IK passes. */
+  _react(dt, s, k) {
+    const sp = this.spine; if (!sp.length || dt <= 0) return;
+    if (s.vel && s.quat) {
+      if (!this.pVel) this.pVel = new THREE.Vector3().copy(s.vel);
+      _v1.copy(s.vel).sub(this.pVel).multiplyScalar(1 / Math.max(dt, 1e-3)); this.pVel.copy(s.vel);
+      if (_v1.lengthSq() > 3600) _v1.setLength(60);                   // snapshot jumps / teleports
+      _v1.applyQuaternion(_q.copy(s.quat).invert());                   // car frame: +X left, +Y up, +Z forward
+      this.acc.lerp(_v1, 1 - Math.exp(-dt * 7));
+    }
+    const kk = (this.role === 'driver' ? 0.022 : 0.038) * k;
+    this._swT.set(clamp(this.acc.x * kk, -0.45, 0.45), 0, clamp(-this.acc.z * kk * 0.8 + this.acc.y * 0.006, -0.35, 0.35));
+    springStep(this.sway, this.swayV, this._swT, SWAY_W, SWAY_Z, dt);
+    _v2.set(0, 0, 0); springStep(this.whip, this.whipV, _v2, WHIP_W, WHIP_Z, dt);
+    // the car's roll / pitch axes seen from the body frame (the body is yawed inside the car-aligned root)
+    const cy = Math.cos(this.bodyYaw), sy = Math.sin(this.bodyYaw);
+    _az.set(-sy, 0, cy); _ax.set(cy, 0, sy); _ay.set(0, 1, 0);
+    const roll = this.sway.x, pitch = this.sway.z, W = this.whip;
+    for (let i = 0; i < sp.length; i++) {
+      const b = sp[i], ws = i === 0 ? 0.4 : 0.3, wh = i === 0 ? 0.25 : i === 1 ? 0.35 : 0.4;
+      turn(b, _az, roll * ws); turn(b, _ax, pitch * ws);
+      _v1.set(1, 0, 0); turn(b, _v1, W.x * wh); _v1.set(0, 0, 1); turn(b, _v1, W.z * wh); turn(b, _ay, W.y * wh * 0.75);
+    }
+    const B = this.bones;
+    turn(B.Neck, _az, -roll * 0.45); turn(B.Neck, _ax, -pitch * 0.45);   // head stays level (bracing)
+    _v1.set(1, 0, 0); turn(B.Head, _v1, W.x * 0.55);                     // whiplash: the head lags the torso
+    if (B.Hips && this.role !== 'driver') turn(B.Hips, _ay, W.y * 0.25); // the whole body is spun a little
+  }
+
+  /** Raider drivers: head (+ chest) toward the player's truck - locked on before an attack (intent ram / block), repeated
+   *  looks when close, over the shoulder when you are behind. */
+  _look(dt, s) {
+    const P = s.player, H = this.bones.Head, N = this.bones.Neck;
+    if (!P || !H || !N) return;
+    H.getWorldPosition(_v1); _v2.copy(P).sub(_v1); const d = _v2.length();
+    this.root.getWorldQuaternion(_q).invert(); _v2.applyQuaternion(_q);
+    const yaw = Math.atan2(_v2.x, _v2.z), pitch = Math.atan2(_v2.y, Math.hypot(_v2.x, _v2.z));
+    let want = 0;
+    if ((s.intent === 'ram' || s.intent === 'block') && d < 50) want = 1;
+    else if (d < 34) {
+      if ((this.lookT -= dt) <= 0) { this.looking = !this.looking; const behind = Math.abs(yaw) > 1.9; this.lookT = this.looking ? rnd(0.8, 1.6) : rnd(behind ? 1.0 : 1.4, behind ? 2.2 : 3.4); }
+      want = this.looking ? 1 : 0;
+    }
+    this.lookW += (want - this.lookW) * Math.min(1, dt * 7);
+    this.lookYaw += (clamp(yaw, -1.55, 1.55) - this.lookYaw) * Math.min(1, dt * 9);
+    this.lookPitch += (clamp(pitch, -0.3, 0.35) - this.lookPitch) * Math.min(1, dt * 9);
+    const w = this.lookW; if (w < 0.01) return;
+    const yw = this.lookYaw * w;
+    _ay.set(0, 1, 0); _v1.set(1, 0, 0);
+    turn(this.spine[2], _ay, yw * 0.22); turn(N, _ay, yw * 0.33); turn(H, _ay, yw * 0.45);
+    turn(H, _v1, -this.lookPitch * w * 0.7);
+  }
+
+  /** Steering-wheel angle (rad, + = left).  Heroes: the lead's 2.6 ratio on the road-wheel angle.  Raiders: a real-car-like
+   *  ratio (the road-wheel angle is only a few degrees at speed) + constant little sawing corrections. */
+  _wheelAngle(dt, s) {
+    if (this.hero) return this.steer * 2.6;
+    this.sawT += dt;
+    const sp = clamp((s && s.speed || 0) / 15, 0, 1);
+    const saw = (Math.sin(this.sawT * 6.3) * 0.6 + Math.sin(this.sawT * 2.9 + 1.3) * 0.4) * 0.12 * sp;
+    return clamp(this.steer * RAIDER_WHEEL_RATIO, -1.7, 1.7) + saw;
+  }
+
   // ---- driver ---------------------------------------------------------------------------------------------------------------
   _driver(dt, s, fp) {
     this.steer += ((s.steer || 0) - this.steer) * Math.min(1, dt * 8);
-    const k = Math.max(-1, Math.min(1, this.steer * 2.5));
-    // occasional life: glances (not in our own first-person view), raider taunts out of an open cab
+    const wheelA = this._wheelAngle(dt, s);
+    // body lean with the wheel (raiders: from the exaggerated wheel angle so it reads)
+    const k = this.hero ? Math.max(-1, Math.min(1, this.steer * 2.5)) : clamp(wheelA / 1.1, -1, 1);
+    // occasional life: glances (heroes; raiders track you with _look), raider taunts out of an open cab
     if (this.mixer && !this.ov && this.braceK < 0.2 && !fp && (this.actT -= dt) <= 0) {
-      this.actT = rnd(this.hero ? 8 : 5, this.hero ? 16 : 11);
-      if (!this.hero && OPEN_CABS.has(this.car?.spec?.id) && Math.random() < 0.3) this._play('sit_shout', 'shout', { fin: 0.12, fout: 0.2 });
-      else this._play(Math.random() < 0.5 ? 'sit_glance_L' : 'sit_glance_R', 'glance', { fin: 0.12, fout: 0.2 });
+      this.actT = rnd(this.hero ? 8 : 4, this.hero ? 16 : 9);
+      if (!this.hero && OPEN_CABS.has(this.car?.spec?.id) && s.player && Math.random() < 0.55) this._play('sit_shout', 'shout', { fin: 0.12, fout: 0.2 });
+      else if (!s.player) this._play(Math.random() < 0.5 ? 'sit_glance_L' : 'sit_glance_R', 'glance', { fin: 0.12, fout: 0.2 });
     }
     this.shaken = Math.max(0, this.shaken - dt);
     const braceT = s.airborne || this.shaken > 0 ? 1 : 0;
@@ -497,17 +585,18 @@ export class CrewView {
     if (this.aL) { this.aL.setEffectiveWeight(rest * Math.max(0, k)); this.aR.setEffectiveWeight(rest * Math.max(0, -k)); this.aBase.setEffectiveWeight(rest * (1 - Math.abs(k) * 0.8)); }
     if (this.aBrace) this.aBrace.setEffectiveWeight(this.braceK * (1 - wo));
     this._tick(dt, s.far);
+    if (!fp && !s.far && this.bones) { this._react(dt, s, 1); if (s.player && !(this.ov && this.ov.kind === 'shout')) this._look(dt, s); }
     // per-hand wheel-IK weight: the shout lets go with the left hand, a hit knocks the right hand off
     let wL = 1, wR = 1;
     if (this.ov && this.ov.kind === 'shout') { const t = this.ov.a.time; wL = 1 - smooth01(SHOUT_IK[0], SHOUT_IK[1], t) * (1 - smooth01(SHOUT_IK[2], SHOUT_IK[3], t)); }
     if (this.hitRT > 0) { this.hitRT -= dt; const t = 0.25 - this.hitRT; wR = 1 - smooth01(0.0, 0.05, t) * (1 - smooth01(0.12, 0.25, t)); }
-    if (!s.far || this.driverShift === undefined) this._wheelIK(wL, wR);
-    else if (this.wheelMesh) this.wheelMesh.rotation.z = -this.steer * 2.6;
+    if (!s.far || this.driverShift === undefined) this._wheelIK(wL, wR, -wheelA);
+    else if (this.wheelMesh) this.wheelMesh.rotation.z = -wheelA;
     if (this.flinchT > 0) { this.flinchT -= dt; }
   }
 
   /** Hands on the wheel rim (10 and 2 o'clock, rotated by the steering angle), blended with the animated arms by wL / wR. */
-  _wheelIK(wL, wR) {
+  _wheelIK(wL, wR, rot = -this.steer * 2.6) {
     const wheel = this.car?.sockets?.steering_wheel;
     if (this.bones && wheel && this.arm.Right && this.arm.Left) {
       this.model.updateMatrixWorld(true);
@@ -519,7 +608,6 @@ export class CrewView {
         this.driverShift = clamp(reach - sum * 0.9, 0, 0.45);
         this.model.position.z += this.driverShift; this.model.updateMatrixWorld(true);
       }
-      const rot = -this.steer * 2.6;
       // the wheel itself turns with the hands (trucks whose wheel is a separate node under the socket)
       if (this.wheelMesh === undefined) this.wheelMesh = wheel.getObjectByName('steering_wheel_mesh') || null;
       if (this.wheelMesh) this.wheelMesh.rotation.z = rot;
@@ -601,6 +689,7 @@ export class CrewView {
     if (this.deadT >= 0) return;
     this.alive = false; this.deadT = 0;
     if (this.vm) { this.vm.setVisible(false); this._setShadowOnly(false); this.useVm = false; }
+    if (this.role !== 'driver') setCutaway(this.car, false);
     this.body.visible = true;
     if (this.bones) { this.bones.Head?.scale.setScalar(1); this.bones.Neck?.scale.setScalar(1); }     // the death camera sees us
     if (this.nade) this.nade.visible = false;
@@ -655,7 +744,8 @@ export class CrewView {
       // the wheel keeps turning with the (driverless) car; the hands hold on, then let go
       if (s) this.steer += ((s.steer || 0) - this.steer) * Math.min(1, dt * 8);
       const w = this.sitIK ? 1 - smooth01(this.sitIK[0], this.sitIK[1], this.deadT) : 0;
-      this._wheelIK(w, w);
+      if (this.bones && s && !s.far) { _v2.set(0, 0, 0); springStep(this.whip, this.whipV, _v2, WHIP_W, WHIP_Z, dt); _v1.set(1, 0, 0); for (const b of this.spine) turn(b, _v1, this.whip.x * 0.33); turn(this.bones.Head, _v1, this.whip.x * 0.5); }
+      this._wheelIK(w, w, -this._wheelAngle(dt, s));
       return;
     }
     if (!this.detached) return;
