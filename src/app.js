@@ -3,7 +3,9 @@
 import { Ui } from './ui/ui.js';
 import { Session } from './net/session.js';
 import { loadProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from './meta/profile.js';
+
 import { TRUCK_COLORS, UPGRADE_BY_ID } from './data/upgrades.js';
+const DAM_CHECKPOINT_S = 52500, DAM_CHECKPOINT_UNLOCK = 59000; // start past the last warlord's window (city ~49.5 km + 2.5 km)
 
 const APP_MSGS = new Set(['toGarage', 'garageReady', 'backToLobby', 'abort']);
 
@@ -212,10 +214,11 @@ export class App {
       onPaint: (i) => act('color', i),
       onEquip: (w, slot) => act('equip', w, slot),
       onView: (tab, sel) => this._garageView(tab, sel),
-      onReady: () => {
+      onReady: async () => {
         if (this.mode === 'solo') {
+          const startS = await this._pickStart(); if (startS === null) return;
           const r = this.soloRole || 'both';
-          return this._startRun({ role: r === 'both' ? 'solo' : r, ai: r === 'driver' ? 'gunner' : r === 'gunner' ? 'driver' : null, seed: (Math.random() * 1e9) | 0, profile: this.profile });
+          return this._startRun({ role: r === 'both' ? 'solo' : r, ai: r === 'driver' ? 'gunner' : r === 'gunner' ? 'driver' : null, seed: (Math.random() * 1e9) | 0, profile: this.profile, startS });
         }
         this.readyMine = !this.readyMine;
         this.session.sendJSON({ t: 'garageReady', ready: this.readyMine });
@@ -230,12 +233,22 @@ export class App {
       },
     };
   }
-  _maybeStart() {
+  async _maybeStart() {
     const s = this.session;
     if (!s || !s.isHost || !this.readyMine || !this.readyOther) return;
+    const startS = await this._pickStart(); if (startS === null) return;
     s.me.ready = s.other.ready = true;
-    const cfg = s.startRun({ seed: (Math.random() * 1e9) | 0 });
+    const cfg = s.startRun({ seed: (Math.random() * 1e9) | 0, startS });
     this._startRun(cfg);
+  }
+  /** Once the crew has reached the Leviathan, a run can roll out from the dam road (past the warlords) for another shot at it. */
+  async _pickStart() {
+    const reached = (this.profile.best?.distance || 0) >= DAM_CHECKPOINT_UNLOCK;
+    if (!reached) return 40;
+    const r = await this.ui.modal({ title: 'ROLL OUT FROM', text: 'You have reached the Leviathan. Start at the dam road for another shot at it (distance pays from where you start), or run the whole highway.', buttons: [
+      { label: 'THE DAM ROAD', id: 'dam', kind: 'primary' }, { label: 'THE START', id: 'start' }, { label: 'BACK', id: null, cancel: true }] });
+    if (!r) return null;
+    return r === 'dam' ? DAM_CHECKPOINT_S : 40;
   }
 
   // ------------------------------------------------------------------------------------------ run

@@ -283,6 +283,11 @@ export class Director {
       this.bossSpawned = true;
       sim.boss = new Leviathan(sim, P.s + 320, 0);
       sim.emit({ t: 'bossSpawn', id: sim.boss.id });
+      // the last supply cache before the war-train: the fight starts fair however battered the truck arrived
+      const before = P.hp; P.hp = Math.max(P.hp, P.maxHp * 0.75);
+      for (const c of Object.values(P.crew)) if (c && c.alive) c.hp = c.max;
+      P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4); P.veh.engineDamage = 0;
+      sim.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: true, supply: true });
     }
   }
 
