@@ -351,7 +351,6 @@ def build_tail():
     prism("bumper_R", poly[::-1], "xf", 0.29, 0.47, "metal_dark", bevel=0.010, seg=1, g="panel_bumper_R")
     for sd in (1, -1):
         cyl("overrider", (sd * 0.62, -2.43, 0.38), 0.038, 0.10, "f", "metal_dark", sides=10, r2=0.03, g="panel_bumper_R")
-    spikes("rear_spikes", [((sd * 0.62, -2.465, 0.38), (0, -1, 0), 0.024, 0.045) for sd in (1, -1)], g="panel_bumper_R", collar=False)
     # full-width tail lamp bar: two ribbed clusters + dark centre (left one broken)
     for sd in (1, -1):
         tail_lamp("tl_%s" % ("L" if sd > 0 else "R"), (sd * 0.47, -2.292, 0.76), 0.74, 0.085, d=(0, -1, 0), depth=0.05, g="body",

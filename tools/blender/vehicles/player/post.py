@@ -87,6 +87,15 @@ def make_grunge(name, size=1024, kind='paint', wear=0.5, seed=1, out_dir=None):
         v = v * (1 - sc * 0.22 * (0.4 + wear))
         sc2 = _scratches(rng, s, int(24 * (0.3 + wear)), (0.03, 0.15), 0.1)
         v = np.clip(v + sc2 * 0.08, 0, 1.0)
+    elif kind == 'soft':
+        # interior materials: sun-fade / grime blotches, faint rub marks, very few short scuffs (no long metal scratches)
+        v = np.full((s, s), 0.86)
+        v += 0.07 * _noise(rng, s, 2.3) * (0.4 + wear)
+        v += 0.025 * _noise(rng, s, 1.0)
+        blot = _noise(rng, s, 2.6)
+        v *= 1.0 - np.clip(blot - 0.5, 0, 3) * 0.12 * wear
+        sc = _scratches(rng, s, int(18 * (0.3 + wear)), (0.01, 0.04))
+        v = v * (1 - sc * 0.12)
     else:
         v = np.full((s, s), 0.82)
         v += 0.10 * _noise(rng, s, 2.2) * (0.4 + wear)
@@ -415,7 +424,7 @@ def vnoise(x, y, z, freq=1.0, seed=0.0):
 
 
 # ------------------------------------------------------------------------------------------------- export
-def export(path, objs, quality=85):
+def export(path, objs, quality=82):
     vs = bpy.context.scene.view_settings
     vs.view_transform = 'Standard'
     vs.look = 'None'

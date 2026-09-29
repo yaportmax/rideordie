@@ -47,7 +47,7 @@ export function facadeMaterial() {
         {
           int st = int(vFac.x + 0.5);
           vec2 f = vUvF;
-          float bseed = vFac.w * 173.0;
+          float bseed = floor(vFac.w * 997.0 + 0.5);            // integer: the hashes below are chaotic, interpolation noise in the varying would show as speckle
           if (st >= 1 && st <= 5) {
             float bay = vFac.y, flh = vFac.z, litF = vFac2.x, gh = vFac2.y, dmg = vFac2.z, fire = vFac2.w;
             bool shop = gh > 0.0 && f.y < gh;

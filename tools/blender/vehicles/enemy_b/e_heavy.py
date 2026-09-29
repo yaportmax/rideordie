@@ -148,7 +148,7 @@ for x in (-0.7, 0.7):
     spot2(m, (x, YD + 1.95, AZ + 0.05), n=(0, -0.08, -1), r=0.1)
 for x in (-0.3, 0.3):
     spot2(m, (x, YD + 1.95, AZ + 0.05), n=(0, -0.1, 1), r=0.1)
-skull(m, (0, YD + 1.62, AZ + 0.06), s=0.55, n=(0, 0, 1), horns=True, mat='decal_white', eyes='metal_dark')
+skull2(m, (0, YD + 1.6, AZ + 0.02), s=0.6, n=(0, -0.15, 1), horns=True, mat='plastic', horn_mat='armor')
 chain(m, [(0.5, YD + 1.76, AZ + 0.05), (0.12, YD + 1.76, AZ + 0.05)], link=0.06, wire=0.008, sag=0.14)
 # deck cargo: fuel drums, crates, ammo cans, tarp, spare wheel
 m.section('cargo')
@@ -164,7 +164,7 @@ m.box('canvas', (0.9, 0.14, 1.0), at=(-0.4, YD + 0.07, -0.45), rot=(0, 8, 0), be
 # banner pole (rear right) with rag flag, antenna
 m.section('flags')
 m.tube('metal_dark', [(-1.22, YD, -3.9), (-1.22, YD + 1.6, -3.9), (-1.22, YD + 2.3, -3.9)], 0.024, seg=6, r_end=0.012)
-flag(m, (-1.22, YD + 2.28, -3.92), length=0.8, height=0.5, direction=(0, 0, -1), mat='cloth_red', cols=8, wave=0.06)
+flag(m, (-1.22, YD + 2.28, -3.92), length=0.825, height=0.5, direction=(0, 0, -1), mat='cloth_red', cols=8, wave=0.06)
 m.sock('light_tail_L', (1.2, YD - 0.12, -4.12))
 m.sock('light_tail_R', (-1.2, YD - 0.12, -4.12))
 m.sock('nitro_L', (0.6, 1.0, -4.15))
@@ -269,8 +269,8 @@ m.tube('decal_yellow', [(-1.02, RT + 0.22, 1.5), (-0.2, RT + 0.37, 1.55), (0.6, 
 for x in (-0.66, -0.3, 0.3, 0.66):
     spot2(m, (x, RT + 0.28, 2.58), n=(0, -0.04, 1), r=0.1)
 m.cyl('metal_dark', (-0.9, RT + 0.15, 2.5), (0.9, RT + 0.15, 2.5), 0.025, seg=6)
-m.tube('metal_dark', [(1.1, ROOF + 0.08, 1.2), (1.14, ROOF + 0.9, 1.15), (1.13, ROOF + 1.56, 1.1)], 0.011, seg=5, r_end=0.004)
-flag(m, (1.13, ROOF + 1.54, 1.08), length=0.34, height=0.16, direction=(0, 0, -1), mat='cloth_red')
+m.tube('metal_dark', [(1.1, ROOF + 0.08, 1.2), (1.14, ROOF + 0.9, 1.15), (1.13, ROOF + 1.6, 1.1)], 0.011, seg=5, r_end=0.004)
+flag(m, (1.13, ROOF + 1.58, 1.08), length=0.34, height=0.16, direction=(0, 0, -1), mat='cloth_red')
 
 # ================================================================================ ENGINE BAY (under the hood)
 m.section('engine')
@@ -300,8 +300,9 @@ for sx in (1, -1):
     lamp_bucket(m, (1.0 * sx, 1.72, 3.8), 0.13, n=(0, 0, 1), cage=3 if sx > 0 else 0, tape=sx < 0)
     light_rect(m, (1.12 * sx, 2.0, 3.75), (0.12, 0.08), 'light_amber', n=(0, 0, 1))
     headlight2(m, (0.55 * sx, 1.35, 3.95), 0.07, n=(0, 0, 1), seg=8)
-    taillight2(m, (1.2 * sx, YD - 0.12, -4.1), 0.14, 0.14, n=(0, 0, -1))
-    light_rect(m, (1.2 * sx, YD - 0.3, -4.1), (0.14, 0.07), 'light_amber', n=(0, 0, -1), depth=0.06)
+    taillight2(m, (1.18 * sx, YD - 0.12, -4.1), 0.2, 0.16, n=(0, 0, -1))
+    taillight2(m, (0.9 * sx, YD - 0.12, -4.1), 0.14, 0.12, n=(0, 0, -1), cage=False)
+    light_rect(m, (1.18 * sx, YD - 0.31, -4.1), (0.18, 0.07), 'light_amber', n=(0, 0, -1), depth=0.06)
 m.sock('light_head_L', (1.0, 1.72, 3.86))
 m.sock('light_head_R', (-1.0, 1.72, 3.86))
 m.sock('fuel_cap', (1.05, 1.36, 0.05))
@@ -381,27 +382,27 @@ nm = 'panel_bumper_F'
 m.panel(nm, (0, 1.0, 3.95), **PAN)
 NZ = 3.78
 for sx in (1, -1):
-    m.hull('armor', [(0.0, 0.5, 4.2), (0.0, 1.42, 3.98), (1.32 * sx, 0.5, 4.06), (1.32 * sx, 1.42, 3.86), (0.0, 0.5, 4.08), (0.0, 1.42, 3.88), (1.2 * sx, 0.5, NZ + 0.02), (1.2 * sx, 1.42, NZ)],
+    m.hull('armor', [(0.0, 0.5, 4.16), (0.0, 1.42, 3.98), (1.32 * sx, 0.5, 4.04), (1.32 * sx, 1.42, 3.86), (0.0, 0.5, 4.05), (0.0, 1.42, 3.88), (1.2 * sx, 0.5, NZ + 0.02), (1.2 * sx, 1.42, NZ)],
            bevel=0.02, seg=1, obj=nm)
     m.hull('armor', [(1.32 * sx, 0.5, 4.06), (1.32 * sx, 1.42, 3.86), (1.5 * sx, 0.55, 3.72), (1.5 * sx, 1.35, 3.62), (1.2 * sx, 0.5, NZ), (1.2 * sx, 1.42, NZ)],
            bevel=0.015, seg=1, obj=nm)                                                                                    # wing
     for i in range(3):                                                                                               # vertical ribs
         x = sx * (0.3 + i * 0.4)
-        zf = 4.2 - (abs(x) / 1.32) * 0.14
+        zf = 4.16 - (abs(x) / 1.32) * 0.12
         m.beam('armor', (x, 0.55, zf + 0.02), (x, 1.38, zf - 0.2), 0.05, 0.05, bevel=0, seg=1, obj=nm)
-    spike2(m, (1.45 * sx, 1.36, 3.66), (1.6 * sx, 1.38, 3.94), 0.05, obj=nm)
-    spike2(m, (1.42 * sx, 0.72, 3.74), (1.6 * sx, 0.7, 3.98), 0.05, obj=nm)
+    spike2(m, (1.45 * sx, 1.36, 3.66), (1.621 * sx, 1.38, 3.94), 0.05, obj=nm)
+    spike2(m, (1.42 * sx, 0.72, 3.74), (1.621 * sx, 0.7, 3.98), 0.05, obj=nm)
     for i in range(10):                                                                                              # hazard stripes
         x = sx * (0.12 + i * 0.12)
-        zf = 4.2 - (abs(x) / 1.32) * 0.14
+        zf = 4.16 - (abs(x) / 1.32) * 0.12
         m.box('decal_yellow', (0.05, 0.22, 0.01), at=(x, 1.28, zf - 0.155), rot=(-14, 0, 32 * sx), bevel=0, seg=1, obj=nm)
-m.bead('armor', [(0.0, 0.52, 4.21), (0.0, 1.4, 4.0)], r=0.01, obj=nm, n=(0, 0.2, 1))
-m.hull('armor', [(-1.34, 0.44, 4.1), (1.34, 0.44, 4.1), (-1.34, 0.56, 4.1), (1.34, 0.56, 4.1), (0, 0.44, 4.24), (0, 0.56, 4.24), (-1.3, 0.42, 3.96), (1.3, 0.42, 3.96)],
+m.bead('armor', [(0.0, 0.52, 4.17), (0.0, 1.4, 4.0)], r=0.01, obj=nm, n=(0, 0.2, 1))
+m.hull('armor', [(-1.34, 0.44, 4.06), (1.34, 0.44, 4.06), (-1.34, 0.56, 4.06), (1.34, 0.56, 4.06), (0, 0.44, 4.19), (0, 0.56, 4.19), (-1.3, 0.42, 3.94), (1.3, 0.42, 3.94)],
        bevel=0.01, seg=1, obj=nm)                                                                                        # cutting edge
 for i in range(9):                                                                                                   # teeth
     x = -1.1 + i * 0.275
-    zf = 4.24 - (abs(x) / 1.34) * 0.14
-    m.hull('spike', [(x - 0.06, 0.45, zf - 0.02), (x + 0.06, 0.45, zf - 0.02), (x - 0.06, 0.53, zf - 0.02), (x + 0.06, 0.53, zf - 0.02), (x, 0.47, zf + 0.09)], bevel=0, obj=nm)
+    zf = 4.19 - (abs(x) / 1.34) * 0.13
+    m.hull('spike', [(x - 0.06, 0.45, zf - 0.02), (x + 0.06, 0.45, zf - 0.02), (x - 0.06, 0.53, zf - 0.02), (x + 0.06, 0.53, zf - 0.02), (x, 0.47, zf + 0.065)], bevel=0, obj=nm)
 m.box('metal_dark', (2.5, 0.09, 0.09), at=(0, 1.44, 3.92), bevel=0.006, seg=1, obj=nm)
 for i in range(7):
     x = -0.9 + i * 0.3

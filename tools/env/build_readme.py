@@ -80,8 +80,9 @@ L.append("Layout rules of thumb (US-style highway): lane 3.7 m; dashed lane line
 L.append("## Names in docs/ASSET_SPEC.md -> actual files\n")
 L.append("`paint_road` = `road_markings/markings.png` (+ `markings.json`), `smoke_particle` = `particles/smoke_sheet.png`, `dust_particle` = `particles/dust_puff.png`. "
          "(No duplicate copies are shipped, to save bandwidth.)\n")
+L.append("## Ground-pass derived textures (built from the sets above)\n\n| file | size | built by | used by |\n|---|---|---|---|\n| `road_markings/lines.png` | 576x768, opaque | `tools/env/build_road_lines.py` | road shader (`src/world/terrain_material.js`): 9 columns of 64x768 px (0.5 m x 6 m, 128 px/m) -> one DataArrayTexture layer each: 0-3 `edge_white_a/b/c/faded`, 4-6 `dash_white_a/b/c` (3.2 m at the top), 7-8 `rumble_a/b`. R = paint brightness (bled under the gaps), G = coverage. |\n| `cover/cover_atlas.png` | 1024, RGBA | `tools/env/build_cover_atlas.py` | ground cover cards (`src/world/dressing/groundcover.js`): 2x2 cells of 512: dry grass, green grass, dry seed stalks, scrub bush; base of each clump on the cell's bottom edge, colour bled under alpha 0. |\n\nThe terrain/road array texture also carries `asphalt_worn`, `asphalt` and `asphalt_cracked` as layers 12-14 (after the 12 terrain layers).\n")
 L.append("## Rebuilding\n")
 L.append("`tools/env/tex_fetch.py` (downloads Poly Haven sources into `C:/Dev/art_cache/rideordie/env`), `tools/env/build_textures.py`, `build_particles.py`, `build_markings.py`, `build_readme.py` "
-         "(this file), `prep_prop_textures.py` (512 px copies embedded in prop GLBs).\n")
+         "(this file), `prep_prop_textures.py` (512 px copies embedded in prop GLBs), `build_road_lines.py`, `build_cover_atlas.py`.\n")
 open(os.path.join(T, "README.md"), "w").write("\n".join(L))
 print("README written", len("\n".join(L)))

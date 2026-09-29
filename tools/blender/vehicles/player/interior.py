@@ -113,11 +113,11 @@ class InteriorMixin:
         pad = fillet_poly([
             (fc, zw - 0.075), (fc, zw), (fc - 0.06, zw + 0.004 + crown), (lf + 0.09, lz + 0.05 + crown), (lf, lz + 0.004),
             (lf + 0.028, lz - 0.052), (lf + 0.075, lz - 0.058), (fc - 0.06, zw - 0.09)],
-            [0.01, 0.012, 0.05, 0.10, 0.028, 0.02, 0.015, 0.02], 3)
+            [0.01, 0.012, 0.05, 0.10, 0.028, 0.02, 0.015, 0.02], 2)
         zb = self.dash_zb
         face = fillet_poly([
             (lf + 0.05, lz - 0.03), (lf + 0.028, lz - 0.05), (lf + 0.07, zb), (lf + 0.16, zb - 0.015), (fc - 0.01, zb + 0.05), (fc - 0.01, lz - 0.02)],
-            [0.01, 0.012, 0.025, 0.02, 0.02, 0.01], 3)
+            [0.01, 0.012, 0.025, 0.02, 0.02, 0.01], 2)
         return pad, face
 
     def face_pt(self, x, t, off=0.0):
@@ -147,7 +147,7 @@ class InteriorMixin:
         self.ck_setup()
         C, b, k, st = self.C, self.b, self.k, self.st
         xs = []
-        n = 40
+        n = 30
         for i in range(n + 1):
             t = i / n
             xs.append(-self.xw + 2 * self.xw * (0.5 - 0.5 * math.cos(math.pi * t)))

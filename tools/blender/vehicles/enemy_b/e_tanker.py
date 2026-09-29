@@ -324,7 +324,7 @@ m.box('chrome', (1.46, 0.98, 0.08), at=(0, 1.88, 4.43), bevel=0.02, seg=1)
 for i in range(13):
     x = -0.6 + i * 0.1
     m.box('metal_dark', (0.035, 0.82, 0.04), at=(x, 1.88, 4.48), bevel=0, seg=1)
-skull(m, (0, 1.98, 4.53), s=0.5, n=(0, 0, 1), horns=True, mat='decal_white', eyes='metal_dark')
+skull2(m, (0, 1.96, 4.5), s=0.55, n=(0, 0, 1), horns=True, mat='plastic', horn_mat='chrome')
 
 # ================================================================================ LIGHTS
 m.section('lights')

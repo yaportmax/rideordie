@@ -336,6 +336,8 @@ def build_details():
     spare_tyre("spare", (-1.03, -2.04, 1.02), (-1, 0, 0), R=0.33, W=0.22, rim_r=0.2, g="body", sides=24)
     for z in (0.74, 1.30):
         beam("spare_bracket", (-0.915, -2.04, z), (-1.14, -2.04, z), 0.04, 0.02, "metal_dark", u=(0, 1, 0), g="body")
+    cyl("spare_bolt", (-1.14, -2.04, 1.02), 0.016, 0.08, "x", "metal_bare", sides=8, g="body")
+    beam("spare_wingnut", (-1.17, -2.04, 0.97), (-1.17, -2.04, 1.07), 0.02, 0.018, "metal_dark", u=(1, 0, 0), g="body")
     # bed rear rail (welded pipe) - waist-high behind the gunner
     rail = [(0.87, -2.22, BED_TOP), (0.87, -2.24, 1.82), (-0.87, -2.24, 1.82), (-0.87, -2.22, BED_TOP)]
     tube("rail", rail, 0.024, "metal_bare", fillet=0.10, fn=4, g="body")
@@ -393,7 +395,7 @@ def build_nose_tail():
     for sd in (1, -1):
         tube("bull_wing", [(sd * 0.90, 2.38, 0.52), (sd * 0.82, 2.52, 0.62), (sd * 0.66, 2.57, 0.80)], 0.024, "armor", fillet=0.06, g="panel_bumper_F")
         tube("bull_stay", [(sd * 0.66, 2.57, 0.94), (sd * 0.62, 2.28, 1.02)], 0.020, "armor", g="panel_bumper_F")
-        lamp("aux_%s" % ("L" if sd > 0 else "R"), (sd * 0.38, 2.655, 0.86), 0.068, d=(0, 1, 0), depth=0.10, housing="metal_dark", bowl="chrome",
+        lamp("aux_%s" % ("L" if sd > 0 else "R"), (sd * 0.38, 2.60, 0.86), 0.068, d=(0, 1, 0), depth=0.10, housing="metal_dark", bowl="chrome",
              bezel="chrome", g="panel_bumper_F", sides=14, cage=(sd < 0), tape=("cloth_tan" if sd > 0 else None))
         beam("aux_brk", (sd * 0.38, 2.57, 0.80), (sd * 0.38, 2.58, 0.86), 0.03, 0.012, "metal_dark", u=(1, 0, 0), g="panel_bumper_F")
     # plate across the lower bull bar (welded, bolted) + tow hook + D-rings

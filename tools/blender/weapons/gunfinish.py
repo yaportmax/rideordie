@@ -343,7 +343,7 @@ def finish_textures(gun, size=2048, style=None):
     # texture budget: albedo at out_size, ORM (smooth data) at half, normal at out_size (<=1024) else half
     A = box(A, out_size)
     O = box(O, max(512, out_size // 2))
-    NM3 = box(NM * 2 - 1, out_size if out_size <= 1024 else out_size // 2)
+    NM3 = box(NM * 2 - 1, out_size)
     NM3 /= np.maximum(np.linalg.norm(NM3, axis=2, keepdims=True), 1e-6)
     NM = NM3 * 0.5 + 0.5
     log("  atlas %d: albedo %d, orm %d, normal %d" % (size, A.shape[0], O.shape[0], NM.shape[0]))

@@ -31,15 +31,15 @@ class GunnerDressMixin:
             z = C.z_bed + 0.0095 + (0.016 if rnd.random() < 0.4 else 0.0)
             d = Vector((math.cos(math.radians(yaw)), math.sin(math.radians(yaw)), 0))
             p = Vector((x, f, z))
-            b.cyl2('brass', tuple(p - d * 0.024), tuple(p + d * 0.016), 0.0062, n=6)
-            b.cyl2('brass', tuple(p + d * 0.016), tuple(p + d * 0.027), 0.0062, r2=0.0042, n=6)
+            b.cyl2('brass', tuple(p - d * 0.024), tuple(p + d * 0.016), 0.0062, n=5)
+            b.cyl2('brass', tuple(p + d * 0.016), tuple(p + d * 0.027), 0.0062, r2=0.0042, n=5, caps=False)
 
     def diamond_pad(self, cx, cf, w, d, z):
         """anti-slip diamond plate bolted on the bed floor"""
         b = self.b
         b.box('metal_bare', (cx, cf, z + 0.004), (w, d, 0.008), bev=0.002)
         # raised diamonds: single quads 2 mm above the plate (only their tops are ever seen)
-        nx, nf = int(w / 0.055), int(d / 0.04)
+        nx, nf = int(w / 0.06), int(d / 0.045)
         verts, faces = [], []
         for i in range(nx):
             for j in range(nf):

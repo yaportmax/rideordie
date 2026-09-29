@@ -203,6 +203,6 @@ G.notes["style"] = dict(
         dict(text="AB", pos=(116.0, -L_, 82.0), u=(1, 0, 0), v=(0, 0, 1), h=3.6, depth=0.08, fill="light", mats=["gun_black"]),
         dict(text="OD~", pos=(116.0, -L_, 74.5), u=(1, 0, 0), v=(0, 0, 1), h=3.6, depth=0.08, fill="light", mats=["gun_black"]),
         dict(text="RD-2", pos=(-38.0, 15.2, OZ - 9.0), u=(-1, 0, 0), v=(0, 0, 1), h=2.4, depth=0.05, fill="light", mats=["gun_black"], slab=3.0),
-        dict(text="RA-4471", pos=(-10.0, 0, Z_TOP - 1.2), u=(1, 0, 0), v=(0, -1, 0), h=2.6, depth=0.06, mats=["gun_black"]),
+        dict(text="RA-4471", pos=(-10.0, 0, Z_TOP - 1.2), u=(0, -1, 0), v=(1, 0, 0), h=2.6, depth=0.06, mats=["gun_black"]),
     ])
 G.finish()

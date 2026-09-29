@@ -60,6 +60,9 @@ export class AIDriver {
     const kA = Math.max(Math.abs(road.sample(P.s + 35).k), Math.abs(road.sample(P.s + 80).k), Math.abs(road.sample(P.s + 130).k));
     let target = Math.min(vmax * 0.9, Math.sqrt(15 / Math.max(kA, 1e-4)));
     if (rb && rbDist < 160) target = Math.min(target, clamp(22 + (rbDist - 30) * 0.12, 22, 34)); // don't thread a roadblock at full chat
+    // jump ramps span the road: hitting one at 250 km/h throws the truck into whatever is beside the road on landing
+    const ramp = road.featuresIn(P.s, P.s + 170, 'ramp')[0];
+    if (ramp) target = Math.min(target, clamp(30 + (ramp.s0 - P.s - 40) * 0.12, 28, 40));
     if (B && !B.dead) target = B.v + clamp((B.s - P.s - 32) * 0.4, -10, 10);            // hold station behind the boss
     const vf = v.vf;
     c.throttle = vf < target ? clamp((target - vf) * 0.3 + 0.4, 0, 1) : 0;

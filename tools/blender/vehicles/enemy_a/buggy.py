@@ -382,8 +382,8 @@ def build_details():
     # spike ridge along the nose cowl (rides on the hood panel)
     spikes("nose_spikes", [((0.0, f, z), (0, 0.35, 1.0), 0.020, 0.075) for f, z in ((1.44, 0.722), (1.32, 0.772), (1.20, 0.815))], g="panel_hood", collar=False)
     # extra spikes on the front bumper hoop
-    spikes("bf_spikes", [((x, 1.815, 0.70), (0, 1, 0.15), 0.022, 0.10) for x in (-0.18, 0.0, 0.18)] +
-           [((sd * 0.52, 1.75, 0.54), (sd * 0.4, 1, 0), 0.022, 0.10) for sd in (1, -1)], g="panel_bumper_F", collar=False)
+    spikes("bf_spikes", [((x, 1.80, 0.715), (0, 0.45, 1.0), 0.022, 0.10) for x in (-0.18, 0.0, 0.18)] +
+           [((sd * 0.55, 1.73, 0.54), (sd * 1.0, 0.35, 0), 0.022, 0.09) for sd in (1, -1)], g="panel_bumper_F", collar=False)
 
 
 def build_sockets():

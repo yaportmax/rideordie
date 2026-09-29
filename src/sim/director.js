@@ -39,7 +39,11 @@ export class Director {
     }
     const L = this.level = levelAt(P.s, sim.time);
     this._bosses(sim, P, L);
-    if (sim.boss && !sim.boss.dead) { this._cleanup(sim, P); return; } // the Leviathan brings its own raiders (ramp)
+    if (sim.boss && !sim.boss.dead) {
+      // the Leviathan brings its own raiders (ramp); its fight keeps the damage scaling it was tuned with
+      sim.enemyDamageMul = 0.7 + 0.9 * L; sim.enemyRamMul = 1; sim.playerBlastMul = 0.6;
+      this._cleanup(sim, P); return;
+    }
     // how much the raiders hurt, by level: rounds (x the per-round growth in ai.shoot), rams, blasts next to you
     sim.enemyDamageMul = 0.55 + 0.4 * L;
     sim.enemyRamMul = 0.38 + 0.3 * Math.min(L, 1);
@@ -142,7 +146,8 @@ export class Director {
     const E = ENCOUNTERS[key], P = sim.player, r = this.r;
     const pv = Math.max(10, P.veh.vf);
     // the opening squad of a run waits closer: raiders peel out in front of you within ~12 s of GO
-    const baseAhead = this.encounters === 0 ? r.range(150, 170) : r.range(220, 280), baseBehind = r.range(115, 150);
+    // (far enough that nobody pops into view: the haze and the mirrors are kind at 250+ m ahead / 140+ m behind)
+    const baseAhead = this.encounters === 0 ? r.range(160, 180) : r.range(250, 300), baseBehind = r.range(140, 170);
     const flip = r() < 0.5 ? 1 : -1;
     let n = 0, ai = 0, bi = 0;
     const squad = [];
@@ -161,7 +166,7 @@ export class Director {
         at = { s, d: c.role === 'flanker' ? side * 4.2 : r.pick([-1.7, 1.7]), speed: pv * 0.72 };
       } else {
         const s = P.s - baseBehind - bi++ * 14;
-        at = { s, d: c.role === 'flanker' || c.mode === 'overtake' ? side * 4.6 : r.pick(LANES), speed: pv + (c.role === 'chaser' && !c.mode ? 6 : 12) };
+        at = { s, d: c.role === 'flanker' || c.mode === 'overtake' ? side * 4.6 : r.pick(LANES), speed: pv + (c.role === 'chaser' && !c.mode ? 8 : 14) };
       }
       const car = this.spawn(sim, k, L, { behavior: c.role, side, mode: c.at === 'park' ? 'ambush' : c.mode, next: c.at === 'park' ? c.role : c.next, at, gap: c.gap, squad: key });
       if (car) { n++; squad.push(car); if (at.park) car.ai.parkD = at.d; }
@@ -280,7 +285,7 @@ export class Director {
       let c = null;
       for (const shift of [0, 40, -40, 80]) {
         const at = park ? { s: P.s + 210 + k * 26 + shift, d: side * (HALF_ROAD - 1.7), speed: pv * 0.45 } : ahead ? { s: P.s + 250 + k * 18 + shift, d: side * 1.7, speed: pv * 0.75 } : { s: P.s - 120 - k * 10 - Math.abs(shift) * 0.5, d: side * 4.6, speed: pv + 12 };
-        c = this.spawn(sim, M.spec, Le, { behavior: M.behavior, side, at, mode: park ? 'ambush' : undefined, next: park ? M.behavior : undefined, elite: { index, name: M.name, hpMul: M.hpMul, armor: M.armor, gun: M.gun, gun2: M.gun2, weak: M.weak }, pattern: { ...(M.pattern || {}) } });
+        c = this.spawn(sim, M.spec, Le, { behavior: M.behavior, side, at, mode: park ? 'ambush' : undefined, next: park ? M.behavior : undefined, elite: { index, name: M.name, hpMul: M.hpMul, massMul: M.massMul, armor: M.armor, gun: M.gun, gun2: M.gun2, weak: M.weak }, pattern: { ...(M.pattern || {}) } });
         if (c) { if (park) c.ai.parkD = at.d; break; }
       }
       if (c) cars.push(c);

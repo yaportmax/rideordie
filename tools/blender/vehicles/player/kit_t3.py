@@ -55,6 +55,17 @@ def kit(T):
         rivets(pt, pts, 0.011, axis='x')
         # hazard band low on the plate
         hazard_stripes_x(pt, f_r + 0.05, f_f - 0.05, z_low + 0.03, z_low + 0.20, sg * xp, 9, facing=sg)
+        # inside face (the driver looks at it): nuts on the rivet line, welded angle stiffeners, slit frame, pull strap
+        xi = xp - 0.032
+        pts_i = edge_points([(f + (0.03 if f < 0.2 else -0.03), z + (0.03 if z < 1.2 else -0.03)) for f, z in poly], lambda u, v: (sg * (xi - 0.004), u, v), 0.20)
+        for p in pts_i:
+            pt.cyl('metal_bare', p, 0.012, 0.008, axis='x', n=6)
+        for zs_ in (C.z_belt - 0.02, 1.02):
+            pt.box('metal_dark', (sg * (xi - 0.012), (f_r + f_f) / 2, zs_), (0.024, f_f - f_r - 0.16, 0.035), bev=0.004)
+            weld_seam(pt, (sg * (xi - 0.002), f_r + 0.1, zs_ + 0.02), (sg * (xi - 0.002), f_f - 0.1, zs_ + 0.02), r=0.004)
+        pt.sweep('metal_dark', [(sg * (xi - 0.01), f, z) for (f, z) in slit], rrect_prof(0.02, 0.024, 0.004, 1), closed=True, up=(sg, 0, 0))
+        pt.ribbon('fabric', [(sg * (xi - 0.005), f_r + 0.25, C.z_belt - 0.08), (sg * (xi - 0.05), f_r + 0.4, C.z_belt - 0.13), (sg * (xi - 0.005), f_r + 0.55, C.z_belt - 0.08)], 0.035, 0.005, up=(sg, 0, 0), rad=0.04)
+        pt.sticker('lbl_danger' if sg > 0 else 'lbl_nostep', (sg * (xi - 0.0015), (f_r + f_f) / 2 + 0.1, z_low + 0.3), (-sg, 0, 0), (0, 0, 1), 0.24, 0.06, lift=0.0)
         # handle recess + mirror
         pt.box('metal_dark', (sg * (xp + 0.004), f_r + 0.24, C.z_belt - 0.10), (0.01, 0.20, 0.06), bev=0.0)
         pt.box('chrome', (sg * (xp + 0.012), f_r + 0.24, C.z_belt - 0.10), (0.014, 0.15, 0.024), bev=0.004)

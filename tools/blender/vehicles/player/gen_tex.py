@@ -391,6 +391,16 @@ def gen_atlas():
     for k, c in enumerate([(200, 30, 20), (230, 150, 20), (40, 170, 60), (40, 90, 200), (200, 30, 20), (230, 150, 20)]):
         d.ellipse((x0 + 8 + k * 41, y0 + 12, x0 + 8 + k * 41 + 34, y0 + 46), fill=tuple(int(v * 0.55) for v in c) + (255,))
         d.ellipse((x0 + 14 + k * 41, y0 + 16, x0 + 24 + k * 41, y0 + 26), fill=tuple(min(255, int(v * 0.9 + 40)) for v in c) + (255,))
+    # ---- windshield sun strip (512x40) at (512,560): black band, orange block letters, thin stripes
+    x0, y0 = 512, 560
+    rect('sunstrip', x0, y0, x0 + 512, y0 + 40)
+    d.rectangle((x0, y0, x0 + 512, y0 + 40), fill=(12, 12, 14, 255))
+    d.rectangle((x0, y0 + 3, x0 + 512, y0 + 5), fill=(245, 105, 10, 255))
+    d.rectangle((x0, y0 + 35, x0 + 512, y0 + 37), fill=(245, 105, 10, 255))
+    f = font('bahnschrift.ttf', 28)
+    txt = 'R I D E   O R   D I E'
+    tw = d.textlength(txt, font=f)
+    d.text((x0 + (512 - tw) / 2, y0 + 3), txt, font=f, fill=(245, 150, 40, 255))
     img = img.convert('RGB')
     img.save(os.path.join(OUT, 'decal_atlas.png'))
     with open(os.path.join(OUT, 'decal_atlas.json'), 'w') as fh:

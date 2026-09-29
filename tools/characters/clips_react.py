@@ -195,6 +195,22 @@ def limbs(c, p, hL=None, hR=None, fL=None, fR=None, gL=None, gR=None, kL=None, k
     return q
 
 
+def windmill(c, S, phase, reach=0.46, tilt=0.35, fwd=0.25):
+    """Chest-frame hand target for an arm windmilling about its own shoulder: arm long (reach * k from the shoulder), the hand
+    sweeping a circle in a plane tilted out from the sagittal plane.  Returns (pos, finger dir, palm dir, pole) for limbs()."""
+    rig = c.rig
+    sg = 1.0 if S == "L" else -1.0
+    sh = (rig.heads[IDX[A.FULL[S] + "Arm"]] - rig.heads[IDX["Spine2"]]) / c.k
+    a = phase
+    d = np.array([sg * (tilt + 0.25 * np.sin(a) ** 2), np.cos(a), np.sin(a) + fwd])
+    d = d / np.linalg.norm(d)
+    pos = sh + d * reach
+    f = d + np.array([0.0, 0.0, 0.15])
+    pal = np.array([-sg, 0.0, 0.0]) - d * (-sg * d[0])
+    pole = np.array([sg * 0.3, -0.2, -1.0]) - d * np.dot(d, [sg * 0.3, -0.2, -1.0])
+    return (tuple(pos), tuple(f), tuple(pal if np.linalg.norm(pal) > 1e-3 else (0, 0, 1.0)), tuple(pole))
+
+
 def ground_feet(c, p, fL=None, fR=None):
     """Feet as WORLD ground positions (x, z) * k with a foot pitch (deg, - = toes up) and yaw."""
     q = copy.deepcopy(p)
@@ -434,11 +450,9 @@ def clip_death_thrown(c, side="back"):
         wob = np.sin(u * np.pi * 2.2)
         p = body(c, b0, hips=hp, hrot=hr, sp=(rv(-4 - 6 * wob, 6 * wob, 4 * sx), rv(-6 - 8 * wob, 8 * wob, 5 * sx), rv(-5 - 6 * wob, 6 * wob, 4 * sx)),
                  neck=rv(10 - 8 * u, -10 * wob), head=rv(8 - 10 * u, -14 * wob, -5 * sx))
-        aL = 2 * np.pi * (0.9 * u) + 0.4
-        aR = 2 * np.pi * (0.9 * u) + 2.6
-        p = limbs(c, p,
-                  hL=((0.34 + 0.12 * np.cos(aL), 0.18 + 0.30 * np.sin(aL), 0.18 + 0.22 * np.cos(aL + 1.0)), (0.5, 0.6, 0.4), (0.0, -0.4, 0.9), (1.0, -0.2, -0.6)),
-                  hR=((-0.34 - 0.12 * np.cos(aR), 0.18 + 0.30 * np.sin(aR), 0.18 + 0.22 * np.cos(aR + 1.0)), (-0.5, 0.6, 0.4), (0.0, -0.4, 0.9), (-1.0, -0.2, -0.6)),
+        aL = 2 * np.pi * (0.85 * u) + 0.6
+        aR = 2 * np.pi * (0.85 * u) + 2.9
+        p = limbs(c, p, hL=windmill(c, "L", aL), hR=windmill(c, "R", aR),
                   fL=((0.16, -0.60 + 0.18 * np.sin(u * 7.0), 0.30 + 0.25 * np.sin(u * 7.0 + 0.6)), 25, 0),
                   fR=((-0.16, -0.70 + 0.16 * np.sin(u * 7.0 + 2.4), 0.20 + 0.25 * np.sin(u * 7.0 + 3.0)), 30, 0),
                   kL=(0.2, 0.2, 1.0), kR=(-0.2, 0.2, 1.0), gL="splay" if i % 2 else "claw", gR="claw" if i % 2 else "splay")
@@ -544,9 +558,7 @@ def clip_fall_flail(c):
         p = body(c, b0, hips=V(0, hy, hz), hrot=rv(-8 + 4 * np.sin(a), 6 * np.sin(a + 1), 4 * np.cos(a)),
                  sp=(rv(-4 + 3 * np.sin(a), 5 * np.sin(a)), rv(-6 + 4 * np.sin(a), 7 * np.sin(a)), rv(-5 + 3 * np.sin(a + 0.5), 6 * np.sin(a))),
                  neck=rv(4 + 6 * np.sin(a + 0.8), -8 * np.sin(a)), head=rv(4 + 6 * np.sin(a + 1.2), -10 * np.sin(a + 0.4)))
-        p = limbs(c, p,
-                  hL=((0.34 + 0.12 * np.cos(a), 0.22 + 0.32 * np.sin(a), 0.16 + 0.24 * np.cos(a + 1.0)), (0.5, 0.6, 0.4), (0.0, -0.4, 0.9), (1.0, -0.2, -0.6)),
-                  hR=((-0.34 - 0.12 * np.cos(a + 2.4), 0.22 + 0.32 * np.sin(a + 2.4), 0.16 + 0.24 * np.cos(a + 3.4)), (-0.5, 0.6, 0.4), (0.0, -0.4, 0.9), (-1.0, -0.2, -0.6)),
+        p = limbs(c, p, hL=windmill(c, "L", a + 0.6), hR=windmill(c, "R", a + 2.9),
                   fL=((0.15, -0.66 + 0.16 * np.sin(2 * a), 0.18 + 0.26 * np.sin(2 * a + 0.6)), 25, 0),
                   fR=((-0.15, -0.66 + 0.16 * np.sin(2 * a + 3.1), 0.18 + 0.26 * np.sin(2 * a + 3.7)), 30, 0),
                   kL=(0.2, 0.2, 1.0), kR=(-0.2, 0.2, 1.0), gL="splay", gR="claw")

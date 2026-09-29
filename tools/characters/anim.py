@@ -611,6 +611,7 @@ def bake(rig, track, T, loop, frames=("chest", "chest"), extra=None, ground=Fals
     for t, p in zip(times, params):
         if extra is not None:
             p = extra(p, float(t))
+        snap = dict(rig.state) if rig.state is not None else None
         W, P = rig.solve(p, frames)
         if ground:
             # ground = True: clamp (never below the floor) and, from ground_from on, stick (always touching it)
@@ -618,6 +619,7 @@ def bake(rig, track, T, loop, frames=("chest", "chest"), extra=None, ground=Fals
             if low < 0.0 or t >= ground_from:
                 p = copy.deepcopy(p)
                 p["hips_pos"] = np.asarray(p["hips_pos"]) + np.array([0.0, -low, 0.0])
+                rig.state = dict(snap) if snap is not None else None
                 W, P = rig.solve(p, frames)
         Ls.append(rig.local_from_world(W))
         hips.append(P[0].copy())

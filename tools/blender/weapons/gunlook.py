@@ -254,9 +254,10 @@ def recipe_metal(c, base, dull, bare, rough0, rough_worn, metal0=1.0, edge_k=1.0
     metal = metal * (1 - d)
     alb = alb * (0.6 + 0.4 * c.ao_s[:, None])
     scr = np.maximum(c.scr_a, c.scr_b)
-    h = -0.02 * scr + (c.nH - 0.5) * 0.004
+    peel = vnoise(c.P, min(c.fmax, 1.4), 211) * 0.6 + vnoise(c.P, min(c.fmax * 0.5, 0.7), 212) * 0.4      # paint / phosphate micro-relief
+    h = -0.05 * scr + (peel - 0.5) * 0.035 * (1 - hi) + (c.nH - 0.5) * 0.01
     if brushed:
-        h = h + brushed * (c.brush - 0.5) * 0.012
+        h = h + brushed * (c.brush - 0.5) * 0.03
     return alb, np.clip(rough, 0.08, 1.0), np.clip(metal, 0, 1), h
 
 
@@ -281,7 +282,7 @@ def recipe_polymer(c, style):
         for (bx, by, bz) in st["polymer_stip"]:
             stipm = np.maximum(stipm, ((c.P[:, 0] >= bx[0]) & (c.P[:, 0] <= bx[1]) & (c.P[:, 1] >= by[0]) & (c.P[:, 1] <= by[1]) & (c.P[:, 2] >= bz[0]) & (c.P[:, 2] <= bz[1])).astype(np.float32))
         stipm = 0.1 + 0.9 * stipm
-    h = (c.stip - 0.5) * 0.05 * stipm + (c.nH - 0.5) * 0.008 - 0.015 * np.maximum(c.scr_a, c.scr_b)
+    h = (c.stip - 0.5) * 0.12 * stipm + (c.nH - 0.5) * 0.02 - 0.04 * np.maximum(c.scr_a, c.scr_b)
     return alb, np.clip(rough, 0.25, 1.0), np.zeros(N, np.float32), h
 
 
@@ -317,7 +318,9 @@ def recipe_wood(c, style):
     rough = 0.40 + 0.2 * wear + 0.15 * grime + 0.1 * (1 - fine) * 0.5
     alb, rough, d = _dust(c, st, alb, rough, 0.7)
     alb = alb * (0.55 + 0.45 * c.ao_s[:, None])
-    h = (fine - 0.5) * 0.012 + (ring - 0.5) * 0.004 - 0.02 * np.maximum(c.scr_a, c.scr_b)
+    pores = smoothstep(0.62, 0.8, vnoise(P, tuple([x * 3.0 for x in fq]), 97))
+    alb = alb * (1 - 0.25 * pores[:, None])
+    h = (fine - 0.5) * 0.03 + (ring - 0.5) * 0.02 - 0.05 * pores - 0.05 * np.maximum(c.scr_a, c.scr_b)
     return alb, np.clip(rough, 0.2, 1.0), np.zeros(N, np.float32), h
 
 
@@ -332,7 +335,7 @@ def recipe_rubber(c, style):
     rough = 0.88 + 0.06 * (c.nM - 0.5) - 0.1 * wear
     alb, rough, d = _dust(c, st, alb, rough, 1.2)
     alb = alb * (0.6 + 0.4 * c.ao_s[:, None])
-    h = (c.stip - 0.5) * 0.06 + (c.nM - 0.5) * 0.02
+    h = (c.stip - 0.5) * 0.12 + (c.nM - 0.5) * 0.03
     return alb, np.clip(rough, 0.3, 1.0), np.zeros(N, np.float32), h
 
 
@@ -492,7 +495,7 @@ def compose(masks, size, style, log=print, dbg_save=None):
             mk = mk * allow
         if not mk.any():
             continue
-        dep = e.get("depth", 0.08)
+        dep = e.get("depth", 0.08) * 2.0
         height = height - mk * dep
         if e.get("fill", "dark") == "dark":
             alb = alb * (1 - 0.55 * mk[:, None])

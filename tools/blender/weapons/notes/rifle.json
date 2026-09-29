@@ -1,7 +1,7 @@
 {
  "name": "rifle",
- "tris": 31760,
- "glb_kb": 2608,
+ "tris": 29912,
+ "glb_kb": 1607,
  "parts": {
   "body": {
    "pivot": [
@@ -90,7 +90,7 @@
     -20.0
    ],
    "parent": null,
-   "tris": 4488,
+   "tris": 2640,
    "materials": [
     "gun_black",
     "glass_lens",

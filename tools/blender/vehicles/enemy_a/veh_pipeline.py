@@ -378,6 +378,18 @@ def build_wear(m, S, img_hooks=None):
 
 
 # ------------------------------------------------------------------------------------------ bake
+_FORCE_CPU = [False]
+
+
+def _coverage(img, fill):
+    """Fraction of atlas pixels that differ from the generated fill colour (a failed bake leaves the fill everywhere)."""
+    r = img.size[0]
+    arr = np.empty(r * r * 4, dtype=np.float32)
+    img.pixels.foreach_get(arr)
+    arr = arr.reshape(-1, 4)[:, :3]
+    return float((np.abs(arr - np.array(fill, dtype=np.float32)).max(axis=1) > 0.004).mean())
+
+
 def _setup_cycles(samples):
     scn = bpy.context.scene
     scn.render.engine = "CYCLES"
@@ -385,6 +397,9 @@ def _setup_cycles(samples):
     cy.samples = samples
     cy.use_denoising = False
     cy.device = "CPU"
+    if _FORCE_CPU[0] or argv().get("cpu"):
+        print("BAKE device: CPU (forced)")
+        return
     try:
         prefs = bpy.context.preferences.addons["cycles"].preferences
         prefs.compute_device_type = "OPTIX"
@@ -586,8 +601,21 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
                 present.add(s.material.name)
     tex = [n for n in TEXTURED if n in present]
     tlog("unwrap start")
+    for o in meshes:                      # non-finite vertices poison smart_project / pack_islands for EVERY object
+        co = np.empty(len(o.data.vertices) * 3, dtype=np.float32)
+        o.data.vertices.foreach_get("co", co)
+        if not np.isfinite(co).all():
+            print("NONFINITE vertices in", o.name, int((~np.isfinite(co)).sum() // 3))
     unwrap_atlas(meshes, set(tex), res)
     tlog("unwrap done")
+    for o in meshes:
+        if not o.data.uv_layers:
+            continue
+        uv = np.empty(len(o.data.loops) * 2, dtype=np.float32)
+        o.data.uv_layers.active.data.foreach_get("uv", uv)
+        bad = int((~np.isfinite(uv)).sum())
+        if bad or (len(uv) and (uv.min() < -0.01 or uv.max() > 1.01)):
+            print("BAD UVS in %s: nonfinite %d range %.3f..%.3f" % (o.name, bad, np.nanmin(uv), np.nanmax(uv)))
     if argv().get("debug"):
         uv_overlap_report(meshes)
     # triangulate now (UVs are kept): Cycles' baker mis-fills big concave / collinear n-gons left by the booleans
@@ -681,12 +709,29 @@ def bake_all(name, S, res=2048, orm_res=1024, samples=24, fast=False):
         bpy.ops.object.bake(type="NORMAL", normal_space="TANGENT", normal_r="POS_X", normal_g="POS_Y", normal_b="POS_Z",
                             margin=10, margin_type="EXTEND", use_clear=False, use_selected_to_active=False, use_cage=False)
 
-    run("albedo", img_a, samples)
+    def checked(fn, img, fill, *a, need=0.30):
+        """Bake, verify the atlas actually received texels; a silently failed GPU bake (shared GPU) is retried on the CPU."""
+        img.generated_color = (*fill, 1.0)
+        fn(img, *a)
+        cov = _coverage(img, fill)
+        tlog("coverage %s %.2f" % (img.name, cov))
+        if cov < need:
+            print("BAKE WARNING: %s coverage %.2f -> retrying on CPU" % (img.name, cov))
+            _FORCE_CPU[0] = True
+            img.generated_color = (*fill, 1.0)
+            img.source = "GENERATED"
+            fn(img, *a)
+            cov = _coverage(img, fill)
+            tlog("coverage (cpu) %s %.2f" % (img.name, cov))
+            if cov < need:
+                raise RuntimeError("bake failed twice for %s (coverage %.2f)" % (img.name, cov))
+
+    checked(lambda im, sm: run("albedo", im, sm), img_a, (0.25, 0.25, 0.25), samples)
     tlog("albedo done")
-    run("orm", img_o, max(samples, 32))
+    checked(lambda im, sm: run("orm", im, sm), img_o, (1.0, 0.7, 0.0), max(samples, 32))
     tlog("orm done")
     if img_n is not None:
-        run_normal(img_n, 1)
+        checked(lambda im, sm: run_normal(im, sm), img_n, (0.5, 0.5, 1.0), 1, need=0.03)
         tlog("normal done")
     if not argv().get("nofill"):
         _fill_spots(img_a, img_o, tex, res, orm_res, S, img_n=img_n, nres=nres)
@@ -1039,6 +1084,9 @@ class Vehicle:
             area_report()
         self.report()
         path = os.path.join(OUT_DIR, self.vid + ".glb")
+        if args.get("out"):
+            # QA builds (e.g. --nobake shape passes) go to a scratch file instead of replacing the shipped GLB
+            path = os.path.join(PUBLIC, "models", "vehicles", "_qa", str(args["out"]))
         if args.get("strip"):
             # QA build: drop the named detachable panels (e.g. --strip panel_hood,panel_door_L) to check what is underneath; writes <id>_strip.glb
             kill = set(str(args["strip"]).split(","))

@@ -252,14 +252,14 @@ def _nrm_armor(n, rng):
     pit = sstep(0.7, 0.8, fbm(n, 120, 3, rng))
     grind = fbm(n, 220, 2, rng, ax=0.03, ay=1.0)
     mill = fbm(n, 30, 3, rng)
-    return 0.5 + 0.07 * (ham - .5) + 0.08 * (mill - .5) - 0.28 * pit + 0.07 * (grind - .5), 1.3
+    return 0.5 + 0.07 * (ham - .5) + 0.08 * (mill - .5) - 0.11 * pit + 0.07 * (grind - .5), 1.3
 
 
 def _nrm_metal(n, rng):
     br = fbm(n, 200, 2, rng, ax=0.02, ay=1.0)
     pit = sstep(0.72, 0.8, fbm(n, 150, 3, rng))
     low = fbm(n, 8, 3, rng)
-    return 0.5 + 0.1 * (br - .5) + 0.2 * (low - .5) - 0.3 * pit, 1.8
+    return 0.5 + 0.1 * (br - .5) + 0.12 * (low - .5) - 0.12 * pit, 1.5
 
 
 def _nrm_rust(n, rng):
@@ -294,7 +294,7 @@ NRM = {'n_paint': (512, _nrm_paint, 1.2), 'n_armor': (1024, _nrm_armor, 1.6), 'n
        'n_rubber': (256, _nrm_rubber, 0.6), 'n_cloth': (256, _nrm_cloth, 0.25), 'n_wood': (512, _nrm_wood, 1.2), 'n_fine': (256, _nrm_fine, 0.5),
        'n_chrome': (256, _nrm_chrome, 1.5)}
 NRM_OF = {'paint': 'n_paint', 'paint2': 'n_paint', 'decal_yellow': 'n_paint', 'decal_red': 'n_paint', 'decal_white': 'n_paint',
-          'armor': 'n_armor', 'spike': 'n_metal', 'metal_bare': 'n_armor', 'metal_dark': 'n_metal', 'rim': 'n_metal', 'gun_metal': 'n_metal',
+          'armor': 'n_armor', 'spike': 'n_metal', 'metal_bare': 'n_metal', 'metal_dark': 'n_metal', 'rim': 'n_metal', 'gun_metal': 'n_metal',
           'brass': 'n_metal', 'rust': 'n_rust', 'rubber_tire': 'n_rubber', 'rubber': 'n_rubber', 'canvas': 'n_cloth', 'fabric': 'n_cloth',
           'cloth_red': 'n_cloth', 'wood': 'n_wood', 'interior': 'n_fine', 'plastic': 'n_fine', 'leather': 'n_fine', 'chrome': 'n_chrome'}
 

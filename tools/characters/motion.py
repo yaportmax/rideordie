@@ -381,10 +381,12 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
             p = post(copy.deepcopy(p), float(t))
         if rel is not None:
             p = resolve_grips(rig, p, rel)
+        snap = dict(rig.state) if rig.state is not None else None      # continuity state advances once per frame
         W, P = rig.solve(p, frames)
         if rel is not None and relock_left and "pw_pos" in p and float(p["attL"][0]) > 1e-3 and float(p["attR"][0]) > 0.999 and frames[0] == "chest":
             # the weapon follows the ACTUAL right hand (runtime: weapon parented to socket_hand_R) -> re-target the left hand
             p = _relock_left(rig, p, W, P, rel)
+            rig.state = dict(snap) if snap is not None else None
             W, P = rig.solve(p, frames)
         if ground:
             if frames[0] == "world":
@@ -398,6 +400,7 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
                     fp = np.asarray(p["f%s_pos" % S], float).copy()
                     fp[1] = max(fp[1], 0.055 * rig.k)
                     p["f%s_pos" % S] = fp
+                rig.state = dict(snap) if snap is not None else None
                 W, P = rig.solve(p, frames)
             low = rig.lowest(W, P)
             if (ground_clamp and low < 0.0) or t >= ground_from:
@@ -410,6 +413,7 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
                         if fr == "world":
                             p["h%s_pos" % S] = np.asarray(p["h%s_pos" % S], float) + dy
                         p["f%s_pos" % S] = np.asarray(p["f%s_pos" % S], float) + dy
+                rig.state = dict(snap) if snap is not None else None
                 W, P = rig.solve(p, frames)
         Ls.append(rig.local_from_world(W))
         hips.append(P[0].copy())
@@ -421,6 +425,7 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
     for t in range(1, len(q)):
         dots = np.sum(q[t] * q[t - 1], axis=-1)
         q[t][dots < 0] *= -1.0
+    q = velocity_limit(q, loop)
     if loop:
         q[-1] = q[0]
         hips[-1] = hips[0]
@@ -497,6 +502,50 @@ def _attached_pos(rig, p, rel, Cpos, Crot):
     O = np.asarray(p["pw_pos"], float)
     Wr = rvm(p["pw_rot"])
     return Cpos + Crot @ (O + Wr @ np.asarray(p["gL_pos"], float))
+
+
+VMAX = {"finger": 50.0, "hand": 42.0, "limb": 38.0, "trunk": 26.0}
+
+
+def _vclass(name):
+    if "Hand" in name and name[-1].isdigit():
+        return "finger"
+    if name.endswith("Hand") or name.endswith("Foot") or name.endswith("ToeBase"):
+        return "hand"
+    if any(x in name for x in ("Arm", "Leg", "Shoulder")):
+        return "limb"
+    return "trunk"
+
+
+def velocity_limit(q, loop, passes=3):
+    """Safety net: bound each bone's LOCAL angular speed per 30 fps frame (deg/frame by bone class).  A residual IK flip
+    (a one-frame half-turn) is spread over a few frames (forward + backward passes, so it stays centred in time)."""
+    import mh
+    T = len(q)
+    if T < 3:
+        return q
+    q = q.copy()
+    for b, name in enumerate(mh.BONE_NAMES):
+        lim = np.radians(VMAX[_vclass(name)])
+        for ps in range(passes):
+            order = range(1, T) if ps % 2 == 0 else range(T - 2, -1, -1)
+            for t in order:
+                ref = q[t - 1, b] if ps % 2 == 0 else q[t + 1, b]
+                cur = q[t, b]
+                d = float(np.dot(ref, cur))
+                if d < 0:
+                    cur = -cur
+                    d = -d
+                ang = 2 * np.arccos(min(d, 1.0))
+                if ang > lim:
+                    # slerp from ref toward cur by lim / ang
+                    u = lim / ang
+                    th = np.arccos(min(d, 1.0))
+                    qn = (np.sin((1 - u) * th) * ref + np.sin(u * th) * cur) / np.sin(th)
+                    q[t, b] = qn / np.linalg.norm(qn)
+                else:
+                    q[t, b] = cur
+    return q
 
 
 def weapon_error(rig, clip, rel):

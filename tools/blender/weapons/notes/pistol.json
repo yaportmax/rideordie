@@ -1,7 +1,7 @@
 {
  "name": "pistol",
- "tris": 19698,
- "glb_kb": 1890,
+ "tris": 13610,
+ "glb_kb": 1040,
  "parts": {
   "body": {
    "pivot": [
@@ -10,13 +10,11 @@
     0.0
    ],
    "parent": null,
-   "tris": 6636,
+   "tris": 5218,
    "materials": [
     "polymer",
     "gun_steel",
-    "gun_metal",
-    "gun_black",
-    "brass"
+    "gun_metal"
    ]
   },
   "slide": {
@@ -26,11 +24,10 @@
     -20.0
    ],
    "parent": null,
-   "tris": 5464,
+   "tris": 5664,
    "materials": [
     "gun_black",
-    "gun_steel",
-    "gun_metal"
+    "gun_steel"
    ]
   },
   "trigger": {
@@ -40,7 +37,7 @@
     34.0
    ],
    "parent": null,
-   "tris": 1152,
+   "tris": 840,
    "materials": [
     "polymer",
     "gun_metal",
@@ -54,13 +51,12 @@
     12.65
    ],
    "parent": null,
-   "tris": 6446,
+   "tris": 1888,
    "materials": [
-    "gun_black",
     "polymer",
     "gun_steel",
-    "brass",
-    "gun_metal"
+    "gun_metal",
+    "brass"
    ]
   }
  },
@@ -195,12 +191,16 @@
   }
  ],
  "remarks": [
-  "Rounds are visible in the mag windows and the chambered round shows through the ejection port. Chambered case is part of `body`.",
-  "Hands: right palm on the backstrap/right panel around grip_R; support hand cups the left panel at grip_L with the index finger along the trigger guard."
+  "The chamber hood and a chambered round show through the ejection port (part of `body`). Two rounds sit in the magazine lips; witness holes on the back.",
+  "Hands: right palm on the backstrap / right panel around grip_R; support hand cups the left panel at grip_L. Three-dot sights (white dots are texture)."
  ],
  "style_keys": [
   "decals",
-  "grooves",
-  "polymer_stip"
+  "dust",
+  "engrave",
+  "polymer_color",
+  "polymer_stip",
+  "rust",
+  "wear"
  ]
 }

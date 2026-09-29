@@ -8,6 +8,7 @@ import { groundAt, rngOf, strId, CHUNK_LEN } from './util.js';
 import { need, useSpec } from './furniture.js';
 import { seaLevel } from '../terrain_gen.js';
 import { cityDens, cityExclusions, CITY_PROPS } from './city.js';
+import { rockExclusions } from './rocks.js';
 
 // ------------------------------------------------------------------------------------------------ tables
 // part: { a asset, u (metres along the road from the anchor; number or [min,max]), v (lateral distance from the road centre), yaw: 'face' | 'oncoming' | 'free' | 'along',
@@ -76,10 +77,10 @@ const KINDS = {
 
 // far backdrops: rock formations that make the horizon interesting
 const BACKDROPS = {
-  desert: { pitch: 520, chance: 0.75, items: [{ w: 3, a: ['mesa_a', 'mesa_b'], v: [320, 780], sc: [1.0, 1.7], flatTol: 30 }, { w: 2, a: ['hoodoo_a', 'hoodoo_b'], v: [70, 320], sc: [0.9, 1.6], flatTol: 5 }] },
-  canyon: { pitch: 330, chance: 0.8, items: [{ w: 2, a: ['hoodoo_a', 'hoodoo_b'], v: [45, 300], sc: [0.9, 1.7], flatTol: 6 }, { w: 1.5, a: ['mesa_a', 'mesa_b'], v: [380, 800], sc: [1.3, 2.2], flatTol: 60 }] },
+  desert: { pitch: 620, chance: 0.6, items: [{ w: 3, a: ['mesa_a', 'mesa_b'], v: [320, 780], sc: [1.0, 1.7], flatTol: 30 }] },
+  canyon: { pitch: 520, chance: 0.7, items: [{ w: 1.5, a: ['mesa_a', 'mesa_b'], v: [380, 800], sc: [1.3, 2.2], flatTol: 60 }] },
   coast: { pitch: 420, chance: 0.0, items: [] },
-  mountain: { pitch: 900, chance: 0.2, items: [{ w: 1, a: ['hoodoo_a'], v: [100, 320], sc: [0.8, 1.2], flatTol: 8 }] },
+  mountain: { pitch: 900, chance: 0.0, items: [] },
   city: { pitch: 900, chance: 0.0, items: [] },
   dam: { pitch: 900, chance: 0.0, items: [] },
 };
@@ -271,21 +272,8 @@ function specials(ctx, sA, sB) {
 
   // ---- coast: sea stacks, lighthouse, wharf
   if (sB > 19500 && sA < 30500) {
-    const names = ['sea_stack_a', 'sea_stack_b', 'sea_stack_c', 'lighthouse', 'wharf_ruin'];
+    const names = ['lighthouse', 'wharf_ruin'];
     if (!assetReady(ctx, names)) return null;
-    for (const [k, s] of slots(240, 501)) {
-      if (!inBiome(s, 'coast')) continue;
-      if (!push(cached(`stack:${k}`, () => {
-        const rnd = rngOf(seed, k, 501);
-        if (rnd() > 0.55) return [];
-        const seaY = seaLevel(road, 'coast'), v = 60 + rnd() * 460, name = ['sea_stack_a', 'sea_stack_b', 'sea_stack_c'][Math.floor(rnd() * 3)];
-        const a = kit.get(name); if (!a) return [];
-        const g = groundAt(road, seed, s, v, {});
-        if (g.y > seaY - 7) return [];
-        const sc = 0.9 + rnd() * 0.9;
-        return [{ asset: name, x: g.x, y: seaY - 0.2, z: g.z, yaw: rnd() * 6.283, sc, r: a.radius * sc, s, found: null }];
-      }))) return null;
-    }
     for (const [k, s] of slots(2600, 502)) {
       if (!inBiome(s, 'coast')) continue;
       if (!push(cached(`light:${k}`, () => {
@@ -311,29 +299,6 @@ function specials(ctx, sA, sB) {
         if (dPrev >= 159) return [];
         const g = groundAt(road, seed, s, dPrev, {}), th = road.sample(s, {}).th;
         return [{ asset: 'wharf_ruin', x: g.x, y: seaY, z: g.z, yaw: th + Math.PI / 2, sc: 1, r: 30, s, found: null }];
-      }))) return null;
-    }
-  }
-  // ---- canyon: natural arch across the road where both walls are high
-  if (sB > 10000 && sA < 20000) {
-    if (!assetReady(ctx, ['natural_arch'])) return null;
-    for (const [k, s] of slots(2300, 511, 0.9)) {
-      if (!inBiome(s, 'canyon')) continue;
-      if (!push(cached(`arch:${k}`, () => {
-        const a = kit.get('natural_arch'); if (!a) return [];
-        const rnd = rngOf(seed, k, 511); if (rnd() > 0.9) return [];
-        road.extendTo(s + 400);
-        let best = null, bestScore = -3;
-        for (let t = 0; t < 12; t++) {
-          const s1 = s + (t - 6) * 22, sm = road.sample(s1, {});
-          if (road.featureAt(s1) || road.featuresIn(s1 - 60, s1 + 60).some((f) => f.type === 'bridge' || f.type === 'tunnel' || f.type === 'ramp')) continue;
-          if (Math.abs(sm.k) > 1 / 260) continue;                                     // needs a fairly straight bit so the legs clear the road
-          let score = 1e9;
-          for (const ds of [0, 7, 14]) for (const d of [22, -22]) score = Math.min(score, groundAt(road, seed, s1 + ds, d, {}).y - road.sample(s1 + ds, {}).y);
-          if (score > bestScore) { bestScore = score; best = { s1, sm }; }
-        }
-        if (!best) return [];
-        return [{ asset: 'natural_arch', x: best.sm.x, y: best.sm.y - 0.6, z: best.sm.z, yaw: best.sm.th, sc: 1, r: 30, s: best.s1, found: null, arch: true }];
       }))) return null;
     }
   }
@@ -440,8 +405,7 @@ export function landmarkAssets(id) {
   for (const it of (KINDS[id] || { items: [] }).items) for (const q of it.parts) out.add(q.a);
   for (const it of (BACKDROPS[id] || { items: [] }).items) for (const a of it.a) out.add(a);
   if (id === 'city') for (const a of [...RUINS, ...TOWERS, ...CITY_PROPS]) out.add(a);
-  if (id === 'coast') for (const a of ['sea_stack_a', 'sea_stack_b', 'sea_stack_c', 'lighthouse', 'wharf_ruin']) out.add(a);
-  if (id === 'canyon') out.add('natural_arch');
+  if (id === 'coast') for (const a of ['lighthouse', 'wharf_ruin']) out.add(a);
   if (id === 'dam') for (const a of ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'boss_arena_lights']) out.add(a);
   return [...out];
 }
@@ -454,6 +418,7 @@ export function landmarkExclusions(ctx, sA, sB) {
   if (!list) return null;
   for (const p of list) if (p.s > sA - p.r - 60 && p.s < sB + p.r + 60) out.push([p.x, p.z, p.r]);
   for (const c of cityExclusions(ctx, sA, sB)) out.push(c);
+  for (const c of rockExclusions(ctx, sA, sB)) out.push(c);
   return out;
 }
 

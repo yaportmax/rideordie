@@ -87,7 +87,7 @@ def pal():
     M["brass"] = mat("brass", (0.55, 0.38, 0.10), metal=1.0, rough=0.35)
     M["glass"] = mat("glass", (0.055, 0.07, 0.065), metal=0.0, rough=0.06, alpha=0.40, double_sided=True)
     M["light_head"] = mat("light_head", (0.95, 0.90, 0.78), rough=0.12, emit=(1.0, 0.86, 0.58), emit_strength=3.0)
-    M["light_tail"] = mat("light_tail", (0.36, 0.012, 0.008), rough=0.42, emit=(0.9, 0.025, 0.0), emit_strength=1.0)
+    M["light_tail"] = mat("light_tail", (0.28, 0.006, 0.004), rough=0.35, emit=(0.85, 0.02, 0.0), emit_strength=0.9)
     M["light_amber"] = mat("light_amber", (0.85, 0.34, 0.02), rough=0.18, emit=(1.0, 0.42, 0.03), emit_strength=2.5)
     M["cloth_red"] = mat("cloth_red", (0.32, 0.015, 0.01), metal=0.0, rough=0.95)
     M["cloth_dark"] = mat("cloth_dark", (0.04, 0.035, 0.03), metal=0.0, rough=0.95)

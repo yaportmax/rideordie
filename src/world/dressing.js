@@ -41,6 +41,7 @@ import { CITY_U, registerSetAssets } from './dressing/city_mat.js';
 import { SetPieces } from './dressing/setpieces.js';
 import { buildDamRoad } from './dressing/damroad.js';
 import { buildGalleries } from './dressing/gallery.js';
+import { buildRocks } from './dressing/rocks.js';
 import { createSetMaterials, warmSetMaterials } from './dressing/warm.js';
 
 const QUALITY = [
@@ -160,7 +161,7 @@ export class Dressing {
       case 1: if (buildFurniture(ctx, ch)) ch.step = 2; break;
       case 2: if (buildFeatures(ctx, ch, this._deadline)) ch.step = 3; break;
       case 3: if (buildLandmarks(ctx, ch)) ch.step = 4; break;
-      case 4: if (buildCity(ctx, ch) && buildDamRoad(ctx, ch) && buildGalleries(ctx, ch)) ch.step = 5; break;
+      case 4: if (buildCity(ctx, ch) && buildDamRoad(ctx, ch) && buildGalleries(ctx, ch) && buildRocks(ctx, ch)) ch.step = 5; break;
       case 5: if (runScatter(ctx, ch, 1, this._deadline)) ch.step = 6; break;
       case 6: if (runScatter(ctx, ch, 2, this._deadline)) ch.step = 7; break;
       case 7: if (runScatter(ctx, ch, 3, this._deadline)) ch.step = 8; break;

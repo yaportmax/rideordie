@@ -1,180 +1,157 @@
-"""RIDE OR DIE - pistol: 9mm striker-fired semi-auto (Glock/M9 vibes).  Units mm, G frame (+X fwd, +Y left, +Z up)."""
+"""RIDE OR DIE - pistol ("RANGER 9"): polymer-frame 9x19 striker pistol (G17 class).  Units mm, G frame (+X fwd, +Y left,
++Z up).  Origin = pistol-grip centre.
+
+Contract (unchanged): nodes body, slide (pivot bore axis at the slide rear, travel 38 mm back), trigger (pin at (34,0,26), +12 deg),
+mag (seat at gp(0,37) on the 20 deg grip axis, 135 mm travel down the grip axis); sockets muzzle, eject, grip_R, grip_L, mag_well, sight."""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gunlib import *
+import gunkit as K
 
 G = Gun("pistol")
-GA = 20.0                       # grip rake (bottom rearward)
+GA = 20.0
 _c, _s = math.cos(GA * D2R), math.sin(GA * D2R)
 
 
 def gp(lx, lz, y=0.0):
-    """grip-local (lx forward-ish, lz along grip axis up) -> gun frame."""
     return (lx * _c + lz * _s, y, -lx * _s + lz * _c)
 
 
-def gv(lx, lz, y=0.0):
-    return Vector(gp(lx, lz, y))
-
-
 BORE_Z = 58.0
-SLIDE_X0, SLIDE_X1 = -20.0, 156.0
-SLIDE_Z0, SLIDE_Z1 = 39.0, 71.0
+SX0, SX1 = -20.0, 160.0              # slide rear / front
+SZ0, SZ1 = 40.5, 71.5                # slide bottom / top
+SW = 25.4                            # slide width
 
-# ================================================================== FRAME (polymer)
+# =========================================================================================== FRAME (polymer)
 body = G.part("body")
-
-top = gv(0, 38)
-def gring(w, h, r=9.5):
-    return rrect_ring(w, h, r, n=3)
-secs = [(0, gring(27, 38)), (8, gring(29, 41)), (26, gring(30, 42)), (80, gring(30.5, 43)), (98, gring(31, 45, 10)), (108, gring(32.5, 47, 10))]
-grip = loft_bm(secs, cap=True, xf=Matrix.Translation(top) @ Matrix.Rotation(110 * D2R, 4, "Y"))
-
-fp = [(-18, 40.0), (138, 40.0), (138, 28.5), (74.5, 28.5), (72.5, 15.0), (68.5, 10.5), (30.0, 10.5), (23.5, 14.0),
-      (8, 24), (-8, 31), (-17.5, 35.5)]
-fr = [0.6, 0.6, 1.0, 1.5, 3.0, 3.0, 3.0, 3.0, 0, 0, 1.5]
-upper = prism_bm(fp, -13.0, 13.0, fillet=fr, fsegs=4)
-frame = bool_op(upper, [grip], "UNION")
-
-cutters = []
-# trigger-guard opening
-cutters.append(prism_bm([(30.5, 17.5), (64.0, 17.5), (66.0, 29.5), (32.5, 29.5)], -20, 20, fillet=[2.0, 2.0, 0, 0], fsegs=3))
-# finger grooves (front strap)
-for lz in (3.0, -15.5, -34.0):
-    cutters.append(cyl_bm(gp(24.6, lz, -20), gp(24.6, lz, 20), 6.4, segs=20))
-# magazine well
-cutters.append(box_bm((33.8, 23.8, 122), c=gp(0, -25), rot=(0, GA, 0)))
-# dust cover cross slots
-for x in (94, 114):
-    cutters.append(box_bm((3.4, 40, 5.5), c=(x, 0, 28.5)))
-# slide-rail relief notches under the beavertail (rear)
-cutters.append(box_bm((14, 40, 3.0), c=(-11.5, 0, 40.9)))
-body.add(frame, "polymer", bevel=[(1.4, 3, lambda e: abs(e.verts[0].co.y) > 12 and abs(e.verts[1].co.y) > 12 and abs(e.verts[0].co.z - e.verts[1].co.z) + abs(e.verts[0].co.x - e.verts[1].co.x) > 3), (0.7, 2, None)],
-         cut=cutters)
-
-# frame details: trigger pins, lanyard eyelet, slide stop lever, takedown lever, mag release
-for (px, pz) in ((34.0, 26.0), (53.0, 31.0), (8.0, 33.0)):
-    for sy in (13.05, -13.05):
-        body.cyl((px, sy - (0.4 if sy > 0 else -0.4), pz), (px, sy + (0.45 if sy > 0 else -0.45), pz), 1.7, segs=10, mat="gun_steel", bevel=0.15, angle=20)
-body.prism([(6.5, 34.2), (9.5, 37.3), (28.0, 37.6), (40.5, 34.5), (44.0, 33.6), (44.0, 32.0), (30.0, 32.2), (8.5, 32.4)], 12.9, 15.3, mat="gun_metal", bevel=0.4, fillet=0.8, fsegs=3)
-body.prism([(6.5, 34.2), (9.5, 37.3), (28.0, 37.6), (40.5, 34.5), (44.0, 33.6), (44.0, 32.0), (30.0, 32.2), (8.5, 32.4)], -13.0, -14.6, mat="gun_metal", bevel=0.3, fillet=0.8, fsegs=3) if False else None
-body.prism([(46, 31.8), (49, 34.4), (60, 34.4), (62, 31.6), (60, 30.0), (48, 30.0)], 12.9, 14.9, mat="gun_metal", bevel=0.4, fillet=0.7, fsegs=3)
-body.cyl((18.5, 13.0, 15.6), (18.5, 17.6, 15.6), 4.3, mat="gun_metal", bevel=0.35, segs=20)
-body.cyl((18.5, 17.6, 15.6), (18.5, 17.0, 15.6), 3.2, mat="gun_metal", segs=16)
-
-# ================================================================== BARREL group (static, in body)
-# hood with ejection slot
-hood = box_bm((44, 15.0, 15.2), c=(40.0, 0, BORE_Z))
-body.add(hood, "gun_black", bevel=1.2, cut=[box_bm((22, 9.2, 8), c=(38, 0, BORE_Z + 7.5)), box_bm((14, 1.2, 4), c=(30, 0, 66))])
-# round barrel
-bp = [(60, 7.3), (108, 7.3), (150, 7.3), (156.6, 7.3), (157.8, 6.9), (158.3, 6.4), (158.3, 4.6), (146, 4.6), (146, 0.0)]
-body.lathe(bp, c=(0, 0, BORE_Z), segs=32, mat="gun_metal", bevel=0.0)
-# barrel locking lug block + feed ramp
-body.box((16, 13.6, 6), c=(56, 0, BORE_Z - 8.5), mat="gun_metal", bevel=0.8)
-# guide rod + recoil spring
-body.cyl((62, 0, 46.0), (149.5, 0, 46.0), 3.0, segs=12, mat="gun_steel", bevel=0.0)
-coil = [(64.0, 0.0)]
-xx = 64.0
-while xx < 148:
-    coil += [(xx, 4.5), (xx + 1.8, 4.5), (xx + 2.4, 3.5), (xx + 3.6, 3.5)]
-    xx += 4.5
-coil += [(xx, 3.5), (xx, 0)]
-body.lathe(coil, c=(0, 0, 46.0), segs=12, mat="gun_steel", bevel=0.0)
-# chambered cartridge case visible through the ejection slot
-rb = round_bms("9mm", segs=16, at=(26.0, 0, BORE_Z))
-body.add(rb["case"], "brass", bevel=0)
-body.add(rb["primer"], "gun_steel", bevel=0)
-
-# ================================================================== SLIDE (moving part, pivot on the bore axis at the rear face)
-slide = G.part("slide", pivot=(SLIDE_X0, 0, BORE_Z))
-sp = [(SLIDE_X0, SLIDE_Z0), (SLIDE_X0, 67.0), (SLIDE_X0 + 3.0, SLIDE_Z1), (134.0, SLIDE_Z1), (SLIDE_X1, 66.8), (SLIDE_X1, SLIDE_Z0)]
-outer = prism_bm(sp, -12.75, 12.75)
-cuts = []
-cuts.append(box_bm((SLIDE_X1 - 6 - (SLIDE_X0 + 8), 19.8, 30), c=((SLIDE_X0 + 8 + SLIDE_X1 - 6) / 2, 0, 39.0 - 15 + 28.0)))  # interior cavity, roof at z=67
-cuts.append(prism_bm([(16, 53.0), (66, 53.0), (62.0, 74), (19.5, 74)], -14.5, 3.0))  # ejection port
-cuts.append(cyl_bm((140, 0, BORE_Z), (160, 0, BORE_Z), 7.9, segs=32))                # muzzle hole
-cuts.append(cyl_bm((140, 0, 46.0), (160, 0, 46.0), 4.6, segs=16))                    # guide rod hole
-for k in range(6):
-    xk = -16.6 + k * 3.0
-    for sy in (12.75, -12.75):
-        cuts.append(box_bm((1.5, 3.0, 25), c=(xk, sy, 54.5), rot=(0, 12, 0)))
+# upper frame + dust cover (under the slide), with the accessory rail below the dust cover
+fr_side = [(-16, 33), (-12, 41), (150, 41), (152, 38), (150, 31), (96, 29), (92, 30), (60, 31), (26, 32)]
+frame = prism_bm(fr_side, -11.8, 11.8, fillet=[4, 1, 1, 1.5, 2, 3, 3, 3, 3], fsegs=3)
+body.add(frame, "polymer", bevel=[(1.0, 2, None)])
+# rail slots under the dust cover
+rail = prism_bm([(100, 25.5), (146, 25.5), (148, 29.5), (98, 29.5)], -10.5, 10.5)
+from gunlib import bool_op
+rail = bool_op(rail, [box_bm((4.2, 30, 3.0), c=(106 + k * 10.0, 0, 25.5)) for k in range(4)])
+body.add(rail, "polymer", bevel=0.5)
+# trigger guard: squared, serrated front face
+tg = sweep_bm([(26, 0, 32), (24, 0, 22), (27, 0, 12), (35, 0, 7.5), (74, 0, 7.5), (84, 0, 9.5), (91, 0, 26), (92, 0, 31)], radius=1.0, segs=4,
+              profile=[(5.8, 2.3), (-5.8, 2.3), (-5.8, -2.3), (5.8, -2.3)], smooth=4)
+body.add(tg, "polymer", bevel=0.8)
 for k in range(5):
-    xk = 119.0 + k * 3.0
-    for sy in (12.75, -12.75):
-        cuts.append(box_bm((1.5, 3.0, 25), c=(xk, sy, 54.5), rot=(0, 12, 0)))
-# scallop cuts at the rear top for the sight dovetail
-cuts.append(box_bm((13, 11.4, 1.6), c=(-9.5, 0, SLIDE_Z1 - 0.2)))
+    t = 0.2 + k * 0.15
+    x, z = 84 + (91 - 84) * t, 9.5 + (26 - 9.5) * t
+    body.add(box_bm((1.2, 9.6, 1.4), c=(x + 2.3, 0, z), rot=(0, -68, 0)), "polymer", bevel=0.3)
+# grip: raked loft, stippled panels (texture), beavertail on top, finger grooves on the front strap
+def gring(dep, wid, rf=9.0, rb=11.0, cx=0.0):
+    return [(lx, y) for lx, y, _ in K.rr_ring2(dep, wid, rf, rb, cx=cx, n=4)]
 
 
-def _top_long(e):
-    a, b = e.verts[0].co, e.verts[1].co
-    return a.z > 70 and b.z > 70 and abs(a.y) > 12.4 and abs(b.y) > 12.4 and abs(a.x - b.x) > 6
+gsecs = [(34, 44.0, 27.0, 8, 10, 0.0), (26, 45.5, 29.5, 8.5, 11, 0.0), (0, 47.5, 30.4, 9, 12, 0.0), (-30, 48.5, 30.6, 9, 12, 0.0),
+         (-58, 50.5, 31.0, 9, 12, 0.5), (-64, 52.0, 32.5, 9, 12, 0.5), (-68, 52.4, 32.8, 9, 12, 0.5)]
+rings = []
+for lz, dep, wid, rf, rb, cx in gsecs:
+    ring = gring(dep, wid, rf, rb, cx)
+    # finger grooves on the front strap
+    fg = 0.0
+    for gz in (-6.0, -26.0, -46.0):
+        fg += 1.4 * math.exp(-((lz - gz) / 6.0) ** 2)
+    ring = [(lx - (fg if lx > dep / 2 - 3 else 0.0), y) for lx, y in ring]
+    rings.append((lz, ring))
+n = len(rings[0][1])
+bm = bmesh.new()
+vr = [[bm.verts.new(Vector(gp(lx, lz, y))) for lx, y in ring] for lz, ring in rings]
+for i in range(len(vr) - 1):
+    for k in range(n):
+        k2 = (k + 1) % n
+        bm.faces.new((vr[i][k], vr[i][k2], vr[i + 1][k2], vr[i + 1][k]))
+bm.faces.new(list(reversed(vr[0])))
+bm.faces.new(vr[-1])
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+gcut = [box_bm((80, 60, 40), c=(10, 0, 55.0)),                                              # flat top under the frame rails
+        box_bm((34.0, 23.6, 40), c=gp(0.5, -86.0), rot=(0, GA, 0))]                          # magazine well (open at the bottom)
+body.add(bool_op(bm, gcut), "polymer", bevel=[(0.9, 2, None)])
+# beavertail + backstrap top
+body.add(loft_bm([(-26, rrect_ring(26, 10, 4.5, n=3, c=(0, 32))), (-16, rrect_ring(27, 12, 5, n=3, c=(0, 34))), (-8, rrect_ring(27, 13, 5, n=3, c=(0, 35.5)))]),
+         "polymer", bevel=0.6)
+# magazine release (left, behind the trigger guard), slide stop (left), takedown tabs (both sides)
+body.add(box_bm((7.0, 3.2, 9.0), c=(22.5, 12.6, 25)), "polymer", bevel=1.0)
+body.add(prism_bm([(34, 38.5), (60, 38.5), (63, 40.8), (38, 41.2)], 12.0, 13.6, fillet=1.0, fsegs=2), "gun_steel", bevel=0.4)
+body.add(box_bm((10, 2.2, 3.2), c=(40, 13.6, 42.6)), "gun_steel", bevel=0.5)
+for sy in (1, -1):
+    body.add(box_bm((8.0, 1.6, 3.0), c=(70, sy * 12.3, 37.8)), "gun_steel", bevel=0.4)
+body.cyl((30, -12.4, 36), (30, 12.4, 36), 1.6, segs=10, mat="gun_steel")                  # trigger pin heads
+body.cyl((60, -12.4, 34), (60, 12.4, 34), 1.6, segs=10, mat="gun_steel")
+# locking block pin, frame rails peeking out at the rear
+body.box((6, 20.5, 3.2), c=(-11, 0, 42.0), mat="gun_steel", bevel=0.4)
+# barrel muzzle crown (fixed) + guide rod tip
+body.lathe([(146, 0), (146, 5.4), (SX1 + 0.6, 5.4), (SX1 + 1.0, 4.9), (SX1 + 1.0, 4.4), (SX1 - 2, 4.3), (SX1 - 2, 0)], c=(0, 0, BORE_Z), segs=24, mat="gun_metal")
+body.cyl((140, 0, 45.5), (SX1 + 0.2, 0, 45.5), 3.2, segs=14, mat="gun_metal")
+# chamber hood (visible through the ejection port) + chambered round
+body.add(box_bm((42, 18.6, 12.6), c=(47, 0, BORE_Z + 2.5)), "gun_metal", bevel=0.7)
+body.cyl((26, 0, BORE_Z), (70, 0, BORE_Z), 7.2, segs=20, mat="gun_metal")
+# grip bottom: magazine baseplate sits here (mag node)
 
+# =========================================================================================== SLIDE
+slide = G.part("slide", pivot=(SX0, 0, BORE_Z))
+sprof = [(SX0, SZ0), (SX0, SZ1 - 1.0), (SX0 + 1.5, SZ1), (SX1 - 14, SZ1), (SX1, SZ1 - 3.0), (SX1, SZ0 + 7.0), (SX1 - 7.0, SZ0)]
+sl = prism_bm(sprof, -SW / 2, SW / 2, fillet=[0.8, 1.0, 1.5, 4.0, 1.5, 2.0, 0.8], fsegs=3)
+cuts = []
+for sy in (1, -1):                                                                               # top chamfers along the slide
+    cuts.append(box_bm((SX1 - SX0 + 20, 8, 8), c=((SX0 + SX1) / 2, sy * (SW / 2 + 1.2), SZ1 + 1.2), rot=(45, 0, 0)))
+for k in range(8):                                                                               # rear serrations (vertical, both sides)
+    for sy in (1, -1):
+        cuts.append(box_bm((1.3, 1.6, 23.0), c=(SX0 + 4.0 + k * 3.1, sy * (SW / 2 + 0.2), SZ0 + 14.5), rot=(0, 4, 0)))
+for k in range(6):                                                                               # front serrations
+    for sy in (1, -1):
+        cuts.append(box_bm((1.3, 1.6, 18.0), c=(SX1 - 34.0 + k * 3.1, sy * (SW / 2 + 0.2), SZ0 + 13.0), rot=(0, -4, 0)))
+cuts.append(box_bm((40.0, 12.0, 17.0), c=(49.0, -6.8, SZ1 - 3.0)))                              # ejection port (right side + top)
+cuts.append(box_bm((SX1 - SX0 - 20, SW - 5.0, 20), c=((SX0 + SX1) / 2 + 8, 0, SZ0 + 5.0)))      # underside channel (frame rails)
+cuts.append(cyl_bm((SX1 - 20, 0, BORE_Z), (SX1 + 5, 0, BORE_Z), 5.6, segs=20))                  # muzzle bore
+cuts.append(cyl_bm((SX1 - 20, 0, 45.5), (SX1 + 5, 0, 45.5), 3.6, segs=14))                      # guide rod hole
+cuts.append(box_bm((5.0, 12.0, 4.5), c=(-11.5, 0, SZ1 + 0.8)))                                   # rear sight dovetail slot
+cuts.append(box_bm((6.0, 3.6, 2.4), c=(SX1 - 12, 0, SZ1 + 0.4)))                                 # front sight slot
+slide.add(sl, "gun_black", bevel=[(0.55, 2, None)], cut=cuts)
+# rear plate (slide cover) + striker channel
+slide.box((1.2, 18.0, 16.0), c=(SX0 - 0.3, 0, 55.0), mat="gun_black", bevel=0.4)
+slide.cyl((SX0 - 0.8, 0, BORE_Z), (SX0 - 1.4, 0, BORE_Z), 1.8, segs=12, mat="gun_steel")
+# rear sight (dovetail, U notch with white outline) + front post (white dot)
+rs = prism_bm([(-15.0, SZ1 - 1.2), (-15.0, SZ1 + 5.4), (-8.5, SZ1 + 6.0), (-6.5, SZ1 - 1.2)], -6.5, 6.5, fillet=[0.4, 1.0, 1.0, 0.4], fsegs=2)
+rs = bool_op(rs, [box_bm((12, 3.6, 5.0), c=(-10, 0, SZ1 + 6.5)), box_bm((12, 5.6, 1.0), c=(-10, 0, SZ1 + 6.2))])
+slide.add(rs, "gun_black", bevel=0.35)
+fs = prism_bm([(SX1 - 15.0, SZ1 - 1.0), (SX1 - 15.0, SZ1 + 5.2), (SX1 - 9.5, SZ1 + 5.6), (SX1 - 9.0, SZ1 - 1.0)], -1.75, 1.75, fillet=[0.3, 0.8, 0.8, 0.3], fsegs=2)
+slide.add(fs, "gun_black", bevel=0.25)
+# extractor (right side at the port rear) + loaded-chamber tab
+slide.add(prism_bm([(20, 59), (32, 60), (34, 63), (21, 63.5)], -SW / 2 - 0.6, -SW / 2 + 0.6, fillet=0.8, fsegs=2), "gun_steel", bevel=0.25)
+slide.cyl((22, -SW / 2 - 0.2, 61.2), (22, -SW / 2 - 0.9, 61.2), 1.1, segs=8, mat="gun_steel")
 
-def _vert_front(e):
-    a, b = e.verts[0].co, e.verts[1].co
-    return abs(a.y) > 12.4 and abs(b.y) > 12.4 and abs(a.x - b.x) < 0.2 and abs(a.z - b.z) > 6
-
-
-slide.add(outer, "gun_black", bevel=[(2.6, 4, _top_long), (1.6, 3, _vert_front), (0.55, 2, None)], cut=cuts)
-# rear sight (dovetail block with U notch) and front sight
-rear_sight = prism_bm([(-15.0, SLIDE_Z1 - 0.8), (-15.0, 76.8), (-6.0, 77.2), (-4.6, SLIDE_Z1 - 0.8)], -5.6, 5.6)
-slide.add(rear_sight, "gun_black", bevel=0.5, cut=[box_bm((14, 3.4, 4.2), c=(-10, 0, 77.2))])
-for sy in (-3.6, 3.6):
-    slide.cyl((-15.0, sy, 74.6), (-15.35, sy, 74.6), 1.15, segs=12, mat="gun_steel", bevel=0.0)
-fs = prism_bm([(139.5, 68.2), (141.0, 76.6), (146.2, 76.6), (149.5, 67.4)], -1.9, 1.9)
-slide.add(fs, "gun_black", bevel=0.45)
-slide.box((11, 5.6, 2.2), c=(145, 0, 68.6), mat="gun_black", bevel=0.4)
-slide.cyl((141.0, 0, 74.2), (140.6, 0, 74.2), 1.1, segs=12, mat="gun_steel", bevel=0.0)
-# extractor (right side of chamber) + loaded-chamber indicator
-slide.prism([(1.0, 57.5), (15.5, 57.5), (17.5, 61.0), (15.5, 66.5), (1.0, 66.5)], -13.15, -12.55, mat="gun_black", bevel=0.25, fillet=0.6, fsegs=2)
-slide.box((3.0, 1.2, 2.4), c=(13.5, -13.3, 62.0), mat="gun_steel", bevel=0.3)       # loaded-chamber tab
-# screws / rivets on slide sides
-# rear face: firing pin retaining plate
-slide.box((0.8, 12.5, 8.0), c=(SLIDE_X0 - 0.35, 0, 60.5), mat="gun_steel", bevel=0.3)
-slide.cyl((SLIDE_X0 - 0.5, 0, 60.5), (SLIDE_X0 - 0.9, 0, 60.5), 1.2, segs=12, mat="gun_metal")
-# underside: slide rails (inner lip)
-for sy in (-1, 1):
-    slide.box((SLIDE_X1 - SLIDE_X0 - 30, 1.6, 2.0), c=((SLIDE_X0 + SLIDE_X1) / 2 - 2, sy * 10.4, 40.2), mat="gun_black", bevel=0.3)
-
-# ================================================================== TRIGGER
+# =========================================================================================== TRIGGER (flat face + safety blade)
 trig = G.part("trigger", pivot=(34.0, 0, 26.0))
-tpath = [(34.5, 0, 27.5), (41.5, 0, 26.2), (47.0, 0, 21.8), (49.6, 0, 16.5), (49.2, 0, 11.6)]
-trig.sweep(tpath, radius=1.0, profile=[(3.9, 2.7), (-3.9, 2.7), (-3.9, -2.7), (3.9, -2.7)], mat="polymer", bevel=0.7, smooth=5)
-trig.sweep([(41.5, 0, 26.2), (47.0, 0, 21.8), (49.6, 0, 16.5), (49.0, 0, 13.2)], radius=1.0, profile=[(1.7, 3.6), (-1.7, 3.6), (-1.7, -1.0), (1.7, -1.0)], mat="gun_metal", bevel=0.35, smooth=5)
-trig.box((18, 3.0, 3.2), c=(26, 0, 27.0), mat="gun_steel", bevel=0.5)
+trig.sweep([(34.5, 0, 27.5), (41.0, 0, 26.0), (45.8, 0, 21.6), (47.6, 0, 16.0), (47.0, 0, 11.5)], radius=1.0,
+           profile=[(3.8, 2.6), (-3.8, 2.6), (-3.8, -2.6), (3.8, -2.6)], mat="polymer", bevel=0.6, smooth=5)
+trig.add(prism_bm([(45.0, 22.5), (47.2, 18.0), (48.3, 13.2), (47.4, 13.0), (46.2, 17.6), (44.3, 21.6)], -1.2, 1.2), "gun_metal", bevel=0.2)
+trig.box((16, 2.6, 3.0), c=(26, 0, 27.3), mat="gun_steel", bevel=0.5)
 trig.cyl((34, -5.5, 26), (34, 5.5, 26), 1.5, segs=10, mat="gun_steel")
 
-# ================================================================== MAGAZINE
+# =========================================================================================== MAGAZINE (polymer-over-steel, 17 rd)
 magp = gp(0, 37.0)
 mag = G.part("mag", pivot=magp)
-mag_len = 37 + 78
-mag_body = box_bm((33.0, 22.8, mag_len), c=gp(0, 37 - mag_len / 2), rot=(0, GA, 0))
-inner = box_bm((30.8, 20.4, mag_len - 2.0), c=gp(0, 37 - (mag_len - 2.0) / 2 + 2.0), rot=(0, GA, 0))
-wcuts = [inner]
-for lz in (12, -4, -20, -36, -52, -68):
-    for sy in (11.4, -11.4):
-        wcuts.append(box_bm((9.5, 5.0, 4.6), c=gp(-3.0, lz, sy), rot=(0, GA, 0)))
-mag.add(mag_body, "gun_black", bevel=0.7, cut=wcuts)
-# baseplate
-mag.box((34.6, 24.6, 7.0), c=gp(0, -80.5), rot=(0, GA, 0), mat="polymer", bevel=1.2)
-mag.box((33.0, 22.0, 1.4), c=gp(0, -76.4), rot=(0, GA, 0), mat="gun_steel", bevel=0.3)
-# feed lips
-for sy in (-1, 1):
-    mag.box((27.5, 2.4, 3.4), c=gp(-1.5, 35.8, sy * 8.9), rot=(0, GA, 0), mat="gun_black", bevel=0.4)
-# follower spring stack (visible through windows) + rounds
-rounds_z = 32.6
-for i in range(11):
-    lz = rounds_z - i * 6.3
-    sy = 4.7 if i % 2 == 0 else -4.7
-    h = gp(-15.0, lz, sy)
-    rb = round_bms("9mm", segs=10, at=h, rot=(0, GA, 0), primer=False)
+ML = 37 + 84
+mag.add(box_bm((31.6, 22.2, ML), c=gp(0.4, 37 - ML / 2), rot=(0, GA, 0)), "polymer", bevel=1.4)
+mag.add(box_bm((27.0, 18.4, 3.0), c=gp(-0.5, 37.6), rot=(0, GA, 0)), "gun_steel", bevel=0.5)            # steel feed lips band
+for sy in (1, -1):
+    mag.add(box_bm((24.0, 1.8, 3.2), c=gp(-2.0, 38.0, sy * 8.4), rot=(0, GA, 0)), "gun_steel", bevel=0.4)
+bp = loft_bm([(0, rrect_ring(34.0, 24.4, 6.0, n=3)), (6.5, rrect_ring(34.6, 25.0, 6.5, n=3)), (8.5, rrect_ring(33.4, 23.8, 5.8, n=3))],
+             xf=Matrix.Translation(Vector(gp(0.6, -84.0))) @ Matrix.Rotation((90 + GA) * D2R, 4, "Y"))
+mag.add(bp, "polymer", bevel=0.6)
+for k, lz in enumerate(range(24, -76, -12)):                                                             # witness holes on the back
+    mag.add(cyl_bm(gp(-16.0, lz), gp(-15.2, lz), 1.5, segs=10), "gun_metal", bevel=0)
+for i, (lz, sy) in enumerate(((34.8, 2.6), (29.6, -2.9))):                                              # rounds at the lips
+    h = gp(-13.5, lz, sy)
+    rb = round_bms("9mm", segs=12, at=h, rot=(0, GA, 0), primer=False)
     mag.add(rb["case"], "brass", bevel=0)
-    mag.add(rb["bullet"], "brass", bevel=0)
-# remaining stack: dark core seen through the lower windows
-mag.box((29.5, 19.0, 40), c=gp(0, -47), rot=(0, GA, 0), mat="gun_metal", bevel=0.3)
+    mag.add(rb["bullet"], "gun_metal", bevel=0)
 
-# ================================================================== SOCKETS
+# =========================================================================================== SOCKETS / DOCS
 G.socket("muzzle", (158.3, 0, BORE_Z))
 G.socket("eject", (38.0, -12.0, 64.0), rot=(0, 0, 180))
 G.socket("grip_R", (0, 0, 0))
@@ -182,18 +159,22 @@ G.socket("grip_L", (14.0, 15.0, 4.0))
 G.socket("mag_well", magp)
 G.socket("sight", (-70.0, 0, 77.2))
 
-# ---- documentation of motion + look hooks
 G.motion("slide", "translate", (-1, 0, 0), 38.0, "recoil / rack: slides straight back along the bore; barrel and guide rod stay fixed. Pivot = bore axis at the rear face.")
 G.motion("trigger", "rotate", (0, 1, 0), 12.0, "pull: +12 deg about the node's +X (glTF) rotates the finger blade rearward. Pivot = trigger pin.")
 G.motion("mag", "translate", (-math.sin(GA * D2R), 0, -math.cos(GA * D2R)), 135.0, "eject/insert along the grip axis (down and rearward, 20 deg rake). Origin = top of the magazine where it seats.")
-G.remark("Rounds are visible in the mag windows and the chambered round shows through the ejection port. Chambered case is part of `body`.")
-G.remark("Hands: right palm on the backstrap/right panel around grip_R; support hand cups the left panel at grip_L with the index finger along the trigger guard.")
+G.remark("The chamber hood and a chambered round show through the ejection port (part of `body`). Two rounds sit in the magazine lips; witness holes on the back.")
+G.remark("Hands: right palm on the backstrap / right panel around grip_R; support hand cups the left panel at grip_L. Three-dot sights (white dots are texture).")
+L_ = SW / 2
 G.notes["style"] = dict(
-    polymer_stip=[((-52, 34), (-16, 16), (-75, 32))],
-    grooves=[dict(axis="z", at=43.0, width=0.5, depth=0.2, box=((-14, 150), (None, None), (None, None)), mats=["gun_black"]),
-             dict(axis="x", at=126.0, width=0.5, depth=0.2, box=((None, None), (None, None), (40, 66)), mats=["gun_black"])],
-    decals=[dict(pos=(141.0, 0, 74.2), r=1.25, color=(0.55, 0.56, 0.5), mats=["gun_steel"]),
-            dict(pos=(-15.4, 3.6, 74.6), r=1.3, color=(0.55, 0.56, 0.5), mats=["gun_steel"]),
-            dict(pos=(-15.4, -3.6, 74.6), r=1.3, color=(0.55, 0.56, 0.5), mats=["gun_steel"])],
-)
+    wear=0.85, dust=0.5, rust=0.1, polymer_color=(0.02, 0.02, 0.021),
+    polymer_stip=[((-60, 40), (-20, 20), (-80, 30))],
+    decals=[dict(pos=(SX1 - 12.2, 0, SZ1 + 3.6), r=1.0, color=(0.85, 0.85, 0.8), mats=["gun_black"]),
+            dict(pos=(-15.3, 3.6, SZ1 + 3.2), r=0.9, color=(0.85, 0.85, 0.8), mats=["gun_black"]),
+            dict(pos=(-15.3, -3.6, SZ1 + 3.2), r=0.9, color=(0.85, 0.85, 0.8), mats=["gun_black"])],
+    engrave=[
+        dict(text="RANGER 9", pos=(70.0, L_ + 0.2, 58.0), u=(-1, 0, 0), v=(0, 0, 1), h=3.8, depth=0.07, mats=["gun_black"]),
+        dict(text="9X19", pos=(118.0, L_ + 0.2, 52.0), u=(-1, 0, 0), v=(0, 0, 1), h=3.0, depth=0.06, mats=["gun_black"]),
+        dict(text="RDA 0917", pos=(55.0, -L_ - 0.2, 47.0), u=(1, 0, 0), v=(0, 0, 1), h=2.6, depth=0.06, mats=["gun_black"]),
+        dict(text="9X19", pos=(48.0, 0.0, BORE_Z + 8.8), u=(0, -1, 0), v=(1, 0, 0), h=2.4, depth=0.05, mats=["gun_metal"], slab=2.0),
+    ])
 G.finish()

@@ -112,7 +112,10 @@ def kit(T):
         strap(b, [(0.36, 0.05 + sf, zr0 + 0.10), (0.36, 0.05 + sf, zr0 + 0.30), (-0.36, 0.05 + sf, zr0 + 0.30), (-0.36, 0.05 + sf, zr0 + 0.10)], m='fabric')
     # roof marker lights (front header)
     for i in range(5):
-        b.box('light_amber', ((i - 2) * 0.16, T.ws['ft'] + 0.03, C.z_roof - 0.06), (0.09, 0.05, 0.045), bev=0.008)
+        mx_ = (i - 2) * 0.16
+        b.box('metal_dark', (mx_, T.ws['ft'] + 0.02, C.z_roof - 0.058), (0.095, 0.04, 0.046), bev=0.008)
+        b.box('light_amber', (mx_, T.ws['ft'] + 0.045, C.z_roof - 0.06), (0.085, 0.014, 0.038), bev=0.006, seg=2)
+        b.box('light_amber', (mx_, T.ws['ft'] + 0.052, C.z_roof - 0.06), (0.06, 0.004, 0.012), bev=0.0015)
     # ------------------------------------------------------------------ bed contents: sandbags + planks + toolbox
     fsb = C.f_bf - 0.16
     for row, (n, z0_, off) in enumerate(((5, zb + 0.075, 0.0), (4, zb + 0.20, 0.5))):

@@ -113,6 +113,11 @@ class InteriorCabMixin:
             b.tube('rubber', [(gx, gf - 0.12, gz + 0.03), (gx, gf - 0.1, gz - 0.02), (gx + 0.035, gf, gz - 0.035), (gx, gf + 0.1, gz - 0.02), (gx, gf + 0.12, gz + 0.03)], 0.011, n=8, rad=0.03, k=3)
         for sg in (1, -1):
             b.box('metal_dark', (sg * (C.cab_hw - 0.06), C.f_back + 0.08, C.z_belt + 0.12), (0.03, 0.05, 0.07), bev=0.008)
+        # ---- sun strip across the top of the windshield (outside; the mirrored back shows from the cab)
+        if tier in (1, 2):
+            self.sun_strip()
+        if tier == 1:
+            self.bobblehead()
         # ---- tier extras
         if tier == 4:
             self.nos_panel()
@@ -122,6 +127,40 @@ class InteriorCabMixin:
         elif tier == 2:
             self.pillar_pod()
             self.cb_radio()
+
+    def sun_strip(self):
+        b, ws = self.b, self.ws
+        slope, hw0 = ws['slope'], ws['hw0']
+        s0, s1 = slope - 0.125, slope - 0.03
+        us = [-hw0 * 0.985 + 2 * hw0 * 0.985 * i / 16 for i in range(17)]
+        nrm = Vector(self.wpos(0, (s0 + s1) / 2, 1.0)) - Vector(self.wpos(0, (s0 + s1) / 2, 0.0))
+        o = Vector(self.wpos(0, (s0 + s1) / 2, 0.0))
+        v = (Vector(self.wpos(0, s1, 0.0)) - Vector(self.wpos(0, s0, 0.0))).normalized()
+        wid = 2 * abs(self.wpos(us[-1], (s0 + s1) / 2, 0.0)[0])
+        for off, flip in ((0.0045, False), (-0.0025, True)):
+            grid = [[self.wpos(u, s0, off), self.wpos(u, s1, off)] for u in us]
+            b.cur_decal = vlib.decal_spec('sunstrip', o=PV(o), u=PV((1, 0, 0)), v=PV(v), w=wid, h=s1 - s0)   # inside: the mirrored back of the print
+            b.quads('decal', grid, tuple(-nrm if flip else nrm))
+        b.cur_decal = 0
+
+    def bobblehead(self):
+        """T1: skull bobblehead on the dash top, right of the binnacle"""
+        b = self.b
+        lf, lz = self.lip
+        x, f = -0.06, lf + 0.15
+        z = self.pad_top(x, f)
+        b.cyl('rubber', (x, f, z + 0.006), 0.022, 0.012, axis='z', n=14, bev=0.003)
+        coil_spring(b, (x, f, z + 0.012), 0.006, 0.03, turns=5, wire=0.0015, m='metal_bare', seg=5)
+        b.swatch('black')
+        b.box('decal', (x, f, z + 0.05), (0.03, 0.02, 0.024), bev=0.008)
+        b.swatch('cream')
+        b.sph('decal', (x, f - 0.003, z + 0.08), 0.024, n=12, sc=(1, 1, 1.05))
+        b.box('decal', (x, f - 0.012, z + 0.062), (0.026, 0.02, 0.014), bev=0.005)
+        b.swatch('black')
+        for sx in (-0.009, 0.009):
+            b.sph('decal', (x + sx, f - 0.022, z + 0.082), 0.0065, n=8)
+        b.sph('decal', (x, f - 0.025, z + 0.072), 0.003, n=6)
+        b.swatch(None)
 
     def pillar_pod(self):
         """T2: aftermarket 3-gauge pod on the driver's A-pillar, each dial aimed at the driver"""

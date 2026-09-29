@@ -548,7 +548,8 @@ def export_gltf(path):
         o.select_set(True)
     kw = dict(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True,
               export_materials="EXPORT", export_cameras=False, export_lights=False, export_extras=False,
-              export_image_format="AUTO", export_jpeg_quality=88, export_texcoords=True, export_normals=True,
+              export_image_format=os.environ.get("ROD_IMG", "WEBP"), export_image_quality=int(os.environ.get("ROD_IMGQ", "90")),
+              export_texcoords=True, export_normals=True,
               export_tangents=False, export_animations=False, export_skins=False)
     try:
         kw["export_vertex_color"] = "NONE"

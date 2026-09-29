@@ -15,7 +15,7 @@ import { rngOf, strId, CHUNK_LEN, EDGE } from './util.js';
 import { HALF_ROAD } from '../road.js';
 
 /** Cover window around the player (m along the road): chunks overlapping it are drawn. */
-export const COVER_BEHIND = 70, COVER_AHEAD = 150;
+export const COVER_BEHIND = 125, COVER_AHEAD = 150;   // behind: the gunner watches pursuers, cover must be faded before it drops
 const A0 = -2.2, A1 = 36;                         // lateral band, metres beyond the road-strip edge (negative = on the gravel shoulder)
 const KINDS = ['grass', 'scrub', 'flower', 'pebble'];
 // density per m2 at the road side (before clumping / falloff); dry = share of dry grass cards; tints are linear multipliers [a, b]
@@ -32,7 +32,7 @@ const LIN = {};
 for (const [b, c] of Object.entries(COVER)) LIN[b] = { g: c.g.map((v) => new THREE.Color(...v)), s: c.s.map((v) => new THREE.Color(...v)), f: c.f.map(HEX), p: c.p.map(HEX) };
 const KEY = { grass: 'g', scrub: 's', flower: 'f', pebble: 'p' };
 const SCALE = { grass: [0.5, 1.15], scrub: [0.5, 1.2], flower: [0.7, 1.15], pebble: [0.05, 0.26] };
-const FADE = { grass: [85, 125], scrub: [100, 140], flower: [60, 90], pebble: [38, 62] };
+const FADE = { grass: [80, 120], scrub: [90, 124], flower: [60, 90], pebble: [38, 62] };
 const SWAY = { grass: 0.11, scrub: 0.04, flower: 0.12, pebble: 0 };
 const CELL = { dry: 0, green: 1, stalks: 2, bush: 3 };
 

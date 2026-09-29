@@ -232,7 +232,7 @@ function signs(ctx, chunk) {
 GLOW.furn_retro = [0xffffff, 2.4];
 const PAL = { none: 0, white: 1, amber: 2, yellow: 3 };
 const PROC_SPECS = {
-  delineator_w: { far: 240, shadow: false }, delineator_a: { far: 240, shadow: false },
+  delineator: { far: 240, shadow: false },
   chevron_l: { far: 420, shadow: false, behind: true }, chevron_r: { far: 420, shadow: false, behind: true },
   warn_curve_l: { far: 380, shadow: false, behind: true }, warn_curve_r: { far: 380, shadow: false, behind: true },
   fence_ranch: { far: 260, shadow: false, behind: true },
@@ -308,16 +308,16 @@ export function furniturePrewarmMeshes() {
 }
 let _furnReg = false;
 function registerFurnitureAssets(kit) {
-  if (_furnReg && kit.assets.has('delineator_w')) return;
+  if (_furnReg && kit.assets.has('delineator')) return;
   _furnReg = true;
   const dark = furnMaterials().retro;
   const WHITE = [0.82, 0.82, 0.8], BLACK = [0.03, 0.03, 0.03], GALV = [0.46, 0.47, 0.48], WOOD = [0.3, 0.24, 0.18], YEL = [0.86, 0.62, 0.08];
   // delineator: flexible white post with a black band and a reflector on the traffic side
   const post = merge([tint(new THREE.CylinderGeometry(0.04, 0.05, 0.84, 8).translate(0, 0.42, 0), WHITE), tint(new THREE.CylinderGeometry(0.041, 0.041, 0.16, 8).translate(0, 0.92, 0), BLACK),
     tint(new THREE.CylinderGeometry(0.04, 0.041, 0.1, 8).translate(0, 1.05, 0), WHITE)]);
-  const reflG = (rgb, p) => box(0.07, 0.1, 0.012, 0, 0.92, -0.046, rgb, p);
-  kit.assets.set('delineator_w', procAsset('delineator_w', [{ name: 'post', geometry: merge([post.clone(), reflG([0.95, 0.93, 0.88], PAL.white)]), material: dark }]));
-  kit.assets.set('delineator_a', procAsset('delineator_a', [{ name: 'post', geometry: merge([post.clone(), reflG([0.95, 0.6, 0.15], PAL.amber)]), material: dark }]));
+  // white reflector on the -Z face, amber on the +Z face: right-hand posts show white to traffic, left-hand (median) posts are turned round
+  const reflG = (rgb, p, z) => box(0.07, 0.1, 0.012, 0, 0.92, z, rgb, p);
+  kit.assets.set('delineator', procAsset('delineator', [{ name: 'post', geometry: merge([post, reflG([0.95, 0.93, 0.88], PAL.white, -0.046), reflG([0.95, 0.6, 0.15], PAL.amber, 0.046)]), material: dark }]));
   // chevron alignment sign: yellow retro-reflective panel 0.6 x 0.75 on a 2 m post, black chevron
   const chevronPts = (dir) => [[-0.2, 0.28], [-0.06, 0.28], [0.2, 0], [-0.06, -0.28], [-0.2, -0.28], [0.06, 0]].map(([x, y]) => [x * dir, y]);
   for (const [nm, dir] of [['chevron_r', 1], ['chevron_l', -1]]) {
@@ -362,7 +362,7 @@ function blockedBy(feats, s, pad = 10) {
 function delineators(ctx, chunk) {
   const { road } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
   if (cfg(s0, 'delin') < 0.5 && cfg(s1, 'delin') < 0.5) return true;
-  useSpec(ctx, 'delineator_w', PROC_SPECS.delineator_w); useSpec(ctx, 'delineator_a', PROC_SPECS.delineator_a);
+  useSpec(ctx, 'delineator', PROC_SPECS.delineator);
   const feats = road.featuresIn(s0 - 30, s1 + 30);
   const guards = feats.filter((f) => f.type === 'guard');
   for (let k = Math.ceil(s0 / 50); k * 50 < s1; k++) {
@@ -371,8 +371,7 @@ function delineators(ctx, chunk) {
     for (const side of [1, -1]) {
       if (guards.some((f) => s > f.s0 - 4 && s < f.s1 + 4 && (f.side === 'both' || (f.side === 'L') === (side > 0)))) continue;
       const p = road.pointAt(s, side * 9.15, _pa);
-      const name = side > 0 ? 'delineator_a' : 'delineator_w';
-      chunk.list(name).push(p.x, p.y - 0.02, p.z, faceYaw(road, s, side, 0.05), 1, 1, 1, 0, 1, 0, 0, 1.2);
+      chunk.list('delineator').push(p.x, p.y - 0.02, p.z, faceYaw(road, s, side, 0.05) + (side > 0 ? Math.PI : 0), 1, 1, 1, 0, 1, 0, 0, 1.2);
     }
   }
   return true;
@@ -433,7 +432,7 @@ export function buildFences(ctx, chunk) {
         const s = k * 4;
         if (blockedBy(feats, s, 14)) continue;
         const d = side * dist;
-        const a = chunk.ground.sample(s, d, g0), c = groundAt(road, seed, s + 4, d, g1);
+        const a = chunk.ground.sample(s, d, g0), c = chunk.ground.sample(Math.min(s + 4, s1), d, g1);   // both ends from the chunk grid (cheap)
         const ry = road.sample(s, sm).y;
         if (Math.abs(a.y - ry) > 6 || a.ny < 0.8) continue;
         let bad = false;

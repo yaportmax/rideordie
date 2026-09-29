@@ -42,12 +42,12 @@ def wheel2(m, meshname, R, W, side, rim_ratio=0.6, lugs=16, tread_h=0.035, style
             for row in (1, -1):
                 a = (i + (0.5 if row < 0 else 0.0)) * pitch
                 ca, sa = math.cos(a), math.sin(a)
-                rc = Rb + tread_h / 2 - 0.009
                 L = 2 * PI * Rb / lugs * 0.7
+                rc = Rb + tread_h / 2 - 0.006 - (L * 1.05) ** 2 / (8 * R)      # flat block corners stay inside R
                 # staggered block reaching from the centre groove over the shoulder, slight chevron twist
                 with m.xf((row * hw * 0.5, rc * sa, rc * ca), (90 - a / D2R, 0, 0)):
-                    with m.xf((0, 0, 0), (0, 12 * row, 0)):
-                        m.box('rubber_tire', (hw * 0.84, tread_h + 0.008, L), at=(0, 0, 0), bevel=0, seg=1)
+                    with m.xf((0, 0, 0), (0, 8 * row, 0)):
+                        m.box('rubber_tire', (hw * 0.8, tread_h + 0.008, L), at=(0, 0, 0), bevel=0, seg=1)
                     if i % 2 == 0:                   # sidewall shoulder block on every other lug
                         m.box('rubber_tire', (hw * 0.12, tread_h * 1.7, L * 0.6), at=(row * hw * 0.46, -tread_h * 0.75, 0), bevel=0, seg=1)
     else:
@@ -544,3 +544,35 @@ def exhaust_stack2(m, base, top, r=0.08, obj=None, mat='chrome', cap='metal_dark
     if flap:
         side = d.orthogonal().normalized()
         m.obox(cap, tuple(t + d * 0.03 + side.cross(d) * (r * 0.3)), tuple(side), tuple((d * 0.85 + side.cross(d) * 0.5).normalized()), (r * 2.3, r * 2.3, 0.008), bevel=0, obj=obj)
+
+
+def skull2(m, at, s=1.0, n=(0, 0, 1), obj=None, horns=True, mat='plastic', dark='metal_dark', horn_mat='metal_dark'):
+    """bone skull facing n (about 260 tris): domed cranium, brow ridge, deep eye sockets, cheekbones, nasal cavity, upper teeth, jaw"""
+    P = V3(at); nn = V3(n).normalized()
+    R = basis_from(nn)
+    xa = R @ Vector((1, 0, 0)); ya = R @ Vector((0, 1, 0))
+
+    def L(x, y, z):
+        return tuple(P + (xa * x + ya * y + nn * z) * s)
+    M = Matrix((tuple(xa), tuple(ya), tuple(nn))).transposed()
+    # cranium: squashed revolve around the local up axis
+    prof = [(0.0, 0.17), (0.08, 0.16), (0.135, 0.11), (0.15, 0.04), (0.14, -0.02), (0.11, -0.06), (0.0, -0.07)]
+    m.revolve(mat, [(r * s, t * s) for r, t in prof], at=L(0, 0.05, -0.03), axis=tuple(ya), seg=10, obj=obj, sy=1.12, closed=False)
+    # face block: brow + cheekbones + maxilla (hull)
+    m.hull(mat, [L(-0.13, 0.06, 0.07), L(0.13, 0.06, 0.07), L(-0.12, 0.08, 0.12), L(0.12, 0.08, 0.12), L(-0.13, -0.05, 0.09), L(0.13, -0.05, 0.09),
+                 L(-0.07, -0.12, 0.13), L(0.07, -0.12, 0.13), L(-0.1, -0.1, 0.02), L(0.1, -0.1, 0.02)], bevel=0.006, seg=1, obj=obj)
+    for sx in (-1, 1):                                                             # eye sockets (dark, recessed)
+        m.revolve(dark, [(0.0, 0.004), (0.042, 0.0), (0.03, -0.035), (0.0, -0.04)], at=L(sx * 0.058, 0.02, 0.122), axis=tuple(nn), seg=8, obj=obj, closed=False)
+    m.hull(dark, [L(0, -0.02, 0.134), L(-0.022, -0.07, 0.132), L(0.022, -0.07, 0.132), L(0, -0.06, 0.1)], bevel=0, obj=obj)
+    for i in range(5):                                                              # upper teeth
+        x = -0.044 + i * 0.022
+        m.box(mat, (0.018, 0.035, 0.018), at=L(x, -0.135, 0.12), bevel=0.003, seg=1, obj=obj)
+    m.hull(mat, [L(-0.075, -0.16, 0.1), L(0.075, -0.16, 0.1), L(-0.06, -0.2, 0.09), L(0.06, -0.2, 0.09), L(-0.09, -0.14, 0.01), L(0.09, -0.14, 0.01),
+                 L(-0.05, -0.2, 0.02), L(0.05, -0.2, 0.02)], bevel=0.005, seg=1, obj=obj)                           # jaw
+    for i in range(4):
+        x = -0.033 + i * 0.022
+        m.box(mat, (0.017, 0.03, 0.016), at=L(x, -0.158, 0.113), bevel=0.003, seg=1, obj=obj)
+    if horns:
+        for sx in (-1, 1):
+            m.tube(horn_mat, [L(sx * 0.13, 0.12, -0.02), L(sx * 0.23, 0.17, -0.02), L(sx * 0.3, 0.28, 0.0), L(sx * 0.3, 0.4, 0.03)], 0.026 * s, seg=6, bend=0.08, bsteps=2,
+                   r_end=0.004, obj=obj)

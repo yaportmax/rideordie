@@ -289,15 +289,16 @@ export function makeTerrainMaterial(arrays) {
 // ------------------------------------------------------------------------------------------------ road
 /**
  * Road material. uv = (lateral d m, distance m wrapped by ROAD_WRAP); attributes aRoadA/aRoadB (biome weights, snow, wrap segment),
- * aSplat0..2 + aAux (the terrain's layers at the strip edge). `tex.normal` is only used to switch on three's uv tangent frame.
+ * aSplat0..2 + aAux (the terrain's layers at the strip edge). `tex` (legacy 2D asphalt maps) is unused: everything comes from the arrays.
  * Call setRoadNight(mat, night01) each frame (TerrainStreamer does it) to make cat's eyes + paint glow in the headlights.
  */
 export function makeRoadMaterial(tex) {
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, normalMap: tex.normal });
+  void tex;
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0 });
   mat.name = 'road';
   const r = resolved;
-  if (!r) console.warn('makeRoadMaterial: call (and await) loadGroundArrays() first');
   const uniforms = { ...groundUniforms(r || {}), uLines: { value: r ? r.lines : null }, uNight: { value: 0 }, uRoadWet: { value: 0 } };
+  if (!r) loadGroundArrays().then((g) => { for (const [k, v] of Object.entries(groundUniforms(g))) uniforms[k].value = v.value; uniforms.uLines.value = g.lines; });   // pages that skip the preload
   mat.userData.uniforms = uniforms;
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
@@ -356,7 +357,8 @@ export function makeRoadMaterial(tex) {
         }
         // grading: sun-bleached + dusty in the desert, darker and richer where it is damp
         alb *= mix(vec3(1.0), vec3(1.28, 1.2, 1.08), dusty * (0.55 + 0.45 * nA.x));
-        alb *= 0.9 + 0.2 * nA.y;
+        alb *= (0.9 + 0.2 * nA.y) * (1.0 - 0.2 * city);                // city streets: darker, newer surface
+        rough = mix(rough, max(rough, 0.74), dusty);                        // dry desert asphalt: dusty, no sky sheen
         // oil drips down the middle of each lane
         float cen = 1.0 - smoothstep(0.05, 0.15, abs(lu - 0.5));
         float oil = cen * smoothstep(0.5, 0.78, nC.y) * step(ad, 6.9);
@@ -443,14 +445,18 @@ export function makeRoadMaterial(tex) {
         rough = mix(rough, 0.5, paintA); nxy *= 1.0 - 0.6 * paintA; ao = mix(ao, 1.0, paintA);
         // ---------------- cat's eyes (raised reflective markers): in the lane-line gaps, amber along the median edge
         float eye = 0.0; vec3 eyeCol = vec3(1.0, 0.96, 0.88);
-        if (ad < 5.5) { float ce = mod(s - 7.6 + 6.0, 12.0) - 6.0; eye = boxCov(lx, 0.06, fw.x) * boxCov(ce, 0.05, fw.y); }
+        float house = 0.0;
+        if (ad < 5.5) { float ce = mod(s - 7.6 + 6.0, 12.0) - 6.0; eye = boxCov(lx, 0.045, fw.x) * boxCov(ce, 0.022, fw.y); house = boxCov(lx, 0.06, fw.x) * boxCov(ce, 0.05, fw.y); }
         else {
-          float ce2 = mod(s - 1.6 + 12.0, 24.0) - 12.0; float e2 = boxCov(abs(dl) - 6.92, 0.06, fw.x) * boxCov(ce2, 0.05, fw.y);
+          float ce2 = mod(s - 1.6 + 12.0, 24.0) - 12.0; float e2 = boxCov(abs(dl) - 6.92, 0.045, fw.x) * boxCov(ce2, 0.022, fw.y);
+          house = max(house, boxCov(abs(dl) - 6.92, 0.06, fw.x) * boxCov(ce2, 0.05, fw.y));
           if (e2 > eye) { eye = e2; eyeCol = d > 0.0 ? vec3(1.0, 0.52, 0.06) : vec3(1.0, 0.96, 0.88); }
         }
-        alb = mix(alb, eyeCol * 0.55, eye); rough = mix(rough, 0.18, eye);
-        float nightK = uNight * (1.0 - smoothstep(90.0, 420.0, dist));
-        roadEmit = eyeCol * min(eye * 40.0, 2.6) * nightK + paintTint * paintA * 0.06 * nightK * (1.0 - smoothstep(10.0, 80.0, dist));
+        alb = mix(alb, vec3(0.16, 0.16, 0.15), house * 0.8); rough = mix(rough, 0.4, house);           // raised plastic housing
+        alb = mix(alb, eyeCol * 0.6, eye); rough = mix(rough, 0.18, eye);
+        // retro-reflective: the marker only lights up from a distance (grazing headlight angle), never as a slab under the bumper
+        float nightK = uNight * (1.0 - smoothstep(90.0, 420.0, dist)) * smoothstep(4.0, 30.0, dist);
+        roadEmit = eyeCol * min(eye * 30.0, 2.2) * nightK + paintTint * paintA * 0.06 * nightK * (1.0 - smoothstep(10.0, 80.0, dist));
         // ---------------- dust / sand drifting onto the road (desert, canyon), grit along the edges everywhere
         vec3 sandA = texture(uAlbedo, vec3(vec2(vTexPos.x, -vTexPos.z) / 6.0, dusty > 0.5 && desert < canyon ? 1.0 : 0.0)).rgb;
         float drift = (ad - 5.3) / 1.9 + (nB.y - 0.5) * 1.3 + (texture(uMacroT, vec2((d + s * 0.5) / 6.0, (s - d * 0.25) / 48.0)).x - 0.5) * 1.6;
@@ -487,11 +493,11 @@ export function makeRoadMaterial(tex) {
         // city / dam: concrete kerb + sidewalk slabs instead of a gravel shoulder
         float kerbK = city;
         if (kerbK > 0.01 && ad > 6.75) {
-          vec3 cA = textureGrad(uAlbedo, vec3(vec2(d, s) / 2.5, 9.0), gx / 2.5, gy / 2.5).rgb;
+          vec3 cA = textureGrad(uAlbedo, vec3(vec2(d, s) / 3.0, 9.0), gx / 3.0, gy / 3.0).rgb;
           float gutter = boxCov(ad - 6.88, 0.12, fw.x);
           float kFace = boxCov(ad - 7.03, 0.03, fw.x), kTop = boxCov(ad - 7.17, 0.11, fw.x);
           float walk = clamp((ad - 7.28) / max(fw.x, 1e-4) + 0.5, 0.0, 1.0);
-          float joint = max(boxCov(mod(s + 0.9, 1.8) - 0.9, 0.012, fw.y), boxCov(ad - 8.55, 0.012, fw.x));
+          float joint = max(boxCov(mod(s + 1.0, 2.0) - 1.0, 0.012, fw.y), boxCov(ad - 8.55, 0.012, fw.x));
           vec3 kc = cA * vec3(0.95, 0.93, 0.9);
           vec3 kerbAlb = alb;
           kerbAlb = mix(kerbAlb, alb * 0.7 + vec3(0.02, 0.018, 0.015), gutter);
@@ -519,7 +525,13 @@ export function makeRoadMaterial(tex) {
         roughnessFactor = clamp(roadRough, 0.03, 1.0);`)
       .replace('#include <normal_fragment_maps>', `
         {
-          vec3 nr = normalize(tbn * roadNts);
+          // tangent frame from the road uv (d, s) - same construction as three's getTangentFrame
+          vec3 q0 = dFdx(-vViewPosition), q1 = dFdy(-vViewPosition);
+          vec2 st0 = dFdx(vRoadUv), st1 = dFdy(vRoadUv);
+          vec3 q1p = cross(q1, normal), q0p = cross(normal, q0);
+          vec3 T = q1p * st0.x + q0p * st1.x, B = q1p * st0.y + q0p * st1.y;
+          float det = max(dot(T, T), dot(B, B)), sc = det == 0.0 ? 0.0 : inversesqrt(det);
+          vec3 nr = normalize(mat3(T * sc, B * sc, normal) * roadNts);
           vec3 nv = normalize((viewMatrix * vec4(vergeNW, 0.0)).xyz);
           normal = normalize(mix(nr, nv, vergeK));
         }`)

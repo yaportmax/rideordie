@@ -362,10 +362,10 @@ for sx, nm in ((1, 'panel_door_L'), (-1, 'panel_door_R')):
         m.cyl('metal_dark', (1.0 * sx, y, 1.0), (1.0 * sx, y + 0.14, 1.0), 0.028, seg=8, obj=nm)                     # hinges
         m.box('metal_dark', (0.02, 0.1, 0.16), at=(1.02 * sx, y + 0.07, 0.92), bevel=0.004, seg=1, obj=nm)
     # side mirror on a braced arm
-    m.tube('metal_dark', [(1.03 * sx, 1.9, 0.95), (1.2 * sx, 1.98, 1.0), (1.29 * sx, 1.98, 1.0)], 0.013, seg=5, bend=0.04, obj=nm)
-    m.tube('metal_dark', [(1.03 * sx, 1.62, 0.95), (1.27 * sx, 1.9, 1.0)], 0.01, seg=5, obj=nm)
-    m.box('metal_dark', (0.05, 0.26, 0.17), at=(1.3 * sx, 1.95, 1.0), bevel=0.015, seg=1, obj=nm)
-    m.box('chrome', (0.008, 0.22, 0.13), at=(1.3 * sx, 1.95, 0.914), bevel=0.0, seg=1, obj=nm)
+    m.tube('metal_dark', [(1.03 * sx, 1.9, 0.95), (1.22 * sx, 1.98, 1.0), (1.32 * sx, 1.98, 1.0)], 0.013, seg=5, bend=0.04, obj=nm)
+    m.tube('metal_dark', [(1.03 * sx, 1.62, 0.95), (1.3 * sx, 1.9, 1.0)], 0.01, seg=5, obj=nm)
+    m.box('metal_dark', (0.05, 0.26, 0.17), at=(1.33 * sx, 1.95, 1.0), bevel=0.015, seg=1, obj=nm)
+    m.box('chrome', (0.008, 0.22, 0.13), at=(1.33 * sx, 1.95, 0.914), bevel=0.0, seg=1, obj=nm)
     m.use('body')
 
 # ---- side armor over the cargo box: welded plates (steel / patched paint / rusty), gun port, spikes, chain

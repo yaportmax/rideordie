@@ -450,22 +450,24 @@ def clip_reload_rifle(c):
     seat = on_weapon_L(hold, V(0.03, -0.05, 0.145), [-0.1, -0.7, -0.6], [-0.95, 0.2, 0.1], "mag")
     K(tr, 1.24, seat)
     K(tr, 1.30, add(weapon_delta(rig, seat, dpos_world=V(0, 0.014, 0.004), drot_world=rv(-2, 0, 0)), gL_pos=V(0, 0.012, 0)))
-    # over the top to the charging handle (right side), rack it hard, let it fly
-    over = on_weapon_L(weapon_delta(rig, hold, drot_w=rv(0, 0, -12)), V(0.0, 0.17, 0.16), [-1.0, -0.3, 0.1], [0.0, -1.0, 0.0], "claw")
-    K(tr, 1.42, look(over, -4, 0))
+    # up the left side of the receiver, over the top to the charging handle (right side), rack it hard, let it fly
+    side_ = on_weapon_L(weapon_delta(rig, hold, drot_w=rv(0, 0, -6)), V(0.075, 0.06, 0.17), [-0.35, 0.5, -0.7], [-0.95, -0.2, 0.1], "claw")
+    K(tr, 1.40, look(side_, 4, 2))
+    over = on_weapon_L(weapon_delta(rig, hold, drot_w=rv(0, 0, -12)), V(0.02, 0.17, 0.16), [-1.0, -0.2, 0.0], [-0.3, -0.95, 0.0], "claw")
+    K(tr, 1.52, look(over, -4, 0))
     handle = on_weapon_L(weapon_delta(rig, hold, drot_w=rv(0, 0, -14)), V(-0.035, 0.10, 0.17), [-0.7, -0.6, 0.2], [0.2, -0.6, -0.8], "fist")
-    K(tr, 1.50, handle)
+    K(tr, 1.60, handle)
     pulled = add(weapon_delta(rig, handle, dpos_world=V(0, 0, 0.012)), gL_pos=V(0, 0.0, -0.10), sp2=rv(0, 3), neck=rv(0, 2))
-    K(tr, 1.62, pulled)
-    K(tr, 1.67, add(fingers(pulled, L_="splay"), gL_pos=V(0.02, 0.03, -0.02)))
+    K(tr, 1.70, pulled)
+    K(tr, 1.75, add(fingers(pulled, L_="splay"), gL_pos=V(0.02, 0.03, -0.02)))
     # hand back to the handguard, rifle rolls upright, eyes up and scanning
     back = look(add(r0, sp2=rv(0, -2)), -3, -6)
-    K(tr, 1.92, add(weapon_delta(rig, back, drot_world=rv(-3, 2, 0)), sp1=rv(0, -1)))
-    K(tr, 2.15, look(r0, -1, -2))
+    K(tr, 1.98, add(weapon_delta(rig, back, drot_world=rv(-3, 2, 0)), sp1=rv(0, -1)))
+    K(tr, 2.20, look(r0, -1, -2))
     K(tr, T, r0)
     return one_shot(c, tr, T, springs=SPR_ACT, settle=0.15, layer=ride_window(T, 0.5, seed=41),
                     note="2.4 s, rifle/smg/lmg: cant the rifle, strip the empty (0.40-0.55), flick it away, fresh mag from the chest "
-                         "pouch (0.86-0.96), rock it in + slap (1.24-1.30), rack the charging handle over the top (1.50-1.67), back "
+                         "pouch (0.86-0.96), rock it in + slap (1.24-1.30), rack the charging handle over the top (1.60-1.75), back "
                          "to low-ready; starts/ends on idle_stand frame 0")
 
 
@@ -578,13 +580,35 @@ def free_R(p, pos, f, pal, pole=None, att=0.0, grip=None):
 
 
 def rifle_in_left(c, p, where=(0.20, -0.40, 0.16), fwd=(0.25, -0.85, 0.45), up=(0.3, 0.2, 1.0)):
-    """Rifle carried by the LEFT hand at the handguard (chest-frame point `where`, muzzle along `fwd` in the chest frame)."""
+    """Rifle carried by the LEFT hand at the handguard (chest-frame point `where`, muzzle along `fwd` in the chest frame).
+    The roll of the rifle about its axis is chosen so the left wrist stays natural (the solver's wrist limit never has to
+    turn the hand, which would turn the rifle too)."""
     rig = c.rig
     Cpos, Crot = rig.chest(p)
-    Rw = Crot @ M.rot_from(unit(fwd), up=unit(up))
     grip_world = Cpos + Crot @ (V(*where) * c.k)
-    O = grip_world - Rw @ p["gL_pos"]
-    return M.set_weapon_world(rig, p, O, Rw)
+    z0 = unit(fwd)
+    x0 = unit(np.cross([0.0, 1.0, 0.0], z0))
+    y0 = np.cross(z0, x0)
+    dirs = [z0] + [unit(z0 + np.tan(np.radians(cone)) * (np.cos(a) * x0 + np.sin(a) * y0))
+                   for cone in (25.0, 50.0) for a in np.radians(np.arange(0, 360, 45))]
+    best = None
+    for z in dirs:
+        dev = np.degrees(np.arccos(np.clip(np.dot(z, z0), -1, 1)))
+        for roll in np.radians(np.arange(0, 360, 30)):
+            Rl = A.rot_axis(z, roll) @ M.rot_from(z, up=unit(up))
+            Rw = Crot @ Rl
+            O = grip_world - Rw @ p["gL_pos"]
+            q = M.set_weapon_world(rig, p, O, Rw)
+            q2 = M.resolve_grips(rig, q, c.rel)
+            W, P = rig.solve(q2)
+            Rt = M._hand_rot(rig, "L", Crot @ q2["hL_f"], Crot @ q2["hL_p"])
+            err = np.degrees(np.linalg.norm(R.from_matrix(Rt.T @ W[IDX["LeftHand"]]).as_rotvec()))
+            # rifle upright-ish is nicer than upside down: small penalty on the weapon's up vector pointing down
+            upw = (Rw @ np.array([0.0, 1.0, 0.0]))[1]
+            cost = err + 0.6 * dev + 8.0 * max(0.0, -upw)
+            if best is None or cost < best[0]:
+                best = (cost, q)
+    return best[1]
 
 
 def clip_throw(c, kind="grenade"):
@@ -608,7 +632,7 @@ def clip_throw(c, kind="grenade"):
     # wind-up: weight back onto the right foot, hips and chest turn right, arm cocked behind the head, rifle arm forward
     cock = free_R(carry, chest_pt(c, -0.34, 0.24, -0.22) if not lob else chest_pt(c, -0.30, 0.02, -0.34),
                   [0.0, 0.5, -0.85] if not lob else [0.0, -0.6, -0.8], [0.1, 0.3, 0.95], pole=[-1.0, 0.3, -0.4] if not lob else [-1.0, -0.4, -0.3], grip="throw")
-    cock = rifle_in_left(c, cock, where=(0.22, -0.20, 0.40), fwd=(0.1, -0.25, 1.0), up=(0.0, 1.0, 0.2))
+    cock = rifle_in_left(c, cock, where=(0.24, -0.26, 0.34), fwd=(0.15, -0.75, 0.65), up=(0.0, 0.3, 1.0))
     cock = add(cock, hips_pos=V(-0.035, -0.012, -0.045) * k, hips_rot=rv(-4, -16), sp0=rv(-3, -6), sp1=rv(-6, -10, lean=3), sp2=rv(-5, -8, lean=4),
                shr_R=V(0, 6, 6))
     cock = look(cock, -6, 22, -3)
@@ -618,21 +642,21 @@ def clip_throw(c, kind="grenade"):
     # drive: hips fire first, chest follows, elbow leads the hand
     drive = free_R(carry, chest_pt(c, -0.24, 0.34, 0.02) if not lob else chest_pt(c, -0.22, 0.42, -0.02),
                    [0.0, 0.8, 0.5], [0.2, 0.3, 0.95], pole=[-0.8, 0.5, -0.3], grip="throw")
-    drive = rifle_in_left(c, drive, where=(0.22, -0.30, 0.32), fwd=(0.0, -0.45, 1.0), up=(0.0, 1.0, 0.2))
+    drive = rifle_in_left(c, drive, where=(0.25, -0.32, 0.26), fwd=(0.1, -0.85, 0.5), up=(0.0, 0.3, 1.0))
     drive = add(drive, hips_pos=V(0.01, -0.02, 0.03) * k, hips_rot=rv(3, 10), sp0=rv(2, 5), sp1=rv(3, 8), sp2=rv(4, 6), shr_R=V(0, 3, 8))
     drive = look(drive, -2, 4)
     K(tr, tr_ - 0.07, drive)
     # release: arm long and high in front, chest square and pitched forward, back heel coming up
     rel = free_R(carry, chest_pt(c, -0.08, 0.34, 0.50) if not lob else chest_pt(c, -0.06, 0.52, 0.40),
                  [0.0, 0.25, 1.0] if not lob else [0.0, 0.6, 0.8], [0.0, -0.3, 0.95], pole=[-0.4, -0.3, -0.6], grip="open")
-    rel = rifle_in_left(c, rel, where=(0.24, -0.38, 0.22), fwd=(-0.1, -0.30, 1.0), up=(0.0, 1.0, 0.2))
+    rel = rifle_in_left(c, rel, where=(0.26, -0.38, 0.18), fwd=(0.1, -0.9, 0.4), up=(0.0, 0.3, 1.0))
     lk = 0.55 if lob else 1.0
     rel = add(rel, hips_pos=V(0.03, -0.035, 0.07) * k, hips_rot=rv(6 * lk, 18), sp0=rv(4 * lk, 7), sp1=rv(6 * lk, 10), sp2=rv(5 * lk, 6))
     rel = heel_raise(rig, look(rel, -8, -10), "R", 14)
     K(tr, tr_, rel)
     # follow-through across the body, heel up, chest folded over the front leg
     fol = free_R(carry, chest_pt(c, 0.16, -0.18, 0.36), [0.5, -0.7, 0.4], [0.6, 0.2, -0.7], pole=[-0.4, -1.0, 0.2], grip="relax")
-    fol = rifle_in_left(c, fol, where=(0.24, -0.40, 0.18), fwd=(-0.1, -0.22, 1.0), up=(0.0, 1.0, 0.2))
+    fol = rifle_in_left(c, fol, where=(0.26, -0.40, 0.16), fwd=(0.1, -0.9, 0.4), up=(0.0, 0.3, 1.0))
     fol = add(fol, hips_pos=V(0.04, -0.05, 0.09) * k, hips_rot=rv(8 * lk, 24), sp0=rv(4 * lk, 9), sp1=rv(7 * lk, 12), sp2=rv(5 * lk, 8))
     fol = heel_raise(rig, look(fol, -12, -14), "R", 26)
     K(tr, tr_ + 0.18, fol)

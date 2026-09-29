@@ -317,17 +317,20 @@ export class EnemyBrain {
     const car = this.car, veh = car.veh, sim = this.sim;
     if (this.deadT === undefined) {
       this.deadT = 0;
-      // pick a victim: the nearest car beside / just ahead (other raiders first; sometimes the player)
+      // pick a victim: the nearest OTHER raider beside / just ahead (never the player: you shot him, he shouldn't punish you)
       let best = null, bs = 1e9;
       for (const o of sim.cars.values()) {
-        if (o === car || o.exploded) continue;
+        if (o === car || o.exploded || o.kind === 'player') continue;
         _v.copy(o.veh.pos).sub(veh.pos); const ahead = _v.dot(veh.fwd), lat = _v.dot(veh.left);
         if (ahead < -6 || ahead > 34 || Math.abs(lat) > 13 || Math.abs(lat) < 0.5) continue;
         const score = Math.abs(lat) + Math.max(0, ahead) * 0.35 + (o.kind === 'player' ? 6 : 0);
         if (score < bs) { bs = score; best = o; }
       }
       if (best) { _v.copy(best.veh.pos).sub(veh.pos); this.deadSteer = (_v.dot(veh.left) >= 0 ? 1 : -1) * this.r.range(0.75, 1); this.deadVictim = best; }
-      else this.deadSteer = (car.d >= 0 ? 1 : -1) * (this.r() < 0.7 ? 1 : -1) * this.r.range(0.6, 1); // mostly toward the nearer road edge
+      else { // nobody to take along: veer away from the player, toward the roadside (scenery / a tumble)
+        const P = sim.player, away = P ? (car.d - P.d >= 0 ? 1 : -1) : (car.d >= 0 ? 1 : -1);
+        this.deadSteer = away * this.r.range(0.6, 1);
+      }
       this.deadSpin = !best && this.r() < 0.35;
       this.deadJam = this.r.range(1.6, 2.6);
       this.sim.emit({ t: 'runaway', id: car.id, victim: best ? best.id : -1 });
@@ -447,7 +450,7 @@ export class EnemyBrain {
       sim.emit({ t: 'shot', src: car.id, weapon: 'rpg', origin: origin.toArray(), dir: d.toArray(), rocket: true, speed: gun.rocket.speed });
       return;
     }
-    const dmg = gun.dmg * (1 + 0.7 * this.level) * (car.elite ? 1.1 : 1);
+    const dmg = gun.dmg * (1 + 0.5 * this.level) * (car.elite ? 1.1 : 1);
     const rays = [];
     for (let p = 0; p < gun.pellets; p++) {
       const d = dir.clone();

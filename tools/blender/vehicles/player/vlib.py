@@ -297,6 +297,23 @@ class Part:
         self.cur_decal = 0 if name is None else decal_spec('sw_' + name)
         return self
 
+    def quads(self, m, grid, want):
+        """quads between consecutive columns/rows of grid[i][j] (game points), each face oriented toward game-space `want`"""
+        bm = bmesh.new()
+        V = [[bm.verts.new(PV(p)) for p in col] for col in grid]
+        for i in range(len(V) - 1):
+            for j in range(len(V[0]) - 1):
+                try:
+                    bm.faces.new((V[i][j], V[i + 1][j], V[i + 1][j + 1], V[i][j + 1]))
+                except ValueError:
+                    pass
+        bm.normal_update()
+        w = PV(want)
+        for f in bm.faces:
+            if f.normal.dot(w) < 0:
+                f.normal_flip()
+        self.add_bm(bm, m)
+
     def quad(self, m, c, nrm, up, w, h):
         """single flat quad (2 tris) centred at c facing nrm, `up` in-plane (game coords)"""
         n = PV(nrm).normalized()

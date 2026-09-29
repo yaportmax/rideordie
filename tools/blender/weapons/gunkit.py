@@ -79,23 +79,23 @@ def knurl(k, n=2, amt=0.06):
 
 
 # =========================================================================================== AK furniture
-def rr_ring2(depth, width, rf, rb, cx=0.0, cz=0.0, n=4, rib=None):
+def rr_ring2(depth, width, rf, rb, cx=0.0, cz=0.0, n=4, rib=None, dense=16):
     """Grip cross-section in the (lx, y) plane: depth along lx (front = +lx), width along y; front corner radius rf, back rb.
     rib(y_side, lx) -> outward offset for the flat side walls (moulded ribs)."""
     d, w = depth / 2, width / 2
     pts = fillet_poly([(d, -w), (d, w), (-d, w), (-d, -w)], [rf, rf, rb, rb], n)
     out = []
     # densify the flat side walls so ribs have vertices
-    dense = []
+    pts2 = []
     for i in range(len(pts)):
         p, q = pts[i], pts[(i + 1) % len(pts)]
-        dense.append(p)
-        if abs(p[1] - q[1]) < 1e-6 and abs(abs(p[1]) - w) < 1e-6 and abs(p[0] - q[0]) > 4.0:
-            m = int(abs(p[0] - q[0]) / 1.4)
+        pts2.append(p)
+        if abs(p[1] - q[1]) < 1e-4 and abs(abs(p[1]) - w) < 1e-4 and abs(p[0] - q[0]) > 1.0:
+            m = dense
             for k in range(1, m):
-                dense.append((p[0] + (q[0] - p[0]) * k / m, p[1]))
-    for lx, y in dense:
-        if rib is not None and abs(abs(y) - w) < 1e-6:
+                pts2.append((p[0] + (q[0] - p[0]) * k / m, p[1]))
+    for lx, y in pts2:
+        if rib is not None and abs(abs(y) - w) < 1e-4:
             y = y + math.copysign(rib(lx), y)
         out.append((cx + lx, y, cz))
     return out
@@ -106,7 +106,7 @@ def ak_grip(GA, top=56.0, bottom=-58.0):
     c, s = math.cos(GA * D2R), math.sin(GA * D2R)
     secs = [(top, 38.0, 27.0, 6, 11), (46.0, 41.0, 28.5, 7, 12), (26.0, 44.0, 30.0, 8, 13), (0.0, 46.0, 31.0, 8, 14), (-26.0, 45.5, 31.0, 8, 14),
             (-46.0, 44.0, 30.0, 8, 13), (bottom + 4, 42.0, 28.5, 7, 12), (bottom, 38.0, 26.0, 6, 10)]
-    rib = lambda lx: 0.75 * (0.5 + 0.5 * math.cos(2 * math.pi * lx / 2.6)) if abs(lx) < 15 else 0.0
+    rib = lambda lx: 0.35 * (0.5 + 0.5 * math.cos(2 * math.pi * lx / 2.0)) if abs(lx) < 15 else 0.0
     rings = []
     for lz, dep, wid, rf, rb in secs:
         ring = rr_ring2(dep, wid, rf, rb, cx=1.5, rib=rib if bottom + 8 < lz < top - 4 else None)
@@ -308,3 +308,52 @@ def _turret(x, y, z, axis, r=10.2, h=9.5):
 def _hex(x, y, z, r=2.3, h=1.8):
     bm = lathe_bm([(-0.3, r), (h, r), (h, 0)], 6, "z", phase=0.5236)
     return _orient(bm, (x, y, z), (0, -1, 0))
+
+
+# =========================================================================================== modern polymer grip + shotshells
+def modern_grip(GA, top=22.0, lz_top=None, bottom=-62.0, width=30.0, depth=46.0, name_scale=1.0):
+    """Modern polymer pistol grip (A2/MOE class): raked GA, finger groove + palm swell, flat top at z = `top`."""
+    c, s = math.cos(GA * D2R), math.sin(GA * D2R)
+    lzt = (top / c) + 12.0 if lz_top is None else lz_top
+    secs = [(lzt, depth - 6, width - 3, 7, 10), (lzt - 10, depth - 3, width - 1.5, 8, 11), (12.0, depth, width, 8, 12), (-8.0, depth + 0.5, width + 0.6, 8, 12),
+            (-30.0, depth + 0.5, width + 0.8, 8, 12), (-50.0, depth - 0.5, width, 8, 11), (bottom + 5, depth - 2.5, width - 1.0, 7, 10), (bottom, depth - 6, width - 3.5, 6, 9)]
+    rings = []
+    for lz, dep, wid, rf, rb in secs:
+        ring = rr_ring2(dep, wid, rf, rb, n=4)
+        fg = 2.2 * math.exp(-((lz + 4.0) / 7.0) ** 2)          # finger groove under the middle finger
+        rings.append([(lx - (fg if lx > dep / 2 - 4 else 0.0), y, lz) for lx, y, _ in ring])
+    n = len(rings[0])
+    bm = bmesh.new()
+    vr = [[bm.verts.new((lx * c + lz * s, y, -lx * s + lz * c)) for lx, y, lz in r] for r in rings]
+    for i in range(len(vr) - 1):
+        for k in range(n):
+            k2 = (k + 1) % n
+            bm.faces.new((vr[i][k], vr[i][k2], vr[i + 1][k2], vr[i + 1][k]))
+    bm.faces.new(list(reversed(vr[0])))
+    bm.faces.new(vr[-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    from gunlib import bool_op
+    return bool_op(bm, [box_bm((140, 70, 60), c=(20, 0, top + 30.0))])
+
+
+def shotshell(part, pos, direction, fired=False, head_back=True, length=70.0, segs=20):
+    """12 ga shell with its brass head at `pos`, hull extending along `direction`: brass head + rim + primer, red hull, crimp."""
+    L = length
+    head = [(0, 0), (0, 10.9), (1.3, 10.9), (1.3, 10.35), (15.0, 10.35), (15.6, 10.15)]
+    hull = [(15.6, 10.15), (L - 3.5, 10.15)]
+    if fired:
+        hull += [(L - 1.5, 10.8), (L, 11.4), (L, 9.8), (L - 4, 9.4)]
+    else:
+        hull += [(L - 1.2, 9.4), (L, 7.2), (L, 0)]
+    a = Vector(direction).normalized()
+    q = Vector((0, 0, 1)).rotation_difference(a)
+    M = Matrix.Translation(Vector(pos)) @ q.to_matrix().to_4x4()
+    hb = lathe_bm(head + [(15.6, 0)], segs, "z")
+    bmesh.ops.transform(hb, matrix=M, verts=hb.verts)
+    part.add(hb, "brass", bevel=0)
+    hl = lathe_bm([(15.6, 0)] + hull + ([(L - 4, 0)] if fired else []), segs, "z")
+    bmesh.ops.transform(hl, matrix=M, verts=hl.verts)
+    part.add(hl, "paint", bevel=0)
+    pr = lathe_bm([(-0.3, 0), (-0.3, 2.6), (0.2, 2.8), (0.2, 0)], 12, "z")
+    bmesh.ops.transform(pr, matrix=M, verts=pr.verts)
+    part.add(pr, "gun_steel", bevel=0)

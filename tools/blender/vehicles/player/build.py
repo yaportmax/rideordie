@@ -100,6 +100,7 @@ def build(n, fast=False, out=None, notex=False, noao=False):
     g_paint = make_grunge("wear_paint_t%d" % n, 1024, 'paint', C.wear, seed=n * 7)
     g_paint2 = make_grunge("wear_paint2_t%d" % n, 1024, 'paint', min(1.0, C.wear + 0.15), seed=n * 7 + 3)
     g_metal = make_grunge("wear_metal_t%d" % n, 1024, 'metal', C.wear, seed=n * 7 + 5)
+    g_soft = make_grunge("wear_soft_t%d" % n, 1024, 'soft', C.wear, seed=n * 7 + 9)
     used = set()
     for o in objs + wheels:
         for m in o.data.materials:
@@ -117,7 +118,7 @@ def build(n, fast=False, out=None, notex=False, noao=False):
                 detail, dk, size = 'a_carbon.png', 0.8, 1024
             if mn == 'wood':
                 detail, dk, size = 'a_wood.png', 1.0, 512
-            hook_colored(mn, g_metal, stn, tag='_t%d' % n, size=size, detail=detail, detail_k=dk)
+            hook_colored(mn, g_soft if mn in ('leather', 'interior', 'fabric') else g_metal, stn, tag='_t%d' % n, size=size, detail=detail, detail_k=dk)
         for mn, (img, strength) in NMAP.items():
             if mn in used:
                 carbon = mn == 'interior' and n == 4

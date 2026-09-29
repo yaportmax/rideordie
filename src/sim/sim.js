@@ -146,6 +146,7 @@ export class Sim {
       if (car.crashCooldown > 0) car.crashCooldown -= dt;
       if (car.hitFlash > 0) car.hitFlash -= dt;
     }
+    if (P && !P.exploded && P.veh.grounded === 0 && P.veh.airTime > 0.12) this._airSteer(P, dt);
     if (P) {
       this.stats.distance = Math.max(this.stats.distance, P.s);
       this.stats.maxSpeed = Math.max(this.stats.maxSpeed, P.veh.speed);
@@ -215,6 +216,23 @@ export class Sim {
       const c = car.crew.driver; if (dv > 4 && car.kind === 'enemy' && c.alive) this.damageCrew(car, 'driver', dv * 3, { cause: 'crash' });
       if (car.crew.gunner && car.crew.gunner.alive && dv > 5 && car.kind === 'enemy') this.damageCrew(car, 'gunner', dv * 2.5, { cause: 'crash' });
     }
+  }
+
+  /** Arcade air steer: a flying truck's path bends gently back along the road (and away from the verge), so a ramp taken
+   *  flat out lands on the road instead of in a building. Small enough to feel like your own correction. */
+  _airSteer(car, dt) {
+    const b = car.veh.body, v = b.linvel(), sm = this.road.sample(car.s);
+    const tx = Math.sin(sm.th), tz = Math.cos(sm.th);
+    const hs = Math.hypot(v.x, v.z); if (hs < 8) return;
+    const along = (v.x * tx + v.z * tz) / hs; if (along < 0.7) return;           // only when roughly following the road
+    const dirSign = 1, cur = Math.atan2(v.x, v.z), want = Math.atan2(tx * dirSign, tz * dirSign);
+    let da = want - cur; da = Math.atan2(Math.sin(da), Math.cos(da));
+    const turn = clamp(da, -0.4 * dt, 0.4 * dt), a = cur + turn;
+    let vx = Math.sin(a) * hs, vz = Math.cos(a) * hs;
+    // drifting off the edge: nudge back toward the tarmac
+    const edge = Math.abs(car.d) - (HALF_ROAD - 1.5);
+    if (edge > 0) { const out = Math.sign(car.d), nx = Math.cos(sm.th) * out, nz = -Math.sin(sm.th) * out, k = Math.min(edge, 3) * 2.5 * dt; vx -= nx * k; vz -= nz * k; }
+    b.setLinvel({ x: vx, y: v.y, z: vz }, true);
   }
 
   damageCar(car, dmg, info = {}) {

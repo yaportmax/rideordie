@@ -211,9 +211,11 @@ def door_extras(sd, grp, dmat, front, f0, f1):
             bx("mir_head", (1.075, 0.56, 1.13), (0.035, 0.13, 0.19), "metal_dark", bevel=0.01, seg=1, g=grp)
             bx("mir_glass", (1.075, 0.542, 1.13), (0.028, 0.004, 0.17), "chrome", g=grp)
         else:
-            # passenger mirror snapped off: bare arm stub
+            # passenger side: salvaged round convex mirror on a bent stalk (outer edge at x = -1.087 like the original)
             bx("mir_base", (sd * 0.925, 0.55, 1.03), (0.05, 0.08, 0.05), "metal_dark", bevel=0.006, seg=1, g=grp)
-            tube("mir_stub", [(sd * 0.95, 0.55, 1.04), (sd * 1.01, 0.54, 1.07)], 0.009, "metal_bare", g=grp)
+            tube("mir_stalk", [(sd * 0.95, 0.55, 1.04), (sd * 0.99, 0.56, 1.10), (sd * 1.015, 0.565, 1.13)], 0.008, "metal_dark", fillet=0.03, g=grp)
+            cyl("mir_round", (sd * 1.025, 0.555, 1.16), 0.060, 0.045, "f", "metal_dark", sides=14, g=grp)
+            cyl("mir_round_gl", (sd * 1.025, 0.532, 1.16), 0.052, 0.004, "f", "chrome", sides=14, g=grp)
         fh = f1 - 0.16
     else:
         fh = f1 - 0.17
@@ -234,9 +236,9 @@ def build_nose_tail():
     prism("bumper_R", poly[::-1], "xf", 0.33, 0.60, "metal_dark", bevel=0.012, seg=2, g="panel_bumper_R")
     bx("bR_strip", (0, -2.586, 0.47), (1.5, 0.014, 0.06), "chrome", g="panel_bumper_R")
     # tow hitch + a dragging chain loop
-    bx("hitch", (0.0, -2.64, 0.40), (0.07, 0.16, 0.07), "metal_dark", bevel=0.006, seg=1, g="panel_bumper_R")
-    cyl("hitch_ball", (0.0, -2.70, 0.46), 0.03, 0.05, "z", "metal_bare", sides=10, g="panel_bumper_R")
-    chain("chainR", [(0.03, -2.70, 0.43), (0.10, -2.69, 0.30), (0.26, -2.62, 0.26), (0.36, -2.59, 0.35)], link=0.065, g="panel_bumper_R")
+    bx("hitch", (0.0, -2.61, 0.40), (0.07, 0.12, 0.07), "metal_dark", bevel=0.006, seg=1, g="panel_bumper_R")
+    cyl("hitch_ball", (0.0, -2.655, 0.46), 0.03, 0.05, "z", "metal_bare", sides=10, g="panel_bumper_R")
+    chain("chainR", [(0.03, -2.655, 0.43), (0.10, -2.66, 0.30), (0.26, -2.62, 0.26), (0.36, -2.59, 0.35)], link=0.065, g="panel_bumper_R")
     # quad sealed-beam headlamps: outer-left taped, inner-right smashed
     for sd in (1, -1):
         for cx in (0.735, 0.535):
@@ -264,7 +266,7 @@ def build_nose_tail():
     bx("plate", (0, -2.535, 0.66), (0.40, 0.012, 0.20), "armor", bevel=0.004, seg=1, roll=3, g="panel_trunk")
     bolts("plate_b", [((sx, -2.543, 0.66 + sz), (0, -1, 0)) for sx in (-0.17, 0.17) for sz in (-0.08, 0.08)], 0.009, 0.008, "metal_bare", g="panel_trunk")
     for sd in (1, -1):
-        tube("tip", [(sd * 0.50, -2.46, 0.27), (sd * 0.50, -2.62, 0.265), (sd * 0.50, -2.68, 0.24)], 0.042, "rust", fillet=0.04, g="body")
+        tube("tip", [(sd * 0.50, -2.46, 0.27), (sd * 0.50, -2.62, 0.265), (sd * 0.50, -2.665, 0.245)], 0.042, "rust", fillet=0.04, g="body")
 
 
 # ------------------------------------------------------------------------------------------- interior
@@ -345,16 +347,16 @@ def build_plates():
     tube("pushbar_cross", [(0.74, 2.655, 0.59), (-0.74, 2.655, 0.59)], 0.028, "armor", g="panel_bumper_F")
     items = []
     for x in (-0.55, -0.28, 0.28, 0.55):
-        items.append(((x, 2.680, 0.78), (0.0, 1.0, 0.10), 0.026, 0.11))
+        items.append(((x, 2.665, 0.805), (0.0, 0.35, 1.0), 0.024, 0.13))       # upward teeth along the top bar
     for x in (-0.62, -0.36, 0.36, 0.62):
-        items.append(((x, 2.675, 0.59), (0.0, 1.0, 0.0), 0.022, 0.09))
+        items.append(((x, 2.672, 0.59), (0.0, 1.0, 0.0), 0.020, 0.028))         # short studs on the cross bar (bbox front stays at 2.70)
     for sd in (1, -1):
-        items.append(((sd * 0.76, 2.66, 0.78), (sd * 0.6, 0.6, 0.45), 0.024, 0.11))
+        items.append(((sd * 0.772, 2.64, 0.78), (sd * 1.0, 0.25, 0.45), 0.024, 0.12))
     spikes("pb_spikes", items, g="panel_bumper_F", collar=False)
     for x, z in [(x, 0.78) for x in (-0.55, -0.28, 0.28, 0.55)] + [(x, 0.59) for x in (-0.62, -0.36, 0.36, 0.62)]:
         weld("spk_weld", [(x - 0.03, 2.668, z + 0.02), (x + 0.03, 2.668, z + 0.02)], r=0.006, g="panel_bumper_F", m="metal_dark", seed=int(x * 100))
-    skull_orn("cowskull", (0.0, 2.72, 0.74), d=(0, 1, 0), s=0.8, g="panel_bumper_F", m="canvas")
-    tube("skull_wire", [(-0.05, 2.70, 0.78), (0.0, 2.72, 0.80), (0.05, 2.70, 0.78)], 0.004, "metal_bare", g="panel_bumper_F")
+    skull_orn("cowskull", (0.0, 2.64, 0.70), d=(0, 1, 0), s=0.8, g="panel_bumper_F", m="canvas")
+    tube("skull_wire", [(-0.05, 2.655, 0.76), (0.0, 2.665, 0.78), (0.05, 2.655, 0.76)], 0.004, "metal_bare", g="panel_bumper_F")
     # antenna with a tattered war flag, fuel filler with a rag
     base = (0.80, -2.05, 0.995)
     tube("ant_mast", [base, (0.80, -2.06, 1.55), (0.78, -2.08, 2.00)], 0.006, "metal_dark", g="body")

@@ -2,11 +2,11 @@
 // instead of mid-drive) and compile their shader programs in the background (Game.warmMeshes via pool.warmer) long before the
 // first city block / dam appears. Dummy meshes carry exactly the attributes + shadow flags of the real ones, so the programs match.
 import * as THREE from 'three';
-import { facadeMaterial, neonMaterial, flameMaterial, smokeMaterial } from './city_mat.js';
+import { facadeMaterial, neonTexture, flameMaterial, smokeMaterial } from './city_mat.js';
 import { flowMaterial, mistMaterial, bannerMaterial, reservoirMaterial } from './setmat.js';
 
 export function createSetMaterials() {
-  return [facadeMaterial(), neonMaterial(), flameMaterial(), smokeMaterial(), flowMaterial(), mistMaterial(), bannerMaterial(), reservoirMaterial()];
+  return [facadeMaterial(), flameMaterial(), smokeMaterial(), flowMaterial(), mistMaterial(), bannerMaterial(), reservoirMaterial()];
 }
 
 export function warmSetMaterials(warmer) {
@@ -19,11 +19,14 @@ export function warmSetMaterials(warmer) {
     return g;
   };
   const mk = (mat, attrs, cast, recv) => { const m = new THREE.Mesh(tri(attrs), mat); m.castShadow = cast; m.receiveShadow = recv; m.frustumCulled = false; m.visible = false; return m; };
+  // instanced like the dressing pool draws them (instanceMatrix + instanceColor)
+  const inst = (mat, attrs) => { const m = new THREE.InstancedMesh(tri(attrs), mat, 1); m.setMatrixAt(0, new THREE.Matrix4()); m.setColorAt(0, new THREE.Color(1, 1, 1)); m.frustumCulled = false; m.visible = false; return m; };
+  const texHolder = mk(new THREE.MeshBasicMaterial({ map: neonTexture() }), [['uv', 2]], false, false);   // uploads the neon atlas early (the facade shader samples it)
   const meshes = [
     mk(facadeMaterial(), [['aUvF', 2], ['color', 3], ['aFac', 4], ['aFac2', 4]], true, true),
-    mk(neonMaterial(), [['uv', 2], ['color', 3], ['aFac', 4], ['aFac2', 4]], false, false),
-    mk(flameMaterial(), [['uv', 2], ['color', 3], ['aFac', 4], ['aFac2', 4]], false, false),
-    mk(smokeMaterial(), [['uv', 2], ['color', 3], ['aFac', 4], ['aFac2', 4]], false, false),
+    texHolder,
+    inst(flameMaterial(), [['uv', 2], ['aFac', 4]]),
+    inst(smokeMaterial(), [['uv', 2], ['aFac', 4]]),
     mk(flowMaterial(), [['uv', 2], ['color', 3], ['aFac', 4], ['aFac2', 4]], false, false),
     mk(mistMaterial(), [['uv', 2], ['color', 3], ['aFac', 4], ['aFac2', 4]], false, false),
     mk(bannerMaterial(), [['uv', 2], ['color', 3], ['aFac', 4], ['aFac2', 4]], true, true),

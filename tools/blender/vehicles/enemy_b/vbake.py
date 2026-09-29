@@ -773,7 +773,7 @@ RECIPES = {
     'interior': r_flat((0.10, 0.095, 0.09), 0.85, wear=(0.2, 0.19, 0.17), dust_amt=0.35, dirt_amt=0.3),
     'fabric': r_flat((0.22, 0.17, 0.12), 0.95, wear=(0.3, 0.25, 0.18), dust_amt=0.4, dirt_amt=0.3),
     'leather': r_flat((0.20, 0.12, 0.07), 0.6, wear=(0.36, 0.26, 0.17), dust_amt=0.4, dirt_amt=0.3),
-    'plastic': r_flat((0.70, 0.67, 0.58), 0.6, wear=(0.8, 0.78, 0.7)),
+    'plastic': r_flat((0.62, 0.58, 0.48), 0.55, wear=(0.78, 0.75, 0.66), dust_amt=0.8, dirt_amt=0.9),
     'decal_yellow': r_flat((0.80, 0.56, 0.06), 0.62, chip=(0.12, 0.12, 0.12), chip_amt=1.4),
     'decal_red': r_flat((0.58, 0.08, 0.05), 0.6, chip=(0.12, 0.11, 0.1), chip_amt=1.2),
     'decal_white': r_flat((0.80, 0.78, 0.72), 0.6, chip=(0.12, 0.11, 0.1), chip_amt=1.2),

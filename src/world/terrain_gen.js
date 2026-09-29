@@ -151,11 +151,18 @@ function featureDip(road, s, a, list) {
 }
 
 const _sm = {};
+const FOLD_U0 = 0.45, FOLD_MAX = 0.85;
 /** World position of terrain at (s, d). Writes into out {x,y,z}. d beyond +-EDGE. */
 export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   const sm = road.sample(s, _sm);
   const side = d >= 0 ? 1 : -1;
-  const a = Math.abs(d) - EDGE;
+  // inside of a curve the rows of constant s converge and would cross (fold) beyond the curvature radius: squeeze the lateral offset so
+  // k*d stays below FOLD_MAX (identity up to FOLD_U0 = 45 % of the radius, so the road side is untouched). The profile is evaluated at the
+  // squeezed distance, so the squeezed band is ordinary terrain (the ground further inside the bend comes from the rows before/after it).
+  let dd = d;
+  const kd = sm.k * d;
+  if (kd > FOLD_U0) dd = (FOLD_U0 + (FOLD_MAX - FOLD_U0) * (1 - Math.exp(-(kd - FOLD_U0) / (FOLD_MAX - FOLD_U0)))) / sm.k;
+  const a = Math.abs(dd) - EDGE;
   const bio = biomeAt(s);
   // road-plane height at the seam, banked plane fading outward
   const yEdge = road.surfaceY(sm, side * EDGE);
@@ -164,7 +171,7 @@ export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   let off = biomeProfile(seed, s, Math.max(a, 0), side, sm, bio);
   off -= featureDip(road, s, a, bridges);
   off += tunnelRaise(road, s, a, tunnels);
-  out.x = sm.x + sm.nx * d; out.z = sm.z + sm.nz * d; out.y = yPlane + off;
+  out.x = sm.x + sm.nx * dd; out.z = sm.z + sm.nz * dd; out.y = yPlane + off;
   out.s = s; out.a = a; out.side = side; out.off = off; out.bio = bio;
   return out;
 }
