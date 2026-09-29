@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { clamp, wrapAngle, lerp, smoothstep } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
+import { rbGapD } from '../sim/hazards.js';
 
 const _v = new THREE.Vector3(), _tp = {};
 
@@ -23,15 +24,19 @@ export class AIDriver {
     const B = sim.boss;
     if (B && !B.dead) want = Math.sin(sim.time * 0.12) > 0 ? 4.2 : -4.2;               // flank the war-train, out of its wake
     else if (this.laneT <= 0) { this.laneT = 4 + Math.random() * 4; want = this.lane = [-3.5, 0, 3.5][(Math.random() * 3) | 0]; }
-    const rb = road.featuresIn(P.s + 5, P.s + 170, 'roadblock')[0];
-    if (rb) want = clamp(rb.gap * 2.6, -HALF_ROAD + 1.5, HALF_ROAD - 1.5);          // thread the gap
+    // roadblocks: commit to the gap early (it is only 4.4 m wide) and let nothing else pull us off that line
+    const rb = road.featuresIn(P.s - 2, P.s + 260, 'roadblock')[0];
+    const rbDist = rb ? rb.s0 - P.s : 1e9, rbLock = rb && rbDist < 110;
+    if (rb) want = rbGapD(rb);
+    // wedged here before? try another line this time (alternating sides, wider each attempt)
+    if (this.retry && Math.abs(P.s - this.retry.s) < 60) want += this.retry.off; else if (this.retry && P.s - this.retry.s > 60) this.retry = null;
     // enemy mines / burning barrels ahead: pick the side away from them
-    for (const m of sim.hazards.enemyMines) {
+    if (!rbLock) for (const m of sim.hazards.enemyMines) {
       const n = road.nearest(m.pos.x, m.pos.z, P.s, 80, _tp);
       if (n.s > P.s && n.s < P.s + 90 && Math.abs(n.d - want) < 3.2) want = n.d > 0 ? n.d - 4 : n.d + 4;
     }
     // cars directly ahead in our lane: go around
-    for (const car of sim.cars.values()) {
+    if (!rbLock) for (const car of sim.cars.values()) {
       if (car === P || car.exploded && car.wreckT > 3) continue;
       const ahead = car.s - P.s;
       if (ahead > 4 && ahead < 45 && Math.abs(car.d - want) < 2.6) want = car.d > P.d ? car.d - 3.6 : car.d + 3.6;
@@ -45,16 +50,16 @@ export class AIDriver {
       const closing = -car.veh.vel.clone().sub(v.vel).dot(v.left) * Math.sign(lat);
       if (Math.abs(lon) < 6 && Math.abs(lat) < 5 && closing > 4 && car.ai && car.ai.behavior === 'rammer') { this.swerve = -Math.sign(lat) * 2.5; this.swerveT = 0.6; }
     }
-    want = clamp(want + this.swerve, -HALF_ROAD + 1.2, HALF_ROAD - 1.2);
-    // ---------------- steering: pure pursuit on the road
-    const look = 16 + v.speed * 0.42;
+    want = clamp(want + (rbLock ? 0 : this.swerve), -HALF_ROAD + 1.2, HALF_ROAD - 1.2);
+    // ---------------- steering: pure pursuit on the road (shorter look-ahead = more precise when threading a gap)
+    const look = rbLock ? 9 + v.speed * 0.3 : 16 + v.speed * 0.42;
     const tp = road.pointAt(P.s + look, want, _tp);
     const err = wrapAngle(Math.atan2(tp.x - v.pos.x, tp.z - v.pos.z) - Math.atan2(v.fwd.x, v.fwd.z));
     c.steer = clamp(err * 2.4, -1, 1);
     // ---------------- speed
     const kA = Math.max(Math.abs(road.sample(P.s + 35).k), Math.abs(road.sample(P.s + 80).k), Math.abs(road.sample(P.s + 130).k));
     let target = Math.min(vmax * 0.9, Math.sqrt(15 / Math.max(kA, 1e-4)));
-    if (rb && rb.s0 - P.s < 120) target = Math.min(target, 34);                         // don't thread a roadblock at full chat
+    if (rb && rbDist < 160) target = Math.min(target, clamp(22 + (rbDist - 30) * 0.12, 22, 34)); // don't thread a roadblock at full chat
     if (B && !B.dead) target = B.v + clamp((B.s - P.s - 32) * 0.4, -10, 10);            // hold station behind the boss
     const vf = v.vf;
     c.throttle = vf < target ? clamp((target - vf) * 0.3 + 0.4, 0, 1) : 0;
@@ -70,9 +75,25 @@ export class AIDriver {
     }
     const crew = P.crew;
     if ((crew.driver.alive && crew.driver.hp < crew.driver.max * 0.3) || (crew.gunner && crew.gunner.alive && crew.gunner.hp < crew.gunner.max * 0.3)) c.medkit = true;
-    // ---------------- stuck / flipped
-    if (v.up.y < 0.55 || (v.speed < 1.5 && sim.state === 'run' && sim.time > 4)) { this.stuckT += dt; if (this.stuckT > 1.2) { c.reset = true; if (this.stuckT > 2.5) { this.stuckT = 0; run._unflip(); } } }
-    else this.stuckT = 0;
+    // ---------------- stuck / flipped: flipped => free flip-back; wedged upright => back out and re-aim
+    if (this.reverseT > 0) {
+      this.reverseT -= dt;
+      c.throttle = 0; c.brake = 1; c.nitro = false; c.handbrake = false;
+      c.steer = clamp(-err * 3, -1, 1);                       // reversing: steering acts mirrored, back away from the obstacle
+      return c;
+    }
+    const upright = v.up.y > 0.55;
+    if (!upright) { this.flipT = (this.flipT || 0) + dt; if (this.flipT > 1.0) { this.flipT = 0; run._unflip(true); } }
+    else this.flipT = 0;
+    if (upright && v.speed < 2 && c.throttle > 0.3 && sim.state === 'run' && sim.time > 4) {
+      this.stuckT += dt;
+      if (this.stuckT > 0.9) {
+        this.stuckT = 0; this.reverseT = 1.6;
+        const n = this.retry && Math.abs(P.s - this.retry.s) < 60 ? this.retry.n + 1 : 1;
+        this.retry = { s: P.s, n, off: (n % 2 ? 1 : -1) * Math.min(6, 1.6 * Math.ceil(n / 2) + 0.8) };
+      }
+    }
+    else this.stuckT = Math.max(0, this.stuckT - dt);
     return c;
   }
 }

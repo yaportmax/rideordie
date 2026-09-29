@@ -15,8 +15,15 @@ export const COLS = [0, 1.0, 2.0, 3.2, 4.6, 6.2, 8.0, 10, 12.5, 15.5, 19, 23, 28
 /** Road strip lateral columns (from -EDGE..EDGE). */
 export const ROAD_COLS = [-EDGE, -HALF_ROAD, -5.25, -3.5, -1.75, 0, 1.75, 3.5, 5.25, HALF_ROAD, EDGE];
 export const LOD_STRIDE = [1, 2, 4]; // row stride per LOD (rows are DS = 3 m apart at LOD0)
+/** Ground textures are addressed with world xz wrapped by this period (every tile size / noise scale in the shaders divides it): keeps
+ *  texture coordinates small (fp32 precision) at 60 km without seams. Road strip uv.y (distance) wraps with ROAD_WRAP (= 8 chunks). */
+export const TEX_WRAP = 720;
+export const ROAD_WRAP = 768;
+const wrapOff = (v) => v - TEX_WRAP * Math.floor(v / TEX_WRAP);
 
 const NB = { desert: 0, canyon: 1, coast: 2, mountain: 3, city: 4, dam: 5 };
+/** Biome weight of `id` in a biomeAt() result. */
+const bw = (bio, id) => (bio.a === id ? 1 - bio.w : 0) + (bio.b === id ? bio.w : 0);
 
 // ------------------------------------------------------------------------------------------------ profile
 /** Terrain offset above the road-edge plane for one biome. a = distance beyond the shoulder edge (>=0), side = +1 left / -1 right. */
@@ -71,8 +78,14 @@ function profile(id, seed, s, a, side, sm) {
         const drop = smoothstep(edge, edge + 10, a);
         h = -T.cliff * drop - smoothstep(60, 380, a) * 10;
       } else {
-        const t = smoothstep(9, 26, a);
-        h = t * t * 70 * (0.7 + 0.3 * ridged2(s / 80, a / 50, 3, seed + 42)) + (fbm2(s / 70, a / 60, 3, seed + 43) - 0.5) * 6 * (1 - t);
+        // valley wall: buttresses and gullies move the foot in and out, ledges break the face into terraces
+        const gul = (ridged2(s / 42, 0.37, 3, seed + 44) - 0.55) * 12 + (fbm1(s / 15, 2, seed + 45) - 0.5) * 4;
+        const t = smoothstep(9 + Math.max(0, gul) * 0.4, 27 + gul, a);
+        let v = t * t * 70 * (0.7 + 0.3 * ridged2(s / 80, a / 50, 3, seed + 42));
+        const st = v / 8.5, fl = Math.floor(st), fr = st - fl;
+        v = lerp(v, (fl + smoothstep(0.0, 0.35, fr)) * 8.5, 0.45 * smoothstep(4, 18, v));
+        v += (ridged2(s / 24, a / 20, 2, seed + 46) - 0.5) * 5 * smoothstep(14, 30, a);
+        h = v + (fbm2(s / 70, a / 60, 3, seed + 43) - 0.5) * 6 * (1 - t);
       }
       break;
     }
@@ -82,7 +95,9 @@ function profile(id, seed, s, a, side, sm) {
       const massH = T.mass * (up ? 1 : 0.35) * (0.5 + ridged2(s / 520 + side * 4, a / 300, 4, seed + 52));
       const slope = smoothstep(4, up ? 60 : 110, a);
       const detail = (fbm2(s / 45, a / 40, 4, seed + 53) * 2 - 1) * T.amp * smoothstep(0, 30, a);
-      h = massH * slope * slope * 0.9 + detail;
+      // crags / ribs on the big slopes (far enough from the road that the drivable verge is unchanged)
+      const crag = ((ridged2(s / 55, a / 38, 3, seed + 55) - 0.5) * 22 + (ridged2(s / 21, a / 70, 2, seed + 56) - 0.5) * 16) * smoothstep(22, 70, a) * (up ? 1 : 0.4);
+      h = massH * slope * slope * 0.9 + detail + crag;
       if (!up) h -= 55 * smoothstep(6, 55, a) * (0.6 + 0.4 * fbm1(s / 300, 2, seed + 54)); // valley side drops away
       break;
     }
@@ -179,17 +194,32 @@ function splatWeights(w, bioId, seed, s, a, side, slope, wy, wx, wz, seaY) {
     }
     case 'city': {
       const cr = smoothstep(0.45, 0.7, n1 + 0.3 * n2);
-      w[L.concrete] += (1 - cr) * (1 - steep); w[L.concrete_cracked] += cr * (1 - steep); w[L.dirt_red] += smoothstep(0.65, 0.8, n2) * 0.4 * (1 - steep);
-      w[L.gravel] += shoulder * 0.7; w[L.rock_grey] += steep; w[L.dry_grass] += smoothstep(0.7, 0.85, n1) * 0.3 * (1 - steep);
+      w[L.concrete] += (1 - cr) * (1 - steep) * 0.7; w[L.concrete_cracked] += cr * (1 - steep); w[L.dirt_red] += smoothstep(0.55, 0.75, n2) * 0.35 * (1 - steep);
+      w[L.gravel] += shoulder * 0.7 + (1 - steep) * smoothstep(0.4, 0.7, n2) * 0.45; w[L.rock_grey] += steep; w[L.dry_grass] += smoothstep(0.62, 0.8, n1) * 0.4 * (1 - steep);
       break;
     }
     case 'dam':
     default: {
-      w[L.concrete] += (1 - steep) * (0.5 + 0.3 * n1); w[L.rock_grey] += steep * 0.8 + 0.3 * (1 - steep) * n2; w[L.gravel] += shoulder * 0.8;
-      w[L.cliff] += vsteep; w[L.dry_grass] += (1 - steep) * smoothstep(0.6, 0.8, n2) * 0.4;
+      w[L.gravel] += (1 - steep) * (0.35 + 0.3 * n1) + shoulder * 0.8; w[L.dry_grass] += (1 - steep) * smoothstep(0.45, 0.7, n2) * 0.8;
+      w[L.dirt_red] += (1 - steep) * smoothstep(0.55, 0.75, n1) * 0.25; w[L.rock_grey] += steep * 0.8 + 0.25 * (1 - steep) * n2;
+      w[L.cliff] += vsteep;
       break;
     }
   }
+}
+
+/** Normalised splat weights (12 layers, written into w) of the terrain at a point: blends the two biomes active at s. */
+export function splatAt(w, seed, s, a, side, slope, wx, wy, wz, seaY, bio) {
+  w.fill(0);
+  if (bio.w < 0.999) splatWeights(w, bio.a, seed, s, a, side, slope, wy, wx, wz, seaY);
+  if (bio.w > 0.001) {
+    if (bio.w < 0.999) { const wa = w.slice(); w.fill(0); splatWeights(w, bio.b, seed, s, a, side, slope, wy, wx, wz, seaY); for (let k = 0; k < 12; k++) w[k] = wa[k] * (1 - bio.w) + w[k] * bio.w; }
+    else { w.fill(0); splatWeights(w, bio.b, seed, s, a, side, slope, wy, wx, wz, seaY); }
+  }
+  let sum = 0; for (let k = 0; k < 12; k++) sum += w[k];
+  if (sum < 1e-4) { w[L.dirt_red] = 1; sum = 1; }
+  for (let k = 0; k < 12; k++) w[k] /= sum;
+  return w;
 }
 
 // ------------------------------------------------------------------------------------------------ chunk
@@ -213,8 +243,9 @@ export function genTerrainChunk(road, seed, chunk, lod) {
   const vertsPerSide = rowsN * nCol;
   const skirtVerts = rowsN + rowsN + nCol * 2; // outer column skirt, first/last row skirts
   const totalV = 2 * (vertsPerSide + skirtVerts);
-  const positions = new Float32Array(totalV * 3), normals = new Float32Array(totalV * 3), macro = new Float32Array(totalV);
+  const positions = new Float32Array(totalV * 3), normals = new Float32Array(totalV * 3), aux = new Float32Array(totalV * 4);
   const splat = [new Float32Array(totalV * 4), new Float32Array(totalV * 4), new Float32Array(totalV * 4)];
+  const offX = wrapOff(ax), offZ = wrapOff(az);
   const idx = [];
   const w = new Float32Array(12);
   let vi = 0;
@@ -248,18 +279,9 @@ export function genTerrainChunk(road, seed, chunk, lod) {
         positions[o] = P.x - ax; positions[o + 1] = P.y - ay; positions[o + 2] = P.z - az;
         normals[o] = nx; normals[o + 1] = ny; normals[o + 2] = nz;
         // splat
-        w.fill(0);
-        const bio = P.bio;
-        const slope = 1 - ny;
-        if (bio.w < 0.999) splatWeights(w, bio.a, seed, s, P.a, side, slope, P.y, P.x, P.z, seaY);
-        if (bio.w > 0.001) {
-          if (bio.w < 0.999) { const wa = w.slice(); w.fill(0); splatWeights(w, bio.b, seed, s, P.a, side, slope, P.y, P.x, P.z, seaY); for (let k = 0; k < 12; k++) w[k] = wa[k] * (1 - bio.w) + w[k] * bio.w; }
-          else { w.fill(0); splatWeights(w, bio.b, seed, s, P.a, side, slope, P.y, P.x, P.z, seaY); }
-        }
-        let sum = 0; for (let k = 0; k < 12; k++) sum += w[k];
-        if (sum < 1e-4) { w[L.dirt_red] = 1; sum = 1; }
-        for (let k = 0; k < 12; k++) splat[(k / 4) | 0][vi * 4 + (k % 4)] = w[k] / sum;
-        macro[vi] = 0.82 + 0.36 * fbm2(P.x / 140, P.z / 140, 3, seed + 301);
+        splatAt(w, seed, s, P.a, side, 1 - ny, P.x, P.y, P.z, seaY, P.bio);
+        for (let k = 0; k < 12; k++) splat[(k / 4) | 0][vi * 4 + (k % 4)] = w[k];
+        aux[vi * 4] = offX; aux[vi * 4 + 1] = offZ; aux[vi * 4 + 2] = bw(P.bio, 'desert') + bw(P.bio, 'canyon'); aux[vi * 4 + 3] = seaY > -1e8 ? seaY : -1e4;
         if (collide) colPos.push(P.x - ax, P.y - ay, P.z - az);
         vi++;
       }
@@ -282,7 +304,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
       positions[vi * 3] = positions[src * 3]; positions[vi * 3 + 1] = positions[src * 3 + 1] - depth; positions[vi * 3 + 2] = positions[src * 3 + 2];
       normals[vi * 3] = normals[src * 3]; normals[vi * 3 + 1] = normals[src * 3 + 1]; normals[vi * 3 + 2] = normals[src * 3 + 2];
       for (let k = 0; k < 3; k++) splat[k].copyWithin(vi * 4, src * 4, src * 4 + 4);
-      macro[vi] = macro[src];
+      aux.copyWithin(vi * 4, src * 4, src * 4 + 4);
       return vi++;
     };
     // first & last rows
@@ -305,7 +327,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
     // inner edge (toward the road strip): seam vertices sit exactly on the road strip edge, no skirt needed
   }
   const res = {
-    anchor: [ax, ay, az], positions: positions.subarray(0, vi * 3), normals: normals.subarray(0, vi * 3), macro: macro.subarray(0, vi),
+    anchor: [ax, ay, az], positions: positions.subarray(0, vi * 3), normals: normals.subarray(0, vi * 3), aux: aux.subarray(0, vi * 4),
     splat: splat.map((a) => a.subarray(0, vi * 4)), indices: vi > 65535 ? new Uint32Array(idx) : new Uint16Array(idx), nVerts: vi,
   };
   if (collide) { res.colPositions = new Float32Array(colPos); res.colIndices = new Uint32Array(colIdx); }
@@ -320,16 +342,33 @@ export function genRoadChunk(road, seed, chunk) {
   const rows = CHUNK_LEN / DS + 1, cols = ROAD_COLS.length;
   const a = road.sample(s0);
   const ax = a.x, ay = a.y, az = a.z;
-  const positions = new Float32Array(rows * cols * 3), normals = new Float32Array(rows * cols * 3), uvs = new Float32Array(rows * cols * 2);
-  const sm = {}, p1 = {}, p2 = {};
+  const nv = rows * cols;
+  const positions = new Float32Array(nv * 3), normals = new Float32Array(nv * 3), uvs = new Float32Array(nv * 2);
+  // shading attributes: roadA = biome weights (desert, canyon, coast, mountain), roadB = (city, dam, snow, wrap segment),
+  // splat = the terrain's layer weights at the strip edge (the verge blends into exactly what the terrain shows), aux = terrain aux
+  const roadA = new Float32Array(nv * 4), roadB = new Float32Array(nv * 4), aux = new Float32Array(nv * 4);
+  const splat = [new Float32Array(nv * 4), new Float32Array(nv * 4), new Float32Array(nv * 4)];
+  const seg = Math.floor(s0 / ROAD_WRAP), sBase = seg * ROAD_WRAP;
+  const offX = wrapOff(ax), offZ = wrapOff(az);
+  const bio0 = biomeAt((s0 + s1) / 2);
+  const seaY = bio0.a === 'coast' || bio0.b === 'coast' ? seaLevel(road, 'coast') : bio0.a === 'dam' || bio0.b === 'dam' ? seaLevel(road, 'dam') : -1e4;
+  const sm = {}, w = new Float32Array(12);
   for (let r = 0; r < rows; r++) {
     const s = s0 + r * DS;
     road.sample(s, sm);
+    const bio = biomeAt(s);
+    const snow = bw(bio, 'mountain') * smoothstep(95, 140, sm.y);
     for (let c = 0; c < cols; c++) {
       const d = ROAD_COLS[c];
-      const o = (r * cols + c) * 3;
+      const i = r * cols + c, o = i * 3;
       positions[o] = sm.x + sm.nx * d - ax; positions[o + 1] = road.surfaceY(sm, d) - ay; positions[o + 2] = sm.z + sm.nz * d - az;
-      uvs[(r * cols + c) * 2] = d; uvs[(r * cols + c) * 2 + 1] = s; // meters in both axes: shader maps to tile scale
+      uvs[i * 2] = d; uvs[i * 2 + 1] = s - sBase; // metres in both axes (distance wrapped every ROAD_WRAP m): the shader maps them to tiles
+      roadA[i * 4] = bw(bio, 'desert'); roadA[i * 4 + 1] = bw(bio, 'canyon'); roadA[i * 4 + 2] = bw(bio, 'coast'); roadA[i * 4 + 3] = bw(bio, 'mountain');
+      roadB[i * 4] = bw(bio, 'city'); roadB[i * 4 + 1] = bw(bio, 'dam'); roadB[i * 4 + 2] = snow; roadB[i * 4 + 3] = seg;
+      const side = d >= 0 ? 1 : -1;
+      splatAt(w, seed, s, 0, side, 0.02, sm.x + sm.nx * side * EDGE, road.surfaceY(sm, side * EDGE), sm.z + sm.nz * side * EDGE, seaY, bio);
+      for (let k = 0; k < 12; k++) splat[(k / 4) | 0][i * 4 + (k % 4)] = w[k];
+      aux[i * 4] = offX; aux[i * 4 + 1] = offZ; aux[i * 4 + 2] = 0; aux[i * 4 + 3] = seaY;
     }
   }
   // normals from grid
@@ -350,7 +389,7 @@ export function genRoadChunk(road, seed, chunk) {
     // columns run left-to-right in -d order (ROAD_COLS ascending = from right(-) to left(+)); s forward
     idx.push(a0, b0, c0, a0, c0, d0);
   }
-  return { anchor: [ax, ay, az], positions, normals, uvs, indices: new Uint16Array(idx), rows, cols, colPositions: positions.slice(), colIndices: new Uint32Array(idx) };
+  return { anchor: [ax, ay, az], positions, normals, uvs, roadA, roadB, splat, aux, indices: new Uint16Array(idx), rows, cols, colPositions: positions.slice(), colIndices: new Uint32Array(idx) };
 }
 
 /** World sea level (y) for a biome that has water: fixed under the middle of that biome's road. */

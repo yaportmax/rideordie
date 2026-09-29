@@ -58,11 +58,29 @@ export const BOSS = {
   bounty: 50000,
 };
 
+// Minibosses ("warlords"): one per biome. Each has a unique silhouette (view/car_view.js ELITE_KITS[look.kit]), a nameplate +
+// HUD bar, an intro banner (ui/banner.js), an attack pattern and a glowing WEAK POINT (hull hits x0.6, weak point x`mul`).
+//   behavior: the brain role (sim/ai.js); pattern: {summon: s, summonKinds, crush}; enter: 'ahead' (waits up the road) | 'behind'.
 export const MINIBOSSES = [
-  { s: 9300, name: 'SCRAPJAW', spec: 'e_technical', hpMul: 7, armor: 0.3, gun: 'hmg', behavior: 'chaser', escorts: ['e_buggy', 'e_buggy'] },
-  { s: 19300, name: 'THE BONECRUSHER TWINS', spec: 'e_muscle', count: 2, hpMul: 5, armor: 0.25, behavior: 'rammer', escorts: [] },
-  { s: 29300, name: 'MOTHER TRUCKER', spec: 'e_heavy', hpMul: 3.5, armor: 0.3, gun: 'hmg', gun2: 'rpg', behavior: 'heavy', escorts: ['e_sedan', 'e_technical'] },
-  { s: 40300, name: 'BLAZE', spec: 'e_tanker', hpMul: 3.5, armor: 0.25, gun: 'rpg', behavior: 'dropper', escorts: ['e_buggy'] },
-  { s: 49300, name: 'IRON PRIEST', spec: 'e_van', hpMul: 9, armor: 0.45, gun: 'rpg', behavior: 'summoner', escorts: ['e_buggy', 'e_muscle'] },
+  { s: 9300, name: 'SCRAPJAW', title: 'KING OF THE SCRAPYARD', spec: 'e_technical', hpMul: 7, armor: 0.3, gun: 'hmg', behavior: 'leader', enter: 'ahead',
+    pattern: { summon: 20, summonKinds: ['e_buggy', 'e_buggy'] }, escorts: ['e_buggy'],
+    weak: { zone: 'fuel', mul: 5, label: 'AMMO CRATE — REAR' }, look: { kit: 'scrapjaw', paint: 0xd6a01c, paint2: 0x1b1a18, glow: 0xff8a1a },
+    tip: 'Stays ahead and hoses you with the heavy MG. Calls in buggies.' },
+  { s: 19300, name: 'THE BONECRUSHER TWINS', title: 'BROTHERS IN CARNAGE', spec: 'e_muscle', count: 2, hpMul: 5, armor: 0.25, behavior: 'flanker', enter: 'behind',
+    pattern: { crush: true }, escorts: [],
+    weak: { zone: 'engine', mul: 5, label: 'SUPERCHARGERS — HOOD' }, look: { kit: 'twins', paint: 0xa3121a, paint2: 0xe8e0cc, glow: 0xff3322 },
+    tip: 'One on each flank. When both horns sound, they crush you from both sides.' },
+  { s: 29300, name: 'MOTHER TRUCKER', title: 'QUEEN OF THE CONVOY', spec: 'e_heavy', hpMul: 3.5, armor: 0.3, gun: 'hmg', gun2: 'rpg', behavior: 'heavy', enter: 'ahead',
+    escorts: ['e_sedan', 'e_technical'],
+    weak: { zone: 'fuel', mul: 5, label: 'FUEL TANKS — REAR' }, look: { kit: 'mother', paint: 0x8e1f6e, paint2: 0x151515, glow: 0xff3fc0 },
+    tip: 'A moving wall: it blocks your lane, brake-checks you and fires rockets.' },
+  { s: 40300, name: 'BLAZE', title: 'THE FIRE-STARTER', spec: 'e_tanker', hpMul: 3.5, armor: 0.25, gun: 'rpg', behavior: 'dropper', enter: 'ahead',
+    pattern: {}, escorts: ['e_buggy', 'e_buggy'],
+    weak: { zone: 'fuel', mul: 4, label: 'RELEASE VALVE — REAR' }, look: { kit: 'blaze', paint: 0xc2410f, paint2: 0x2a1208, glow: 0xffa028 },
+    tip: 'Lays burning barrels in your lane. Keep out of his wake.' },
+  { s: 49300, name: 'IRON PRIEST', title: 'PROPHET OF THE LEVIATHAN', spec: 'e_van', hpMul: 9, armor: 0.45, gun: 'rpg', behavior: 'summoner', enter: 'behind',
+    pattern: { summon: 13, summonKinds: ['e_buggy', 'e_buggy', 'e_muscle'] }, escorts: ['e_buggy', 'e_muscle'],
+    weak: { zone: 'engine', mul: 5, label: 'FURNACE GRILLE — FRONT' }, look: { kit: 'priest', paint: 0x3a3c40, paint2: 0xb8902e, glow: 0xff4a1a },
+    tip: 'Armoured rocket van. Summons the faithful until you break his furnace.' },
 ];
 export const BOSS_NAMES = ['', ...MINIBOSSES.map((m) => m.name), 'THE LEVIATHAN'];

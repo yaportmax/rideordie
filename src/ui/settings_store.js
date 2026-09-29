@@ -58,7 +58,7 @@ export function wrapRumble(input, getSettings) {
 export const BIND_GROUPS = [
   { id: 'driver', name: 'DRIVER', actions: [
     ['throttle', 'ACCELERATE'], ['brake', 'BRAKE / REVERSE'], ['left', 'STEER LEFT'], ['right', 'STEER RIGHT'], ['handbrake', 'HANDBRAKE / DRIFT'], ['nitro', 'NITRO'],
-    ['special1', 'OIL SLICK'], ['special2', 'DROP MINE'], ['reset', 'FLIP / RESET'], ['camera', 'CAMERA'], ['horn', 'HORN'],
+    ['special1', 'OIL SLICK'], ['special2', 'DROP MINE'], ['reset', 'FLIP / RESET'], ['camera', 'CAMERA'], ['lookBack', 'LOOK BACK'], ['horn', 'HORN'],
   ] },
   { id: 'gunner', name: 'GUNNER', actions: [
     ['reload', 'RELOAD'], ['grenade', 'GRENADE'], ['melee', 'MELEE'], ['crouch', 'CROUCH'], ['lean', 'LEAN'],

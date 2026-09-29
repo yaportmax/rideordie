@@ -7,6 +7,9 @@ import { rng, clamp } from '../core/util.js';
 import { RAMP, ROADBLOCK } from '../data/features.js';
 
 const AHEAD = 420, BEHIND = 180;
+/** Roadblock gap (same formula as the dressing's wreck line): lateral centre + width of the drivable gap. */
+export const RB_GAP_W = 4.4;
+export const rbGapD = (f) => clamp(f.gap * 2.2, -4.6, 4.6);
 const V = THREE.Vector3;
 
 export class Hazards {
@@ -120,17 +123,17 @@ export class Hazards {
     }
     if (f.type === 'roadblock') {
       if (sim.structures) return { bodies: [] }; // Dressing supplies the real wreck-line collision
+      // headless stand-in with the same layout as the dressing: a 4.4 m gap centred on clamp(gap * 2.2, ±4.6), wrecks either side
       const r = rng(f.seed >>> 0);
-      const gapD = f.gap * 2.6;
-      const n = 7; // slots across 14 m
-      for (let i = 0; i < n; i++) {
-        const d = -HALF_ROAD + 1.0 + i * ((2 * HALF_ROAD - 2.0) / (n - 1));
-        if (Math.abs(d - gapD) < 2.6) continue;
-        const s = f.s0 + 4 + r.range(-2.5, 2.5) + (i % 2) * 3;
-        const sm = road.sample(s);
-        const yaw = sm.th + r.range(-0.9, 0.9) + (r() < 0.3 ? Math.PI / 2 : 0);
-        const y = road.surfaceY(sm, d) + 0.7;
-        bodies.push(this._fixedBox(sim, { x: sm.x + sm.nx * d, y, z: sm.z + sm.nz * d }, ROADBLOCK.half, yaw, { friction: 0.3, restitution: 0.1 }));
+      const gapD = rbGapD(f), hw = RB_GAP_W / 2;
+      for (const side of [-1, 1]) {
+        for (let d = gapD + side * (hw + ROADBLOCK.half[0]); Math.abs(d) < HALF_ROAD + 1.5; d += side * 3.4) {
+          const s = f.s0 + 4 + r.range(-1.5, 1.5);
+          const sm = road.sample(s);
+          const yaw = sm.th + r.range(-0.2, 0.2);
+          const y = road.surfaceY(sm, d) + 0.7;
+          bodies.push(this._fixedBox(sim, { x: sm.x + sm.nx * d, y, z: sm.z + sm.nz * d }, ROADBLOCK.half, yaw, { friction: 0.3, restitution: 0.1 }));
+        }
       }
       const c = road.sample(f.s0 + 5);
       return { bodies, center: new V(c.x, c.y, c.z) };

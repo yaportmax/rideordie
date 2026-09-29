@@ -6,7 +6,16 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { WeaponView } from './weapon_view.js';
+import { ViewModel } from './viewmodel.js';
 import { clamp } from '../core/util.js';
+
+// first person: the local gunner's own body only casts its shadow (the viewmodel draws the arms + gun)
+const shadowMats = new Map();
+function shadowOnly(m) {
+  let c = shadowMats.get(m);
+  if (!c) { c = m.clone(); c.colorWrite = false; c.depthWrite = false; shadowMats.set(m, c); }
+  return c;
+}
 
 const ENEMY_GUN_MODEL = { pistol: 'pistol', smg: 'smg', rifle: 'rifle', shotgun: 'shotgun', mg: 'lmg', hmg: 'lmg', rpg: 'rpg' };
 const ONE_HANDED = new Set(['pistol', 'revolver']);
@@ -110,6 +119,7 @@ export class CrewView {
     if (this.weapon) this.weapon.dispose();
     this.weapon = new WeaponView(id);
     this.gun.add(this.weapon.root);
+    this._shadowOnlyOn = undefined;   // re-apply to the new weapon's meshes
     if (!this.gun.parent) this.body.add(this.gun);
     const st = this.weapon.sockets.stock; this.stockZ = st ? st.position.z : null;
   }
@@ -121,9 +131,14 @@ export class CrewView {
     if (!s.alive) { this.die({}); return; }
     this.mixer?.update(dt);
     const fp = !!(s.local && s.local.firstPerson);
-    this.body.visible = !(fp && s.local.scoped);
+    // local first-person gunner: the viewmodel draws arms + gun; this body stays in the scene as an invisible shadow caster
+    const useVm = fp && this.role !== 'driver' && this.hero && !!(s.local.camera && s.local.gunner);
+    if (useVm && !this.vm) { this.vm = new ViewModel(); s.local.gunner.vm = this.vm; }
+    this.useVm = useVm;
+    this._setShadowOnly(useVm);
+    this.body.visible = useVm || !(fp && s.local.scoped);
     // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
-    if (this.bones && this.bones.Head) { const k = fp ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); if (this.bones.Neck && this.role === 'driver') this.bones.Neck.scale.setScalar(fp ? 0.2 : 1); }
+    if (this.bones && this.bones.Head) { const k = fp && !useVm ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); if (this.bones.Neck && this.role === 'driver') this.bones.Neck.scale.setScalar(fp ? 0.2 : 1); }
     if (this.seat && this.role !== 'driver') this.root.position.set(this.seat[0] + (s.local ? s.local.bedX : s.bedX || 0), this.seat[1], this.seat[2] + (s.local ? s.local.bedZ : s.bedZ || 0));
     if (this.role === 'driver') { this._driver(dt, s); return; }
     // ---------------- gunner: aim is world space; convert to the vehicle frame
@@ -161,8 +176,8 @@ export class CrewView {
     if (rpg) _a.addScaledVector(_up, 0.1).addScaledVector(right, 0.02).addScaledVector(_d, -0.35);
     else if (one) _a.addScaledVector(_d, 0.5 - this.kick * 0.05).addScaledVector(_up, 0.08).addScaledVector(right, 0.12);
     else _a.addScaledVector(_d, -(this.stockZ ?? -0.25) - 0.08 - this.kick * 0.06).addScaledVector(_up, -0.06).addScaledVector(right, 0.07);
-    // first person: the gun's sight comes to the eye when aiming down sights; at the hip it sits low and right
-    if (fp && s.local.eye && this.weapon) {
+    // first person (no viewmodel): the gun's sight comes to the eye when aiming down sights; at the hip it sits low and right
+    if (fp && !useVm && s.local.eye && this.weapon) {
       const adsK = s.local.adsK || 0;
       if (one) { _b.copy(s.local.eye).addScaledVector(_d, 0.5).addScaledVector(_up, -0.13).addScaledVector(right, 0.06); _a.lerp(_b, 1 - adsK); }
       if (adsK > 0.01 && this.weapon.sockets.sight) {
@@ -202,6 +217,21 @@ export class CrewView {
       const r01 = s.local ? (s.local.reloadLen ? s.local.reloadT / s.local.reloadLen : 0) : this.reloadStart ? Math.min(1, (performance.now() - this.reloadStart) / 2000) : 0;
       this.weapon.update(dt, { trigger: s.fire, reloading: s.reloading, reload01: r01 });
     }
+    if (this.vm) {
+      if (useVm) this.vm.update(dt, s, !s.local.scoped);
+      else { this.vm.setVisible(false); if (s.local && s.local.gunner) s.local.gunner.fp = false; }
+    }
+  }
+
+  /** Swap every mesh of this character (+ its weapon) to shadow-only material clones (same programs) or back. */
+  _setShadowOnly(on) {
+    if (this._shadowOnlyOn === on) return;
+    this._shadowOnlyOn = on;
+    this.root.traverse((o) => {
+      if (!o.isMesh) return;
+      if (!o.userData.mat0) o.userData.mat0 = o.material;
+      o.material = on ? (Array.isArray(o.userData.mat0) ? o.userData.mat0.map(shadowOnly) : shadowOnly(o.userData.mat0)) : o.userData.mat0;
+    });
   }
 
   /** Orient a hand so its palm faces along the grip: keep the animated finger shape, align the hand's forward to the gun's forward. */
@@ -245,6 +275,7 @@ export class CrewView {
   die(e = {}) {
     if (this.deadT >= 0) return;
     this.alive = false; this.deadT = 0;
+    if (this.vm) { this.vm.setVisible(false); this._setShadowOnly(false); this.useVm = false; }
     if (this.role === 'driver' || !this.car) {
       // slump over the wheel
       if (this.spine[0]) for (const b of this.spine) b.quaternion.premultiply(_q.setFromAxisAngle(_n.set(1, 0, 0), 0.35));
@@ -282,6 +313,6 @@ export class CrewView {
   flinch() { this.flinchT = 0.3; }
   throwGrenade() { this.throwT = 0.7; const c = this.clips.find((x) => x.name === 'throw_grenade'); if (this.mixer && c) { const a = this.mixer.clipAction(c); a.reset(); a.setLoop(THREE.LoopOnce); a.setEffectiveWeight(0.8); a.play(); } }
   headWorld(out) { if (!this.head) return false; this.head.getWorldPosition(out); return true; }
-  muzzleWorld(out) { return this.weapon ? this.weapon.muzzleWorld(out) : false; }
-  dispose() { this.root.removeFromParent(); this.mixer?.stopAllAction(); }
+  muzzleWorld(out) { if (this.vm && this.useVm) return this.vm.muzzleWorld(out); return this.weapon ? this.weapon.muzzleWorld(out) : false; }
+  dispose() { this.root.removeFromParent(); this.mixer?.stopAllAction(); if (this.vm) this.vm.dispose(); }
 }

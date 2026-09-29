@@ -454,9 +454,10 @@ def roadblock():
     wreck_car(p, -5.0, 3.6, 82, "sedan", mat="paint", burnt=0.3, missing_wheels=(1, 2), seed=3)
     wreck_car(p, -2.6, 4.7, -14, "pickup", mat="rust", missing_wheels=(0,), seed=4)
     wreck_car(p, -5.6, 6.7, 168, "coupe", roll=180, y=1.35, mat="rust", missing_wheels=(), seed=5)
-    # right cluster (x 5.4 .. 7.6): overturned van on its side
-    wreck_car(p, 6.3, 3.4, 96, "van", roll=90, y=1.0, mat="paint", burnt=0.8, missing_wheels=(1,), seed=6)
-    wreck_car(p, 6.5, 6.4, 20, "sedan", mat="rust", missing_wheels=(2, 3), seed=7)
+    # right cluster (x 5.1 .. 8.4, beside the gap): overturned van on its side along the road + a rusty sedan
+    # (the gap x 0.4..4.8 is kept completely clear - visuals and collision - with a 0.25 m margin: x 0.15..5.05)
+    wreck_car(p, 7.25, 3.3, 8, "van", roll=90, y=1.0, mat="paint", burnt=0.8, missing_wheels=(1,), seed=6)
+    wreck_car(p, 7.0, 7.4, 14, "sedan", mat="rust", missing_wheels=(2, 3), seed=7)
     # jersey barriers: slanted, some knocked over
     def jersey(x, z, yaw, L=3.0, roll=0.0, yy=0.0):
         with Xf(p, xf((x, yy, z), (0, yaw, roll))):
@@ -464,12 +465,11 @@ def roadblock():
             p.cbox((0, 0.42, 0), (0.6, 0.85, L))
     jersey(-0.7, 2.6, 8, roll=0)
     jersey(-6.6, 1.0, 96)
-    jersey(5.1, 1.2, -20)
-    jersey(3.1, 7.7, 6, roll=0)
-    jersey(-0.4, 6.6, 70, roll=65, yy=0.28)
-    jersey(6.8, 8.0, 100)
+    jersey(6.0, 0.9, -20)
+    jersey(-1.55, 8.2, 80, roll=0)
+    jersey(-4.2, 9.0, 20, roll=65, yy=0.28)
     # hazard barricade boards (A-frame) at the gap
-    for x, z, yaw in ((0.1, 0.9, 12), (5.3, 0.6, -18)):
+    for x, z, yaw in ((-0.95, 0.2, 12), (6.15, -0.4, -18)):
         with Xf(p, xf((x, 0, z), (0, yaw, 0))):
             for sx in (-1, 1):
                 p.beam("metal_dark", (sx * 0.9, 0, 0), (sx * 0.75, 1.15, 0), 0.06, 0.06)
@@ -479,18 +479,18 @@ def roadblock():
                     p.box("hazard", (-0.75 + m * 0.3 + 0.15, y0 + 0.1, -0.02), (0.3, 0.2, 0.03), tint=YEL if (m + k) % 2 == 0 else BLK)
             p.cbox((0, 0.6, 0), (1.9, 1.2, 0.2))
     # tyre stacks + drums + sandbags
-    for (x, z, n) in ((-1.4, 0.9, 4), (6.9, 1.3, 3), (-7.0, 7.2, 4), (2.0, 8.4, 3)):
+    for (x, z, n) in ((-1.4, 1.2, 4), (8.0, 1.0, 3), (-7.0, 7.2, 4), (-2.6, 9.1, 3)):
         for lv in range(n):
             p.cyl("rubber", (x + 0.04 * (lv % 2), 0.19 + lv * 0.38, z), 0.52, 0.38, "y", sides=12)
         p.cbox((x, n * 0.19, z), (1.05, n * 0.38, 1.05))
-    for (x, z, f) in ((-0.2, 4.6, False), (0.0, 5.3, True), (7.0, 5.4, False), (3.8, 8.4, False), (-3.4, 1.6, True), (-6.9, 3.2, False)):
+    for (x, z, f) in ((-0.3, 4.6, False), (-0.75, 5.4, True), (5.55, 5.5, False), (5.6, 9.2, False), (-3.4, 1.6, True), (-6.9, 3.2, False)):
         drum(p, x, z, fallen=f, tint=(0.4 + 0.1 * ((x * 7) % 1), 0.15, 0.08))
-    sandbags(p, -1.0, 1.7, n=8, yaw=10)
-    sandbags(p, 5.9, 7.8, n=8, yaw=-15)
-    p.cbx((-1.8, -0.2), (0, 0.6), (1.5, 1.95))
-    p.cbx((5.1, 6.6), (0, 0.6), (7.6, 8.0))
+    sandbags(p, -1.75, 2.1, n=8, yaw=10)
+    sandbags(p, 6.55, 9.3, n=8, yaw=-8)
+    p.cbx((-2.55, -0.95), (0, 0.6), (1.9, 2.35))
+    p.cbx((5.75, 7.35), (0, 0.6), (9.1, 9.5))
     # razor / barbed wire coil on the barrier line (rings)
-    for x, z in ((-0.7, 2.6), (3.1, 7.7)):
+    for x, z in ((-0.7, 2.6), (-1.55, 8.2)):
         for k in range(6):
             a = k * 1.1
             p.tube("spike", (x + 0.2 * math.cos(a), 1.0 + 0.05 * k, z + 0.2 * math.sin(a)), (x + 0.2 * math.cos(a + 1.1), 1.0 + 0.05 * (k + 1), z + 0.2 * math.sin(a + 1.1)), 0.02, sides=4, smooth=False)

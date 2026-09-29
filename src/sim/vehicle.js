@@ -346,6 +346,12 @@ export class Vehicle {
       b.applyTorqueImpulse(_imp, true);
     }
     this.prevVelHeading = Math.atan2(v.x, v.z);
+    // arcade drift: tyres scrubbing sideways would bleed a lot of speed -- push along the velocity so a held drift keeps
+    // its momentum (and throttle through the slide is rewarded), capped below top speed
+    if (driftMode && throttle > 0.1 && groundedCount >= 2 && speed < vmax * 0.98) {
+      const th = (s.drift?.thrust ?? 0) * throttle * clamp01(Math.abs(this.slipAngle) / 0.35);
+      if (th > 0) { _imp.copy(v).multiplyScalar(this.mass * th * dt / Math.max(speed, 1)); b.applyImpulse(_imp, true); }
+    }
     // drifting bookkeeping
     this.drifting = groundedCount >= 2 && speed > 12 && Math.abs(this.slipAngle) > 0.28;
     this.driftTime = this.drifting ? this.driftTime + dt : Math.max(0, this.driftTime - dt * 2);

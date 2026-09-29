@@ -1,10 +1,12 @@
-// Enemy brains: driving (pure pursuit + behaviors) and gunnery (leading, aim error, bursts).
+// Enemy brains. Driving = keep a SLOT around the player (behind / alongside / ahead) and run ATTACK moves with readable tells
+// (side-swipe: swing out then slam in; brake-check: brake lights then stand on the brakes; ram: horn + nitro then charge).
+// Gunnery = wind-up (gunner shoulders the gun, glint) -> burst that walks onto the truck (leading, spread, recovering error).
+// Dead drivers slump onto the wheel: jammed throttle + yanked wheel + slide, steered into whatever is next to them.
 import * as THREE from 'three';
-import { clamp, lerp, wrapAngle, rng, smoothstep } from '../core/util.js';
+import { clamp, lerp, wrapAngle, rng } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
-import { ENEMY_GUNS } from '../data/enemies.js';
 
-const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _t = new THREE.Vector3(), _f = new THREE.Vector3(), _q = new THREE.Quaternion();
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _t = new THREE.Vector3(), _f = new THREE.Vector3(), _m = new THREE.Vector3(), _q = new THREE.Quaternion();
 const _pt = {};
 
 /** Local (model-frame) point -> world. */
@@ -14,98 +16,245 @@ export function carPoint(car, local, out) {
   return out;
 }
 
+const LANE_LIMIT = HALF_ROAD - 1.6;
+// gap = player.s - car.s  (> 0: the car is BEHIND the player)
+const SLOT = {
+  chaser: (r) => ({ gap: r.range(12, 26), lat: r.range(-2.6, 2.6) }),
+  flanker: (r) => ({ gap: -r.range(4, 10), lat: 4.3 }),
+  leader: (r) => ({ gap: -r.range(15, 24), lat: 0 }),
+  blocker: (r) => ({ gap: -r.range(10, 15), lat: 0 }),
+  rammer: (r) => ({ gap: r.range(14, 20), lat: r.range(-1.5, 1.5) }),
+  heavy: (r) => ({ gap: -r.range(18, 28), lat: 0 }),
+  dropper: () => ({ gap: -55, lat: 0 }),
+  summoner: (r) => ({ gap: r.range(-4, 6), lat: 5.4 }),
+};
+
 export class EnemyBrain {
+  /** cfg: {behavior, skill, level, guns, side?, mode?: 'ambush'|'overtake', next?, pattern?} */
   constructor(car, sim, cfg) {
     this.car = car; this.sim = sim;
-    this.behavior = cfg.behavior; this.skill = cfg.skill; this.level = cfg.level;
+    this.skill = cfg.skill; this.level = cfg.level;
     this.r = rng((car.id * 7919 + 17) >>> 0);
-    this.gapTarget = cfg.gap ?? (this.behavior === 'blocker' ? -70 : this.behavior === 'flanker' ? this.r.range(-2, 6) : this.r.range(14, 34));
-    this.side = this.r() < 0.5 ? 1 : -1;
-    this.lat = this.r.range(-2.6, 2.6);
+    this.side = cfg.side ?? (this.r() < 0.5 ? 1 : -1);
     this.phase = this.r() * 6.28;
-    this.t = 0; this.ramT = this.r.range(2, 5); this.ramActive = 0;
-    this.maxSpeed = (car.spec.engine.vmax) * 0.97;
-    this.stuckT = 0; this.brakeHold = 0; this.laneD = 0;
+    this.t = 0; this.stuckT = 0;
+    this.pattern = cfg.pattern || null;            // miniboss attack pattern
+    this.mode = cfg.mode || 'engage';               // 'ambush' (parked ahead, waiting) | 'overtake' (pass, then take `next`) | 'engage'
+    this.next = cfg.next || null;
+    this.setBehavior(cfg.behavior, cfg.gap);
+    this.maxSpeed = car.spec.engine.vmax * 0.97;
+    this.atk = null;
+    const L = this.level;
+    this.atkCd = this.r.range(2.5, 5) * lerp(1.4, 0.8, clamp(L, 0, 1));
+    this.laneT = this.r.range(2, 5); this.laneOff = 0;
     this.guns = cfg.guns; // {gunner: gunDef, gunner2: gunDef}
     this.state = {}; // per gunner
-    for (const role of Object.keys(this.guns)) this.state[role] = { mode: 'idle', t: this.r.range(0.3, 1.5), shots: 0, burst: 0, fireT: 0, aimAt: 'cab', err: new THREE.Vector3(), yaw: car.crew[role].aimYaw, pitch: 0 };
+    for (const role of Object.keys(this.guns)) this.state[role] = { mode: 'idle', t: this.r.range(0.6, 1.8), burst: 0, fireT: 0, aimAt: 'body', err: new THREE.Vector3(), yaw: car.crew[role].aimYaw, pitch: 0 };
     this.tgt = new THREE.Vector3();
+    this.hadGunner = !!Object.keys(this.guns).length;
   }
+
+  setBehavior(b, gap) {
+    this.behavior = b;
+    const s = (SLOT[b] || SLOT.chaser)(this.r);
+    this.gapTarget = gap ?? s.gap; this.lat = s.lat;
+    this.atk = null;
+  }
+
+  /**
+   * What this raider is about to do, for HUD chevrons / mirrors / car lights (also sent to the gunner peer in snapshots):
+   * 'ram' (charging you: ram / side-swipe / crush, from the tell on), 'block' (brake-check in front), 'shoot' (a gunner is
+   * winding up or firing at you), or null. Precedence: ram > block > shoot.
+   */
+  get intent() {
+    if (this.car.driverless || this.car.exploded) return null;
+    const a = this.atk;
+    if (a && a.phase !== 'recover' && a.phase !== 'line') {
+      if (a.kind === 'ram' || a.kind === 'swipe' || a.kind === 'crush') return 'ram';
+      if (a.kind === 'brake') return 'block';
+    }
+    for (const st of Object.values(this.state)) if (st.mode === 'aim' || st.mode === 'burst') return 'shoot';
+    return null;
+  }
+
+  /** How eager this raider is: attack cooldown in seconds, shrinking with difficulty. */
+  _cooldown(base) { return base * lerp(1.35, 0.55, clamp(this.level, 0, 1.2)) * this.r.range(0.75, 1.3); }
+
+  _tell(kind, extra) { this.sim.emit({ t: 'enemyTell', id: this.car.id, kind, ...extra }); }
 
   update(dt) {
     const car = this.car, sim = this.sim, veh = car.veh, P = sim.player;
     this.t += dt;
     if (car.exploded) return;
-    if (car.driverless || !car.crew.driver.alive) {
-      // the dead driver slumps onto the wheel: foot jammed on the gas for a moment, the wheel yanked to one side
-      if (this.deadT === undefined) { this.deadT = 0; this.deadSteer = (this.r() < 0.5 ? -1 : 1) * this.r.range(0.45, 1.0); this.deadSpin = this.r() < 0.25; }
-      this.deadT += dt;
-      veh.input.throttle = this.deadT < 1.6 ? 0.7 : 0;
-      veh.input.brake = 0;
-      veh.input.steer = this.deadSteer * Math.min(1, this.deadT * 2.5);
-      veh.input.handbrake = this.deadSpin && this.deadT > 0.4 && this.deadT < 1.2;
-      veh.driverAlive = true; // let the jammed controls act on the car
-      if (this.deadT > 2.5) { veh.driverAlive = false; veh.input.handbrake = false; }
-      this.gunnery(dt); return;
-    }
-    if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; return; }
+    if (car.driverless || !car.crew.driver.alive) { this._deadDriver(dt); this.gunnery(dt); return; }
+    if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
     const road = sim.road;
-    const pv = P.veh.vf, gap = P.s - car.s;      // gap > 0: we are behind the player
+    const pv = Math.max(0, P.veh.vf), gap = P.s - car.s;      // gap > 0: we are behind the player
     const speed = veh.vf;
-    let dT = P.d, vDes;
-    const laneLimit = HALF_ROAD - 2.2;
+    const L = this.level;
+    // a raider whose gunner died goes for the ram
+    if (this.hadGunner && this.behavior !== 'rammer' && !this.pattern && !Object.keys(this.guns).some((r) => car.crew[r]?.alive)) {
+      if (!this.enragedT) this.enragedT = this.t;
+      else if (this.t - this.enragedT > 1.2) { this.setBehavior('rammer'); this.hadGunner = false; this.atkCd = 0.5; }
+    }
+    let dT, vDes, brake = 0, nitro = false, horn = false;
+    // ---------------- mode: ambush — idling along the shoulder ahead, floors it as you arrive (ends up in your windshield)
+    if (this.mode === 'ambush') {
+      dT = this.parkD ?? car.d;
+      vDes = pv * 0.5; 
+      if (gap > -62) { this.mode = 'engage'; this.setBehavior(this.next || this.behavior); this._tell('peelOut'); horn = true; this.launchT = this.t; }
+      this._drive(dt, dT, vDes, 0, false, horn, true);
+      this.gunnery(dt);
+      return;
+    }
+    this.atkCd -= dt;
+    this.laneT -= dt;
+    let slotGap = this.gapTarget, slotLat;
     switch (this.behavior) {
-      case 'flanker': {
-        const off = this.side * (4.6 + 0.4 * Math.sin(this.t * 0.6 + this.phase));
-        dT = P.d + off;
-        if (Math.abs(dT) > laneLimit) { this.side = -this.side; dT = P.d + this.side * 4.6; }
-        // opportunistic side-swipe
-        if (this.ramActive > 0) { this.ramActive -= dt; dT = P.d + this.side * 1.2; } else if (this.t > this.ramT && Math.abs(gap) < 9 && this.level > 0.15) { this.ramActive = 0.8; this.ramT = this.t + this.r.range(4, 8); }
-        vDes = pv + clamp((gap - this.gapTarget) * 0.4, -14, 22);
-        break;
+      case 'flanker': slotLat = this.side * (this.lat + 0.35 * Math.sin(this.t * 0.7 + this.phase)); break;
+      case 'summoner': slotLat = this.side * this.lat; break;
+      case 'leader': case 'heavy': {
+        // weave between the player's lane and the lanes either side of it: the gunner gets an angle, the driver has to watch it
+        if (this.laneT <= 0) { this.laneT = this.r.range(3, 6.5); this.laneOff = this.r.pick(this.behavior === 'heavy' ? [0, 0, -2, 2] : [0, -3.4, 3.4, 0]); }
+        slotLat = this.laneOff; break;
       }
-      case 'rammer': {
-        if (gap > 30) { dT = P.d + this.lat; vDes = pv + clamp((gap - 22) * 0.45, -8, 28); }
-        else {
-          // predicted intercept of the player's rear
-          dT = P.d + clamp(P.veh.vl * 0.25, -2, 2);
-          vDes = Math.min(this.maxSpeed, pv + 16 + this.level * 8);
-          if (gap < -6) { dT = P.d + this.side * 9; this.gapTarget = 26; vDes = pv - 5; } // overshot: drop back and try again
+      case 'blocker': slotLat = 0; break;
+      case 'dropper': slotLat = Math.sin(this.t * 0.5) * 2; break;
+      case 'rammer': slotLat = this.lat; break;
+      default: slotLat = this.lat * Math.sin(this.t * 0.35 + this.phase) * 1.2 + this.lat * 0.4;
+    }
+    if (this.mode === 'overtake') {
+      // pass on one side, then cut in ahead and become a leader/flanker
+      slotLat = this.side * 4.6; slotGap = -30;
+      if (gap < -14) { this.mode = 'engage'; this.setBehavior(this.next || 'leader'); this.laneOff = 0; this.laneT = this.r.range(1.5, 3); this.atkCd = Math.min(this.atkCd, this.r.range(0.8, 2.2)); this._tell('cutIn'); }
+    }
+    // a slot ahead of the player is reached by PASSING in the next lane (not by tailgating him)
+    if (slotGap < -2 && gap > -9 && this.mode !== 'overtake') {
+      if (gap > 12 || this.passSide === undefined) this.passSide = car.d - P.d >= 0 ? 1 : -1;
+      if (Math.abs(P.d + this.passSide * 4.6) > HALF_ROAD + 0.8 && gap > 8) this.passSide = -this.passSide;
+      if (this.behavior !== 'flanker' || Math.sign(slotLat) !== this.passSide) slotLat = this.passSide * 4.6;
+    }
+    if (this.mode === 'overtake' && Math.abs(P.d + slotLat) > HALF_ROAD + 0.8 && gap > 8) { this.side = -this.side; slotLat = -slotLat; }
+    // flank slots may use the shoulder; if the player hugs that edge, go round to the other side
+    if ((this.behavior === 'flanker' || this.behavior === 'summoner') && Math.abs(P.d + slotLat) > HALF_ROAD + 1.2 && gap > 7) { this.side = -this.side; slotLat = -slotLat; }
+    // a roadblock is coming up for the player: raiders ahead run for the gap well in front, the rest drop back — the gap is his
+    const rbP = road.featuresIn(P.s + 5, P.s + 190, 'roadblock')[0];
+    if (rbP && rbP.s0 > car.s) {
+      if (gap < -45) slotGap = Math.min(slotGap, -70);
+      else { slotGap = Math.max(slotGap, 18); if (this.mode === 'overtake') this.mode = 'engage'; }
+      this.atkCd = Math.max(this.atkCd, 1.5);
+    }
+    dT = P.d + slotLat;
+    // speed: close on the slot; the approach from far away is quick, the final metres are gentle
+    vDes = pv + clamp((gap - slotGap) * 0.45, -12, 24);
+    if (this.launchT !== undefined && this.t - this.launchT < 3) nitro = true;   // peel-out
+    // chasers get bored and come forward (they are the gunner's problem at first, the driver's next)
+    if (this.behavior === 'chaser' && this.mode === 'engage' && this.atkCd <= 0 && gap < 45) {
+      if (this.guns.gunner && this.r() < 0.6 + 0.3 * L) { this.mode = 'overtake'; this.next = this.r() < 0.55 ? 'leader' : 'flanker'; this.side = P.d > 0 ? -1 : 1; this._tell('overtake'); }
+      else { this.setBehavior('rammer'); }
+      this.atkCd = this._cooldown(6);
+    }
+    // ---------------- attacks
+    const relLat = car.d - P.d;
+    if (!this.atk && this.atkCd <= 0 && this.mode === 'engage' && this._canAttack(gap, relLat)) this._startAttack(gap, relLat);
+    if (this.atk) {
+      const a = this.atk; a.t += dt;
+      switch (a.kind) {
+        case 'swipe': {
+          // tell: swing out ~1.5 m for a beat, then slam the flank
+          if (a.phase === 'wind') { dT = P.d + a.side * 5.8; vDes = pv + clamp((gap + 1.5) * 0.5, -6, 8); if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
+          else if (a.phase === 'hit') { dT = P.d + a.side * 0.6; vDes = pv + clamp((gap + 0.5) * 0.6, -5, 6) + 1; if (a.t > 0.9 || Math.abs(relLat) < 2.1) { a.phase = 'recover'; a.t = 0; } }
+          else { dT = P.d + a.side * 4.6; if (a.t > 1.0) this._endAttack(5.5); }
+          break;
         }
-        break;
-      }
-      case 'blocker': {
-        dT = P.d + this.lat * 0.3;
-        if (gap < -30) vDes = Math.max(6, pv - 7 - Math.min(10, (-gap - 30) * 0.02));
-        else vDes = Math.max(0, pv * 0.25 - 4 * (this.t > 3 ? 1 : 0)); // slam the brakes right in front
-        if (gap > 5) { this.behavior = 'chaser'; this.gapTarget = 28; }
-        break;
-      }
-      case 'dropper': {
-        // stay 40-70 m ahead in the player's lane, lay burning mines
-        dT = P.d + Math.sin(this.t * 0.5) * 2;
-        vDes = pv + clamp((-55 - gap) * 0.4, -10, 14);
-        if (gap < -25 && gap > -110 && this.t - (this.lastDrop || 0) > 2.6) { this.lastDrop = this.t; sim.hazards.dropEnemyMine(sim, car, 8, 55 + 50 * this.level); }
-        break;
-      }
-      case 'summoner': {
-        dT = clamp(P.d + this.side * 4, -laneLimit, laneLimit);
-        vDes = pv + clamp((gap - 18) * 0.3, -10, 12);
-        if (this.t - (this.lastSummon || 0) > 14) { this.lastSummon = this.t; for (let k = 0; k < 2; k++) sim.director.spawn(sim, 'e_buggy', this.level, { behavior: 'flanker' }); sim.emit({ t: 'summon', id: car.id }); }
-        break;
-      }
-      case 'heavy': {
-        dT = clamp(P.d + this.lat * 0.5, -laneLimit, laneLimit);
-        vDes = pv + clamp((gap - this.gapTarget) * 0.3, -10, 12);
-        break;
-      }
-      default: { // chaser
-        dT = P.d + this.lat * Math.sin(this.t * 0.35 + this.phase) * 1.4 + this.lat * 0.5;
-        vDes = pv + clamp((gap - this.gapTarget) * 0.35, -14, 20);
+        case 'brake': {
+          dT = P.d + clamp(relLat, -1.2, 1.2);
+          if (a.phase === 'wind') { vDes = pv - 1; brake = 0.2; if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; a.v0 = pv; } }
+          else if (a.phase === 'hit') { vDes = a.v0 * 0.7; brake = this.behavior === 'heavy' ? 0.45 : 0.55; if (a.t > a.hold || gap > 1) { a.phase = 'recover'; a.t = 0; } }
+          else { vDes = pv + 8; dT = P.d + (relLat >= 0 ? 3.6 : -3.6); if (a.t > 1.4) this._endAttack(6.5); }
+          break;
+        }
+        case 'ram': {
+          // line up behind a rear corner, hoot, then charge (nitro) into it — a PIT attempt
+          const corner = P.d + a.side * 0.9;
+          if (a.phase === 'line') { dT = corner; vDes = pv + clamp((gap - 11) * 0.5, -8, 12); if (Math.abs(gap - 11) < 5 && Math.abs(relLat - a.side * 0.9) < 1.4) { a.phase = 'wind'; a.t = 0; horn = true; this._tell('ram'); } if (a.t > 7) this._endAttack(3); }
+          else if (a.phase === 'wind') { dT = corner; vDes = pv; if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
+          else if (a.phase === 'hit') { dT = corner + clamp(P.veh.vl * 0.2, -1, 1); vDes = this.maxSpeed + 10; nitro = true; if (gap < -3 || a.t > 2.4 || a.contact) { a.phase = 'recover'; a.t = 0; } }
+          else { dT = P.d + a.side * 5; vDes = pv - 6; if (a.t > 1.4) this._endAttack(4.5); }
+          break;
+        }
+        case 'crush': {
+          // twin miniboss: both slam in from opposite flanks at once
+          if (a.phase === 'wind') { dT = P.d + a.side * 6.2; vDes = pv + clamp((gap + 0.5) * 0.6, -6, 8); if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
+          else if (a.phase === 'hit') { dT = P.d + a.side * 0.2; vDes = pv + clamp(gap * 0.6, -5, 6) + 2; nitro = true; if (a.t > 1.1) { a.phase = 'recover'; a.t = 0; } }
+          else { dT = P.d + a.side * 5; if (a.t > 1.2) this._endAttack(9); }
+          break;
+        }
       }
     }
-    dT = clamp(dT, -laneLimit, laneLimit);
-    vDes = Math.min(vDes, this.maxSpeed);
+    // ---------------- dropper: burning barrels in the player's path
+    if (this.behavior === 'dropper' && gap < -25 && gap > -110 && this.t - (this.lastDrop || 0) > (this.pattern ? 1.1 : 2.6)) {
+      this.lastDrop = this.t;
+      if (!this.pattern || (this.dropN = ((this.dropN || 0) + 1) % 4) !== 0) sim.hazards.dropEnemyMine(sim, car, 8, 55 + 50 * L);
+    }
+    // ---------------- summoner: calls in skirmishers
+    if (this.behavior === 'summoner' || this.pattern?.summon) {
+      const every = this.pattern?.summon ?? 14;
+      if (this.lastSummon === undefined) this.lastSummon = this.t - every + 6;
+      if (this.t - this.lastSummon > every) {
+        this.lastSummon = this.t;
+        const alive = [...sim.cars.values()].filter((c) => c.kind === 'enemy' && !c.exploded).length;
+        if (alive < 9) {
+          const kinds = this.pattern?.summonKinds || ['e_buggy', 'e_buggy'];
+          kinds.forEach((k, i) => sim.director.spawn(sim, k, L, { behavior: 'flanker', side: i % 2 ? 1 : -1, at: { s: P.s - 105 - i * 12, d: (i % 2 ? 1 : -1) * 3.4, speed: pv + 14 } }));
+          sim.emit({ t: 'summon', id: car.id });
+        }
+      }
+    }
+    // ---------------- raiders know where their own roadblocks are: thread the gap
+    const rb = road.featuresIn(car.s + 5, car.s + 120, 'roadblock')[0];
+    if (rb) { dT = clamp(rb.gap * 2.2, -4.6, 4.6); if (this.atk) this._endAttack(2); vDes = Math.min(vDes, 36); }
+    this._drive(dt, dT, vDes, brake, nitro, horn);
+    if (veh.up.y < 0.3) { this.stuckT += dt; if (this.stuckT > 3.5 && !car.exploded && car.burning <= 0) { car.burning = 0.001; sim.emit({ t: 'fire', id: car.id }); } } else this.stuckT = 0;
+    this.gunnery(dt);
+  }
+
+  _canAttack(gap, relLat) {
+    const b = this.behavior;
+    if (this.level < 0.03 && this.t < 8) return false;                       // first seconds of a run: let them show themselves
+    if (b === 'flanker' || b === 'summoner') return gap > -12 && gap < 6 && Math.abs(relLat) > 2.6 && Math.abs(relLat) < 7.5;
+    if (b === 'leader' || b === 'blocker' || b === 'heavy') return gap < -13 && gap > -32 && Math.abs(relLat) < 2.4 && this.sim.player.veh.vf > 12;
+    if (b === 'rammer') return gap > 4 && gap < 60;
+    return false;
+  }
+
+  _startAttack(gap, relLat) {
+    const b = this.behavior, L = this.level;
+    if (this.pattern?.crush && this.pattern.partner && !this.pattern.partner.exploded) {
+      // twin: occasionally both brothers crush together (the brother gets the same order)
+      if (this.r() < 0.45 && Math.abs(gap) < 8) {
+        const side = relLat >= 0 ? 1 : -1;
+        this.atk = { kind: 'crush', phase: 'wind', t: 0, wind: 0.8, side };
+        const pb = this.pattern.partner.ai; if (pb && !pb.atk) pb.atk = { kind: 'crush', phase: 'wind', t: 0, wind: 0.8, side: -side };
+        this._tell('crush', { horn: true }); this.sim.emit({ t: 'horn', id: this.car.id, heavy: true });
+        return;
+      }
+    }
+    if (b === 'flanker' || b === 'summoner') { this.atk = { kind: 'swipe', phase: 'wind', t: 0, wind: lerp(0.7, 0.45, clamp(L, 0, 1)), side: relLat >= 0 ? 1 : -1 }; this._tell('swipe'); }
+    else if (b === 'leader' || b === 'blocker' || b === 'heavy') { this.atk = { kind: 'brake', phase: 'wind', t: 0, wind: 0.45, hold: this.r.range(0.6, 1.0) * (b === 'blocker' ? 1.3 : 1) }; this._tell('brake'); if (b === 'heavy') this.sim.emit({ t: 'horn', id: this.car.id, heavy: true }); }
+    else if (b === 'rammer') { this.atk = { kind: 'ram', phase: 'line', t: 0, wind: lerp(0.65, 0.4, clamp(L, 0, 1)), side: this.r() < 0.5 ? 1 : -1 }; }
+  }
+
+  _endAttack(cd) { this.atk = null; this.atkCd = this._cooldown(cd); }
+
+  /** Called by the director when this car bumps the player (ends a ram / swipe). */
+  onContact() { if (this.atk && (this.atk.kind === 'ram' || this.atk.kind === 'swipe')) this.atk.contact = true; }
+
+  _drive(dt, dT, vDes, brakeIn, nitro, horn, shoulder = false) {
+    const car = this.car, sim = this.sim, veh = car.veh, road = sim.road, speed = veh.vf, P = sim.player;
+    const lim = shoulder || this.behavior === 'flanker' || this.behavior === 'summoner' || this.mode === 'overtake' ? HALF_ROAD + 0.3 : LANE_LIMIT;
+    dT = clamp(dT, -lim, lim);
+    vDes = Math.min(vDes, this.maxSpeed + (nitro ? 8 : 0));
     // curve caution: slow down for tight corners
     const look = clamp(speed * 0.55 + 8, 10, 42);
     const smK = road.sample(car.s + look * 1.8, _pt).k;
@@ -114,49 +263,104 @@ export class EnemyBrain {
     const tp = road.pointAt(car.s + look, dT, this._tp || (this._tp = {}));
     const desired = Math.atan2(tp.x - veh.pos.x, tp.z - veh.pos.z);
     const heading = Math.atan2(veh.fwd.x, veh.fwd.z);
-    const err = wrapAngle(desired - heading);
-    let steer = clamp(err * (2.2 + 0.6 * this.skill), -1, 1);
-    // avoid other cars ahead
+    let steer = clamp(wrapAngle(desired - heading) * (2.2 + 0.6 * this.skill), -1, 1);
+    // avoid other cars ahead (not the player when attacking it; wrecks and runaway cars are noticed late -> pile-ups)
     let brakeAvoid = 0;
+    const attacking = this.atk && (this.atk.phase === 'hit' || this.atk.kind === 'ram');
     for (const o of sim.cars.values()) {
-      if (o === car || o.exploded) continue;
+      if (o === car) continue;
+      if (o === P && (attacking || this.behavior === 'rammer')) continue;
       _v.copy(o.veh.pos).sub(veh.pos); const ahead = _v.dot(veh.fwd), lat = _v.dot(veh.left);
-      if (ahead > 0 && ahead < 16 + speed * 0.3 && Math.abs(lat) < 3.4) {
-        if (this.behavior === 'rammer' && o === P) continue;
-        if (o === P && this.behavior === 'blocker') continue;
-        steer += clamp((lat >= 0 ? -1 : 1) * (1 - ahead / (16 + speed * 0.3)) * 1.6, -1, 1);
-        if (o.veh.vf < speed - 2 && ahead < 10 + speed * 0.2) brakeAvoid = Math.max(brakeAvoid, 0.6);
+      const chaos = o.exploded || o.driverless;
+      const range = chaos ? 7 + speed * 0.12 : 16 + speed * 0.3;
+      if (ahead > 0 && ahead < range && Math.abs(lat) < 3.4) {
+        steer += clamp((lat >= 0 ? -1 : 1) * (1 - ahead / range) * (chaos ? 0.9 : 1.6), -1, 1);
+        if (o.veh.vf < speed - 2 && ahead < 10 + speed * 0.2) brakeAvoid = Math.max(brakeAvoid, chaos ? 0.3 : 0.6);
       }
     }
     veh.input.steer = clamp(steer, -1, 1);
     const dv = vDes - speed;
-    veh.input.throttle = dv > 0 ? clamp(dv * 0.5, 0, 1) : 0;
-    veh.input.brake = Math.max(brakeAvoid, dv < -3 ? clamp(-dv * 0.18, 0, 1) : 0);
-    veh.input.handbrake = false; veh.input.nitro = this.behavior === 'rammer' && gap < 60 && gap > 0 && this.level > 0.5;
-    if (veh.up.y < 0.3) { this.stuckT += dt; if (this.stuckT > 3.5 && !car.exploded && car.burning <= 0) { car.burning = 0.001; sim.emit({ t: 'fire', id: car.id }); } } else this.stuckT = 0;
-    this.gunnery(dt);
+    veh.input.throttle = brakeIn > 0.5 ? 0 : dv > 0 ? clamp(dv * 0.5, 0, 1) : 0;
+    veh.input.brake = Math.max(brakeAvoid, brakeIn, dv < -3 ? clamp(-dv * 0.18, 0, 1) : 0);
+    veh.input.handbrake = false; veh.input.nitro = nitro;
+    if (horn && this.t - (this.hornT ?? -9) > 2) { this.hornT = this.t; sim.emit({ t: 'horn', id: car.id }); }
+  }
+
+  /** Driver shot: he slumps onto the wheel. Throttle jammed, wheel yanked toward whatever is beside him, the rear steps out. */
+  _deadDriver(dt) {
+    const car = this.car, veh = car.veh, sim = this.sim;
+    if (this.deadT === undefined) {
+      this.deadT = 0;
+      // pick a victim: the nearest car beside / just ahead (other raiders first; sometimes the player)
+      let best = null, bs = 1e9;
+      for (const o of sim.cars.values()) {
+        if (o === car || o.exploded) continue;
+        _v.copy(o.veh.pos).sub(veh.pos); const ahead = _v.dot(veh.fwd), lat = _v.dot(veh.left);
+        if (ahead < -6 || ahead > 34 || Math.abs(lat) > 13 || Math.abs(lat) < 0.5) continue;
+        const score = Math.abs(lat) + Math.max(0, ahead) * 0.35 + (o.kind === 'player' ? 6 : 0);
+        if (score < bs) { bs = score; best = o; }
+      }
+      if (best) { _v.copy(best.veh.pos).sub(veh.pos); this.deadSteer = (_v.dot(veh.left) >= 0 ? 1 : -1) * this.r.range(0.75, 1); this.deadVictim = best; }
+      else this.deadSteer = (car.d >= 0 ? 1 : -1) * (this.r() < 0.7 ? 1 : -1) * this.r.range(0.6, 1); // mostly toward the nearer road edge
+      this.deadSpin = !best && this.r() < 0.35;
+      this.deadJam = this.r.range(1.6, 2.6);
+      this.sim.emit({ t: 'runaway', id: car.id, victim: best ? best.id : -1 });
+    }
+    this.deadT += dt;
+    const T = this.deadT;
+    // steer toward the victim while it is still there (the slumped body keeps the wheel over)
+    let steer = this.deadSteer;
+    const v = this.deadVictim;
+    if (v && !v.exploded && T < 2.2) {
+      _v.copy(v.veh.pos).addScaledVector(v.veh.vel, 0.25).sub(veh.pos);
+      const want = wrapAngle(Math.atan2(_v.x, _v.z) - Math.atan2(veh.fwd.x, veh.fwd.z));
+      steer = clamp(want * 3.5, -1, 1);
+    }
+    veh.input.throttle = T < this.deadJam ? 0.85 : 0;
+    veh.input.brake = 0;
+    veh.input.steer = steer * Math.min(1, T * 3);
+    veh.input.nitro = false;
+    // the rear steps out: short handbrake stabs make it slide across the lanes instead of gently arcing
+    veh.input.handbrake = (this.deadSpin && T > 0.3 && T < 1.4) || (T > 0.35 && T < 0.7) || (T > 1.1 && T < 1.35);
+    veh.driverAlive = T < 3.4; // let the jammed controls act on the car, then it is just a coasting wreck-in-waiting
+    if (!veh.driverAlive) veh.input.handbrake = false;
+    // off the road at speed with nobody at the wheel: dig in and roll
+    if (!this.rolled && Math.abs(car.d) > HALF_ROAD + 1.2 && veh.speed > 16 && T < 5) {
+      this.rolled = true;
+      const m = veh.mass, s = Math.sign(car.d) || 1;
+      _f.copy(veh.fwd).multiplyScalar(s * m * this.r.range(3.5, 5.5));
+      veh.body.applyTorqueImpulse({ x: _f.x, y: _f.y + m * this.r.range(-1, 1), z: _f.z }, true);
+      veh.body.applyImpulse({ x: 0, y: m * 3.2, z: 0 }, true);
+    }
   }
 
   gunnery(dt) {
     const car = this.car, sim = this.sim, P = sim.player;
-    if (!P || P.exploded) return;
+    if (!P || P.exploded) { for (const role of Object.keys(this.guns)) { const c = car.crew[role]; if (c) { c.fire = false; c.ads = false; } } return; }
     for (const role of Object.keys(this.guns)) {
       const crew = car.crew[role]; const st = this.state[role]; const gun = this.guns[role];
-      if (!crew || !crew.alive) { crew && (crew.fire = false); continue; }
+      if (!crew || !crew.alive) { if (crew) { crew.fire = false; crew.ads = false; } continue; }
+      if (this.mode === 'ambush') { crew.fire = false; crew.ads = false; continue; }
       const seat = car.spec.seats[role];
-      const muzzle = carPoint(car, [seat[0], seat[1] + 1.35, seat[2]], _v);
+      const muzzle = carPoint(car, [seat[0], seat[1] + 1.35, seat[2]], _m);
       const dist = muzzle.distanceTo(P.veh.pos);
-      // choose an aim point on the player's truck
-      if (st.mode === 'idle' || st.mode === 'aim') {
-        const zone = st.aimAt;
-        const ps = P.spec.seats;
-        const local = zone === 'cab' ? [ps.driver[0], ps.driver[1] + 0.5, ps.driver[2]] : zone === 'bed' ? [ps.gunner[0], ps.gunner[1] + 1.1, ps.gunner[2]] : zone === 'tire' ? [P.spec.wheels[0].x, 0.35, P.spec.wheels[0].z] : [0, 0.95, 0];
-        carPoint(P, local, this.tgt);
+      // choose an aim point on the player's truck (+ a walking error that closes during the burst)
+      const ps = P.spec.seats, zone = st.aimAt;
+      let local;
+      if (zone === 'cab') local = [ps.driver[0] * 0.5, ps.driver[1] + 0.45, ps.driver[2]];
+      else if (zone === 'bed') local = [ps.gunner[0], ps.gunner[1] + 0.9, ps.gunner[2]];
+      else {
+        // bodywork: the near end / flank of the truck, low (tailgate, grille, doors, wheels) — not the people
+        _t.copy(muzzle).sub(P.veh.pos).applyQuaternion(_q.copy(P.veh.quat).invert());
+        const hl = P.spec.length / 2 - 0.5, hw = P.spec.width / 2 - 0.2;
+        local = zone === 'tire' ? [P.spec.wheels[2].x, 0.35, P.spec.wheels[2].z] : [clamp(_t.x * 0.3, -hw, hw), 0.55, clamp(_t.z * 0.4, -hl, hl)];
       }
+      carPoint(P, local, this.tgt).add(st.err);
+      st.err.multiplyScalar(Math.exp(-dt * (st.mode === 'burst' ? 1.5 + 1.2 * this.skill : 0.6)));
       // predicted lead
       const rel = _w.copy(P.veh.vel).sub(car.veh.vel);
       const tFly = clamp(dist / gun.speed, 0, 1.2);
-      _t.copy(this.tgt).addScaledVector(rel, tFly * (0.75 + 0.25 * this.skill));
+      _t.copy(this.tgt).addScaledVector(rel, tFly * (0.7 + 0.25 * this.skill));
       _f.copy(_t).sub(muzzle); const dl = _f.length(); _f.multiplyScalar(1 / dl);
       const wantYaw = Math.atan2(_f.x, _f.z), wantPitch = Math.asin(clamp(_f.y, -1, 1));
       const rate = gun.aimRate * (0.7 + 0.6 * this.skill);
@@ -168,22 +372,36 @@ export class EnemyBrain {
       st.t -= dt;
       switch (st.mode) {
         case 'idle':
-          crew.fire = false;
-          if (inRange && st.t <= 0) { st.mode = 'aim'; st.t = this.r.range(gun.react[0], gun.react[1]) * lerp(1.25, 0.7, this.skill); st.aimAt = this.r() < 0.55 ? 'cab' : this.r() < 0.6 ? 'bed' : this.r() < 0.5 ? 'body' : 'tire'; }
+          crew.fire = false; crew.ads = false;
+          if (inRange && st.t <= 0) {
+            // only a few raiders may be winding up / firing at once (attack tokens): bursts come one after another, readable
+            if (!sim.director.fireToken(car, role)) { st.t = this.r.range(0.25, 0.6); break; }
+            // wind-up: the gunner shoulders the gun (visible glint) before the burst — this is the driver's cue to jink
+            st.mode = 'aim'; st.t = this.r.range(gun.react[0], gun.react[1]) * lerp(1.2, 0.8, this.skill);
+            // far away they shoot at the truck; up close they go for the crew
+            const u = this.r(), close = dist < 32;
+            st.aimAt = close ? (u < 0.36 ? 'body' : u < 0.66 ? 'cab' : u < 0.95 ? 'bed' : 'tire') : (u < 0.58 ? 'body' : u < 0.72 ? 'cab' : u < 0.84 ? 'bed' : 'tire');
+          }
           break;
         case 'aim':
-          if (!inRange) { st.mode = 'idle'; st.t = 0.6; break; }
-          if (st.t <= 0 && aligned) { st.mode = 'burst'; st.burst = Math.round(lerp(gun.burst[0], gun.burst[1], this.r())); st.fireT = 0; }
+          crew.ads = true;
+          if (!inRange) { st.mode = 'idle'; st.t = 0.6; crew.ads = false; break; }
+          if (st.t <= 0 && aligned) {
+            st.mode = 'burst'; st.burst = Math.round(lerp(gun.burst[0], gun.burst[1], this.r())); st.fireT = 0;
+            // first rounds land short / wide and walk onto the truck: the stream is readable and dodgeable
+            const e = lerp(3.4, 1.4, this.skill) * (0.7 + Math.min(1, dist / 50));
+            st.err.set(this.r.range(-1, 1), this.r.range(-0.2, 0.25), this.r.range(-1, 1)).normalize().multiplyScalar(e);
+          }
           break;
         case 'burst': {
-          crew.fire = true;
+          crew.fire = true; crew.ads = true;
           st.fireT -= dt;
-          if (st.fireT <= 0 && st.burst > 0) {
+          while (st.fireT <= 0 && st.burst > 0) {
             this.shoot(muzzle, role, gun, st);
             st.burst--; st.fireT += 1 / gun.rate;
           }
-          if (st.burst <= 0) { st.mode = 'idle'; crew.fire = false; st.t = this.r.range(gun.pause[0], gun.pause[1]) * lerp(1.3, 0.8, this.skill); }
-          if (!inRange) { st.mode = 'idle'; st.t = 0.5; crew.fire = false; }
+          if (st.burst <= 0) { st.mode = 'idle'; crew.fire = false; crew.ads = false; st.t = this.r.range(gun.pause[0], gun.pause[1]) * lerp(1.3, 0.8, this.skill); }
+          if (!inRange) { st.mode = 'idle'; st.t = 0.5; crew.fire = false; crew.ads = false; }
           break;
         }
       }
@@ -192,28 +410,28 @@ export class EnemyBrain {
 
   shoot(muzzle, role, gun, st) {
     const sim = this.sim, car = this.car;
-    const spread = gun.spread * (Math.PI / 180) * lerp(1.5, 0.55, this.skill) * (1 - 0.0 * this.level);
+    const origin = muzzle.clone();                 // (clone FIRST: the muzzle is a shared scratch vector)
+    const spread = gun.spread * (Math.PI / 180) * lerp(2.1, 0.75, this.skill);
     const proj = sim.projectiles;
-    const dir = _v.set(Math.sin(st.yaw) * Math.cos(st.pitch), Math.sin(st.pitch), Math.cos(st.yaw) * Math.cos(st.pitch));
-    const origin = muzzle.clone();
+    const dir = new THREE.Vector3(Math.sin(st.yaw) * Math.cos(st.pitch), Math.sin(st.pitch), Math.cos(st.yaw) * Math.cos(st.pitch));
     if (gun.rocket) {
       const d = dir.clone();
-      d.x += (Math.random() - 0.5) * spread; d.y += (Math.random() - 0.5) * spread; d.normalize();
+      d.x += (this.r() - 0.5) * spread; d.y += (this.r() - 0.5) * spread; d.normalize();
       proj.addRocket(origin, d, gun.rocket, car.id);
       sim.emit({ t: 'shot', src: car.id, weapon: 'rpg', origin: origin.toArray(), dir: d.toArray(), rocket: true, speed: gun.rocket.speed });
       return;
     }
-    const dmg = gun.dmg * (1 + 1.1 * this.level);
+    const dmg = gun.dmg * (1 + 0.9 * this.level) * (car.elite ? 1.25 : 1);
     const rays = [];
     for (let p = 0; p < gun.pellets; p++) {
       const d = dir.clone();
-      const a = Math.sqrt(Math.random()) * spread, r = Math.random() * 6.283;
+      const a = Math.sqrt(this.r()) * spread, r = this.r() * 6.283;
       d.x += Math.cos(r) * a; d.z += Math.sin(r) * a * 0.6; d.y += Math.sin(r) * a; d.normalize();
       const v0 = d.clone().multiplyScalar(gun.speed).add(car.veh.vel);
       const sp = v0.length();
-      proj.addBullet(origin, v0.normalize(), sp, dmg, car.id, gun.rocket ? 'rpg' : 'bullet', 1.8);
+      proj.addBullet(origin, v0.normalize(), sp, dmg, car.id, 'bullet', 1.8);
       rays.push(d.toArray());
     }
-    sim.emit({ t: 'shot', src: car.id, weapon: 'enemy', origin: origin.toArray(), rays, speed: gun.speed, role, pellets: gun.pellets });
+    sim.emit({ t: 'shot', src: car.id, weapon: 'enemy', origin: origin.toArray(), rays, speed: gun.speed, role, pellets: gun.pellets, heavy: gun.heavy || undefined });
   }
 }

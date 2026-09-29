@@ -70,20 +70,33 @@ export class ChaseCam {
 
 ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
   // first person from the driver's seat: yaw locked to the truck, a damped share of its pitch/roll (so the suspension
-  // doesn't shake the view), free look on the right stick. Position = the eye point attached to the truck (no lag).
+  // doesn't shake the view), free look (right stick / mouse), and the head swaying with the G-forces (all in the truck
+  // frame => no lag, no judder). Position = the eye point attached to the truck.
   const cam = this.camera;
+  if (!this.head) { this.head = new THREE.Vector3(); this.acc = new THREE.Vector3(); this.pvel = new THREE.Vector3().copy(vel); }
+  _v3.copy(vel).sub(this.pvel).multiplyScalar(1 / Math.max(dt, 1e-3)); this.pvel.copy(vel);
+  _v3.applyQuaternion(_q.copy(carQuat).invert()).clampScalar(-60, 60);          // truck-local acceleration (x left, y up, z fwd)
+  this.acc.x = damp(this.acc.x, _v3.x, 5, dt); this.acc.y = damp(this.acc.y, _v3.y, 8, dt); this.acc.z = damp(this.acc.z, _v3.z, 4, dt);
+  this.head.set(clamp(-this.acc.x * 0.0035, -0.06, 0.06), clamp(-this.acc.y * 0.0022, -0.05, 0.03), clamp(-this.acc.z * 0.003, -0.05, 0.04));
   _e.setFromQuaternion(carQuat, 'YXZ');
   this.cockPitch = damp(this.cockPitch, _e.x * 0.7, 12, dt); this.cockRoll = damp(this.cockRoll, _e.z * 0.55, 12, dt);
-  this.lookYaw = damp(this.lookYaw, (opts.lookX || 0) * -1.6, 8, dt);
-  this.lookPitch = damp(this.lookPitch, (opts.lookY || 0) * -0.5, 8, dt);
+  const back = !!(opts.lookBack && opts.lookBackEye);
+  this.lookYaw = damp(this.lookYaw, back ? 0 : (opts.lookX || 0) * -1.6 + (opts.mouseYaw || 0), 16, dt);
+  this.lookPitch = damp(this.lookPitch, back ? 0 : (opts.lookY || 0) * -0.5 + (opts.mousePitch || 0), 16, dt);
   this.shake.update(dt);
   const so = this.shake.offset(_v2, 0.18);
-  cam.position.copy(opts.cockpitEye).add(so);
-  // cameras look down -Z, the truck faces +Z: turn 180 degrees (which also flips the sign of pitch and roll)
-  cam.quaternion.setFromEuler(_e.set(-this.cockPitch + this.lookPitch - 0.06, _e.y + Math.PI + this.lookYaw, -this.cockRoll + so.x * 0.02, 'YXZ'));
+  if (back) {
+    // look back: a camera over the tailgate facing backwards (instant cut, like every racing game)
+    cam.position.copy(opts.lookBackEye).add(so);
+    cam.quaternion.setFromEuler(_e.set(this.cockPitch - 0.07, _e.y, this.cockRoll, 'YXZ'));
+  } else {
+    cam.position.copy(opts.cockpitEye).add(so).add(_v.copy(this.head).applyQuaternion(carQuat));
+    // cameras look down -Z, the truck faces +Z: turn 180 degrees (which also flips the sign of pitch and roll)
+    cam.quaternion.setFromEuler(_e.set(-this.cockPitch + this.lookPitch - 0.06, _e.y + Math.PI + this.lookYaw, -this.cockRoll + so.x * 0.02, 'YXZ'));
+  }
   const speed = Math.hypot(vel.x, vel.z), spd01 = smoothstep(5, 62, speed);
-  const targetFov = 74 + spd01 * 14 + (opts.boosting ? 10 : 0);
-  this.fov = damp(this.fov, targetFov, 4, dt);
+  const targetFov = back ? 70 : 74 + spd01 * 14 + (opts.boosting ? 10 : 0);
+  this.fov = damp(this.fov, targetFov, back ? 30 : 4, dt);
   if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
   if (cam.near !== 0.05) { cam.near = 0.05; cam.updateProjectionMatrix(); }
 };

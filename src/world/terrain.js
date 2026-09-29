@@ -2,6 +2,9 @@
 // swaps LODs, disposes what is behind / too far. Chunk = CHUNK_LEN metres along the road.
 import * as THREE from 'three';
 import { CHUNK_LEN } from './terrain_gen.js';
+import { setRoadNight } from './terrain_material.js';
+import { lookAt } from './look.js';
+import { coverReady, disposeCoverMesh, COVER_AHEAD, COVER_BEHIND } from './dressing/groundcover.js';
 import { RAPIER, GROUPS } from '../sim/physics.js';
 
 const LOD_DIST = [320, 850, 5000];      // chunk-centre distance thresholds (m) for LOD0/1/2
@@ -38,6 +41,7 @@ export class TerrainStreamer {
   /** Ask for the chunks around road distance s. Cheap to call every frame. */
   update(s) {
     this._sLast = s;
+    setRoadNight(this.roadMat, lookAt(s).night);
     const c0 = Math.floor((s - BEHIND) / CHUNK_LEN), c1 = Math.floor((s + AHEAD) / CHUNK_LEN);
     const want = [];
     for (let c = Math.max(0, c0); c <= c1; c++) {
@@ -57,10 +61,12 @@ export class TerrainStreamer {
       this.pending.add(key); wk.busy++;
       wk.postMessage({ type: 'chunk', key, chunk: w.c, lod: w.lod, road: !rec });
     }
-    // drop far chunks
+    // drop far chunks; ground cover only inside its window
+    const cov = coverReady();
     for (const [c, rec] of this.chunks) {
-      if (c < c0 - 1 || c > c1 + 2) this._dispose(c, rec);
-      else this._collision(c, rec, s);
+      if (c < c0 - 1 || c > c1 + 2) { this._dispose(c, rec); continue; }
+      this._collision(c, rec, s);
+      if (rec.cover) { const cs = c * CHUNK_LEN, on = cov && cs + CHUNK_LEN > s - COVER_BEHIND && cs < s + COVER_AHEAD; for (const m of rec.cover) m.visible = on; }
     }
   }
 
@@ -75,7 +81,7 @@ export class TerrainStreamer {
     const c0 = Math.floor((this._sLast - BEHIND) / CHUNK_LEN) - 1, c1 = Math.floor((this._sLast + AHEAD) / CHUNK_LEN) + 2;
     if (m.chunk < c0 || m.chunk > c1) return;
     let rec = this.chunks.get(m.chunk);
-    if (!rec) { rec = { chunk: m.chunk, lod: -1, mesh: null, roadMesh: null, colT: null, colR: null, tCol: null, rCol: null }; this.chunks.set(m.chunk, rec); }
+    if (!rec) { rec = { chunk: m.chunk, lod: -1, mesh: null, roadMesh: null, colT: null, colR: null, tCol: null, rCol: null, group: this.group, cover: null }; this.chunks.set(m.chunk, rec); }
     // terrain mesh
     const t = m.t;
     const g = new THREE.BufferGeometry();
@@ -84,7 +90,7 @@ export class TerrainStreamer {
     g.setAttribute('aSplat0', new THREE.BufferAttribute(t.splat[0], 4));
     g.setAttribute('aSplat1', new THREE.BufferAttribute(t.splat[1], 4));
     g.setAttribute('aSplat2', new THREE.BufferAttribute(t.splat[2], 4));
-    g.setAttribute('aMacro', new THREE.BufferAttribute(t.macro, 1));
+    g.setAttribute('aAux', new THREE.BufferAttribute(t.aux, 4));
     g.setIndex(new THREE.BufferAttribute(t.indices, 1));
     g.computeBoundingSphere();
     const mesh = new THREE.Mesh(g, this.terrainMat);
@@ -101,6 +107,11 @@ export class TerrainStreamer {
       rg.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
       rg.setAttribute('normal', new THREE.BufferAttribute(r.normals, 3));
       rg.setAttribute('uv', new THREE.BufferAttribute(r.uvs, 2));
+      if (r.roadA) {
+        rg.setAttribute('aRoadA', new THREE.BufferAttribute(r.roadA, 4)); rg.setAttribute('aRoadB', new THREE.BufferAttribute(r.roadB, 4));
+        rg.setAttribute('aSplat0', new THREE.BufferAttribute(r.splat[0], 4)); rg.setAttribute('aSplat1', new THREE.BufferAttribute(r.splat[1], 4)); rg.setAttribute('aSplat2', new THREE.BufferAttribute(r.splat[2], 4));
+        rg.setAttribute('aAux', new THREE.BufferAttribute(r.aux, 4));
+      }
       rg.setIndex(new THREE.BufferAttribute(r.indices, 1));
       rg.computeBoundingSphere();
       const rm = new THREE.Mesh(rg, this.roadMat);
@@ -141,6 +152,8 @@ export class TerrainStreamer {
     this._dropCol(rec);
     if (rec.mesh) { this.group.remove(rec.mesh); rec.mesh.geometry.dispose(); }
     if (rec.roadMesh) { this.group.remove(rec.roadMesh); rec.roadMesh.geometry.dispose(); }
+    if (rec.cover) { for (const m of rec.cover) { this.group.remove(m); disposeCoverMesh(m); } rec.cover = null; }
+    rec.group = null;
     this.chunks.delete(c);
     if (this.onChunkDrop) this.onChunkDrop(c);
   }

@@ -14,7 +14,7 @@ const L = (c) => ({ c });
 const KB = {
   driver: [
     ['ACCELERATE', [A('throttle')]], ['BRAKE / REVERSE', [A('brake')]], ['STEER LEFT', [A('left')]], ['STEER RIGHT', [A('right')]], ['HANDBRAKE / DRIFT', [A('handbrake')]],
-    ['NITRO', [A('nitro')]], ['OIL SLICK', [A('special1')]], ['DROP MINE', [A('special2')]], ['FLIP / RESET (HOLD)', [A('reset')]], ['CAMERA', [A('camera')]], ['HORN', [A('horn')]], ['PAUSE MENU', [A('pause')]],
+    ['NITRO', [A('nitro')]], ['OIL SLICK', [A('special1')]], ['DROP MINE', [A('special2')]], ['FLIP / RESET (HOLD)', [A('reset')]], ['CAMERA (COCKPIT / CHASE)', [A('camera')]], ['LOOK BACK (HOLD)', [A('lookBack')]], ['HORN', [A('horn')]], ['PAUSE MENU', [A('pause')]],
   ],
   gunner: [
     ['AIM', [L('MouseMove')]], ['FIRE', [L('MouseLeft')]], ['AIM DOWN SIGHTS', [L('MouseRight')]], ['RELOAD', [A('reload')]], ['THROW GRENADE', [A('grenade')]], ['MELEE', [A('melee')]],
@@ -29,7 +29,7 @@ const KB = {
 };
 // gamepad mapping (mirrors src/core/input.js: driver(), gunner(), solo())
 const PADMAP = {
-  driver: { LT: 'BRAKE / REVERSE', RT: 'ACCELERATE', LB: 'CAMERA', RB: 'NITRO', LS: 'STEER', DPAD: 'STEER (D-PAD)', A: 'HANDBRAKE / DRIFT', B: 'DROP MINE', X: 'OIL SLICK', Y: 'FLIP / RESET (HOLD)', RS: 'LOOK AROUND', START: 'HORN' },
+  driver: { LT: 'BRAKE / REVERSE', RT: 'ACCELERATE', LB: 'LOOK BACK (HOLD)', RB: 'NITRO', LS: 'STEER', DPAD: 'STEER (D-PAD)', A: 'HANDBRAKE / DRIFT', B: 'DROP MINE', X: 'OIL SLICK', Y: 'FLIP / RESET (HOLD)', RS: 'LOOK AROUND · CLICK: CAMERA', START: 'PAUSE' },
   gunner: { LT: 'AIM DOWN SIGHTS', RT: 'FIRE', LB: 'GRENADE', RB: 'GRENADE', LS: 'MOVE', DPAD: 'WEAPON 1-4', B: 'CROUCH (HOLD)', X: 'RELOAD', Y: 'NEXT WEAPON', RS: 'AIM', START: 'MELEE' },
   solo: { LT: 'BRAKE', RT: 'ACCELERATE', LB: 'NITRO', RB: 'FIRE', LS: 'STEER', DPAD: 'STEER (D-PAD)', A: 'HANDBRAKE / DRIFT', B: 'GRENADE / MINE', X: 'RELOAD / OIL SLICK', Y: 'FLIP / RESET', RS: 'AIM' },
 };

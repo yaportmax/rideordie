@@ -49,8 +49,23 @@ export function registerProcedural(kit) {
   const cc = new Float32Array(cone.attributes.position.count * 3);
   for (let i = 0; i < cone.attributes.position.count; i++) { const k = Math.pow(1 + cone.attributes.position.getY(i) / 9, 1.6); cc[i * 3] = k; cc[i * 3 + 1] = k; cc[i * 3 + 2] = k; }
   cone.setAttribute('color', new THREE.BufferAttribute(cc, 3));
-  const coneMat = new THREE.MeshBasicMaterial({ color: 0xffb070, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: true });
+  const coneMat = new THREE.MeshBasicMaterial({ color: 0xffb070, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
   coneMat.name = 'lamp_cone';
+  // soft volumetric look (atmosphere pass): no hard silhouette (fade where the surface turns edge-on), fades out close to the
+  // camera (driving through it) and with distance (additive + fog would glow in the haze)
+  coneMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vConeK;')
+      .replace('#include <project_vertex>', `#include <project_vertex>
+        { vec3 on = normal;
+          #ifdef USE_INSTANCING
+            on = mat3(instanceMatrix) * on;
+          #endif
+          float facing = abs(dot(normalize(normalMatrix * on), normalize(-mvPosition.xyz)));
+          float dist = length(mvPosition.xyz);
+          vConeK = facing * facing * facing * smoothstep(4.0, 14.0, dist) * exp(-dist / 240.0); }`);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vConeK;')
+      .replace('#include <opaque_fragment>', '#include <opaque_fragment>\n  gl_FragColor.rgb *= vConeK;');
+  };
   const coneA = makeAsset('lamp_cone', [{ name: 'cone', geometry: cone, material: coneMat }], { derived: true });
   coneA.parts[0].ready = true; kit.assets.set('lamp_cone', coneA);
   kit.nightMats = [{ m: poolMat, base: 0.7, prop: 'opacity' }, { m: coneMat, base: 0.05, prop: 'opacity' }];

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { buildCarLod, makeLodMaterial } from './car_lod.js';
+import { buildEliteKit, ramBar, makeGlint } from './elite_kits.js';
 
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
@@ -38,6 +39,9 @@ export class CarView {
     }
     this.usesModel = !!model;
     this.smoke = 0;
+    // the gunless rammer always wears a spiked ram bar: "that one will ram you" reads at a glance
+    if (spec.id === 'e_muscle') { const g = new THREE.Group(); g.name = 'ram_bar'; this.root.add(g); ramBar(g, spec, false); }
+    this.kit = null; this.glint = null; this.intent = null; this.intentT = 0;
   }
 
   _adoptModel(model, opts) {
@@ -107,12 +111,33 @@ export class CarView {
       node.rotation.set(st.spin[i], steer, 0, 'YXZ');
     }
     this._syncLodWheels();
+    if (st.kind === 'enemy') this._raider(st, dt);
     // hit flash: a quick hot glint on the bodywork when rounds land
     const f = Math.max(0, st.hitFlash || 0) / 0.12;
     if (this.paintMats && (f > 0.01 || this._flashOn)) {
       this._flashOn = f > 0.01;
       for (const m of this.paintMats) { m.emissive.setRGB(1, 0.55, 0.25); m.emissiveIntensity = f * 0.9; }
     }
+  }
+
+  /** Raider extras: warlord kit + nameplate, the gunner's wind-up glint, intent cues for the lights. */
+  _raider(st, dt) {
+    if (st.elite && !this.kit && !this._kitTried) { this._kitTried = true; this.kit = buildEliteKit(this, this.spec, st.elite, st.id); }
+    if (this.kit) this.kit.update(dt, st);
+    this.intent = st.exploded ? null : st.intent; this.intentT += dt;
+    // wind-up glint: the gunner has shouldered his gun and is about to fire (hidden once the muzzle flashes take over)
+    const seat = this.spec.seats.gunner;
+    if (!seat) return;
+    const winding = st.gunnerAlive && !st.exploded && st.gunner.ads && !st.gunner.fire;
+    if (!this.glint) { if (!winding) return; this.glint = makeGlint(); this.root.add(this.glint); this.glintK = 0; }
+    this.glintK = winding ? Math.min(1, this.glintK + dt * 2.2) : Math.max(0, this.glintK - dt * 8);
+    const g = this.glint; g.visible = this.glintK > 0.01;
+    if (!g.visible) return;
+    const cp = Math.cos(st.gunner.pitch);
+    _fw.set(Math.sin(st.gunner.yaw) * cp, Math.sin(st.gunner.pitch), Math.cos(st.gunner.yaw) * cp).applyQuaternion(_qi.copy(st.quat).invert());
+    g.position.set(seat[0], seat[1] + 1.35, seat[2]).addScaledVector(_fw, 0.95);
+    const k = this.glintK, flick = 0.8 + 0.2 * Math.sin(this.intentT * 40);
+    g.material.opacity = k * flick; const sc = 0.02 + 0.03 * k; g.scale.set(sc, sc, 1);
   }
 
   /** Switch between the full model and the far LOD. */
@@ -125,8 +150,10 @@ export class CarView {
     for (const [name, w] of this.lodWheels) { const n = this.wheelNodes.get(name); if (n) { w.position.copy(n.position); w.quaternion.copy(n.quaternion); w.visible = !n.userData.gone; } }
   }
   setLights(braking, night) {
-    for (const m of this.taillights) m.emissiveIntensity = braking ? 5 : (night ? 1.4 : 0.6);
-    for (const m of this.headlights) m.emissiveIntensity = night ? 4 : 1.2;
+    // raider tells: a brake-check blazes the brake lights, a rammer flashes his high beams at you
+    const block = this.intent === 'block', ram = this.intent === 'ram';
+    for (const m of this.taillights) m.emissiveIntensity = block ? 10 : braking ? 5 : (night ? 1.4 : 0.6);
+    for (const m of this.headlights) m.emissiveIntensity = ram ? (Math.sin(this.intentT * 26) > 0 ? 9 : 1) : night ? 4 : 1.2;
   }
   setTint(hex, hex2) {
     if (this.lodMat) { this.lodMat.userData.uPaint.value.setHex(hex); if (hex2 !== undefined) this.lodMat.userData.uPaint2.value.setHex(hex2); }
@@ -134,4 +161,4 @@ export class CarView {
   }
   dispose() { this.root.removeFromParent(); }
 }
-const _up = new THREE.Vector3(), _fw = new THREE.Vector3();
+const _up = new THREE.Vector3(), _fw = new THREE.Vector3(), _qi = new THREE.Quaternion();

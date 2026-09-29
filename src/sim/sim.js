@@ -180,6 +180,7 @@ export class Sim {
     let dmg = (dv - 0.25) * 9 * (car.spec.crashMul ?? 1);
     if (other) dmg *= clamp(other.veh.mass / car.veh.mass, 0.5, 2.0) ** 0.5;
     if (car.kind === 'player') dmg *= (this.playerCrashMul ?? 1);
+    if (car.kind === 'player' && other && other.kind === 'enemy') dmg *= (this.enemyRamMul ?? 1); // set by the director (grows with level)
     if (!other) {
       if (this._lastOther === 'ramp') return;          // ramps launch you, they never hurt
       if (Math.abs(dir.y) > 0.8) dmg = Math.max(0, dv - 3) * 0.9; // landings: free unless it is a real slam
@@ -200,6 +201,7 @@ export class Sim {
       car.crashCooldown = 0.25;
       _a.set(dir.x, dir.y, dir.z);
       this.emit({ t: 'crash', id: car.id, other: other ? other.id : -1, dv, speed: speedRel, pos: [car.veh.pos.x, car.veh.pos.y, car.veh.pos.z] });
+      this.director.onCrash?.(this, car, other, dv); // chain reactions (runaway cars) live in the director
       // rams shake the driver's crew a bit
       const c = car.crew.driver; if (dv > 4 && car.kind === 'enemy' && c.alive) this.damageCrew(car, 'driver', dv * 3, { cause: 'crash' });
       if (car.crew.gunner && car.crew.gunner.alive && dv > 5 && car.kind === 'enemy') this.damageCrew(car, 'gunner', dv * 2.5, { cause: 'crash' });
@@ -241,6 +243,7 @@ export class Sim {
   /** Shot damage to a car at a given zone. returns {killedCrew, dmg} */
   damageZone(car, zone, dmg, info = {}) {
     const z = zone.zone || zone;
+    if (car.zoneMul) dmg *= car.zoneMul[z.kind] ?? 1; // warlords: armoured hull, glowing weak point
     const through = zone.throughBody;
     const armorMul = through ? 1 - car.armor : 1;
     const head = /_head$/.test(z.kind);
@@ -283,6 +286,7 @@ export class Sim {
     car.veh.body.applyImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 2, y: car.veh.mass * (3 + Math.random() * 3) * big, z: (Math.random() - 0.5) * car.veh.mass * 2 }, true);
     car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 3, y: 0, z: (Math.random() - 0.5) * car.veh.mass * 3 }, true);
     this.blast(p, (car.spec.explosive ? 26 : 11), (car.spec.explosive ? 260 : 110), (car.spec.explosive ? 1.0 : 0.6), car);
+    this.director.onExplode?.(this, car); // neighbours cook off, wrecks tumble
     if (car.kind === 'enemy') {
       this.stats.kills++;
       if (src === 1 || (car.lastHitBy === 1 && this.time - car.lastHitT < 6)) {
@@ -349,7 +353,7 @@ export class Sim {
       if (f < 0.34 && !car.smoking) { car.smoking = true; this.emit({ t: 'smoke', id: car.id }); }
       if (f < 0.16 && car.burning <= 0) { car.burning = 0.001; this.emit({ t: 'fire', id: car.id }); }
       if (car.burning > 0) { car.burning += dt; this.damageCar(car, dt * (car.maxHp * 0.03), { cause: 'fire' }); if (car.burning > 9 && !car.exploded) this.explodeCar(car, 'fire', car.lastHitBy); }
-      if (car.fuseT >= 0) { car.fuseT -= dt; if (car.fuseT < 0) this.explodeCar(car, 'fuel', car.lastHitBy); }
+      if (car.fuseT >= 0) { car.fuseT -= dt; if (car.fuseT < 0) this.explodeCar(car, car.chainFrom ? 'crash' : 'fuel', car.lastHitBy); }
     }
   }
 

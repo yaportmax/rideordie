@@ -4,6 +4,7 @@ import { BIOMES, biomeAt } from '../../data/biomes.js';
 import { fbm2, smoothstep } from '../../core/util.js';
 import { SCATTER, TINTS, tierOf, specOfEntry } from './types.js';
 import { rngOf, strId, CHUNK_LEN, EDGE } from './util.js';
+import { buildCover } from './groundcover.js';
 
 const QKEEP = [0.26, 0.5, 0.74, 1.0];
 const scat = (id, key) => (key ? (BIOMES[id].scatter[key] ?? 0) : 1);
@@ -41,6 +42,12 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
   if (!excl) return false;
   const tun = ctx.tunnelsNear(s0 - 60, s0 + CHUNK_LEN + 60);
   const seaY = chunk.seaY;
+  // dense near-road ground cover (grass, scrub, flowers, pebbles) with the near tier
+  if (tier === 3 && !chunk.done.has('cover')) {
+    const r = buildCover(ctx, chunk, deadline);
+    if (r !== true) { if (r === false) chunk._more = true; return false; }   // false = out of time (resume now), null = waiting for the landmark plan
+    chunk.done.add('cover');
+  }
   let ready = true, worked = 0;
   for (const e of SCATTER) {
     if (tierOf(e) !== tier || chunk.done.has(e.id)) continue;

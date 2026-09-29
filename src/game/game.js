@@ -3,8 +3,9 @@ import * as THREE from 'three';
 import { createRenderer } from '../core/renderer.js';
 import { Input } from '../core/input.js';
 import * as Assets from '../core/assets.js';
-import { loadGroundArrays, makeTerrainMaterial, makeRoadMaterial } from '../world/terrain_material.js';
+import { loadGroundArrays, makeTerrainMaterial, makeRoadMaterial, groundPrewarmMeshes } from '../world/terrain_material.js';
 import { SkyRig } from '../world/sky.js';
+import { Water } from '../world/water.js';
 import { lookAt } from '../world/look.js';
 import { Hud } from '../ui/hud.js';
 import { Run } from './run.js';
@@ -17,6 +18,7 @@ import { CarView } from '../view/car_view.js';
 import { BossView } from '../view/boss_view.js';
 import { WeaponView } from '../view/weapon_view.js';
 import { CrewView } from '../view/crew_view.js';
+import { ViewModel } from '../view/viewmodel.js';
 import { clamp } from '../core/util.js';
 
 export class Game {
@@ -117,6 +119,9 @@ export class Game {
     for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);
     for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);
     for (const c of ['hero_driver', 'raider_driver']) g.add(new CrewView(c, { role: 'driver' }).root);
+    g.add(ViewModel.warmObject());   // first-person viewmodel programs (patched projection) + its flash / reticle
+    for (const m of Water.prewarmMeshes()) g.add(m);   // sea / lake + shoreline programs (first shown at 19 km)
+    for (const m of groundPrewarmMeshes(this.terrainMat, this.roadMat)) g.add(m);   // terrain / road / ground-cover programs
     this.scene.add(g);
     this.sky.setLook(lookAt(0), true); // environment map + fog must exist, they are part of every program's key
     // compile against an HDR target like the post pipeline's scene pass (linear output => different program keys than the canvas)
@@ -140,7 +145,7 @@ export class Game {
     if (this.post) { this.post.enabled = true; this.post.cut?.(); }
     this.hud.setVisible(true); this.hud.show({ driver: run.humanDriver, gunner: run.humanGunner });
     const pad = this.input.lastDevice === 'pad';
-    const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>Y</b> FLIP &nbsp; <b>LB</b> VIEW' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>R</b> FLIP &nbsp; <b>C</b> VIEW',
+    const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>LB</b> LOOK BACK &nbsp; <b>Y</b> FLIP &nbsp; <b>R3</b> VIEW' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>B</b> LOOK BACK &nbsp; <b>R</b> FLIP &nbsp; <b>C</b> VIEW',
       gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>B</b> DUCK &nbsp; <b>BACK</b> VIEW' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>CTRL</b> DUCK &nbsp; <b>V</b> VIEW',
       solo: '<b>WASD</b> DRIVE &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>T</b> FLIP &nbsp;|&nbsp; <b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>X</b> MEDKIT' };
     this.hud.hints([run.role === 'solo' ? H.solo : run.role === 'driver' ? H.driver : H.gunner, 'SHOOT THE DRIVERS &middot; SHOOT THE FUEL TANKS &middot; DON\'T CRASH']);
@@ -184,6 +189,8 @@ export class Game {
     this.sky.setLook(this.look, this.frames === 0);
     const p = run.states.get(1);
     this.sky.update(dt, this.camera, p ? p.pos : this.camera.position);
+    run.dressing?.setShadowFocus?.(this.sky.shadowFocus);   // shadow casters are picked around the (camera-ahead) shadow box
+    this.post?.setLook?.(this.look);
     run.wv.night = this.look.night;
     if (p) {
       const night = Math.max(0, (this.look.night - 0.05) / 0.6);
@@ -191,7 +198,7 @@ export class Game {
         const x = i ? -0.62 : 0.62, fz = run.spec.length / 2;
         l.position.set(x, 0.8 - p.ride.restComHeight, fz - 0.2).applyQuaternion(p.quat).add(p.pos);
         l.target.position.set(x * 1.6, -2.2 - p.ride.restComHeight, fz + 30).applyQuaternion(p.quat).add(p.pos);
-        l.intensity = p.exploded ? 0 : Math.min(1, night) * 900;
+        l.intensity = p.exploded ? 0 : Math.min(1, night) * 900 / Math.max(1, this.look.exp * 1.7);   // night exposure is ~2.4x: keep the beams from blowing out
       });
     }
     if (this.post && p) {
@@ -203,6 +210,7 @@ export class Game {
       }
     }
     const t2 = performance.now();
+    run.cockpit?.renderMirrors(this.renderer, this.scene, run.wv.cars.get(1)?.view.root);
     if (this.post) this.post.render(dt); else this.renderer.render(this.scene, this.camera);
     const t3 = performance.now();
     this.hud.update(dt, run.hud2);

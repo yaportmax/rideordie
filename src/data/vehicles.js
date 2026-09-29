@@ -17,7 +17,8 @@ const truckBase = {
   mountY: 0.22,
   grip: { front: 1.55, rear: 1.5, long: 1.3, gain: 15, slideMul: 0.86, hbLat: 0.3 },
   steerLockDeg: 34, yawRateMax: 2.3, yawAssist: 5.5, dragC: 0.42, downforce: 0.55, brakeDecel: 21, airLevel: 5,
-  forceHeight: 0.5,
+  // tyre forces act low (0.15 m above the contact) so the body visibly rolls/pitches with the load; drifts keep momentum
+  forceHeight: 0.15, hbDecel: 1.5, drift: { maxSlip: 0.55, thrust: 8 },
 };
 
 export const VEHICLES = {
@@ -27,7 +28,7 @@ export const VEHICLES = {
     mass: 1350, length: 4.9, width: 1.75, height: 1.75, hp: 400,
     wheels: wheels4(0.82, 1.5, -1.45), wheelRadius: 0.34,
     colliders: [{ center: [0, 0.72, 0], half: [0.86, 0.36, 2.4] }, { center: [0, 1.28, 0.65], half: [0.76, 0.32, 0.85] }],
-    engine: { accel0: 4.3, vmax: 41, reverseMax: 11 }, nitro: { capacity: 0, regen: 0.1, mul: 1.6 },
+    engine: { accel0: 5.0, vmax: 41, reverseMax: 11 }, nitro: { capacity: 1.0, regen: 0.07, mul: 1.6 },
     seats: { driver: [0.4, 0.55, 0.55], gunner: [0, 0.95, -0.85] },
   },
   truck_t2: {

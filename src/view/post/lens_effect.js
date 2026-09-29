@@ -15,6 +15,7 @@ uniform float mbMaxPx;       // max blur length in pixels
 uniform vec4 car;            // xy = centre uv, zw = radii uv (protected ellipse)
 uniform float carMask;       // 0..1 how strongly the ellipse suppresses blur
 uniform vec3 nearFade;       // x: z0 (m) , y: z1 (m), z: blur factor at z<=z0
+uniform vec2 mbRadial;       // blur weight ramps from 0 at radius x to 1 at radius y (aspect-corrected, 0.5 = half height): crisp centre
 uniform float caAmount;      // radial chromatic aberration (uv units at the screen corner ~ 0.01 = 5px)
 uniform vec4 shock[4];       // xy centre uv, z radius (height units), w displacement (height units); w<=0 inactive
 uniform float shockWidth;    // ring half-thickness relative to radius
@@ -47,21 +48,27 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
   vec2 vel = vec2(0.0);
   float blurLen = 0.0;
+  // near field (cockpit, truck bed, arms + gun): rides with the camera => never blurred, never colour-fringed
+  float nearK = 1.0;
+  float depth = 1.0;
+  if (mbAmount > 0.0 || caAmount > 0.0002) {
+    depth = readDepth(uv);
+    nearK = depth < 0.0082 ? 0.0 : smoothstep(nearFade.x, nearFade.y, -getViewZ(depth));   // 0.0082: viewmodel depth band (src/view/viewmodel.js BAND)
+  }
   #ifdef MOTION_BLUR
-  if (mbAmount > 0.0) {
-    float depth = readDepth(uv);
+  if (mbAmount > 0.0 && nearK > 0.0) {
     vec4 clip = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
     vec4 p = reproj * clip;
     if (p.w > 0.02) {
       vec2 prevUv = p.xy / p.w * 0.5 + 0.5;
       vel = (uv - prevUv);
-      // near-camera fade (car + close enemies move WITH the camera; do not smear them)
-      float z = -getViewZ(depth);
-      float nf = mix(nearFade.z, 1.0, smoothstep(nearFade.x, nearFade.y, z));
+      float nf = mix(nearFade.z, 1.0, nearK);
       // protect the player's car (soft ellipse)
       vec2 e = (uv - car.xy) / max(car.zw, vec2(1e-3));
       float m = 1.0 - carMask * (1.0 - smoothstep(0.55, 1.0, length(e)));
-      vel *= mbAmount * nf * m;
+      // sense of speed only at the periphery: the centre of the screen stays sharp
+      float rad = smoothstep(mbRadial.x, mbRadial.y, length((uv - 0.5) * asp));
+      vel *= mbAmount * nf * m * rad * rad;
       vec2 px = vel * resolution;
       float l = length(px);
       if (l > mbMaxPx) vel *= mbMaxPx / l;
@@ -72,7 +79,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
   vec2 cdir = (uvc - 0.5);
   float rr = length(cdir * asp);
-  float caW = smoothstep(0.12, 0.85, rr);
+  float caW = smoothstep(0.12, 0.85, rr) * nearK;
   vec2 caOff = cdir * (caAmount * caW * caW * 1.6 + shockCA * 0.6);
   bool useCA = (caAmount > 0.0002) || (shockCA > 0.0002);
 
@@ -85,6 +92,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
       float t = (float(i) + 0.5 + jit) / float(MB_TAPS) - 0.5;    // -0.5 .. 0.5
       float w = 1.0 - abs(t) * 0.9;                                  // gentle tent keeps the centre crisp
       vec2 suv = uvc + vel * t;
+      // never gather the near field (cockpit pillars / gun) into the blurred background: no smeared halos around them
+      float td = readDepth(suv);
+      w *= (td < 0.0082 || -getViewZ(td) < nearFade.x) ? 0.0 : 1.0;
       vec3 c;
       if (useCA) {
         c = vec3(textureLod(inputBuffer, suv + caOff, 0.0).r, textureLod(inputBuffer, suv, 0.0).g, textureLod(inputBuffer, suv - caOff, 0.0).b);
@@ -93,7 +103,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
       }
       acc += c * w; wsum += w;
     }
-    outputColor = vec4(acc / wsum, inputColor.a);
+    outputColor = wsum > 1e-3 ? vec4(acc / wsum, inputColor.a) : inputColor;
     return;
   }
   #endif
@@ -119,6 +129,7 @@ export class LensEffect extends Effect {
         ['car', new Uniform(new Vector4(0.5, 0.3, 0.2, 0.25))],
         ['carMask', new Uniform(0.75)],
         ['nearFade', new Uniform(new Vector3(6, 45, 0.3))],
+        ['mbRadial', new Uniform(new Vector2(0.22, 0.85))],
         ['caAmount', new Uniform(0)],
         ['shock', new Uniform([new Vector4(), new Vector4(), new Vector4(), new Vector4()])],
         ['shockWidth', new Uniform(0.16)],

@@ -9,7 +9,7 @@ const curve = (v, p = 1.6) => Math.sign(v) * Math.pow(Math.abs(v), p);
 export const DEFAULT_BINDINGS = {
   // driver
   throttle: ['KeyW', 'ArrowUp'], brake: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
-  handbrake: ['Space'], nitro: ['ShiftLeft', 'ShiftRight'], reset: ['KeyR'], camera: ['KeyC'], horn: ['KeyH'], special1: ['KeyQ'], special2: ['KeyE'], medkit: ['KeyX'],
+  handbrake: ['Space'], nitro: ['ShiftLeft', 'ShiftRight'], reset: ['KeyR'], camera: ['KeyC'], lookBack: ['KeyB'], horn: ['KeyH'], special1: ['KeyQ'], special2: ['KeyE'], medkit: ['KeyX'],
   // gunner
   reload: ['KeyR'], grenade: ['KeyG'], crouch: ['ControlLeft', 'KeyC'], slot1: ['Digit1'], slot2: ['Digit2'], slot3: ['Digit3'], slot4: ['Digit4'], slot5: ['Digit5'], slot6: ['Digit6'],
   moveL: ['KeyA'], moveR: ['KeyD'], moveF: ['KeyW'], moveB: ['KeyS'], lean: ['KeyQ'], view: ['KeyV'],
@@ -84,7 +84,13 @@ export class Input {
 
   /** Driver commands. Steering: +1 = left. */
   driver(dt) {
-    const c = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false, reset: false, cameraToggle: false, horn: false, special1: false, special2: false, medkit: this.hit('medkit'), lookX: 0, lookY: 0 };
+    const c = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false, reset: false, cameraToggle: false, horn: false, special1: false, special2: false, medkit: this.hit('medkit'), lookX: 0, lookY: 0, lookBack: this.down('lookBack'), mouseYaw: 0, mousePitch: 0 };
+    // mouse free-look (pointer locked): drifts back to straight ahead when the mouse rests
+    const ml = this.mlook || (this.mlook = { yaw: 0, pitch: 0, idle: 0 });
+    if (this.locked && (this.mouseDX || this.mouseDY)) {
+      ml.yaw = clamp(ml.yaw - this.mouseDX * 0.0024, -2.3, 2.3); ml.pitch = clamp(ml.pitch - this.mouseDY * 0.0024 * (this.invertY ? -1 : 1), -0.55, 0.45); ml.idle = 0;
+    } else { ml.idle += dt; if (ml.idle > 0.8) { ml.yaw = damp(ml.yaw, 0, 3.5, dt); ml.pitch = damp(ml.pitch, 0, 3.5, dt); } }
+    c.mouseYaw = ml.yaw; c.mousePitch = ml.pitch;
     // keyboard
     let kSteer = (this.down('left') ? 1 : 0) - (this.down('right') ? 1 : 0);
     this.steerSmooth = damp(this.steerSmooth, kSteer, kSteer !== 0 ? 9 : 14, dt);
@@ -93,7 +99,7 @@ export class Input {
     c.throttle = this.down('throttle') ? 1 : 0; c.brake = this.down('brake') ? 1 : 0;
     c.handbrake = this.down('handbrake'); c.nitro = this.down('nitro'); c.reset = this.down('reset');
     c.cameraToggle = this.hit('camera'); c.horn = this.down('horn'); c.special1 = this.hit('special1'); c.special2 = this.hit('special2');
-    // gamepad (standard mapping): LS steer, RT throttle, LT brake/reverse, A handbrake, RB nitro, Y reset (hold), X/B specials, R3/LB camera, dpad horn
+    // gamepad (standard mapping): LS steer, RS look, RT throttle, LT brake/reverse, A handbrake, RB nitro, Y reset (hold), X/B specials, R3 camera, LB look back
     if (this.pad) {
       const sx = applyDead(this.pad.axes[0] || 0, 0.1);
       let steer = -curve(sx, 1.35);
@@ -103,7 +109,7 @@ export class Input {
       c.throttle = Math.max(c.throttle, this.btnV(7)); c.brake = Math.max(c.brake, this.btnV(6));
       c.handbrake = c.handbrake || this.btn(0); c.nitro = c.nitro || this.btn(5); c.reset = c.reset || this.btn(3);
       c.special1 = c.special1 || this.edge(2); c.special2 = c.special2 || this.edge(1);
-      c.cameraToggle = c.cameraToggle || this.edge(10) || this.edge(4);  c.medkit = c.medkit || this.edge(13);
+      c.cameraToggle = c.cameraToggle || this.edge(10); c.lookBack = c.lookBack || this.btn(4); c.medkit = c.medkit || this.edge(13);
       c.lookX = applyDead(this.pad.axes[2] || 0); c.lookY = applyDead(this.pad.axes[3] || 0);
     }
     return c;

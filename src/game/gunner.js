@@ -171,7 +171,7 @@ export class GunnerController {
     if (w.mode === 'launcher') {
       _d.copy(this.aimPoint).sub(M).normalize();
       ctx.fireRocket && ctx.fireRocket(M.clone(), _d.clone(), w);
-      ctx.emit({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), dir: _d.toArray(), rocket: true });
+      ctx.emit(this._fpTag({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), dir: _d.toArray(), rocket: true }));
     } else {
       const shotEvents = [];
       const ignore = null; // (our own truck is never in the target list)
@@ -185,7 +185,7 @@ export class GunnerController {
         _e.copy(_d).addScaledVector(_r, Math.tan(ang) * Math.cos(rot)).addScaledVector(_u, Math.tan(ang) * Math.sin(rot)).normalize();
         this._shootRay(M, _e, w, shotEvents, ignore, own);
       }
-      ctx.emit({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), rays: shotEvents, mode: w.mode });
+      ctx.emit(this._fpTag({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), rays: shotEvents, mode: w.mode }));
     }
     // recoil: camera kick + crosshair bloom
     const rm = w.recoilMul ?? 1;
@@ -196,6 +196,12 @@ export class GunnerController {
     this.bloom = Math.min(w.spread.bloomMax, this.bloom + w.spread.bloom);
     if (this.mag[this.cur] <= 0 && w.mode !== 'pump') this.startReload();
     if (w.mode === 'pump' && this.mag[this.cur] <= 0) this.startReload();
+  }
+
+  /** First-person shots: the viewmodel draws its own muzzle flash; casings leave its (apparent) ejection port. */
+  _fpTag(e) {
+    if (this.fp && this.vm) { e.fp = true; if (this.vm.ejectWorld(_e, _r)) { e.ej = _e.toArray(); e.ejd = _r.toArray(); } }
+    return e;
   }
 
   _shootRay(o, dir, w, out, ignore, own) {

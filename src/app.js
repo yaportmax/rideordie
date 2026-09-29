@@ -3,7 +3,7 @@
 import { Ui } from './ui/ui.js';
 import { Session } from './net/session.js';
 import { loadProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from './meta/profile.js';
-import { TRUCK_COLORS } from './data/upgrades.js';
+import { TRUCK_COLORS, UPGRADE_BY_ID } from './data/upgrades.js';
 
 const APP_MSGS = new Set(['toGarage', 'garageReady', 'backToLobby', 'abort']);
 
@@ -12,13 +12,17 @@ export class App {
     this.game = game; this.input = game.input;
     const root = document.createElement('div'); root.id = 'ui'; root.style.cssText = 'position:fixed;inset:0;z-index:10;pointer-events:none';
     document.body.appendChild(root);
-    this.ui = new Ui(root, { input: this.input, sound: (n) => this.sound(n), onSettingsChange: (s, k) => this.applySettings(s, k) });
+    // the menus float over live 3D (title chase / garage / the run's death camera): no painted backdrop
+    this.ui = new Ui(root, { input: this.input, backdrop: false, sound: (n) => this.sound(n), onSettingsChange: (s, k) => this.applySettings(s, k) });
     root.style.pointerEvents = '';
     this.profile = loadProfile();
     this.session = null; this.mode = 'title'; // title | solo | coop
+    this.screen = 'title';                    // title | lobby | garage | run | results
     this.readyMine = false; this.readyOther = false;
     this.applySettings(this.ui.settings);
     window.__app = this;
+    addEventListener('resize', () => requestAnimationFrame(() => this._frameRect()));
+    this._dragSpin();
     // Esc while the mouse is captured is swallowed by the browser (it just releases the lock): treat losing the lock mid-run as "pause"
     document.addEventListener('pointerlockchange', () => {
       const g = this.game;
@@ -32,21 +36,38 @@ export class App {
     if (s.quality !== undefined && s.quality !== this.game.quality) this.game.setQuality(s.quality);
     if (s.resScale !== undefined) this.game.post?.setResolutionScale?.(s.resScale);
     this.game.audio?.setVolumes?.({ master: s.master, sfx: s.sfx, music: s.music });
+    this.game.post?.setFeatures?.({ mb: s.motionBlur !== false, ca: s.chromatic !== false, grain: s.grain !== false });
     this.shake = s.shake ?? 1;
+  }
+
+  // ------------------------------------------------------------------------------------------ 3D menu stages
+  /** Put the 3D stage (title chase / garage) behind the menus; the garage stage always holds the current truck + loadout. */
+  _stage(stage) {
+    const g = this.game;
+    g.endRun();
+    g.showGarage(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0], this._garageLoadout());
+    g.garage.setStage(stage);
+  }
+  /** The free screen area between the garage panels (the 3D camera frames the subject inside it). */
+  _frameRect() { if (this.screen === 'garage') { const r = this.ui.garageFrameRect?.(); if (r) this.game.garage.setFrameRect(r); } }
+  /** Drag on empty screen space in the garage spins the turntable. */
+  _dragSpin() {
+    let down = false, lx = 0;
+    const c = this.game.canvas;
+    c.addEventListener('pointerdown', (e) => { if (this.screen === 'garage' && e.button === 0) { down = true; lx = e.clientX; c.setPointerCapture?.(e.pointerId); } });
+    c.addEventListener('pointermove', (e) => { if (!down) return; this.game.garage.drag(e.clientX - lx); lx = e.clientX; });
+    const up = () => { down = false; };
+    c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
   }
 
   // ------------------------------------------------------------------------------------------ title
   title() {
-    this.mode = 'title'; this.game.mode = 'menu'; this.game.endRun();
+    this.mode = 'title'; this.screen = 'title';
     if (this.session) { this.session.leave(); this.session = null; }
+    this._stage('title');
     this.game.audio?.music?.setState?.('title');
     this.ui.showTitle({
-      onSolo: async () => {
-        const pick = await this.ui.modal({ title: 'SINGLE PLAYER', text: 'Pick your seat - an AI partner takes the other. DRIVE: you drive, the AI shoots. SHOOT: you man the guns, the AI drives. BOTH: you do everything.', buttons: [
-          { label: 'DRIVE', id: 'driver', kind: 'primary' }, { label: 'SHOOT', id: 'gunner', kind: 'primary' }, { label: 'BOTH', id: 'both' }, { label: 'BACK', id: null, cancel: true }] });
-        if (!pick) return;
-        this.soloRole = pick; this.mode = 'solo'; this.garage();
-      },
+      onSolo: (role) => { this.soloRole = role || 'both'; this.mode = 'solo'; this.sound('whoosh_transition'); this.garage(); },
       onHost: () => this.host(),
       onJoin: (code) => this.join(code),
     });
@@ -58,7 +79,7 @@ export class App {
     s.me.name = this.ui.settings.name || (s.isHost ? 'Host' : 'Player');
     s.on({
       lobby: () => this._lobbyRefresh(),
-      profile: (p) => { this.profile = p; if (this.game.mode === 'garage') this._garageRefresh(); },
+      profile: (p) => { this.profile = p; if (this.screen === 'garage') this._garageRefresh(); },
       buyDenied: () => { this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); },
       start: (cfg) => this._startRun(cfg),
       run: (m) => this._onRunMsg(m),
@@ -69,7 +90,7 @@ export class App {
     return s;
   }
   async host() {
-    this.mode = 'coop';
+    this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Host';
     this.ui.showLobby(this._lobbyState('connecting'), this._lobbyCb());
     try { await s.host(this.profile); } catch (e) { this.ui.toast('Could not create room: ' + (e.message || e.type), 'bad'); return this.title(); }
@@ -77,7 +98,7 @@ export class App {
     this._lobbyRefresh();
   }
   async join(code) {
-    this.mode = 'coop';
+    this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Player 2';
     this.ui.showLobby({ ...this._lobbyState('connecting'), code }, this._lobbyCb());
     try { await s.join(code, this.profile); } catch (e) { this.ui.toast(e.message || 'Could not join', 'bad'); return this.title(); }
@@ -93,7 +114,7 @@ export class App {
     }
     return { code: L?.code || '', status: status || (L?.connected ? 'connected' : 'waiting'), latency: s ? Math.round(s.rtt) : 0, isHost: !!L?.isHost, canStart: s ? s.canStart() : false, players };
   }
-  _lobbyRefresh() { if (this.game.mode !== 'garage' && this.mode === 'coop' && !this.game.run) this.ui.updateLobby(this._lobbyState()); }
+  _lobbyRefresh() { if (this.screen === 'lobby' && this.mode === 'coop' && !this.game.run) this.ui.updateLobby(this._lobbyState()); }
   _lobbyCb() {
     return {
       onSeat: (role) => this.session?.setRole(role),
@@ -114,11 +135,16 @@ export class App {
 
   // ------------------------------------------------------------------------------------------ garage
   garage() {
-    this.game.endRun();
+    const fromRun = !!this.game.run || this.screen === 'results';
+    this.screen = 'garage';
     this.readyMine = false; this.readyOther = false;
-    this.game.showGarage(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0], this._garageLoadout());
+    this._stage('garage');
+    const G = this.game.garage;
+    if (fromRun) G.fadeIn();
+    G.setPreview({}); G.setTab('truck');
     this.game.audio?.music?.setState?.('garage');
     this.ui.showGarage(this.profile, this._garageCb(), this._garageExtra());
+    requestAnimationFrame(() => this._frameRect());
   }
   _garageLoadout() { return { weapon: this.profile.loadout[0] || 'pistol', armorTier: this.profile.upgrades.vest || 0 }; }
   _garageExtra() {
@@ -127,9 +153,20 @@ export class App {
       partner: s ? { name: s.other?.name || 'Partner', ready: this.readyOther, connected: s.connected, role: s.other?.role } : undefined };
   }
   _garageRefresh() {
-    if (this.game.mode !== 'garage') return;
+    if (this.screen !== 'garage') return;
     this.game.garage.setTruck(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0], this._garageLoadout());
     this.ui.updateGarage(this.profile, this._garageExtra());
+  }
+  /** Shop tab / hovered item -> 3D framing + live previews (truck model, paint, weapon on the bench, next armour tier). */
+  _garageView(tab, sel) {
+    const G = this.game.garage; if (!G) return;
+    G.setTab(tab);
+    const p = this.profile, pv = {};
+    if (tab === 'truck' && sel) pv.truck = sel;
+    if (tab === 'paint' && sel != null) pv.paint = TRUCK_COLORS[+sel];
+    if (tab === 'weapons' && sel) pv.weapon = sel;
+    if (tab === 'gunner' && sel === 'vest') pv.armorTier = Math.min(3, (p.upgrades.vest || 0) + 1);
+    G.setPreview(pv);
   }
   _garageCb() {
     const act = (kind, id, extra) => {
@@ -142,7 +179,10 @@ export class App {
       else if (kind === 'weaponTrack' || kind === 'track') r = buyWeaponTrack(p, id, extra);
       else if (kind === 'equip') r = equipWeapon(p, id, extra);
       else if (kind === 'color') { p.truckColor = id; r = { ok: true }; }
-      if (r && r.ok) { saveProfile(p); this.session?.broadcastProfile(); if (/truck|upgrade|weapon/.test(kind)) this.sound('buy'); }
+      if (r && r.ok) {
+        saveProfile(p); this.session?.broadcastProfile();
+        if (/truck|upgrade|weapon/.test(kind)) { this.sound('buy'); this.game.garage?.celebrate(/weapon/.test(kind) ? 'weapon' : kind === 'upgrade' && UPGRADE_BY_ID[id]?.role !== 'driver' ? 'gunner' : 'truck'); }
+      }
       else if (r && r.reason === 'cash') { this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); }
       this._garageRefresh();
     };
@@ -151,6 +191,7 @@ export class App {
       onSelectTruck: (id) => act('select', id),
       onPaint: (i) => act('color', i),
       onEquip: (w, slot) => act('equip', w, slot),
+      onView: (tab, sel) => this._garageView(tab, sel),
       onReady: () => {
         if (this.mode === 'solo') {
           const r = this.soloRole || 'both';
@@ -174,6 +215,7 @@ export class App {
   // ------------------------------------------------------------------------------------------ run
   async _startRun(cfg) {
     this.ui.hideAll();
+    this.screen = 'run';
     this.readyMine = this.readyOther = false;
     if (cfg.profile) this.profile = cfg.profile;
     const run = await this.game.startRun({ ...cfg, net: this.mode === 'coop' ? this.session : null, paint: TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0] });
@@ -182,6 +224,21 @@ export class App {
     this.game.onRunEnd = (r) => this._results(r);
     this.game.onPause = () => this._pause();
     this.input.requestLock();
+    this._watchEnd(run);
+  }
+  /**
+   * Results come ~3.5 s after the crash: as soon as the run's summary exists (the sim's short 'dying' beat + 0.3 s), not after the
+   * run's own extra hold. A victory lets the Leviathan finale play longer first. The run keeps rendering (death / finale camera)
+   * behind the results.
+   */
+  _watchEnd(run) {
+    const tick = () => {
+      if (this.game.run !== run || this.screen !== 'run') return;
+      const sm = run.summary || run.remoteSummary;
+      if (run.over && sm && !(sm.won && (run.overT || 0) < 4.5) && this.game.onRunEnd) { const cb = this.game.onRunEnd; this.game.onRunEnd = null; cb(run); return; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
   _pause() {
     const g = this.game;
@@ -202,12 +259,16 @@ export class App {
     const sm = run.summary || run.remoteSummary;
     this.game.paused = false; this.input.releaseLock();
     if (!sm) { this.garage(); return; }
+    this.screen = 'results';
+    this.game.hud?.setVisible(false);
     const owner = !this.session || this.session.isHost;
     const before = { ...this.profile.best };
+    const cashBefore = this.profile.cash;
     if (owner) { creditRun(this.profile, sm); saveProfile(this.profile); this.session?.broadcastProfile(); }
-    const newBest = { distance: sm.distance > before.distance, time: sm.time > before.time, kills: sm.kills > before.kills };
+    const newBest = { distance: sm.distance > (before.distance || 0), time: sm.time > (before.time || 0), kills: sm.kills > (before.kills || 0) };
     this.game.audio?.music?.setState?.(sm.won ? 'victory' : 'garage');
-    this.ui.showResults({ ...sm, newBest }, this.profile, { onContinue: () => (sm.won ? this._victoryModal() : this.garage()), onTick: () => this.sound('coin') });
+    this.sound('whoosh_transition');
+    this.ui.showResults({ ...sm, newBest, bestBefore: before, cashBefore }, this.profile, { onContinue: () => (sm.won ? this._victoryModal() : this.garage()), onTick: () => this.sound('coin') });
   }
   async _victoryModal() {
     const p = this.profile;

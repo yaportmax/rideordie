@@ -42,7 +42,7 @@ const J = { NONE: 0, SMOKE: 1, POP: 2, WRECK: 3, ROCKET: 4 };
 class Job { constructor() { this.type = 0; this.t = 0; this.dur = 0; this.x = 0; this.y = 0; this.z = 0; this.a = 0; this.b = 0; this.c = 0; this.acc = 0; this.acc2 = 0; this.acc3 = 0; this.cv = null; this.st = null; this.rec = null; this.vx = 0; this.vy = 0; this.vz = 0; } }
 
 const _o3 = [0, 0, 0];
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _pv = new THREE.Matrix4(), _pv2 = new THREE.Matrix4(), _sph = new THREE.Sphere();
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _pv = new THREE.Matrix4(), _pv2 = new THREE.Matrix4(), _sph = new THREE.Sphere();
 
 export class Fx {
   constructor(scene, camera, opts = { quality: 2 }) {
@@ -456,7 +456,8 @@ export class Fx {
     const d = this.dist(o[0], o[1], o[2]);
     if (d > (player ? 400 : boss ? 450 : 300)) return;
     const gy = this.groundAt(o[0], o[2], o[1] - 1.6);
-    R.muzzle(this, evt.heavy && wid === 'enemy' ? 'heavy' : wid, o[0], o[1], o[2], dx, dy, dz, vx, vy, vz, gy);
+    const fp = player && !!evt.fp && !evt.remote;      // local first-person shooter: the viewmodel draws its own flash
+    R.muzzle(this, evt.heavy && wid === 'enemy' ? 'heavy' : wid, o[0], o[1], o[2], dx, dy, dz, vx, vy, vz, gy, fp);
     if (evt.rocket) { this._launchRocket(o, dx, dy, dz, evt.speed || (WEAPONS.rpg.rocket && WEAPONS.rpg.rocket.speed) || 85); return; }
     if (player) {
       if (rays) for (let i = 0; i < rays.length; i++) {
@@ -464,7 +465,7 @@ export class Fx {
         R.tracerHit(this, wid, o[0], o[1], o[2], e[0], e[1], e[2]);
         if (ry.surface) this._queueImpact(ry, Math.hypot(e[0] - o[0], e[1] - o[1], e[2] - o[2]) / 620);   // the sim emits no 'hit' for hitscan rays
       }
-      this._eject(wid, o, dx, dy, dz, ctx);
+      this._eject(wid, o, dx, dy, dz, ctx, fp ? evt : null);
     } else if (rays) {
       const sp = evt.speed || 120;
       for (let i = 0; i < rays.length; i++) {
@@ -503,7 +504,7 @@ export class Fx {
   }
   _updateTracked(dt) { for (const tr of this.tracked) if (tr.live) { tr.t += dt; if (tr.t > 1.8) tr.live = false; } }
 
-  _eject(wid, o, dx, dy, dz, ctx) {
+  _eject(wid, o, dx, dy, dz, ctx, fpEvt = null) {
     const cfg = R.muzzleCfg(wid);
     if (!cfg || cfg.casing < 0) return;
     const cv = ctx.carViews && ctx.carViews.get(ctx.playerId);
@@ -512,12 +513,22 @@ export class Fx {
     if (!this.near(o[0], o[1], o[2], 60)) return;
     // right of the gun (-X for +Z-facing), in the car's local frame (casings ride the truck bed)
     const root = cv.root; _q.copy(root.quaternion).invert();
+    const seat = cv.spec.seats && cv.spec.seats.gunner; const floorY = seat ? seat[1] : 0.9;
+    const ax = r.sym(30), ay = r.sym(30), az = r.sym(40);
+    if (fpEvt && fpEvt.ej) {
+      // first person: out of the viewmodel's ejection port, up-right and a little back toward the shooter, tumbling
+      const e = fpEvt.ej, ed = fpEvt.ejd;
+      _v.set(e[0] - root.position.x, e[1] - root.position.y, e[2] - root.position.z).applyQuaternion(_q);
+      _v2.set(ed[0], ed[1], ed[2]).applyQuaternion(_q);
+      const sp = r.range(2.4, 3.6), up = r.range(1.8, 2.8), back = r.range(0.3, 0.9);
+      _v3.set(dx, 0, dz).applyQuaternion(_q);                                                  // gun forward (truck frame)
+      return this.casings.spawn(_v.x, _v.y, _v.z, _v2.x * sp - _v3.x * back, up + _v2.y * sp * 0.5, _v2.z * sp - _v3.z * back,
+        c.rad * 0.8, c.len * 0.8, c.rad * 0.8, ax * 1.6, ay, az * 1.6, 1.4, c.hex, false, root, floorY);
+    }
     _v.set(o[0] - root.position.x, o[1] - root.position.y, o[2] - root.position.z).applyQuaternion(_q);
     _v2.set(dx, dy, dz).applyQuaternion(_q);
     let rx = _v2.z, rz = -_v2.x; const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;         // horizontal right = cross(dir, up)
-    const seat = cv.spec.seats && cv.spec.seats.gunner; const floorY = seat ? seat[1] : 0.9;
     const sp = r.range(1.6, 3.2), up = r.range(1.6, 2.8), back = r.range(-0.3, 0.5);
-    const ax = r.sym(30), ay = r.sym(30), az = r.sym(40);
     const i = this.casings.spawn(_v.x - _v2.x * 0.45 + rx * 0.06, _v.y - 0.02, _v.z - _v2.z * 0.45 + rz * 0.06,
       rx * sp + _v2.x * back, up, rz * sp + _v2.z * back, c.rad, c.len, c.rad, ax, ay, az, 1.5, c.hex, false, root, floorY);
     return i;

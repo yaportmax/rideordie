@@ -11,6 +11,8 @@ import { WorldView } from './world_view.js';
 import { GunnerController } from './gunner.js';
 import { buildPlayerSpec, gunnerLoadout } from './run_setup.js';
 import { ChaseCam, GunnerCam } from '../view/camera_rig.js';
+import { Cockpit } from '../view/cockpit.js';
+import { ThreatHUD } from '../ui/threat_hud.js';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../net/snapshot.js';
 import { WEAPONS } from '../data/weapons.js';
 import { Road } from '../world/road.js';
@@ -264,7 +266,7 @@ export class Run {
       this.gunner.update(dt, cmds.gunner, aimCam, carYaw, { carVel: pst.vel });
     }
     // world view
-    const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload } : null;
+    const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
     const evs = this.events.concat(this.localEvents.filter(() => !this.sim)); // in solo the local events already went through sim.emit
     this.localEvents.length = 0;
     { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) (window.__spikes || (window.__spikes = [])).push({ what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
@@ -272,8 +274,11 @@ export class Run {
     if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
     g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
     const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson } : null;
-    this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
+    this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
     this.allEvents = evs;
+    // first-person cockpit (local human driver): mirrors, gauges, windshield damage
+    if (this.role === 'driver' && !this.cockpit) { const v = this.wv.viewMap.get(1); if (v && v.model) { this.cockpit = new Cockpit(v); g.warmMeshes?.(this.cockpit.meshes); } }
+    if (this.cockpit) for (const e of evs) this.cockpit.onEvent(e);
     for (const e of evs) {
       if (e.t === 'minibossSpawn') { g.hud.message(e.name, 2600, '#ff5a2a'); }
       else if (e.t === 'minibossDown') { g.hud.message(`${e.name} WRECKED  +$${ECONOMY.minibossBounty[e.index] || ''}`, 2800, '#ffc21a'); }
@@ -316,6 +321,13 @@ export class Run {
     }
     // cameras
     this._camera(dt, cmds, pst);
+    // off-screen threat chevrons (first person can't see behind)
+    if (!this.threatHud && (this.humanDriver || this.humanGunner)) this.threatHud = new ThreatHUD();
+    if (this.threatHud) {
+      const dying = this.sim ? this.sim.state !== 'run' : this.simState !== 'run';
+      this.threatHud.setVisible(!dying && !g.paused && !window.__camOverride);
+      this.threatHud.update(dt, g.camera, this.states, pst, (st) => !!this.sim?.cars.get(st.id)?.elite);
+    }
     // HUD data
     this.hud2 = this._hudData(pst);
     if (this.role === 'gunner' && this.net) this._sendGunner(dt);
@@ -333,13 +345,13 @@ export class Run {
     if (d.reset && P.veh.up.y < 0.55) { this.flipT = (this.flipT || 0) + dt; if (this.flipT > 1.0) { this.flipT = 0; this._unflip(); } } else this.flipT = 0;
     if (d.horn) sim.emit({ t: 'horn', id: P.id });
   }
-  _unflip() {
+  _unflip(free = false) {
     const P = this.player, b = P.veh.body, q = P.veh.quat;
     const yaw = Math.atan2(P.veh.fwd.x, P.veh.fwd.z);
     b.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
     b.setTranslation({ x: P.veh.pos.x, y: P.veh.pos.y + 1.8, z: P.veh.pos.z }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    this.sim.damageCar(P, P.maxHp * 0.04, { cause: 'flip' });
+    if (!free) this.sim.damageCar(P, P.maxHp * 0.04, { cause: 'flip' });
     this.sim.emit({ t: 'unflip', id: P.id });
   }
   _medkit() {
@@ -396,8 +408,10 @@ export class Run {
     }
     if (this.role === 'driver') {
       const cockpitEye = this._cockpitEye(dt, pst, _t2);
-      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
+      const ck = this.cockpit, lookBackEye = ck && cmds.driver.lookBack && this.chase.mode === 0 ? ck.lookBackWorld(_t3) : null;
+      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, lookBack: !!lookBackEye, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
       if (cmds.driver.cameraToggle) this.chase.toggle();
+      if (ck) { ck.setActive(this.chase.mode === 0 && !lookBackEye); ck.update(dt, this.hud2, g.look?.night ?? 0); }
       this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion);
     } else if (this.gunner) {
       const w = this.gunner.weapon;
@@ -415,7 +429,7 @@ export class Run {
     if (head) {
       head.getWorldPosition(_v);
       _v.sub(pst.pos).applyQuaternion(_q2.copy(pst.quat).invert()); _v.y += pst.ride.restComHeight;   // -> truck-local (ground origin)
-      _v.z += 0.1; _v.y += 0.08;                                                                        // eyes sit ahead/above the head joint
+      _v.z -= 0.1; _v.y += 0.11;                                                                        // behind/above the head joint: a natural distance to the wheel and glass, over the hood kit, no own shoulders in view
       const k = 1 - Math.exp(-dt * 10); loc.lerp(_v, k);
     }
     return out.set(loc.x, loc.y - pst.ride.restComHeight, loc.z).applyQuaternion(pst.quat).add(pst.pos);
@@ -444,14 +458,14 @@ export class Run {
       speed: pst ? pst.speed : 0, rpm01: pst ? pst.rpm01 : 0, nitro01: 0, nitroMax: this.spec.nitro?.capacity || 0,
       hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : (this.hud?.time || 0), biome: BIOMES[b.w > 0.5 ? b.b : b.a].name, prog01: s / BOSS_S, boss,
       spreadPx: this.gunner ? (this.gunner.spreadNow() * Math.PI / 180) / (this.g.camera.fov * Math.PI / 180) * innerHeight : undefined,
-      scoped: this.gunner ? !!this.gunner.weapon.scope && this.gunner.ads > 0.85 : false,
+      scoped: this.gunner && this.humanGunner && this.role !== 'driver' ? !!this.gunner.weapon.scope && this.gunner.ads > 0.85 : false, // never the AI gunner's scope on the driver's screen
       hideCross: this.gunner ? this.gcam.firstPerson && this.gcam.adsK > 0.6 : false,
       weapon: this.gunner ? this.gunner.weapon.name : undefined, mag: this.gunner ? this.gunner.magNow : 0, reloading: this.gunner ? this.gunner.reloading : false,
       showDriver: this.role !== 'gunner',
     };
     if (P) { d.nitro01 = P.veh.nitro / Math.max(0.001, P.veh.nitroMax); d.dhp01 = P.crew.driver.hp / P.crew.driver.max; d.ghp01 = P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1; }
     else if (this.hud && this.hud.dhp01 !== undefined) { d.dhp01 = this.hud.dhp01; d.ghp01 = this.hud.ghp01; d.nitro01 = this.hud.nitro01; d.hp01 = this.hud.hp01; }
-    d.arrows = this._threatArrows(pst);
+    d.arrows = this.threatHud ? [] : this._threatArrows(pst); // the ThreatHUD chevrons replace the old edge arrows
     return d;
   }
 
@@ -555,6 +569,7 @@ export class Run {
   }
 
   dispose() {
+    this.cockpit?.dispose(); this.cockpit = null; this.threatHud?.dispose(); this.threatHud = null;
     this.g.fx?.clear();
     try { this.dressing?.dispose(); } catch (e) { console.warn(e); }
     this.structures?.dispose();
@@ -564,7 +579,7 @@ export class Run {
   }
 }
 
-const _f = new V3(), _v = new V3(), _t2 = new V3(), _aiDir = new V3(), _q2 = new THREE.Quaternion();
+const _f = new V3(), _v = new V3(), _t2 = new V3(), _t3 = new V3(), _aiDir = new V3(), _q2 = new THREE.Quaternion();
 function g_kill(run, e) {
   // cash + style: crash kills and multi-kills pay more
   const base = KILL_CASH[e.spec] || 60;

@@ -56,15 +56,17 @@ export const POST_PRESETS = [
 /** Default look / tuning. Everything here can be edited live through `post.cfg` (it is re-applied every frame). */
 export function defaultPostConfig() {
   return {
-    exposure: 1.0,                 // multiplier on renderer.toneMappingExposure
-    tonemap: 'aces',               // 'aces' | 'agx'
+    exposure: 1.1,                 // multiplier on renderer.toneMappingExposure
+    tonemap: 'agx',                // 'aces' | 'agx' (AgX: no blue->purple skew on skies / night, graceful fire highlights)
     bloom: { intensity: 0.55, threshold: 1.6, knee: 0.7, radius: 0.8, clamp: 20, skyMul: 8 },
-    ao: { radius: 3.0, intensity: 4.2, falloff: 1.0, color: 0x231a14 },
-    mb: { strength: 1.0, shutter: 0.5, maxFrac: 0.03, carMask: 0.75, nearZ0: 7, nearZ1: 45, nearMin: 0.3 },
-    ca: { base: 0.0012, speed: 0.0045, boost: 0.005, hit: 0.011, slowmo: 0.002 },
+    ao: { radius: 2.0, intensity: 2.6, falloff: 1.0, color: 0x1a1410 },
+    // first person: everything within ~2.5 m (cockpit, viewmodel, truck bed) rides with the camera => never blurred;
+    // blur only ramps in toward the screen edges (radial r0..r1), the centre stays crisp
+    mb: { strength: 0.8, shutter: 0.5, maxFrac: 0.022, carMask: 0.0, nearZ0: 2.5, nearZ1: 14, nearMin: 0.0, r0: 0.22, r1: 0.85 },
+    ca: { base: 0.00025, speed: 0.0011, boost: 0.0022, hit: 0.009, slowmo: 0.0015 },
     vignette: { base: 0.2, speed: 0.1, boost: 0.1, slowmo: 0.1 },
-    grain: 0.03,
-    lines: 1.0,
+    grain: 0.025,
+    lines: 0.35,                   // boost speed streaks: a hint at the periphery, not a smear
     sharpen: 0.3,
     grade: {
       contrast: 0.22, saturation: 1.1,
@@ -189,6 +191,7 @@ export class Post {
 
     // matrices for reprojection
     this._vp = new THREE.Matrix4(); this._prevVP = new THREE.Matrix4(); this._invVP = new THREE.Matrix4(); this._reproj = new THREE.Matrix4();
+    this._reprojT = new THREE.Matrix4(); this._mT = new THREE.Matrix4();
     this._prevPos = new THREE.Vector3(); this._haveHistory = false; this._forceCut = false;
 
     // shockwaves
@@ -297,6 +300,21 @@ export class Post {
     if (p.anchor !== undefined) this._anchor = p.anchor;
     if (p.focusObject !== undefined) this.focusObject = p.focusObject;
   }
+
+  /** Per-biome / time-of-day grade from a look (world/look.js): {grade:{con, sat, shT[3], hiT[3]}}. Call every frame (cheap). */
+  setLook(look) {
+    const g = look && look.grade; if (!g) return;
+    const G = this.cfg.grade;
+    G.contrast = g.con; G.saturation = g.sat;
+    for (let i = 0; i < 3; i++) { G.shadowTint[i] = g.shT[i]; G.highTint[i] = g.hiT[i]; }
+  }
+
+  /** Settings: speed blur at the screen edges on/off. */
+  setMotionBlur(on) { this.feat.mb = !!on; }
+  get motionBlur() { return this.feat.mb; }
+  /** Settings: chromatic aberration amount 0..1 (1 = default subtle edge fringing on hits / boost, 0 = never). */
+  setChromaticAberration(k) { this.cfg.ca.scale = clamp(+k || 0, 0, 1); this.feat.ca = this.cfg.ca.scale > 0; }
+  get chromaticAberration() { return this.feat.ca ? (this.cfg.ca.scale ?? 1) : 0; }
 
   /** Enable/disable individual effects (test page / settings). Keys: ao bloom mb ca vignette grain lines dof smaa grade sharpen */
   setFeatures(f) { Object.assign(this.feat, f); }
@@ -450,7 +468,14 @@ export class Post {
     this._invVP.copy(this._vp).invert();
     const cut = !this._haveHistory || this._forceCut || camera.position.distanceToSquared(this._prevPos) > 60 * 60;
     if (cut) this._reproj.identity(); else this._reproj.multiplyMatrices(this._prevVP, this._invVP);
-    lu.get('reproj').value.copy(this._reproj);
+    // motion blur reprojects with the camera's TRANSLATION only (previous position, current orientation): blur comes from
+    // driving speed / parallax, never from looking around (mouse aim, head bob, shake)
+    if (cut) this._reprojT.identity();
+    else {
+      this._mT.copy(camera.matrixWorld).setPosition(this._prevPos).invert();
+      this._reprojT.multiplyMatrices(camera.projectionMatrix, this._mT).multiply(this._invVP);
+    }
+    lu.get('reproj').value.copy(this._reprojT);
     if (this.taaPass && this._taa) {
       this.taaPass.reproj.copy(this._reproj);
       if (cut) this.taaPass.reset = true;
@@ -462,9 +487,10 @@ export class Post {
     lu.get('mbMaxPx').value = Math.max(4, cfg.mb.maxFrac * ih * (0.6 + 0.6 * drive));
     lu.get('carMask').value = cfg.mb.carMask;
     lu.get('nearFade').value.set(cfg.mb.nearZ0, cfg.mb.nearZ1, cfg.mb.nearMin);
+    lu.get('mbRadial').value.set(cfg.mb.r0, cfg.mb.r1);
     this._projectAnchor(lu.get('car').value);
     const caOn = feat.ca;
-    lu.get('caAmount').value = caOn ? cfg.ca.base + cfg.ca.speed * sp * sp + cfg.ca.boost * boost + cfg.ca.hit * hit + cfg.ca.slowmo * slow : 0;
+    lu.get('caAmount').value = caOn ? (cfg.ca.base + cfg.ca.speed * sp * sp + cfg.ca.boost * boost + cfg.ca.hit * hit + cfg.ca.slowmo * slow) * (cfg.ca.scale ?? 1) : 0;
     lu.get('frameSeed').value = (this._frame % 64) * 3.7;
     // shockwaves -> screen space
     const sv = lu.get('shock').value;
@@ -486,7 +512,9 @@ export class Post {
     // ---- bloom
     const bl = this.bloom;
     const tm = bl.thresholdMaterial.uniforms;
-    tm.thr.value.set(cfg.bloom.threshold, cfg.bloom.knee, cfg.bloom.clamp, cfg.bloom.skyMul);
+    // threshold relative to exposure: 'blooms when it is DISPLAYED bright' (night exposure is ~2x => lamps / windows glow)
+    const ex = Math.max(0.25, renderer.toneMappingExposure * cfg.exposure);
+    tm.thr.value.set(cfg.bloom.threshold / ex, cfg.bloom.knee / ex, cfg.bloom.clamp / ex, cfg.bloom.skyMul);
     tm.depthBuffer.value = this.composer.stableDepthTexture;
     tm.useDepth.value = 1;
     bl.intensity = feat.bloom ? cfg.bloom.intensity * (1 + 0.25 * c.night01 + 0.2 * boost + 0.35 * this._shockPulse) : 0;

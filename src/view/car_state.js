@@ -21,6 +21,8 @@ export function makeCarState(id, specId, kind) {
     gunner: { yaw: 0, pitch: 0, fire: false, crouch: false, ads: false, weapon: 0, reloading: false, x: 0, z: 0 },
     gunner2: { yaw: 0, pitch: 0, fire: false, crouch: false },
     hitFlash: 0, age: 0, t: 0, gunName: null,
+    elite: 0,        // 1..5 = miniboss index + 1 (view: warlord kit + nameplate)
+    intent: null,    // raider intent: 'ram' | 'block' | 'shoot' | null (sim/ai.js EnemyBrain.intent)
   };
 }
 
@@ -38,5 +40,6 @@ export function stateFromCar(car, alpha, st) {
   const g = car.crew.gunner; if (g) { st.gunner.yaw = g.aimYaw; st.gunner.pitch = g.aimPitch; st.gunner.fire = g.fire; st.gunner.crouch = g.crouch; st.gunner.ads = !!g.ads; st.gunner.weapon = g.weapon ?? 0; st.gunner.reloading = !!g.reloading; st.gunner.x = g.x || 0; st.gunner.z = g.z || 0; }
   const g2 = car.crew.gunner2; if (g2) { st.gunner2.yaw = g2.aimYaw; st.gunner2.pitch = g2.aimPitch; st.gunner2.fire = g2.fire; }
   st.hitFlash = car.hitFlash; st.age = car.age; st.gunName = car.gunName || null;
+  st.elite = car.elite ? car.elite.index + 1 : 0; st.intent = car.ai ? car.ai.intent : null;
   return st;
 }

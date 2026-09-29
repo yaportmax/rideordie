@@ -173,9 +173,12 @@ export class Ui {
     else if (!run && this._running) { this._running = false; cancelAnimationFrame(this._raf); }
     const s = this.screen();
     const bg = s ? (s.bg || 'none') : 'none';
-    this.bgEl.dataset.mode = bg === 'veil' ? 'veil' : this.opts.backdrop !== false ? bg : (bg === 'title' || bg === 'dim' ? 'scrim' : 'none');
+    // over live 3D (backdrop:false): title = left scrim for the logo + menu, dim = even darkening, results = heavy left-to-right scrim
+    this.bgEl.dataset.mode = bg === 'veil' ? 'veil' : this.opts.backdrop !== false ? (bg === 'results' ? 'dim' : bg) : ({ title: 'scrim', dim: 'dim3d', results: 'results3d' }[bg] || 'none');
     this.el.classList.toggle('has-screen', !!s);
   }
+  /** Free area of the garage screen between its panels (CSS px) - the 3D camera frames the subject inside it. */
+  garageFrameRect() { const g = this._find('garage'); return g && g.frameRect ? g.frameRect() : null; }
 
   _mount(screen, { base = false } = {}) {
     if (base) this._clearStack();

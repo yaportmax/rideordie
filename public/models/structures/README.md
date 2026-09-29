@@ -64,7 +64,7 @@ exported as GLB. `manifest.json` lists every file (tris, dimensions, materials, 
 | `tunnel_exit_grey` | 5513 | 68.0 x 28.9 x 24.5 | 488 | asphalt, concrete, concrete_dark, light_amber, light_green, light_head, light_tail, metal_bare, metal_dark, rock_grey, rust |
 | `road_gate` | 9300 | 20.8 x 16.4 x 9.2 | 796 | bone, canvas, concrete, concrete_dark, hazard, light_amber, light_head, metal_dark, paint, paint2, rubber, spike, steel_beam |
 | `toll_booth_ruined` | 6612 | 18.2 x 6.7 x 12.0 | 596 | concrete, concrete_dark, glass, hazard, light_green, light_tail, metal_dark, paint, paint2, rebar, steel_beam |
-| `roadblock_wreck_line` | 5318 | 16.4 x 5.4 x 9.5 | 447 | canvas, concrete, hazard, metal_dark, paint, rubber, rust, spike |
+| `roadblock_wreck_line` | 5286 | 16.7 x 3.0 x 11.2 | 444 | canvas, concrete, hazard, metal_dark, paint, rubber, rust, spike |
 
 ### `jump_ramp`
 Kicker ramp spanning the road. Drive +Z. Surface curve y = H*(z/L)^1.45 (flush at z=0, lip at z=L).
@@ -221,7 +221,7 @@ Ruined toll plaza: canopy over the road (z 1..13, clear height 5.1 m), two islan
 Raider roadblock: a line of wrecked cars, jersey barriers, sandbags, tyres and drums across the road (x -7..7, depth ~8 m, z 0..8) with a gap. The gap is x in [0.4, 4.8] (4.4 m wide, centre x=2.6); mirror with scale.x=-1 for a gap on the other side (or rotate 180 deg about Y). Socket `gap_center`.
 * gap: [0.4, 4.8]
 * gap_center: [2.6, 0, 4]
-* bbox min [-8.12, -1.77, -0.31] max [8.33, 3.65, 9.22]; 5318 tris (+228 collision tris)
+* bbox min [-8.12, -0.44, -0.72] max [8.56, 2.53, 10.51]; 5286 tris (+216 collision tris)
 * sockets: `gap_center` [2.6, 0.0, 4.0]
 * nodes: `canvas`, `concrete`, `hazard`, `metal_dark`, `paint`, `rubber`, `rust`, `spike`, `collision`
 

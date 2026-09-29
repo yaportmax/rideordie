@@ -1,8 +1,14 @@
-// TITLE: logo + HOST / JOIN (room code entry incl. on-screen keypad for gamepads) / SOLO / SETTINGS / CONTROLS.
+// TITLE: logo + SINGLE PLAYER (seat picker: DRIVE / SHOOT / BOTH) / HOST CO-OP / JOIN CO-OP (room code entry incl. on-screen keypad for
+// gamepads) / SETTINGS / CONTROLS. The live 3D chase (TitleScene) runs behind it.
 import { h } from '../comp.js';
-import { hints } from '../glyphs.js';
+import { hints, icon } from '../glyphs.js';
 
 const KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789'.split('');
+const SEATS = [
+  { id: 'driver', name: 'DRIVE', icon: 'wheel', sub: 'YOU TAKE THE WHEEL', text: 'Steer, drift, ram and burn nitro. Your AI gunner shoots back.', ai: 'AI GUNNER' },
+  { id: 'gunner', name: 'SHOOT', icon: 'crosshair', sub: 'YOU MAN THE GUNS', text: 'Stand in the truck bed and fight. Your AI driver keeps you moving.', ai: 'AI DRIVER' },
+  { id: 'both', name: 'BOTH', icon: 'truck', sub: 'ONE-PERSON CREW', text: 'Drive with the keys and aim with the mouse at the same time. Hard mode.', ai: 'NO AI' },
+];
 
 export class TitleScreen {
   constructor(ui, cb) {
@@ -19,7 +25,7 @@ export class TitleScreen {
           <div class="tagline stg" style="--i:1"><span>TWO PLAYERS</span><b></b><span>ONE TRUCK</span><b></b><span>NO BRAKES</span></div>
           <div class="tt-view"></div>
         </div>
-        <div class="tt-ver stg" style="--i:6">v0.1 &middot; DESERT-PUNK CO-OP ROAD COMBAT</div>
+        <div class="tt-ver stg" style="--i:6">v0.9 &middot; DESERT-PUNK CO-OP ROAD COMBAT</div>
         <div class="hints" data-hints></div>
       </div>`;
     this.viewEl = this.el.querySelector('.tt-view');
@@ -28,25 +34,47 @@ export class TitleScreen {
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('input', (e) => { if (e.target.classList.contains('code')) this.sanitize(e.target); });
   }
-  showMenu(anim = true) {
-    const cb = this.cb; this.view = 'menu'; this.el.classList.remove('joining');
-    const btn = (act, label, sub, i, extra = '') => `<div class="f btn stack stg ${extra}" style="--i:${i}" role="button" data-act="${act}"><span><b>${label}</b><small>${sub}</small></span></div>`;
+  showMenu(anim = true, focusAct = 'solo') {
+    const cb = this.cb; this.view = 'menu'; this.el.classList.remove('joining', 'seating');
+    const btn = (act, label, sub, i, extra = '') => `<div class="f btn stack stg ${extra}" style="--i:${i}" role="button" data-act="${act}" data-k="${act}"><span><b>${label}</b><small>${sub}</small></span></div>`;
     this.viewEl.innerHTML = `<nav class="menu">
-      ${btn('host', 'HOST GAME', 'CREATE A ROOM &middot; SHARE THE CODE', 2, 'primary')}
-      ${btn('join', 'JOIN GAME', 'ENTER A ROOM CODE', 3)}
-      ${btn('solo', 'SINGLE PLAYER', 'DRIVE OR SHOOT &middot; AN AI PARTNER TAKES THE OTHER SEAT', 4)}
-      ${btn('settings', 'SETTINGS', 'VIDEO &middot; AUDIO &middot; INPUT &middot; KEY BINDINGS', 5)}
-      ${btn('controls', 'CONTROLS', 'KEYBOARD, MOUSE &amp; GAMEPAD LAYOUTS', 6)}
+      ${btn('solo', 'SINGLE PLAYER', 'DRIVE OR SHOOT &middot; AN AI PARTNER TAKES THE OTHER SEAT', 2, 'primary')}
+      ${btn('host', 'HOST CO-OP', 'CREATE A ROOM &middot; SHARE THE CODE WITH A FRIEND', 3)}
+      ${btn('join', 'JOIN CO-OP', 'ENTER A FRIEND&rsquo;S ROOM CODE', 4)}
+      <div class="menu-split stg" style="--i:5">
+        ${`<div class="f btn half" role="button" data-act="settings" data-k="settings"><span>${icon('sliders')}SETTINGS</span></div>`}
+        ${`<div class="f btn half" role="button" data-act="controls" data-k="controls"><span>${icon('gamepad')}CONTROLS</span></div>`}
+      </div>
       ${cb.onQuit ? btn('quit', 'QUIT', 'EXIT TO DESKTOP', 7, 'danger') : ''}
     </nav>`;
     this.hintsEl.innerHTML = hints([['nav', 'MOVE'], ['confirm', 'SELECT']]);
-    if (anim) requestAnimationFrame(() => this.ui.nav.ensure(this.viewEl.querySelector('[data-act=join]')));
+    if (anim) {
+      this.viewEl.querySelector('.menu').animate([{ opacity: 0, transform: 'translateX(-24px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      requestAnimationFrame(() => this.ui.nav.ensure(this.viewEl.querySelector(`[data-act=${focusAct}]`)));
+    }
+  }
+  showSeats() {
+    this.view = 'seats'; this.el.classList.add('seating');
+    const card = (s, i) => `<div class="f seatcard stg" style="--i:${i}" role="button" data-seat="${s.id}" data-k="seat:${s.id}" data-snd="none">
+        <div class="sc-ic">${icon(s.icon)}</div>
+        <div class="sc-name">${s.name}</div><div class="sc-sub">${s.sub}</div>
+        <p>${s.text}</p>
+        <div class="sc-ai"><i></i>${s.ai}</div>
+      </div>`;
+    this.viewEl.innerHTML = `<div class="seats">
+      <div class="eyebrow stg" style="--i:0">SINGLE PLAYER &middot; PICK YOUR SEAT</div>
+      <div class="seatrow">${SEATS.map((s, i) => card(s, i + 1)).join('')}</div>
+      <div class="row"><div class="f btn back-btn" role="button" data-act="sback" data-k="sback"><span>BACK</span></div></div>
+    </div>`;
+    this.hintsEl.innerHTML = hints([['navh', 'CHOOSE'], ['confirm', 'RIDE'], ['back', 'BACK']]);
+    const last = this.ui.settings?.soloSeat || 'driver';
+    requestAnimationFrame(() => this.ui.nav.focus(this.viewEl.querySelector(`[data-seat=${last}]`) || this.viewEl.querySelector('.seatcard'), { silent: true }));
   }
   showJoin() {
     this.view = 'join'; this.el.classList.add('joining');
     const keys = KEYS.map((k) => `<div class="f key" role="button" data-key="${k}"><span>${k}</span></div>`).join('');
     this.viewEl.innerHTML = `<div class="join">
-      <div class="eyebrow">JOIN A ROOM</div>
+      <div class="eyebrow">JOIN A FRIEND&rsquo;S ROOM</div>
       <div class="codebox interact"><input class="f code" data-submit=".jgo" maxlength="12" placeholder="ROOM CODE" spellcheck="false" autocomplete="off" autocapitalize="characters"></div>
       <div class="keypad">${keys}<div class="f key" role="button" data-key="0"><span>0</span></div><div class="f key w5" role="button" data-key="DEL"><span>&#9003; DELETE</span></div><div class="f key w4" role="button" data-key="CLR"><span>CLEAR</span></div></div>
       <div class="row"><div class="f btn primary jgo" role="button" data-act="jgo"><span>JOIN</span></div><div class="f btn" role="button" data-act="jback"><span>BACK</span></div></div>
@@ -69,10 +97,17 @@ export class TitleScreen {
       t.classList.remove('tap'); void t.offsetWidth; t.classList.add('tap');
       return;
     }
+    if (t.dataset.seat) {
+      ui.snd('go'); ui.pressFx(t);
+      try { ui.changeSetting('soloSeat', t.dataset.seat); } catch { /* ignore */ }
+      if (cb.onSolo) setTimeout(() => cb.onSolo(t.dataset.seat), 120);
+      return;
+    }
     switch (t.dataset.act) {
       case 'host': ui.snd('go'); cb.onHost && cb.onHost(); break;
       case 'join': this.showJoin(); break;
-      case 'solo': ui.snd('go'); cb.onSolo && cb.onSolo(); break;
+      case 'solo': this.showSeats(); break;
+      case 'sback': this.showMenu(true, 'solo'); break;
       case 'settings': if (cb.onSettings) cb.onSettings(); else ui.showSettings(); break;
       case 'controls': if (cb.onControls) cb.onControls(); else ui.showControls('driver'); break;
       case 'quit': cb.onQuit && cb.onQuit(); break;
@@ -81,11 +116,24 @@ export class TitleScreen {
         if (code.length < 3) { ui.snd('error'); this.input.parentElement.classList.remove('shake'); void this.input.offsetWidth; this.input.parentElement.classList.add('shake'); ui.toast('ENTER THE ROOM CODE', 'warn'); this.ui.nav.focus(this.input); break; }
         ui.snd('go'); cb.onJoin && cb.onJoin(code); break;
       }
-      case 'jback': this.showMenu(); break;
+      case 'jback': this.showMenu(true, 'join'); break;
       default:
     }
   }
-  initialFocus() { return this.viewEl.querySelector('[data-act=host]'); }
-  back() { if (this.view === 'join') { this.ui.snd('menu_close'); this.showMenu(); return true; } return false; }
+  navOverride(el, dir) {
+    if (this.view !== 'seats') return undefined;
+    const cards = [...this.viewEl.querySelectorAll('.seatcard')];
+    const i = cards.indexOf(el);
+    if (i >= 0 && dir === 'down') return this.viewEl.querySelector('.back-btn');
+    if (el.classList.contains('back-btn') && dir === 'up') return this.viewEl.querySelector('.seatcard.last-f') || cards[0];
+    if (i >= 0) { cards.forEach((c) => c.classList.toggle('last-f', c === el)); }
+    return undefined;
+  }
+  initialFocus() { return this.viewEl.querySelector('[data-act=solo]') || this.viewEl.querySelector('.f'); }
+  back() {
+    if (this.view === 'join') { this.ui.snd('menu_close'); this.showMenu(true, 'join'); return true; }
+    if (this.view === 'seats') { this.ui.snd('menu_close'); this.showMenu(true, 'solo'); return true; }
+    return false;
+  }
   resumed() { }
 }

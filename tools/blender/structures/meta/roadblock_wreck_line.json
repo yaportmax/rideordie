@@ -1,23 +1,23 @@
 {
  "id": "roadblock_wreck_line",
  "file": "models/structures/roadblock_wreck_line.glb",
- "tris": 5318,
- "collision_tris": 228,
- "size_kb": 447.4,
+ "tris": 5286,
+ "collision_tris": 216,
+ "size_kb": 444.2,
  "bbox_min": [
   -8.12,
-  -1.77,
-  -0.31
+  -0.44,
+  -0.72
  ],
  "bbox_max": [
-  8.33,
-  3.65,
-  9.22
+  8.56,
+  2.53,
+  10.51
  ],
  "dims": [
-  16.45,
-  5.42,
-  9.54
+  16.68,
+  2.97,
+  11.23
  ],
  "materials": [
   "canvas",
@@ -34,7 +34,7 @@
   "paint": 488,
   "rubber": 1232,
   "rust": 888,
-  "concrete": 192,
+  "concrete": 160,
   "hazard": 288,
   "canvas": 704,
   "spike": 144

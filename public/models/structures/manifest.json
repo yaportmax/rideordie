@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-29T02:49:43",
+ "generated": "2026-09-29T09:54:14",
  "count": 64,
- "total_kb": 26938,
+ "total_kb": 26935,
  "conventions": "see README.md",
  "structures": [
   {
@@ -1132,23 +1132,23 @@
    "id": "roadblock_wreck_line",
    "group": "road",
    "file": "models/structures/roadblock_wreck_line.glb",
-   "tris": 5318,
-   "collision_tris": 228,
-   "size_kb": 447.4,
+   "tris": 5286,
+   "collision_tris": 216,
+   "size_kb": 444.2,
    "bbox_min": [
     -8.12,
-    -1.77,
-    -0.31
+    -0.44,
+    -0.72
    ],
    "bbox_max": [
-    8.33,
-    3.65,
-    9.22
+    8.56,
+    2.53,
+    10.51
    ],
    "dims": [
-    16.45,
-    5.42,
-    9.54
+    16.68,
+    2.97,
+    11.23
    ],
    "materials": [
     "canvas",
