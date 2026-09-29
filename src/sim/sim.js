@@ -182,7 +182,8 @@ export class Sim {
     if (car.kind === 'player') dmg *= (this.playerCrashMul ?? 1);
     if (!other) {
       if (this._lastOther === 'ramp') return;          // ramps launch you, they never hurt
-      if (Math.abs(dir.y) > 0.8) dmg *= 0.12; else if (Math.abs(dir.y) > 0.6) dmg *= 0.3; // landings hurt far less than walls                 // landing on the ground hurts far less than hitting a wall
+      if (Math.abs(dir.y) > 0.8) dmg = Math.max(0, dv - 3) * 0.9; // landings: free unless it is a real slam
+      else if (Math.abs(dir.y) > 0.6) dmg *= 0.3;
       else if (this.hazards.roadblockNear(car.veh.pos)) dmg *= 0.5; // wreck lines are meant to be survivable
     }
     if (dmg <= 0) return;

@@ -19,6 +19,12 @@ export class App {
     this.readyMine = false; this.readyOther = false;
     this.applySettings(this.ui.settings);
     window.__app = this;
+    // Esc while the mouse is captured is swallowed by the browser (it just releases the lock): treat losing the lock mid-run as "pause"
+    document.addEventListener('pointerlockchange', () => {
+      const g = this.game;
+      if (!document.pointerLockElement && g.mode === 'run' && g.run && !g.run.over && !g.paused && !this._releasing && this.input.lastDevice !== 'pad') this._pause();
+      this._releasing = false;
+    });
   }
 
   sound(name) { this.game.audio?.ui(name); }
@@ -172,7 +178,7 @@ export class App {
   _pause() {
     const g = this.game;
     if (g.paused) return;
-    g.paused = true; this.input.releaseLock();
+    g.paused = true; this._releasing = true; this.input.releaseLock();
     this.ui.showPause({
       onResume: () => { g.paused = false; this.ui.hideAll(); this.input.requestLock(); },
       onQuit: () => {
