@@ -78,7 +78,7 @@ export class EnemyBrain {
   }
 
   /** How eager this raider is: attack cooldown in seconds, shrinking with difficulty. */
-  _cooldown(base) { return base * lerp(1.35, 0.55, clamp(this.level, 0, 1.2)) * this.r.range(0.75, 1.3) * (this.car.elite ? 0.6 : 1); }
+  _cooldown(base) { return base * lerp(1.35, 0.72, clamp(this.level, 0, 1.2)) * this.r.range(0.75, 1.3) * (this.car.elite ? 0.6 : 1); }
 
   _tell(kind, extra) { this.sim.emit({ t: 'enemyTell', id: this.car.id, kind, ...extra }); }
 
@@ -322,7 +322,7 @@ export class EnemyBrain {
       for (const o of sim.cars.values()) {
         if (o === car || o.exploded || o.kind === 'player') continue;
         _v.copy(o.veh.pos).sub(veh.pos); const ahead = _v.dot(veh.fwd), lat = _v.dot(veh.left);
-        if (ahead < -6 || ahead > 34 || Math.abs(lat) > 13 || Math.abs(lat) < 0.5) continue;
+        if (ahead < -6 || ahead > 45 || Math.abs(lat) > 16 || Math.abs(lat) < 0.5) continue;
         const score = Math.abs(lat) + Math.max(0, ahead) * 0.35 + (o.kind === 'player' ? 6 : 0);
         if (score < bs) { bs = score; best = o; }
       }
@@ -332,7 +332,7 @@ export class EnemyBrain {
         this.deadSteer = away * this.r.range(0.6, 1);
       }
       this.deadSpin = !best && this.r() < 0.35;
-      this.deadJam = this.r.range(1.6, 2.6);
+      this.deadJam = best ? this.r.range(2.4, 3.2) : this.r.range(1.6, 2.6);   // (foot stays down longer when there's someone to hit)
       this.sim.emit({ t: 'runaway', id: car.id, victim: best ? best.id : -1 });
     }
     this.deadT += dt;
@@ -340,7 +340,7 @@ export class EnemyBrain {
     // steer toward the victim while it is still there (the slumped body keeps the wheel over)
     let steer = this.deadSteer;
     const v = this.deadVictim;
-    if (v && !v.exploded && T < 2.2) {
+    if (v && !v.exploded && T < 3.0) {
       _v.copy(v.veh.pos).addScaledVector(v.veh.vel, 0.25).sub(veh.pos);
       const want = wrapAngle(Math.atan2(_v.x, _v.z) - Math.atan2(veh.fwd.x, veh.fwd.z));
       steer = clamp(want * 3.5, -1, 1);

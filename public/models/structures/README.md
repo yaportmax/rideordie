@@ -708,17 +708,68 @@ Two-tier butte/mesa backdrop, ~112 m wide lower tier (62 m) + 48 m upper butte o
 * nodes: `dirt_red`, `rock_red`, `sand`, `collision`
 
 
-## Other
+## Vehicle wrecks + roadblock modules (origin ground centre, front +Z; rb_* modules keep visuals + collision inside |x| <= hw)
+
+| id | tris | size (x, y, z m) | file KB | materials |
+|---|---|---|---|---|
+| `wreck_sedan` | 490 | 2.5 x 1.6 x 4.9 | 44 | metal_dark, rubber, rust |
+| `wreck_sedan_b` | 562 | 2.5 x 1.6 x 4.9 | 49 | metal_dark, paint, rubber |
+| `wreck_pickup` | 556 | 2.6 x 1.8 x 5.6 | 49 | metal_dark, rubber, rust |
+| `wreck_van` | 688 | 2.6 x 2.0 x 5.3 | 59 | metal_dark, paint, rubber |
+| `wreck_flipped` | 562 | 2.5 x 1.6 x 4.5 | 49 | metal_dark, rubber, rust |
+| `wreck_bus` | 426 | 2.6 x 3.2 x 11.6 | 42 | glass, metal_dark, paint, rubber, rust |
+| `rb_wreck_car` | 882 | 4.5 x 1.6 x 5.8 | 78 | concrete, metal_dark, rubber, rust, spike |
+| `rb_wreck_van` | 1284 | 5.3 x 2.6 x 5.5 | 113 | canvas, metal_dark, paint, rubber, rust |
+| `rb_wreck_small` | 380 | 2.3 x 1.3 x 4.9 | 35 | concrete, metal_dark, rubber, rust, spike |
+
+### `wreck_sedan`
+Loose vehicle wreck, origin ground centre, front +Z, one collision box.
+* bbox min [-1.06, 0.0, -2.55] max [1.45, 1.65, 2.37]; 490 tris (+12 collision tris)
+* nodes: `metal_dark`, `rubber`, `rust`, `collision`
+
+### `wreck_sedan_b`
+Loose vehicle wreck, origin ground centre, front +Z, one collision box.
+* bbox min [-1.06, 0.0, -2.55] max [1.45, 1.65, 2.37]; 562 tris (+12 collision tris)
+* nodes: `metal_dark`, `paint`, `rubber`, `collision`
+
+### `wreck_pickup`
+Loose vehicle wreck, origin ground centre, front +Z, one collision box.
+* bbox min [-1.13, 0.0, -2.9] max [1.51, 1.75, 2.72]; 556 tris (+12 collision tris)
+* nodes: `metal_dark`, `rubber`, `rust`, `collision`
+
+### `wreck_van`
+Loose vehicle wreck, origin ground centre, front +Z, one collision box.
+* bbox min [-1.13, 0.0, -2.75] max [1.51, 2.05, 2.57]; 688 tris (+12 collision tris)
+* nodes: `metal_dark`, `paint`, `rubber`, `collision`
+
+### `wreck_flipped`
+Loose vehicle wreck, origin ground centre, front +Z, one collision box.
+* bbox min [-1.43, -0.27, -2.35] max [1.04, 1.33, 2.17]; 562 tris (+12 collision tris)
+* nodes: `metal_dark`, `rubber`, `rust`, `collision`
+
+### `wreck_bus`
+Loose vehicle wreck, origin ground centre, front +Z, one collision box.
+* bbox min [-1.3, -0.06, -5.81] max [1.3, 3.1, 5.81]; 426 tris (+12 collision tris)
+* nodes: `glass`, `metal_dark`, `paint`, `rubber`, `rust`, `collision`
 
 ### `rb_wreck_car`
 Roadblock module (4.8 m wide, x -2.40..2.40, road-aligned, origin road level at the module centre line z=0). Burnt coupe across the road, jersey barrier, tyres, drums. Visuals + collision never exceed |x| <= hw.
-* 882 tris, dims [4.52, 1.6, 5.75]
-
-### `rb_wreck_small`
-Narrow roadblock module (2.4 m wide, x -1.20..1.20, road-aligned): jersey barrier across the road, tyre stack, drum, razor wire. Visuals + collision never exceed |x| <= hw.
-* 380 tris, dims [2.3, 1.27, 4.9]
+* hw: 2.4
+* bbox min [-2.35, 0.0, 0.9] max [2.17, 1.6, 6.65]; 882 tris (+48 collision tris)
+* sockets: `hw` [2.4, 0, 0]
+* nodes: `concrete`, `metal_dark`, `rubber`, `rust`, `spike`, `collision`
 
 ### `rb_wreck_van`
 Roadblock module (5.6 m wide, x -2.80..2.80, road-aligned). Overturned van on its side across the road, sandbags, drums, tyres. Visuals + collision never exceed |x| <= hw.
-* 1284 tris, dims [5.32, 2.63, 5.52]
+* hw: 2.8
+* bbox min [-2.75, -0.14, 1.19] max [2.57, 2.5, 6.72]; 1284 tris (+48 collision tris)
+* sockets: `hw` [2.8, 0, 0]
+* nodes: `canvas`, `metal_dark`, `paint`, `rubber`, `rust`, `collision`
+
+### `rb_wreck_small`
+Narrow roadblock module (2.4 m wide, x -1.20..1.20, road-aligned): jersey barrier across the road, tyre stack, drum, razor wire. Visuals + collision never exceed |x| <= hw.
+* hw: 1.2
+* bbox min [-1.15, 0.0, 1.3] max [1.15, 1.27, 6.2]; 380 tris (+24 collision tris)
+* sockets: `hw` [1.2, 0, 0]
+* nodes: `concrete`, `metal_dark`, `rubber`, `rust`, `spike`, `collision`
 

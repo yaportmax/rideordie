@@ -123,7 +123,7 @@ def install_golden_brass():
     def brass(c, style):
         N = c.N
         tarn = GLK.smoothstep(0.50, 0.78, c.nM) * (0.3 + 0.7 * c.nL2) * 0.65
-        bright = np.array([0.50, 0.275, 0.052], np.float32)
+        bright = np.array([0.40, 0.235, 0.065], np.float32)
         dull = np.array([0.20, 0.10, 0.032], np.float32)
         alb = bright + (dull - bright) * tarn[:, None] * 0.85
         alb = alb * (0.85 + 0.3 * c.nH[:, None])
@@ -132,7 +132,7 @@ def install_golden_brass():
         soot = GLK.smoothstep(0.1, 0.9, (1 - c.ao_s) * 1.6 + (1 - c.ao_b) * 0.6) * (0.5 + 0.5 * c.nM)
         alb = alb * (1 - soot[:, None] * 0.75) + np.array([0.02, 0.016, 0.012], np.float32) * soot[:, None] * 0.75
         alb = alb * (0.6 + 0.4 * c.ao_s[:, None])
-        rough = 0.36 + 0.2 * tarn + 0.25 * soot - 0.06 * scr + 0.05 * (c.nH - 0.5)
+        rough = 0.40 + 0.2 * tarn + 0.25 * soot - 0.06 * scr + 0.05 * (c.nH - 0.5)
         metal = 1.0 - 0.3 * soot - 0.12 * tarn
         h = -0.01 * scr + (c.nH - 0.5) * 0.006
         return alb, np.clip(rough, 0.15, 1.0), np.clip(metal, 0, 1), h

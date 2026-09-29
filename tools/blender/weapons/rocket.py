@@ -76,5 +76,5 @@ G.socket("muzzle", (-95.0, 0, 0))                     # where the tube mouth sit
 G.motion("flame", "scale", (1, 0, 0), 1.0, "optional: toggle visibility / scale along its local Z (glTF) for the motor burn; origin at the nozzle exit; emissive paint2, no transparency.")
 G.remark("Origin = centre of the warhead's cylindrical body (identical to the `rocket` node origin in rpg.glb). Nose tip at +246.5 mm, nozzle exit at -482 mm, optional flame cone to -646 mm. Fin span radius ~64 mm, 6 fins, deployed.")
 G.remark("Body colour comes from the `paint` material (olive drab); `paint2` (flame only) is emissive orange.")
-G.notes["style"] = dict(paint_color=(0.036, 0.044, 0.018), paint2_color=(1.0, 0.36, 0.05), rust=0.5, wear=1.0)
+G.notes["style"] = dict(paint_color=(0.022, 0.027, 0.011), paint2_color=(1.0, 0.36, 0.05), rust=0.5, wear=1.0)
 G.finish(size=1024)

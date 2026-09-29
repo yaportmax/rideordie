@@ -41,13 +41,14 @@ export class Director {
     this._bosses(sim, P, L);
     if (sim.boss && !sim.boss.dead) {
       // the Leviathan brings its own raiders (ramp); its fight keeps the damage scaling it was tuned with
-      sim.enemyDamageMul = 0.7 + 0.9 * L; sim.enemyRamMul = 1; sim.playerBlastMul = 0.6;
+      sim.enemyDamageMul = 0.7 + 0.9 * L; sim.enemyRamMul = 1; sim.playerBlastMul = 0.6; sim.playerCarBlastMul = 1;
       this._cleanup(sim, P); return;
     }
     // how much the raiders hurt, by level: rounds (x the per-round growth in ai.shoot), rams, blasts next to you
-    sim.enemyDamageMul = 0.55 + 0.4 * L;
+    sim.enemyDamageMul = 0.55 + 0.4 * Math.min(L, 0.55) + 0.12 * Math.max(0, L - 0.55);   // (flattens on the last stretch: a maxed rig must reach the dam)
     sim.enemyRamMul = 0.38 + 0.3 * Math.min(L, 1);
     sim.playerBlastMul = 0.18 + 0.17 * Math.min(L, 1);
+    sim.playerCarBlastMul = 0.6;   // raider cars cooking off beside you (the chain-reaction show) sting less than rockets and mines
     // accumulate budget with a slow pulse (waves and lulls)
     this.pulse += dt * (0.45 + 0.2 * L);
     const wave = 0.55 + 0.75 * (0.5 + 0.5 * Math.sin(this.pulse));
@@ -61,7 +62,7 @@ export class Director {
       if (!c.driverless && Math.abs(c.s - P.s) < 55) engaged = true;
     }
     if (engaged) this.lastEngaged = sim.time;
-    const cap = Math.round(3 + 8 * Math.pow(L, 0.8)) + (this.opts.capBonus || 0) - (this.activeElite ? 3 : 0);
+    const cap = Math.round(3 + 6.8 * Math.pow(L, 0.8)) + (this.opts.capBonus || 0) - (this.activeElite ? 3 : 0);
     this._cleanup(sim, P);
     // pressure: if nobody has been in your face for a while, the next squad comes now (early game: every run is eventful)
     const idle = sim.time - this.lastEngaged;
@@ -94,7 +95,7 @@ export class Director {
   /** Attack tokens: how many raider gunners may wind up / fire at the same time (warlords always may). */
   fireToken(car, role) {
     if (car.elite) return true;
-    const sim = car.sim, max = Math.floor(1.6 + 3.4 * this.level);
+    const sim = car.sim, max = Math.floor(1.6 + 2.6 * this.level);
     if (sim.time < (this.nextFireT || 0)) return false;
     let busy = 0;
     for (const c of sim.cars.values()) {
@@ -202,7 +203,8 @@ export class Director {
     _v.copy(car.veh.fwd).multiplyScalar(m * (2.5 + Math.min(4, car.veh.speed * 0.12)) * s);
     car.veh.body.applyTorqueImpulse({ x: _v.x, y: _v.y, z: _v.z }, true);
     // ... and get flung toward the nearer roadside instead of stopping dead in a lane
-    const sm = sim.road.sample(car.s), side = car.d >= 0 ? 1 : -1, push = m * (3 + (this.r ? this.r() : 0.5) * 3);
+    // (harder the faster it was going: at 200 km/h a wreck left in the lane is a wall you meet a second later)
+    const sm = sim.road.sample(car.s), side = car.d >= 0 ? 1 : -1, push = m * (4 + (this.r ? this.r() : 0.5) * 3 + Math.min(8, car.veh.speed * 0.14));
     car.veh.body.applyImpulse({ x: sm.nx * side * push, y: 0, z: sm.nz * side * push }, true);
     for (const o of sim.cars.values()) {
       if (o === car || o.exploded || o.kind !== 'enemy') continue;

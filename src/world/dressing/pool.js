@@ -26,7 +26,7 @@ export class InstancePool {
     if (this.specs.has(name)) return;
     spec = { ...spec };
     const a = this.kit.get(name);
-    if (a && a.kind === 'struct' && !spec.lods && spec.merge !== false && a.parts.length > 3) {
+    if (a && a.kind === 'struct' && !spec.lods && spec.merge !== false && (a.parts.length > 3 || (spec.mergeNear !== undefined && a.parts.length > 1))) {
       const size = Math.max(a.size.x, a.size.y, a.size.z);
       const near = spec.mergeNear ?? (size > 40 ? 230 : size > 15 ? 150 : 100);
       if (!this.kit.get(name + '@m')) this.kit.deriveMerged(name, { includeRoad: !!spec.showRoad });

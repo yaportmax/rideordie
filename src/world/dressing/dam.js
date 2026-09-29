@@ -54,7 +54,7 @@ export function* buildDam(ctx, add, getTerrainMat) {
   const C = {}, C2 = {}, P = [{}, {}, {}, {}];
   const pt = (t, o, y, out) => { arc.at(t, C); out.x = C.x + C.nx * o; out.y = y; out.z = C.z + C.nz * o; return out; };
   const base = water - 24, Dwater = Yc - water;
-  const concrete = [0.5, 0.49, 0.465];
+  const concrete = [0.43, 0.415, 0.39];
   const NT = 280;
   const SPILL = [0.43, 0.57];
   // ---------------------------------------------------------------- 1. downstream face (smooth sweep)
@@ -310,7 +310,7 @@ export function* buildDam(ctx, add, getTerrainMat) {
     m.castShadow = !!o.cast; m.receiveShadow = !!o.recv; if (o.order) m.renderOrder = o.order;
     add(m); return m;
   };
-  mk(mb, facadeMaterial(), 'dam', { cast: true, recv: true });
+  mk(mb, facadeMaterial(), 'dam', { cast: true, recv: true }); yield;
   mk(ban, bannerMaterial(), 'dam-banners', { cast: true, recv: true });
   mk(res, reservoirMaterial(), 'dam-reservoir');
   mk(fb, flowMaterial(), 'dam-water', { order: 12 });

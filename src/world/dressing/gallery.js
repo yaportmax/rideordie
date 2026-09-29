@@ -10,7 +10,7 @@ import { CHUNK_LEN, groundAt } from './util.js';
 import { MB, frameBasis } from './mbuild.js';
 import { ST, facadeMaterial, NEON_DOT } from './city_mat.js';
 
-const WANT = [[31900, 'mountain'], [34700, 'mountain'], [37600, 'mountain'], [39400, 'mountain'], [52150, 'dam'], [55350, 'dam'], [61350, 'dam']];
+const WANT = [[31900, 'mountain'], [34700, 'mountain'], [37600, 'mountain'], [39400, 'mountain'], [52150, 'dam'], [55350, 'dam']];   // none past the boss spawn (59.3 km): the Leviathan is ~8 m tall
 const _G = {};
 
 /** Planned gallery near `want` (or null): {s0, s1, side (+1 = hill on the left)}. Pure; each wanted spot is planned once, lazily. */
@@ -120,7 +120,7 @@ export function buildGalleries(ctx, chunk) {
   }
   if (mb.count) {
     const m = new THREE.Mesh(mb.build(), facadeMaterial());
-    m.position.set(anchor.x, anchor.y, anchor.z); m.castShadow = true; m.receiveShadow = true; m.userData.ownGeo = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.name = 'gallery';
+    m.position.set(anchor.x, anchor.y, anchor.z); m.castShadow = true; m.receiveShadow = true; m.userData.ownGeo = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.name = 'gallery'; m.userData.far = 1100;
     chunk.addExtra(m);
   }
   if (cols.idx.length) { const id = `gallery:${chunk.c}`; chunk.hooks.push(id); ctx.hook({ type: 'static', id, asset: 'gallery', collision: { pos: new Float32Array(cols.pos), idx: new Uint32Array(cols.idx) } }); }

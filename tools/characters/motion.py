@@ -390,15 +390,16 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
             W, P = rig.solve(p, frames)
         if ground:
             if frames[0] == "world":
-                # limb targets never below the floor (they would lift the whole body when the pose is shifted up)
+                # limb targets never below the pose's own floor contact (they would lift the whole body when it is shifted)
+                low0 = rig.lowest(W, P)
                 p = copy.deepcopy(p)
                 for S, fr in zip(("L", "R"), frames):
                     if fr == "world":
                         hp = np.asarray(p["h%s_pos" % S], float).copy()
-                        hp[1] = max(hp[1], 0.045 * rig.k)
+                        hp[1] = max(hp[1], low0 + 0.045 * rig.k)
                         p["h%s_pos" % S] = hp
                     fp = np.asarray(p["f%s_pos" % S], float).copy()
-                    fp[1] = max(fp[1], 0.055 * rig.k)
+                    fp[1] = max(fp[1], low0 + 0.05 * rig.k)
                     p["f%s_pos" % S] = fp
                 rig.state = dict(snap) if snap is not None else None
                 W, P = rig.solve(p, frames)

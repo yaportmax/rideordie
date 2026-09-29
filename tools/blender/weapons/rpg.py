@@ -4,7 +4,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rpg_helpers import *
 
-install_straight_wood()
+# (shared gunlook wood recipe: fine straight laminate grain)
 install_military_paint()
 G = Gun("rpg")
 GA = 12.0
@@ -51,8 +51,8 @@ for gx in (150.0, 172.0, 260.0, 282.0):     # heat-dissipation finger grooves on
     cuts.append(cyl_bm((gx, -40, Z0 - 31.5), (gx, 40, Z0 - 31.5), 3.0, segs=14))
 body.add(hg_bm, "wood", bevel=0.55, cut=cuts)
 for x0 in (HG0 + 6.0, FG_X - 6.0, HG1 - 14.0):
-    body.add(lathe_loop([(x0, 31.6), (x0, 35.6), (x0 + 12.0, 35.6), (x0 + 12.0, 31.6), (x0, 31.6)], 32, "x", (0, 0, Z0), scale=(1.0, 0.94)), "gun_steel", bevel=0.0)
-    body.box((14, 10, 6), c=(x0 + 6.0, 0, Z0 - 36.0), mat="gun_steel", bevel=0.6)
+    body.add(lathe_loop([(x0, 31.6), (x0, 35.6), (x0 + 12.0, 35.6), (x0 + 12.0, 31.6), (x0, 31.6)], 32, "x", (0, 0, Z0), scale=(1.0, 0.94)), "gun_metal", bevel=0.0)
+    body.box((14, 10, 6), c=(x0 + 6.0, 0, Z0 - 36.0), mat="gun_metal", bevel=0.6)
     body.cyl((x0 + 6.0, -6, Z0 - 36.0), (x0 + 6.0, 6, Z0 - 36.0), 2.4, segs=10, mat="gun_metal")
     for sy in (-1, 1):
         body.add(hex_bolt_bm((x0 + 6.0, sy * 5.0, Z0 - 36.0), (0, sy, 0), 2.6, 1.6), "gun_metal", bevel=0.25)
@@ -190,5 +190,7 @@ G.motion("hammer", "rotate", (0, 1, 0), 35.0, "modelled COCKED (spur up-and-back
 G.motion("rocket", "translate", (-1, 0, 0), 420.0, "RELOAD: start the node 420 mm ahead of its rest position (+Z glTF) and slide it BACK into the tube. FIRE: hide this node and spawn the projectile (rocket.glb) at this node's world transform - same origin/geometry.")
 G.remark("Rocket protrudes ~340 mm ahead of the tube mouth (nose tip = `rocket_tip` socket). Tube mouth = `muzzle`/`mag_well`. Back-blast leaves from `eject` (its local +X points rearward). Keep the gunner clear: nozzle flare is at the rear of the tube, 400 mm behind the grip.")
 G.remark("Hands: right hand on the pistol grip (grip_R at the grip centre, index finger through the guard on the trigger); left hand wraps the wooden vertical front grip (grip_L). Shoulder rests on the rubber pad `stock` (under the rear of the tube). Aim through the PGO-7 style optic on the left: `sight` is ~55 mm behind the eye cup (or over the iron sights on the tube).")
-G.notes["style"] = dict(paint_color=(0.036, 0.044, 0.018), wood_axis=0, rust=0.55)
+G.notes["style"] = dict(paint_color=(0.022, 0.027, 0.011), wood_axis=0, rust=0.45, dust=0.6, grain_pitch=1.2,
+                        wood_dark=(0.032, 0.010, 0.004), wood_light=(0.12, 0.042, 0.015), wood_worn=(0.18, 0.09, 0.04),
+                        engrave=[dict(text="WRECKER", pos=(-120.0, 0.0, Z0 + 20.6), u=(0, -1, 0), v=(1, 0, 0), h=4.0, depth=0.08, mats=["gun_black", "gun_metal"], slab=3.0)])
 G.finish(size=2048)

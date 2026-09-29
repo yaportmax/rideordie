@@ -169,7 +169,7 @@ function wreck(ctx, mb, m) {
   const base = { x: sm.x + sm.nx * d, z: sm.z + sm.nz * d };
   const yaw = sm.th + 0.5 + r() * 0.6;
   const fx = Math.sin(yaw), fz = Math.cos(yaw);
-  const hull = [0.2, 0.085, 0.05], hullDark = [0.07, 0.06, 0.055];
+  const hull = [0.13, 0.05, 0.03], hullDark = [0.05, 0.045, 0.04];
   const section = (cx, cz, L, B, H, roll, pitch, bowEnd, sternEnd, y0) => {
     const lx = fz, lz = -fx;                                                   // left of the heading
     const up = [Math.sin(roll) * lx - Math.sin(pitch) * fx, Math.cos(roll) * Math.cos(pitch), Math.sin(roll) * lz - Math.sin(pitch) * fz];

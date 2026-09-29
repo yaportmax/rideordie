@@ -1,7 +1,7 @@
 {
  "name": "shotgun",
- "tris": 25992,
- "glb_kb": 1450,
+ "tris": 25476,
+ "glb_kb": 1428,
  "parts": {
   "body": {
    "pivot": [
@@ -10,7 +10,7 @@
     0.0
    ],
    "parent": null,
-   "tris": 20632,
+   "tris": 20116,
    "materials": [
     "gun_black",
     "gun_steel",

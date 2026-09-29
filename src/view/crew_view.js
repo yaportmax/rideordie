@@ -1,13 +1,24 @@
-// CrewView: a person riding a vehicle. Rigged character (public/models/characters/*.glb, Mixamo bone names, shared clips)
-// + procedural layer: body/spine aiming, weapon placed on the aim line, analytic two-bone arm IK onto the weapon grips
-// (gunners) or the steering wheel (drivers), flinches, grenade throws, deaths (gunners tumble off the vehicle).
+// CrewView: a person riding a vehicle. Rigged character (public/models/characters/*.glb, Mixamo bone names, baked clips - see
+// public/models/characters/README.md for the clip list) + a procedural layer on top.
+//  * Gunners, third person (raiders, the co-op partner, title / garage / death camera): clip-driven. The weapon is parented to
+//    socket_hand_R (identity = the clips' contract), idle / aim / crouch loops per weapon class, additive fire kicks + a
+//    full-auto loop, reload / throw / taunt / heavy-hit overrides, light hits additive; the spine turns toward the aim and a
+//    final Spine2 correction puts the muzzle exactly on the aim line; the support hand is IK'd onto the real weapon's grip_L.
+//  * Gunner, local first person: the older procedural path (weapon placed on the aim line, two-bone IK onto the grips); the
+//    body is only a shadow caster while the viewmodel (viewmodel.js) draws the arms.
+//  * Drivers: seated loops + lean / brace / glance / shout / hit / impact clips, hands IK'd onto the wheel rim (per-hand IK
+//    weight fades for the clips that let go of the wheel and for the seated deaths).
+//  * Deaths: standing deaths chosen by cause / hit direction / speed; thrown and blown-up bodies leave the vehicle with an
+//    upright root that follows the vehicle's momentum and eases down to the ground over the clip's airborne window.
 // API: constructor(kind, opts), attach(carView, seat), setWeapon(id), fire(rate, mode, actionLen), update(dt, s), die(e), flinch(e),
-//      headWorld(out), muzzleWorld(out), dispose().
+//      impact(dv), cheer(), throwGrenade(), headWorld(out), muzzleWorld(out), dispose().
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { WeaponView } from './weapon_view.js';
 import { ViewModel } from './viewmodel.js';
 import { clamp } from '../core/util.js';
+import { WEAPONS } from '../data/weapons.js';
+import { ENEMY_GUNS } from '../data/enemies.js';
 
 // first person: the local gunner's own body only casts its shadow (the viewmodel draws the arms + gun)
 const shadowMats = new Map();
@@ -21,8 +32,39 @@ const ENEMY_GUN_MODEL = { pistol: 'pistol', smg: 'smg', rifle: 'rifle', shotgun:
 const ONE_HANDED = new Set(['pistol', 'revolver']);
 const V = () => new THREE.Vector3();
 const _a = V(), _b = V(), _c = V(), _t = V(), _e = V(), _n = V(), _u = V(), _p = V(), _d = V(), _up = new THREE.Vector3(0, 1, 0);
-const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _m = new THREE.Matrix4(), _eul = new THREE.Euler(0, 0, 0, 'YXZ');
+const _v1 = V(), _v2 = V();
+const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _qI = new THREE.Quaternion();
+const _m = new THREE.Matrix4(), _eul = new THREE.Euler(0, 0, 0, 'YXZ');
 const FINGER = /Hand(Thumb|Index|Middle|Ring|Pinky)\d|Hand$/;
+
+// ---- clip contract (see public/models/characters/README.md) --------------------------------------------------------------
+const CLASS_OF = (id) => (id === 'pistol' || id === 'revolver' ? 'pistol' : id === 'shotgun' ? 'shotgun' : id === 'rpg' ? 'launcher' : 'rifle');
+const IDLE_OF = { rifle: 'idle_stand', shotgun: 'idle_stand', pistol: 'idle_pistol', launcher: 'idle_launcher' };
+const GRIP_L_OF = { rifle: [0.008, 0.048, 0.325], pistol: [0.015, 0.004, 0.014], shotgun: [0, 0.019, 0.358], launcher: [0, 0.018, 0.215] };
+const MAG_OF = { rifle: 30, pistol: 12, shotgun: 6, launcher: 1 };   // cosmetic reloads of AI crews (the sim never reloads them)
+// throw_grenade: weapon in the LEFT hand 0.08-1.18 s (clip time), grenade in the right hand 0.18 s .. release 0.55 s.  The sim
+// spawns the grenade on the event, so the clip starts at the wind-up and runs faster to release right away.
+const THROW = { left0: 0.08, left1: 1.18, prop0: 0.18, rel: 0.55, start: 0.30, scale: 1.6 };
+const SHOUT_IK = [0.05, 0.22, 1.55, 2.0];   // sit_shout: left-hand wheel IK fades out / back in (clip time)
+const SIT_DEATH_IK = { death_sit_slump: [0.2, 0.6], death_sit_jerk_L: [0.3, 0.5], death_sit_jerk_R: [0.3, 0.5], death_sit_headback: [0.06, 0.3] };
+// standing deaths that can leave the vehicle: [airborne start, landing] clip seconds
+const LEAVES = { death_thrown_back: [0.10, 0.82], death_thrown_left: [0.10, 0.82], death_thrown_right: [0.10, 0.82], death_blown_up: [0.08, 1.24],
+  death_fall: [0.30, 0.74], death_crumple: [0.20, 0.84] };
+const OPEN_CABS = new Set(['e_buggy', 'e_technical']);   // sit_shout puts the fist out of the window: only where there is no door glass
+const RAIL_CARS = new Set(['e_buggy', 'e_technical']);   // a waist-high bar in front of the gunner (death_slump_rail folds over it)
+const WHEEL_HANDS = [['Left', 0.84], ['Right', 2.3]];
+const smooth01 = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+const clipIndex = new WeakMap();      // clips array -> Map(name -> clip)
+const additiveCache = new Map();      // source clip -> additive clone (shared by every crew using that GLB)
+function additiveOf(clip, ref) {
+  let c = additiveCache.get(clip);
+  if (!c) { c = THREE.AnimationUtils.makeClipAdditive(clip.clone(), 0, ref ? ref : undefined); additiveCache.set(clip, c); }
+  return c;
+}
+// procedural hand grenade prop (no GLB needed: 5-30 m away it is a dark olive egg in the fist)
+let nadeGeo = null, nadeMat = null;
 
 /** Rotate `bone` (world space) so that the direction from its origin to `from` becomes the direction to `to`. */
 function aimBone(bone, from, to) {
@@ -36,8 +78,9 @@ function aimBone(bone, from, to) {
   bone.updateMatrixWorld(true);
 }
 
-/** Analytic two-bone IK: upper (shoulder joint), lower (elbow), end (wrist) -> target, elbow bends toward `pole` (world). */
-const _ia = V(), _ib = V(), _ic = V(), _it = V(), _ie = V(), _in = V(), _iu = V(), _ip = V(), _iw = V();
+/** Analytic two-bone IK: upper (shoulder joint), lower (elbow), end (wrist) -> target, elbow bends toward `pole` (world).
+ *  `target` is read before any temp is overwritten, so module temps may be passed. */
+const _ia = V(), _ib = V(), _ic = V(), _it = V(), _ie = V(), _iu = V(), _ip = V(), _iw = V();
 function twoBoneIK(upper, lower, end, target, pole, lens) {
   upper.getWorldPosition(_ia);
   const la = lens[0], lb = lens[1];
@@ -57,18 +100,26 @@ function twoBoneIK(upper, lower, end, target, pole, lens) {
 export class CrewView {
   constructor(kind, opts = {}) {
     this.kind = kind; this.role = opts.role; this.opts = opts; this.alive = true; this.hero = /^hero/.test(kind);
+    this.ai = opts.weapon === 'enemy';
+    this.enemyRate = this.ai ? ENEMY_GUNS[opts.enemyGun]?.rate ?? null : null;
     this.root = new THREE.Group(); this.root.name = 'crew_' + kind;
     this.body = new THREE.Group(); this.root.add(this.body);             // yawed toward the aim
     const url = `/models/characters/${kind}.glb`;
     const model = Assets.clone(url);
     this.rigged = !!model;
     this.clips = Assets.getAnimations(url).length ? Assets.getAnimations(url) : Assets.getAnimations('/models/characters/hero_gunner.glb');
-    if (model) this._setupRig(model); else this._placeholder();
+    this.acts = new Map();
+    this.ov = null;                                                        // current full-body one-shot override
+    this.aimK = 0; this.autoK = 0; this.braceK = 0; this.shaken = 0; this.sinceShot = 99; this.shots = 0; this.fireRate = 8;
+    this.mountAt = null; this.cls = null; this.wasReloading = false; this.lastHitDir = null; this.lastSpeed = 0; this.hitRT = 0; this.lastHeavy = -9;
+    this.actT = rnd(3, 9); this.tauntT = rnd(6, 14);
+    this.ikW = { Left: 1, Right: 1 };
     this.gun = new THREE.Group(); this.gun.name = 'gunframe';
+    if (model) this._setupRig(model); else this._placeholder();
     this.weapon = null; this.weaponId = null;
     if (this.role !== 'driver') this.setWeapon(opts.weapon === 'enemy' ? ENEMY_GUN_MODEL[opts.enemyGun] || 'rifle' : opts.weapon || 'pistol');
     this.aimYawL = 0; this.bodyYaw = 0; this.pitch = 0; this.crouch = 0; this.kick = 0; this.flinchT = 0; this.throwT = 0; this.steer = 0;
-    this.deadT = -1; this.fallVel = V(); this.fallSpin = V();
+    this.deadT = -1; this.fallVel = V(); this.fallSpin = V(); this.detached = false; this.leave = null; this.y0 = 0; this.yGround = null;
     this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh; } });
   }
 
@@ -79,31 +130,59 @@ export class CrewView {
     // armour tiers on the hero gunner
     for (const t of [1, 2, 3]) { const a = model.getObjectByName('armor_t' + t); if (a) a.visible = this.opts.armorTier === t; }
     this.mixer = new THREE.AnimationMixer(model);
-    const clip = (n) => this.clips.find((c) => c.name === n);
-    const act = (n, w = 0) => { const c = clip(n); if (!c) return null; const a = this.mixer.clipAction(c); a.enabled = true; a.setEffectiveWeight(w); a.play(); return a; };
+    let idx = clipIndex.get(this.clips);
+    if (!idx) { idx = new Map(this.clips.map((c) => [c.name, c])); clipIndex.set(this.clips, idx); }
+    this.clipIdx = idx;
+    const act = (n, w = 0) => { const a = this._act(n); if (!a) return null; a.enabled = true; a.setEffectiveWeight(w); a.play(); return a; };
     if (this.role === 'driver') {
-      this.aBase = act('idle_sit_drive', 1); this.aL = act('sit_lean_L', 0); this.aR = act('sit_lean_R', 0);
+      this.aBase = act('idle_sit_drive', 1); this.aL = act('sit_lean_L', 0); this.aR = act('sit_lean_R', 0); this.aBrace = act('sit_brace', 0);
     } else {
-      this.aBase = act('idle_stand', 1); this.aCrouch = act('crouch_idle', 0);
-      // finger/hand shape only from the weapon pose
-      const pose = clip('pose_rifle');
+      this.aCrouch = act('crouch_idle', 0);
+      // finger/hand shape only from the weapon pose (first-person path)
+      const pose = this._clip('pose_rifle');
       if (pose) {
         const hands = new THREE.AnimationClip('hands_rifle', pose.duration, pose.tracks.filter((t) => FINGER.test(t.name.split('.')[0])));
         this.aHands = this.mixer.clipAction(hands); this.aHands.setEffectiveWeight(1); this.aHands.play();
       }
+      // sustained full-auto: additive against aim_rifle frame 0 (weight follows the trigger)
+      const auto = this._clip('fire_rifle_auto'), aimR = this._clip('aim_rifle');
+      if (auto && aimR) { this.aAuto = this.mixer.clipAction(additiveOf(auto, aimR)); this.aAuto.setEffectiveWeight(0); this.aAuto.play(); }
+      this._setClass('rifle');
     }
     // random phase so a group of raiders doesn't breathe in sync
-    this.mixer.update(Math.random() * 3);
+    this.mixer.update(Math.random() * 4);
     const B = this.bones;
     this.arm = {};
     for (const side of ['Right', 'Left']) {
       const u = B[side + 'Arm'], l = B[side + 'ForeArm'], h = B[side + 'Hand'];
-      if (u && l && h) { u.getWorldPosition(_a); l.getWorldPosition(_b); h.getWorldPosition(_c); this.arm[side] = { u, l, h, lens: [_a.distanceTo(_b), _b.distanceTo(_c)] }; }
+      if (u && l && h) { u.getWorldPosition(_a); l.getWorldPosition(_b); h.getWorldPosition(_c); this.arm[side] = { u, l, h, lens: [_a.distanceTo(_b), _b.distanceTo(_c)], qu: new THREE.Quaternion(), ql: new THREE.Quaternion() }; }
     }
     this.spine = ['Spine', 'Spine1', 'Spine2'].map((n) => B[n]).filter(Boolean);
     this.head = B.Head || B.socket_head || model;
     // seated: the seat socket is the hip point, so drop the model so its Hips land there
     if (this.role === 'driver') { this.mixer.update(0); model.updateMatrixWorld(true); const hips = B.Hips; if (hips) { hips.getWorldPosition(_a); this.body.worldToLocal(_a); model.position.y -= _a.y; model.position.z -= _a.z * 0.5; } }
+  }
+
+  _clip(n) { return this.clipIdx ? this.clipIdx.get(n) || null : null; }
+  /** Cached action for clip `n` (additive=true -> additive against its own frame 0). */
+  _act(n, additive = false) {
+    const key = additive ? n + '+' : n;
+    let a = this.acts.get(key);
+    if (a === undefined) {
+      const c = this._clip(n);
+      a = c && this.mixer ? this.mixer.clipAction(additive ? additiveOf(c) : c) : null;
+      this.acts.set(key, a);
+    }
+    return a;
+  }
+
+  _setClass(cls) {
+    if (cls === this.cls || !this.mixer) return;
+    this.cls = cls;
+    const base = this._act(IDLE_OF[cls]) || this._act('idle_stand'), aim = this._act('aim_' + cls);
+    for (const a of [this.aBase, this.aAim]) if (a && a !== base && a !== aim) a.stop();
+    this.aBase = base; this.aAim = aim;
+    for (const a of [base, aim]) if (a && !a.isRunning()) { a.enabled = true; a.setEffectiveWeight(0); a.play(); }
   }
 
   _placeholder() {
@@ -118,18 +197,66 @@ export class CrewView {
     this.weaponId = id;
     if (this.weapon) this.weapon.dispose();
     this.weapon = new WeaponView(id);
-    this.gun.add(this.weapon.root);
     this._shadowOnlyOn = undefined;   // re-apply to the new weapon's meshes
     if (!this.gun.parent) this.body.add(this.gun);
     const st = this.weapon.sockets.stock; this.stockZ = st ? st.position.z : null;
+    // grip_L in the weapon root's frame (for the left-hand mount during throws + the support-hand touch-up)
+    this.gripL = new THREE.Vector3(); const gL = this.weapon.sockets.grip_L;
+    if (gL) { this.weapon.root.updateMatrixWorld(true); gL.getWorldPosition(this.gripL); this.weapon.root.worldToLocal(this.gripL); }
+    const cls = CLASS_OF(id), g = GRIP_L_OF[cls];
+    this.gripDelta = new THREE.Vector3(this.gripL.x - g[0], this.gripL.y - g[1], this.gripL.z - g[2]);
+    if (!gL || this.gripDelta.lengthSq() < 0.02 * 0.02) this.gripDelta = null;
+    this._setClass(cls);
+    this.mountAt = null; this._mount(this.bones && this.lastMode === 'clip' ? 'R' : 'gun');
   }
-  fire(rate, mode, actionLen) { if (!this.weapon) return; this.weapon.fire(rate); if (mode === 'pump' || mode === 'bolt') this.weapon.action(actionLen || 0.6); this.kick = 1; }
+
+  /** Parent the weapon: 'gun' (procedural first-person frame), 'R' / 'L' (hand sockets; L at -grip_L so that hand holds the handguard). */
+  _mount(where) {
+    if (!this.weapon || this.mountAt === where) return;
+    const r = this.weapon.root;
+    if (where === 'gun' || !this.bones) { this.gun.add(r); r.position.set(0, 0, 0); r.quaternion.identity(); this.mountAt = 'gun'; return; }
+    const s = this.bones['socket_hand_' + where]; if (!s) { this._mount('gun'); return; }
+    s.add(r); r.quaternion.identity();
+    if (where === 'L') r.position.copy(this.gripL).negate(); else r.position.set(0, 0, 0);
+    this.mountAt = where;
+  }
+
+  fire(rate, mode, actionLen) {
+    if (!this.weapon) return;
+    this.weapon.fire(rate); if (mode === 'pump' || mode === 'bolt') this.weapon.action(actionLen || 0.6); this.kick = 1;
+    this.fireRate = this.enemyRate ?? rate; this.sinceShot = 0; this.shots++;
+    // clip layer (third person): single kicks for slow weapons, the auto loop takes over for fast rifle-class fire
+    if (this.lastMode === 'clip' && this.alive && !(this.cls === 'rifle' && this.fireRate >= 5)) {
+      const a = this._act('fire_' + this.cls, true);
+      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(1); a.play(); }
+    }
+    if (this.ov && (this.ov.kind === 'taunt' || (this.ai && this.ov.kind === 'reload'))) this._endOv(0.1);
+  }
   attach(carView, seat) { this.car = carView; this.seat = seat; this.root.position.set(seat[0], seat[1], seat[2]); this.root.rotation.order = 'YXZ'; }
 
+  // ---- full-body one-shot overrides --------------------------------------------------------------------------------------
+  _play(name, kind, { fin = 0.12, fout = 0.18, scale = 1, start = 0 } = {}) {
+    const a = this._act(name); if (!a) return null;
+    if (this.ov && this.ov.a !== a) this.ov.a.stop();
+    a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.timeScale = scale; a.time = start; a.setEffectiveWeight(0); a.play();
+    const len = (a.getClip().duration - start) / scale;
+    this.ov = { a, name, kind, el: 0, len, fin: Math.min(fin, len * 0.3), fout: Math.min(fout, len * 0.4) };
+    return this.ov;
+  }
+  _endOv(fout) { const o = this.ov; if (o) { o.len = Math.min(o.len, o.el + fout); o.fout = Math.max(1e-3, o.len - o.el); } }
+  _ovWeight(dt) {
+    const o = this.ov; if (!o) return 0;
+    o.el += dt;
+    if (o.el >= o.len) { o.a.stop(); this.ov = null; return 0; }
+    const w = Math.min(1, o.el / o.fin) * Math.min(1, (o.len - o.el) / o.fout);
+    o.a.setEffectiveWeight(w);
+    return w;
+  }
+
   update(dt, s) {
-    if (this.deadT >= 0) { this._dead(dt); return; }
+    if (this.deadT >= 0) { this._dead(dt, s); return; }
     if (!s.alive) { this.die({}); return; }
-    this.mixer?.update(dt);
+    this.lastSpeed = s.speed || 0;
     const fp = !!(s.local && s.local.firstPerson);
     // local first-person gunner: the viewmodel draws arms + gun; this body stays in the scene as an invisible shadow caster
     const useVm = fp && this.role !== 'driver' && this.hero && !!(s.local.camera && s.local.gunner);
@@ -140,12 +267,18 @@ export class CrewView {
     // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
     if (this.bones && this.bones.Head) { const k = fp && !useVm ? 1e-4 : 1; this.bones.Head.scale.setScalar(k); if (this.bones.Neck && this.role === 'driver') this.bones.Neck.scale.setScalar(fp ? 0.2 : 1); }
     if (this.seat && this.role !== 'driver') this.root.position.set(this.seat[0] + (s.local ? s.local.bedX : s.bedX || 0), this.seat[1], this.seat[2] + (s.local ? s.local.bedZ : s.bedZ || 0));
-    if (this.role === 'driver') { this._driver(dt, s); return; }
+    if (this.role === 'driver') { this._driver(dt, s, fp); return; }
     // ---------------- gunner: aim is world space; convert to the vehicle frame
+    const clipMode = !fp && !!this.bones;
+    this.lastMode = clipMode ? 'clip' : 'fp';
+    if (s.weaponId) this.setWeapon(s.weaponId);
+    this._mount(clipMode ? this._handMount() : 'gun');
     _eul.setFromQuaternion(s.quat, 'YXZ');
     let yawL = s.aimYaw - _eul.y; yawL = Math.atan2(Math.sin(yawL), Math.cos(yawL));
     this.crouch += ((s.crouch ? 1 : 0) - this.crouch) * Math.min(1, dt * 10);
-    if (this.aCrouch) { this.aCrouch.setEffectiveWeight(this.crouch); this.aBase.setEffectiveWeight(1 - this.crouch); }
+    this.sinceShot += dt;
+    const wo = this._gunnerLayers(dt, s, clipMode);
+    this.mixer?.update(dt);
     // body follows the aim with a lag (spine takes up to ~50 deg of the difference)
     let diff = Math.atan2(Math.sin(yawL - this.bodyYaw), Math.cos(yawL - this.bodyYaw));
     const lim = 0.85;
@@ -159,18 +292,119 @@ export class CrewView {
       const pitch = s.aimPitch;
       const n = this.spine.length || 1;
       for (const b of this.spine) { _q.setFromEuler(_eul.set(-pitch * 0.55 / n, diff / n, 0, 'YXZ')); b.quaternion.premultiply(_q); }
-      if (this.flinchT > 0) { this.flinchT -= dt; const k = Math.sin(Math.min(1, this.flinchT / 0.3) * Math.PI) * 0.35; if (this.spine[0]) this.spine[0].quaternion.premultiply(_q.setFromAxisAngle(_n.set(1, 0, 0), -k)); }
+      if (!clipMode && this.flinchT > 0) { this.flinchT -= dt; const k = Math.sin(Math.min(1, this.flinchT / 0.3) * Math.PI) * 0.35; if (this.spine[0]) this.spine[0].quaternion.premultiply(_q.setFromAxisAngle(_n.set(1, 0, 0), -k)); }
       this.model.updateMatrixWorld(true);
     }
-    // ---------------- weapon on the aim line
-    this.kick = Math.max(0, this.kick - dt * 10);
     const cp = Math.cos(s.aimPitch);
     _d.set(Math.sin(s.aimYaw) * cp, Math.sin(s.aimPitch), Math.cos(s.aimYaw) * cp); // world aim dir
-    const sh = this.arm.Right ? this.arm.Right.u : this.head;
+    if (clipMode) this._clipWeapon(s, wo);
+    else this._fpWeapon(dt, s, fp, useVm);
+    if (this.weapon) {
+      const ovReload = !!(this.ov && this.ov.kind === 'reload');
+      if (s.reloading && !this.reloadStart) this.reloadStart = performance.now(); else if (!s.reloading) this.reloadStart = 0;
+      const r01 = s.local ? (s.local.reloadLen ? s.local.reloadT / s.local.reloadLen : 0) : this.reloadStart ? Math.min(1, (performance.now() - this.reloadStart) / 2000) : ovReload ? clamp(this.ov.el / this.ov.len, 0, 1) : 0;
+      this.weapon.update(dt, { trigger: s.fire, reloading: s.reloading || ovReload, reload01: r01 });
+    }
+    if (this.vm) {
+      if (useVm) this.vm.update(dt, s, !s.local.scoped);
+      else { this.vm.setVisible(false); if (s.local && s.local.gunner) s.local.gunner.fp = false; }
+    }
+  }
+
+  /** Where the weapon belongs this frame in the clip path (throws move it to the left hand). */
+  _handMount() {
+    const o = this.ov;
+    if (o && o.kind === 'throw') { const t = o.a.time; return t >= THROW.left0 && t <= THROW.left1 ? 'L' : 'R'; }
+    return 'R';
+  }
+
+  /** Mixer weights for the gunner (before mixer.update).  Returns the override weight. */
+  _gunnerLayers(dt, s, clipMode) {
+    if (!this.mixer) return 0;
+    if (!clipMode) {
+      // first person: the old setup (base idle + crouch + finger pose); the procedural IK owns the arms
+      if (this.ov) { this.ov.a.stop(); this.ov = null; }
+      if (this.nade) this.nade.visible = false;
+      if (this.aBase) this.aBase.setEffectiveWeight(1 - this.crouch);
+      if (this.aCrouch) this.aCrouch.setEffectiveWeight(this.crouch);
+      if (this.aAim) this.aAim.setEffectiveWeight(0);
+      if (this.aAuto) this.aAuto.setEffectiveWeight(0);
+      if (this.aHands) this.aHands.setEffectiveWeight(1);
+      this.wasReloading = !!s.reloading;
+      return 0;
+    }
+    // events -> overrides
+    if (s.reloading && !this.wasReloading) {
+      const w = WEAPONS[this.weaponId], a = this._act('reload_' + this.cls);
+      const len = (s.local && s.local.reloadLen) || (w && !w.reloadPerShell ? w.reload : 0);
+      if (a) this._play('reload_' + this.cls, 'reload', { scale: len > 0.3 ? a.getClip().duration / len : 1, fin: 0.15, fout: 0.2 });
+    }
+    if (!s.reloading && this.wasReloading && this.ov && this.ov.kind === 'reload' && !this.ai) this._endOv(0.15);
+    this.wasReloading = !!s.reloading;
+    if (this.ai && !this.ov) {
+      if (this.shots >= MAG_OF[this.cls] && !s.fire && this.sinceShot > 0.25) { this.shots = 0; this._play('reload_' + this.cls, 'reload', { fin: 0.15, fout: 0.2 }); }
+      else if ((this.tauntT -= dt) <= 0) {
+        this.tauntT = rnd(8, 18);
+        if (!s.fire && this.sinceShot > 1.5) this._play(Math.random() < 0.55 ? 'shout' : 'taunt', 'taunt', { fin: 0.15, fout: 0.2 });
+      }
+    }
+    if (this.ov && s.fire && this.ov.kind === 'taunt') this._endOv(0.1);
+    const wo = this._ovWeight(dt);
+    const rest = 1 - wo;
+    const aimT = (s.ads || s.fire || this.sinceShot < 0.8) ? 1 : 0;
+    this.aimK += (aimT - this.aimK) * Math.min(1, dt * (aimT ? 9 : 3));
+    const autoT = s.fire && this.cls === 'rifle' && this.fireRate >= 5 && this.sinceShot < 0.3 ? 1 : 0;
+    this.autoK += (autoT - this.autoK) * Math.min(1, dt * 14);
+    const cr = this.crouch;
+    if (this.aBase) this.aBase.setEffectiveWeight(rest * (1 - this.aimK) * (1 - cr));
+    if (this.aAim) this.aAim.setEffectiveWeight(rest * this.aimK * (1 - cr));
+    if (this.aCrouch) this.aCrouch.setEffectiveWeight(rest * cr);
+    if (this.aAuto) { this.aAuto.setEffectiveWeight(this.autoK * rest * (1 - cr)); this.aAuto.timeScale = clamp(this.fireRate / 10, 0.5, 1.6); }
+    if (this.aHands) this.aHands.setEffectiveWeight(0);
+    return wo;
+  }
+
+  /** Third-person gunner: muzzle onto the aim line (Spine2 correction), support hand onto the real weapon grip, grenade prop. */
+  _clipWeapon(s, wo) {
+    const B = this.bones, W = this.weapon;
+    const o = this.ov, throwing = !!(o && o.kind === 'throw');
+    if (this.nade) this.nade.visible = throwing && o.a.time >= THROW.prop0 && o.a.time < THROW.rel;
+    if (!W) return;
+    const aimW = this.aimK * (1 - wo) * (1 - this.crouch);
+    const chest = B.Spine2;
+    if (aimW > 0.02 && chest && this.mountAt === 'R') {
+      _a.setFromMatrixColumn(W.root.matrixWorld, 2).normalize();
+      const ang = _a.angleTo(_d);
+      if (ang > 1e-3) {
+        _q.setFromUnitVectors(_a, _d);
+        _q3.copy(_qI.identity()).slerp(_q, aimW * Math.min(1, 0.7 / ang));
+        chest.getWorldQuaternion(_q2); _q2.premultiply(_q3);
+        chest.parent.getWorldQuaternion(_qp).invert(); chest.quaternion.copy(_qp.multiply(_q2));
+        this.model.updateMatrixWorld(true);
+      }
+    }
+    // support hand: shift it along the weapon by (real grip_L - the class grip_L the clips were authored for)
+    const lw = this.gripDelta && this.mountAt === 'R' && this.arm.Left ? (1 - wo) : 0;
+    if (lw > 0.02) {
+      const L = this.arm.Left;
+      L.qu.copy(L.u.quaternion); L.ql.copy(L.l.quaternion);
+      W.root.getWorldQuaternion(_q2);
+      L.h.getWorldPosition(_t); _t.add(_v1.copy(this.gripDelta).applyQuaternion(_q2));
+      L.l.getWorldPosition(_e); L.u.getWorldPosition(_v2); _e.sub(_v2).multiplyScalar(2).add(_v2);   // pole: keep the clip's elbow
+      twoBoneIK(L.u, L.l, L.h, _t, _e, L.lens);
+      if (lw < 0.999) { L.u.quaternion.slerpQuaternions(L.qu, L.u.quaternion, lw); L.l.quaternion.slerpQuaternions(L.ql, L.l.quaternion, lw); L.u.updateMatrixWorld(true); }
+    }
+  }
+
+  /** First-person (local) gunner: the procedural gun frame on the aim line + two-bone IK onto its grips (unchanged behaviour). */
+  _fpWeapon(dt, s, fp, useVm) {
+    // ---------------- weapon on the aim line
+    this.kick = Math.max(0, this.kick - dt * 10);
+    const sh = this.arm && this.arm.Right ? this.arm.Right.u : this.head;
     sh.getWorldPosition(_p);
     const one = ONE_HANDED.has(this.weaponId), rpg = this.weaponId === 'rpg';
     // gun frame in world: looking along the aim, rolled level
-    _m.lookAt(_c.set(0, 0, 0), _d.clone().negate(), _up); _q2.setFromRotationMatrix(_m);
+    _m.lookAt(_c.set(0, 0, 0), _n.copy(_d).negate(), _up); _q2.setFromRotationMatrix(_m);
     const right = _u.set(-1, 0, 0).applyQuaternion(_q2); // gun right (-X)
     _a.copy(_p);
     if (rpg) _a.addScaledVector(_up, 0.1).addScaledVector(right, 0.02).addScaledVector(_d, -0.35);
@@ -201,25 +435,15 @@ export class CrewView {
     if (this.bones && this.weapon) {
       const W = this.weapon.sockets;
       const gR = W.grip_R, gL = W.grip_L;
-      if (this.arm.Right && gR) { gR.getWorldPosition(_t); const pole = _e.copy(_p).addScaledVector(_up, -0.6).addScaledVector(right, 0.35); twoBoneIK(this.arm.Right.u, this.arm.Right.l, this.arm.Right.h, _t.clone(), pole, this.arm.Right.lens); this._handTo(this.arm.Right.h, gR); }
+      if (this.arm.Right && gR) { gR.getWorldPosition(_t); const pole = _e.copy(_p).addScaledVector(_up, -0.6).addScaledVector(right, 0.35); twoBoneIK(this.arm.Right.u, this.arm.Right.l, this.arm.Right.h, _t, pole, this.arm.Right.lens); this._handTo(this.arm.Right.h, gR); }
       if (this.arm.Left && (gL || one)) {
         const reloadHand = s.reloading && W.mag_well;
         (reloadHand ? W.mag_well : gL || gR).getWorldPosition(_t);
         this.arm.Left.u.getWorldPosition(_b);
         const pole = _e.copy(_b).addScaledVector(_up, -0.6).addScaledVector(right, -0.3);
-        twoBoneIK(this.arm.Left.u, this.arm.Left.l, this.arm.Left.h, _t.clone(), pole, this.arm.Left.lens);
+        twoBoneIK(this.arm.Left.u, this.arm.Left.l, this.arm.Left.h, _t, pole, this.arm.Left.lens);
         this._handTo(this.arm.Left.h, gL || gR);
       }
-      if (s.weaponId) this.setWeapon(s.weaponId);
-    }
-    if (this.weapon) {
-      if (s.reloading && !this.reloadStart) this.reloadStart = performance.now(); else if (!s.reloading) this.reloadStart = 0;
-      const r01 = s.local ? (s.local.reloadLen ? s.local.reloadT / s.local.reloadLen : 0) : this.reloadStart ? Math.min(1, (performance.now() - this.reloadStart) / 2000) : 0;
-      this.weapon.update(dt, { trigger: s.fire, reloading: s.reloading, reload01: r01 });
-    }
-    if (this.vm) {
-      if (useVm) this.vm.update(dt, s, !s.local.scoped);
-      else { this.vm.setVisible(false); if (s.local && s.local.gunner) s.local.gunner.fp = false; }
     }
   }
 
@@ -244,11 +468,35 @@ export class CrewView {
     hand.quaternion.slerp(_qp.multiply(_q2), 0.7);
   }
 
-  _driver(dt, s) {
+  // ---- driver ---------------------------------------------------------------------------------------------------------------
+  _driver(dt, s, fp) {
     this.steer += ((s.steer || 0) - this.steer) * Math.min(1, dt * 8);
     const k = Math.max(-1, Math.min(1, this.steer * 2.5));
-    if (this.aL) { this.aL.setEffectiveWeight(Math.max(0, k)); this.aR.setEffectiveWeight(Math.max(0, -k)); this.aBase.setEffectiveWeight(1 - Math.abs(k) * 0.8); }
-    // hands on the wheel rim (10 and 2 o'clock, rotated by the steering angle)
+    // occasional life: glances (not in our own first-person view), raider taunts out of an open cab
+    if (this.mixer && !this.ov && this.braceK < 0.2 && !fp && (this.actT -= dt) <= 0) {
+      this.actT = rnd(this.hero ? 8 : 5, this.hero ? 16 : 11);
+      if (!this.hero && OPEN_CABS.has(this.car?.spec?.id) && Math.random() < 0.3) this._play('sit_shout', 'shout', { fin: 0.12, fout: 0.2 });
+      else this._play(Math.random() < 0.5 ? 'sit_glance_L' : 'sit_glance_R', 'glance', { fin: 0.12, fout: 0.2 });
+    }
+    this.shaken = Math.max(0, this.shaken - dt);
+    const braceT = s.airborne || this.shaken > 0 ? 1 : 0;
+    this.braceK += (braceT - this.braceK) * Math.min(1, dt * (braceT ? 8 : 3));
+    if (this.ov && this.braceK > 0.5) this._endOv(0.12);
+    const wo = this._ovWeight(dt);
+    const rest = (1 - wo) * (1 - this.braceK);
+    if (this.aL) { this.aL.setEffectiveWeight(rest * Math.max(0, k)); this.aR.setEffectiveWeight(rest * Math.max(0, -k)); this.aBase.setEffectiveWeight(rest * (1 - Math.abs(k) * 0.8)); }
+    if (this.aBrace) this.aBrace.setEffectiveWeight(this.braceK * (1 - wo));
+    this.mixer?.update(dt);
+    // per-hand wheel-IK weight: the shout lets go with the left hand, a hit knocks the right hand off
+    let wL = 1, wR = 1;
+    if (this.ov && this.ov.kind === 'shout') { const t = this.ov.a.time; wL = 1 - smooth01(SHOUT_IK[0], SHOUT_IK[1], t) * (1 - smooth01(SHOUT_IK[2], SHOUT_IK[3], t)); }
+    if (this.hitRT > 0) { this.hitRT -= dt; const t = 0.25 - this.hitRT; wR = 1 - smooth01(0.0, 0.05, t) * (1 - smooth01(0.12, 0.25, t)); }
+    this._wheelIK(wL, wR);
+    if (this.flinchT > 0) { this.flinchT -= dt; }
+  }
+
+  /** Hands on the wheel rim (10 and 2 o'clock, rotated by the steering angle), blended with the animated arms by wL / wR. */
+  _wheelIK(wL, wR) {
     const wheel = this.car?.sockets?.steering_wheel;
     if (this.bones && wheel && this.arm.Right && this.arm.Left) {
       this.model.updateMatrixWorld(true);
@@ -264,57 +512,155 @@ export class CrewView {
       // the wheel itself turns with the hands (trucks whose wheel is a separate node under the socket)
       if (this.wheelMesh === undefined) this.wheelMesh = wheel.getObjectByName('steering_wheel_mesh') || null;
       if (this.wheelMesh) this.wheelMesh.rotation.z = rot;
-      for (const [side, base] of [['Left', 0.84], ['Right', 2.3]]) {
+      for (const [side, base] of WHEEL_HANDS) {
+        const w = side === 'Left' ? wL : wR;
+        if (w <= 0.001) continue;
         const a = base + rot, R = 0.18;
         _t.set(Math.cos(a) * R, Math.sin(a) * R, 0).applyMatrix4(wheel.matrixWorld);
         const arm = this.arm[side]; arm.u.getWorldPosition(_b);
+        arm.qu.copy(arm.u.quaternion); arm.ql.copy(arm.l.quaternion);
         const pole = _e.copy(_b).add(_c.set(side === 'Left' ? 0.4 : -0.4, -0.5, 0).applyQuaternion(this.root.getWorldQuaternion(_q)));
-        twoBoneIK(arm.u, arm.l, arm.h, _t.clone(), pole, arm.lens);
+        twoBoneIK(arm.u, arm.l, arm.h, _t, pole, arm.lens);
+        if (w < 0.999) { arm.u.quaternion.slerpQuaternions(arm.qu, arm.u.quaternion, w); arm.l.quaternion.slerpQuaternions(arm.ql, arm.l.quaternion, w); arm.u.updateMatrixWorld(true); }
       }
     }
-    if (this.flinchT > 0) { this.flinchT -= dt; }
   }
 
+  // ---- reactions --------------------------------------------------------------------------------------------------------------
+  /** Hit reaction. e.point (world) picks the direction, e.dmg / e.head the weight. */
+  flinch(e = {}) {
+    this.flinchT = 0.3;
+    if (!this.alive || !this.mixer || !this.bones) return;
+    let dir = null;
+    if (e.point) {
+      this.body.worldToLocal(_v1.set(e.point[0], e.point[1], e.point[2]));
+      const x = _v1.x, z = _v1.z - 0.04;
+      dir = Math.abs(z) >= Math.abs(x) * 0.8 ? (z > 0 ? 'front' : 'back') : (x > 0 ? 'left' : 'right');
+    }
+    this.lastHitDir = dir;
+    if (this.role === 'driver') {
+      const a = this._act('sit_hit', true);
+      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(1); a.play(); this.hitRT = 0.25; }
+      return;
+    }
+    if (this.lastMode !== 'clip') return;                  // first person: the procedural flinch above
+    const d = dir || 'front', now = performance.now() / 1000;
+    const heavy = (e.dmg || 0) >= 18 || !!e.head;
+    if (heavy && !(this.ov && (this.ov.kind === 'throw' || this.ov.kind === 'hit')) && now - this.lastHeavy > 0.4) {
+      this.lastHeavy = now; this._play('hit_' + d + '_heavy', 'hit', { fin: 0.04, fout: 0.22 });
+    } else {
+      const a = this._act('hit_' + d, true);
+      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(1); a.play(); }
+    }
+  }
+
+  /** Crash jolt (world_view: 'crash' events, dv = impact speed change). */
+  impact(dv) {
+    if (!this.alive || !this.mixer) return;
+    const s = clamp(dv / 8, 0.3, 1);
+    if (this.role === 'driver') {
+      this.shaken = Math.max(this.shaken, 0.35 + 0.1 * dv);
+      const a = this._act('sit_impact', true);
+      if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(s); a.play(); }
+      return;
+    }
+    if (this.lastMode !== 'clip') return;
+    if (dv > 6 && !this.ov) this._play('hit_back_heavy', 'hit', { fin: 0.05, fout: 0.2 });      // lurches forward
+    else { const a = this._act('hit_back', true); if (a) { a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.setEffectiveWeight(s); a.play(); } }
+  }
+
+  /** A kill by this crew's car: taunt (third-person gunners only). */
+  cheer() { if (this.alive && this.role !== 'driver' && this.lastMode === 'clip' && !this.ov) this._play(Math.random() < 0.5 ? 'taunt' : 'celebrate', 'taunt', { fin: 0.15, fout: 0.2 }); }
+
+  throwGrenade() {
+    if (this.lastMode === 'clip' && this.bones) {
+      if (!this.nade && this.bones.socket_hand_R) {
+        nadeGeo ??= new THREE.SphereGeometry(0.034, 10, 8).scale(1, 1, 1.3);
+        nadeMat ??= new THREE.MeshStandardMaterial({ color: 0x33402a, roughness: 0.6, metalness: 0.2 });
+        this.nade = new THREE.Mesh(nadeGeo, nadeMat); this.nade.castShadow = true; this.nade.visible = false; this.bones.socket_hand_R.add(this.nade);
+      }
+      this._play('throw_grenade', 'throw', { start: THROW.start, scale: THROW.scale, fin: 0.08, fout: 0.15 });
+      return;
+    }
+    this.throwT = 0.7; const a = this._act('throw_grenade'); if (this.mixer && a) { a.reset(); a.setLoop(THREE.LoopOnce); a.setEffectiveWeight(0.8); a.play(); }
+  }
+
+  // ---- deaths -------------------------------------------------------------------------------------------------------------------
   die(e = {}) {
     if (this.deadT >= 0) return;
     this.alive = false; this.deadT = 0;
     if (this.vm) { this.vm.setVisible(false); this._setShadowOnly(false); this.useVm = false; }
-    if (this.role === 'driver' || !this.car) {
-      // slump over the wheel
-      if (this.spine[0]) for (const b of this.spine) b.quaternion.premultiply(_q.setFromAxisAngle(_n.set(1, 0, 0), 0.35));
-      if (this.mixer) this.mixer.timeScale = 0;
-      return;
+    this.body.visible = true;
+    if (this.bones) { this.bones.Head?.scale.setScalar(1); this.bones.Neck?.scale.setScalar(1); }     // the death camera sees us
+    if (this.nade) this.nade.visible = false;
+    if (!this.mixer) { if (this.role !== 'driver') this.root.visible = false; return; }
+    this.ov = null;
+    let name;
+    if (this.role === 'driver') {
+      const st = this.steer;
+      name = Math.abs(st) > 0.06 && Math.random() < 0.75 ? (st > 0 ? 'death_sit_jerk_L' : 'death_sit_jerk_R')
+        : ['death_sit_slump', 'death_sit_slump', 'death_sit_headback', Math.random() < 0.5 ? 'death_sit_jerk_L' : 'death_sit_jerk_R'][(Math.random() * 4) | 0];
+      this.sitIK = SIT_DEATH_IK[name] || [0.1, 0.4];
+    } else {
+      const moving = this.lastSpeed > 3, r = Math.random(), hd = this.lastHitDir;
+      if (e.cause === 'explosion') name = 'death_blown_up';
+      else if (this.car && RAIL_CARS.has(this.car.spec?.id) && Math.abs(this.bodyYaw) < 0.8 && r < 0.4) name = 'death_slump_rail';
+      else if (e.head && r < 0.65) name = 'death_crumple';
+      else if (hd === 'left') name = 'death_thrown_right';
+      else if (hd === 'right') name = 'death_thrown_left';
+      else name = moving ? 'death_thrown_back' : 'death_fall';
+      if (!this._act(name)) name = 'death_fall';
+      if (this.weapon) this.weapon.root.visible = false;
+      const win = LEAVES[name];
+      if (win && this.car && (moving || name === 'death_blown_up' || /thrown/.test(name))) this._detach(win, name === 'death_blown_up');
     }
-    // gunners are thrown off the vehicle
-    const scene = this._scene(); if (!scene) { this.root.visible = false; return; }
-    const carVel = e.vel ? new THREE.Vector3(...e.vel) : (this.lastVel || new THREE.Vector3());
+    const a = this._act(name);
+    if (!a) return;
+    for (const x of this.acts.values()) if (x && x !== a && x.isRunning()) x.fadeOut(0.1);
+    if (this.aHands) this.aHands.fadeOut(0.1);
+    if (this.aAuto) this.aAuto.fadeOut(0.1);
+    a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.setEffectiveWeight(1); a.fadeIn(0.1); a.play();
+    this.deathName = name;
+  }
+
+  /** Leave the vehicle: world-space root, upright with the body's facing, keeps the vehicle's horizontal momentum. */
+  _detach(win, blast) {
+    const scene = this._scene(); if (!scene) return;
+    this.body.getWorldDirection(_a);
+    const yaw = Math.atan2(_a.x, _a.z);
     scene.attach(this.root);
-    this.fallVel.copy(carVel).multiplyScalar(0.85).add(_t.set((Math.random() - 0.5) * 4, 3 + Math.random() * 3, (Math.random() - 0.5) * 4));
-    this.fallSpin.set((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 6);
-    if (this.weapon) this.weapon.root.visible = false;
-    const c = this.clips.find((x) => x.name === 'death_fall');
-    if (this.mixer && c) { this.mixer.stopAllAction(); const a = this.mixer.clipAction(c); a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; a.play(); }
+    this.root.quaternion.setFromAxisAngle(_up, yaw); this.body.rotation.y = 0;
+    const v = this.lastVel;
+    this.fallVel.set(v ? v.x * 0.9 : 0, 0, v ? v.z * 0.9 : 0);
+    if (blast) this.fallVel.x += rnd(-1.5, 1.5), this.fallVel.z += rnd(-1.5, 1.5);
+    this.detached = true; this.leave = win; this.y0 = this.root.position.y; this.yGround = null;
   }
   _scene() { let o = this.root; while (o.parent) o = o.parent; return o.isScene ? o : null; }
 
-  _dead(dt) {
+  _dead(dt, s) {
     this.deadT += dt;
-    if (!this.car || this.role === 'driver' || this.root.parent?.isScene !== true) return;
     this.mixer?.update(dt);
-    const r = this.root;
-    if (!this.landed) {
-      this.fallVel.y -= 17.5 * dt;
-      r.position.addScaledVector(this.fallVel, dt);
-      r.rotation.x += this.fallSpin.x * dt; r.rotation.z += this.fallSpin.z * dt;
-      const gy = this.groundY ? this.groundY(r.position.x, r.position.y, r.position.z) : null;
-      if (gy !== null && r.position.y < gy) { r.position.y = gy; this.landed = true; r.rotation.x = -Math.PI / 2 * Math.sign(this.fallSpin.x || 1); r.rotation.z = 0; }
-      if (this.deadT > 6) this.landed = true;
+    if (this.role === 'driver') {
+      // the wheel keeps turning with the (driverless) car; the hands hold on, then let go
+      if (s) this.steer += ((s.steer || 0) - this.steer) * Math.min(1, dt * 8);
+      const w = this.sitIK ? 1 - smooth01(this.sitIK[0], this.sitIK[1], this.deadT) : 0;
+      this._wheelIK(w, w);
+      return;
     }
+    if (!this.detached) return;
+    const r = this.root, win = this.leave;
+    r.position.x += this.fallVel.x * dt; r.position.z += this.fallVel.z * dt;
+    if (this.deadT > win[1]) {                                     // sliding / tumbling to a stop on the ground
+      const sp = Math.hypot(this.fallVel.x, this.fallVel.z);
+      if (sp > 1e-3) this.fallVel.multiplyScalar(Math.max(0, sp - 18 * dt) / sp);
+    }
+    const gy = this.groundY ? this.groundY(r.position.x, Math.max(r.position.y, this.y0), r.position.z) : null;
+    if (gy !== null) this.yGround = gy; else if (this.yGround === null) this.yGround = this.y0 - 1.0;
+    const u = clamp((this.deadT - win[0]) / (win[1] - win[0]), 0, 1);
+    r.position.y = this.y0 + (Math.min(this.yGround, this.y0) - this.y0) * u * u;
     if (this.deadT > 9) r.visible = false;
   }
 
-  flinch() { this.flinchT = 0.3; }
-  throwGrenade() { this.throwT = 0.7; const c = this.clips.find((x) => x.name === 'throw_grenade'); if (this.mixer && c) { const a = this.mixer.clipAction(c); a.reset(); a.setLoop(THREE.LoopOnce); a.setEffectiveWeight(0.8); a.play(); } }
   headWorld(out) { if (!this.head) return false; this.head.getWorldPosition(out); return true; }
   muzzleWorld(out) { if (this.vm && this.useVm) return this.vm.muzzleWorld(out); return this.weapon ? this.weapon.muzzleWorld(out) : false; }
   dispose() { this.root.removeFromParent(); this.mixer?.stopAllAction(); if (this.vm) this.vm.dispose(); }

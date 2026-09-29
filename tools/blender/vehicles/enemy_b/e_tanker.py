@@ -17,7 +17,8 @@ YC, A, B, NEXP = 2.28, 1.13, 1.05, 2.6
 Z0, Z1, CAP = -3.6, 0.7, 0.32
 YP = 3.3   # roof platform deck
 m.bake_opts = dict(dirt_h=1.2, dens=165.0, wheels=[(HX, HUBY, z, R_W) for z in AXLES.values()], rust=1.0, wear=1.0,
-                   max_size={'paint': 2048, 'paint2': 1024, 'armor': 2048, 'metal_dark': 2048, 'metal_bare': 2048},
+                   max_size={'paint': (2048, 1024), 'paint2': (1024, 512), 'armor': (2048, 2048), 'metal_dark': (1024, 1024), 'metal_bare': (2048, 1024),
+                             'decal_red': (1024, 512)},
                    recipes={'metal_bare': 'alu'})                      # the tank shell: dented aluminium (not 'chrome': the game darkens chrome x0.3)
 m.alias.update({'plastic': 'interior', 'fabric': 'interior', 'leather': 'interior', 'spike': 'armor', 'brass': 'metal_dark',
                 'rust': 'armor', 'decal_white': 'decal_yellow', 'cloth_red': 'canvas', 'wood': 'canvas', 'rim': 'metal_dark', 'chrome': 'metal_dark'})

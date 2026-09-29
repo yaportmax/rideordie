@@ -1,7 +1,7 @@
 {
  "name": "lmg",
- "tris": 35354,
- "glb_kb": 3300,
+ "tris": 24156,
+ "glb_kb": 1448,
  "parts": {
   "body": {
    "pivot": [
@@ -10,26 +10,13 @@
     0.0
    ],
    "parent": null,
-   "tris": 19864,
+   "tris": 11224,
    "materials": [
     "gun_black",
     "gun_metal",
     "gun_steel",
     "polymer",
     "rubber"
-   ]
-  },
-  "trigger": {
-   "pivot": [
-    0.0,
-    46.0,
-    58.0
-   ],
-   "parent": null,
-   "tris": 480,
-   "materials": [
-    "gun_black",
-    "gun_steel"
    ]
   },
   "feed_cover": {
@@ -39,7 +26,7 @@
     -20.0
    ],
    "parent": null,
-   "tris": 4396,
+   "tris": 2604,
    "materials": [
     "gun_black",
     "gun_metal",
@@ -53,11 +40,9 @@
     75.0
    ],
    "parent": null,
-   "tris": 530,
+   "tris": 168,
    "materials": [
-    "gun_steel",
-    "gun_black",
-    "gun_metal"
+    "gun_steel"
    ]
   },
   "charging_handle": {
@@ -67,25 +52,38 @@
     40.0
    ],
    "parent": null,
-   "tris": 820,
+   "tris": 436,
    "materials": [
     "gun_steel",
     "gun_black"
    ]
   },
+  "trigger": {
+   "pivot": [
+    0.0,
+    46.0,
+    58.0
+   ],
+   "parent": null,
+   "tris": 600,
+   "materials": [
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
   "mag": {
    "pivot": [
-    84.0,
-    58.0,
+    44.0,
+    48.0,
     56.0
    ],
    "parent": null,
-   "tris": 2956,
+   "tris": 2960,
    "materials": [
     "polymer",
     "rubber",
     "gun_metal",
-    "gun_black"
+    "brass"
    ]
   },
   "belt": {
@@ -95,9 +93,10 @@
     56.0
    ],
    "parent": null,
-   "tris": 5088,
+   "tris": 5436,
    "materials": [
     "brass",
+    "gun_metal",
     "gun_steel"
    ]
   },
@@ -108,7 +107,7 @@
     454.0
    ],
    "parent": null,
-   "tris": 1220,
+   "tris": 728,
    "materials": [
     "gun_black",
     "gun_metal",
@@ -171,8 +170,8 @@
   },
   "mag_well": {
    "pos": [
-    84.0,
-    58.0,
+    44.0,
+    48.0,
     56.0
    ],
    "rot_deg": [
@@ -198,8 +197,8 @@
   "stock": {
    "pos": [
     0.0,
-    58.0,
-    -402.0
+    56.0,
+    -406.0
    ],
    "rot_deg": [
     0,
@@ -224,7 +223,7 @@
     0.0
    ],
    "amount": -72.0,
-   "note": "opens: rotate -72 deg about the node's +X (glTF) = front of the cover lifts. Pivot = rear hinge pin. Reveals tray, bolt and a round."
+   "note": "opens: rotate -72 deg about the node's +X (glTF) = front of the cover lifts. Pivot = rear hinge pin. Reveals the tray and a round."
   },
   {
    "node": "bolt",
@@ -240,7 +239,7 @@
     1.0
    ],
    "amount": 90.0,
-   "note": "open-bolt: rests cocked at the rear; on each shot it runs forward 90 mm and returns. Charging handle rides with it."
+   "note": "open bolt: rests cocked at the rear; on each shot it runs forward 90 mm and returns."
   },
   {
    "node": "charging_handle",
@@ -256,7 +255,7 @@
     -1.0
    ],
    "amount": 0.0,
-   "note": "rides the bolt: use the same +/-90 mm travel as `bolt` when charging (handle slot on the right side)."
+   "note": "rides the bolt: use the same +/-90 mm travel as `bolt` when charging (right side slot)."
   },
   {
    "node": "trigger",
@@ -288,7 +287,7 @@
     0.0
    ],
    "amount": 120.0,
-   "note": "ammo box: unhooks down-and-outwards (+Y left / -Z) about 120 mm. Origin = top centre of the box at the belt entry."
+   "note": "ammo box: unhooks down-and-outwards (+Y left / -Z) about 120 mm. Origin = top centre of the box at the belt entry (moved: the box now hangs under the receiver's left side, centre 44 mm left of the bore)."
   },
   {
    "node": "belt",
@@ -304,7 +303,7 @@
     0.0
    ],
    "amount": 14.0,
-   "note": "feed step: belt advances one round (14 mm pitch) along its chain (into the tray, -Y direction); cosmetic. Origin at the tray entry."
+   "note": "feed step: belt advances along its chain; cosmetic. Origin at the tray entry."
   },
   {
    "node": "bipod",
@@ -320,13 +319,18 @@
     0.0
    ],
    "amount": 70.0,
-   "note": "modelled FOLDED forward along the barrel; deploy = +70 deg about the node's +X (glTF): legs swing down and slightly forward. Pivot = hinge pin under the gas block."
+   "note": "modelled FOLDED forward under the barrel; deploy = +70 deg about the node's +X (glTF). Pivot = hinge pin under the gas block."
   }
  ],
  "remarks": [
-  "Two-hand hold: right hand grip_R on the pistol grip; left hand grip_L on the polymer handguard (or bipod when deployed).",
-  "Reload: open feed_cover (-72 deg), drop `mag` box down/left, snap the new box to mag_well, drop the belt end on the tray, close the cover, pull the charging handle.",
-  "`eject`: spent cases and links leave to the right (its +X = ejection direction)."
+  "Two-hand hold: right hand on the pistol grip (grip_R); left hand on the polymer handguard (grip_L) or the bipod.",
+  "Reload: open feed_cover (-72 deg), unhook the box (`mag`), fit a new one at mag_well, lay the belt on the tray, close the cover, pull the charging handle."
  ],
- "style_keys": []
+ "style_keys": [
+  "dust",
+  "engrave",
+  "polymer_color",
+  "rust",
+  "wear"
+ ]
 }

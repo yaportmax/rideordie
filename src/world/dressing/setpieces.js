@@ -13,7 +13,7 @@ export class SetPieces {
     this.dress = dress; this.scene = dress.scene;
     this.group = new THREE.Group(); this.group.name = 'set-pieces'; this.scene.add(this.group);
     this.live = new Map();   // id -> {gen, group, meshes, state}
-    this.stats = { ms: 0, max: 0 };
+    this.stats = { ms: 0, max: 0, slice: 0, sliceAt: -1 };
   }
 
   terrainMat() { for (const ch of this.dress.chunks.values()) { const m = ch.rec && ch.rec.mesh && ch.rec.mesh.material; if (m) return m; } return null; }
@@ -32,7 +32,10 @@ export class SetPieces {
     for (const rec of this.live.values()) {
       if (rec.state !== 'build') continue;
       while (performance.now() - t0 < budgetMs) {
+        const ts = performance.now();
         const r = rec.gen.next();
+        const ms = performance.now() - ts; if (ms > this.stats.slice) { this.stats.slice = ms; this.stats.sliceAt = rec.steps; }
+        rec.steps = (rec.steps || 0) + 1;
         if (r.done) { rec.state = 'warm'; this._warm(rec); break; }
       }
     }

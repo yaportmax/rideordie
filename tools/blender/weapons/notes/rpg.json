@@ -1,7 +1,7 @@
 {
  "name": "rpg",
  "tris": 28504,
- "glb_kb": 2870,
+ "glb_kb": 1560,
  "parts": {
   "body": {
    "pivot": [
@@ -223,8 +223,14 @@
   "Hands: right hand on the pistol grip (grip_R at the grip centre, index finger through the guard on the trigger); left hand wraps the wooden vertical front grip (grip_L). Shoulder rests on the rubber pad `stock` (under the rear of the tube). Aim through the PGO-7 style optic on the left: `sight` is ~55 mm behind the eye cup (or over the iron sights on the tube)."
  ],
  "style_keys": [
+  "dust",
+  "engrave",
+  "grain_pitch",
   "paint_color",
   "rust",
-  "wood_axis"
+  "wood_axis",
+  "wood_dark",
+  "wood_light",
+  "wood_worn"
  ]
 }

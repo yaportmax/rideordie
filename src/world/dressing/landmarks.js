@@ -10,6 +10,7 @@ import { seaLevel } from '../terrain_gen.js';
 import { cityDens, cityExclusions, CITY_PROPS } from './city.js';
 import { rockExclusions } from './rocks.js';
 import { momentExclusions } from './moments.js';
+import { GAUNTLET_ASSETS } from './damroad.js';
 
 // ------------------------------------------------------------------------------------------------ tables
 // part: { a asset, u (metres along the road from the anchor; number or [min,max]), v (lateral distance from the road centre), yaw: 'face' | 'oncoming' | 'free' | 'along',
@@ -348,7 +349,7 @@ export const LANDMARK_SPECS = (() => {
   const big = { far: 1500, shadow: true, behind: true };
   const mid = { far: 1000, shadow: true, behind: true };
   const s = {};
-  for (const n of ['ruin_office_a', 'ruin_office_b', 'ruin_office_c']) s[n] = { far: 1700, shadow: true, behind: true };
+  for (const n of ['ruin_office_a', 'ruin_office_b', 'ruin_office_c', 'ruin_apartment_a', 'ruin_apartment_b']) s[n] = { far: 1700, shadow: true, behind: true, mergeNear: 75 };
   for (const n of ['ruin_lowrise_a', 'ruin_lowrise_b', 'ruin_lowrise_c', 'ruin_apartment_a', 'ruin_apartment_b']) s[n] = { far: 1200, shadow: true, behind: true };
   for (const n of ['gas_station', 'diner', 'motel', 'warehouse', 'barn_ruin', 'shanty_hut', 'raider_camp_tent', 'watchtower', 'oil_derrick', 'industrial_tanks', 'crane', 'water_tower', 'silo_group', 'banner_skull', 'shipping_container', 'shipping_container_stack3']) s[n] = { ...mid };
   for (const n of ['radio_tower', 'wind_turbine', 'cooling_tower']) s[n] = { ...big, far: 2000 };
@@ -407,7 +408,7 @@ export function landmarkAssets(id) {
   for (const it of (BACKDROPS[id] || { items: [] }).items) for (const a of it.a) out.add(a);
   if (id === 'city') for (const a of [...RUINS, ...TOWERS, ...CITY_PROPS]) out.add(a);
   if (id === 'coast') for (const a of ['lighthouse', 'wharf_ruin']) out.add(a);
-  if (id === 'dam') for (const a of ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'boss_arena_lights']) out.add(a);
+  if (id === 'dam') for (const a of ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'boss_arena_lights', ...GAUNTLET_ASSETS]) out.add(a);
   return [...out];
 }
 

@@ -290,7 +290,7 @@ def _nrm_chrome(n, rng):
     return 0.5 + 0.06 * (fbm(n, 20, 3, rng) - .5), 1.0
 
 
-NRM = {'n_paint': (512, _nrm_paint, 1.2), 'n_armor': (1024, _nrm_armor, 1.6), 'n_metal': (512, _nrm_metal, 1.2), 'n_rust': (512, _nrm_rust, 1.0),
+NRM = {'n_paint': (512, _nrm_paint, 1.2), 'n_armor': (512, _nrm_armor, 1.0), 'n_metal': (512, _nrm_metal, 1.2), 'n_rust': (512, _nrm_rust, 1.0),
        'n_rubber': (256, _nrm_rubber, 0.6), 'n_cloth': (256, _nrm_cloth, 0.25), 'n_wood': (512, _nrm_wood, 1.2), 'n_fine': (256, _nrm_fine, 0.5),
        'n_chrome': (256, _nrm_chrome, 1.5)}
 NRM_OF = {'paint': 'n_paint', 'paint2': 'n_paint', 'decal_yellow': 'n_paint', 'decal_red': 'n_paint', 'decal_white': 'n_paint',

@@ -14,6 +14,7 @@ const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f
 const _q = new THREE.Quaternion();
 const _sph = new THREE.Sphere();
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const DEAD = { alive: false };
 
 export class WorldView {
   /** opts: {scene, playerPaint, fx?, audio?} */
@@ -28,6 +29,7 @@ export class WorldView {
     this.debris = new DebrisSystem(this.scene, (x, y, z) => this.groundY(x, y, z));
     this.armorTier = 0; this.playerWeapon = 'pistol';
     this.projMeshes = new Map();
+    this.loose = [];                       // dead crew bodies whose car was removed
     this.rocketGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.9, 8).rotateX(Math.PI / 2);
     this.rocketMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, emissive: 0xff6a20, emissiveIntensity: 1.5 });
     this.grenadeGeo = new THREE.SphereGeometry(0.09, 10, 8); this.grenadeMat = new THREE.MeshStandardMaterial({ color: 0x33402a, roughness: 0.6 });
@@ -56,9 +58,10 @@ export class WorldView {
     return rec;
   }
 
-  remove(id) {
+  remove(id, all = false) {
     const rec = this.cars.get(id); if (!rec) return;
-    for (const c of Object.values(rec.crew)) c.dispose();
+    // bodies already thrown onto the road outlive their (despawned) car until they fade out
+    for (const c of Object.values(rec.crew)) { if (!all && c.detached && c.deadT >= 0 && c.deadT < 9) this.loose.push(c); else c.dispose(); }
     rec.view.dispose(); this.cars.delete(id); this.viewMap.delete(id);
   }
 
@@ -84,7 +87,11 @@ export class WorldView {
       const hideCrew = far || off;
       if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 52 : dd > 62); }
       for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) crew.root.visible = !hideCrew;
-      if (hideCrew) { if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); } this._damageVisuals(rec, st); continue; }
+      if (hideCrew) {
+        // bodies thrown off the vehicle live in world space: keep them falling even when their car is off-screen
+        for (const role in rec.crew) { const c = rec.crew[role]; if (c.detached && c.deadT >= 0 && c.deadT < 9.5) c.update(dt, DEAD); }
+        if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); } this._damageVisuals(rec, st); continue;
+      }
       for (const [role, crew] of Object.entries(rec.crew)) {
         const gs = role === 'gunner' ? st.gunner : role === 'gunner2' ? st.gunner2 : null;
         const alive = role === 'driver' ? st.driverAlive : role === 'gunner' ? st.gunnerAlive : st.gunner2Alive;
@@ -93,7 +100,7 @@ export class WorldView {
           alive, aimYaw: gs ? gs.yaw : 0, aimPitch: gs ? gs.pitch : 0, fire: gs ? gs.fire : false, crouch: gs ? gs.crouch : false, ads: gs ? gs.ads : false,
           reloading: gs ? gs.reloading : false, weaponId: st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null, steer: st.steer, speed: st.speed, quat: st.quat, vel: st.vel,
           local: st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null, exploded: st.exploded,
-          bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0,
+          bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0, airborne: !!st.airborne,
         });
       }
       this._damageVisuals(rec, st);
@@ -104,12 +111,15 @@ export class WorldView {
     // events -> crew reactions and cross-module fan-out
     for (const e of events) this.handleEvent(e, states);
     this._projectiles(ctx.proj || []);
+    for (let i = this.loose.length - 1; i >= 0; i--) { const c = this.loose[i]; c.update(dt, DEAD); if (c.deadT > 9.5) { c.dispose(); this.loose.splice(i, 1); } }
     this.debris.update(dt);
   }
 
   handleEvent(e, states) {
     const rec = e.id !== undefined ? this.cars.get(e.id) : null;
     if (e.t === 'crewDead' && rec && rec.crew[e.role]) rec.crew[e.role].die(e);
+    // an enemy crew that just killed one of ours taunts / celebrates
+    if (e.t === 'crewDead' && e.id === 1 && e.src > 1) this.cars.get(e.src)?.crew.gunner?.cheer();
     if (e.t === 'grenadeThrow') { const r = this.cars.get(1); r?.crew.gunner?.throwGrenade(); }
     if (e.t === 'crewHit' && rec && rec.crew[e.role]) rec.crew[e.role].flinch(e);
     if (e.t === 'shot') {
@@ -118,7 +128,7 @@ export class WorldView {
       if (crew) { const w = WEAPONS[e.weapon]; crew.fire(w ? w.rpm / 60 : 8, w ? w.mode : 'auto', w ? (w.pumpTime || w.boltTime) : 0); }
     }
     if (e.t === 'remove') this.remove(e.id);
-    if (e.t === 'crash' && rec && e.dv > 2.2) this._shedPart(rec, e.dv * 0.6, e.other >= 0);
+    if (e.t === 'crash' && rec && e.dv > 2.2) { this._shedPart(rec, e.dv * 0.6, e.other >= 0); for (const role in rec.crew) rec.crew[role].impact(e.dv); }
     if (e.t === 'tirePop' && rec) { const w = rec.view.spec.wheels[e.index]; const n = w && rec.view.wheelNodes.get(w.name); if (n) n.userData.flat = true; }
     if (e.t === 'explode' && rec && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); this._blowParts(rec, rec.state, 1.4, e.vel); }
   }
@@ -187,5 +197,5 @@ export class WorldView {
     if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
     return false;
   }
-  dispose() { if (this.boss) { this.boss.dispose(); this.boss = null; } for (const id of [...this.cars.keys()]) this.remove(id); this.debris.clear(); this.scene.remove(this.group); }
+  dispose() { if (this.boss) { this.boss.dispose(); this.boss = null; } for (const id of [...this.cars.keys()]) this.remove(id, true); for (const c of this.loose) c.dispose(); this.loose.length = 0; this.debris.clear(); this.scene.remove(this.group); }
 }

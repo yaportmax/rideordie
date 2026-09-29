@@ -50,110 +50,70 @@ TRIG_PIN = (32.0, 40.0)
 HINGE = (104.0, 16.0, 33.0)     # crane hinge (pin along the bore, lower left of the frame)
 
 
-# ================================================================== BODY: frame
+# ================================================================== BODY: frame (stainless forging, rounded edges)
 body = G.part("body")
+import gunkit as K
+from gunlib import bool_op
 
-fp = [(-19.5, 68), (-18, 76.5), (-12.5, 81), (28, 81), (32.5, 86.5), (36, 91.5), (58, 92), (104.5, 90), (104.5, 36), (100.5, 26), (94, 14), (84, 9), (44, 9), (30, 13), (22, 24),
-      (17, 38), (-12, 50), (-19, 60)]
-fr = [0, 6.0, 7.0, 4.0, 3.0, 3.0, 1.5, 0.8, 0, 4.0, 6.0, 8.0, 8.0, 6.0, 8.0, 0, 0, 0]
-frame_bm = prism_bm(fp, -FRAME_HW, FRAME_HW, fillet=fr, fsegs=6)
-
-cuts = []
-# cylinder window: open to both sides, top strap above and floor below
-cuts.append(box_bm((104.5 - 54.0, 60, 81.5 - 38.5), c=((54 + 104.5) / 2, 0, (81.5 + 38.5) / 2)))
-# trigger-guard opening
-cuts.append(prism_bm([(34, 16), (88, 16), (96.0, 25), (99.5, 35.5), (36, 35.5)], -20, 20, fillet=[3.0, 5.0, 0, 0, 3.0], fsegs=4))
-# hammer slot
-cuts.append(box_bm((62, 11.4, 46), c=(14, 0, 78)))
-# trigger slot in the floor
-cuts.append(box_bm((14, 8.4, 6), c=(38, 0, 37)))
-# crane recess (left side, lower front)
-cuts.append(box_bm((6, 14, 22), c=(101.5, 13, 46)))
-
-
-def _long_side_edge(e):
-    a, b = e.verts[0].co, e.verts[1].co
-    return abs(a.y) > 12.0 and abs(b.y) > 12.0 and (abs(a.x - b.x) + abs(a.z - b.z)) > 2.5
-
-
-body.add(frame_bm, "gun_metal", bevel=[(1.5, 3, _long_side_edge), (0.6, 2, None)], cut=cuts)
-
-# sideplate (left) + screws
-sp_pts = [(-8, 82), (50, 88), (56, 62), (46, 46), (10, 43), (-8, 60)]
-body.prism(sp_pts, FRAME_HW - 0.3, FRAME_HW + 0.55, mat="gun_metal", bevel=0.35, fillet=2.5, fsegs=3)
-for (sx, sz) in ((0, 78), (44, 82), (48, 50), (10, 46)):
-    body.add(screw_bm((sx, FRAME_HW + 0.55, sz), (0, 1, 0), 2.1, 0.9), "gun_steel", bevel=0.1)
-# right side: hammer pin + trigger pin + screw heads
-for (sx, sz) in ((HAMMER_PIN[0], HAMMER_PIN[1]), (TRIG_PIN[0], TRIG_PIN[1]), (16, 44)):
-    body.add(screw_bm((sx, -FRAME_HW, sz), (0, -1, 0), 2.6, 0.8, slot=False), "gun_steel", bevel=0.1)
-body.add(screw_bm((70, -FRAME_HW, 44), (0, -1, 0), 2.0, 0.8), "gun_steel", bevel=0.1)
-body.add(screw_bm((94, -FRAME_HW, 30), (0, -1, 0), 2.0, 0.8), "gun_steel", bevel=0.1)
-
-# cylinder release latch (thumbpiece, left of the recoil shield) with grooves
-latch = box_bm((10, 4.0, 14), c=(49.5, FRAME_HW + 2.0, 66), rot=(0, 4, 0))
-gr = [box_bm((0.9, 5, 14.2), c=(45.5 + k * 2.0, FRAME_HW + 2.6, 66)) for k in range(5)]
-body.add(latch, "gun_metal", bevel=0.6, cut=gr)
-
-# recoil shield / frame window details: firing-pin bush
+fp = [(-21, 60), (-19, 72), (-12, 82), (2, 88.5), (30, 90.5), (104, 90.5), (111, 88), (111, 40), (106, 31), (96, 28.5), (42, 29.5), (30, 33),
+      (20, 40), (-8, 47), (-17, 52)]
+fr = [2, 6, 8, 8, 4, 1.5, 2, 3, 5, 3, 6, 6, 6, 5, 3]
+frame_bm = K.rounded_prism(fp, -FRAME_HW, FRAME_HW, r=3.2, fillet=fr, fsegs=5, rsegs=3)
+cuts = [box_bm((CYL_X1 + 1.0 - (CYL_X0 - 0.5), 60, 81.5 - 37.0), c=((CYL_X1 + 1.0 + CYL_X0 - 0.5) / 2, 0, (81.5 + 37.0) / 2)),   # cylinder window
+        box_bm((40, 11.4, 30), c=(10, 0, 84)),                                                                                    # hammer slot
+        box_bm((16, 8.6, 12), c=(38, 0, 32)),                                                                                     # trigger slot
+        box_bm((6, 14, 22), c=(103.5, 13, 46)),                                                                                   # crane recess (left)
+        cyl_bm((103, 0, BORE_Z), (115, 0, BORE_Z), 11.4, segs=28)]                                                                # barrel shank hole
+body.add(bool_op(frame_bm, cuts), "gun_steel", bevel=0)
+# round trigger guard (part of the frame)
+tg = sweep_bm([(32, 0, 32), (30, 0, 22), (38, 0, 13.5), (56, 0, 10.5), (78, 0, 12.5), (92, 0, 20), (96, 0, 29)], radius=1.0, segs=4,
+              profile=[(5.6, 2.3), (-5.6, 2.3), (-5.6, -2.3), (5.6, -2.3)], smooth=5)
+body.add(tg, "gun_steel", bevel=0.8)
+# side plate outline (right) + screws, pins
+for (sx, sz) in ((HAMMER_PIN[0], HAMMER_PIN[1]), (TRIG_PIN[0], TRIG_PIN[1])):
+    body.add(K.rivet((sx, -FRAME_HW, sz), (0, -1, 0), 2.6, 0.6), "gun_steel", bevel=0)
+for (sx, sz) in ((0, 76), (44, 82), (48, 48), (8, 50)):
+    body.add(K.screw_head((sx, FRAME_HW, sz), (0, 1, 0), 2.1, 0.8), "gun_steel", bevel=0)
+body.add(K.screw_head((94, -FRAME_HW, 34), (0, -1, 0), 2.0, 0.7), "gun_steel", bevel=0)
+# cylinder release latch (thumbpiece, left side behind the recoil shield) with grooves
+latch = box_bm((11, 4.2, 13), c=(47.5, FRAME_HW + 1.8, 66), rot=(0, 4, 0))
+gr = [box_bm((0.9, 5, 13.2), c=(43.2 + k * 2.0, FRAME_HW + 2.5, 66)) for k in range(5)]
+body.add(bool_op(latch, gr), "gun_metal", bevel=0.5)
 body.cyl((54.6, 0, 76.0), (52.0, 0, 76.0), 2.1, segs=14, mat="gun_steel", bevel=0.1)
+# rear sight (adjustable, black) on the top strap
+body.add(box_bm((17, 12.4, 3.6), c=(42, 0, 92.2)), "gun_black", bevel=0.6)
+rs_blade = prism_bm([(33.6, 93.8), (34.0, 99.6), (38.8, 99.6), (39.2, 93.8)], -5.2, 5.2)
+body.add(bool_op(rs_blade, [box_bm((6, 3.2, 3.4), c=(36.4, 0, 99.2))]), "gun_black", bevel=0.45)
+body.add(K.screw_head((42, 6.3, 92.0), (0, 1, 0), 2.0, 1.0), "gun_steel", bevel=0)
+body.add(K.screw_head((46, 0, 94.0), (0, 0, 1), 1.8, 0.9), "gun_steel", bevel=0)
 
-# rear sight (adjustable, dovetailed into the top strap) + blade with notch
-rs_base = box_bm((17, 13.0, 3.5), c=(43, 0, 93.7))
-body.add(rs_base, "gun_black", bevel=0.6)
-rs_blade = prism_bm([(34.6, 95.0), (35.0, 100.8), (39.4, 100.8), (39.8, 95.0)], -5.2, 5.2)
-body.add(rs_blade, "gun_black", bevel=0.5, cut=[box_bm((6, 3.4, 3.4), c=(37.2, 0, 100.4))])
-# elevation + windage screws, leaf spring
-body.add(screw_bm((43, 6.7, 93.4), (0, 1, 0), 2.2, 1.1), "gun_steel", bevel=0.1)
-body.add(screw_bm((47, 0, 95.4), (0, 0, 1), 2.0, 1.0), "gun_steel", bevel=0.1)
-body.box((7, 10, 0.9), c=(50, 0, 95.6), mat="gun_steel", bevel=0.25)
-
-# ================================================================== BODY: barrel + full lug + vent rib
+# ================================================================== BODY: barrel + full lug + vent rib (stainless)
 bp = [(104.0, 11.8), (150, 11.5), (200, 10.7), (238, 10.2), (249.5, 10.0), (251.4, 9.4), (252.0, 8.6), (252.0, 4.9), (244.0, 4.9), (244.0, 0.0)]
 barrel = lathe_bm(bp, segs=40, c=(0, 0, BORE_Z))
 lug_ring = rrect_ring(22.0, 28.0, 8.5, n=3, c=(0, 59.0))
 lug = loft_bm([(104.0, lug_ring), (234.0, lug_ring), (238.5, rrect_ring(20.0, 26.0, 8.0, n=3, c=(0, 59.0))), (241.0, rrect_ring(15.0, 21.0, 6.5, n=3, c=(0, 58.0)))])
 bl = bool_op(barrel, [lug], "UNION")
-body.add(bl, "gun_metal", bevel=[(0.9, 3, lambda e: e.verts[0].co.x > 235 and e.verts[1].co.x > 235), (0.45, 2, None)],
+body.add(bl, "gun_steel", bevel=[(0.9, 3, lambda e: e.verts[0].co.x > 235 and e.verts[1].co.x > 235), (0.45, 2, None)],
          cut=[cyl_bm((103.0, 0, CYL_Z), (238.0, 0, CYL_Z), 4.0, segs=20)])
-# vent rib: strip on posts
 rib_z0, rib_z1 = 87.6, 90.0
-body.box((249.0 - 104.0, 6.4, rib_z1 - rib_z0), c=((104 + 249) / 2, 0, (rib_z0 + rib_z1) / 2), mat="gun_metal", bevel=0.5)
+body.box((249.0 - 104.0, 6.4, rib_z1 - rib_z0), c=((104 + 249) / 2, 0, (rib_z0 + rib_z1) / 2), mat="gun_steel", bevel=0.5)
 for k in range(0, 14):
-    body.box((4.2, 4.6, rib_z0 - 84.6 + 0.6), c=(107.0 + 10.5 * k, 0, (84.6 + rib_z0) / 2 - 0.3), mat="gun_metal", bevel=0.25)
-# front ramp sight + red insert
+    body.box((4.2, 4.6, rib_z0 - 84.6 + 0.6), c=(107.0 + 10.5 * k, 0, (84.6 + rib_z0) / 2 - 0.3), mat="gun_steel", bevel=0.25)
 fs = prism_bm([(228.0, rib_z1 - 0.6), (231.0, 96.8), (243.5, 98.4), (246.6, 98.0), (247.6, rib_z1 - 0.6)], -1.9, 1.9)
 body.add(fs, "gun_black", bevel=0.45, cut=[prism_bm([(230.6, 95.4), (232.6, 95.4), (233.5, 92.2), (231.4, 92.2)], -0.9, 0.9)])
-body.box((3.2, 2.6, 5.5), c=(233.4, 0, 94.0), mat="gun_steel", bevel=0.2, rot=(0, -28, 0))
-# barrel/frame shoulder ring (nut) + front lug rod-end screw + muzzle crown ring
-body.lathe([(101.0, 0), (101.0, 12.3), (104.5, 12.3), (104.5, 0)], c=(0, 0, BORE_Z), segs=40, mat="gun_metal", bevel=0.35)
+body.add(box_bm((3.2, 2.0, 5.0), c=(233.4, 0, 94.0), rot=(0, -28, 0)), "paint2", bevel=0.2)
+body.lathe([(101.0, 0), (101.0, 12.3), (104.5, 12.3), (104.5, 0)], c=(0, 0, BORE_Z), segs=40, mat="gun_steel", bevel=0.35)
 body.cyl((240.9, 0, 58.0), (241.3, 0, 58.0), 2.2, segs=12, mat="gun_steel", bevel=0.0)
 
-# ================================================================== GRIP (wood) + front strap + medallions
-def wring(w, d, r, off):
-    return rrect_ring(w, d, r, n=3, c=(0, off))
-
-
-def wring2(w, rear, front=17.5, r=11.0):
-    return rrect_ring(w, front - rear, r, n=3, c=(0, (front + rear) / 2))
-
-
-gsecs = [(0, wring2(26, -30, r=9)), (10, wring2(29, -29, r=10.5)), (28, wring2(32, -27, r=12)), (60, wring2(33, -26, r=12.5)),
-         (82, wring2(32.5, -28, r=12.5)), (94, wring2(31, -31, r=12)), (100, wring2(28.5, -33, r=11.5))]
-gtop = gv(0, 42)
-grip = loft_bm(gsecs, cap=True, xf=Matrix.Translation(gtop) @ Matrix.Rotation((90 + GA) * D2R, 4, "Y"))
-body.add(grip, "wood", bevel=[(1.4, 3, None)], angle=24.0)
-# steel front strap
-fstrap = box_bm((2.4, 15.0, 92.0), c=gp(17.6, -5.0), rot=(0, GA, 0))
-body.add(fstrap, "gun_metal", bevel=0.5)
-# medallions + grip screw
+# ================================================================== GRIP (checkered walnut, round butt) + medallions
+gl = [(15, 50), (19, 22), (21, 0), (20, -26), (17, -46), (11, -56), (-18, -56), (-26, -40), (-29, -12), (-27, 18), (-21, 50)]
+grip_side = [gp(lx, lz) for lx, lz in gl]
+grip = K.rounded_prism([(p[0], p[2]) for p in grip_side], -16.5, 16.5, r=8.5, fillet=[2, 8, 8, 8, 8, 10, 10, 10, 10, 8, 2], fsegs=4, rsegs=4)
+body.add(grip, "wood", bevel=0)
 for sy in (-1, 1):
-    body.cyl(gp(-3.0, 20.0, sy * 15.6), gp(-3.0, 20.0, sy * 16.7), 6.4, segs=24, mat="gun_steel", bevel=0.2, angle=20)
-    body.cyl(gp(-3.0, -24.0, sy * 16.0), gp(-3.0, -24.0, sy * 17.1), 2.6, segs=12, mat="gun_steel", bevel=0.15, angle=20)
-# butt cap/lanyard ring stub
-body.box((22, 27, 3.0), c=gp(-6.5, -55.5), rot=(0, GA, 0), mat="gun_metal", bevel=1.0)
-
-# ================================================================== TRIGGER GUARD screws etc.
-body.cyl((26.0, -8, 20.0), (26.0, 8, 20.0), 1.6, segs=10, mat="gun_steel", bevel=0.0) if False else None
+    body.add(K.rivet(gp(-4.0, 22.0, sy * 16.4), (0, sy, 0), 5.8, 0.8, segs=24), "gun_steel", bevel=0)
+    body.add(K.screw_head(gp(-4.0, -22.0, sy * 16.6), (0, sy, 0), 2.4, 0.8), "gun_steel", bevel=0)
+body.add(box_bm((24, 26, 2.2), c=gp(-3.5, -55.8), rot=(0, GA, 0)), "gun_steel", bevel=0.8)
 
 # ================================================================== HAMMER (moving)
 ham = G.part("hammer", pivot=(HAMMER_PIN[0], 0, HAMMER_PIN[1]))
@@ -182,11 +142,11 @@ trig.box((12, 3.0, 4.0), c=(28.0, 0, 43.5), mat="gun_metal", bevel=0.5)
 crane = G.part("crane", pivot=HINGE)
 # yoke arm: hull of two circles in the y-z plane, thin plate in front of the cylinder
 arm = prism_x_bm(hull2((HINGE[1], HINGE[2]), 6.0, (0.0, CYL_Z), 9.6, 12), 100.5, 103.8)
-crane.add(arm, "gun_metal", bevel=0.6)
-crane.cyl((98.5, HINGE[1], HINGE[2]), (109.5, HINGE[1], HINGE[2]), 5.2, segs=20, mat="gun_metal", bevel=0.4)
+crane.add(arm, "gun_steel", bevel=0.6)
+crane.cyl((98.5, HINGE[1], HINGE[2]), (109.5, HINGE[1], HINGE[2]), 5.2, segs=20, mat="gun_steel", bevel=0.4)
 crane.cyl((97.8, HINGE[1], HINGE[2]), (98.6, HINGE[1], HINGE[2]), 3.4, segs=14, mat="gun_steel", bevel=0.0)
 # yoke barrel (tube around the ejector rod, seen just in front of the cylinder)
-crane.lathe([(100.2, 0), (100.2, 6.6), (103.9, 6.6), (103.9, 0)], c=(0, 0, CYL_Z), segs=28, mat="gun_metal", bevel=0.3)
+crane.lathe([(100.2, 0), (100.2, 6.6), (103.9, 6.6), (103.9, 0)], c=(0, 0, CYL_Z), segs=28, mat="gun_steel", bevel=0.3)
 crane.cyl((HINGE[0] - 1.5, HINGE[1], HINGE[2] + 5.0), (HINGE[0] + 2.5, HINGE[1], HINGE[2] + 5.0), 1.0, segs=8, mat="gun_steel") if False else None
 crane.add(screw_bm((101.0, HINGE[1] + 5.0, HINGE[2] - 1.0), (0, 1, 0), 2.0, 0.8), "gun_steel", bevel=0.1)
 
@@ -209,7 +169,7 @@ for k in range(6):
     # stop notches on the un-fluted rear band (between chambers' flutes: at the chamber angle)
     ny, nz = (CYL_R + 0.25) * math.cos(a), CYL_Z + (CYL_R + 0.25) * math.sin(a)
     ccuts.append(box_bm((8.0, 5.2, 1.4), c=(CX0 + 8.0, ny, nz), rot=(-(90 + 60 * k), 0, 0)))
-cyl_node.add(cbody, "gun_metal", bevel=[(0.35, 2, None)], cut=ccuts)
+cyl_node.add(cbody, "gun_steel", bevel=[(0.35, 2, None)], cut=ccuts)
 # ratchet star at the rear face + centre pin
 cyl_node.lathe([(CX0 - 1.8, 0), (CX0 - 1.8, 7.4), (CX0 + 0.5, 8.0), (CX0 + 0.5, 0)], c=(0, 0, CYL_Z), segs=14, mat="gun_steel", bevel=0.0,
                mod=lambda k: 1.0 if k % 2 == 0 else 0.62)
@@ -265,7 +225,10 @@ def _checker(c, P):
 
 wood_look.install(grain=(math.sin(GA * D2R), 0.0, math.cos(GA * D2R)), checker=_checker, stripe=1.9, dark=(0.032, 0.011, 0.004), light=(0.125, 0.050, 0.020))
 G.notes["style"] = dict(
-    decals=[dict(pos=(233.4, 0, 94.0), r=2.4, color=(0.55, 0.035, 0.02), mats=["gun_steel"], rough=0.45)],
+    wear=0.7, dust=0.35, rust=0.05, paint2_color=(0.6, 0.03, 0.02), steel_rough=0.42, steel_base=(0.22, 0.22, 0.225),
+    engrave=[dict(text="MAGNUM .357", pos=(172.0, 11.2, 60.0), u=(-1, 0, 0), v=(0, 0, 1), h=4.6, depth=0.08, mats=["gun_steel"], slab=2.5),
+             dict(text="RDA ARMS", pos=(172.0, -11.2, 60.0), u=(1, 0, 0), v=(0, 0, 1), h=3.2, depth=0.06, mats=["gun_steel"], slab=2.5),
+             dict(text="357", pos=(80.0, -12.8, 34.0), u=(1, 0, 0), v=(0, 0, 1), h=2.4, depth=0.05, mats=["gun_steel"], slab=2.0)],
 )
 if G.args.get("pose"):
     import gunlib

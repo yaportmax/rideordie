@@ -182,6 +182,11 @@ export function cityExclusions(ctx, sA, sB) {
   if (sB < CITY_A || sA > CITY_B) return out;
   const { b } = cityItems(ctx, sA - 60, sB + 60);
   const road = ctx.road, P = {};
+  // sidewalks (9.55..14 m): nothing grows on the paving
+  for (let s = Math.ceil(sA / 5) * 5; s < sB; s += 5) {
+    if (cityDens(s) < 0.35) continue;
+    for (const sd of [1, -1]) { road.pointAt(s, sd * 11.9, P); out.push([P.x, P.z, 3.1]); }
+  }
   for (const q of b) {
     if (q.dFront > 260) continue;
     if (q.arch) {
@@ -537,7 +542,7 @@ function emitStreetLevel(mb, chunk, road, streets) {
 export const CITY_PROPS = ['wreck_sedan', 'wreck_sedan_b', 'wreck_pickup', 'wreck_van', 'wreck_flipped', 'wreck_bus', 'barrel', 'dead_tree_c'];
 const WRECKS = [['wreck_sedan', 3], ['wreck_sedan_b', 3], ['wreck_pickup', 2], ['wreck_van', 2], ['wreck_flipped', 1.4]];
 const pickW = (r, list) => { let t = 0; for (const [, w] of list) t += w; let u = r() * t; for (const [n, w] of list) { u -= w; if (u <= 0) return n; } return list[0][0]; };
-const PROP_SPEC = { far: 520, shadow: true, behind: true };
+const PROP_SPEC = { far: 520, shadow: true, behind: true, mergeNear: 28 };   // one vertex-coloured draw beyond 28 m
 
 /** Put a wreck at road coords (s, d) with yaw offset psi relative to the road direction; keeps clear of |d| < 10.3 and adds its collider. */
 function putWreck(ctx, chunk, cols, name, s, d, psi, r) {
@@ -599,10 +604,32 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
     const F = frameYaw(sm.x + sm.nx * d, chunk.ground.sample(s, d, _G).y - 0.1, sm.z + sm.nz * d, side > 0 ? sm.th - Math.PI / 2 : sm.th + Math.PI / 2, {});
     mb.col(0.16, 0.17, 0.18).setFac(ST.PLAIN, 1, 1, 0.2).setFac2(0, 0, 0, 0);
     mb.box(F, -0.12, 0.12, 0, 6.3, -0.12, 0.12, { skip: 'd' });
+    boxCollider(cols, F, -0.14, 0.14, -0.5, 6.3, -0.14, 0.14);
     mb.box(F, -0.08, 0.08, 5.9, 6.1, 0, 4.2, {});                    // arm toward the road (+z local)
     for (const zz of [2.2, 4.0]) {
       mb.box(F, -0.2, 0.2, 5.0, 5.95, zz - 0.18, zz + 0.18, {});
       if (nb) { neonDot(nb, F, 0.24, 5.45, zz, 0.32, 2, 3, r()); neonDot(nb, F, -0.24, 5.45, zz, 0.32, 2, 3, r()); }
+    }
+  }
+  // ---- bus stops: shelter (roof, back + side panes, lit ad panel), bench, sign pole; one every ~2-3 chunks
+  if (hash2(chunk.c, 881, seed) < 0.42 && dens > 0.5) {
+    const s = s0 + 20 + r() * 56, side = hash2(chunk.c, 882, seed) < 0.5 ? 1 : -1;
+    if (!blocked(s) && !inStreet(s, side)) {
+      const sm = road.sample(s, _smp), d = side * 12.2, gy = chunk.ground.sample(s, d, _G).y + 0.16;
+      const F = frameYaw(sm.x + sm.nx * d, gy, sm.z + sm.nz * d, side > 0 ? sm.th - Math.PI / 2 : sm.th + Math.PI / 2, {});   // local +z toward the road
+      mb.col(0.16, 0.17, 0.18).setFac(ST.PLAIN, 1, 1, 0.3).setFac2(0, 0, 0, 0);
+      for (const x of [-2.1, 2.1]) for (const z of [-0.7, 0.7]) mb.box(F, x - 0.05, x + 0.05, 0, 2.5, z - 0.05, z + 0.05, { skip: 'd' });
+      mb.box(F, -2.3, 2.3, 2.5, 2.62, -0.95, 1.05, {});                                     // roof
+      mb.col(0.05, 0.07, 0.08).setFac(ST.CURTAIN, 4, 2.4, 0.5).setFac2(0, 0, 0.5, 0);       // back + side glass
+      mb.box(F, -2.05, 2.05, 0.3, 2.3, -0.72, -0.66, {});
+      mb.box(F, -2.12, -2.06, 0.3, 2.3, -0.66, 0.5, {});
+      mb.col(0.2, 0.2, 0.21).setFac(ST.PLAIN, 1, 1, 0.3);
+      mb.box(F, -1.4, 1.4, 0.45, 0.5, -0.6, -0.2, {});                                       // bench
+      mb.box(F, 2.13, 2.37, 0, 0.5, -0.72, 0.72, {});                                         // ad panel base
+      boxCollider(cols, F, -2.2, 2.4, -0.5, 2.6, -0.75, 0.75);
+      neonBlade(nb, F, 2.25, 0.5, 2.4, -0.7, 0.7, Math.floor(r() * NEON_V), 0.95);            // lit ad panel, readable along the road
+      mb.box(F, 3.5, 3.58, 0, 3.1, 0.6, 0.68, { skip: 'd' });                                 // stop sign pole
+      mb.col(0.1, 0.3, 0.55); mb.box(F, 3.3, 3.78, 2.6, 3.15, 0.58, 0.7, {});
     }
   }
   // ---- dead trees in pavement grates (residential / commercial blocks)
@@ -688,7 +715,7 @@ export const CITY_GLB = GLB_RUINS;
 function placeGlbRuin(ctx, chunk, b, fr, g0, r) {
   const name = GLB_RUINS[Math.floor(r() * GLB_RUINS.length) % GLB_RUINS.length];
   const a = ctx.kit.get(name); if (!a) return;
-  ctx.pool.register(name, { far: 1700, shadow: true, behind: true });
+  ctx.pool.register(name, { far: 1700, shadow: true, behind: true, mergeNear: 75 });
   const sc = 0.95 + r() * 0.15, sy = 0.9 + r() * 0.45, t = 0.85 + r() * 0.25;
   chunk.list(name).push(fr.x, g0 - 0.4, fr.z, fr.yaw + (r() - 0.5) * 0.12, sc, sy, sc, 0, 1, 0, 0, a.sphere.radius * Math.max(sc, sy) * 1.1, t, t, t);
 }

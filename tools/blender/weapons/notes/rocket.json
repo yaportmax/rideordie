@@ -1,7 +1,7 @@
 {
  "name": "rocket",
  "tris": 9404,
- "glb_kb": 1269,
+ "glb_kb": 492,
  "parts": {
   "rocket": {
    "pivot": [

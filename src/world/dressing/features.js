@@ -12,9 +12,9 @@ import { rbGapD, RB_SOFT } from '../../sim/hazards.js';
 export const FEATURE_SPECS = {
   jump_ramp: { far: 650, shadow: true, behind: true, showRoad: true },
   jump_ramp_small: { far: 600, shadow: true, behind: true, showRoad: true },
-  rb_wreck_car: { far: 650, shadow: true, behind: true },
-  rb_wreck_van: { far: 650, shadow: true, behind: true },
-  rb_wreck_small: { far: 500, shadow: true, behind: true },
+  rb_wreck_car: { far: 650, shadow: true, behind: true, mergeNear: 45 },
+  rb_wreck_van: { far: 650, shadow: true, behind: true, mergeNear: 45 },
+  rb_wreck_small: { far: 500, shadow: true, behind: true, mergeNear: 45 },
   bridge_span_20m: { far: 1400, shadow: true, behind: true },
   bridge_span_20m_damaged: { far: 1400, shadow: true, behind: true },
   overpass_concrete: { far: 900, shadow: true, behind: true, showRoad: true },

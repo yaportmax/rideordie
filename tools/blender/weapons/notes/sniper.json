@@ -1,7 +1,7 @@
 {
  "name": "sniper",
- "tris": 33876,
- "glb_kb": 3205,
+ "tris": 26410,
+ "glb_kb": 1389,
  "parts": {
   "body": {
    "pivot": [
@@ -10,14 +10,13 @@
     0.0
    ],
    "parent": null,
-   "tris": 18968,
+   "tris": 14780,
    "materials": [
-    "wood",
+    "paint",
     "gun_black",
-    "rubber",
+    "gun_metal",
     "polymer",
-    "gun_steel",
-    "gun_metal"
+    "rubber"
    ]
   },
   "bipod": {
@@ -27,7 +26,7 @@
     402.0
    ],
    "parent": null,
-   "tris": 864,
+   "tris": 728,
    "materials": [
     "gun_metal",
     "gun_black",
@@ -41,7 +40,7 @@
     -15.0
    ],
    "parent": null,
-   "tris": 894,
+   "tris": 1142,
    "materials": [
     "gun_steel",
     "gun_metal",
@@ -55,11 +54,10 @@
     -15.0
    ],
    "parent": "bolt",
-   "tris": 1036,
+   "tris": 1068,
    "materials": [
     "gun_steel",
-    "polymer",
-    "gun_black"
+    "polymer"
    ]
   },
   "trigger": {
@@ -69,7 +67,7 @@
     46.0
    ],
    "parent": null,
-   "tris": 588,
+   "tris": 600,
    "materials": [
     "gun_metal",
     "gun_steel"
@@ -82,12 +80,12 @@
     128.0
    ],
    "parent": null,
-   "tris": 3626,
+   "tris": 2088,
    "materials": [
     "gun_black",
     "polymer",
-    "gun_steel",
-    "brass"
+    "brass",
+    "gun_metal"
    ]
   },
   "scope": {
@@ -97,12 +95,12 @@
     60.0
    ],
    "parent": null,
-   "tris": 7900,
+   "tris": 6004,
    "materials": [
     "gun_black",
-    "rubber",
     "glass_lens",
-    "gun_steel"
+    "rubber",
+    "gun_metal"
    ]
   }
  },
@@ -188,8 +186,8 @@
   "stock": {
    "pos": [
     0.0,
-    47.0,
-    -365.0
+    48.0,
+    -376.0
    ],
    "rot_deg": [
     0,
@@ -230,7 +228,7 @@
     1.0
    ],
    "amount": -90.0,
-   "note": "unlock: rotate -90 deg about the node's +Z (glTF, the bolt axis; = forward) raises the handle from the modelled down-right position to straight up. Pivot on the bolt axis at the handle root."
+   "note": "unlock: rotate -90 deg about the node's +Z (glTF, the bolt axis = forward) raises the handle from the modelled down-right position to straight up. Pivot on the bolt axis at the handle root."
   },
   {
    "node": "trigger",
@@ -278,13 +276,22 @@
     0.0
    ],
    "amount": 70.0,
-   "note": "modelled FOLDED forward under the barrel; deploy = +70 deg about the node's +X (glTF), legs swing down. Pivot = hinge pin at the fore-end clamp."
+   "note": "modelled FOLDED forward under the fore-end; deploy = +70 deg about the node's +X (glTF), legs swing down. Pivot = hinge pin at the fore-end clamp."
   }
  ],
  "remarks": [
-  "scope: separate node (origin on the scope axis over the receiver, x = +60 mm). Lenses use glass_lens (transparent); sight socket sits at the exit pupil ~90 mm behind the eyepiece (eye relief).",
-  "Hands: right hand around the pistol grip (grip_R), trigger finger through the guard; left hand supports the fore-end/bipod area at grip_L, or the rear bag under the butt (stock).",
-  "Reload: `mag` drops out downwards; bolt: rotate bolt_handle -90, translate bolt -105 mm (ejects a case from `eject`), push forward, rotate +90 to lock."
+  "scope: separate static node (origin on the scope axis over the receiver). Lenses are `glass_lens` (see-through in the viewmodel); a crosshair reticle with thick outer posts sits inside the tube at x=160 mm, visible through both lenses. `sight` = eye point 55 mm behind the eyepiece.",
+  "Hands: right hand on the vertical thumbhole grip (grip_R), left hand under the fore-end at grip_L. Stock: OD green `paint` (tintable) on a black chassis; `stock` = recoil pad centre (moved 11 mm back for the new pad)."
  ],
- "style_keys": []
+ "style_keys": [
+  "dust",
+  "engrave",
+  "paint_color",
+  "paint_metal_under",
+  "paint_rough",
+  "paint_under",
+  "polymer_color",
+  "rust",
+  "wear"
+ ]
 }

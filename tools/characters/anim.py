@@ -447,12 +447,30 @@ class Rig:
 
     m_pos = None
 
+    soft = 0.0            # >0: contact = that quantile of the mesh heights (thin rigid gear - spikes, pipe ends - may sink a little)
+
+    def lowest_of(self, W, P, bone_names):
+        """Lowest mesh point among vertices whose main influence is one of `bone_names` (None if none / no mesh)."""
+        if self.m_pos is None:
+            return None
+        ids = [IDX[n] for n in bone_names]
+        sel = np.isin(self.m_j[:, 0], ids)
+        if not sel.any():
+            return None
+        j, w = self.m_j[sel], self.m_w[sel]
+        rel = self.m_pos[sel][:, None, :] - self.heads[j]
+        out = np.einsum("vkij,vkj->vki", W[j], rel) + P[j]
+        return float(((out[:, :, 1] * w).sum(axis=1) + self.m_off[sel]).min())
+
     def lowest(self, W, P):
         """Lowest point of the body (world y): the real mesh if set_mesh() was called, else collision spheres."""
         if self.m_pos is not None:
             rel = self.m_pos[:, None, :] - self.heads[self.m_j]
             out = np.einsum("vkij,vkj->vki", W[self.m_j], rel) + P[self.m_j]
             y = (out[:, :, 1] * self.m_w).sum(axis=1) + self.m_off
+            if self.soft > 0:
+                k = int(self.soft * len(y))
+                return float(np.partition(y, k)[k])
             return float(y.min())
         lo = 1e9
         for bone, child, r in self.contact:

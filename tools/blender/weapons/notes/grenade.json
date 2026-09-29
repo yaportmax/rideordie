@@ -1,7 +1,7 @@
 {
  "name": "grenade",
  "tris": 8900,
- "glb_kb": 627,
+ "glb_kb": 471,
  "parts": {
   "body": {
    "pivot": [

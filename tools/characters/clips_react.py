@@ -269,10 +269,78 @@ def lying_front(c, p, hz, twist=0.0, head_turn=-70.0, x0=0.0):
     return q
 
 
+def _lie_delta(p, d0, d1, s1, s2):
+    """Lying pose p with the pelvis tipped by d0 (about its own lateral axis) / rolled by d1 (about its long axis) and the
+    spine arched by s1 / s2 (deg)."""
+    q = copy.deepcopy(p)
+    Rh = rvm(p["hips_rot"]) @ A.rot_axis((1, 0, 0), np.radians(d0)) @ A.rot_axis((0, 1, 0), np.radians(d1))
+    q["hips_rot"] = np.degrees(R.from_matrix(Rh).as_rotvec())
+    q["sp1"] = np.asarray(p["sp1"], float) + rv(s1)
+    q["sp2"] = np.asarray(p["sp2"], float) + rv(s2)
+    return q
+
+
+def settle_lying(c, tr, t_from):
+    """Let the final lying pose sink: search pelvis tip / roll and spine arch so the pelvis ends as low as the body and its
+    rigid gear allow (every body lies on its own gear differently), then ramp that correction into the keys after t_from."""
+    rig = c.rig
+    if rig.m_pos is None:
+        return
+    p_end = tr.vals[-1]
+
+    def height(q):
+        W, P = rig.solve(q, ("world", "world"))
+        return float(P[0][1] - rig.lowest(W, P))
+    best = (height(p_end), (0.0, 0.0, 0.0, 0.0))
+    for d0 in np.arange(-20, 21, 5.0):
+        for d1 in np.arange(-20, 21, 5.0):
+            for s in (-8.0, 0.0, 8.0):
+                d = (d0, d1, s, s * 0.7)
+                h = height(_lie_delta(p_end, *d)) + 0.00004 * (d0 * d0 + d1 * d1 + s * s)
+                if h < best[0] - 1e-4:
+                    best = (h, d)
+    d = best[1]
+    # then drop each foot onto the ground (lying legs were authored relative to the pelvis and rise with it)
+    q = _lie_delta(p_end, *d)
+    dyf = {"L": 0.0, "R": 0.0}
+    for _ in range(3):
+        W, P = rig.solve(q, ("world", "world"))
+        g = rig.lowest(W, P)
+        for S in ("L", "R"):
+            F = A.FULL[S]
+            y = rig.lowest_of(W, P, (F + "Foot", F + "ToeBase"))
+            if y is not None and y - g > 0.02:
+                dy = -(y - g - 0.01)
+                dyf[S] += dy
+                q["f%s_pos" % S] = np.asarray(q["f%s_pos" % S], float) + np.array([0.0, dy, 0.0])
+    if max(abs(x) for x in d) < 1e-6 and abs(dyf["L"]) + abs(dyf["R"]) < 1e-4:
+        return
+    for i, t in enumerate(tr.times):
+        if t >= t_from:
+            k = A_s(clamp01((t - t_from) / 0.25))
+            v = _lie_delta(tr.vals[i], *(x * k for x in d))
+            for S in ("L", "R"):
+                v["f%s_pos" % S] = np.asarray(v["f%s_pos" % S], float) + np.array([0.0, dyf[S] * k, 0.0])
+            tr.vals[i] = v
+
+
+def clamp01(x):
+    return max(0.0, min(1.0, x))
+
+
+def A_s(x):
+    return x * x * (3 - 2 * x)
+
+
 def death_bake(c, tr, T, ground_from, note, springs=None, settle=0.0):
     spr = springs if springs is not None else dict(G.SPR_LIMP, fL=(3.5, 0.5), fR=(3.5, 0.5))
-    return c.bake(tr, T, False, frames=("world", "world"), springs=spr, settle=settle, ground=True, ground_from=ground_from, note=note,
-                  rel=None)
+    c.rig.soft = 0.006
+    try:
+        settle_lying(c, tr, ground_from + 0.05)
+        return c.bake(tr, T, False, frames=("world", "world"), springs=spr, settle=settle, ground=True, ground_from=ground_from, note=note,
+                      rel=None)
+    finally:
+        c.rig.soft = 0.0
 
 
 # ------------------------------------------------------------------------------------------------

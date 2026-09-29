@@ -62,7 +62,7 @@ for k in range(0, 27):
 cp = [(44.0, 12.6, 8.0)] + cp + [(44.0, 12.4 * math.cos(math.radians(30 + 26 * 12.5)), 12.4 * math.sin(math.radians(30 + 26 * 12.5)) - 4.0)]
 body.add(sweep_bm(cp, 0.75, segs=6), "gun_steel", bevel=0.0)
 # stencil bands (engraved rings, painted-over look) on the top shoulder
-G.notes["style"] = dict(paint_color=(0.036, 0.044, 0.018), wear=1.35, dirt=1.1)
+G.notes["style"] = dict(paint_color=(0.022, 0.027, 0.011), wear=1.2, dirt=1.0)
 
 # ---- SPOON LEVER (moving; hinge at the fuze head) ---------------------------------------------------------------------------------
 HX, HY = 56.0, 10.5
@@ -91,4 +91,4 @@ G.socket("fuze", (FX_END, 0.0, 0.0))             # fuze top: smoke/spark emitter
 G.motion("pin", "translate", (0, -1, 0), 35.0, "pull the pin out along its own axis (toward gun-right = glTF -X). Origin = pin/fuze-axis crossing. Do it just before the lever flies.")
 G.motion("lever", "rotate", (0, 0, -1), 95.0, "on release the spoon swings ~95 deg outward about its hinge (glTF axis (0,-1,0) i.e. rotate -95 deg about +Y up) and can then be spawned as a flying debris piece. Origin = hinge.")
 G.remark("Model front (+Z glTF) = the fuze. In hand the lever lies against the palm (grip_R is on the spoon). Body is an F1-style cast-iron 'pineapple' ~60 mm dia x 117 mm long incl. fuze.")
-G.finish(size=512)
+G.finish(size=1024)

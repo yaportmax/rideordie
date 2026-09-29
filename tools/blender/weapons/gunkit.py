@@ -357,3 +357,39 @@ def shotshell(part, pos, direction, fired=False, head_back=True, length=70.0, se
     pr = lathe_bm([(-0.3, 0), (-0.3, 2.6), (0.2, 2.8), (0.2, 0)], 12, "z")
     bmesh.ops.transform(pr, matrix=M, verts=pr.verts)
     part.add(pr, "gun_steel", bevel=0)
+
+
+# =========================================================================================== rounded-edge prisms
+def _offset_poly(pts, d):
+    """Offset a closed CCW-or-CW polygon inward by d (miter, clamped)."""
+    n = len(pts)
+    area = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n))
+    sgn = 1.0 if area > 0 else -1.0             # CCW: inward normal = left of the edge direction
+    out = []
+    for i in range(n):
+        p0, p1, p2 = Vector(pts[i - 1]), Vector(pts[i]), Vector(pts[(i + 1) % n])
+        e0 = (p1 - p0).normalized()
+        e1 = (p2 - p1).normalized()
+        n0 = Vector((-e0.y, e0.x)) * sgn
+        n1 = Vector((-e1.y, e1.x)) * sgn
+        m = (n0 + n1)
+        if m.length < 1e-6:
+            m = n0
+        m.normalize()
+        k = max(0.35, m.dot(n0))
+        q = p1 + m * (d / k)
+        out.append((q.x, q.y))
+    return out
+
+
+def rounded_prism(pts, y0, y1, r=6.0, fillet=0.0, fsegs=4, rsegs=4):
+    """Side-profile prism [(x,z)] across y in [y0,y1] whose outline edges (the two cap loops) are rounded with radius r
+    (Blender bevel with overlap clamping -> manifold, concave-safe)."""
+    bm = prism_bm(pts, y0, y1, fillet=fillet, fsegs=fsegs)
+    r = min(r, (y1 - y0) / 2 - 0.05)
+    edges = [e for e in bm.edges if abs(e.verts[0].co.y - e.verts[1].co.y) < 1e-4 and
+             (abs(e.verts[0].co.y - y0) < 1e-4 or abs(e.verts[0].co.y - y1) < 1e-4)]
+    bmesh.ops.bevel(bm, geom=edges, offset=r, offset_type="OFFSET", segments=rsegs, profile=0.5, affect="EDGES",
+                    clamp_overlap=True, loop_slide=True)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return bm

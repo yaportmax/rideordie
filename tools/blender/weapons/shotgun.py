@@ -94,15 +94,15 @@ pad = loft_bm([(-296, fillet_poly([(19.2, -40.6), (19.2, 80.6), (-19.2, 80.6), (
 body.add(pad, "rubber", bevel=[(1.0, 2, None)], cut=[box_bm((6, 60, 3.0), c=(-310, 0, -20 + k * 14)) for k in range(8)])
 body.add(K.loop_bm((-270, 0, -34.0), (0, 0, -1), 8.0, 2.0), "gun_metal", bevel=0)
 
-# =========================================================================================== SIDE SADDLE (left) with 6 shells
-body.add(box_bm((150, 2.4, 44), c=(112, RW / 2 + 1.4, 46)), "polymer", bevel=1.0)
-for k in range(6):
-    x = 50 + k * 24.0
-    K.shotshell(body, (x, RW / 2 + 13.0, 12.0), (0, 0, 1), fired=False)
-    body.add(box_bm((20, 3.0, 12), c=(x, RW / 2 + 3.8, 56)), "polymer", bevel=0.8)
-body.add(box_bm((150, 3.0, 5), c=(112, RW / 2 + 3.6, 28)), "polymer", bevel=0.8)
-for x in (46.0, 178.0):
-    body.add(K.screw_head((x, RW / 2 + 2.6, 60), (0, 1, 0), 2.6), "gun_metal", bevel=0)
+# =========================================================================================== SIDE SADDLE (left) with 5 shells
+body.add(box_bm((128, 2.4, 40), c=(128, RW / 2 + 1.4, 56)), "polymer", bevel=1.0)
+for k in range(5):
+    x = 78 + k * 25.0
+    K.shotshell(body, (x, RW / 2 + 13.0, 22.0), (0, 0, 1), fired=False)
+    body.add(box_bm((20, 3.0, 12), c=(x, RW / 2 + 3.8, 64)), "polymer", bevel=0.8)
+body.add(box_bm((128, 3.0, 5), c=(128, RW / 2 + 3.6, 38)), "polymer", bevel=0.8)
+for x in (68.0, 188.0):
+    body.add(K.screw_head((x, RW / 2 + 2.6, 62), (0, 1, 0), 2.6), "gun_metal", bevel=0)
 
 # =========================================================================================== SHELL IN THE LOADING PORT
 K.shotshell(body, (148.0, 0.0, 13.0), (1, 0, 0.18), fired=False, head_back=True)

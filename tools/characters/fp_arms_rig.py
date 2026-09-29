@@ -129,13 +129,13 @@ POSES = {
     "pose_rifle": {
         "Right": {"Thumb": (10, 25, 20), "thumb": (35, 25), "Index": (30, 50, 25), "Middle": (72, 88, 38), "Ring": (78, 90, 40),
                   "Pinky": (82, 88, 38), "spread": -4},
-        "Left": {"Thumb": (5, 15, 10), "thumb": (30, 30), "Index": (42, 62, 30), "Middle": (48, 66, 32), "Ring": (52, 68, 34),
+        "Left": {"Thumb": (16, 12, 8), "thumb": (22, 18), "Index": (42, 62, 30), "Middle": (48, 66, 32), "Ring": (52, 68, 34),
                  "Pinky": (58, 70, 34), "spread": 2},
     },
     "pose_pistol": {
         "Right": {"Thumb": (5, 15, 10), "thumb": (30, 22), "Index": (22, 35, 18), "Middle": (75, 88, 38), "Ring": (80, 90, 40),
                   "Pinky": (84, 88, 38), "spread": -4},
-        "Left": {"Thumb": (0, 10, 5), "thumb": (20, 15), "Index": (55, 70, 30), "Middle": (60, 72, 32), "Ring": (64, 74, 34),
+        "Left": {"Thumb": (28, 12, 6), "thumb": (6, 4), "Index": (55, 70, 30), "Middle": (60, 72, 32), "Ring": (64, 74, 34),
                  "Pinky": (68, 74, 34), "spread": -2},
     },
     "pose_launcher": {

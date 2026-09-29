@@ -1,6 +1,9 @@
 """enemy_b vehicle toolkit.  ALL coordinates given to Model methods are GAME space (glTF): +X = left, +Y = up, +Z = forward,
 origin on the ground under the vehicle centre.  Geometry is accumulated as plain arrays per (object, material), then at
-finish(): weighted smooth normals, world-scale box UVs, baked vertex-colour AO/grime, Blender objects, GLB export.
+finish(): weighted smooth normals, world-scale box UVs, Blender objects, GLB export, and either
+  - legacy path (Model(bake=False), the boss): baked vertex-colour AO/grime + tiling textures, or
+  - bake path (Model(bake=True), the v2 raiders): unique per-material wear atlases on UV1 (see vbake.py), no vertex colours.
+Every primitive records a primitive id + tag (m.tag(...)) + shape + 'look' (the material it asked for before aliasing) for the bake.
 """
 import bpy
 import bmesh
@@ -875,7 +878,7 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
     # ---- unique wear atlases (UV1): charts + packing now, bakes/recipes once the objects exist
     if m.bake:
         import vbake
-        vbake.prepare(m, data)
+        vbake.prepare(m, data, bvh_world)
     # ---- create bpy objects
     scene_meshes = {}
     objs = {}

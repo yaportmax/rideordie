@@ -347,7 +347,7 @@ export class Sim {
       const tq = damage * f * car.veh.mass * 0.05;
       car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * tq, y: (Math.random() - 0.5) * tq, z: (Math.random() - 0.5) * tq }, true);
       if (!car.exploded) {
-        const pm = car.kind === 'player' ? (this.playerBlastMul ?? 0.6) : 1;
+        const pm = car.kind === 'player' ? (this.playerBlastMul ?? 0.6) * (sourceCar ? (this.playerCarBlastMul ?? 1) : 1) : 1; // (car cook-offs next to you: director)
         this.damageCar(car, damage * f * pm, { cause: credit !== src ? 'crash' : 'blast', src: credit });
         for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src: credit });
       }

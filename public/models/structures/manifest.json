@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-29T10:02:03",
- "count": 67,
- "total_kb": 27162,
+ "generated": "2026-09-29T13:23:03",
+ "count": 73,
+ "total_kb": 27457,
  "conventions": "see README.md",
  "structures": [
   {
@@ -4045,8 +4045,240 @@
    }
   },
   {
+   "id": "wreck_sedan",
+   "group": "wrecks",
+   "file": "models/structures/wreck_sedan.glb",
+   "tris": 490,
+   "collision_tris": 12,
+   "size_kb": 44.6,
+   "bbox_min": [
+    -1.06,
+    0.0,
+    -2.55
+   ],
+   "bbox_max": [
+    1.45,
+    1.65,
+    2.37
+   ],
+   "dims": [
+    2.51,
+    1.65,
+    4.92
+   ],
+   "materials": [
+    "metal_dark",
+    "rubber",
+    "rust"
+   ],
+   "nodes": [
+    "metal_dark",
+    "rubber",
+    "rust",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+   }
+  },
+  {
+   "id": "wreck_sedan_b",
+   "group": "wrecks",
+   "file": "models/structures/wreck_sedan_b.glb",
+   "tris": 562,
+   "collision_tris": 12,
+   "size_kb": 49.7,
+   "bbox_min": [
+    -1.06,
+    0.0,
+    -2.55
+   ],
+   "bbox_max": [
+    1.45,
+    1.65,
+    2.37
+   ],
+   "dims": [
+    2.51,
+    1.65,
+    4.92
+   ],
+   "materials": [
+    "metal_dark",
+    "paint",
+    "rubber"
+   ],
+   "nodes": [
+    "metal_dark",
+    "paint",
+    "rubber",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+   }
+  },
+  {
+   "id": "wreck_pickup",
+   "group": "wrecks",
+   "file": "models/structures/wreck_pickup.glb",
+   "tris": 556,
+   "collision_tris": 12,
+   "size_kb": 49.2,
+   "bbox_min": [
+    -1.13,
+    0.0,
+    -2.9
+   ],
+   "bbox_max": [
+    1.51,
+    1.75,
+    2.72
+   ],
+   "dims": [
+    2.63,
+    1.75,
+    5.62
+   ],
+   "materials": [
+    "metal_dark",
+    "rubber",
+    "rust"
+   ],
+   "nodes": [
+    "metal_dark",
+    "rubber",
+    "rust",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+   }
+  },
+  {
+   "id": "wreck_van",
+   "group": "wrecks",
+   "file": "models/structures/wreck_van.glb",
+   "tris": 688,
+   "collision_tris": 12,
+   "size_kb": 59.3,
+   "bbox_min": [
+    -1.13,
+    0.0,
+    -2.75
+   ],
+   "bbox_max": [
+    1.51,
+    2.05,
+    2.57
+   ],
+   "dims": [
+    2.63,
+    2.05,
+    5.32
+   ],
+   "materials": [
+    "metal_dark",
+    "paint",
+    "rubber"
+   ],
+   "nodes": [
+    "metal_dark",
+    "paint",
+    "rubber",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+   }
+  },
+  {
+   "id": "wreck_flipped",
+   "group": "wrecks",
+   "file": "models/structures/wreck_flipped.glb",
+   "tris": 562,
+   "collision_tris": 12,
+   "size_kb": 49.7,
+   "bbox_min": [
+    -1.43,
+    -0.27,
+    -2.35
+   ],
+   "bbox_max": [
+    1.04,
+    1.33,
+    2.17
+   ],
+   "dims": [
+    2.47,
+    1.6,
+    4.52
+   ],
+   "materials": [
+    "metal_dark",
+    "rubber",
+    "rust"
+   ],
+   "nodes": [
+    "metal_dark",
+    "rubber",
+    "rust",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+   }
+  },
+  {
+   "id": "wreck_bus",
+   "group": "wrecks",
+   "file": "models/structures/wreck_bus.glb",
+   "tris": 426,
+   "collision_tris": 12,
+   "size_kb": 42.1,
+   "bbox_min": [
+    -1.3,
+    -0.06,
+    -5.81
+   ],
+   "bbox_max": [
+    1.3,
+    3.1,
+    5.81
+   ],
+   "dims": [
+    2.6,
+    3.16,
+    11.62
+   ],
+   "materials": [
+    "glass",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust"
+   ],
+   "nodes": [
+    "glass",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Loose vehicle wreck, origin ground centre, front +Z, one collision box."
+   }
+  },
+  {
    "id": "rb_wreck_car",
-   "group": "other",
+   "group": "wrecks",
    "file": "models/structures/rb_wreck_car.glb",
    "tris": 882,
    "collision_tris": 48,
@@ -4094,57 +4326,8 @@
    }
   },
   {
-   "id": "rb_wreck_small",
-   "group": "other",
-   "file": "models/structures/rb_wreck_small.glb",
-   "tris": 380,
-   "collision_tris": 24,
-   "size_kb": 35.9,
-   "bbox_min": [
-    -1.15,
-    0.0,
-    1.3
-   ],
-   "bbox_max": [
-    1.15,
-    1.27,
-    6.2
-   ],
-   "dims": [
-    2.3,
-    1.27,
-    4.9
-   ],
-   "materials": [
-    "concrete",
-    "metal_dark",
-    "rubber",
-    "rust",
-    "spike"
-   ],
-   "nodes": [
-    "concrete",
-    "metal_dark",
-    "rubber",
-    "rust",
-    "spike",
-    "collision"
-   ],
-   "sockets": {
-    "hw": [
-     1.2,
-     0,
-     0
-    ]
-   },
-   "notes": {
-    "desc": "Narrow roadblock module (2.4 m wide, x -1.20..1.20, road-aligned): jersey barrier across the road, tyre stack, drum, razor wire. Visuals + collision never exceed |x| <= hw.",
-    "hw": 1.2
-   }
-  },
-  {
    "id": "rb_wreck_van",
-   "group": "other",
+   "group": "wrecks",
    "file": "models/structures/rb_wreck_van.glb",
    "tris": 1284,
    "collision_tris": 48,
@@ -4189,6 +4372,55 @@
    "notes": {
     "desc": "Roadblock module (5.6 m wide, x -2.80..2.80, road-aligned). Overturned van on its side across the road, sandbags, drums, tyres. Visuals + collision never exceed |x| <= hw.",
     "hw": 2.8
+   }
+  },
+  {
+   "id": "rb_wreck_small",
+   "group": "wrecks",
+   "file": "models/structures/rb_wreck_small.glb",
+   "tris": 380,
+   "collision_tris": 24,
+   "size_kb": 35.9,
+   "bbox_min": [
+    -1.15,
+    0.0,
+    1.3
+   ],
+   "bbox_max": [
+    1.15,
+    1.27,
+    6.2
+   ],
+   "dims": [
+    2.3,
+    1.27,
+    4.9
+   ],
+   "materials": [
+    "concrete",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike"
+   ],
+   "nodes": [
+    "concrete",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "collision"
+   ],
+   "sockets": {
+    "hw": [
+     1.2,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Narrow roadblock module (2.4 m wide, x -1.20..1.20, road-aligned): jersey barrier across the road, tyre stack, drum, razor wire. Visuals + collision never exceed |x| <= hw.",
+    "hw": 1.2
    }
   }
  ]

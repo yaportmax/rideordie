@@ -219,7 +219,7 @@ def _wear_common(c, st, edge_k=1.0, scuff_k=1.0, scr_k=1.0):
 def _dust(c, st, alb, rough, amount=1.0):
     """Desert dust: fine layer in crevices and on up-facing surfaces (lighter, rougher)."""
     k = st.get("dust", 0.55) * amount
-    d = (smoothstep(0.75, 0.25, c.ao_s) * 0.7 + smoothstep(0.35, 0.9, c.nz) * 0.35 * smoothstep(0.4, 0.75, c.nL2)) * (0.5 + 0.5 * c.nM)
+    d = (smoothstep(0.75, 0.25, c.ao_s) * 0.6 + smoothstep(0.45, 0.95, c.nz) * 0.14 * smoothstep(0.45, 0.8, c.nL2)) * (0.5 + 0.5 * c.nM)
     d = np.clip(d * k, 0, 0.7)
     alb = alb * (1 - d[:, None]) + DUST * d[:, None]
     return alb, rough * (1 - d) + 0.9 * d, d
@@ -365,7 +365,7 @@ def recipe_paint(c, style, key="paint_color"):
     under = np.array(st.get("paint_under", (0.12, 0.12, 0.12)), np.float32)
     alb = alb * (1 - wear[:, None]) + under * wear[:, None]
     alb = alb * (1 - grime[:, None] * 0.5) + DIRT * grime[:, None] * 0.5
-    rough = 0.55 + 0.15 * wear + 0.2 * grime + 0.05 * (c.nM - 0.5)
+    rough = st.get("paint_rough", 0.55) + 0.15 * wear + 0.2 * grime + 0.05 * (c.nM - 0.5)
     alb, rough, d = _dust(c, st, alb, rough)
     alb = alb * (0.6 + 0.4 * c.ao_s[:, None])
     return alb, np.clip(rough, 0.2, 1.0), (wear * st.get("paint_metal_under", 0.8)).astype(np.float32), (c.nH - 0.5) * 0.006
@@ -375,7 +375,7 @@ RECIPES = {
     # (c, base, dull, bare, rough0, rough_worn, metal0, edge_k, scuff_k)
     "gun_metal": lambda c, s: recipe_metal(c, (0.040, 0.041, 0.044), (0.08, 0.08, 0.084), (0.30, 0.30, 0.31), 0.40, 0.28, 1.0, 1.0, 0.9, style=s),
     "gun_black": lambda c, s: recipe_metal(c, (0.019, 0.019, 0.020), (0.045, 0.045, 0.047), (0.26, 0.26, 0.27), 0.55, 0.32, 0.35, 1.0, 1.0, style=s),
-    "gun_steel": lambda c, s: recipe_metal(c, (0.30, 0.30, 0.31), (0.20, 0.20, 0.21), (0.42, 0.42, 0.43), 0.30, 0.24, 1.0, 0.4, 0.5, brushed=1.0, style=s),
+    "gun_steel": lambda c, s: recipe_metal(c, s.get("steel_base", (0.30, 0.30, 0.31)), (0.20, 0.20, 0.21), (0.42, 0.42, 0.43), s.get("steel_rough", 0.30), 0.24, 1.0, 0.4, 0.5, brushed=1.0, style=s),
     "polymer": recipe_polymer,
     "wood": recipe_wood,
     "rubber": recipe_rubber,
@@ -485,6 +485,33 @@ def compose(masks, size, style, log=print, dbg_save=None):
         height = height - mk * g.get("depth", 0.25)
         alb = alb * (1 - 0.6 * mk[:, None])
         rough = rough + 0.2 * mk
+    # checkering panels: dict(pos, u, v (panel axes), w, h (panel size mm), pitch=1.3, depth=0.25, border=2.0, mats=[..], slab=10)
+    for ck in st.get("checker", []):
+        u = np.asarray(ck["u"], np.float32); u /= np.linalg.norm(u)
+        v = np.asarray(ck["v"], np.float32); v = v - u * float(np.dot(u, v)); v /= np.linalg.norm(v)
+        nn = np.cross(u, v)
+        rel = P - np.asarray(ck["pos"], np.float32)[None]
+        a_, b_, d_ = rel @ u, rel @ v, rel @ nn
+        w2, h2 = ck["w"] / 2, ck["h"] / 2
+        inside = (np.abs(d_) < ck.get("slab", 10.0)) & (np.abs(Ng @ nn) > 0.25)
+        # rounded-rectangle panel with a smooth border
+        ex = np.maximum(np.abs(a_) - (w2 - 4), 0); ey = np.maximum(np.abs(b_) - (h2 - 4), 0)
+        rr = np.sqrt(ex * ex + ey * ey)
+        panel = smoothstep(4.2, 3.4, rr) * inside
+        border = np.exp(-((rr - 4.9) / 0.35) ** 2) * inside
+        if ck.get("mats"):
+            allow = np.zeros(N, bool)
+            for nme in ck["mats"]:
+                allow |= ids == (MAT_IDS.index(nme) + 1)
+            panel = panel * allow; border = border * allow
+        pt = ck.get("pitch", 1.3)
+        g1 = np.abs(((a_ * 0.866 + b_ * 0.5) / pt) % 1.0 - 0.5) * 2
+        g2 = np.abs(((a_ * 0.866 - b_ * 0.5) / pt) % 1.0 - 0.5) * 2
+        diamond = np.minimum(g1, g2)                      # 0 in the grooves, 1 on the diamond tips
+        dep = ck.get("depth", 0.25)
+        height = height + panel * (diamond - 0.5) * dep - border * dep * 0.8
+        alb = alb * (1 - panel[:, None] * 0.35 * (1 - diamond[:, None])) * (1 - 0.3 * border[:, None])
+        rough = rough + panel * 0.15
     # stamped / engraved markings: dict(text, pos, u, v, h, depth=0.08, fill='dark'|'light', mats=[..])
     for e in st.get("engrave", []):
         mk = text_mask(P, Ng, e)

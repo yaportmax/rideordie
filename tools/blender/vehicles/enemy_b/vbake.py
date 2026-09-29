@@ -4,10 +4,11 @@ Pipeline (numpy + mathutils BVH, deterministic):
  1. charts   every primitive is split into planar-ish charts (faces binned by dominant signed axis -> connected components);
              tiny primitives (rivets, bolts, weld beads, small brackets) become ONE chart projected along their mean normal.
              Vertical charts are oriented so atlas-down == world-down (rust / grime streaks run down in texture space).
- 2. packing  one atlas PER MATERIAL (keeps the runtime far-LOD average colour of every material right), shelf packed, pow2.
- 3. raster   world position + smooth normal + chart id per texel.
- 4. masks    ray-traced AO + cavity + sky visibility, convex-edge distance (per primitive), weld heat, rust streak sources
-             smeared downward, height dirt + wheel spray, dust on up-facing faces, scratches, 3D noise.
+ 2. packing  one atlas PER MATERIAL (keeps the runtime far-LOD average colour of every material right), shelf packed with column stacking,
+             smallest pow2 atlas holding ~85 % of the target density; enclosed charts get less density (visibility rays).
+ 3. raster   world position + smooth normal + chart id per texel; Cycles bakes AO (1 m) + cavity (7 cm) at half resolution.
+ 4. masks    convex-edge distance (per primitive), weld heat, rust streak sources smeared downward, height dirt + wheel spray,
+             dust on up-facing faces, road-dust film, scratches, 3D value noise.
  5. recipes  per material 'smart material' -> albedo (sRGB) + roughness + metalness (paint/paint2 stay grayscale: runtime tint).
  6. padding  charts are dilated into their gutters, images are written, vmat builds UV1-mapped materials
              (albedo + ORM on TEXCOORD_1, clean tiling detail normal map on TEXCOORD_0).
@@ -17,16 +18,17 @@ import os
 import time
 import zlib
 import numpy as np
-from mathutils.bvhtree import BVHTree
+from mathutils.bvhtree import BVHTree  # noqa  (bpy side)
 import vmat
 
 NO_BAKE = {'glass', 'glass_lens', 'light_head', 'light_tail', 'light_amber'}
 DEFAULTS = dict(
     dens=210.0,          # target texels per metre
-    dens_max=1.35,       # allowed up-scaling of the density to fill a pow2 atlas
+    dens_max=1.25,       # allowed up-scaling of the density to fill a pow2 atlas
     margin=3,            # gutter (px) around every chart
-    max_size={'paint': 2048, 'paint2': 2048, 'armor': 2048, 'metal_dark': 2048},
-    max_default=1024,
+    max_size={'paint': (2048, 1024), 'paint2': (1024, 1024), 'armor': (2048, 1024), 'metal_dark': (1024, 1024)},
+    max_default=(1024, 512),
+    dens_floor=0.85,     # accept a smaller atlas when it still holds 85 % of the target density
     mat_dens={'rubber_tire': 0.8, 'interior': 0.6, 'fabric': 0.6, 'leather': 0.6, 'metal_dark': 0.85},
     ao_rays=12, ao_dist=1.0, cav_dist=0.07,
     dirt_h=1.0,          # height (m) below which road dirt builds up
@@ -219,23 +221,75 @@ def build_charts(m, data, opts):
     return charts
 
 
+def visibility(charts, data, bvh, rays=7):
+    """scale down the texel density of enclosed charts (inner faces of plates, covered surfaces): few rays from face centres along the normal"""
+    dirs = _dirs(rays)
+    rng = np.random.default_rng(3)
+    hidden = 0
+    for c in charts:
+        if c.shared or c.small:
+            continue
+        d = data[c.obj]
+        faces = c.faces if len(c.faces) <= 3 else [c.faces[i] for i in rng.choice(len(c.faces), 3, replace=False)]
+        n = c.n
+        ref = np.array([0.0, 1.0, 0.0]) if abs(n[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
+        T = np.cross(ref, n); T /= np.linalg.norm(T); B = np.cross(n, T)
+        esc = 0; tot = 0
+        for f in faces:
+            vids = d['F'][f]
+            p = d['V'][list(vids)].mean(0) + n * 0.01
+            for k in range(rays):
+                dv = T * dirs[k, 0] + B * dirs[k, 1] + n * dirs[k, 2]
+                hit = bvh.ray_cast(tuple(p), tuple(dv), 2.5)[0]
+                esc += hit is None
+                tot += 1
+        op = esc / max(tot, 1)
+        if op < 0.35:
+            c.mult *= 0.35 + 0.65 * (op / 0.35)
+            hidden += 1
+    print('[bake] visibility: %d of %d charts enclosed (density reduced)' % (hidden, len(charts)))
+
+
 # =========================================================================================== packing
-def _shelf(charts, W, dens, margin):
-    x = y = rowh = 0
+def _sizes(charts, dens, margin):
     for c in charts:
         c.dens = dens * c.mult
         c.w = int(math.ceil(c.du * c.dens)) + 1 + 2 * margin
         c.h = int(math.ceil(c.dv * c.dens)) + 1 + 2 * margin
+
+
+def _shelf(charts, W, dens, margin):
+    """shelf packing with column stacking: short charts stack inside the columns of taller shelves (first fit)"""
+    _sizes(charts, dens, margin)
     order = sorted(charts, key=lambda c: (-c.h, -c.w))
+    shelves = []                    # [y, h, x_end, cols]  cols: [x, w, used_h]
+    ytop = 0
     for c in order:
         if c.w > W:
             return None
-        if x + c.w > W:
-            y += rowh; x = 0; rowh = 0
-        c.x, c.y = x, y
-        x += c.w
-        rowh = max(rowh, c.h)
-    return y + rowh
+        placed = False
+        for sh in shelves:
+            if c.h > sh[1]:
+                continue
+            for col in sh[3]:
+                if c.w <= col[1] and col[2] + c.h <= sh[1]:
+                    c.x, c.y = col[0], sh[0] + col[2]
+                    col[2] += c.h
+                    placed = True
+                    break
+            if placed:
+                break
+            if sh[2] + c.w <= W:
+                c.x, c.y = sh[2], sh[0]
+                sh[3].append([sh[2], c.w, c.h])
+                sh[2] += c.w
+                placed = True
+                break
+        if not placed:
+            c.x, c.y = 0, ytop
+            shelves.append([ytop, c.h, c.w, [[0, c.w, c.h]]])
+            ytop += c.h
+    return ytop
 
 
 def _pow2(x, lo=32):
@@ -245,36 +299,54 @@ def _pow2(x, lo=32):
     return p
 
 
+def _max_wh(opts, mat):
+    v = opts['max_size'].get(mat, opts['max_default'])
+    return (v, v) if isinstance(v, int) else tuple(v)
+
+
 def pack(charts, opts, mat):
+    """pick the smallest pow2 atlas (W >= H) that holds the charts at >= floor * target density, then use the largest density that fits"""
     margin = opts['margin']
-    mx = opts['max_size'].get(mat, opts['max_default'])
+    mxW, mxH = _max_wh(opts, mat)
     target = opts['dens']
-    dens = target
-    fit = None
-    for it in range(30):
-        area = sum((c.du * dens * c.mult + 2 + 2 * margin) * (c.dv * dens * c.mult + 2 + 2 * margin) for c in charts)
-        W = min(_pow2(math.sqrt(area / 0.85)), mx)
-        H = _shelf(charts, W, dens, margin)
-        if H is None or _pow2(H) > mx or _pow2(H) > 2 * W:
-            dens *= 0.94 if H is None else max(0.6, min(0.97, 0.98 * math.sqrt(min(mx, 2 * W) / float(H))))
+    floor = opts.get('dens_floor', 0.85)
+    hi_cap = target * opts['dens_max']
+    area1 = sum((c.du * c.mult + (3 + 2 * margin) / target) * (c.dv * c.mult + (3 + 2 * margin) / target) for c in charts)   # m^2 at unit density
+    cands = []
+    W = 64
+    while W <= mxW:
+        for H in (W // 2, W):
+            if 32 <= H <= mxH:
+                cands.append((W * H, W, H))
+        W *= 2
+    cands.sort()
+
+    def best_d(W, H, lo, hi):
+        if _shelf(charts, W, lo, margin) is None or _shelf(charts, W, lo, margin) > H:
+            return None
+        for _ in range(9):
+            mid = (lo + hi) * 0.5
+            h = _shelf(charts, W, mid, margin)
+            if h is not None and h <= H:
+                lo = mid
+            else:
+                hi = mid
+        return lo
+    choice = None
+    for (A, W, H) in cands:
+        if area1 * (target * floor) ** 2 > A * 0.95:            # cannot fit even perfectly packed
             continue
-        fit = (W, _pow2(H), dens)
-        break
-    W, Hp, dens = fit
-    # grow the density to fill the chosen pow2 rectangle
-    for it in range(12):
-        area = sum((c.du * dens * c.mult + 2 + 2 * margin) * (c.dv * dens * c.mult + 2 + 2 * margin) for c in charts)
-        fill = area / float(W * Hp)
-        if fill > 0.8 or dens >= target * opts['dens_max']:
+        d = best_d(W, H, target * floor * 0.5, hi_cap)
+        if d is not None and d >= target * floor:
+            choice = (W, H, d)
             break
-        d2 = min(target * opts['dens_max'], dens * math.sqrt(0.86 / max(fill, 0.05)))
-        d2 = dens + (d2 - dens) * 0.6
-        H2 = _shelf(charts, W, d2, margin)
-        if H2 is None or H2 > Hp:
-            break
-        dens = d2
+    if choice is None:                                         # largest allowed atlas, whatever density fits
+        A, W, H = cands[-1]
+        d = best_d(W, H, 1.0, hi_cap)
+        choice = (W, H, d if d else 1.0)
+    W, H, dens = choice
     _shelf(charts, W, dens, margin)
-    return W, Hp, dens
+    return W, H, dens
 
 
 # =========================================================================================== raster
@@ -340,36 +412,6 @@ def _dirs(k):
     return np.array(out, np.float64)
 
 
-def ray_ao(bvh, P, N, rays, maxd, cavd, seed=0, up=True):
-    """AO (0 = open, 1 = occluded), cavity (short range), sky (upward visibility 0..1)."""
-    n = len(P)
-    dirs = _dirs(rays)
-    rng = np.random.default_rng(seed)
-    ref = np.where(np.abs(N[:, 1:2]) < 0.9, np.array([[0.0, 1.0, 0.0]]), np.array([[1.0, 0.0, 0.0]]))
-    T = np.cross(ref, N); T /= np.maximum(np.linalg.norm(T, axis=1, keepdims=True), 1e-9)
-    B = np.cross(N, T)
-    ang = rng.random(n) * 2 * math.pi
-    ca, sa = np.cos(ang)[:, None], np.sin(ang)[:, None]
-    T2 = T * ca + B * sa; B2 = -T * sa + B * ca
-    orig = (P + N * 0.007).tolist()
-    occ = np.zeros(n); cav = np.zeros(n)
-    rc = bvh.ray_cast
-    for k in range(rays):
-        dv = (T2 * dirs[k, 0] + B2 * dirs[k, 1] + N * dirs[k, 2]).tolist()
-        hits = [rc(o, dd, maxd)[3] for o, dd in zip(orig, dv)]
-        t = np.array([maxd if h is None else h for h in hits])
-        occ += 1.0 - t / maxd
-        cav += (t < cavd) * (1.0 - t / cavd)
-    sky = np.ones(n)
-    if up:
-        sel = np.flatnonzero(N[:, 1] > 0.25)
-        if len(sel):
-            o2 = (P[sel] + N[sel] * 0.01).tolist()
-            hits = [rc(o, (0.0, 1.0, 0.0), 6.0)[3] for o in o2]
-            sky[sel] = np.array([1.0 if h is None else min(1.0, 0.15 + h / 6.0) for h in hits])
-    return occ / rays, cav / rays, sky
-
-
 def _shift(a, dy, dx, fill):
     out = np.full_like(a, fill)
     H, W = a.shape[:2]
@@ -377,19 +419,6 @@ def _shift(a, dy, dx, fill):
     xs0, xs1 = max(dx, 0), W + min(dx, 0)
     out[ys0:ys1, xs0:xs1] = a[ys0 - dy:ys1 - dy, xs0 - dx:xs1 - dx]
     return out
-
-
-def chart_blur(img, w, CID, r):
-    """Masked box blur of img (H,W) with weights w, only across texels of the same chart."""
-    acc = np.zeros_like(img); wacc = np.zeros_like(img)
-    for dy in range(-r, r + 1):
-        for dx in range(-r, r + 1):
-            cs = _shift(CID, dy, dx, -2)
-            same = (cs == CID).astype(np.float32)
-            ww = _shift(w, dy, dx, 0.0) * same
-            acc += _shift(img, dy, dx, 0.0) * ww
-            wacc += ww
-    return acc, wacc
 
 
 def sharp_edges(m, d):
@@ -432,27 +461,6 @@ def sharp_edges(m, d):
         if sharp and convex and not (0 <= pid < len(m.pkind) and m.pkind[pid][0] == 'rivet'):
             out.setdefault(pid, []).append((A, Bp))
     return {p: (np.array([x[0] for x in L]), np.array([x[1] for x in L])) for p, L in out.items()}
-
-
-def edge_dist(Pt, A, B):
-    """distance of points Pt (n,3) to the nearest segment (m,3)-(m,3); returns dist, dy (nearest point y - point y), horiz flag."""
-    D = B - A
-    L2 = np.maximum((D * D).sum(1), 1e-12)
-    n = len(Pt)
-    best = np.full(n, 9.0); bdy = np.zeros(n); bh = np.zeros(n)
-    horiz = (np.abs(D[:, 1]) / np.sqrt(L2)) < 0.45
-    step = max(1, int(2_000_000 // max(len(A), 1)))
-    for s in range(0, n, step):
-        X = Pt[s:s + step]
-        t = np.clip((((X[:, None, :] - A[None]) * D[None]).sum(2)) / L2[None], 0, 1)
-        Cp = A[None] + t[..., None] * D[None]
-        dd = np.linalg.norm(X[:, None, :] - Cp, axis=2)
-        j = np.argmin(dd, axis=1)
-        r = np.arange(len(X))
-        best[s:s + step] = dd[r, j]
-        bdy[s:s + step] = Cp[r, j, 1] - X[:, 1]
-        bh[s:s + step] = horiz[j]
-    return best, bdy, bh
 
 
 def seg_dist(Pt, A, B):
@@ -787,7 +795,7 @@ RECIPES = {
 
 
 # =========================================================================================== main
-def prepare(m, data):
+def prepare(m, data, bvh=None):
     """charts + packing + raster (world pos/normal per texel); sets d['uv1']; registers placeholder baked materials."""
     t0 = time.time()
     opts = dict(DEFAULTS)
@@ -798,6 +806,8 @@ def prepare(m, data):
     for d in data.values():
         d['uv1'] = np.zeros((len(d['Fflat']), 2), np.float64)
     charts = build_charts(m, data, opts)
+    if bvh is not None:
+        visibility(charts, data, bvh)
     bymat = {}
     for c in charts:
         bymat.setdefault(c.mat, []).append(c)

@@ -62,7 +62,8 @@ class ChunkDress {
   addExtra(obj) {
     this.extras.push(obj); this.dress.extraGroup.add(obj);
     const w = this.dress.pool.warmer;
-    if (w && obj.visible) { obj.visible = false; const meshes = []; obj.traverse((o) => { if (o.isMesh) meshes.push(o); }); w(meshes.length ? meshes : [obj]).then(() => { obj.visible = true; }); }
+    if (w && obj.visible) { obj.visible = false; const meshes = []; obj.traverse((o) => { if (o.isMesh) meshes.push(o); }); w(meshes.length ? meshes : [obj]).then(() => { obj.userData.ready = true; obj.visible = !obj.userData.far; }); }
+    else obj.userData.ready = true;
   }
 }
 
@@ -219,6 +220,13 @@ export class Dressing {
     this.sets.update(s, 1.5);
     if (!this._setsWarm && this.pool.warmer) { this._setsWarm = true; warmSetMaterials(this.pool.warmer); }
     for (const ch of this.chunks.values()) if (ch.dirty) { ch.dirty = false; this._needRebuild = true; }
+    // distance culling of chunk extras that declare userData.far (set pieces are one mesh per chunk: pylons, galleries...)
+    if ((this._xf = (this._xf || 0) + 1) % 8 === 0) for (const o of this.extraGroup.children) {
+      const far = o.userData.far; if (!far || !o.userData.ready) continue;
+      const sp = o.geometry && o.geometry.boundingSphere; if (!sp) continue;
+      const dx = o.position.x + sp.center.x - this.cam.x, dz = o.position.z + sp.center.z - this.cam.z, r = far + sp.radius;
+      o.visible = dx * dx + dz * dz < r * r;
+    }
     // fwd for behind-culling
     let fx = 0, fz = 1, useFwd = false;
     if (camera) { const d = camera.getWorldDirection(_v); const l = Math.hypot(d.x, d.z); if (l > 0.05) { fx = d.x / l; fz = d.z / l; useFwd = true; } }

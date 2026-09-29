@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { DAM_START } from '../../data/biomes.js';
 import { hash2, smoothstep } from '../../core/util.js';
-import { CHUNK_LEN, groundAt } from './util.js';
+import { CHUNK_LEN, groundAt, rngOf } from './util.js';
 import { MB, frameBasis, frameYaw } from './mbuild.js';
 import { ST, facadeMaterial, NEON_DOT } from './city_mat.js';
 import { seaLevel } from '../terrain_gen.js';
@@ -96,6 +96,7 @@ export function cable(mb, a, b, sag, w = 0.16, balls = 0) {
 export function buildDamRoad(ctx, chunk) {
   const s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
   if (s1 < S0 - PYLON_PITCH || s0 > S1 || chunk.done.has('damroad')) return true;
+  if (s1 > GAUNTLET_A) for (const n of GAUNTLET_ASSETS) { const st = ctx.kit.state(n); if (st === 'idle') ctx.kit.request(n); if (st === 'idle' || st === 'loading') return false; }
   chunk.done.add('damroad');
   const { road, seed } = ctx;
   road.extendTo(s1 + 800);
@@ -173,15 +174,83 @@ export function buildDamRoad(ctx, chunk) {
     if (hash2(k, 74, seed) < 0.5) { mb.col(0.5, 0.4, 0.1); mb.box(F, -2, 2, 2.6, 7, 8, 13, {}); mb.beam(F, 0, 7, 10, 0, 22, -6, 0.8, 0.8); }
     else { mb.col(0.18, 0.18, 0.2); mb.box(F, -3, 3, 2.6, 6.5, -16, -9, {}); }
   }
+  gauntlet(ctx, chunk, mb, cols, water);
   if (mb.count) {
     const m = new THREE.Mesh(mb.build(), facadeMaterial());
     m.position.set(anchor.x, anchor.y, anchor.z); m.castShadow = true; m.receiveShadow = true; m.userData.ownGeo = true;
-    m.matrixAutoUpdate = false; m.updateMatrix(); m.name = 'damroad';
+    m.matrixAutoUpdate = false; m.updateMatrix(); m.name = 'damroad'; m.userData.far = 1500;
     chunk.addExtra(m);
   }
   if (cols.idx.length) { const id = `damroad:${chunk.c}`; chunk.hooks.push(id); ctx.hook({ type: 'static', id, asset: 'damroad', collision: { pos: new Float32Array(cols.pos), idx: new Uint32Array(cols.idx) } }); }
   chunk.dirty = true;
   return true;
+}
+
+// ------------------------------------------------------------------------------------------------ the Leviathan's gauntlet
+// From the boss spawn onward the lakeside road is the war-train's territory: burning wrecks on the shoulders, raider watchtowers,
+// banner poles and floodlights on the cliff side, burning oil slicks and sunken boats on the lake with smoke columns rising into
+// the dawn sky. All instanced (dressing pool) + a few facade-mesh pieces. Nothing within |d| < 10.3 m (road + shoulders).
+const GAUNTLET_A = 59350, GAUNTLET_B = 72000;
+export const GAUNTLET_ASSETS = ['wreck_sedan', 'wreck_pickup', 'wreck_van', 'wreck_flipped', 'wreck_bus', 'watchtower', 'banner_skull', 'floodlight_tower', 'spike_wall'];
+const G_SPEC = { far: 900, shadow: true, behind: true, mergeNear: 22 };
+
+function placeGlb(ctx, chunk, cols, name, s, d, yaw, sc = 1, tint = 1) {
+  const a = ctx.kit.get(name); if (!a) return;
+  const g = groundAt(ctx.road, ctx.seed, s, d, _G);
+  ctx.pool.register(name, G_SPEC);
+  chunk.list(name).push(g.x, g.y - 0.08, g.z, yaw, sc, sc, sc, 0, 1, 0, 0, a.sphere.radius * sc, tint, tint * 0.95, tint * 0.9);
+  if (cols && a.collision) {
+    const c = Math.cos(yaw), sn = Math.sin(yaw), src = a.collision.pos, base = cols.pos.length / 3;
+    for (let i = 0; i < src.length; i += 3) cols.pos.push(g.x + (src[i] * c + src[i + 2] * sn) * sc, g.y - 0.08 + src[i + 1] * sc, g.z + (-src[i] * sn + src[i + 2] * c) * sc);
+    for (const k of a.collision.idx) cols.idx.push(base + k);
+  }
+}
+function fire(ctx, chunk, x, y, z, w, h) {
+  ctx.pool.register('fx_flame', { far: 1400, shadow: false });
+  chunk.list('fx_flame').push(x, y, z, (x * 0.37) % 6.28, w, h, w, 0, 1, 0, 0, h);
+}
+function smoke(ctx, chunk, x, y, z, w, h) {
+  ctx.pool.register('fx_smoke', { far: 3200, shadow: false });
+  chunk.list('fx_smoke').push(x, y, z, 0, w, h, w, 0, 1, 0, 0, h + 60);
+}
+
+function gauntlet(ctx, chunk, mb, cols, water) {
+  const s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
+  if (s1 < GAUNTLET_A || s0 > GAUNTLET_B) return;
+  const { road, seed } = ctx, P = {};
+  const r = rngOf(seed, chunk.c, 7707);
+  const blocked = (s) => road.featuresIn(s - 30, s + 30).some((f) => f.type !== 'guard' && f.type !== 'boost');
+  // burning wrecks on the shoulders (both sides), one or two per chunk
+  const nW = 1 + (r() < 0.6 ? 1 : 0);
+  for (let i = 0; i < nW; i++) {
+    const s = s0 + (i + 0.2 + r() * 0.6) * CHUNK_LEN / nW, side = r() < 0.55 ? 1 : -1;
+    if (blocked(s)) continue;
+    const name = ['wreck_sedan', 'wreck_pickup', 'wreck_van', 'wreck_flipped'][Math.floor(r() * 4)], a = ctx.kit.get(name); if (!a) continue;
+    const psi = (r() - 0.5) * 1.2, ext = Math.abs(Math.sin(psi)) * a.size.z / 2 + Math.abs(Math.cos(psi)) * a.size.x / 2, d = side * (10.6 + ext + r() * 2.5);
+    placeGlb(ctx, chunk, cols, name, s, d, road.sample(s, {}).th + psi, 1, 0.45);
+    road.pointAt(s, d, P); const gy = groundAt(road, seed, s, d, _G).y;
+    fire(ctx, chunk, P.x, gy + 0.6, P.z, 2.6 + r(), 3.2 + r() * 1.5);
+    if (r() < 0.5) smoke(ctx, chunk, P.x, gy + 2, P.z, 3.5, 45 + r() * 30);
+  }
+  // cliff side (left): watchtowers, banner poles, floodlight towers
+  if (r() < 0.45) { const s = s0 + r() * CHUNK_LEN; if (!blocked(s)) placeGlb(ctx, chunk, cols, 'banner_skull', s, 13 + r() * 1.5, road.sample(s, {}).th + Math.PI + 0.3, 1.15); }
+  if (r() < 0.22) { const s = s0 + r() * CHUNK_LEN; if (!blocked(s)) placeGlb(ctx, chunk, cols, 'watchtower', s, 16 + r() * 6, road.sample(s, {}).th - Math.PI / 2, 1.1); }
+  if (chunk.c % 6 === 0) {
+    const s = s0 + 48; if (!blocked(s)) { const d = 15.5, c = road.pointAt(s + 20, 0, {}); road.pointAt(s, d, P); placeGlb(ctx, chunk, cols, 'floodlight_tower', s, d, Math.atan2(c.x - P.x, c.z - P.z)); }
+  }
+  // spiked barricades lining the lake-side shoulder (outside the rail)
+  if (r() < 0.35) { const s = s0 + r() * CHUNK_LEN; if (!blocked(s)) placeGlb(ctx, chunk, cols, 'spike_wall', s, -(12 + r() * 2), road.sample(s, {}).th + (r() - 0.5) * 0.4); }
+  // the lake: burning oil slicks + a sunken boat now and then, smoke columns
+  const besideDam = s1 > DAM.sA - 250 && s0 < DAM.sB + 150;          // the dam's own jets + mist own that stretch of water
+  if (r() < 0.55 && !besideDam) {
+    const s = s0 + r() * CHUNK_LEN, d = -(60 + r() * 200), sm = road.sample(s, {});
+    const cx = sm.x + sm.nx * d, cz = sm.z + sm.nz * d;
+    if (groundAt(road, seed, s, d, _G).y < water - 3) {
+      const n = 3 + Math.floor(r() * 4);
+      for (let k = 0; k < n; k++) { const a = r() * 6.28, rr = r() * 14; fire(ctx, chunk, cx + Math.cos(a) * rr, water - 0.2, cz + Math.sin(a) * rr, 4 + r() * 4, 3 + r() * 5); }
+      smoke(ctx, chunk, cx, water + 2, cz, 10 + r() * 6, 110 + r() * 80);
+    }
+  }
 }
 
 void smoothstep;

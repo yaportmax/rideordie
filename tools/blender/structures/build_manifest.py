@@ -25,6 +25,8 @@ GROUPS = [
         "banner_skull", "spike_wall", "spike_gate"]),
     ("coast", "Coastal set", ["lighthouse", "sea_stack_a", "sea_stack_b", "sea_stack_c", "wharf_ruin"]),
     ("canyon", "Canyon set", ["natural_arch", "hoodoo_a", "hoodoo_b", "mesa_a", "mesa_b"]),
+    ("wrecks", "Vehicle wrecks + roadblock modules (origin ground centre, front +Z; rb_* modules keep visuals + collision inside |x| <= hw)", [
+        "wreck_sedan", "wreck_sedan_b", "wreck_pickup", "wreck_van", "wreck_flipped", "wreck_bus", "rb_wreck_car", "rb_wreck_van", "rb_wreck_small"]),
 ]
 
 HEADER = """# Structures (public/models/structures)

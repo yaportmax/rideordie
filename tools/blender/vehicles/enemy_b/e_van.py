@@ -273,7 +273,7 @@ for z in (-1.8, -2.62):
     m.cyl('metal_dark', (-0.9, RY, z), (0.9, RY, z), 0.02, seg=6)
 for z in (-1.95, -2.2, -2.45):
     m.box('metal_dark', (1.76, 0.025, 0.07), at=(0, RT + 0.05, z), bevel=0.004, seg=1)
-tyre_flat(m, (0.05, RT + 0.2, -2.2), R=0.4, W=0.24, tilt=(0, 0, 4), seg=14)
+tyre_flat(m, (0.05, RT + 0.2, -2.2), R=0.4, W=0.24, tilt=(0, 0, 4), seg=12)
 jerrycan2(m, (0.66, RT + 0.3, -1.95), yaw=90, mat='paint')
 jerrycan2(m, (-0.66, RT + 0.3, -1.95), yaw=86, mat='decal_red')
 tarp_roll(m, (-0.72, RT + 0.12, -2.35), (-0.72, RT + 0.12, -2.72), r=0.1, seg=8)

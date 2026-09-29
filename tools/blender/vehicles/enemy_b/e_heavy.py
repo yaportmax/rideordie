@@ -16,7 +16,8 @@ YD = 1.6                 # deck top
 CFLOOR, ROOF = 1.4, 3.15
 CAB_R, CAB_F = 1.05, 2.78
 RT = ROOF + 0.035
-m.bake_opts = dict(dirt_h=1.25, dens=175.0, wheels=[(HX, HUBY, ZF, R_W), (HX, HUBY, ZM, R_W), (HX, HUBY, ZR, R_W)], rust=1.1, wear=1.0)
+m.bake_opts = dict(dirt_h=1.25, dens=175.0, wheels=[(HX, HUBY, ZF, R_W), (HX, HUBY, ZM, R_W), (HX, HUBY, ZR, R_W)], rust=1.1, wear=1.0,
+                   max_size={'paint': (2048, 1024), 'paint2': (1024, 1024), 'armor': (2048, 2048), 'metal_dark': (1024, 1024), 'wood': (1024, 1024)})
 m.alias.update({'metal_bare': 'armor', 'plastic': 'interior', 'fabric': 'interior', 'leather': 'interior', 'spike': 'armor', 'brass': 'metal_dark',
                 'chrome': 'metal_dark', 'rust': 'armor', 'decal_white': 'decal_yellow', 'decal_red': 'decal_yellow', 'cloth_red': 'canvas',
                 'rim': 'metal_dark'})
@@ -421,7 +422,8 @@ for sx, nm in ((1, 'panel_armor_L'), (-1, 'panel_armor_R')):
         pts = [(z0, YD + 0.02), (z1, YD + 0.02), (z1, YD + 0.5), (z1 - 0.15, YD + 0.56), (z0 + 0.15, YD + 0.56), (z0, YD + 0.5)]
         m.plate(mt, pts, 0.045, at=(x, 0, 0), u=(0, 0, 1), v=(0, 1, 0), bevel=0.01, seg=1, obj=nm)
         m.rivet_rect('metal_dark', (x + 0.024 * sx, YD + 0.29, (z0 + z1) / 2), z1 - z0, 0.5, (sx, 0, 0), u=(0, 0, -1), v=(0, 1, 0), step=0.26, r=0.013, inset=0.05, obj=nm)
-        m.beam('armor', (x + 0.03 * sx, YD + 0.04, (z0 + z1) / 2), (x + 0.03 * sx, YD + 0.54, (z0 + z1) / 2), 0.09, 0.03, up=(sx, 0, 0), bevel=0, seg=1, obj=nm)
+        if i < 2:                                                                                  # (the rear plate carries the stencil instead)
+            m.beam('armor', (x + 0.03 * sx, YD + 0.04, (z0 + z1) / 2), (x + 0.03 * sx, YD + 0.54, (z0 + z1) / 2), 0.09, 0.03, up=(sx, 0, 0), bevel=0, seg=1, obj=nm)
     m.bead('armor', [(x + 0.03 * sx, YD + 0.05, -0.66), (x + 0.03 * sx, YD + 0.52, -0.66)], r=0.01, obj=nm, n=(sx, 0, 0))
     m.bead('armor', [(x + 0.03 * sx, YD + 0.05, -2.21), (x + 0.03 * sx, YD + 0.52, -2.21)], r=0.01, obj=nm, n=(sx, 0, 0))
     m.box('armor', (0.07, 0.05, 4.9), at=(x + 0.02 * sx, YD + 0.56, -1.55), bevel=0.008, seg=1, obj=nm)
