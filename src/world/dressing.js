@@ -5,14 +5,21 @@
 //   streamer.onChunk = (c, rec) => dressing.onChunk(c, rec);       // TerrainStreamer callbacks
 //   streamer.onChunkDrop = (c) => dressing.onChunkDrop(c);
 //   each frame:  dressing.update(dt, camera.position, s, camera);  // camera (4th arg) is optional; it enables behind-the-camera culling
+//   optional:    dressing.setShadowFocus(truckPos)                 // if SkyRig's shadow box follows the truck rather than the camera
+//
+// Modules: dressing/scatter.js (natural props, tables in dressing/types.js), dressing/furniture.js (rails, poles, lamps, signs), dressing/features.js
+// (ramp/boost/roadblock/bridge/tunnel/overpass), dressing/landmarks.js (roadside set pieces, city skyline, coast/canyon/dam specials),
+// dressing/pool.js (global InstancedMesh pool: LOD, distance/behind culling, shadow-caster selection), dressing/backdrop.js (far mountain rings), water.js.
+// All placement is a pure function of (seed, chunk); quality only thins small scatter (never colliders).
 //
 // physicsHook(req): called when a chunk builds something the sim may want a collider/trigger for. req.type is one of
-//   'ramp' | 'boost' | 'roadblock' | 'guardrail' | 'bridge' | 'tunnel' | 'overpass' | 'gate' | 'remove'.  Every request has a unique `id`; when the chunk that
+//   'ramp' | 'boost' | 'roadblock' | 'guardrail' | 'bridge' | 'tunnel' | 'overpass' | 'static' (landmark within 70 m of the road) | 'remove'.  Every request has a unique `id`; when the chunk that
 //   owns it is dropped, physicsHook({type:'remove', id}) is called. Geometry is in WORLD coordinates: req.surface / req.collision = {pos:Float32Array, idx:Uint32Array}
 //   (trimesh data), req.polyline = [[x,y,z]...] for guard rails, req.pos/req.yaw/req.frame for placement, plus feature fields (s0, s1, lane, gap...).
 //   The sim decides when to actually create bodies (they can be created lazily when s is within a few hundred metres).
 import * as THREE from 'three';
 import { lookAt } from './look.js';
+import { smoothstep } from '../core/util.js';
 import { biomeAt } from '../data/biomes.js';
 import { seaLevel } from './terrain_gen.js';
 import { AssetKit, WIND } from './dressing/assets.js';
@@ -138,7 +145,7 @@ export class Dressing {
         ch.step = 1; break;
       }
       case 1: if (buildFurniture(ctx, ch)) ch.step = 2; break;
-      case 2: if (buildFeatures(ctx, ch)) ch.step = 3; break;
+      case 2: if (buildFeatures(ctx, ch, this._deadline)) ch.step = 3; break;
       case 3: if (buildLandmarks(ctx, ch)) ch.step = 4; break;
       case 4: if (runScatter(ctx, ch, 1, this._deadline)) ch.step = 5; break;
       case 5: if (runScatter(ctx, ch, 2, this._deadline)) ch.step = 6; break;
@@ -185,6 +192,10 @@ export class Dressing {
     WIND.uTime.value += dt; this._clock += dt;
     this.water.update(dt, this.cam, s); this.backdrop.update(dt, this.cam, s, this.road); updateBoostAnim(dt);
     if ((this._pf = (this._pf || 0) + dt) > 1) { this._pf = 0; this.prefetch(s + 3000); }
+    // night lighting (lamp lenses, light pools, beams)
+    const nk = smoothstep(0.12, 0.6, lookAt(s).night);
+    for (const g of this.pool.glow) g.m[g.prop] = g.m.name === 'light_amber' ? Math.max(g.base, g.base * (0.6 + 1.2 * nk)) : g.base * nk;
+    if (this.kit.nightMats) for (const g of this.kit.nightMats) g.m[g.prop] = g.base * nk;
     this._jobs(QUALITY[this.quality].budget * (this.chunks.size > 6 && this._warm ? 1 : 3));
     this._warm = true;
     for (const ch of this.chunks.values()) if (ch.dirty) { ch.dirty = false; this._needRebuild = true; }

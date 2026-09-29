@@ -86,6 +86,11 @@ export class Hud {
     if (o.gunner && !o.driver) { q.hpbox.style.left = '30px'; }
   }
   setVisible(v) { this.el.style.display = v ? '' : 'none'; }
+  hints(lines, ms = 9000) {
+    if (!this.hintEl) { this.hintEl = document.createElement('div'); this.hintEl.style.cssText = 'position:absolute;left:50%;bottom:120px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px;line-height:1.9;opacity:0;transition:opacity .6s;background:rgba(0,0,0,.35);padding:10px 22px;border-left:3px solid #ffc21a'; this.el.appendChild(this.hintEl); }
+    this.hintEl.innerHTML = lines.map((l) => `<div>${l}</div>`).join(''); this.hintEl.style.opacity = 1;
+    clearTimeout(this._hintT); this._hintT = setTimeout(() => { this.hintEl.style.opacity = 0; }, ms);
+  }
   message(text, ms = 1600, color = '#fff') { const m = this.q.msg; m.textContent = text; m.style.color = color; m.style.opacity = 1; this.msgT = ms / 1000; }
   hitMarker(kill = false) { this.q.hitm.style.opacity = 1; this.q.hitm.style.filter = kill ? 'drop-shadow(0 0 4px #f33)' : ''; this.q.hitm.style.transform = kill ? 'scale(1.4) rotate(0deg)' : 'scale(1)'; this.hitT = kill ? 0.3 : 0.14; }
   damageFlash(a = 0.6) { this.vigT = Math.max(this.vigT, a); }

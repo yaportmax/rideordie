@@ -22,13 +22,13 @@ function rockPair(id, o) {
  *  align (0..1 surface-normal blend), far (cull m), shadow, behind, sway (m), lite, cluster:{k (1/m), thr, soft, out}, lods?, ok?(env) } */
 const RAW = [
   // ------------------------------------------------------------------------------------------------ rocks
-  ...rockPair('rock_01', { dens: 5.0, a: [2.5, 75], sc: [1.7, 3.8], slope: 0.85, sink: 0.2, align: 0.5, far: 130, lite: true }),
-  ...rockPair('rock_02', { dens: 4.0, a: [2.5, 80], sc: [1.4, 3.2], slope: 0.85, sink: 0.2, align: 0.5, far: 140, lite: true }),
-  ...rockPair('rock_03', { autoLod: 'small', dens: 2.2, a: [3, 180], sc: [1.1, 2.6], slope: 0.8, sink: 0.2, align: 0.55, far: 280, shadow: true }),
-  { id: 'rock_04', autoLod: 'small', key: 'rocks', w: W(1, 0.9, 1, 1, 1, 1), cat: 'rock', tint: 'rock', dens: 1.4, a: [3, 200], sc: [1.1, 2.4], slope: 0.8, sink: 0.22, align: 0.55, far: 300, shadow: true },
-  ...rockPair('rock_05', { autoLod: 'big', dens: 0.55, a: [6, 380], sc: [0.9, 2.1], slope: 0.85, sink: 0.25, align: 0.6, far: 650, shadow: true, behind: true }),
-  { id: 'rock_06', autoLod: 'big', key: 'rocks', w: W(1, 0.9, 1, 1, 1, 1), cat: 'rock', tint: 'rock', dens: 0.35, a: [6, 400], sc: [0.9, 2.0], slope: 0.85, sink: 0.25, align: 0.6, far: 700, shadow: true, behind: true },
-  ...['boulder_01', 'boulder_02', 'boulder_03'].map((id) => ({ id, autoLod: 'huge', key: 'rocks', w: W(0.7, 1.4, 0.0, 0.0, 0.2, 0.0), cat: 'rock', dens: 0.22, a: [5, 420], sc: [0.9, 2.4], slope: 0.85, sink: 0.3, align: 0.6, far: 900, shadow: true, behind: true })),
+  ...rockPair('rock_01', { dens: 5.0, a: [2.5, 75], sc: [1.7, 3.8], slope: 0.42, sink: 0.2, align: 0.5, far: 130, lite: true }),
+  ...rockPair('rock_02', { dens: 4.0, a: [2.5, 80], sc: [1.4, 3.2], slope: 0.42, sink: 0.2, align: 0.5, far: 140, lite: true }),
+  ...rockPair('rock_03', { autoLod: 'small', dens: 2.2, a: [3, 180], sc: [1.1, 2.6], slope: 0.4, sink: 0.2, align: 0.55, far: 280, shadow: true }),
+  { id: 'rock_04', autoLod: 'small', key: 'rocks', w: W(1, 0.9, 1, 1, 1, 1), cat: 'rock', tint: 'rock', dens: 1.4, a: [3, 200], sc: [1.1, 2.4], slope: 0.4, sink: 0.22, align: 0.55, far: 300, shadow: true },
+  ...rockPair('rock_05', { autoLod: 'big', dens: 0.55, a: [6, 380], sc: [0.9, 2.1], slope: 0.36, sink: 0.25, align: 0.6, far: 650, shadow: true, behind: true }),
+  { id: 'rock_06', autoLod: 'big', key: 'rocks', w: W(1, 0.9, 1, 1, 1, 1), cat: 'rock', tint: 'rock', dens: 0.35, a: [6, 400], sc: [0.9, 2.0], slope: 0.36, sink: 0.25, align: 0.6, far: 700, shadow: true, behind: true },
+  ...['boulder_01', 'boulder_02', 'boulder_03'].map((id) => ({ id, autoLod: 'huge', key: 'rocks', w: W(0.7, 1.4, 0.0, 0.0, 0.2, 0.0), cat: 'rock', dens: 0.22, a: [5, 420], sc: [0.9, 2.4], slope: 0.32, sink: 0.3, align: 0.6, far: 900, shadow: true, behind: true })),
   ...['canyon_pillar_a', 'canyon_pillar_b'].map((id) => ({ id, autoLod: 'pillar', key: 'rocks', w: W(0.25, 1, 0, 0, 0, 0), cat: 'pillar', dens: 0.010, a: [26, 520], sc: [0.9, 1.7], slope: 0.22, sink: 0.05, align: 0.1, far: 1900, shadow: true, behind: true, noFade: true, rad: 1 })),
   // ------------------------------------------------------------------------------------------------ cacti
   { id: 'cactus_saguaro', autoLod: 'cactus', key: 'cactus', w: W(1, 1, 0, 0, 0, 0), cat: 'cactus', dens: 0.55, a: [5, 240], sc: [0.8, 1.4], slope: 0.2, sink: 0.03, align: 0.1, far: 520, shadow: true, behind: true, cluster: { k: 1 / 120, thr: 0.42, soft: 0.1, out: 0.35 } },

@@ -1,7 +1,6 @@
 // Roadside set pieces: gas stations, diners, water towers, radio towers, wind farms, raider camps, oil derricks, canyon hoodoos/mesas, the ruined
 // city skyline, coastal lighthouse / sea stacks / wharf, the dam gate + control tower + arena. Deterministic slot schedule per biome:
 // plan(sA, sB) is a PURE function of (seed, s-range) and is cached, so scatter can query footprints of neighbouring chunks.
-import * as THREE from 'three';
 import { biomeAt, DAM_START, BOSS_S } from '../../data/biomes.js';
 import { hash2, clamp, smoothstep } from '../../core/util.js';
 import { terrainPoint, EDGE } from '../terrain_gen.js';
@@ -78,7 +77,7 @@ const KINDS = {
 const BACKDROPS = {
   desert: { pitch: 520, chance: 0.75, items: [{ w: 3, a: ['mesa_a', 'mesa_b'], v: [320, 780], sc: [1.0, 1.7], flatTol: 30 }, { w: 2, a: ['hoodoo_a', 'hoodoo_b'], v: [70, 320], sc: [0.9, 1.6], flatTol: 5 }] },
   canyon: { pitch: 330, chance: 0.8, items: [{ w: 2, a: ['hoodoo_a', 'hoodoo_b'], v: [45, 300], sc: [0.9, 1.7], flatTol: 6 }, { w: 1.5, a: ['mesa_a', 'mesa_b'], v: [380, 800], sc: [1.3, 2.2], flatTol: 60 }] },
-  coast: { pitch: 420, chance: 0.5, items: [{ w: 1, a: ['mesa_b'], v: [420, 800], sc: [0.8, 1.2], flatTol: 30, land: 1 }] },
+  coast: { pitch: 420, chance: 0.0, items: [] },
   mountain: { pitch: 900, chance: 0.2, items: [{ w: 1, a: ['hoodoo_a'], v: [100, 320], sc: [0.8, 1.2], flatTol: 8 }] },
   city: { pitch: 900, chance: 0.0, items: [] },
   dam: { pitch: 900, chance: 0.0, items: [] },
@@ -450,8 +449,6 @@ export const LANDMARK_SPECS = (() => {
   return s;
 })();
 
-let _foundMat = null;
-function foundationMat() { return _foundMat || (_foundMat = new THREE.MeshStandardMaterial({ color: 0x77716a, roughness: 0.97, metalness: 0 })); }
 
 /** Instantiate the placements of the chunk into its lists (+ foundations as extras). */
 export function buildLandmarks(ctx, chunk) {
@@ -483,12 +480,9 @@ export function buildLandmarks(ctx, chunk) {
     }
     if (p.found) {
       const b = p.found.box, w = (b.max.x - b.min.x) * p.found.sc + 1.5, d = (b.max.z - b.min.z) * p.found.sc + 1.5, h = p.found.ytop - p.found.ymin;
-      const g = new THREE.BoxGeometry(w, h, d);
       const cx = (b.min.x + b.max.x) / 2 * p.found.sc, cz = (b.min.z + b.max.z) / 2 * p.found.sc, cs = Math.cos(p.yaw), sn = Math.sin(p.yaw);
-      const m = new THREE.Mesh(g, foundationMat());
-      m.position.set(p.x + cx * cs + cz * sn, p.found.ymin + h / 2, p.z - cx * sn + cz * cs); m.rotation.y = p.yaw;
-      m.userData.ownGeo = true; m.receiveShadow = true; m.castShadow = false;
-      chunk.addExtra(m);
+      useSpec(ctx, 'foundation', { far: 1200, shadow: false, behind: true });
+      chunk.list('foundation').push(p.x + cx * cs + cz * sn, p.found.ymin, p.z - cx * sn + cz * cs, p.yaw, w, h, d, 0, 1, 0, 0, Math.hypot(w, d) * 0.5);
     }
   }
   chunk.dirty = true;

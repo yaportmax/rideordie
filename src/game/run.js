@@ -17,6 +17,8 @@ import { Road } from '../world/road.js';
 import { ECONOMY, KILL_CASH } from '../data/economy.js';
 import { AudioBridge } from '../view/audio_bridge.js';
 import { GhostBoss } from '../sim/boss.js';
+import { Dressing } from '../world/dressing.js';
+import { StructureColliders } from '../sim/structure_colliders.js';
 import { BOSS_ID, BOSS_NAMES, MINIBOSSES } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
 import { clamp, damp, wrapAngle } from '../core/util.js';
@@ -65,6 +67,16 @@ export class Run {
       this.qworld = createWorld();
       this.streamer = new TerrainStreamer({ scene: g.scene, world: this.qworld, seed: this.seed, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
     }
+    // world dressing (props, structures, water) + their colliders
+    const world = this.sim ? this.sim.world : this.qworld;
+    this.structures = new StructureColliders(world);
+    if (this.sim) this.sim.structures = this.structures;
+    try {
+      this.dressing = new Dressing(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed))), this.seed, { quality: g.quality, physicsHook: (r) => this.structures.hook(r) });
+      await this.dressing.load(cfg.startS ?? 40);
+      this.streamer.onChunk = (c, rec) => this.dressing.onChunk(c, rec);
+      this.streamer.onChunkDrop = (c) => this.dressing.onChunkDrop(c);
+    } catch (e) { console.warn('dressing disabled', e); this.dressing = null; }
     this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
@@ -129,7 +141,7 @@ export class Run {
       // countdown -> start once the ground under the truck exists
       if (this.sim.state === 'countdown') {
         this.streamer.update(P.s);
-        if (P.held && this.streamer.groundReady(P.s)) { this.groundOk = true; }
+        if (P.held && this.streamer.groundReady(P.s) && !this.groundOk) { this.groundOk = true; g.fade(0, 0.8); }
         if (this.groundOk) {
           this.countdown -= dt;
           if (this.countdown <= 0) { this.sim.releaseCar(P); this.sim.start(); this.started = true; g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); if (this.net) this.net.sendJSON({ t: 'go' }); }
@@ -176,6 +188,7 @@ export class Run {
       // viewer peer: interpolate snapshots
       const info = this.buf.sample(now);
       if (info) {
+        if (!this.fadedIn) { this.fadedIn = true; g.fade(0, 0.8); }
         this.states = this.buf.states; this.hud = info.hud; this.playerS = info.hud.dist; this.proj = info.hud.proj;
         this.simState = info.hud.state;
         this.bossState = this.buf.boss;
@@ -218,8 +231,11 @@ export class Run {
     const localGunner = this.gunner ? { crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload } : null;
     const evs = this.events.concat(this.localEvents.filter(() => !this.sim)); // in solo the local events already went through sim.emit
     this.localEvents.length = 0;
+    this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera);
     this.wv.updateBoss(this.bossState, dt);
-    this.wv.update(dt, this.states, evs, { night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
+    if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
+    g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
+    this.wv.update(dt, this.states, evs, { cameraPos: g.camera.position, frustum: this._frustum, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
     this.allEvents = evs;
     for (const e of evs) {
       if (e.t === 'minibossSpawn') { g.hud.message(e.name, 2600, '#ff5a2a'); }
@@ -313,6 +329,17 @@ export class Run {
   _camera(dt, cmds, pst) {
     const g = this.g;
     if (!pst) return;
+    const co = window.__camOverride; // dev: {offset:[x,y,z] in truck frame, look:[x,y,z] in truck frame}
+    if (co) { const q = pst.quat; g.camera.position.set(...co.offset).applyQuaternion(q).add(pst.pos); _v.set(...co.look).applyQuaternion(q).add(pst.pos); g.camera.lookAt(_v); if (co.fov) { g.camera.fov = co.fov; g.camera.updateProjectionMatrix(); } return; }
+    const dying = this.sim ? this.sim.state === 'dying' || this.sim.state === 'over' : this.simState === 'dying' || this.simState === 'over';
+    if (dying && !this.sim?.won) {
+      this.deathCamT = (this.deathCamT || 0) + dt;
+      const a = (this.deathYaw ??= Math.atan2(g.camera.position.x - pst.pos.x, g.camera.position.z - pst.pos.z)) + this.deathCamT * 0.35;
+      const r = 9 + this.deathCamT * 1.2;
+      g.camera.position.set(pst.pos.x + Math.sin(a) * r, pst.pos.y + 3.5 + this.deathCamT * 0.5, pst.pos.z + Math.cos(a) * r);
+      g.camera.lookAt(pst.pos.x, pst.pos.y + 0.8, pst.pos.z);
+      return;
+    }
     if (this.role === 'driver') {
       this.chase.update(dt, pst.pos, pst.quat, pst.vel, { boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
       if (cmds.driver.cameraToggle) this.chase.toggle();
@@ -448,6 +475,8 @@ export class Run {
 
   dispose() {
     this.g.fx?.clear();
+    try { this.dressing?.dispose(); } catch (e) { console.warn(e); }
+    this.structures?.dispose();
     this.abridge?.reset();
     this.wv?.dispose();
     this.streamer?.dispose();

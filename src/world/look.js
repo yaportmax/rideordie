@@ -10,7 +10,7 @@ export const LOOKS = {
   canyon:   { sun: 56, az: 190, turb: 6, ray: 1.6, mie: 0.005, exp: 0.90, fog: C(0xd6a37c), fogD: 0.00090, sunCol: C(0xfff2dc), sunI: 3.1, hemiSky: C(0xa8c0ff), hemiGnd: C(0xa0553a), hemiI: 0.35, moonI: 0, night: 0 },
   coast:    { sun: 17, az: 250, turb: 4, ray: 2.1, mie: 0.004, exp: 0.90, fog: C(0xf0a877), fogD: 0.00080, sunCol: C(0xffbb80), sunI: 2.8, hemiSky: C(0x9cb8f0), hemiGnd: C(0x8a6a55), hemiI: 0.35, moonI: 0, night: 0 },
   mountain: { sun: 4,  az: 235, turb: 3, ray: 2.6, mie: 0.005, exp: 0.95, fog: C(0xc98c82), fogD: 0.00110, sunCol: C(0xff8a4c), sunI: 2.6, hemiSky: C(0x9aa6e6), hemiGnd: C(0x6a5860), hemiI: 0.35, moonI: 0.15, night: 0.1 },
-  city:     { sun: -8, az: 260, turb: 6, ray: 1.2, mie: 0.010, exp: 1.10, fog: C(0x55506c), fogD: 0.00140, sunCol: C(0xff7040), sunI: 0.6, hemiSky: C(0x5468a8), hemiGnd: C(0x40323c), hemiI: 0.45, moonI: 0.85, night: 0.8 },
+  city:     { sun: -8, az: 260, turb: 6, ray: 1.2, mie: 0.010, exp: 1.25, fog: C(0x4a4868), fogD: 0.00130, sunCol: C(0xff7040), sunI: 0.6, hemiSky: C(0x6a7cc0), hemiGnd: C(0x4a3a44), hemiI: 0.9, moonI: 1.3, night: 0.8 },
   dam:      { sun: 9,  az: 95,  turb: 5, ray: 2.4, mie: 0.006, exp: 0.95, fog: C(0xe0a488), fogD: 0.00070, sunCol: C(0xffa070), sunI: 2.7, hemiSky: C(0x9fb6ee), hemiGnd: C(0x6a5a55), hemiI: 0.35, moonI: 0.2, night: 0.15 },
 };
 const ANCHORS = BIOME_PLAN.map((b, i) => ({ id: b.id, s: BIOME_START[i] + (i === BIOME_PLAN.length - 1 ? 1500 : b.len / 2) }));

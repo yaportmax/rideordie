@@ -4,6 +4,9 @@
 import * as THREE from 'three';
 import { instanceMaterial } from './assets.js';
 
+/** Materials that glow at night (by glTF material name): [emissive colour, intensity at full night]. */
+export const GLOW = { lamp_lens: [0xffb060, 9], light_amber: [0xff8a1a, 3], sign_gas_cabinet: [0xfff0d0, 1.2] };
+
 export const DEFAULT_SPEC = { far: 700, shadow: false, sway: 0, lite: false, behind: false, fade: false };
 
 export class InstancePool {
@@ -14,6 +17,7 @@ export class InstancePool {
     this.entries = new Map();   // asset name -> entry
     this.qf = 1;                // far-distance quality factor
     this.stats = { instances: 0, drawn: 0, shadowInstances: 0 };
+    this.glow = [];             // materials that light up at night: {m, base, prop}
   }
 
   setSpec(name, spec) { this.specs.set(name, { ...DEFAULT_SPEC, ...spec }); }
@@ -39,6 +43,7 @@ export class InstancePool {
     if (!asset) { if (this.kit.state(assetName) === 'idle') this.kit.request(assetName); return null; }
     const fadeFar = spec.fade ? spec.far * this.qf : 0;
     const mats = asset.parts.map((p) => (asset.derived && p.ready ? p.material : instanceMaterial(p.material, { sway: spec.sway, height: asset.height, fadeNear: fadeFar * 0.82, fadeFar, lite: spec.lite })));
+    for (const m of mats) { const gl = GLOW[m.name]; if (gl) { m.emissive = new THREE.Color(gl[0]); m.emissiveIntensity = 0; this.glow.push({ m, base: gl[1], prop: 'emissiveIntensity' }); } }
     e = { name: assetName, asset, mats, sets: [this._makeSet(asset, mats, false, 128), this._makeSet(asset, mats, true, 32)], showRoad: !!spec.showRoad };
     this.entries.set(assetName, e);
     return e;

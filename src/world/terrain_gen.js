@@ -103,6 +103,17 @@ function biomeProfile(seed, s, a, side, sm, bio) {
   return lerp(profile(bio.a, seed, s, a, side, sm), profile(bio.b, seed, s, a, side, sm), bio.w);
 }
 
+/** Tunnels: raise a hill over the road so the tube sits inside the mountain. */
+function tunnelRaise(road, s, a, list) {
+  let h = 0;
+  for (const f of list || road.features) {
+    if (f.type !== 'tunnel' || s < f.s0 - 40 || s > f.s1 + 40) continue;
+    const ws = smoothstep(f.s0 - 30, f.s0 + 5, s) * (1 - smoothstep(f.s1 - 5, f.s1 + 30, s));
+    h = Math.max(h, ws * 22 * (1 - smoothstep(10, 70, a)) + ws * 6);
+  }
+  return h;
+}
+
 /** Bridge dips: a ravine under the span. */
 function featureDip(road, s, a, list) {
   let dip = 0;
@@ -117,7 +128,7 @@ function featureDip(road, s, a, list) {
 
 const _sm = {};
 /** World position of terrain at (s, d). Writes into out {x,y,z}. d beyond +-EDGE. */
-export function terrainPoint(road, seed, s, d, out, bridges) {
+export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   const sm = road.sample(s, _sm);
   const side = d >= 0 ? 1 : -1;
   const a = Math.abs(d) - EDGE;
@@ -128,6 +139,7 @@ export function terrainPoint(road, seed, s, d, out, bridges) {
   const yPlane = yEdge - side * a * Math.tan(sm.bank) * bankFade;
   let off = biomeProfile(seed, s, Math.max(a, 0), side, sm, bio);
   off -= featureDip(road, s, a, bridges);
+  off += tunnelRaise(road, s, a, tunnels);
   out.x = sm.x + sm.nx * d; out.z = sm.z + sm.nz * d; out.y = yPlane + off;
   out.s = s; out.a = a; out.side = side; out.off = off; out.bio = bio;
   return out;
@@ -195,6 +207,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
   const nCol = COLS.length;
   const P = {}, Pa = {}, Pb = {}, Pc = {}, Pd = {};
   const bridges = road.features.filter((f) => f.type === 'bridge' && f.s1 > s0 - 300 && f.s0 < s1 + 300);
+  const tunnels = road.features.filter((f) => f.type === 'tunnel' && f.s1 > s0 - 100 && f.s0 < s1 + 100);
   const sides = [1, -1];
   // vertex layout per side: (rows) x (nCol) + skirt verts on the 3 open edges; we generate two independent grids.
   const vertsPerSide = rowsN * nCol;
@@ -220,11 +233,11 @@ export function genTerrainChunk(road, seed, chunk, lod) {
       const dsN = DS * stride;
       for (let c = 0; c < nCol; c++) {
         const d = side * (EDGE + COLS[c]);
-        terrainPoint(road, seed, s, d, P, bridges);
+        terrainPoint(road, seed, s, d, P, bridges, tunnels);
         // analytic normal by central differences in (s,d)
         const dc = Math.max(0.6, (COLS[Math.min(nCol - 1, c + 1)] - COLS[Math.max(0, c - 1)]) * 0.5);
-        terrainPoint(road, seed, s + dsN, d, Pa, bridges); terrainPoint(road, seed, s - dsN, d, Pb, bridges);
-        terrainPoint(road, seed, s, d + side * dc, Pc, bridges); terrainPoint(road, seed, s, d - side * (c === 0 ? 0 : dc), Pd, bridges);
+        terrainPoint(road, seed, s + dsN, d, Pa, bridges, tunnels); terrainPoint(road, seed, s - dsN, d, Pb, bridges, tunnels);
+        terrainPoint(road, seed, s, d + side * dc, Pc, bridges, tunnels); terrainPoint(road, seed, s, d - side * (c === 0 ? 0 : dc), Pd, bridges, tunnels);
         const tsx = Pa.x - Pb.x, tsy = Pa.y - Pb.y, tsz = Pa.z - Pb.z; // along s
         const tdx = (Pc.x - Pd.x) * side, tdy = (Pc.y - Pd.y) * side, tdz = (Pc.z - Pd.z) * side; // toward outside (away from road)
         let nx = tsy * tdz - tsz * tdy, ny = tsz * tdx - tsx * tdz, nz = tsx * tdy - tsy * tdx;
@@ -264,9 +277,9 @@ export function genTerrainChunk(road, seed, chunk, lod) {
       }
     }
     // skirts: drop copies of edge vertices by 10 m (hides cracks between LODs)
-    const skirt = (r, c) => {
+    const skirt = (r, c, depth = 12) => {
       const src = gridIndex(r, c);
-      positions[vi * 3] = positions[src * 3]; positions[vi * 3 + 1] = positions[src * 3 + 1] - 12; positions[vi * 3 + 2] = positions[src * 3 + 2];
+      positions[vi * 3] = positions[src * 3]; positions[vi * 3 + 1] = positions[src * 3 + 1] - depth; positions[vi * 3 + 2] = positions[src * 3 + 2];
       normals[vi * 3] = normals[src * 3]; normals[vi * 3 + 1] = normals[src * 3 + 1]; normals[vi * 3 + 2] = normals[src * 3 + 2];
       for (let k = 0; k < 3; k++) splat[k].copyWithin(vi * 4, src * 4, src * 4 + 4);
       macro[vi] = macro[src];
@@ -284,7 +297,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
     }
     // outer column
     const colSk = [];
-    for (let r = 0; r < rowsN; r++) colSk.push(skirt(r, nCol - 1));
+    for (let r = 0; r < rowsN; r++) colSk.push(skirt(r, nCol - 1, 250));
     for (let r = 0; r < rowsN - 1; r++) {
       const g0 = gridIndex(r, nCol - 1), g1 = gridIndex(r + 1, nCol - 1), k0 = colSk[r], k1 = colSk[r + 1];
       idx.push(g0, k0, k1, g0, k1, g1);

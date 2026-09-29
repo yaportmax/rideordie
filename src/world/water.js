@@ -142,8 +142,8 @@ export class Water {
   update(dt, cam, s) {
     this.s = s;
     this.uniforms.uTime.value += dt;
-    const coastFade = smoothstep(18800, 19800, s) * (1 - smoothstep(31000, 32500, s));
-    const damFade = smoothstep(48800, 49800, s);
+    const coastFade = smoothstep(19100, 19700, s) * (1 - smoothstep(30300, 30900, s));
+    const damFade = smoothstep(49100, 49700, s);
     const fade = Math.max(coastFade, damFade);
     this.uniforms.uFade.value = fade;
     this.mesh.visible = fade > 0.003; this.group.visible = this.mesh.visible;

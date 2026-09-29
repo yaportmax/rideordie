@@ -7,7 +7,7 @@ export function createRenderer({ antialias = false, pixelRatio } = {}) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap; // r186 removed PCFSoft (it silently falls back, which breaks shader prewarming)
   document.body.appendChild(renderer.domElement);
   return renderer;
 }

@@ -20,7 +20,9 @@ import { CASING } from './fx/weapons.js';
 import { WEAPONS } from '../data/weapons.js';
 import * as R from './fx/recipes.js';
 import { CarRec, updateCarFx } from './fx/carfx.js';
-import { paintHexOf } from './fx/wreck.js';
+import { paintHexOf, patchPaint, makeWreckUniforms } from './fx/wreck.js';
+import * as Assets from '../core/assets.js';
+import { VEHICLES } from '../data/vehicles.js';
 import { BossFx } from './fx/boss.js';
 import { HazardFx } from './fx/hazards.js';
 import { BOSS_ID } from '../data/boss.js';
@@ -39,6 +41,7 @@ const MAXQ = QUALITY[3];
 const J = { NONE: 0, SMOKE: 1, POP: 2, WRECK: 3, ROCKET: 4 };
 class Job { constructor() { this.type = 0; this.t = 0; this.dur = 0; this.x = 0; this.y = 0; this.z = 0; this.a = 0; this.b = 0; this.c = 0; this.acc = 0; this.acc2 = 0; this.acc3 = 0; this.cv = null; this.st = null; this.rec = null; this.vx = 0; this.vy = 0; this.vz = 0; } }
 
+const _o3 = [0, 0, 0];
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _pv = new THREE.Matrix4(), _pv2 = new THREE.Matrix4(), _sph = new THREE.Sphere();
 
 export class Fx {
@@ -435,7 +438,7 @@ export class Fx {
   }
 
   _shot(evt, ctx) {
-    const o = evt.origin; if (!o) return;
+    let o = evt.origin; if (!o) return;
     const wid = evt.weapon, player = evt.src === 'player';
     const boss = evt.src === BOSS_ID;
     if (boss) { this.boss.view = this.boss._findView(); this.boss.root = this.boss.view ? this.boss.view.root : null; }
@@ -449,6 +452,7 @@ export class Fx {
     if (dx === undefined) { dx = 0; dy = 0; dz = 1; }
     const l = Math.hypot(dx, dy, dz) || 1; dx /= l; dy /= l; dz /= l;
     if (wid === 'cannon') { this.boss.cannonBlast(o[0], o[1], o[2], dx, dy, dz); if (evt.rocket) this._launchRocket(o, dx, dy, dz, evt.speed || 150); return; }
+    if (boss && evt.heavy) { _o3[0] = o[0] + dx * 2.2; _o3[1] = o[1] + dy * 2.2; _o3[2] = o[2] + dz * 2.2; o = _o3; }   // boss MG origin is the turret pivot: barrel tip (don't mutate the event)
     const d = this.dist(o[0], o[1], o[2]);
     if (d > (player ? 400 : boss ? 450 : 300)) return;
     const gy = this.groundAt(o[0], o[2], o[1] - 1.6);
@@ -582,6 +586,49 @@ export class Fx {
     }
     for (const q of this.pProj) if (!q.seen) q.live = false;
   }
+
+  // ------------------------------------------------------------------------------------------------ shader prewarm
+  /**
+   * Call right before renderer.compileAsync(scene, camera) at run start; call the returned fn (or prewarmDone()) after.
+   * Every FX pool/decal/mesh material already lives in the scene from load(); what is missing are the wreck-charred
+   * `paint*` variants of each (pre-loaded) vehicle GLB, which the first explosion of each car type would otherwise compile
+   * mid-run. Hidden meshes built from the real paint geometry + patched material clones are added at y = -5000, plus every
+   * other mesh of each pre-loaded vehicle / boss GLB as-is (so a car type's first spawn doesn't compile mid-run either).
+   * Their materials are deliberately NOT disposed afterwards so the compiled programs stay cached.
+   */
+  prewarm() {
+    if (!this.loaded) return () => {};
+    this.prewarmDone();
+    const g = new THREE.Group(); g.name = 'fx_prewarm'; g.position.set(0, -5000, 0);
+    const u = makeWreckUniforms();
+    for (const id of [...Object.keys(VEHICLES), 'boss_warrig']) {
+      const url = `/models/vehicles/${id}.glb`;
+      const root = Assets.has(url) ? Assets.clone(url) : null;
+      if (!root) continue;
+      const seen = new Map();
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        const mats = [].concat(o.material);
+        if (!mats.some((m) => m && /^paint/.test(m.name)) || id === 'boss_warrig') {          // base materials as-is: first spawn of a car type won't compile either
+          const mesh = new THREE.Mesh(o.geometry, o.material); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.matrixAutoUpdate = false; g.add(mesh);
+          return;
+        }
+        const pm = mats.map((m) => {
+          if (!m || !/^paint/.test(m.name)) return m;
+          let c = seen.get(m);
+          if (!c) { c = m.clone(); c.userData = {}; patchPaint(c, u); seen.set(m, c); }        // clone first: GLB-cache materials are shared
+          return c;
+        });
+        const mesh = new THREE.Mesh(o.geometry, Array.isArray(o.material) ? pm : pm[0]);
+        mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.matrixAutoUpdate = false;
+        g.add(mesh);
+      });
+    }
+    g.updateMatrixWorld(true);
+    this.scene.add(g); this._warm = g;
+    return () => this.prewarmDone();
+  }
+  prewarmDone() { if (this._warm) { this._warm.removeFromParent(); this._warm = null; } }
 
   // ------------------------------------------------------------------------------------------------ cleanup
   clear() { this.pa.clear(); this.pf.clear(); this.skid.clear(); for (const j of this.jobs) j.type = 0; this.boss.clear(); this.haz.clear(); for (const it of this.pimp) it.live = false; }

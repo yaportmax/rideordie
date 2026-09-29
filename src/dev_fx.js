@@ -1,5 +1,6 @@
 // FX test page:  /fx.html?demo=explosion&t=0.6&ui=0
 //   demo=all|explosion|explosion2|explosion3|tanker|weapons|muzzle|impacts|drift|nitro|burn|smoke|rocket|grenade|crash|skid|offroad|perf|night
+//        boss|bosscannon|bosspart|bossramp|bossmg|bossdeath|hazards
 //   t=<seconds>   pre-step the demo to that time (fixed 60 Hz), then freeze (deterministic screenshots)
 //   q=0..3 quality   bloom=0 disables the HDR bloom preview   ui=0 hides buttons/HUD   s=<road s> time-of-day (look)   cam=x,y,z,tx,ty,tz   fov=55   surf=gravel|sand|...
 //   Mouse: drag = orbit, wheel = zoom.  Keys: see buttons.
@@ -13,6 +14,8 @@ import { makeCarState } from './view/car_state.js';
 import { VEHICLES } from './data/vehicles.js';
 import { WEAPONS, WEAPON_ORDER } from './data/weapons.js';
 import { Fx } from './view/fx.js';
+import { BossView, BOSS_URL } from './view/boss_view.js';
+import { BOSS_ID, PART_NAMES } from './data/boss.js';
 import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
 
 const Q = new URLSearchParams(location.search);
@@ -54,7 +57,7 @@ if (useBloom) {
   renderer.toneMapping = THREE.NoToneMapping;
   composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 4 });
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new BloomEffect({ intensity: 0.85, luminanceThreshold: 0.9, luminanceSmoothing: 0.35, mipmapBlur: true, radius: 0.75 });
+  const bloom = new BloomEffect({ intensity: 0.8, luminanceThreshold: num('bt', 4), luminanceSmoothing: 0.6, mipmapBlur: true, radius: 0.7 });
   const tm = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
   composer.addPass(new EffectPass(camera, bloom, tm));
 }
@@ -64,6 +67,11 @@ const fx = new Fx(scene, camera, { quality });
 const urls = ['e_sedan', 'e_heavy', 'e_van', 'e_tanker'].map((n) => `/models/vehicles/${n}.glb`);
 await Promise.all([Assets.preload(urls), fx.load()]);
 
+if (Q.has('prewarm')) {                                  // same as the game: compile against a HalfFloat target (post input) and the canvas
+  const done = fx.prewarm(), rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
+  renderer.setRenderTarget(rt); await renderer.compileAsync(scene, camera); renderer.setRenderTarget(null); await renderer.compileAsync(scene, camera);
+  rt.dispose(); done();
+}
 const carViews = new Map(), states = new Map();
 let shakeAcc = 0;
 const ctx = { carViews, states, playerId: 1, cameraPos: camera.position, shake: (a) => { shakeAcc = Math.max(shakeAcc, a); } };
@@ -134,13 +142,53 @@ function shootFrom(wid, o, target, extra = {}) {
   if (wid === 'shotgun') for (let i = 0; i < 8; i++) rays.push({ end: [target[0] + (Math.random() - 0.5) * 6, target[1] + (Math.random() - 0.5) * 2, target[2] + (Math.random() - 0.5) * 6], surface: 'dirt', normal: [0, 1, 0] });
   if (wid === 'rpg') return fire({ t: 'shot', src: 'player', weapon: 'rpg', origin: o, dir: norm([target[0] - o[0], target[1] - o[1], target[2] - o[2]]), rocket: true });
   fire({ t: 'shot', src: 'player', weapon: wid, origin: o, rays, mode: WEAPONS[wid].mode, ...extra });
-  for (const r of rays) fire({ t: 'hit', pos: r.end, normal: [0, 1, 0], surface: 'dirt', carId: -1 });
 }
 const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 
 // gun markers for the weapon demos
 const gunMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.5, metalness: 0.7 });
 function gunMarker(x, y, z, len = 0.7) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, len), gunMat); m.position.set(x, y, z + len / 2 - 0.15); m.castShadow = true; scene.add(m); return m; }
+
+
+// ---------------------------------------------------------------------------------------------- boss (real BossView + GLB, lazily loaded)
+let boss = null;
+async function ensureBoss(z = 60) {
+  if (boss) return boss;
+  await Assets.preload([BOSS_URL]);
+  const view = new BossView(null); scene.add(view.root);
+  const st = { pos: new THREE.Vector3(0, 0.02, z), quat: new THREE.Quaternion(), vel: new THREE.Vector3(0, 0, 0), v: 0, alive: {}, dead: false, exploded: false, phase: 1 };
+  for (const n of PART_NAMES) st.alive[n] = true;
+  boss = { view, st, z, v: 0, decel: 0 };
+  carViews.set(BOSS_ID, view);
+  view.update(st, 0);
+  return boss;
+}
+function stepBoss(dt) {
+  if (!boss) return;
+  if (boss.decel) boss.v = Math.max(0, boss.v - boss.decel * dt);
+  boss.z += boss.v * dt; const st = boss.st;
+  st.pos.set(0, 0.02, boss.z); st.vel.set(0, 0, boss.v); st.v = boss.v;
+  boss.view.update(st, dt);
+}
+const bossW = (x, y, z) => [x, y + 0.02, (boss ? boss.z : 60) + z];           // boss model frame -> world (boss faces +Z at x=0)
+function bossPart(name) {
+  if (!boss) return;
+  const b = { part_tank_L: [3.05, 4.1, -13.6], part_tank_R: [-3.05, 4.1, -13.6], part_turret_1: [0, 6, 1], part_turret_2: [0, 6, -4.4], part_pod_L: [3, 5.9, -2.7], part_pod_R: [-3, 5.9, -2.7], part_turret_main: [0, 5.5, -10.5], part_stack_L: [2.4, 5.9, 6.2], part_stack_R: [-2.4, 5.9, 6.2], part_plow: [0, 2, 15.3], part_engine: [0, 7, -16] }[name] || [3.7, 3.7, -0.3];
+  boss.st.alive[name] = false;
+  const pos = bossW(b[0], b[1], b[2]), explodes = /tank/.test(name), core = !/stack|plow|panel_armor_t|cab|roof/.test(name);
+  fire({ t: 'bossPart', part: name, label: name, pos, explodes });
+  if (explodes) fire({ t: 'boom', pos, radius: 16, kind: 'tank' }); else if (core) fire({ t: 'boom', pos, radius: 6, kind: 'part' });
+}
+function bossDeath(t0) {
+  at(t0, () => { fire({ t: 'bossDying', pos: bossW(0, 0, 0) }); boss.decel = 7; });
+  for (let k = 0; k < 12; k++) at(t0 + k / 3, () => fire({ t: 'explode', id: BOSS_ID, pos: bossW((Math.random() - 0.5) * 6, 2 + Math.random() * 5, (Math.random() - 0.5) * 32), size: 1.6, cause: 'boss', spec: 'boss', vel: [0, 0, boss.v] }));
+  at(t0 + 4.2, () => { boss.st.exploded = true; fire({ t: 'explode', id: BOSS_ID, pos: bossW(0, 0, 0), size: 3.5, cause: 'boss', spec: 'boss', vel: [0, 0, 0] }); });
+}
+function bossMG() {
+  const o = bossW(0, 4.7 + 1.3, -5.6);
+  fire({ t: 'shot', src: BOSS_ID, weapon: 'enemy', heavy: true, origin: o, rays: [norm([0.55 + (Math.random() - 0.5) * 0.05, -0.08, -0.83])], speed: 220, pellets: 1 });
+}
+function followBoss(az, el, dist, h = 4, lead = 0) { camSetup = () => { if (!boss) return; orbit.target.set(0, h, boss.z + lead); orbit.az = az; orbit.el = el; orbit.dist = dist; }; }
 
 // ---------------------------------------------------------------------------------------------- demos
 let script = [], camSetup = null; const hooks = [];
@@ -201,6 +249,37 @@ const DEMOS = {
       fire({ t: 'shot', src: 'player', weapon: Q.get('w') || 'rifle', origin: [o[0], o[1], o[2] + 1.2], rays: [{ end: [o[0], 0, o[2] + 90], surface: 'dirt', normal: [0, 1, 0] }], mode: 'auto' });
     });
   },
+  boss() {
+    boss.v = 22; followBoss(num('az', 2.75), num('el', 0.32), num('dist', 44), 4, -8);
+    at(0.2, () => fire({ t: 'bossPhase', phase: 3, pos: bossW(0, 0, 0) }));
+    at(0.3, () => fire({ t: 'bossFlame', side: 'L', on: true, pos: bossW(2.55, 4.1, -17.05) }));
+    at(0.5, () => fire({ t: 'bossFlame', side: 'R', on: true, pos: bossW(-2.55, 4.1, -17.05) }));
+  },
+  bosscannon() {
+    boss.v = 22; followBoss(num('az', 1.75), num('el', 0.2), num('dist', 38), 5, -8);
+    at(0.2, () => fire({ t: 'bossCharge', pos: bossW(0, 5.5, -6.1) }));
+    at(1.5, () => { const o = bossW(0, 5.51, -6.1); const d = norm([0.35, -0.08, -1]); fire({ t: 'shot', src: BOSS_ID, weapon: 'cannon', origin: o, dir: d, rocket: true, speed: 150, heavy: true }); fire({ t: 'bossCannon', pos: o }); });
+  },
+  bosspart() {
+    boss.v = 22; followBoss(0.95, 0.18, 44, 4, -4);
+    at(0.2, () => bossPart('part_tank_L'));
+    at(0.7, () => bossPart('part_pod_L'));
+    at(1.1, () => bossPart('panel_armor_t1_L1'));
+    at(1.5, () => bossPart('part_stack_L'));
+    for (let i = 0; i < 8; i++) at(0.3 + i * 0.12, () => fire({ t: 'bossDeflect', pos: bossW(3.45, 2.5 + Math.random() * 2, -7 + Math.random() * 12) }));
+  },
+  bossramp() { boss.v = 22; followBoss(2.4, 0.12, 30, 2, -18); at(0.2, () => fire({ t: 'bossRamp', pos: bossW(0, 3.02, -17) })); },
+  bossmg() { boss.v = 0; followBoss(num('az', 1.9), num('el', 0.12), num('dist', 30), 5, -6); for (let i = 0; i < 14; i++) at(0.1 + i * 0.125, bossMG); at(0.1, () => fire({ t: 'bossVolley', pos: bossW(0, 0, 0) })); },
+  bossdeath() { boss.v = 18; followBoss(0.85, 0.2, 90, 12, 10); bossDeath(0.2); },
+  hazards() {
+    setCam(-7.5, 3.2, 20, 0.5, 0.4, 38, 55);
+    at(0.05, () => { fire({ t: 'mineDrop', pos: [-3, 0.1, 30] }); fire({ t: 'mineDrop', pos: [-1.2, 0.1, 33.5] }); });
+    at(0.05, () => { fire({ t: 'mineDrop', pos: [2.2, 0.15, 31], enemy: true }); fire({ t: 'mineDrop', pos: [4.3, 0.15, 36], enemy: true }); });
+    at(0.1, () => fire({ t: 'oil', pos: [-0.5, 0.6, 45], r: 5.5, dir: [0.1, 1] }));      // pos = car COM, like the sim
+    const c = new DemoCar('e_sedan', 3, 10, { paint: 0x3d4a5f }); c.f.drive = true; c.f.speed = 26;
+    at(0.6, () => fire({ t: 'boostPad', id: c.id, pos: [c.state.pos.x, c.state.pos.y, c.state.pos.z] }));
+    at(Q.has('mineboom') ? 1.4 : 99, () => fire({ t: 'boom', pos: [-3, 0.2, 30], radius: 8, kind: 'mine' }));
+  },
   tracers() {
     setCam(2.2, 1.9, 2.0, -0.5, 1.3, 30, 60);
     for (let i = 0; i < 10; i++) at(0.02 + i * 0.03, () => shootFrom(i < 5 ? 'rifle' : 'lmg', [0.4, 1.35, 5], [-0.5 + (Math.random() - 0.5) * 3, 0, 70 + Math.random() * 50]));
@@ -245,6 +324,7 @@ const DEMOS = {
     const t = new DemoCar('e_tanker', 0, 60, { paint: 0x8a7a4a }); at(0.5, () => explodeCar(t, 2.4));
   },
 };
+if (/^boss/.test(demo)) await ensureBoss();
 (DEMOS[demo] || DEMOS.all)();
 if (Q.get('cam')) { const c = Q.get('cam').split(',').map(Number); setCam(c[0], c[1], c[2], c[3], c[4], c[5]); }
 
@@ -276,6 +356,28 @@ addBtn('cars', 'flat tyre', () => { const c = freshCar('e_sedan', -20); c.f.driv
 addBtn('cars', 'tyre pop', () => { const c = cars[cars.length - 1]; if (c) fire({ t: 'tirePop', id: c.id, index: 2 }); });
 addBtn('cars', 'clear cars', () => { while (cars.length) cars[0].remove(); });
 addBtn('cars', 'clear fx', () => fx.clear());
+const withBoss = (fn) => () => { ensureBoss(aim().z + 30).then((b) => { if (!b.v && !b.decel) b.v = 20; if (!camSetup) followBoss(0.9, 0.16, 44, 4, -4); fn(); }); };
+addBtn('boss', 'spawn', withBoss(() => {}));
+addBtn('boss', 'flame L', withBoss(() => fire({ t: 'bossFlame', side: 'L', on: true, pos: bossW(2.55, 4.1, -17.05) })));
+addBtn('boss', 'flame R', withBoss(() => fire({ t: 'bossFlame', side: 'R', on: true, pos: bossW(-2.55, 4.1, -17.05) })));
+addBtn('boss', 'flames off', withBoss(() => { fire({ t: 'bossFlame', side: 'L', on: false }); fire({ t: 'bossFlame', side: 'R', on: false }); }));
+addBtn('boss', 'charge+cannon', withBoss(() => { fire({ t: 'bossCharge', pos: bossW(0, 5.5, -6.1) }); setTimeout(() => { const o = bossW(0, 5.51, -6.1); fire({ t: 'shot', src: BOSS_ID, weapon: 'cannon', origin: o, dir: norm([0.35, -0.08, -1]), rocket: true, speed: 150, heavy: true }); fire({ t: 'bossCannon', pos: o }); }, 1300); }));
+const partCycle = ['part_tank_L', 'part_pod_R', 'part_turret_1', 'panel_armor_t1_L1', 'part_stack_R', 'part_turret_main', 'part_tank_R', 'part_plow'];
+let partI = 0;
+addBtn('boss', 'destroy part', withBoss(() => bossPart(partCycle[partI++ % partCycle.length])));
+addBtn('boss', 'deflect', withBoss(() => { for (let i = 0; i < 4; i++) fire({ t: 'bossDeflect', pos: bossW(3.45, 3 + Math.random() * 1.5, -6 + Math.random() * 10) }); }));
+addBtn('boss', 'volley', withBoss(() => fire({ t: 'bossVolley', pos: bossW(0, 0, 0) })));
+addBtn('boss', 'turret MG', withBoss(() => { for (let i = 0; i < 10; i++) setTimeout(bossMG, i * 120); }));
+addBtn('boss', 'ramp', withBoss(() => fire({ t: 'bossRamp', pos: bossW(0, 3.02, -17) })));
+addBtn('boss', 'phase 3', withBoss(() => fire({ t: 'bossPhase', phase: 3, pos: bossW(0, 0, 0) })));
+addBtn('boss', 'death', withBoss(() => { script = script.filter((x) => !x.done); bossDeath(simT + 0.05); }));
+addBtn('hazards', 'mine', () => { const t = aim(); fire({ t: 'mineDrop', pos: [t.x - 2 + Math.random() * 4, 0.1, t.z + Math.random() * 4] }); });
+addBtn('hazards', 'barrel', () => { const t = aim(); fire({ t: 'mineDrop', pos: [t.x - 2 + Math.random() * 4, 0.15, t.z + Math.random() * 4], enemy: true }); });
+addBtn('hazards', 'mine boom', () => { const it = fx.haz.items.find((o) => o.live); if (it) fire({ t: 'boom', pos: [it.pool.px[it.slot], it.pool.py[it.slot], it.pool.pz[it.slot]], radius: 8, kind: 'mine' }); });
+addBtn('hazards', 'oil', () => { const t = aim(); fire({ t: 'oil', pos: [t.x, 0.6, t.z + 6], r: 5.5, dir: [0, 1] }); });
+addBtn('hazards', 'boost pad', () => { const c = freshCar('e_sedan', -20, 0x3d4a5f); c.f.drive = true; c.f.speed = 28; setTimeout(() => fire({ t: 'boostPad', id: c.id, pos: [c.state.pos.x, c.state.pos.y, c.state.pos.z] }), 500); });
+addBtn('hazards', 'unflip', () => { const c = cars[cars.length - 1]; if (c) fire({ t: 'unflip', id: c.id }); });
+addBtn('hazards', 'medkit', () => { const c = cars[cars.length - 1]; if (c) fire({ t: 'medkit', id: c.id }); });
 
 // ---------------------------------------------------------------------------------------------- loop
 let simT = 0, paused = false, frames = 0, last = performance.now();
@@ -286,6 +388,7 @@ function stepSim(dt) {
   orbit.apply(); camera.updateMatrixWorld();
   for (const s of script) if (!s.done && simT >= s.t) { s.done = true; s.fn(); }
   for (const h of hooks) h(dt, simT);
+  stepBoss(dt);
   for (const c of cars.slice()) c.step(dt, simT);
   if (camSetup) camSetup();
   const t0 = performance.now();
@@ -320,4 +423,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (composer) composer.setSize(innerWidth, innerHeight); });
 addEventListener('keydown', (e) => { if (e.key === ' ') paused = !paused; if (e.key === 'e') explodeCar(freshCar('e_sedan'), 1); });
-window.__fx = { fx, scene, camera, renderer, cars, perf, sim: () => simT };
+window.__fx = { fx, scene, camera, renderer, cars, perf, sim: () => simT, explodeNew: (spec = 'e_van') => explodeCar(freshCar(spec), 1) };

@@ -218,7 +218,7 @@ def build(lod_ratio=None):
     lod.decimate(ch, lod_ratio or 0.70, lod.importance(ch, head=1.0, hands=0.55, torso=1.0, limbs=1.0, feet=0.0))
     fit = cloth.CFit(ch)
     ctx.fit = fit
-    tank = cloth.torso_top(fit, "tank", off=0.014, bridge=0.04, hem=-0.02)
+    tank = cloth.torso_top(fit, "tank", off=0.013, bridge=0.025, hem=-0.02, drape=False, belt_blouse=0.006)
     pants = cloth.pants(fit, off=0.03, bridge=0.035)
     gloveL, gloveR = cloth.glove(fit, "Left"), cloth.glove(fit, "Right")
     pc_top = cloth.finish(tank, fit)
@@ -229,7 +229,7 @@ def build(lod_ratio=None):
     common.add_skin(ctx, tris, skin_texture(ctx, fit, tris))
     common.add_eyes(ctx, "brown")
     common.add_brows(ctx, (0.05, 0.04, 0.035), lashes=True)
-    common.add_hair(ctx, "short04", (0.16, 0.115, 0.085), lift=0.05, rough=0.9)
+    common.add_hair(ctx, "short04", (0.075, 0.055, 0.042), lift=0.02, rough=0.8)
     common.cloth_group(ctx, "cloth_top", [pc_top], paint_top)
     common.cloth_group(ctx, "cloth_pants", [pc_pants], paint_pants)
     add_gear(ctx, fit, pc_top, pc_pants)

@@ -160,7 +160,10 @@ export class AssetKit {
   }
 
   dispose() {
-    for (const a of this.assets.values()) if (a) for (const p of a.parts) { p.geometry.dispose(); }
+    const mats = new Set(), texs = new Set();
+    for (const a of this.assets.values()) if (a) for (const p of a.parts) { p.geometry.dispose(); if (p.material) mats.add(p.material); }
+    for (const m of mats) { for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap']) if (m[k]) texs.add(m[k]); m.dispose(); }
+    for (const t of texs) t.dispose();
     this.assets.clear(); this.loading.clear();
   }
 }

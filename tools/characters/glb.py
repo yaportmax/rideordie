@@ -20,6 +20,7 @@ class Glb:
                   "images": [], "textures": [], "samplers": [], "scenes": [{"nodes": []}], "scene": 0}
         self._img_cache = {}
         self._tex_cache = {}
+        self.arrays = {}          # texture key -> raw uint8 array (used by the atlas merge)
         self.g["samplers"].append({"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497})
         self.uses_visibility = False
 
@@ -68,6 +69,14 @@ class Glb:
         arr = np.asarray(arr)
         if arr.dtype != np.uint8:
             arr = np.clip(arr * 255.0 + 0.5, 0, 255).astype(np.uint8)
+        self.arrays[key] = arr
+        if getattr(self, "lazy", False):
+            # register only (atlas builds): no encoding, no buffer data
+            if key not in self._tex_cache:
+                self.g["images"].append({"name": key})
+                self.g["textures"].append({"sampler": 0, "source": len(self.g["images"]) - 1, "name": key})
+                self._tex_cache[key] = len(self.g["textures"]) - 1
+            return self._tex_cache[key]
         im = Image.fromarray(arr)
         buf = io.BytesIO()
         if fmt == "jpg":
@@ -156,6 +165,7 @@ class Glb:
                 # make every row sum to exactly 255 (add the rounding error to the dominant weight)
                 q[np.arange(len(q)), w.argmax(axis=1)] += 255 - q.sum(axis=1)
                 q = np.maximum(q, 0)
+                j = np.where(q > 0, j, 0)              # unused influences point at joint 0 (validator: no zero-weight joints)
                 attrs["JOINTS_0"] = self.accessor(j.astype(np.uint8), "VEC4", UBYTE, target=34962)
                 attrs["WEIGHTS_0"] = self.accessor(q.astype(np.uint8), "VEC4", UBYTE, target=34962, normalized=True)
             if "color" in p and p["color"] is not None:

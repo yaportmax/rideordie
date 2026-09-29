@@ -105,10 +105,11 @@ export class App {
   garage() {
     this.game.endRun();
     this.readyMine = false; this.readyOther = false;
-    this.game.showGarage(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0]);
+    this.game.showGarage(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0], this._garageLoadout());
     this.game.audio?.music?.setState?.('garage');
     this.ui.showGarage(this.profile, this._garageCb(), this._garageExtra());
   }
+  _garageLoadout() { return { weapon: this.profile.loadout[0] || 'pistol', armorTier: this.profile.upgrades.vest || 0 }; }
   _garageExtra() {
     const s = this.session;
     return { solo: this.mode === 'solo', ready: this.readyMine, isHost: !s || s.isHost, runNo: this.profile.runs + 1,
@@ -116,7 +117,7 @@ export class App {
   }
   _garageRefresh() {
     if (this.game.mode !== 'garage') return;
-    this.game.garage.setTruck(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0]);
+    this.game.garage.setTruck(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0], this._garageLoadout());
     this.ui.updateGarage(this.profile, this._garageExtra());
   }
   _garageCb() {

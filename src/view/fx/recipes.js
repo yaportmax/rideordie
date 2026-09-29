@@ -214,18 +214,18 @@ export function cannonBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy) {
     p.len = k ? 8 : 12; p.size(k ? 3 : 5.5); p.life = 0.1 + 0.03 * k; p.col(6.5, 4.4, 2, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0.65; fx.pf.emit(p);
   }
   // pressure wave: expanding ring in the air + on the road, dust kicked off the ground below
-  p.reset(); p.pos(ox + dx * 2.5, oy + dy * 2.5, oz + dz * 2.5).vel(vx * 0.9, vy * 0.9, vz * 0.9); p.spr = SPR.SHOCK; p.size(1.5, 26); p.sCurve = 0.5; p.life = 0.42; p.col(1.3, 1.1, 0.9, 0.5); p.add0 = p.add1 = 0.8; p.fin = 0.01; p.fout = 0.85; fx.pf.emit(p);
+  p.reset(); p.pos(ox + dx * 2.5, oy + dy * 2.5, oz + dz * 2.5).vel(vx * 0.9, vy * 0.9, vz * 0.9); p.spr = SPR.SHOCK; p.size(1.5, 22); p.sCurve = 0.5; p.life = 0.38; p.col(1.3, 1.1, 0.9, 0.28); p.add0 = p.add1 = 0.8; p.fin = 0.01; p.fout = 0.85; fx.pf.emit(p);
   p.reset(); p.pos(ox + dx * 3, gy + 0.06, oz + dz * 3); p.mode = MODE.GROUND; p.spr = SPR.SHOCK; p.size(3, 38); p.sCurve = 0.55; p.life = 0.6; p.col(1.2, 1.0, 0.8, 0.45); p.add0 = p.add1 = 0.7; p.fin = 0.01; p.fout = 0.85; p.rot = r.next() * PI2; fx.pf.emit(p);
   const nd = Math.round(14 * qd);
   for (let i = 0; i < nd; i++) { const a = (i / nd) * PI2 + r.sym(0.2), sp = r.range(9, 20); dust(fx, ox + dx * 3 + Math.cos(a) * 2, gy + 0.3, oz + dz * 3 + Math.sin(a) * 2, vx * 0.5 + Math.cos(a) * sp, r.range(0.4, 2), vz * 0.5 + Math.sin(a) * sp, 1.2, r.range(4, 7), r.range(1.8, 2.8), 0.55, 0.45, 0.33, 0.55, gy, 1.5, 0.1); }
   // smoke ring perpendicular to the barrel + fire-lit blast cloud pushed forward
   let tx = dz, tz = -dx; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;           // horizontal side
   const bx = dy * tz, by = dz * tx - dx * tz, bz = -dy * tx;                                 // D x T (up-ish)
-  const nr = Math.round(18 * qd) + 4;
+  const nr = Math.round(22 * qd) + 6;
   for (let i = 0; i < nr; i++) {
     const a = (i / nr) * PI2, c = Math.cos(a), s = Math.sin(a);
     const rx = tx * c + bx * s, ry = by * s, rz = tz * c + bz * s, f = r.range(10, 15), o = r.range(6.5, 9);
-    puff(fx, ox + dx * 2.5 + rx * 0.8, oy + dy * 2.5 + ry * 0.8, oz + dz * 2.5 + rz * 0.8, vx + dx * f + rx * o, vy + dy * f + ry * o, vz + dz * f + rz * o, 1.1, r.range(4.5, 6), r.range(2.2, 3.2), 0.5, 0.48, 0.45, 0.8, 0.3, 0.2, gy);
+    puff(fx, ox + dx * 2.5 + rx * 0.8, oy + dy * 2.5 + ry * 0.8, oz + dz * 2.5 + rz * 0.8, vx + dx * f + rx * o, vy + dy * f + ry * o, vz + dz * f + rz * o, 1.4, r.range(6.5, 8.5), r.range(2.6, 3.6), 0.3, 0.29, 0.28, 0.9, 0.3, 0.2, gy);
   }
   const nb = Math.round(12 * qd) + 3;
   for (let i = 0; i < nb; i++) {

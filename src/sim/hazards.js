@@ -17,6 +17,7 @@ export class Hazards {
   }
 
   update(dt, sim) {
+    this.sim = sim;
     const P = sim.player; if (!P) return;
     this._t += dt;
     if (sim.tick % 30 === 0) this._sync(sim, P.s);
@@ -72,7 +73,8 @@ export class Hazards {
     this.mines.push({ pos: p, arm: 0.8, blast, dmg });
     sim.emit({ t: 'mineDrop', pos: p.toArray() });
   }
-  roadblockNear(p) { for (const [f, rec] of this.active) if (rec.center) { const dx = p.x - rec.center.x, dz = p.z - rec.center.z; if (dx * dx + dz * dz < 18 * 18) return true; } return false; }
+  roadblockNear(p) {
+    if (this.sim?.structures?.roadblockNear(p)) return true; for (const [f, rec] of this.active) if (rec.center) { const dx = p.x - rec.center.x, dz = p.z - rec.center.z; if (dx * dx + dz * dz < 18 * 18) return true; } return false; }
   oilAt(x, z) {
     for (const o of this.oil) { const dx = x - o.pos.x, dz = z - o.pos.z; if (dx * dx + dz * dz < o.r * o.r) return true; }
     return false;
@@ -116,6 +118,7 @@ export class Hazards {
       return { bodies };
     }
     if (f.type === 'roadblock') {
+      if (sim.structures) return { bodies: [] }; // Dressing supplies the real wreck-line collision
       const r = rng(f.seed >>> 0);
       const gapD = f.gap * 2.6;
       const n = 7; // slots across 14 m

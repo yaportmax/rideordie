@@ -13,6 +13,41 @@ from glb import Glb
 OUT_DIR = "C:/Dev/rideordie/public/models/characters"
 
 
+def _save_atlas(self, path, clips, hidden_groups, socket_pos, socket_rot, extras, sizes):
+    """Draw-call-lean export: one `body` atlas material (+ `hair`, `eye`), one primitive per node."""
+    import atlas
+    out = Glb()
+    merged = atlas.merge(self, out, sizes)
+    heads = self.ch.heads_final
+    nodes, sock = rig.add_skeleton(out, heads, socket_pos, socket_rot)
+    skin = out.skin(nodes, rig.inverse_bind(heads), nodes[0])
+    mesh_nodes = []
+    names = {"body": "body", "hair": "hair", "eye": "eyes"}
+    for gname, prims in merged.items():
+        for p in prims:
+            nm = names[p["_label"]] if gname == "main" else gname
+            clean = {k: v for k, v in p.items() if not k.startswith("_")}
+            mesh = out.mesh(nm, [clean])
+            mesh_nodes.append(out.node(nm, mesh=mesh, skin=skin, hidden=gname in hidden_groups))
+    if clips:
+        import anim
+        anim.write_clips(out, nodes, clips)
+    root = out.node(self.name, children=[nodes[0]] + mesh_nodes, extras=extras)
+    out.g["scenes"][0]["nodes"] = [root]
+    return out.save(path)
+
+
+
+def contract_name(n):
+    """Map internal material names onto the ASSET_SPEC palette (prefix variants of palette names are kept)."""
+    fixed = {"plastic_shell": "plastic", "paint_grenade": "metal_grenade"}
+    if n in fixed:
+        return fixed[n]
+    if n.startswith("webbing_"):
+        return "cloth_" + n
+    return n
+
+
 class Ctx:
     """One character under construction."""
 
@@ -21,7 +56,9 @@ class Ctx:
         self.spec = spec
         self.ch = B.Char(spec)
         self.glb = Glb()
+        self.glb.lazy = True          # textures are only registered here; the atlas merge writes the real file
         self.mats = {}
+        self.clamped = {"skin", "eye", "hair", "hair_face"}   # materials whose textures are atlases (not tiling)
         self.groups = {"main": []}          # node group -> list of prims (final space, skinned)
         self.notes = {}
         self.stats = {}
@@ -53,7 +90,10 @@ class Ctx:
         return n
 
     # -- output ---------------------------------------------------------------------------------
-    def save(self, path, clips=None, hidden_groups=(), socket_pos=None, socket_rot=None, extras=None, split_by_label=False):
+    def save(self, path, clips=None, hidden_groups=(), socket_pos=None, socket_rot=None, extras=None, split_by_label=False,
+             atlas_sizes=None):
+        if atlas_sizes is not None:
+            return _save_atlas(self, path, clips, hidden_groups, socket_pos, socket_rot, extras, atlas_sizes)
         glb = self.glb
         heads = self.ch.heads_final
         nodes, sock = rig.add_skeleton(glb, heads, socket_pos, socket_rot)
@@ -78,13 +118,15 @@ class Ctx:
         if clips:
             import anim
             anim.write_clips(glb, nodes, clips)
+        for m in glb.g.get("materials", []):
+            m["name"] = contract_name(m["name"])
         root = glb.node(self.name, children=[nodes[0]] + mesh_nodes, extras=extras)
         glb.g["scenes"][0]["nodes"] = [root]
         size = glb.save(path)
         return size
 
 
-def _save_final(self, path=None, hidden_groups=(), split_by_label=False, extras=None):
+def _save_final(self, path=None, hidden_groups=(), split_by_label=False, extras=None, atlas_sizes=None):
     """Final export: all clips baked from this character's own proportions + socket frames (needs anim.py)."""
     path = path or (OUT_DIR + "/" + self.name + ".glb")
     clips, sp, sr = None, None, None
@@ -103,7 +145,7 @@ def _save_final(self, path=None, hidden_groups=(), split_by_label=False, extras=
         print("  (anim.py not available: exporting without clips)")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     size = self.save(path, clips=clips, hidden_groups=hidden_groups, socket_pos=sp, socket_rot=sr, extras=extras,
-                     split_by_label=split_by_label)
+                     split_by_label=split_by_label, atlas_sizes=atlas_sizes if atlas_sizes is not None else getattr(self, "atlas_sizes", None))
     print("saved", path, "%.2f MB" % (size / 1e6), "tris", self.tri_count(), "(visible main: %d)" % self.tri_count("main"))
     return size
 

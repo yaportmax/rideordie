@@ -105,13 +105,14 @@ export class Director {
     const P = sim.player, def = ENEMIES[key], r = this.r;
     let behavior = o.behavior || r.pick(def.behaviors);
     const ahead = behavior === 'blocker' || behavior === 'dropper';
-    const s = o.at ? o.at.s : P.s + (ahead ? r.range(240, 330) : -r.range(150, 230));
+    const s = o.at ? o.at.s : P.s + (ahead ? r.range(240, 330) : -r.range(120, 190));
     if (sim.ground && sim.ground.hasColliderAt && !sim.ground.hasColliderAt(s)) return false;
     const lane = o.at ? o.at.d : o.lane ?? r.pick(LANES);
     const pv = Math.max(8, P.veh.vf);
     // tune the enemy so it can actually keep up with the player's truck as the game goes on
     const base = VEHICLES[def.spec];
-    const want = Math.max(base.engine.vmax, this.playerVmax * (0.9 + 0.1 * L) + (behavior === 'rammer' ? 4 : 0));
+    // raiders are always a little faster than the player's truck: you can't just outrun them, you have to fight
+    const want = Math.max(base.engine.vmax, this.playerVmax * (1.04 + 0.08 * L) + (behavior === 'rammer' ? 4 : 0));
     const k = clamp(want / base.engine.vmax, 1, 1.75);
     const spec = k > 1.001 ? { ...base, engine: { ...base.engine, vmax: base.engine.vmax * k, accel0: base.engine.accel0 * Math.pow(k, 0.85) }, susp: base.susp } : base;
     const hpMul = 1 + 1.9 * L;

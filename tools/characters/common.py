@@ -75,6 +75,7 @@ def cloth_group(ctx, name, pieces, painter, ppm=500, extra=("depth", "ao"), grou
     tb = ctx.glb.texture_array(name + "_albedo", alb, "jpg", 90)
     tn = ctx.glb.texture_array(name + "_normal", normal, "jpg", 92)
     mat = ctx.material(name, base_tex=tb, normal_tex=tn, rough=rough, metallic=0.0, double_sided=True, color=color, spec=spec)
+    ctx.clamped.add(name)
     for pc in pieces:
         prim = dict(pos=mh.to_final(pc["pos"]), nrm=mh.to_final(pc["nrm"]), uv=pc["uv"], joints=pc["joints"], weights=pc["weights"],
                     idx=pc["idx"])
@@ -104,7 +105,7 @@ def gear_material(ctx, name, kind, color=(1, 1, 1), rough=None, metal=None, size
     glb = ctx.glb
     tb = glb.texture_array("%s_alb_%d" % (kind, seed), t["albedo"], "jpg", 88)
     tn = glb.texture_array("%s_nrm_%d" % (kind, seed), t["normal"], "jpg", 90)
-    orm = t.get("orm") if kind in ("leather", "metal_dark", "armor") else None
+    orm = t.get("orm") if kind in ("leather", "metal_dark", "armor", "scrap") else None
     tm = glb.texture_array("%s_orm_%d" % (kind, seed), orm, "jpg", 88) if orm is not None else None
     kw = dict(base_tex=tb, normal_tex=tn, color=tuple(color) + (1.0,), normal_scale=normal_scale, double_sided=double_sided)
     if kind in ("canvas", "webbing", "denim", "knit", "rubber"):
@@ -181,7 +182,7 @@ def add_hair(ctx, name, colour, size=1024, rough=0.6, label="hair", strength=1.0
     d, src = parts.hair_asset(ctx.ch, name)
     tex = parts.tint_hair_texture(src, colour, size, strength, lift)
     t = ctx.glb.texture_array("hair_" + name, tex, "png")
-    mat = ctx.material("hair", base_tex=t, rough=rough, alpha_mode="MASK", alpha_cutoff=0.42, double_sided=True)
+    mat = ctx.material("hair", base_tex=t, rough=rough, alpha_mode="MASK", alpha_cutoff=0.42, double_sided=True, spec=0.15)
     ctx.add(d, mat, label=label)
     return d
 

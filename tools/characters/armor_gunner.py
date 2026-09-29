@@ -103,8 +103,8 @@ def _put(ctx, mesh, mat, bone=None, label="gear"):
 
 def mats(ctx):
     M = {}
-    M["steel"] = common.gear_material(ctx, "armor", "armor", color=(0.28, 0.29, 0.29), rough=1.0, metal=1.0)
-    M["steel_lt"] = common.gear_material(ctx, "armor_bare", "armor", color=(0.55, 0.55, 0.54), rough=1.0, metal=1.0)
+    M["steel"] = common.gear_material(ctx, "armor", "armor", color=(0.30, 0.32, 0.25), rough=1.0, metal=1.0)
+    M["steel_lt"] = common.gear_material(ctx, "armor_bare", "metal_dark", color=(0.60, 0.60, 0.58), rough=1.0, metal=1.0)
     M["dark"] = common.gear_material(ctx, "metal_dark", "metal_dark", color=(0.30, 0.30, 0.30), rough=1.0, metal=1.0)
     M["web"] = common.gear_material(ctx, "webbing_black", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
     M["olive"] = common.gear_material(ctx, "cloth_gear_olive", "canvas", color=(0.10, 0.11, 0.06), rough=0.95)
@@ -181,7 +181,7 @@ def build_t2(ctx):
     triple mag pouches, admin panel, drag handle, cummerbund side plates."""
     ctx.tier_group = "armor_t2"
     M = mats(ctx)
-    g, pc = vest_shell(ctx, "cloth_vest_t2", (0.075, 0.08, 0.06), off=0.034, hem=-0.03, seed=5, wear=0.6)
+    g, pc = vest_shell(ctx, "cloth_vest_t2", (0.06, 0.065, 0.05), off=0.034, hem=-0.03, seed=5, wear=0.35)
     rc = _rc(ctx, [pc])
     H = ctx.brc.landmarks()
     fit = ctx.fit
@@ -282,7 +282,7 @@ def build_t3(ctx):
     crossing harness."""
     ctx.tier_group = "armor_t3"
     M = mats(ctx)
-    g, pc = vest_shell(ctx, "cloth_vest_t3", (0.06, 0.06, 0.055), off=0.036, hem=-0.02, seed=8, wear=0.7)
+    g, pc = vest_shell(ctx, "cloth_vest_t3", (0.045, 0.045, 0.04), off=0.036, hem=-0.02, seed=8, wear=0.3)
     rc = _rc(ctx, [pc])
     H = ctx.brc.landmarks()
     fit = ctx.fit
@@ -305,7 +305,7 @@ def build_t3(ctx):
             _put(ctx, lame, M["steel"], label="lame")
     # back plate + spine plates
     P, n = _place_on(rc, [0.0, cy + 0.02, -0.9], [0, 0, 1])
-    back = kit.patch_on_surface(rc, P, n, (0, 1, 0), 0.14, 0.175, standoff=0.006, thick=0.03, bevel=0.009, e=3.0, rings=6, seg=36, dome=0.02, cast_from=0.3)
+    back = kit.patch_on_surface(rc, P, n, (0, 1, 0), 0.14, 0.175, standoff=0.006, thick=0.022, bevel=0.009, e=3.4, rings=6, seg=36, dome=0.008, cast_from=0.3)
     _put(ctx, back, M["steel"], label="plate_back")
     for k in range(4):
         q, qn = _place_on(rc, [0.0, cy + 0.14 - 0.075 * k, -0.9], [0, 0, 1])

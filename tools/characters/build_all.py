@@ -28,7 +28,9 @@ def main(ids):
             ctx = mod.build()
             hidden = ()
         path = charbuild.OUT_DIR + "/%s.glb" % cid
-        size = ctx.save_final(path, hidden_groups=hidden)
+        hero = cid.startswith("hero")
+        sizes = dict(body=2048, hair=1024, eye=256) if hero else dict(body=1024, hair=512, eye=128)
+        size = ctx.save_final(path, hidden_groups=hidden, atlas_sizes=sizes)
         stats[cid] = dict(tris_total=ctx.tri_count(), tris_body=ctx.tri_count("main"), bytes=size,
                           groups={g: ctx.tri_count(g) for g in ctx.groups if g != "main"},
                           materials=sorted(ctx.mats), height=float(ctx.ch.pos[:, 1].max()), seconds=round(time.time() - t0, 1))

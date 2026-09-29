@@ -95,8 +95,11 @@ def decimate(ch, ratio=0.35, imp=None, symmetry=True):
     ch.full = dict(pos=ch.pos, tv=ch.tv, tt=ch.tt, vt=ch.vt, W=ch.W, top=ch.top, nrm=ch.nrm)
     ch.pos = V
     ch.tv = F
-    ch.vt = UV.reshape(-1, 2)
-    ch.tt = np.arange(len(F) * 3).reshape(-1, 3)
+    # weld identical per-corner UVs so UV islands stay connected (seams keep separate uv indices)
+    uvc = UV.reshape(-1, 2)
+    uniq, inv = np.unique(np.round(uvc, 6), axis=0, return_inverse=True)
+    ch.vt = uniq
+    ch.tt = inv.reshape(-1, 3)
     ch.W = W
     ch.top = np.argmax(W, axis=1)
     ch.nrm = mh.vertex_normals(V, F)

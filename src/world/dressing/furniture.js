@@ -151,7 +151,7 @@ function lamps(ctx, chunk) {
   if (!lamp) return true;
   const { road, seed } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
   if (cfg(s0 + 48, 'lamps') < 0.05 && cfg(s0, 'lamps') < 0.05 && cfg(s1, 'lamps') < 0.05) return true;
-  useSpec(ctx, 'street_lamp');
+  useSpec(ctx, 'street_lamp'); useSpec(ctx, 'lamp_pool', { far: 330 }); useSpec(ctx, 'lamp_cone', { far: 330 });
   const cutsF = road.featuresIn(s0 - 30, s1 + 30);
   const list = chunk.list('street_lamp'), P = {};
   const PITCH = 34;
@@ -164,6 +164,11 @@ function lamps(ctx, chunk) {
     const sm = road.sample(s, {});
     // arm extends along local +X (left); on the left shoulder turn the lamp around so the arm reaches over the road
     list.push(g.x, g.y - 0.05, g.z, sm.th + (side > 0 ? Math.PI : 0), 1, 1, 1, 0, 1, 0, 0, 6);
+    // light pool on the road under the lamp head + the faint beam
+    const fr = roadFrame(road, s - 1, 2, side * 8.4, _f);
+    chunk.list('lamp_pool').pushBasis(fr.x + fr.fx + fr.ux * 0.03, fr.y + fr.fy + fr.uy * 0.03, fr.z + fr.fz + fr.uz * 0.03, fr.lx, fr.ly, fr.lz, fr.ux, fr.uy, fr.uz, fr.fx, fr.fy, fr.fz, 8.5, 1, 8.5, 9);
+    const hp = road.pointAt(s, side * 9.9, {});
+    chunk.list('lamp_cone').push(hp.x, g.y - 0.05 + 9.05, hp.z, 0, 1, 1, 1, 0, 1, 0, 0, 5);
   }
   return true;
 }

@@ -138,7 +138,7 @@ def add_gear(ctx, fit, pcs):
     hi = gear.head_info(ctx, brc)
     rc_t = outfit.rc_from_pieces([pcs["under"]])
     rc_p = outfit.rc_from_pieces([pcs["trousers"]])
-    armor = common.gear_material(ctx, "armor", "armor", color=(0.62, 0.58, 0.54), rough=1.0, metal=1.0)
+    armor = common.gear_material(ctx, "armor", "scrap", color=(0.62, 0.58, 0.54), rough=1.0, metal=1.0)
     paint = ctx.material("paint", base_tex=ctx.glb.texture_array("paint_tex", _paint_tex(), "jpg", 88), color=(0.24, 0.33, 0.36, 1.0), rough=0.7, metallic=0.25)
     metal = common.gear_material(ctx, "metal_dark", "metal_dark", color=(0.42, 0.42, 0.40), rough=1.0, metal=1.0)
     rubber = common.gear_material(ctx, "rubber", "rubber", color=(0.08, 0.08, 0.08), rough=1.0, metal=0.0)

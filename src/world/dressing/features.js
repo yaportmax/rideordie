@@ -379,16 +379,18 @@ function buildTunnel(ctx, chunk, f) {
 
 // ------------------------------------------------------------------------------------------------ dispatcher
 /** Features are built by the chunk that contains their END (long structures live as long as their last chunk) or, for short ones, their start. */
-export function buildFeatures(ctx, chunk) {
+export function buildFeatures(ctx, chunk, deadline = Infinity) {
   const { road } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
   const list = road.featuresIn(s0 - 500, s1 + 1, undefined);
-  let ok = true;
+  let ok = true, worked = 0;
   for (const f of list) {
     const long = f.type === 'bridge' || f.type === 'tunnel';
     const key = f.type === 'overpass' ? (f.s0 + f.s1) / 2 : long ? f.s1 : f.s0;
     if (key < s0 || key >= s1) continue;
     const tag = `feat:${f.type}:${Math.round(f.s0 * 10)}`;
     if (chunk.done.has(tag)) continue;
+    if (worked > 0 && performance.now() > deadline) { chunk._more = true; return false; }
+    worked++;
     let r = true;
     switch (f.type) {
       case 'ramp': r = buildRamp(ctx, chunk, f); break;

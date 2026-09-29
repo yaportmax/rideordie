@@ -5,6 +5,7 @@ import { CarView } from '../view/car_view.js';
 import { makeCarState } from '../view/car_state.js';
 import { VEHICLES } from '../data/vehicles.js';
 import * as Assets from '../core/assets.js';
+import { CrewView } from '../view/crew_view.js';
 
 export class GarageScene {
   constructor(renderer) {
@@ -50,8 +51,10 @@ export class GarageScene {
   }
 
   /** Show a truck (spec id) with a paint colour. */
-  setTruck(id, paint) {
-    if (this.truckId === id && this.paint === paint && this.view) return;
+  setTruck(id, paint, loadout) {
+    const key = (loadout && loadout.weapon) + ':' + (loadout && loadout.armorTier);
+    if (this.truckId === id && this.paint === paint && this.view && this.crewKey === key) return;
+    this.crewKey = key;
     if (this.view) { this.view.dispose(); this.view = null; }
     this.truckId = id; this.paint = paint;
     const spec = VEHICLES[id];
@@ -61,6 +64,12 @@ export class GarageScene {
     for (let i = 0; i < this.state.L.length; i++) this.state.L[i] = this.state.ride.restLen;
     this.view.update(this.state, 0);
     this.turntable.add(this.view.root);
+    // crew: gunner standing in the bed holding the primary weapon, driver at the wheel
+    this.crew = [];
+    const q = new THREE.Quaternion();
+    if (spec.seats.gunner) { const g = new CrewView('hero_gunner', { role: 'gunner', weapon: loadout?.weapon || 'pistol', armorTier: loadout?.armorTier || 0 }); this.view.root.add(g.root); g.attach(this.view, spec.seats.gunner); this.crew.push(g); }
+    if (spec.seats.driver) { const d = new CrewView('hero_driver', { role: 'driver' }); this.view.root.add(d.root); d.attach(this.view, spec.seats.driver); this.crew.push(d); }
+    this.crewQ = q;
     this.dist = 8.5 + spec.length * 0.95;
   }
 
@@ -69,6 +78,12 @@ export class GarageScene {
   update(dt, input) {
     this.t += dt;
     this.turntable.rotation.y += dt * 0.18;
+    if (this.crew) {
+      this.turntable.updateMatrixWorld(true);
+      const q = this.view.root.getWorldQuaternion(this.crewQ);
+      const yaw = new THREE.Euler().setFromQuaternion(q, 'YXZ').y + Math.sin(this.t * 0.4) * 0.5;
+      for (const c of this.crew) c.update(dt, { alive: true, aimYaw: yaw, aimPitch: -0.05 + Math.sin(this.t * 0.3) * 0.05, fire: false, crouch: false, reloading: false, quat: q, vel: new THREE.Vector3(), steer: Math.sin(this.t * 0.5) * 0.1 });
+    }
     // right stick / mouse drag orbits a little
     const pad = input?.pad;
     if (pad) this.orbit += (pad.axes[2] || 0) * dt * 1.2 * (Math.abs(pad.axes[2]) > 0.2 ? 1 : 0);

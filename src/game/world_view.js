@@ -12,6 +12,7 @@ import { WEAPONS } from '../data/weapons.js';
 
 const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f, 0x6a2f2f, 0x91856a];
 const _q = new THREE.Quaternion();
+const _sph = new THREE.Sphere();
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 export class WorldView {
@@ -47,7 +48,7 @@ export class WorldView {
     rec = { view, specId: st.specId, crew: {}, state: st, wreck: false, id: st.id };
     // crew figures
     const s = st.spec;
-    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunName, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); return c; };
+    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunName, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
     if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver', s.seats.driver);
     if (s.seats.gunner && (st.kind === 'player' || (s.gunners ?? 0) >= 1)) rec.crew.gunner = mk('gunner', st.kind === 'player' ? 'hero_gunner' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][st.id % 4], s.seats.gunner);
     if (s.seats.gunner2 && (s.gunners ?? 0) >= 2) rec.crew.gunner2 = mk('gunner2', 'raider_b', s.seats.gunner2);
@@ -75,11 +76,18 @@ export class WorldView {
       rec.state = st;
       rec.view.update(st, dt);
       rec.view.setLights(st.braking, this.night > 0.35);
-      // crew poses
+      // crew poses (skip + hide crews that are far away or off-screen: skinned characters are the priciest thing we draw)
       const q = st.quat;
+      const camPos = ctx.cameraPos, frustum = ctx.frustum;
+      const far = camPos ? st.pos.distanceTo(camPos) > (st.kind === 'player' ? 1e9 : 130) : false;
+      const off = frustum && st.kind !== 'player' ? !frustum.intersectsSphere(_sph.set(st.pos, 5)) : false;
+      const hideCrew = far || off;
+      for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) crew.root.visible = !hideCrew;
+      if (hideCrew) { if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); } this._damageVisuals(rec, st); continue; }
       for (const [role, crew] of Object.entries(rec.crew)) {
         const gs = role === 'gunner' ? st.gunner : role === 'gunner2' ? st.gunner2 : null;
         const alive = role === 'driver' ? st.driverAlive : role === 'gunner' ? st.gunnerAlive : st.gunner2Alive;
+        crew.lastVel = st.vel;
         crew.update(dt, {
           alive, aimYaw: gs ? gs.yaw : 0, aimPitch: gs ? gs.pitch : 0, fire: gs ? gs.fire : false, crouch: gs ? gs.crouch : false, ads: gs ? gs.ads : false,
           reloading: gs ? gs.reloading : false, weaponId: st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null, steer: st.steer, speed: st.speed, quat: st.quat, vel: st.vel,
@@ -100,6 +108,7 @@ export class WorldView {
   handleEvent(e, states) {
     const rec = e.id !== undefined ? this.cars.get(e.id) : null;
     if (e.t === 'crewDead' && rec && rec.crew[e.role]) rec.crew[e.role].die(e);
+    if (e.t === 'grenadeThrow') { const r = this.cars.get(1); r?.crew.gunner?.throwGrenade(); }
     if (e.t === 'crewHit' && rec && rec.crew[e.role]) rec.crew[e.role].flinch(e);
     if (e.t === 'shot') {
       const r = e.src === 'player' ? this.cars.get(1) : this.cars.get(e.src);

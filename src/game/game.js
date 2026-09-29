@@ -13,6 +13,10 @@ import { VEHICLES } from '../data/vehicles.js';
 import { Post } from '../view/post.js';
 import { Fx } from '../view/fx.js';
 import { AudioSys } from '../core/audio.js';
+import { CarView } from '../view/car_view.js';
+import { BossView } from '../view/boss_view.js';
+import { WeaponView } from '../view/weapon_view.js';
+import { CrewView } from '../view/crew_view.js';
 import { clamp } from '../core/util.js';
 
 export class Game {
@@ -25,6 +29,8 @@ export class Game {
     this.input = new Input(this.canvas);
     this.sky = new SkyRig(this.renderer, this.scene);
     this.hud = new Hud(); this.hud.setVisible(false);
+    // player headlights: always in the scene (intensity 0 by day) so the light count never changes => no shader recompiles
+    this.headlights = [0, 1].map(() => { const l = new THREE.SpotLight(0xfff1d6, 0, 90, 0.42, 0.55, 1.2); l.castShadow = false; this.scene.add(l, l.target); return l; });
     this.run = null; this.look = null; this.frames = 0; this.last = performance.now();
     this.fx = null; this.audio = null; this.post = null; this.ui = null; this.garage = null;
     this.mode = 'menu';           // menu | garage | run
@@ -46,7 +52,8 @@ export class Game {
   async boot(onProgress) {
     const tl = new THREE.TextureLoader();
     const tex = (n, srgb) => { const t = tl.load(`/textures/asphalt/${n}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8; return t; };
-    const urls = [...Object.keys(VEHICLES).map((k) => `/models/vehicles/${k}.glb`), '/models/vehicles/boss_warrig.glb', ...['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'].map((w) => `/models/weapons/${w}.glb`)];
+    const urls = [...Object.keys(VEHICLES).map((k) => `/models/vehicles/${k}.glb`), '/models/vehicles/boss_warrig.glb', ...['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'].map((w) => `/models/weapons/${w}.glb`),
+      ...['hero_gunner', 'hero_driver', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_driver'].map((c) => `/models/characters/${c}.glb`)];
     await Assets.preload(urls, onProgress);
     const arrays = await loadGroundArrays();
     this.terrainMat = makeTerrainMaterial(arrays);
@@ -65,16 +72,51 @@ export class Game {
 
   setQuality(q) { this.quality = q; this.post?.setQuality(q); this.fx?.setQuality?.(q); }
 
-  showGarage(truckId, paint) { this.mode = 'garage'; this.garage.setTruck(truckId, paint); this.hud.setVisible(false); if (this.post) this.post.enabled = false; }
+  showGarage(truckId, paint, loadout) { this.mode = 'garage'; this.garage.setTruck(truckId, paint, loadout); this.hud.setVisible(false); if (this.post) this.post.enabled = false; }
+
+  /** Compile every material the run can show (all vehicles, weapons, boss, fx) so the first explosion or new enemy never hitches. */
+  async prewarm() {
+    if (this._warm) return; this._warm = true;
+    const g = new THREE.Group(); g.position.set(0, -5000, 0);
+    // build the real view objects (same shadow/transparency flags => same shader programs as in play)
+    for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333 }); g.add(v.root); }
+    g.add(new BossView(null).root);
+    for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);
+    for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);
+    for (const c of ['hero_driver', 'raider_driver']) g.add(new CrewView(c, { role: 'driver' }).root);
+    this.scene.add(g);
+    this.sky.setLook(lookAt(0), true); // environment map + fog must exist, they are part of every program's key
+    // compile against an HDR target like the post pipeline's scene pass (linear output => different program keys than the canvas)
+    const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
+    try {
+      const fxDone = this.fx?.prewarm?.(); this._fxPrewarmDone = typeof fxDone === 'function' ? fxDone : () => this.fx?.prewarmDone?.();
+      if (this.post) { this.renderer.setRenderTarget(rt); await this.renderer.compileAsync(this.scene, this.camera); this.renderer.setRenderTarget(null); }
+      await this.renderer.compileAsync(this.scene, this.camera);
+    } catch (e) { console.warn('prewarm', e); }
+    this.renderer.setRenderTarget(null); rt.dispose(); this._fxPrewarmDone?.();
+    this.scene.remove(g);
+  }
 
   async startRun(cfg) {
     if (this.run) this.endRun();
+    this.fade(1, 0);
+    await this.prewarm();
     const run = new Run(this, cfg);
     await run.init();
     this.run = run; this.mode = 'run'; this.paused = false;
     if (this.post) { this.post.enabled = true; this.post.cut?.(); }
     this.hud.setVisible(true); this.hud.show({ driver: run.driverLocal, gunner: run.gunnerLocal });
+    const pad = this.input.lastDevice === 'pad';
+    const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>Y</b> FLIP' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>R</b> FLIP',
+      gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>B</b> DUCK' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>CTRL</b> DUCK',
+      solo: '<b>WASD</b> DRIVE &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>T</b> FLIP &nbsp;|&nbsp; <b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>X</b> MEDKIT' };
+    this.hud.hints([run.role === 'solo' ? H.solo : run.role === 'driver' ? H.driver : H.gunner, 'SHOOT THE DRIVERS &middot; SHOOT THE FUEL TANKS &middot; DON\'T CRASH']);
     return run;
+  }
+  /** Full-screen black fade (0..1) over `secs`. */
+  fade(to, secs = 0.6) {
+    if (!this._fadeEl) { const f = this._fadeEl = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;z-index:5;opacity:0;transition:opacity 0.6s'; document.body.appendChild(f); }
+    this._fadeEl.style.transition = `opacity ${secs}s`; this._fadeEl.style.opacity = to;
   }
   endRun() { if (this.run) { this.run.dispose(); this.run = null; } this.input.releaseLock(); this.hud.setVisible(false); }
 
@@ -109,6 +151,15 @@ export class Game {
     const p = run.states.get(1);
     this.sky.update(dt, this.camera, p ? p.pos : this.camera.position);
     run.wv.night = this.look.night;
+    if (p) {
+      const night = Math.max(0, (this.look.night - 0.05) / 0.6);
+      this.headlights.forEach((l, i) => {
+        const x = i ? -0.62 : 0.62, fz = run.spec.length / 2;
+        l.position.set(x, 0.8 - p.ride.restComHeight, fz - 0.2).applyQuaternion(p.quat).add(p.pos);
+        l.target.position.set(x * 1.6, -2.2 - p.ride.restComHeight, fz + 30).applyQuaternion(p.quat).add(p.pos);
+        l.intensity = p.exploded ? 0 : Math.min(1, night) * 900;
+      });
+    }
     if (this.post && p) {
       const vmax = run.spec.engine.vmax;
       this.post.setParams({ speed01: clamp(p.speed / vmax, 0, 1), boost: p.boosting ? 1 : 0, damage01: 1 - (run.hud2?.hp01 ?? 1), night01: this.look.night, dof: this.paused ? 0.8 : 0, slowmo: 0, anchor: run.wv.cars.get(1)?.view.root });
@@ -121,6 +172,7 @@ export class Game {
     if (this.post) this.post.render(dt); else this.renderer.render(this.scene, this.camera);
     const t3 = performance.now();
     this.hud.update(dt, run.hud2);
+    if (t3 - t0 > 80) (window.__hitches || (window.__hitches = [])).push({ at: +(performance.now() / 1000).toFixed(1), sim: +(t1 - t0).toFixed(0), look: +(t2 - t1).toFixed(0), render: +(t3 - t2).toFixed(0), chunks: run.streamer?.stats?.built, cars: run.states.size, progs: this.renderer.info.programs?.length, ev: (run.allEvents || []).map((e) => e.t).join(',').slice(0, 120) });
     const P = this.perf; P.sim = P.sim * 0.95 + (t1 - t0) * 0.05; P.render = P.render * 0.95 + (t3 - t2) * 0.05; P.frame = P.frame * 0.95 + dt * 1000 * 0.05; P.fps = 1000 / P.frame;
     const st = this.post?.stats; P.calls = st ? st.calls : this.renderer.info.render.calls; P.tris = st ? st.triangles : this.renderer.info.render.triangles; P.worst = Math.max(P.worst * 0.99, dt * 1000);
     this.fx?.update?.(dt);

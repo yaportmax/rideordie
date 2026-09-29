@@ -164,6 +164,8 @@ def add_gear(ctx, fit, pcs):
 def build():
     t0 = time.time()
     ctx = charbuild.Ctx(NAME, SPEC)
+    # the player trucks (truck_t1..t4): steering_wheel = seat_driver + (0, 0.30..0.40, 0.655..0.69), column tilt ~25 deg
+    ctx.seat = dict(wheel_up=0.37, wheel_fwd=0.66)
     ch = ctx.ch
     import lod
     lod.decimate(ch, 0.70, lod.importance(ch, head=1.0, hands=0.6, torso=1.0, limbs=1.0, feet=0.0))

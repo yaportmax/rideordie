@@ -110,7 +110,7 @@ export class HazardFx {
     this.barrelH = h;
     this.barrels = new MeshPool(scene, geo, mat, { cap: 12, restitution: 0.2, friction: 0.35, radius: 0.5, fadeTime: 0.2, drag: 0.4, upright: true });
     this.barrels.rad = h * 0.5;                                                 // geometry is centred: rest half a barrel above the ground
-    for (const m of [this.mines, this.barrels]) m.mesh.castShadow = true;
+    for (const m of [this.mines, this.barrels]) m.mesh.castShadow = false;               // no instanced shadow-depth variant to compile mid-run
   }
   setGround(fn) { if (this.mines) { this.mines.groundFn = fn; this.barrels.groundFn = fn; } }
 

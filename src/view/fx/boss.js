@@ -239,9 +239,9 @@ export class BossFx {
     for (let s = 0; s < 2; s++) {
       if (this.stackGone[s] || !this.local(s ? 'smoke_stack_R' : 'smoke_stack_L', _l)) continue;
       this.toWorld(_l, _w);
-      let a = this.acc[s] + (rage ? 16 : 5) * lod * dt, n = 0; while (a >= 1 && n < 4) { a -= 1; n++; } this.acc[s] = Math.min(a, 1);
+      let a = this.acc[s] + (rage ? 22 : 5) * lod * dt, n = 0; while (a >= 1 && n < 4) { a -= 1; n++; } this.acc[s] = Math.min(a, 1);
       for (let i = 0; i < n; i++) {
-        if (rage) R.puff(fx, _w.x + r.sym(0.2), _w.y + 0.3, _w.z + r.sym(0.2), V.x * 0.85 + r.sym(0.8), V.y + r.range(6, 10), V.z * 0.85 + r.sym(0.8), 0.9, r.range(5, 8), r.range(3.5, 5.5), 0.06, 0.055, 0.052, 0.92, 1.1, 0.5);
+        if (rage) R.puff(fx, _w.x + r.sym(0.2), _w.y + 0.3, _w.z + r.sym(0.2), V.x * 0.85 + r.sym(0.8), V.y + r.range(6, 10), V.z * 0.85 + r.sym(0.8), 1.2, r.range(7, 10), r.range(4, 6), 0.06, 0.055, 0.052, 0.92, 1.1, 0.5);
         else R.puff(fx, _w.x, _w.y + 0.3, _w.z, V.x * 0.85 + r.sym(0.5), V.y + r.range(3, 5), V.z * 0.85 + r.sym(0.5), 0.5, r.range(2.5, 3.5), r.range(2, 3), 0.35, 0.34, 0.33, 0.28, 0.8, 0.4);
       }
       if (rage) {
@@ -266,22 +266,22 @@ export class BossFx {
     j.gy = gy;
     const q = Math.max(0.35, fx.qd), first = j.t < 0.12;
     // turbulent fire licks (fire sheet, spinning billboards) - the body of the jet
-    let n = this._rate(j, 'a0', 80 * q, dt, 8) + (first ? 6 : 0);
+    let n = this._rate(j, 'a0', 115 * q, dt, 10) + (first ? 8 : 0);
     for (let i = 0; i < n; i++) {
-      const D = R.coneDir(r, Dx, Dy, Dz, 0.11), sp = r.range(24, 34), o = r.range(0, 0.6);
+      const D = R.coneDir(r, Dx, Dy, Dz, 0.12), sp = r.range(32, 42), o = r.range(0, 0.6);
       const p = fx.p.reset(); p.pos(_w.x + D.x * o, _w.y + D.y * o, _w.z + D.z * o).vel(V.x + D.x * sp, V.y + D.y * sp, V.z + D.z * sp);
       p.spr = SPR.FIRE; p.f0 = r.int(16); p.nPlay = 16; p.fps = 30; p.rot = r.next() * PI2; p.rotV = r.sym(2.5);
-      p.size(r.range(0.5, 0.8), r.range(3.8, 5.4)); p.sCurve = 0.6; p.drag = 1.7; p.grav = -2.5; p.life = r.range(0.5, 0.72); p.ground = gy;
+      p.size(r.range(0.6, 0.9), r.range(5, 7)); p.sCurve = 0.7; p.drag = 1.6; p.grav = -2.5; p.life = r.range(0.62, 0.85); p.ground = gy;
       p.col0(2.6, 1.7, 0.9, 1).col1(1.4, 0.38, 0.08, 0.9); p.cCurve = 0.8; p.add0 = p.add1 = 1; p.fin = 0.02; p.fout = 0.45;
       fx.pf.emit(p);
     }
     // billowing fireballs that roll out and cool into black smoke
-    n = this._rate(j, 'a1', 26 * q, dt, 4) + (first ? 4 : 0);
+    n = this._rate(j, 'a1', 30 * q, dt, 4) + (first ? 5 : 0);
     for (let i = 0; i < n; i++) {
-      const D = R.coneDir(r, Dx, Dy, Dz, 0.18), sp = r.range(14, 24), o = r.range(1, 3);
+      const D = R.coneDir(r, Dx, Dy, Dz, 0.16), sp = r.range(18, 30), o = r.range(1, 4);
       const p = fx.p.reset(); p.pos(_w.x + D.x * o, _w.y + D.y * o, _w.z + D.z * o).vel(V.x + D.x * sp, V.y + D.y * sp + 1, V.z + D.z * sp);
-      p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(1.2, r.range(5, 7.5)); p.sCurve = 0.45; p.rot = r.sym(0.6); p.rotV = r.sym(0.4);
-      p.drag = 1.5; p.grav = -3; p.life = r.range(1.0, 1.5); p.ground = gy; p.lit = 0.4; p.turb = 0.5;
+      p.spr = SPR.SMOKE; p.f0 = r.int(4) * 4; p.nPlay = 4; p.size(1.4, r.range(6, 9)); p.sCurve = 0.45; p.rot = r.sym(0.6); p.rotV = r.sym(0.4);
+      p.drag = 1.4; p.grav = -3; p.life = r.range(1.1, 1.6); p.ground = gy; p.lit = 0.4; p.turb = 0.5;
       p.col0(4.2, 1.6, 0.3, 1).col1(0.06, 0.05, 0.045, 0.85); p.cCurve = 0.5; p.add0 = 0.85; p.add1 = 0; p.fin = 0.03; p.fout = 0.5;
       fx.pa.emit(p);
     }
@@ -298,8 +298,8 @@ export class BossFx {
     if (r.next() < dt * 10) R.ember(fx, _w.x + Dx * 6, _w.y + 1, _w.z + Dz * 6, V.x + Dx * 8 + r.sym(3), r.range(3, 8), V.z + Dz * 8 + r.sym(3), r.range(1, 2), 0.2, 1);
     // smoke rolling off the tip
     n = this._rate(j, 'a3', 8 * q, dt, 2);
-    for (let i = 0; i < n; i++) { const o = r.range(10, 15); R.puff(fx, _w.x + Dx * o, _w.y + Dy * o + 1.5, _w.z + Dz * o, V.x * 0.6 + Dx * 2, V.y + r.range(2.5, 4.5), V.z * 0.6 + Dz * 2, 2, r.range(6, 9), r.range(3, 4.5), 0.07, 0.065, 0.06, 0.65, 1, 0.6, gy); }
-    fx.glowLight(_w.x + Dx * 6, _w.y + 0.5, _w.z + Dz * 6, 1.0, 0.52, 0.18, 140 + 50 * Math.sin(fx.time * 23 + side), 34, 7000 + side);
+    for (let i = 0; i < n; i++) { const o = r.range(13, 19); R.puff(fx, _w.x + Dx * o, _w.y + Dy * o + 1.5, _w.z + Dz * o, V.x * 0.6 + Dx * 2, V.y + r.range(2.5, 4.5), V.z * 0.6 + Dz * 2, 2, r.range(6, 9), r.range(3, 4.5), 0.07, 0.065, 0.06, 0.65, 1, 0.6, gy); }
+    fx.glowLight(_w.x + Dx * 8, _w.y + 0.5, _w.z + Dz * 8, 1.0, 0.52, 0.18, 170 + 60 * Math.sin(fx.time * 23 + side), 40, 7000 + side);
   }
 
   _charge(j, dt) {
@@ -311,15 +311,15 @@ export class BossFx {
     this.dirWorld(0, 0, 1, _f);
     const k = clamp01(j.t / j.dur), V = this.vel, fl = 0.8 + 0.2 * Math.sin(fx.time * 60) * Math.sin(fx.time * 37);
     const cx = _w.x + _f.x * 0.5, cy = _w.y + _f.y * 0.5, cz = _w.z + _f.z * 0.5;
-    R.glow(fx, cx, cy, cz, (0.6 + 3.4 * k * k) * fl, 0.05, 4 + 7 * k, 2.4 + 5 * k, 1 + 4 * k, false, 1.05);
-    if (k > 0.5) R.glow(fx, cx, cy, cz, (2 + 7 * (k - 0.5)) * fl, 0.05, 1.2 * k, 0.6 * k, 0.2 * k, true, 1.05);
+    R.glow(fx, cx, cy + 0.4, cz, (1.2 + 4.5 * k * k) * fl, 0.05, 5 + 8 * k, 3 + 6 * k, 1.2 + 5 * k, false, 1.05);      // white-hot core
+    R.glow(fx, cx, cy + 0.6, cz, (3 + 9 * k) * fl, 0.05, 0.9 + 2.2 * k, 0.35 + 0.9 * k, 0.08 + 0.2 * k, true, 1.05);    // wide halo pokes out of the hull
     // sparks sucked into the barrel: spawn on a shell, fly to the (moving) muzzle
     const n = this._rate(j, 'a0', (30 + 90 * k) * Math.max(0.5, fx.qd), dt, 6);
     for (let i = 0; i < n; i++) {
       let ux = r.sym(1), uy = r.sym(1), uz = r.sym(1); const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
-      const rad = r.range(2.2, 4.2), life = r.range(0.2, 0.3), sp = rad / life;
+      const rad = r.range(3, 6), life = r.range(0.22, 0.34), sp = rad / life;
       const p = fx.p.reset(); p.pos(cx + ux * rad, cy + uy * rad, cz + uz * rad).vel(V.x - ux * sp, V.y - uy * sp, V.z - uz * sp); p.life = life;
-      p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = 0.3; p.lenSpd = 0.03; p.size(0.05); p.col(6, 4.2, 2.2, 1); p.add0 = p.add1 = 1; p.fin = 0.25; p.fout = 0.15;
+      p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = 0.5; p.lenSpd = 0.035; p.size(0.07); p.col(7, 5, 2.6, 1); p.add0 = p.add1 = 1; p.fin = 0.25; p.fout = 0.15;
       fx.pf.emit(p);
     }
     if (r.next() < dt * (3 + 8 * k)) R.puff(fx, cx, cy, cz, V.x * 0.9 + r.sym(0.5), V.y + r.range(0.5, 1.5), V.z * 0.9 + r.sym(0.5), 0.3, 1.6, 0.9, 0.7, 0.68, 0.65, 0.3, 0.6, 0.4);
@@ -335,16 +335,16 @@ export class BossFx {
     const lod = j.att ? this.lod : fx.qd;
     const k = j.k * (j.dur < 1e8 ? 1 - smooth(j.dur - 5, j.dur, j.t) : 1) * (0.7 + 0.3 * (1 - smooth(0, 4, j.t)) * 1.4);
     const V = this.vel, sk = Math.sqrt(j.k);
-    let n = this._rate(j, 'a0', 18 * k * lod, dt, 4);
+    let n = this._rate(j, 'a0', 24 * k * lod, dt, 5);
     for (let i = 0; i < n; i++) {
-      const p = fx.p.reset(), w = r.range(1.0, 2.0) * sk + 0.4;
+      const p = fx.p.reset(), w = r.range(1.4, 2.6) * sk + 0.5;
       p.pos(W.x + r.sym(0.9 * sk), W.y + r.sym(0.3), W.z + r.sym(0.9 * sk)).vel(V.x * 0.93 + r.sym(0.6), V.y + r.range(2, 3.6), V.z * 0.93 + r.sym(0.6));
       p.spr = SPR.FIRE; p.mode = MODE.UPRIGHT; p.pivot = 1; p.aspect = 1.7; p.f0 = r.int(16); p.nPlay = 16; p.fps = 26; p.size(w, w * 0.5); p.sCurve = 0.7; p.drag = 0.45;
       p.life = r.range(0.45, 0.8); p.col0(1.9, 1.05, 0.45, 1).col1(1.2, 0.42, 0.16, 1); p.add0 = p.add1 = 1; p.fin = 0.08; p.fout = 0.55;
       fx.pf.emit(p);
     }
-    n = this._rate(j, 'a1', (7 * k + 1.5) * lod, dt, 3);
-    for (let i = 0; i < n; i++) R.puff(fx, W.x + r.sym(0.6), W.y + 1, W.z + r.sym(0.6), V.x * 0.72 + r.sym(0.8), V.y + r.range(3, 5.5), V.z * 0.72 + r.sym(0.8), 1.2 * sk, r.range(4.5, 7) * sk + 1, r.range(4, 6), 0.075, 0.07, 0.066, 0.88, 1, 0.6);
+    n = this._rate(j, 'a1', (11 * k + 2) * lod, dt, 3);
+    for (let i = 0; i < n; i++) R.puff(fx, W.x + r.sym(0.6), W.y + 1.2, W.z + r.sym(0.6), V.x * 0.8 + r.sym(0.8), V.y + r.range(3, 5.5), V.z * 0.8 + r.sym(0.8), 1.5 * sk, r.range(6, 9) * sk + 1, r.range(4.5, 6.5), 0.07, 0.066, 0.062, 0.9, 1, 0.6);
     if (r.next() < dt * 3 * k) R.ember(fx, W.x, W.y + 0.5, W.z, V.x * 0.8 + r.sym(2), r.range(3, 8), V.z * 0.8 + r.sym(2), r.range(1, 2.2), 0.18, 1);
     if (k > 0.4) R.glow(fx, W.x, W.y + 0.4, W.z, 2.2 * sk, 0.05, 1.3, 0.55, 0.16, true, 1.05);
   }
@@ -390,14 +390,15 @@ export class BossFx {
     const V = this.vel, q = Math.max(0.4, fx.qd);
     if (j.t - dt <= 0.0001) {                                                  // the slam
       this.toWorld(_l.set(0, 0.2, -20), _w); const gy = this._gy(_w.x, _w.z);
-      for (let i = 0; i < 14 * q; i++) { const a = r.next() * PI2, sp = r.range(4, 12); R.dust(fx, _w.x + Math.cos(a) * 2, gy + 0.3, _w.z + Math.sin(a) * 1.5, V.x * 0.5 + Math.cos(a) * sp, r.range(0.5, 3), V.z * 0.5 + Math.sin(a) * sp, 1.2, r.range(4, 7), r.range(1.8, 3), 0.55, 0.47, 0.37, 0.7, gy, 1.3, 0.1); }
+      for (let i = 0; i < 18 * q; i++) { const a = r.next() * PI2, sp = r.range(4, 14); R.dust(fx, _w.x + Math.cos(a) * 2, gy + 0.3, _w.z + Math.sin(a) * 1.5, V.x * 0.6 + Math.cos(a) * sp, r.range(0.5, 3), V.z * 0.6 + Math.sin(a) * sp, 1.8, r.range(6, 10), r.range(2, 3.2), 0.5, 0.43, 0.34, 0.75, gy, 1.2, 0.1); }
+      for (let i = 0; i < 24 * q; i++) R.spark(fx, _w.x + r.sym(2.5), gy + 0.1, _w.z, V.x * 0.6 + r.sym(8), r.range(2, 8), V.z * 0.6 + r.sym(8), r.range(0.4, 0.9), gy, 1.1, 0.05);
       fx.shakeReq(_w, 0.3, 70);
     }
     for (let s = -1; s <= 1; s += 2) {
       this.toWorld(_l.set(2.2 * s, 0, -20.2), _w); const gy = this._gy(_w.x, _w.z);
       const n = this._rate(j, s < 0 ? 'a0' : 'a1', 55 * q * (1 - smooth(1.6, 2.4, j.t)), dt, 5);
       for (let i = 0; i < n; i++) R.spark(fx, _w.x + r.sym(0.4), gy + 0.05, _w.z, V.x * 0.55 + r.sym(4), r.range(1, 5), V.z * 0.55 + r.sym(4), r.range(0.3, 0.8), gy, 1.1, 0.05);
-      if (r.next() < dt * 10) R.dust(fx, _w.x, gy + 0.2, _w.z, V.x * 0.4 + r.sym(1), r.range(0.4, 1.5), V.z * 0.4 + r.sym(1), 0.8, r.range(3, 4.5), r.range(1.4, 2.2), 0.58, 0.5, 0.4, 0.55, gy);
+      if (r.next() < dt * 16) R.dust(fx, _w.x, gy + 0.2, _w.z, V.x * 0.55 + r.sym(1.5), r.range(0.4, 1.8), V.z * 0.55 + r.sym(1.5), 1.2, r.range(4.5, 6.5), r.range(1.6, 2.4), 0.5, 0.43, 0.34, 0.6, gy);
     }
   }
 

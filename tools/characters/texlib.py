@@ -162,8 +162,30 @@ def _tex_metal_dark(size, seed):
     return _tex_metal(size, seed, rust=0.25)
 
 
-def _tex_armor(size, seed):
+def _tex_scrap(size, seed):
     return _tex_metal(size, seed + 11, rust=0.55)
+
+
+def _tex_armor(size, seed):
+    """Painted plate steel: flat paint (grey-scale, tinted by the material factor) chipped to bare metal at random spots,
+    scratches, light rust in the chips."""
+    n_hi = U.fbm((size, size), 4.0, 3, seed + 1)
+    chips_n = U.fbm((size, size), 14.0, 3, seed + 2) * 0.7 + U.fbm((size, size), 70.0, 3, seed + 3) * 0.3
+    chips = U.smoothstep(0.66, 0.69, chips_n)
+    sc = _scratches(size, seed + 4, 220)
+    rust = chips * U.smoothstep(0.5, 0.7, U.fbm((size, size), 20.0, 2, seed + 5))
+    paint = 0.30 + 0.05 * (n_hi - 0.5)
+    bare = 0.58 + 0.08 * (n_hi - 0.5)
+    lum = paint * (1 - chips) + bare * chips
+    lum = np.maximum(lum, sc * 0.55)
+    alb = np.stack([lum, lum, lum], -1)
+    alb = alb * (1 - rust[..., None] * 0.8) + np.array([0.33, 0.17, 0.08]) * rust[..., None] * 0.8
+    h = 0.5 + 0.35 * (1 - chips) - 0.3 * sc + 0.05 * n_hi
+    rough = 0.62 * (1 - chips) + 0.35 * chips + 0.3 * rust - 0.1 * sc
+    metal = 0.15 * (1 - chips) + 0.95 * chips * (1 - rust) + 0.9 * sc * (1 - chips)
+    orm = np.stack([np.ones_like(lum), np.clip(rough, 0.15, 1), np.clip(metal, 0, 1)], -1)
+    return dict(albedo=(np.clip(alb, 0, 1) * 255 + 0.5).astype(np.uint8), normal=_norm_from_height(h, size, 0.8),
+                orm=(np.clip(orm, 0, 1) * 255 + 0.5).astype(np.uint8))
 
 
 def _tex_rubber(size, seed):
