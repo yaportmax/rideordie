@@ -177,7 +177,7 @@ export class Hazards {
           const sm = road.sample(s);
           const yaw = sm.th + r.range(-0.2, 0.2);
           const y = road.surfaceY(sm, d) + 0.7;
-          bodies.push(this._fixedBox(sim, { x: sm.x + sm.nx * d, y, z: sm.z + sm.nz * d }, ROADBLOCK.half, yaw, { friction: 0.3, restitution: 0.1 }));
+          bodies.push(this._fixedBox(sim, { x: sm.x + sm.nx * d, y, z: sm.z + sm.nz * d }, ROADBLOCK.half, yaw, { friction: 0.3, restitution: 0.1, label: 'roadblock' }));
         }
       }
       const c = road.sample(f.s0 + 5);
@@ -190,7 +190,7 @@ export class Hazards {
         for (const side of f.side === 'both' ? [1, -1] : [f.side === 'L' ? 1 : -1]) {
           const d = side * (HALF_ROAD + 2.6);
           const y = road.surfaceY(sm, d) + 0.42;
-          bodies.push(this._fixedBox(sim, { x: sm.x + sm.nx * d, y, z: sm.z + sm.nz * d }, [0.12, 0.42, seg / 2 + 0.05], sm.th, { friction: 0.02, restitution: 0.02 }));
+          bodies.push(this._fixedBox(sim, { x: sm.x + sm.nx * d, y, z: sm.z + sm.nz * d }, [0.12, 0.42, seg / 2 + 0.05], sm.th, { friction: 0.02, restitution: 0.02, label: 'guardrail' }));
         }
       }
       return { bodies };

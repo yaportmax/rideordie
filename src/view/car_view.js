@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { buildCarLod, makeLodMaterial } from './car_lod.js';
 import { buildEliteKit, ramBar, makeGlint } from './elite_kits.js';
+import { MINIBOSSES } from '../data/boss.js';
+import { VEHICLES } from '../data/vehicles.js';
 
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
@@ -162,3 +164,16 @@ export class CarView {
   dispose() { this.kit?.dispose(); this.glint?.material.dispose(); this.root.removeFromParent(); }
 }
 const _up = new THREE.Vector3(), _fw = new THREE.Vector3(), _qi = new THREE.Quaternion();
+
+/** Prewarm (Game.prewarm): one car per warlord with its kit, nameplate, flags and a visible wind-up glint, so the first warlord /
+ *  raider wind-up compiles no shader programs and uploads no canvas textures mid-run. */
+export function warmRaiderViews() {
+  const out = [];
+  MINIBOSSES.forEach((M, i) => {
+    const v = new CarView(VEHICLES[M.spec], { paint: 0x888888, paint2: 0x333333 });
+    v.kit = buildEliteKit(v, v.spec, i + 1, i + 1);
+    v.glint = makeGlint(); v.glint.visible = true; v.glint.material.opacity = 1; v.root.add(v.glint);
+    out.push(v.root);
+  });
+  return out;
+}

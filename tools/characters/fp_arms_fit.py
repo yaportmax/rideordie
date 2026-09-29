@@ -155,8 +155,10 @@ class Hand:
                     ax=self.to_g(np.array([a for a, _ in axes_])), rad=np.array([r for _, r in axes_]))
 
 
-def fit_finger(hand, f, sdf, lo, hi, x0, target=None, tw=0.0, contact_w=1.0, spread=0.0, thumb_extra=None):
-    """Fit (mcp, pip, dip) [+ (opp, abd) for the thumb] so the pads touch the solid without penetration."""
+def fit_finger(hand, f, sdf, lo, hi, x0, target=None, tw=0.0, contact_w=1.0, spread=0.0, thumb_extra=None, pad_target=None, pw=0.0,
+               pen_w=2.0):
+    """Fit (mcp, pip, dip) [+ (opp, abd) for the thumb] so the pads touch the solid without penetration.
+    target: fingertip goal (weight tw); pad_target: goal for the distal pad centre (weight pw), e.g. the trigger face."""
     nth = 5 if f == "Thumb" else 3
 
     def unpack(x):
@@ -171,10 +173,13 @@ def fit_finger(hand, f, sdf, lo, hi, x0, target=None, tw=0.0, contact_w=1.0, spr
         da = sdf(g["ax"])
         c = contact_w * np.sum(np.minimum(dp, 25.0) ** 2) * 0.02
         pen = np.maximum(g["rad"] * 0.85 - da, 0)
-        c += np.sum(pen ** 2) * 2.0
-        c += np.sum(np.maximum(-dp, 0) ** 2) * 1.0
+        c += np.sum(pen ** 2) * pen_w
+        c += np.sum(np.maximum(-dp, 0) ** 2) * pen_w * 0.5
         if target is not None:
             c += tw * np.sum((g["P"][-1] - np.asarray(target)) ** 2) * 0.05
+        if pad_target is not None:
+            pad = (g["pads"][4] + g["pads"][5]) * 0.5
+            c += pw * np.sum((pad - np.asarray(pad_target)) ** 2) * 0.05
         # natural coupling: dip ~ 0.6 pip
         if f != "Thumb":
             c += 0.002 * (x[2] - 0.6 * x[1]) ** 2

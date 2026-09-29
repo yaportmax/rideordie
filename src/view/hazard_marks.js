@@ -196,4 +196,13 @@ export class HazardMarks {
   }
 
   dispose() { for (const s of this.sites.values()) this._dispose(s); this.sites.clear(); this.scene.remove(this.group); }
+
+  /** Prewarm (Game.prewarm): every material/texture a roadblock site uses, on a dummy straight road. */
+  static warmGroup() {
+    const road = { featuresIn: () => [], sample: (s) => ({ x: 0, y: 0, z: s, th: 0, nx: 1, nz: 0 }), pointAt: (s, d, o) => { o.x = d; o.y = 0; o.z = s; return o; } };
+    const hm = new HazardMarks(new THREE.Group(), road);
+    const site = hm._build({ s0: 300, gap: 1, seed: 1 });
+    for (const sp of site.strobes) sp.material.opacity = 1;
+    return site.group;
+  }
 }

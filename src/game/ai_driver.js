@@ -36,10 +36,13 @@ export class AIDriver {
       if (n.s > P.s && n.s < P.s + 90 && Math.abs(n.d - want) < 3.2) want = n.d > 0 ? n.d - 4 : n.d + 4;
     }
     // cars directly ahead in our lane: go around
+    // cars and WRECKS ahead in our line: go around (wrecks are the most solid thing on the road); look further ahead at speed
+    const lookCar = 30 + v.speed * 0.9;
     if (!rbLock) for (const car of sim.cars.values()) {
-      if (car === P || car.exploded && car.wreckT > 3) continue;
+      if (car === P) continue;
       const ahead = car.s - P.s;
-      if (ahead > 4 && ahead < 45 && Math.abs(car.d - want) < 2.6) want = car.d > P.d ? car.d - 3.6 : car.d + 3.6;
+      const wide = car.exploded ? 3.2 : 2.6;
+      if (ahead > 3 && ahead < lookCar && Math.abs(car.d - want) < wide) want = car.d > P.d ? car.d - (wide + 1.1) : car.d + (wide + 1.1);
     }
     want = clamp(want, -HALF_ROAD + 1.4, HALF_ROAD - 1.4);
     // rammers closing in from the side: flinch away (and keep a gunner-friendly spacing)
