@@ -1,0 +1,55 @@
+{
+ "id": "ruin_apartment_a",
+ "file": "models/structures/ruin_apartment_a.glb",
+ "tris": 5569,
+ "collision_tris": 168,
+ "size_kb": 484.2,
+ "bbox_min": [
+  -20.8,
+  -0.4,
+  -7.7
+ ],
+ "bbox_max": [
+  21.36,
+  28.4,
+  15.77
+ ],
+ "dims": [
+  42.16,
+  28.8,
+  23.47
+ ],
+ "materials": [
+  "brick",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "metal_bare",
+  "metal_dark",
+  "rebar",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 374,
+  "concrete": 1676,
+  "brick": 1966,
+  "glass": 245,
+  "canvas": 40,
+  "metal_bare": 82,
+  "rebar": 528,
+  "metal_dark": 570,
+  "wood": 88
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined 8-floor brick apartment slab with balconies, stair tower at the -X end, collapsed +X end and a blast hole. Front +Z, origin base centre.",
+  "height": 24.0,
+  "footprint": [
+   37,
+   13
+  ],
+  "front": "+Z",
+  "lean_deg": 1.2
+ }
+}

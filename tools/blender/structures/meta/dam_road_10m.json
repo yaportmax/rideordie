@@ -1,0 +1,60 @@
+{
+ "id": "dam_road_10m",
+ "file": "models/structures/dam_road_10m.glb",
+ "tris": 3568,
+ "collision_tris": 36,
+ "size_kb": 315.3,
+ "bbox_min": [
+  -9.35,
+  -4.0,
+  0.0
+ ],
+ "bbox_max": [
+  9.98,
+  9.39,
+  10.07
+ ],
+ "dims": [
+  19.33,
+  13.39,
+  10.07
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "metal_bare",
+  "metal_dark",
+  "rust"
+ ],
+ "nodes": {
+  "road_surface": 140,
+  "concrete": 884,
+  "concrete_dark": 592,
+  "metal_dark": 1368,
+  "metal_bare": 472,
+  "hazard": 32,
+  "rust": 56,
+  "light_amber": 24
+ },
+ "sockets": {
+  "lamp_0": [
+   5.1,
+   9.1,
+   2.5
+  ],
+  "lamp_1": [
+   -5.1,
+   9.1,
+   7.5
+  ]
+ },
+ "notes": {
+  "desc": "Modular 10 m crest-road segment for the dam. Origin road centre at z=0, extends +Z, road_surface y=0 (x -7..7). Chains seamlessly every 10 m.",
+  "sides": "Reservoir side = -X (right of driver), downstream drop = +X (left). Rotate yaw to suit; crest width 18 m (x -9.4..9.5).",
+  "body": "crest body extends to y=-4 (fill below with dam_wall_backdrop or terrain)",
+  "lamps": "sockets lamp_0 (+X, z=2.5), lamp_1 (-X, z=7.5)"
+ }
+}

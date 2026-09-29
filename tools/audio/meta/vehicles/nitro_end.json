@@ -1,0 +1,1 @@
+{"duration": 1.1, "peak_db": -1.03, "rms_db": -24.54, "lufs_i": -22.84, "lufs_m": -17.44, "lufs_s": -13.97, "dc": -9.5e-05, "centroid": 3121.0, "clip": 0, "rise_ms": 43.79, "tail_50db_s": 0.868, "bands_db": [-12.3, -8.4, -2.7, -5.8], "src_len": 48510, "dec_len": 48510, "variation": 0, "build_s": 0.63, "file": "vehicles/nitro_end.ogg", "bytes": 15653}

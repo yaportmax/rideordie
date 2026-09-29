@@ -1,0 +1,20 @@
+{
+ "name": "mile_marker",
+ "file": "mile_marker.glb",
+ "category": "furniture",
+ "height": 1.361,
+ "radius": 0.169,
+ "size": [
+  0.339,
+  1.361,
+  0.122
+ ],
+ "tris": 352,
+ "materials": [
+  "galvanized",
+  "mile_marker",
+  "reflective_white"
+ ],
+ "notes": "Highway mile marker MILE 87, plate 0.30 x 0.45 m on a 1.36 m post, leaning. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction.",
+ "kb": 236.2
+}

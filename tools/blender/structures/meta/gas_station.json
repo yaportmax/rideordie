@@ -1,0 +1,92 @@
+{
+ "id": "gas_station",
+ "file": "models/structures/gas_station.glb",
+ "tris": 5868,
+ "collision_tris": 132,
+ "size_kb": 505.1,
+ "bbox_min": [
+  -13.0,
+  0.0,
+  -7.5
+ ],
+ "bbox_max": [
+  13.38,
+  10.16,
+  14.5
+ ],
+ "dims": [
+  26.38,
+  10.16,
+  22.0
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "light_amber",
+  "light_head",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rebar",
+  "rubber",
+  "rust",
+  "steel_beam",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 544,
+  "asphalt": 44,
+  "concrete": 600,
+  "paint2": 868,
+  "paint": 192,
+  "metal_dark": 1294,
+  "glass": 114,
+  "wood": 144,
+  "metal_bare": 404,
+  "rust": 168,
+  "rubber": 672,
+  "steel_beam": 120,
+  "rebar": 144,
+  "light_head": 48,
+  "light_amber": 512
+ },
+ "sockets": {
+  "sign_light": [
+   11.6,
+   9.0,
+   13.3
+  ],
+  "pump_0": [
+   0.5,
+   0.33,
+   6.6
+  ],
+  "pump_1": [
+   0.5,
+   0.33,
+   8.6
+  ],
+  "pump_2": [
+   4.5,
+   0.33,
+   6.6
+  ],
+  "pump_3": [
+   4.5,
+   0.33,
+   8.6
+  ]
+ },
+ "notes": {
+  "desc": "Roadside gas station: convenience shop + garage bay (back, x<0), pump canopy (front, z>0) with 2 islands x 2 double-sided pumps, price sign pole. Front faces +Z; footprint 26 x 22 m; canopy underside y=5.0.",
+  "footprint": [
+   26,
+   22
+  ],
+  "front": "+Z",
+  "canopy_clearance": 5.0
+ }
+}

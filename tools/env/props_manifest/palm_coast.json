@@ -1,0 +1,20 @@
+{
+ "name": "palm_coast",
+ "file": "palm_coast.glb",
+ "category": "tree_palm",
+ "height": 10.249,
+ "radius": 5.347,
+ "size": [
+  7.609,
+  10.249,
+  7.446
+ ],
+ "tris": 1166,
+ "materials": [
+  "bark_palm",
+  "palm_coconut",
+  "palm_fronds"
+ ],
+ "notes": "coastal palm: ringed bark_palm trunk (curved, leans +X), 15 alpha-tested (MASK) V-folded frond cards, coconuts; origin at trunk base",
+ "kb": 390.0
+}

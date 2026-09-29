@@ -1,0 +1,1 @@
+{"duration": 0.38, "peak_db": -1.16, "rms_db": -25.69, "lufs_i": -25.17, "lufs_m": -22.95, "lufs_s": -18.14, "dc": -3.2e-05, "centroid": 3733.0, "clip": 0, "rise_ms": 1.54, "tail_50db_s": 0.225, "bands_db": [-21.3, -16.4, -1.7, -5.4], "src_len": 16758, "dec_len": 16758, "variation": 0, "build_s": 0.35, "file": "guns/smg_mag_out.ogg", "bytes": 6887}

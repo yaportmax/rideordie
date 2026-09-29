@@ -1,0 +1,15 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--force_high_performance_gpu'] });
+const ctxA = await browser.newContext(), ctxB = await browser.newContext();
+const A = await ctxA.newPage(), B = await ctxB.newPage();
+A.on('pageerror', (e) => console.log('A err', e.message)); B.on('pageerror', (e) => console.log('B err', e.message));
+await A.goto('http://localhost:5173/nettest.html?role=host'); await A.waitForFunction('window.__code', null, { timeout: 30000 });
+const code = await A.evaluate('window.__code'); console.log('code', code);
+await B.goto('http://localhost:5173/nettest.html?role=guest'); await B.waitForFunction('window.__joinReady');
+await B.evaluate((c) => window.join(c), code);
+await B.waitForFunction('window.__ready', null, { timeout: 30000 });
+await new Promise((r) => setTimeout(r, 2500));
+const a = await A.evaluate('({log: window.__log.length, rel: window.__log.filter(x=>x[0]==="rel").map(x=>JSON.stringify(x[1])), fast: window.__log.filter(x=>x[0]==="fast").length, rtt: window.__net.rtt, fastCh: !!window.__net.fast && window.__net.fast.readyState})');
+const b = await B.evaluate('({log: window.__log.length, rel: window.__log.filter(x=>x[0]==="rel").map(x=>JSON.stringify(x[1])), fast: window.__log.filter(x=>x[0]==="fast").length, rtt: window.__net.rtt, fastCh: !!window.__net.fast && window.__net.fast.readyState})');
+console.log('host got', a); console.log('guest got', b);
+await browser.close();

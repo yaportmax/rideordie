@@ -1,0 +1,71 @@
+{
+ "id": "motel",
+ "file": "models/structures/motel.glb",
+ "tris": 5834,
+ "collision_tris": 48,
+ "size_kb": 505.9,
+ "bbox_min": [
+  -15.0,
+  -1.8,
+  -9.2
+ ],
+ "bbox_max": [
+  17.0,
+  9.6,
+  17.0
+ ],
+ "dims": [
+  32.0,
+  11.4,
+  26.2
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "light_green",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rebar",
+  "rubber",
+  "sand",
+  "water_dark",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 934,
+  "asphalt": 6,
+  "concrete": 852,
+  "paint2": 516,
+  "metal_dark": 1978,
+  "paint": 280,
+  "metal_bare": 272,
+  "glass": 20,
+  "wood": 108,
+  "rebar": 64,
+  "water_dark": 2,
+  "light_tail": 328,
+  "light_green": 242,
+  "sand": 40,
+  "rubber": 192
+ },
+ "sockets": {
+  "sign_neon": [
+   -12.0,
+   8.6,
+   13.0
+  ]
+ },
+ "notes": {
+  "desc": "L-shaped single-storey motel: wing A (rooms, doors face +Z into the courtyard) + wing B (office + rooms, doors face -X), walkway canopies, empty pool with fence, pole sign MOTEL/VACANCY. Wing B has a collapsed roof section. Front faces +Z, courtyard opens toward +Z/-X. Footprint ~31 x 23 m. paint = doors (tint), paint2 = fascia/trim (tint).",
+  "footprint": [
+   31,
+   23
+  ],
+  "front": "+Z"
+ }
+}

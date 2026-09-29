@@ -1,0 +1,1 @@
+{"duration": 0.51, "peak_db": -1.98, "rms_db": -26.72, "lufs_i": -23.7, "lufs_m": -22.7, "lufs_s": -17.75, "dc": 2.2e-05, "centroid": 3217.0, "clip": 0, "rise_ms": 252.86, "tail_50db_s": 0.377, "bands_db": [-21.2, -7.8, -2.4, -6.1], "src_len": 22491, "dec_len": 22491, "variation": 0, "build_s": 0.52, "file": "guns/smg_bolt.ogg", "bytes": 8388}

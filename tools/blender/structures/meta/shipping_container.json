@@ -1,0 +1,49 @@
+{
+ "id": "shipping_container",
+ "file": "models/structures/shipping_container.glb",
+ "tris": 1488,
+ "collision_tris": 12,
+ "size_kb": 132.7,
+ "bbox_min": [
+  -1.23,
+  0.0,
+  -3.04
+ ],
+ "bbox_max": [
+  1.23,
+  2.59,
+  3.09
+ ],
+ "dims": [
+  2.46,
+  2.59,
+  6.13
+ ],
+ "materials": [
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rust",
+  "wood"
+ ],
+ "nodes": {
+  "paint": 832,
+  "metal_dark": 412,
+  "wood": 44,
+  "metal_bare": 80,
+  "paint2": 48,
+  "rust": 72
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "20 ft ISO container 6.06 x 2.44 x 2.59 m, doors at +Z. `paint` = whole shell (grayscale wear, game tints it); `paint2` = stencil marks; rust patches.",
+  "dims": [
+   2.44,
+   2.59,
+   6.06
+  ],
+  "front": "+Z (doors)",
+  "stack_height": 2.59
+ }
+}

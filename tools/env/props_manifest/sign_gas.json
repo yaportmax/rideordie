@@ -1,0 +1,22 @@
+{
+ "name": "sign_gas",
+ "file": "sign_gas.glb",
+ "category": "furniture",
+ "height": 8.641,
+ "radius": 1.727,
+ "size": [
+  3.455,
+  8.641,
+  0.84
+ ],
+ "tris": 2342,
+ "materials": [
+  "concrete",
+  "galvanized",
+  "rust_metal",
+  "sign_gas_cabinet",
+  "sign_gas_prices"
+ ],
+ "notes": "Roadside gas-station pole sign, 8.6 m: double-sided GAS cabinet 3.2 x 1.5 m + hanging price board 1.4 x 1.4 m (right half, one chain broken), concrete pier. Both faces readable (+Y and -Y in Blender).",
+ "kb": 1118.6
+}

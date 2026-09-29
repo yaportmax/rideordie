@@ -1,0 +1,1 @@
+{"duration": 1.2913, "peak_db": -1.59, "rms_db": -19.71, "lufs_i": -19.7, "lufs_m": -11.78, "lufs_s": -8.82, "dc": 0.000281, "centroid": 629.0, "clip": 0, "rise_ms": 0.54, "tail_50db_s": 0.909, "bands_db": [-4.7, -4.2, -5.5, -27.1], "src_len": 56948, "dec_len": 56948, "variation": 1, "build_s": 0.72, "file": "guns/fire_enemy_heavy_2.ogg", "bytes": 11747}

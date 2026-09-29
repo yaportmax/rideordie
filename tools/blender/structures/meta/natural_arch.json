@@ -1,0 +1,47 @@
+{
+ "id": "natural_arch",
+ "file": "models/structures/natural_arch.glb",
+ "tris": 5236,
+ "collision_tris": 98,
+ "size_kb": 463.8,
+ "bbox_min": [
+  -27.17,
+  -1.5,
+  -1.19
+ ],
+ "bbox_max": [
+  28.84,
+  27.73,
+  15.45
+ ],
+ "dims": [
+  56.01,
+  29.23,
+  16.64
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_red",
+  "sand"
+ ],
+ "nodes": {
+  "rock_red": 3631,
+  "sand": 1067,
+  "dirt_red": 538
+ },
+ "sockets": {
+  "arch_crown": [
+   0,
+   17.6,
+   7.0
+  ]
+ },
+ "notes": {
+  "desc": "Natural rock arch over the road, road-aligned (+Z), z=0..14. Inner clear opening: 26.8 m wide at the ground (x +-13.4), 17.6 m crown; >=15 m over the driving lane x in [-7,7]. Legs beyond |x|=13.4 out to |x|~24.",
+  "clear_span": 26.8,
+  "crown_y": 17.6,
+  "depth": 14.0,
+  "collision": "legs only (2 hulls)",
+  "placement": "road passes through at x=0; terrain should rise at the legs"
+ }
+}

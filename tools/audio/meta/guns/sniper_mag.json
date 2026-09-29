@@ -1,0 +1,1 @@
+{"duration": 0.38, "peak_db": -1.72, "rms_db": -25.84, "lufs_i": -26.01, "lufs_m": -23.1, "lufs_s": -17.58, "dc": 2.7e-05, "centroid": 2132.0, "clip": 0, "rise_ms": 87.1, "tail_50db_s": 0.253, "bands_db": [-18.4, -10.2, -1.0, -10.5], "src_len": 16758, "dec_len": 16758, "variation": 0, "build_s": 0.39, "file": "guns/sniper_mag.ogg", "bytes": 7008}

@@ -1,0 +1,1 @@
+{"duration": 1.2534, "peak_db": -1.67, "rms_db": -22.43, "lufs_i": -21.56, "lufs_m": -14.63, "lufs_s": -11.75, "dc": 6.3e-05, "centroid": 1338.0, "clip": 0, "rise_ms": 0.23, "tail_50db_s": 0.941, "bands_db": [-5.0, -7.0, -3.6, -12.7], "src_len": 55276, "dec_len": 55276, "variation": 1, "build_s": 1.7, "file": "guns/fire_rifle_2.ogg", "bytes": 14067}

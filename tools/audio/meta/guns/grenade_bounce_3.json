@@ -1,0 +1,1 @@
+{"duration": 0.55, "peak_db": -1.33, "rms_db": -21.67, "lufs_i": -22.41, "lufs_m": -17.33, "lufs_s": -11.77, "dc": -3.1e-05, "centroid": 1241.0, "clip": 0, "rise_ms": 2.7, "tail_50db_s": 0.498, "bands_db": [-24.9, -4.7, -2.1, -13.6], "src_len": 24255, "dec_len": 24255, "variation": 2, "build_s": 0.3, "file": "guns/grenade_bounce_3.ogg", "bytes": 6838}

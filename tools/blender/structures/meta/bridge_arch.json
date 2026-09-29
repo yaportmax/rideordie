@@ -1,0 +1,57 @@
+{
+ "id": "bridge_arch",
+ "file": "models/structures/bridge_arch.glb",
+ "tris": 10044,
+ "collision_tris": 468,
+ "size_kb": 878.2,
+ "bbox_min": [
+  -9.3,
+  -3.2,
+  -1.6
+ ],
+ "bbox_max": [
+  9.3,
+  19.1,
+  41.6
+ ],
+ "dims": [
+  18.6,
+  22.3,
+  43.2
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint"
+ ],
+ "nodes": {
+  "road_surface": 560,
+  "concrete": 1436,
+  "paint": 5384,
+  "light_amber": 192,
+  "metal_bare": 88,
+  "metal_dark": 1828,
+  "concrete_dark": 400,
+  "light_head": 72,
+  "light_tail": 84
+ },
+ "sockets": {
+  "arch_crown": [
+   0,
+   17.6,
+   20
+  ]
+ },
+ "notes": {
+  "desc": "Steel through-arch bridge, 40 m, road along +Z (z=0..40). Twin truss arch ribs at x=+-8.3, crown y=17.6 at z=20, bracing above y=7.5 (clear of vehicles).",
+  "clearance_under_bracing": 7.5,
+  "deck_underside_y": -1.3,
+  "beacon": "light_tail red beacons on the crown; crown socket `arch_crown`"
+ }
+}

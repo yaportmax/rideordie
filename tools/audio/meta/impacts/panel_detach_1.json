@@ -1,0 +1,1 @@
+{"duration": 0.75, "peak_db": -2.85, "rms_db": -21.33, "lufs_i": -21.6, "lufs_m": -15.72, "lufs_s": -12.57, "dc": -3.9e-05, "centroid": 1127.0, "clip": 0, "rise_ms": 0.2, "tail_50db_s": 0.578, "bands_db": [-10.6, -4.4, -3.0, -13.3], "src_len": 33075, "dec_len": 33075, "file": "impacts/panel_detach_1.ogg", "variation": 0, "bytes": 9578, "build_s": 1.19}

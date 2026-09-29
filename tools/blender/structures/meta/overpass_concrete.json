@@ -1,0 +1,57 @@
+{
+ "id": "overpass_concrete",
+ "file": "models/structures/overpass_concrete.glb",
+ "tris": 9116,
+ "collision_tris": 168,
+ "size_kb": 758.0,
+ "bbox_min": [
+  -20.0,
+  -0.5,
+  0.0
+ ],
+ "bbox_max": [
+  20.0,
+  9.38,
+  12.81
+ ],
+ "dims": [
+  40.0,
+  9.88,
+  12.81
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_head",
+  "metal_dark",
+  "rebar",
+  "rubber"
+ ],
+ "nodes": {
+  "road_surface": 240,
+  "concrete": 5244,
+  "concrete_dark": 2424,
+  "metal_dark": 784,
+  "rebar": 256,
+  "rubber": 96,
+  "light_head": 72
+ },
+ "sockets": {
+  "deck_top": [
+   0,
+   8.0,
+   6.0
+  ]
+ },
+ "notes": {
+  "desc": "Concrete highway overpass crossing OVER the road at 90 deg. Deck runs along X (x -20..20), spans z 0..12; the road (x -7..7) passes underneath along +Z. Clearance 6.5 m under girders. Pier bents beside the road at x=+-9.6; end spans sit on sloped embankment abutments (x +-10.5..20). Deck top road surface at y=8.0 (node road_surface).",
+  "clearance": 6.5,
+  "deck_top_y": 8.0,
+  "deck_size": [
+   40.0,
+   12.0
+  ],
+  "damage": "one parapet section collapsed at +X/+Z corner with hanging rebar"
+ }
+}

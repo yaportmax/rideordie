@@ -1,0 +1,1 @@
+{"duration": 0.45, "peak_db": -2.19, "rms_db": -22.37, "lufs_i": -20.69, "lufs_m": -18.9, "lufs_s": -14.5, "dc": -5e-06, "centroid": 3330.0, "clip": 0, "rise_ms": 0.36, "tail_50db_s": 0.44, "bands_db": [-58.8, -49.4, -0.9, -7.5], "src_len": 19845, "dec_len": 19845, "variation": 1, "build_s": 0.67, "file": "ui/coin_2.ogg", "bytes": 6574}

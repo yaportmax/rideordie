@@ -1,0 +1,1 @@
+{"duration": 0.38, "peak_db": -1.68, "rms_db": -27.45, "lufs_i": -27.16, "lufs_m": -24.71, "lufs_s": -19.26, "dc": -6e-06, "centroid": 4869.0, "clip": 0, "rise_ms": 1.45, "tail_50db_s": 0.153, "bands_db": [-30.6, -19.5, -2.9, -3.3], "src_len": 16758, "dec_len": 16758, "variation": 0, "build_s": 0.3, "file": "guns/pistol_mag_out.ogg", "bytes": 6393}

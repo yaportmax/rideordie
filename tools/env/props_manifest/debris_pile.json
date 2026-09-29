@@ -1,0 +1,22 @@
+{
+ "name": "debris_pile",
+ "file": "debris_pile.glb",
+ "category": "furniture",
+ "height": 1.017,
+ "radius": 1.107,
+ "size": [
+  2.205,
+  1.017,
+  2.214
+ ],
+ "tris": 1692,
+ "materials": [
+  "concrete",
+  "concrete_cracked",
+  "galvanized",
+  "rust_metal",
+  "wood_planks"
+ ],
+ "notes": "2 m collapsed-building rubble heap: concrete chunks, cinder blocks, planks, sheet metal, bent rebar, pipe",
+ "kb": 985.3
+}

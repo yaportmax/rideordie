@@ -1,0 +1,63 @@
+{
+ "id": "spike_gate",
+ "file": "models/structures/spike_gate.glb",
+ "tris": 4756,
+ "collision_tris": 48,
+ "size_kb": 405.9,
+ "bbox_min": [
+  -7.19,
+  0.0,
+  -2.13
+ ],
+ "bbox_max": [
+  7.19,
+  7.06,
+  1.96
+ ],
+ "dims": [
+  14.39,
+  7.06,
+  4.09
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "metal_bare",
+  "metal_dark",
+  "rubber",
+  "rust",
+  "spike",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 272,
+  "steel_beam": 304,
+  "rust": 384,
+  "metal_dark": 1096,
+  "metal_bare": 24,
+  "spike": 1328,
+  "rubber": 640,
+  "bone": 412,
+  "hazard": 144,
+  "light_amber": 104,
+  "canvas": 48
+ },
+ "sockets": {
+  "gap_center": [
+   0,
+   0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Raider spiked road gate: 14 m wide (x -7..7) with a 5 m gap (x -2.5..2.5) between two gate posts with braziers and skulls; open gate leaves folded against the posts; lintel banner at y=5.2 (clearance 5 m). Front faces -Z. Origin road centre, ground level.",
+  "gap": [
+   -2.5,
+   2.5
+  ],
+  "clearance": 5.0
+ }
+}

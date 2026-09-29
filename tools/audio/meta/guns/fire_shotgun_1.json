@@ -1,0 +1,1 @@
+{"duration": 1.5967, "peak_db": -1.46, "rms_db": -19.86, "lufs_i": -20.37, "lufs_m": -11.14, "lufs_s": -9.39, "dc": -3.6e-05, "centroid": 453.0, "clip": 0, "rise_ms": 200.43, "tail_50db_s": 1.196, "bands_db": [-2.2, -6.1, -8.4, -19.6], "src_len": 70413, "dec_len": 70413, "variation": 0, "build_s": 1.52, "file": "guns/fire_shotgun_1.ogg", "bytes": 16416}

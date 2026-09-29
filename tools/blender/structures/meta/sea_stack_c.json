@@ -1,0 +1,37 @@
+{
+ "id": "sea_stack_c",
+ "file": "models/structures/sea_stack_c.glb",
+ "tris": 2552,
+ "collision_tris": 108,
+ "size_kb": 234.7,
+ "bbox_min": [
+  -22.43,
+  -1.5,
+  -18.47
+ ],
+ "bbox_max": [
+  23.56,
+  37.5,
+  18.44
+ ],
+ "dims": [
+  45.99,
+  39.0,
+  36.92
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_grey",
+  "sand"
+ ],
+ "nodes": {
+  "rock_grey": 1804,
+  "sand": 436,
+  "dirt_red": 312
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Twin-spire sea stack (34 m + 23 m) joined by a saddle. Origin at waterline centre between the spires.",
+  "height": 34
+ }
+}

@@ -1,0 +1,89 @@
+{
+ "id": "dam_wall",
+ "file": "models/structures/dam_wall.glb",
+ "tris": 7948,
+ "collision_tris": 156,
+ "size_kb": 691.3,
+ "bbox_min": [
+  -75.0,
+  -45.0,
+  -25.0
+ ],
+ "bbox_max": [
+  43.4,
+  9.39,
+  85.0
+ ],
+ "dims": [
+  118.4,
+  54.39,
+  110.0
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "metal_bare",
+  "metal_dark",
+  "steel_beam",
+  "water_dark"
+ ],
+ "nodes": {
+  "road_surface": 32,
+  "concrete": 4080,
+  "concrete_dark": 2028,
+  "metal_dark": 1228,
+  "metal_bare": 264,
+  "light_amber": 60,
+  "steel_beam": 252,
+  "water_dark": 4
+ },
+ "sockets": {
+  "lampA_0": [
+   5.1,
+   9.1,
+   6.0
+  ],
+  "lampA_1": [
+   -5.1,
+   9.1,
+   16.0
+  ],
+  "lampB_0": [
+   5.1,
+   9.1,
+   30.0
+  ],
+  "lampC_0": [
+   5.1,
+   9.1,
+   44.0
+  ],
+  "lampC_1": [
+   -5.1,
+   9.1,
+   54.0
+  ],
+  "crest_start": [
+   0,
+   0,
+   0
+  ],
+  "crest_end": [
+   0,
+   0,
+   60
+  ],
+  "spillway_center": [
+   0,
+   -14,
+   30
+  ]
+ },
+ "notes": {
+  "desc": "60 m hero section of the dam crest. Road along +Z (z 0..60) at y=0 (road_surface, x -7..7), balustrades, lamps, expansion joints; reservoir on -X (water_dark at y=-4), gravity-dam body drops 45 m on the downstream +X side (sloped face, base at y=-45), one spillway bay (z 22..38, 16 m) with a steel radial gate and a stepped chute; road crosses the bay on a girder deck over the piers (z 18..22, 38..42). Chain more `dam_road_10m` beyond z=0 / z=60 (same crest width). No terrain included: place terrain at y=-45 on the +X side.",
+  "crest_width": 18.0,
+  "base_y": -45.0
+ }
+}

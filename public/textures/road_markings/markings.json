@@ -1,0 +1,504 @@
+{
+ "px_per_m": 128,
+ "atlas": [
+  2048,
+  2048
+ ],
+ "note": "forward = image up (+V); uv = [u0, v0, u1, v1] in three.js convention (flipY true); alpha-blended decals",
+ "items": {
+  "dash_white_a": {
+   "x": 1840,
+   "y": 10,
+   "w": 44,
+   "h": 410,
+   "size_m": [
+    0.34,
+    3.2
+   ],
+   "kind": "dash",
+   "color": "white",
+   "uv": [
+    0.89844,
+    0.79492,
+    0.91992,
+    0.99512
+   ],
+   "note": "3.0 m dash; repeat every 12 m (9 m gap)"
+  },
+  "dash_white_b": {
+   "x": 1894,
+   "y": 10,
+   "w": 44,
+   "h": 410,
+   "size_m": [
+    0.34,
+    3.2
+   ],
+   "kind": "dash",
+   "color": "white",
+   "uv": [
+    0.9248,
+    0.79492,
+    0.94629,
+    0.99512
+   ],
+   "note": "3.0 m dash; repeat every 12 m (9 m gap)"
+  },
+  "dash_white_c": {
+   "x": 1948,
+   "y": 10,
+   "w": 44,
+   "h": 410,
+   "size_m": [
+    0.34,
+    3.2
+   ],
+   "kind": "dash",
+   "color": "white",
+   "uv": [
+    0.95117,
+    0.79492,
+    0.97266,
+    0.99512
+   ],
+   "note": "3.0 m dash; repeat every 12 m (9 m gap)"
+  },
+  "dash_yellow_a": {
+   "x": 10,
+   "y": 788,
+   "w": 44,
+   "h": 410,
+   "size_m": [
+    0.34,
+    3.2
+   ],
+   "kind": "dash",
+   "color": "yellow",
+   "uv": [
+    0.00488,
+    0.41504,
+    0.02637,
+    0.61523
+   ],
+   "note": ""
+  },
+  "dash_yellow_b": {
+   "x": 64,
+   "y": 788,
+   "w": 44,
+   "h": 410,
+   "size_m": [
+    0.34,
+    3.2
+   ],
+   "kind": "dash",
+   "color": "yellow",
+   "uv": [
+    0.03125,
+    0.41504,
+    0.05273,
+    0.61523
+   ],
+   "note": ""
+  },
+  "edge_white_a": {
+   "x": 10,
+   "y": 10,
+   "w": 44,
+   "h": 768,
+   "size_m": [
+    0.34,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "white",
+   "uv": [
+    0.00488,
+    0.62012,
+    0.02637,
+    0.99512
+   ],
+   "note": "solid line, 6 m; stack end to end (bottom of one = top of next)"
+  },
+  "edge_white_b": {
+   "x": 64,
+   "y": 10,
+   "w": 44,
+   "h": 768,
+   "size_m": [
+    0.34,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "white",
+   "uv": [
+    0.03125,
+    0.62012,
+    0.05273,
+    0.99512
+   ],
+   "note": "solid line, 6 m; stack end to end (bottom of one = top of next)"
+  },
+  "edge_white_c": {
+   "x": 118,
+   "y": 10,
+   "w": 44,
+   "h": 768,
+   "size_m": [
+    0.34,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "white",
+   "uv": [
+    0.05762,
+    0.62012,
+    0.0791,
+    0.99512
+   ],
+   "note": "solid line, 6 m; stack end to end (bottom of one = top of next)"
+  },
+  "edge_white_faded": {
+   "x": 172,
+   "y": 10,
+   "w": 44,
+   "h": 768,
+   "size_m": [
+    0.34,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "white",
+   "uv": [
+    0.08398,
+    0.62012,
+    0.10547,
+    0.99512
+   ],
+   "note": "almost gone"
+  },
+  "double_yellow_a": {
+   "x": 226,
+   "y": 10,
+   "w": 79,
+   "h": 768,
+   "size_m": [
+    0.62,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "yellow",
+   "uv": [
+    0.11035,
+    0.62012,
+    0.14893,
+    0.99512
+   ],
+   "note": "double solid yellow centre line, 6 m"
+  },
+  "double_yellow_b": {
+   "x": 315,
+   "y": 10,
+   "w": 79,
+   "h": 768,
+   "size_m": [
+    0.62,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "yellow",
+   "uv": [
+    0.15381,
+    0.62012,
+    0.19238,
+    0.99512
+   ],
+   "note": "double solid yellow centre line, 6 m"
+  },
+  "double_yellow_c": {
+   "x": 404,
+   "y": 10,
+   "w": 79,
+   "h": 768,
+   "size_m": [
+    0.62,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "yellow",
+   "uv": [
+    0.19727,
+    0.62012,
+    0.23584,
+    0.99512
+   ],
+   "note": "double solid yellow centre line, 6 m"
+  },
+  "single_yellow_a": {
+   "x": 493,
+   "y": 10,
+   "w": 44,
+   "h": 768,
+   "size_m": [
+    0.34,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "yellow",
+   "uv": [
+    0.24072,
+    0.62012,
+    0.26221,
+    0.99512
+   ],
+   "note": ""
+  },
+  "single_yellow_b": {
+   "x": 547,
+   "y": 10,
+   "w": 44,
+   "h": 768,
+   "size_m": [
+    0.34,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "yellow",
+   "uv": [
+    0.26709,
+    0.62012,
+    0.28857,
+    0.99512
+   ],
+   "note": ""
+  },
+  "yellow_solid_dash": {
+   "x": 601,
+   "y": 10,
+   "w": 79,
+   "h": 768,
+   "size_m": [
+    0.62,
+    6.0
+   ],
+   "kind": "segment",
+   "color": "yellow",
+   "uv": [
+    0.29346,
+    0.62012,
+    0.33203,
+    0.99512
+   ],
+   "note": "passing zone: solid + dashed (1 m dash / 2 m gap)"
+  },
+  "rumble_a": {
+   "x": 118,
+   "y": 788,
+   "w": 115,
+   "h": 384,
+   "size_m": [
+    0.9,
+    3.0
+   ],
+   "kind": "rumble",
+   "color": "dark",
+   "uv": [
+    0.05762,
+    0.42773,
+    0.11377,
+    0.61523
+   ],
+   "note": "milled shoulder grooves, darkening decal"
+  },
+  "rumble_b": {
+   "x": 243,
+   "y": 788,
+   "w": 115,
+   "h": 384,
+   "size_m": [
+    0.9,
+    3.0
+   ],
+   "kind": "rumble",
+   "color": "dark",
+   "uv": [
+    0.11865,
+    0.42773,
+    0.1748,
+    0.61523
+   ],
+   "note": "worn / filled with dust"
+  },
+  "chevron_white": {
+   "x": 890,
+   "y": 788,
+   "w": 384,
+   "h": 282,
+   "size_m": [
+    3.0,
+    2.2
+   ],
+   "kind": "chevron",
+   "color": "white",
+   "uv": [
+    0.43457,
+    0.47754,
+    0.62207,
+    0.61523
+   ],
+   "note": "V pointing forward (up)"
+  },
+  "chevron_yellow": {
+   "x": 1284,
+   "y": 788,
+   "w": 384,
+   "h": 282,
+   "size_m": [
+    3.0,
+    2.2
+   ],
+   "kind": "chevron",
+   "color": "yellow",
+   "uv": [
+    0.62695,
+    0.47754,
+    0.81445,
+    0.61523
+   ],
+   "note": ""
+  },
+  "hatch_white": {
+   "x": 690,
+   "y": 10,
+   "w": 256,
+   "h": 512,
+   "size_m": [
+    2.0,
+    4.0
+   ],
+   "kind": "hatch",
+   "color": "white",
+   "uv": [
+    0.33691,
+    0.74512,
+    0.46191,
+    0.99512
+   ],
+   "note": "gore / painted island, diagonal stripes"
+  },
+  "hatch_yellow": {
+   "x": 956,
+   "y": 10,
+   "w": 256,
+   "h": 512,
+   "size_m": [
+    2.0,
+    4.0
+   ],
+   "kind": "hatch",
+   "color": "yellow",
+   "uv": [
+    0.4668,
+    0.74512,
+    0.5918,
+    0.99512
+   ],
+   "note": ""
+  },
+  "arrow_straight": {
+   "x": 1222,
+   "y": 10,
+   "w": 128,
+   "h": 512,
+   "size_m": [
+    1.0,
+    4.0
+   ],
+   "kind": "arrow",
+   "color": "white",
+   "uv": [
+    0.59668,
+    0.74512,
+    0.65918,
+    0.99512
+   ],
+   "note": ""
+  },
+  "arrow_left": {
+   "x": 1360,
+   "y": 10,
+   "w": 230,
+   "h": 512,
+   "size_m": [
+    1.8,
+    4.0
+   ],
+   "kind": "arrow",
+   "color": "white",
+   "uv": [
+    0.66406,
+    0.74512,
+    0.77637,
+    0.99512
+   ],
+   "note": ""
+  },
+  "arrow_right": {
+   "x": 1600,
+   "y": 10,
+   "w": 230,
+   "h": 512,
+   "size_m": [
+    1.8,
+    4.0
+   ],
+   "kind": "arrow",
+   "color": "white",
+   "uv": [
+    0.78125,
+    0.74512,
+    0.89355,
+    0.99512
+   ],
+   "note": ""
+  },
+  "crosswalk": {
+   "x": 368,
+   "y": 788,
+   "w": 512,
+   "h": 384,
+   "size_m": [
+    4.0,
+    3.0
+   ],
+   "kind": "crosswalk",
+   "color": "white",
+   "uv": [
+    0.17969,
+    0.42773,
+    0.42969,
+    0.61523
+   ],
+   "note": "zebra bars run along the road; 4 m wide"
+  },
+  "stop_line": {
+   "x": 10,
+   "y": 1208,
+   "w": 461,
+   "h": 64,
+   "size_m": [
+    3.6,
+    0.5
+   ],
+   "kind": "stopline",
+   "color": "white",
+   "uv": [
+    0.00488,
+    0.37891,
+    0.22998,
+    0.41016
+   ],
+   "note": ""
+  }
+ }
+}

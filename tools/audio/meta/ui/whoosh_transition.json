@@ -1,0 +1,1 @@
+{"duration": 0.95, "peak_db": -1.86, "rms_db": -19.06, "lufs_i": -15.53, "lufs_m": -12.56, "lufs_s": -10.5, "dc": -4.9e-05, "centroid": 3673.0, "clip": 0, "rise_ms": 442.22, "tail_50db_s": 0.938, "bands_db": [-4.8, -18.8, -6.0, -3.9], "src_len": 41895, "dec_len": 41895, "variation": 0, "build_s": 0.95, "file": "ui/whoosh_transition.ogg", "bytes": 13681}

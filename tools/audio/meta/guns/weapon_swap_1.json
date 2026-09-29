@@ -1,0 +1,1 @@
+{"duration": 0.38, "peak_db": -1.73, "rms_db": -19.4, "lufs_i": -21.02, "lufs_m": -16.67, "lufs_s": -11.13, "dc": -5.2e-05, "centroid": 1768.0, "clip": 0, "rise_ms": 50.59, "tail_50db_s": 0.215, "bands_db": [-23.7, -2.4, -5.3, -9.1], "src_len": 16758, "dec_len": 16758, "variation": 0, "build_s": 0.31, "file": "guns/weapon_swap_1.ogg", "bytes": 6580}

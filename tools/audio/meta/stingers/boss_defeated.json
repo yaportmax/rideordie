@@ -1,0 +1,1 @@
+{"duration": 5.4509, "peak_db": -2.07, "rms_db": -19.49, "lufs_i": -15.23, "lufs_m": -9.12, "lufs_s": -6.99, "dc": 1.3e-05, "centroid": 2020.0, "clip": 0, "rise_ms": 2010.09, "tail_50db_s": 5.0, "bands_db": [-6.5, -3.7, -7.2, -7.8], "src_len": 240385, "dec_len": 240385, "variation": 0, "build_s": 1.64, "file": "stingers/boss_defeated.ogg", "bytes": 99438}

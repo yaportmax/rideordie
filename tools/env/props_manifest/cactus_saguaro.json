@@ -1,0 +1,18 @@
+{
+ "name": "cactus_saguaro",
+ "file": "cactus_saguaro.glb",
+ "category": "cactus",
+ "height": 5.291,
+ "radius": 1.139,
+ "size": [
+  1.905,
+  5.291,
+  1.244
+ ],
+ "tris": 2572,
+ "materials": [
+  "cactus_skin"
+ ],
+ "notes": "saguaro with 3 arms, 12 ribs (UV u = rib index, spines on crests), cactus_skin material; origin at trunk base",
+ "kb": 154.0
+}

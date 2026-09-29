@@ -1,0 +1,1 @@
+{"duration": 0.33, "peak_db": -2.2, "rms_db": -23.62, "lufs_i": -23.25, "lufs_m": -21.49, "lufs_s": -15.65, "dc": 2.8e-05, "centroid": 3298.0, "clip": 0, "rise_ms": 0.61, "tail_50db_s": 0.298, "bands_db": [-11.2, -6.6, -3.1, -6.6], "src_len": 14553, "dec_len": 14553, "file": "impacts/bullet_metal_2.ogg", "variation": 1, "bytes": 6460, "build_s": 3.98}

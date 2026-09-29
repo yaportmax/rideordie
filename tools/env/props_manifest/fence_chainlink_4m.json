@@ -1,0 +1,21 @@
+{
+ "name": "fence_chainlink_4m",
+ "file": "fence_chainlink_4m.glb",
+ "category": "furniture",
+ "height": 1.945,
+ "radius": 2.0,
+ "size": [
+  0.203,
+  1.945,
+  4.0
+ ],
+ "tris": 492,
+ "materials": [
+  "chainlink",
+  "concrete",
+  "galvanized"
+ ],
+ "notes": "4.0 m chain-link fence section along Z (glTF), 1.9 m high, post at the segment centre so instances tile every 4 m; mesh = alphaMode MASK double-sided card texture, torn hole near the bottom. Mesh sits on the +X side of the post.",
+ "segment_length": 4.0,
+ "kb": 626.2
+}

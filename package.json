@@ -1,0 +1,27 @@
+{
+  "name": "ride-or-die",
+  "version": "0.1.0",
+  "description": "Ride or Die - asymmetric 2-player co-op road survival",
+  "scripts": {
+    "dev": "vite --host --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host --port 4173",
+    "lint": "eslint src tools --quiet",
+    "shot": "node tools/test/shot.mjs"
+  },
+  "type": "module",
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "n8ao": "^2.0.1",
+    "peerjs": "^1.5.5",
+    "postprocessing": "^6.39.5",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "playwright-core": "^1.63.0",
+    "vite": "^8.3.1"
+  },
+  "private": true
+}

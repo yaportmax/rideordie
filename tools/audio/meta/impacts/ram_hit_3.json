@@ -1,0 +1,1 @@
+{"duration": 0.9, "peak_db": -1.26, "rms_db": -16.81, "lufs_i": -16.48, "lufs_m": -10.42, "lufs_s": -7.75, "dc": -0.000152, "centroid": 882.0, "clip": 0, "rise_ms": 0.61, "tail_50db_s": 0.785, "bands_db": [-3.0, -7.3, -5.5, -14.3], "src_len": 39690, "dec_len": 39690, "file": "impacts/ram_hit_3.ogg", "variation": 2, "bytes": 10654, "build_s": 1.27}

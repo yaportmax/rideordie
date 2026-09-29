@@ -1,0 +1,1 @@
+{"duration": 0.46, "peak_db": -1.77, "rms_db": -26.59, "lufs_i": -23.75, "lufs_m": -23.02, "lufs_s": -18.28, "dc": 9e-06, "centroid": 4453.0, "clip": 0, "rise_ms": 203.42, "tail_50db_s": 0.294, "bands_db": [-19.9, -10.6, -2.9, -4.0], "src_len": 20286, "dec_len": 20286, "variation": 0, "build_s": 0.25, "file": "guns/pistol_slide.ogg", "bytes": 7469}

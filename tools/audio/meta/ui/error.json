@@ -1,0 +1,1 @@
+{"duration": 0.36, "peak_db": -1.7, "rms_db": -17.88, "lufs_i": -20.17, "lufs_m": -15.38, "lufs_s": -13.36, "dc": -3.1e-05, "centroid": 382.0, "clip": 0, "rise_ms": 0.66, "tail_50db_s": 0.356, "bands_db": [-5.1, -2.7, -8.2, -29.5], "src_len": 15876, "dec_len": 15876, "variation": 0, "build_s": 0.82, "file": "ui/error.ogg", "bytes": 7141}

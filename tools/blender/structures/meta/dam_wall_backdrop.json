@@ -1,0 +1,81 @@
+{
+ "id": "dam_wall_backdrop",
+ "file": "models/structures/dam_wall_backdrop.glb",
+ "tris": 9702,
+ "collision_tris": 60,
+ "size_kb": 815.0,
+ "bbox_min": [
+  -220.0,
+  -0.6,
+  -80.0
+ ],
+ "bbox_max": [
+  220.0,
+  160.04,
+  338.17
+ ],
+ "dims": [
+  440.0,
+  160.64,
+  418.17
+ ],
+ "materials": [
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "light_tail",
+  "metal_dark",
+  "rock_grey",
+  "rust",
+  "steel_beam",
+  "water_dark"
+ ],
+ "nodes": {
+  "concrete": 4978,
+  "concrete_dark": 1252,
+  "steel_beam": 720,
+  "metal_dark": 1208,
+  "rust": 568,
+  "light_tail": 56,
+  "glass": 192,
+  "rock_grey": 720,
+  "water_dark": 8
+ },
+ "sockets": {
+  "intake_beacon_L": [
+   -68.0,
+   119.8,
+   37.0
+  ],
+  "intake_beacon_R": [
+   68.0,
+   119.8,
+   37.0
+  ],
+  "crest_start": [
+   -100,
+   80.0,
+   33.0
+  ],
+  "crest_end": [
+   100,
+   80.0,
+   33.0
+  ],
+  "arena_center": [
+   0,
+   0,
+   -70
+  ],
+  "spillway_center": [
+   0,
+   62,
+   17.4
+  ]
+ },
+ "notes": {
+  "desc": "Concrete dam wall backdrop, 200 m wide x 79.4 m tall (crest deck y=79.4; road level y=80 for dam_road_10m modules). Wall runs along X (x -100..100); DOWNSTREAM face (the one the player sees) faces -Z with base toe at z~0, y=0; reservoir (water_dark, y=76) is at +Z. Straight crest at z=24..42 (centre z=33). Central spillway: 5 radial-gate bays (x=-40..40, 16 m clear, gates y 62..78) with stepped chutes down the face; 2 intake towers on the crest (x=+-68, top y=106); 2 powerhouses + penstocks at the toe (x=+-75); grey rock abutments beyond x=+-100. To use as a side backdrop rotate yaw 90 deg. Ground/terrain is NOT included (place terrain at y=0 in front, z<0).",
+  "crest_road": "place dam_road_10m modules along X at y=80, z=33 with yaw +90 (module +Z -> +X): sockets crest_start (x=-100) crest_end (x=100)",
+  "arena": "socket arena_center (0,0,-70): open flat ground area expected in front of the wall"
+ }
+}

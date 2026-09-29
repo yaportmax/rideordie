@@ -1,0 +1,1 @@
+{"duration": 0.3416, "peak_db": -1.45, "rms_db": -20.75, "lufs_i": -19.38, "lufs_m": -18.48, "lufs_s": -12.65, "dc": 0.000163, "centroid": 2762.0, "clip": 0, "rise_ms": 0.16, "tail_50db_s": 0.238, "bands_db": [-11.7, -11.1, -1.6, -7.9], "src_len": 15065, "dec_len": 15065, "variation": 2, "build_s": 1.39, "file": "guns/fire_smg_3.ogg", "bytes": 7038}

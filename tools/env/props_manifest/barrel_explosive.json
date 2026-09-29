@@ -1,0 +1,18 @@
+{
+ "name": "barrel_explosive",
+ "file": "barrel_explosive.glb",
+ "category": "furniture",
+ "height": 0.886,
+ "radius": 0.293,
+ "size": [
+  0.586,
+  0.886,
+  0.586
+ ],
+ "tris": 1008,
+ "materials": [
+  "barrel_explosive"
+ ],
+ "notes": "200 L drum, red with yellow/black hazard band and flammable diamond + DANGER FLAMMABLE stencil (label faces -Y in Blender = +Z glTF, like vehicles)",
+ "kb": 1186.5
+}

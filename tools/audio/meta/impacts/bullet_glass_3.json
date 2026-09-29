@@ -1,0 +1,1 @@
+{"duration": 0.5, "peak_db": -1.97, "rms_db": -21.03, "lufs_i": -17.82, "lufs_m": -17.12, "lufs_s": -14.99, "dc": -1.4e-05, "centroid": 6413.0, "clip": 0, "rise_ms": 0.5, "tail_50db_s": 0.418, "bands_db": [-27.8, -28.1, -8.7, -0.6], "src_len": 22050, "dec_len": 22050, "file": "impacts/bullet_glass_3.ogg", "variation": 2, "bytes": 10903, "build_s": 2.25}

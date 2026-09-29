@@ -1,0 +1,1 @@
+{"duration": 1.2, "peak_db": -2.24, "rms_db": -17.2, "lufs_i": -15.52, "lufs_m": -12.65, "lufs_s": -11.32, "dc": 3.5e-05, "centroid": 1680.0, "clip": 0, "rise_ms": 1.52, "tail_50db_s": 1.192, "bands_db": [-11.2, -9.2, -1.2, -13.0], "src_len": 52920, "dec_len": 52920, "file": "impacts/metal_tear_3.ogg", "variation": 2, "bytes": 21098, "build_s": 1.88}

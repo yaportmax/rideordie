@@ -1,0 +1,22 @@
+{
+ "name": "pine_b",
+ "file": "pine_b.glb",
+ "category": "tree_pine",
+ "height": 17.448,
+ "radius": 5.807,
+ "size": [
+  10.428,
+  17.448,
+  9.576
+ ],
+ "tris": 3354,
+ "materials": [
+  "bark_pine",
+  "pine_needles_b"
+ ],
+ "notes": "conifer: bark_pine trunk + drooping branch tubes carrying many small needle-cluster cards (alphaMode MASK, double-sided); dead lower branches; origin = trunk base; use _lod beyond ~60 m and _billboard beyond ~150 m",
+ "lod": "pine_b_lod.glb",
+ "billboard": "pine_b_billboard.glb",
+ "crown_radius": 2.38,
+ "kb": 805.4
+}

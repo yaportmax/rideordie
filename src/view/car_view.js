@@ -1,0 +1,105 @@
+// Renders a vehicle: GLB model (per ASSET_SPEC) or a procedural placeholder; wheels/suspension/steer, lights, paint tint, panels.
+import * as THREE from 'three';
+import * as Assets from '../core/assets.js';
+
+const _e = new THREE.Euler(0, 0, 0, 'YXZ');
+const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
+
+export class CarView {
+  /**
+   * @param spec vehicle spec (data/vehicles.js)
+   * @param opts {paint:number, paint2:number, modelUrl?:string}
+   */
+  constructor(spec, opts = {}) {
+    this.spec = spec;
+    this.root = new THREE.Group(); this.root.name = 'car_' + spec.id;
+    this.wheelNodes = new Map();   // wheel name -> Object3D
+    this.panels = new Map();
+    this.sockets = {};
+    this.taillights = []; this.headlights = [];
+    this.model = null;
+    const url = opts.modelUrl ?? `/models/vehicles/${spec.id}.glb`;
+    const model = Assets.clone(url);
+    if (model) this._adoptModel(model, opts); else this._placeholder(opts);
+    this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.usesModel = !!model;
+    this.smoke = 0;
+  }
+
+  _adoptModel(model, opts) {
+    this.model = model;
+    Assets.ownMaterials(model, /^(paint|paint2|light_.*)$/);
+    this.root.add(model);
+    model.traverse((o) => {
+      const n = o.name;
+      if (/^wheel_/.test(n)) this.wheelNodes.set(n.slice(6), o);
+      else if (/^panel_/.test(n)) this.panels.set(n.slice(6), o);
+      else if (/^(seat_|steering_wheel|gun_mount|light_head_|light_tail_|exhaust|smoke_engine|fuel_cap|nitro_|camera_hood|roof_top|turret|rocket_pod|flame_|muzzle|floodlight|smoke_stack)/.test(n)) this.sockets[n] = o;
+      if (o.isMesh) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) {
+          if (m.name === 'paint' && opts.paint !== undefined) m.color.setHex(opts.paint);
+          if (m.name === 'paint2' && opts.paint2 !== undefined) m.color.setHex(opts.paint2);
+          if (m.name === 'light_tail') this.taillights.push(m);
+          if (m.name === 'light_head') this.headlights.push(m);
+          if (m.name === 'glass') { m.transparent = true; m.depthWrite = false; }
+        }
+      }
+    });
+    for (const [name, node] of this.wheelNodes) { node.rotation.order = 'YXZ'; node.userData.rest = node.position.clone(); }
+  }
+
+  _placeholder(opts) {
+    const s = this.spec, g = new THREE.Group();
+    const paint = new THREE.MeshStandardMaterial({ color: opts.paint ?? 0x8a5a3a, roughness: 0.55, metalness: 0.3 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+    const glass = new THREE.MeshStandardMaterial({ color: 0x223344, roughness: 0.1, metalness: 0.6 });
+    for (const [i, b] of s.colliders.entries()) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(b.half[0] * 2, b.half[1] * 2, b.half[2] * 2), i === 0 ? paint : glass);
+      m.position.set(b.center[0], b.center[1], b.center[2]); g.add(m);
+    }
+    const tyreGeo = new THREE.CylinderGeometry(s.wheelRadius, s.wheelRadius, 0.3, 20); tyreGeo.rotateZ(Math.PI / 2);
+    for (const w of s.wheels) {
+      const n = new THREE.Group(); n.rotation.order = 'YXZ';
+      const t = new THREE.Mesh(tyreGeo, dark); n.add(t);
+      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.32, s.wheelRadius * 1.2, 0.06), new THREE.MeshStandardMaterial({ color: 0xcccccc })); n.add(spoke);
+      n.position.set(w.x, s.wheelRadius, w.z); n.userData.rest = n.position.clone();
+      g.add(n); this.wheelNodes.set(w.name, n);
+    }
+    // gunner mount marker + driver seat marker
+    const sg = s.seats.gunner; if (sg) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.5), dark); p.position.set(sg[0], sg[1], sg[2]); g.add(p); }
+    // nose marker so orientation is unmistakable
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.3), new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0x554400 }));
+    nose.position.set(0, 0.6, s.length / 2 - 0.05); g.add(nose);
+    this.root.add(g); this.model = g;
+  }
+
+  /** Update from a CarState (same path for the local sim and for network snapshots). */
+  update(st, dt) {
+    const ri = st.ride, spec = st.spec;
+    const pos = st.pos, quat = st.quat;
+    this.root.position.set(pos.x, pos.y, pos.z).addScaledVector(_up.set(0, -ri.restComHeight, 0).applyQuaternion(quat), 1);
+    this.root.quaternion.copy(quat);
+    // wheel spin from ground speed along the car's forward axis
+    _fw.set(0, 0, 1).applyQuaternion(quat);
+    const vf = st.vel.dot(_fw);
+    for (let i = 0; i < spec.wheels.length; i++) {
+      const w = spec.wheels[i], node = this.wheelNodes.get(w.name);
+      if (!node) continue;
+      st.spin[i] += (vf / spec.wheelRadius) * dt * (st.braking && st.slip[i] > 0.6 ? 0.2 : 1);
+      const steer = w.front ? st.steer : 0;
+      node.position.set(w.x, ri.mountY - st.L[i] + ri.restComHeight, w.z);
+      node.rotation.set(st.spin[i], steer, 0, 'YXZ');
+    }
+  }
+
+  setLights(braking, night) {
+    for (const m of this.taillights) m.emissiveIntensity = braking ? 5 : (night ? 1.4 : 0.6);
+    for (const m of this.headlights) m.emissiveIntensity = night ? 4 : 1.2;
+  }
+  setTint(hex, hex2) {
+    this.root.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) { if (m.name === 'paint') m.color.setHex(hex); if (m.name === 'paint2' && hex2 !== undefined) m.color.setHex(hex2); } });
+  }
+  dispose() { this.root.removeFromParent(); }
+}
+const _up = new THREE.Vector3(), _fw = new THREE.Vector3();

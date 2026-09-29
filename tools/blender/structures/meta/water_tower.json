@@ -1,0 +1,62 @@
+{
+ "id": "water_tower",
+ "file": "models/structures/water_tower.glb",
+ "tris": 5866,
+ "collision_tris": 198,
+ "size_kb": 510.4,
+ "bbox_min": [
+  -7.06,
+  0.0,
+  -7.06
+ ],
+ "bbox_max": [
+  7.06,
+  30.19,
+  7.06
+ ],
+ "dims": [
+  14.12,
+  30.19,
+  14.12
+ ],
+ "materials": [
+  "concrete_dark",
+  "light_tail",
+  "metal_dark",
+  "paint",
+  "rebar",
+  "rubber",
+  "rust",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 640,
+  "steel_beam": 1120,
+  "metal_dark": 2004,
+  "rebar": 528,
+  "rust": 992,
+  "rubber": 528,
+  "paint": 34,
+  "light_tail": 20
+ },
+ "sockets": {
+  "beacon": [
+   0,
+   30.2,
+   0
+  ],
+  "gallery": [
+   0,
+   18.95,
+   5.0
+  ]
+ },
+ "notes": {
+  "desc": "Elevated steel water tank on 8 braced legs, ~27 m. Rusty red-brown tank with a pale band, gash in the tank wall, cone roof, gallery, ladder on +Z side.",
+  "height": 27.6,
+  "footprint_radius": 7.2,
+  "tank_radius": 4.2,
+  "gallery_y": 19.0,
+  "ladder": "+Z panel, ground to gallery"
+ }
+}

@@ -1,0 +1,21 @@
+{
+ "name": "crate_stack",
+ "file": "crate_stack.glb",
+ "category": "furniture",
+ "height": 1.0,
+ "radius": 1.162,
+ "size": [
+  2.324,
+  1.0,
+  1.18
+ ],
+ "tris": 1311,
+ "materials": [
+  "galvanized",
+  "paint_olive",
+  "paint_red",
+  "wood_rough"
+ ],
+ "notes": "3 weathered wooden crates (one stacked, slats missing), 2 olive ammo cans, 1 red jerrycan",
+ "kb": 430.9
+}

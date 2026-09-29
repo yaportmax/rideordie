@@ -1,0 +1,51 @@
+{
+ "id": "barn_ruin",
+ "file": "models/structures/barn_ruin.glb",
+ "tris": 3334,
+ "collision_tris": 24,
+ "size_kb": 288.1,
+ "bbox_min": [
+  -13.42,
+  -0.21,
+  -10.81
+ ],
+ "bbox_max": [
+  12.12,
+  10.1,
+  11.0
+ ],
+ "dims": [
+  25.54,
+  10.31,
+  21.81
+ ],
+ "materials": [
+  "concrete_dark",
+  "dirt_red",
+  "metal_dark",
+  "rubber",
+  "rust",
+  "sand",
+  "wood"
+ ],
+ "nodes": {
+  "dirt_red": 84,
+  "concrete_dark": 88,
+  "wood": 2020,
+  "metal_dark": 178,
+  "rust": 380,
+  "sand": 392,
+  "rubber": 192
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Weathered timber barn 15 x 10 m, eaves 5 m / ridge 8.5 m, half collapsed (rear-left roof and walls gone), tin roof with holes, hanging sliding door, hay bales, broken fence. Front (big door) faces +Z. Footprint ~20 x 16 m.",
+  "footprint": [
+   20,
+   16
+  ],
+  "front": "+Z",
+  "eave": 5.0,
+  "ridge": 8.5
+ }
+}

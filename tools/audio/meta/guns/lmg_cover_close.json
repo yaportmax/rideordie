@@ -1,0 +1,1 @@
+{"duration": 0.6, "peak_db": -1.5, "rms_db": -25.35, "lufs_i": -23.54, "lufs_m": -20.63, "lufs_s": -14.78, "dc": 2.9e-05, "centroid": 1133.0, "clip": 0, "rise_ms": 94.13, "tail_50db_s": 0.503, "bands_db": [-3.8, -5.8, -5.2, -17.9], "src_len": 26460, "dec_len": 26460, "variation": 0, "build_s": 0.31, "file": "guns/lmg_cover_close.ogg", "bytes": 8169}

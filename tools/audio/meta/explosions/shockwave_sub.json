@@ -1,0 +1,1 @@
+{"duration": 1.0, "peak_db": -1.44, "rms_db": -19.05, "lufs_i": -22.72, "lufs_m": -12.22, "lufs_s": -7.59, "dc": -0.00041, "centroid": 77.0, "clip": 0, "rise_ms": 11.9, "tail_50db_s": 0.984, "bands_db": [-0.3, -11.3, -29.7, -52.0], "src_len": 44100, "dec_len": 44100, "file": "explosions/shockwave_sub.ogg", "variation": 0, "bytes": 9100, "build_s": 1.14}

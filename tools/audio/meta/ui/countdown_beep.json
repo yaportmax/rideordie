@@ -1,0 +1,1 @@
+{"duration": 0.3, "peak_db": -2.28, "rms_db": -20.31, "lufs_i": -22.99, "lufs_m": -18.6, "lufs_s": -14.52, "dc": -7.7e-05, "centroid": 1120.0, "clip": 0, "rise_ms": 0.66, "tail_50db_s": 0.28, "bands_db": [-42.0, -26.6, -0.0, -23.9], "src_len": 13230, "dec_len": 13230, "variation": 0, "build_s": 0.32, "file": "ui/countdown_beep.ogg", "bytes": 5157}

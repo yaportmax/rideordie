@@ -1,0 +1,39 @@
+{
+ "id": "mesa_a",
+ "file": "models/structures/mesa_a.glb",
+ "tris": 3948,
+ "collision_tris": 108,
+ "size_kb": 362.0,
+ "bbox_min": [
+  -104.78,
+  -3.0,
+  -51.69
+ ],
+ "bbox_max": [
+  99.02,
+  99.71,
+  51.37
+ ],
+ "dims": [
+  203.81,
+  102.71,
+  103.06
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_red",
+  "sand"
+ ],
+ "nodes": {
+  "rock_red": 2796,
+  "sand": 768,
+  "dirt_red": 384
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Flat-top mesa backdrop, 144 x ~72 m footprint (~190 m with talus), 95 m tall, red banded cliffs + talus apron. Origin at base centre; low detail (backdrop, place 60-400 m off the road).",
+  "width": 140,
+  "height": 95.0,
+  "placement": "far backdrop; yaw freely; long axis = x"
+ }
+}

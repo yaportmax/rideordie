@@ -1,0 +1,19 @@
+{
+ "name": "sign_speed",
+ "file": "sign_speed.glb",
+ "category": "furniture",
+ "height": 2.599,
+ "radius": 0.405,
+ "size": [
+  0.81,
+  2.599,
+  0.192
+ ],
+ "tris": 940,
+ "materials": [
+  "galvanized",
+  "sign_speed"
+ ],
+ "notes": "US-style speed limit 65 plate 0.76 x 0.95 m on a 2.6 m post, dented/bent, bullet holes + rust in the texture. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction.",
+ "kb": 392.0
+}

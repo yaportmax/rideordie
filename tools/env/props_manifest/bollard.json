@@ -1,0 +1,19 @@
+{
+ "name": "bollard",
+ "file": "bollard.glb",
+ "category": "furniture",
+ "height": 1.01,
+ "radius": 0.17,
+ "size": [
+  0.34,
+  1.01,
+  0.335
+ ],
+ "tris": 404,
+ "materials": [
+  "bollard",
+  "galvanized"
+ ],
+ "notes": "1.0 m steel bollard, faded yellow paint (texture) with two reflective bands, flanged base with anchor bolts",
+ "kb": 613.2
+}

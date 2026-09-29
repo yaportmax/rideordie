@@ -1,0 +1,4814 @@
+{
+ "version": 1,
+ "sampleRate": 44100,
+ "format": "ogg/vorbis q5; mono for positional sfx, stereo for music + ambience",
+ "conventions": {
+  "peak": "all files peak <= -1 dBFS (decoded)",
+  "gain": "'gain' is a linear multiplier <= 1 that balances loudness within and across categories; game master gain on top",
+  "loops": "loop=true files are exact-length seamless loops: loopStart=0, loopEnd=duration; use AudioBufferSourceNode.loop=true",
+  "variations": "files list one file per variation; pick randomly, never same twice in a row, pitch +-4%",
+  "engines": "see 'engines': stage loops recorded at fixed RPM; crossfade neighbours (equal power) and set playbackRate = currentRPM / stageRPM (0.75..1.35)"
+ },
+ "totalBytes": 8494291,
+ "engines": {
+  "engine_boss": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 520,
+     "file": "vehicles/engine_boss_idle.ogg",
+     "duration": 2.3077,
+     "gain": 0.673,
+     "fireHz": 52.0
+    },
+    {
+     "stage": "low",
+     "rpm": 900,
+     "file": "vehicles/engine_boss_low.ogg",
+     "duration": 2.4,
+     "gain": 0.621,
+     "fireHz": 90.0
+    },
+    {
+     "stage": "mid",
+     "rpm": 1400,
+     "file": "vehicles/engine_boss_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.575,
+     "fireHz": 140.0
+    },
+    {
+     "stage": "high",
+     "rpm": 1900,
+     "file": "vehicles/engine_boss_high.ogg",
+     "duration": 2.4,
+     "gain": 0.537,
+     "fireHz": 190.0
+    },
+    {
+     "stage": "redline",
+     "rpm": 2500,
+     "file": "vehicles/engine_boss_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.506,
+     "fireHz": 250.0
+    }
+   ],
+   "description": "huge turbo-diesel V12 (boss war rig), menacing"
+  },
+  "engine_buggy": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 1100,
+     "file": "vehicles/engine_buggy_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.686,
+     "fireHz": 36.67
+    },
+    {
+     "stage": "low",
+     "rpm": 2600,
+     "file": "vehicles/engine_buggy_low.ogg",
+     "duration": 2.4,
+     "gain": 0.629,
+     "fireHz": 86.67
+    },
+    {
+     "stage": "mid",
+     "rpm": 4200,
+     "file": "vehicles/engine_buggy_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.578,
+     "fireHz": 140.0
+    },
+    {
+     "stage": "high",
+     "rpm": 5800,
+     "file": "vehicles/engine_buggy_high.ogg",
+     "duration": 2.4,
+     "gain": 0.541,
+     "fireHz": 193.33
+    },
+    {
+     "stage": "redline",
+     "rpm": 7400,
+     "file": "vehicles/engine_buggy_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.507,
+     "fireHz": 246.67
+    }
+   ],
+   "description": "raspy air-cooled 4-cylinder / buzzy two-stroke style"
+  },
+  "engine_diesel": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 600,
+     "file": "vehicles/engine_diesel_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.676,
+     "fireHz": 30.0
+    },
+    {
+     "stage": "low",
+     "rpm": 1000,
+     "file": "vehicles/engine_diesel_low.ogg",
+     "duration": 2.4,
+     "gain": 0.622,
+     "fireHz": 50.0
+    },
+    {
+     "stage": "mid",
+     "rpm": 1500,
+     "file": "vehicles/engine_diesel_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.572,
+     "fireHz": 75.0
+    },
+    {
+     "stage": "high",
+     "rpm": 2000,
+     "file": "vehicles/engine_diesel_high.ogg",
+     "duration": 2.4,
+     "gain": 0.535,
+     "fireHz": 100.0
+    },
+    {
+     "stage": "redline",
+     "rpm": 2600,
+     "file": "vehicles/engine_diesel_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.504,
+     "fireHz": 130.0
+    }
+   ],
+   "description": "heavy diesel (trucks, vans, tankers)"
+  },
+  "engine_muscle": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 650,
+     "file": "vehicles/engine_muscle_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.677,
+     "fireHz": 43.33
+    },
+    {
+     "stage": "low",
+     "rpm": 1900,
+     "file": "vehicles/engine_muscle_low.ogg",
+     "duration": 2.4,
+     "gain": 0.626,
+     "fireHz": 126.67
+    },
+    {
+     "stage": "mid",
+     "rpm": 3300,
+     "file": "vehicles/engine_muscle_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.578,
+     "fireHz": 220.0
+    },
+    {
+     "stage": "high",
+     "rpm": 5000,
+     "file": "vehicles/engine_muscle_high.ogg",
+     "duration": 2.4,
+     "gain": 0.533,
+     "fireHz": 333.33
+    },
+    {
+     "stage": "redline",
+     "rpm": 6300,
+     "file": "vehicles/engine_muscle_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.506,
+     "fireHz": 420.0
+    }
+   ],
+   "description": "loud V8 with lopey idle"
+  },
+  "engine_player_t1": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 900,
+     "file": "vehicles/engine_player_t1_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.693,
+     "fireHz": 30.0
+    },
+    {
+     "stage": "low",
+     "rpm": 2200,
+     "file": "vehicles/engine_player_t1_low.ogg",
+     "duration": 2.4,
+     "gain": 0.63,
+     "fireHz": 73.33
+    },
+    {
+     "stage": "mid",
+     "rpm": 3600,
+     "file": "vehicles/engine_player_t1_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.58,
+     "fireHz": 120.0
+    },
+    {
+     "stage": "high",
+     "rpm": 5200,
+     "file": "vehicles/engine_player_t1_high.ogg",
+     "duration": 2.4,
+     "gain": 0.541,
+     "fireHz": 173.33
+    },
+    {
+     "stage": "redline",
+     "rpm": 6500,
+     "file": "vehicles/engine_player_t1_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.508,
+     "fireHz": 216.67
+    }
+   ],
+   "description": "tired rattly 4-cylinder (starter truck)"
+  },
+  "engine_player_t2": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 750,
+     "file": "vehicles/engine_player_t2_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.676,
+     "fireHz": 50.0
+    },
+    {
+     "stage": "low",
+     "rpm": 2000,
+     "file": "vehicles/engine_player_t2_low.ogg",
+     "duration": 2.4,
+     "gain": 0.621,
+     "fireHz": 133.33
+    },
+    {
+     "stage": "mid",
+     "rpm": 3400,
+     "file": "vehicles/engine_player_t2_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.575,
+     "fireHz": 226.67
+    },
+    {
+     "stage": "high",
+     "rpm": 5000,
+     "file": "vehicles/engine_player_t2_high.ogg",
+     "duration": 2.4,
+     "gain": 0.536,
+     "fireHz": 333.33
+    },
+    {
+     "stage": "redline",
+     "rpm": 6200,
+     "file": "vehicles/engine_player_t2_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.506,
+     "fireHz": 413.33
+    }
+   ],
+   "description": "rough V8"
+  },
+  "engine_player_t3": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 700,
+     "file": "vehicles/engine_player_t3_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.675,
+     "fireHz": 46.67
+    },
+    {
+     "stage": "low",
+     "rpm": 1900,
+     "file": "vehicles/engine_player_t3_low.ogg",
+     "duration": 2.4,
+     "gain": 0.624,
+     "fireHz": 126.67
+    },
+    {
+     "stage": "mid",
+     "rpm": 3300,
+     "file": "vehicles/engine_player_t3_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.577,
+     "fireHz": 220.0
+    },
+    {
+     "stage": "high",
+     "rpm": 4900,
+     "file": "vehicles/engine_player_t3_high.ogg",
+     "duration": 2.4,
+     "gain": 0.534,
+     "fireHz": 326.67
+    },
+    {
+     "stage": "redline",
+     "rpm": 6000,
+     "file": "vehicles/engine_player_t3_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.506,
+     "fireHz": 400.0
+    }
+   ],
+   "description": "big growly V8"
+  },
+  "engine_player_t4": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 750,
+     "file": "vehicles/engine_player_t4_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.676,
+     "fireHz": 50.0
+    },
+    {
+     "stage": "low",
+     "rpm": 2200,
+     "file": "vehicles/engine_player_t4_low.ogg",
+     "duration": 2.4,
+     "gain": 0.624,
+     "fireHz": 146.67
+    },
+    {
+     "stage": "mid",
+     "rpm": 3800,
+     "file": "vehicles/engine_player_t4_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.574,
+     "fireHz": 253.33
+    },
+    {
+     "stage": "high",
+     "rpm": 5500,
+     "file": "vehicles/engine_player_t4_high.ogg",
+     "duration": 2.4,
+     "gain": 0.538,
+     "fireHz": 366.67
+    },
+    {
+     "stage": "redline",
+     "rpm": 6800,
+     "file": "vehicles/engine_player_t4_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.506,
+     "fireHz": 453.33
+    }
+   ],
+   "description": "supercharged V8 with gear/blower whine"
+  },
+  "engine_sedan": {
+   "stages": [
+    {
+     "stage": "idle",
+     "rpm": 850,
+     "file": "vehicles/engine_sedan_idle.ogg",
+     "duration": 2.4,
+     "gain": 0.678,
+     "fireHz": 42.5
+    },
+    {
+     "stage": "low",
+     "rpm": 2100,
+     "file": "vehicles/engine_sedan_low.ogg",
+     "duration": 2.4,
+     "gain": 0.624,
+     "fireHz": 105.0
+    },
+    {
+     "stage": "mid",
+     "rpm": 3500,
+     "file": "vehicles/engine_sedan_mid.ogg",
+     "duration": 2.4,
+     "gain": 0.571,
+     "fireHz": 175.0
+    },
+    {
+     "stage": "high",
+     "rpm": 5100,
+     "file": "vehicles/engine_sedan_high.ogg",
+     "duration": 2.4,
+     "gain": 0.535,
+     "fireHz": 255.0
+    },
+    {
+     "stage": "redline",
+     "rpm": 6400,
+     "file": "vehicles/engine_sedan_redline.ogg",
+     "duration": 2.4,
+     "gain": 0.505,
+     "fireHz": 320.0
+    }
+   ],
+   "description": "thin inline-6 (sedan raiders)"
+  }
+ },
+ "sounds": {
+  "ambience/canyon_wind_loop": {
+   "file": "ambience/canyon_wind_loop.ogg",
+   "files": [
+    "ambience/canyon_wind_loop.ogg"
+   ],
+   "duration": 24.0,
+   "durations": [
+    24.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.538,
+   "category": "ambience",
+   "channels": 2,
+   "notes": "hollow canyon wind: moving formant resonances + long echo, seamless 24 s stereo loop",
+   "peakDb": -12.91,
+   "lufs": -26.1,
+   "loopStart": 0.0,
+   "loopEnd": 24.0,
+   "loopJumpRatio": 0.38,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "ambience/city_ruins_loop": {
+   "file": "ambience/city_ruins_loop.ogg",
+   "files": [
+    "ambience/city_ruins_loop.ogg"
+   ],
+   "duration": 24.0,
+   "durations": [
+    24.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.606,
+   "category": "ambience",
+   "channels": 2,
+   "notes": "ruined city: thin wind, structure howl, distant creaks and debris ticks, seamless 24 s stereo loop",
+   "peakDb": -10.52,
+   "lufs": -27.1,
+   "loopStart": 0.0,
+   "loopEnd": 24.0,
+   "loopJumpRatio": 0.22,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "ambience/coast_waves_loop": {
+   "file": "ambience/coast_waves_loop.ogg",
+   "files": [
+    "ambience/coast_waves_loop.ogg"
+   ],
+   "duration": 24.0,
+   "durations": [
+    24.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.487,
+   "category": "ambience",
+   "channels": 2,
+   "notes": "surf: three irregular waves rolling in and washing out over distant surf, seamless 24 s stereo loop",
+   "peakDb": -8.78,
+   "lufs": -25.2,
+   "loopStart": 0.0,
+   "loopEnd": 24.0,
+   "loopJumpRatio": 0.06,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "ambience/dam_rumble_loop": {
+   "file": "ambience/dam_rumble_loop.ogg",
+   "files": [
+    "ambience/dam_rumble_loop.ogg"
+   ],
+   "duration": 24.0,
+   "durations": [
+    24.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.346,
+   "category": "ambience",
+   "channels": 2,
+   "notes": "boss arena at the dam: deep water thunder + turbine hum + spray, seamless 24 s stereo loop",
+   "peakDb": -8.67,
+   "lufs": -22.2,
+   "loopStart": 0.0,
+   "loopEnd": 24.0,
+   "loopJumpRatio": 0.39,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "ambience/desert_wind_loop": {
+   "file": "ambience/desert_wind_loop.ogg",
+   "files": [
+    "ambience/desert_wind_loop.ogg"
+   ],
+   "duration": 24.0,
+   "durations": [
+    24.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.543,
+   "category": "ambience",
+   "channels": 2,
+   "notes": "open desert wind: broad gusts + sand hiss + faint whistles, seamless 24 s stereo loop",
+   "peakDb": -12.81,
+   "lufs": -26.1,
+   "loopStart": 0.0,
+   "loopEnd": 24.0,
+   "loopJumpRatio": 0.29,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "ambience/forest_wind_loop": {
+   "file": "ambience/forest_wind_loop.ogg",
+   "files": [
+    "ambience/forest_wind_loop.ogg"
+   ],
+   "duration": 24.0,
+   "durations": [
+    24.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.614,
+   "category": "ambience",
+   "channels": 2,
+   "notes": "wind through pines: swishing gusts + leaf rustle sparkle, seamless 24 s stereo loop",
+   "peakDb": -15.71,
+   "lufs": -27.2,
+   "loopStart": 0.0,
+   "loopEnd": 24.0,
+   "loopJumpRatio": 0.04,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "explosions/distant_explosion": {
+   "file": "explosions/distant_explosion_1.ogg",
+   "files": [
+    "explosions/distant_explosion_1.ogg",
+    "explosions/distant_explosion_2.ogg",
+    "explosions/distant_explosion_3.ogg"
+   ],
+   "duration": 5.8451,
+   "durations": [
+    5.8451,
+    6.4443,
+    5.3225
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.113,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "far-away blast: muffled, delayed onset, long rumble (mono, non-directional)",
+   "peakDb": -1.44,
+   "lufs": -4.5,
+   "pitchRange": [
+    0.85,
+    1.15
+   ]
+  },
+  "explosions/explosion_huge": {
+   "file": "explosions/explosion_huge.ogg",
+   "files": [
+    "explosions/explosion_huge.ogg"
+   ],
+   "duration": 7.8296,
+   "durations": [
+    7.8296
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.679,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "boss / tanker mega explosion, 6.5 s; screen shake sync at ~0.0-0.6 s",
+   "peakDb": -1.59,
+   "lufs": -8.1,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/explosion_large": {
+   "file": "explosions/explosion_large_1.ogg",
+   "files": [
+    "explosions/explosion_large_1.ogg",
+    "explosions/explosion_large_2.ogg"
+   ],
+   "duration": 4.9816,
+   "durations": [
+    4.9816,
+    4.9727
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.544,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "large blast (heavy vehicle, chain reaction), 3.8 s",
+   "peakDb": -1.36,
+   "lufs": -8.2,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/explosion_medium": {
+   "file": "explosions/explosion_medium_1.ogg",
+   "files": [
+    "explosions/explosion_medium_1.ogg",
+    "explosions/explosion_medium_2.ogg",
+    "explosions/explosion_medium_3.ogg"
+   ],
+   "duration": 3.1097,
+   "durations": [
+    3.1097,
+    3.5652,
+    3.1076
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.37,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "medium blast (car explosion), 2.6 s",
+   "peakDb": -1.05,
+   "lufs": -7.8,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/explosion_small": {
+   "file": "explosions/explosion_small_1.ogg",
+   "files": [
+    "explosions/explosion_small_1.ogg",
+    "explosions/explosion_small_2.ogg",
+    "explosions/explosion_small_3.ogg"
+   ],
+   "duration": 2.1519,
+   "durations": [
+    2.1519,
+    1.941,
+    2.0502
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.223,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "small blast (barrel, light car), 1.7 s",
+   "peakDb": -1.42,
+   "lufs": -7.4,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/fire_crackle_loop": {
+   "file": "explosions/fire_crackle_loop.ogg",
+   "files": [
+    "explosions/fire_crackle_loop.ogg"
+   ],
+   "duration": 3.2,
+   "durations": [
+    3.2
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.435,
+   "category": "explosion_loop",
+   "channels": 1,
+   "notes": "crackling flames (quieter, more snaps), seamless 3.2 s loop",
+   "peakDb": -1.19,
+   "lufs": -24.2,
+   "loopStart": 0.0,
+   "loopEnd": 3.2,
+   "loopJumpRatio": 0.03,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/fire_loop": {
+   "file": "explosions/fire_loop.ogg",
+   "files": [
+    "explosions/fire_loop.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.387,
+   "category": "explosion_loop",
+   "channels": 1,
+   "notes": "burning car: roar + crackle, seamless 2.4 s loop (3D loop on wrecks)",
+   "peakDb": -1.5,
+   "lufs": -20.2,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.02,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/fuel_ignite": {
+   "file": "explosions/fuel_ignite.ogg",
+   "files": [
+    "explosions/fuel_ignite.ogg"
+   ],
+   "duration": 1.9126,
+   "durations": [
+    1.9126
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.353,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "fuel / fire whump: slow-attack low thump + flame roar, 1.6 s",
+   "peakDb": -1.04,
+   "lufs": -8.4,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/grenade_explosion": {
+   "file": "explosions/grenade_explosion_1.ogg",
+   "files": [
+    "explosions/grenade_explosion_1.ogg",
+    "explosions/grenade_explosion_2.ogg",
+    "explosions/grenade_explosion_3.ogg"
+   ],
+   "duration": 2.3516,
+   "durations": [
+    2.3516,
+    2.3437,
+    2.2956
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.346,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "frag grenade: sharp crack + shrapnel whine + short boom, ~1.9 s",
+   "peakDb": -1.16,
+   "lufs": -8.2,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/rocket_explosion": {
+   "file": "explosions/rocket_explosion_1.ogg",
+   "files": [
+    "explosions/rocket_explosion_1.ogg",
+    "explosions/rocket_explosion_2.ogg"
+   ],
+   "duration": 3.769,
+   "durations": [
+    3.769,
+    3.3633
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.482,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "rocket / RPG impact: sharp bang then heavy boom, 2.8 s",
+   "peakDb": -1.25,
+   "lufs": -8.1,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "explosions/shockwave_sub": {
+   "file": "explosions/shockwave_sub.ogg",
+   "files": [
+    "explosions/shockwave_sub.ogg"
+   ],
+   "duration": 1.0,
+   "durations": [
+    1.0
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.249,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "sub-bass thump for blast pressure wave; layer under big explosions / camera shake",
+   "peakDb": -1.54,
+   "lufs": -7.4,
+   "pitchRange": [
+    0.9,
+    1.15
+   ]
+  },
+  "guns/dry_click": {
+   "file": "guns/dry_click.ogg",
+   "files": [
+    "guns/dry_click.ogg"
+   ],
+   "duration": 0.13,
+   "durations": [
+    0.13
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.228,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "empty-chamber hammer click",
+   "peakDb": -1.64,
+   "lufs": -18.6,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/fire_enemy_heavy": {
+   "file": "guns/fire_enemy_heavy_1.ogg",
+   "files": [
+    "guns/fire_enemy_heavy_1.ogg",
+    "guns/fire_enemy_heavy_2.ogg",
+    "guns/fire_enemy_heavy_3.ogg"
+   ],
+   "duration": 1.3143,
+   "durations": [
+    1.3143,
+    1.2913,
+    1.3137
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.184,
+   "category": "gun_enemy",
+   "channels": 1,
+   "notes": "raider heavy gun / shotgun (distant, chunky); positional",
+   "peakDb": -1.36,
+   "lufs": -8.7,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "guns/fire_enemy_light": {
+   "file": "guns/fire_enemy_light_1.ogg",
+   "files": [
+    "guns/fire_enemy_light_1.ogg",
+    "guns/fire_enemy_light_2.ogg",
+    "guns/fire_enemy_light_3.ogg"
+   ],
+   "duration": 0.7124,
+   "durations": [
+    0.7124,
+    0.7164,
+    0.7073
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.16,
+   "category": "gun_enemy",
+   "channels": 1,
+   "notes": "raider light gun (distant, flatter, midrangey); positional",
+   "peakDb": -1.27,
+   "lufs": -11.5,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "guns/fire_lmg": {
+   "file": "guns/fire_lmg_1.ogg",
+   "files": [
+    "guns/fire_lmg_1.ogg",
+    "guns/fire_lmg_2.ogg",
+    "guns/fire_lmg_3.ogg",
+    "guns/fire_lmg_4.ogg"
+   ],
+   "duration": 0.7405,
+   "durations": [
+    0.7405,
+    0.6976,
+    0.7353,
+    0.7278
+   ],
+   "loop": false,
+   "variations": 4,
+   "gain": 0.428,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "lmg shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "peakDb": -1.15,
+   "lufs": -11.1,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/fire_pistol": {
+   "file": "guns/fire_pistol_1.ogg",
+   "files": [
+    "guns/fire_pistol_1.ogg",
+    "guns/fire_pistol_2.ogg",
+    "guns/fire_pistol_3.ogg"
+   ],
+   "duration": 0.5023,
+   "durations": [
+    0.5023,
+    0.5452,
+    0.5098
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.338,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "pistol shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "peakDb": -1.22,
+   "lufs": -12.0,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/fire_revolver": {
+   "file": "guns/fire_revolver_1.ogg",
+   "files": [
+    "guns/fire_revolver_1.ogg",
+    "guns/fire_revolver_2.ogg",
+    "guns/fire_revolver_3.ogg"
+   ],
+   "duration": 1.0796,
+   "durations": [
+    1.0796,
+    1.0683,
+    1.0435
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.41,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "revolver shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "peakDb": -1.05,
+   "lufs": -10.7,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/fire_rifle": {
+   "file": "guns/fire_rifle_1.ogg",
+   "files": [
+    "guns/fire_rifle_1.ogg",
+    "guns/fire_rifle_2.ogg",
+    "guns/fire_rifle_3.ogg",
+    "guns/fire_rifle_4.ogg"
+   ],
+   "duration": 1.3395,
+   "durations": [
+    1.3395,
+    1.2534,
+    1.3109,
+    1.3348
+   ],
+   "loop": false,
+   "variations": 4,
+   "gain": 0.366,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "rifle shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "peakDb": -1.49,
+   "lufs": -10.7,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/fire_rpg": {
+   "file": "guns/fire_rpg_1.ogg",
+   "files": [
+    "guns/fire_rpg_1.ogg",
+    "guns/fire_rpg_2.ogg"
+   ],
+   "duration": 3.2599,
+   "durations": [
+    3.2599,
+    3.2718
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.324,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "launch: tube pop + ignition whoosh + backblast thump",
+   "peakDb": -1.17,
+   "lufs": -6.7,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/fire_shotgun": {
+   "file": "guns/fire_shotgun_1.ogg",
+   "files": [
+    "guns/fire_shotgun_1.ogg",
+    "guns/fire_shotgun_2.ogg",
+    "guns/fire_shotgun_3.ogg"
+   ],
+   "duration": 1.5967,
+   "durations": [
+    1.5967,
+    1.7306,
+    1.6044
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.385,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "shotgun shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "peakDb": -1.46,
+   "lufs": -9.2,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/fire_smg": {
+   "file": "guns/fire_smg_1.ogg",
+   "files": [
+    "guns/fire_smg_1.ogg",
+    "guns/fire_smg_2.ogg",
+    "guns/fire_smg_3.ogg",
+    "guns/fire_smg_4.ogg"
+   ],
+   "duration": 0.3353,
+   "durations": [
+    0.3353,
+    0.3368,
+    0.3416,
+    0.3412
+   ],
+   "loop": false,
+   "variations": 4,
+   "gain": 0.411,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "smg shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "peakDb": -1.2,
+   "lufs": -14.7,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/fire_sniper": {
+   "file": "guns/fire_sniper_1.ogg",
+   "files": [
+    "guns/fire_sniper_1.ogg",
+    "guns/fire_sniper_2.ogg"
+   ],
+   "duration": 2.8423,
+   "durations": [
+    2.8423,
+    2.9665
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.47,
+   "category": "gun_fire",
+   "channels": 1,
+   "notes": "sniper shot with outdoor tail; play at pitch 0.94-1.06 for extra variation",
+   "peakDb": -1.66,
+   "lufs": -9.9,
+   "pitchRange": [
+    0.95,
+    1.05
+   ]
+  },
+  "guns/grenade_bounce": {
+   "file": "guns/grenade_bounce_1.ogg",
+   "files": [
+    "guns/grenade_bounce_1.ogg",
+    "guns/grenade_bounce_2.ogg",
+    "guns/grenade_bounce_3.ogg"
+   ],
+   "duration": 0.55,
+   "durations": [
+    0.55,
+    0.55,
+    0.55
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.137,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.33,
+   "lufs": -12.2,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/grenade_pin": {
+   "file": "guns/grenade_pin.ogg",
+   "files": [
+    "guns/grenade_pin.ogg"
+   ],
+   "duration": 0.5,
+   "durations": [
+    0.5
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.126,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.29,
+   "lufs": -11.5,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/grenade_throw": {
+   "file": "guns/grenade_throw.ogg",
+   "files": [
+    "guns/grenade_throw.ogg"
+   ],
+   "duration": 0.4,
+   "durations": [
+    0.4
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.102,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.87,
+   "lufs": -12.7,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/lmg_belt_in": {
+   "file": "guns/lmg_belt_in.ogg",
+   "files": [
+    "guns/lmg_belt_in.ogg"
+   ],
+   "duration": 0.68,
+   "durations": [
+    0.68
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.092,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.53,
+   "lufs": -10.7,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/lmg_cover_close": {
+   "file": "guns/lmg_cover_close.ogg",
+   "files": [
+    "guns/lmg_cover_close.ogg"
+   ],
+   "duration": 0.6,
+   "durations": [
+    0.6
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.261,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.5,
+   "lufs": -14.8,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/lmg_cover_open": {
+   "file": "guns/lmg_cover_open.ogg",
+   "files": [
+    "guns/lmg_cover_open.ogg"
+   ],
+   "duration": 0.7,
+   "durations": [
+    0.7
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.254,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.64,
+   "lufs": -15.6,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/lmg_rack": {
+   "file": "guns/lmg_rack.ogg",
+   "files": [
+    "guns/lmg_rack.ogg"
+   ],
+   "duration": 0.8,
+   "durations": [
+    0.8
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.35,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.79,
+   "lufs": -18.3,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/pistol_mag_in": {
+   "file": "guns/pistol_mag_in.ogg",
+   "files": [
+    "guns/pistol_mag_in.ogg"
+   ],
+   "duration": 0.42,
+   "durations": [
+    0.42
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.263,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.05,
+   "lufs": -19.9,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/pistol_mag_out": {
+   "file": "guns/pistol_mag_out.ogg",
+   "files": [
+    "guns/pistol_mag_out.ogg"
+   ],
+   "duration": 0.38,
+   "durations": [
+    0.38
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.219,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.68,
+   "lufs": -19.3,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/pistol_slide": {
+   "file": "guns/pistol_slide.ogg",
+   "files": [
+    "guns/pistol_slide.ogg"
+   ],
+   "duration": 0.46,
+   "durations": [
+    0.46
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.246,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.77,
+   "lufs": -18.3,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/rifle_bolt": {
+   "file": "guns/rifle_bolt.ogg",
+   "files": [
+    "guns/rifle_bolt.ogg"
+   ],
+   "duration": 0.54,
+   "durations": [
+    0.54
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.292,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.68,
+   "lufs": -17.8,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/rifle_mag_in": {
+   "file": "guns/rifle_mag_in.ogg",
+   "files": [
+    "guns/rifle_mag_in.ogg"
+   ],
+   "duration": 0.42,
+   "durations": [
+    0.42
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.26,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.44,
+   "lufs": -17.8,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/rifle_mag_out": {
+   "file": "guns/rifle_mag_out.ogg",
+   "files": [
+    "guns/rifle_mag_out.ogg"
+   ],
+   "duration": 0.38,
+   "durations": [
+    0.38
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.222,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.4,
+   "lufs": -18.4,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/rocket_loop": {
+   "file": "guns/rocket_loop.ogg",
+   "files": [
+    "guns/rocket_loop.ogg"
+   ],
+   "duration": 1.6,
+   "durations": [
+    1.6
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.692,
+   "category": "gun_loop",
+   "channels": 1,
+   "notes": "rocket motor flight loop, 1.6 s seamless; scale gain with distance, pitch 0.9-1.15 (doppler)",
+   "peakDb": -13.09,
+   "lufs": -20.2,
+   "loopStart": 0.0,
+   "loopEnd": 1.6,
+   "loopJumpRatio": 0.35,
+   "pitchRange": [
+    0.9,
+    1.15
+   ]
+  },
+  "guns/rpg_reload": {
+   "file": "guns/rpg_reload.ogg",
+   "files": [
+    "guns/rpg_reload.ogg"
+   ],
+   "duration": 1.15,
+   "durations": [
+    1.15
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.334,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.64,
+   "lufs": -17.9,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/shell_drop_brass": {
+   "file": "guns/shell_drop_brass_1.ogg",
+   "files": [
+    "guns/shell_drop_brass_1.ogg",
+    "guns/shell_drop_brass_2.ogg",
+    "guns/shell_drop_brass_3.ogg",
+    "guns/shell_drop_brass_4.ogg"
+   ],
+   "duration": 0.5,
+   "durations": [
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ],
+   "loop": false,
+   "variations": 4,
+   "gain": 0.053,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.58,
+   "lufs": -9.9,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/shell_drop_shotgun": {
+   "file": "guns/shell_drop_shotgun_1.ogg",
+   "files": [
+    "guns/shell_drop_shotgun_1.ogg",
+    "guns/shell_drop_shotgun_2.ogg",
+    "guns/shell_drop_shotgun_3.ogg"
+   ],
+   "duration": 0.55,
+   "durations": [
+    0.55,
+    0.55,
+    0.55
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.092,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.32,
+   "lufs": -13.7,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/shotgun_pump": {
+   "file": "guns/shotgun_pump.ogg",
+   "files": [
+    "guns/shotgun_pump.ogg"
+   ],
+   "duration": 0.75,
+   "durations": [
+    0.75
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.347,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.35,
+   "lufs": -17.3,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/shotgun_shell_in": {
+   "file": "guns/shotgun_shell_in_1.ogg",
+   "files": [
+    "guns/shotgun_shell_in_1.ogg",
+    "guns/shotgun_shell_in_2.ogg",
+    "guns/shotgun_shell_in_3.ogg",
+    "guns/shotgun_shell_in_4.ogg"
+   ],
+   "duration": 0.22,
+   "durations": [
+    0.22,
+    0.22,
+    0.22,
+    0.22
+   ],
+   "loop": false,
+   "variations": 4,
+   "gain": 0.131,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.47,
+   "lufs": -13.8,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/smg_bolt": {
+   "file": "guns/smg_bolt.ogg",
+   "files": [
+    "guns/smg_bolt.ogg"
+   ],
+   "duration": 0.51,
+   "durations": [
+    0.51
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.26,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.98,
+   "lufs": -17.8,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/smg_mag_in": {
+   "file": "guns/smg_mag_in.ogg",
+   "files": [
+    "guns/smg_mag_in.ogg"
+   ],
+   "duration": 0.42,
+   "durations": [
+    0.42
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.276,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.94,
+   "lufs": -19.3,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/smg_mag_out": {
+   "file": "guns/smg_mag_out.ogg",
+   "files": [
+    "guns/smg_mag_out.ogg"
+   ],
+   "duration": 0.38,
+   "durations": [
+    0.38
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.216,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.16,
+   "lufs": -18.1,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/sniper_bolt_close": {
+   "file": "guns/sniper_bolt_close.ogg",
+   "files": [
+    "guns/sniper_bolt_close.ogg"
+   ],
+   "duration": 0.55,
+   "durations": [
+    0.55
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.219,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.54,
+   "lufs": -16.3,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/sniper_bolt_open": {
+   "file": "guns/sniper_bolt_open.ogg",
+   "files": [
+    "guns/sniper_bolt_open.ogg"
+   ],
+   "duration": 0.5,
+   "durations": [
+    0.5
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.315,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.3,
+   "lufs": -19.4,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/sniper_mag": {
+   "file": "guns/sniper_mag.ogg",
+   "files": [
+    "guns/sniper_mag.ogg"
+   ],
+   "duration": 0.38,
+   "durations": [
+    0.38
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.203,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.72,
+   "lufs": -17.6,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "guns/weapon_swap": {
+   "file": "guns/weapon_swap_1.ogg",
+   "files": [
+    "guns/weapon_swap_1.ogg",
+    "guns/weapon_swap_2.ogg"
+   ],
+   "duration": 0.38,
+   "durations": [
+    0.38,
+    0.38
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.101,
+   "category": "gun_foley",
+   "channels": 1,
+   "notes": "",
+   "peakDb": -1.65,
+   "lufs": -11.5,
+   "pitchRange": [
+    0.96,
+    1.04
+   ]
+  },
+  "impacts/armor_hit": {
+   "file": "impacts/armor_hit_1.ogg",
+   "files": [
+    "impacts/armor_hit_1.ogg",
+    "impacts/armor_hit_2.ogg",
+    "impacts/armor_hit_3.ogg"
+   ],
+   "duration": 0.42,
+   "durations": [
+    0.42,
+    0.42,
+    0.42
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.294,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "hit on body armor / armour plate: clank + thud",
+   "peakDb": -1.46,
+   "lufs": -10.8,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/bullet_asphalt": {
+   "file": "impacts/bullet_asphalt_1.ogg",
+   "files": [
+    "impacts/bullet_asphalt_1.ogg",
+    "impacts/bullet_asphalt_2.ogg",
+    "impacts/bullet_asphalt_3.ogg"
+   ],
+   "duration": 0.25,
+   "durations": [
+    0.25,
+    0.25,
+    0.25
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.331,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "bullet on road: sharp tck + dust puff + gravel scatter",
+   "peakDb": -1.56,
+   "lufs": -14.8,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/bullet_dirt": {
+   "file": "impacts/bullet_dirt_1.ogg",
+   "files": [
+    "impacts/bullet_dirt_1.ogg",
+    "impacts/bullet_dirt_2.ogg",
+    "impacts/bullet_dirt_3.ogg"
+   ],
+   "duration": 0.3,
+   "durations": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.201,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "bullet into dirt/sand: soft thud + spray",
+   "peakDb": -1.42,
+   "lufs": -10.5,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/bullet_flesh": {
+   "file": "impacts/bullet_flesh_1.ogg",
+   "files": [
+    "impacts/bullet_flesh_1.ogg",
+    "impacts/bullet_flesh_2.ogg",
+    "impacts/bullet_flesh_3.ogg"
+   ],
+   "duration": 0.28,
+   "durations": [
+    0.28,
+    0.28,
+    0.28
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.239,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "dull body thud (non-graphic): low thump + soft slap",
+   "peakDb": -1.41,
+   "lufs": -11.0,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/bullet_glass": {
+   "file": "impacts/bullet_glass_1.ogg",
+   "files": [
+    "impacts/bullet_glass_1.ogg",
+    "impacts/bullet_glass_2.ogg",
+    "impacts/bullet_glass_3.ogg"
+   ],
+   "duration": 0.5,
+   "durations": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.451,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "bullet through glass: crack + ting + falling shards",
+   "peakDb": -1.54,
+   "lufs": -15.5,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/bullet_metal": {
+   "file": "impacts/bullet_metal_1.ogg",
+   "files": [
+    "impacts/bullet_metal_1.ogg",
+    "impacts/bullet_metal_2.ogg",
+    "impacts/bullet_metal_3.ogg",
+    "impacts/bullet_metal_4.ogg",
+    "impacts/bullet_metal_5.ogg"
+   ],
+   "duration": 0.33,
+   "durations": [
+    0.33,
+    0.33,
+    0.33,
+    0.33,
+    0.33
+   ],
+   "loop": false,
+   "variations": 5,
+   "gain": 0.587,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "bullet on car body / plate: tick + plate modes + dent; frequent, short",
+   "peakDb": -1.53,
+   "lufs": -16.8,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/bullet_tire": {
+   "file": "impacts/bullet_tire.ogg",
+   "files": [
+    "impacts/bullet_tire.ogg"
+   ],
+   "duration": 1.5,
+   "durations": [
+    1.5
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.265,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "tyre puncture: pop + long air hiss + flap",
+   "peakDb": -1.5,
+   "lufs": -10.9,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/bullet_whizz": {
+   "file": "impacts/bullet_whizz_1.ogg",
+   "files": [
+    "impacts/bullet_whizz_1.ogg",
+    "impacts/bullet_whizz_2.ogg",
+    "impacts/bullet_whizz_3.ogg",
+    "impacts/bullet_whizz_4.ogg",
+    "impacts/bullet_whizz_5.ogg"
+   ],
+   "duration": 0.5,
+   "durations": [
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ],
+   "loop": false,
+   "variations": 5,
+   "gain": 0.207,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "supersonic near-miss flyby with downward pitch glide (doppler)",
+   "peakDb": -1.15,
+   "lufs": -10.8,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/car_crash_heavy": {
+   "file": "impacts/car_crash_heavy_1.ogg",
+   "files": [
+    "impacts/car_crash_heavy_1.ogg",
+    "impacts/car_crash_heavy_2.ogg",
+    "impacts/car_crash_heavy_3.ogg"
+   ],
+   "duration": 1.9137,
+   "durations": [
+    1.9137,
+    1.9188,
+    1.917
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.487,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "heavy crash: sub boom + crush + debris, ~1.9 s",
+   "peakDb": -1.32,
+   "lufs": -8.2,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/car_crash_light": {
+   "file": "impacts/car_crash_light_1.ogg",
+   "files": [
+    "impacts/car_crash_light_1.ogg",
+    "impacts/car_crash_light_2.ogg",
+    "impacts/car_crash_light_3.ogg"
+   ],
+   "duration": 0.9858,
+   "durations": [
+    0.9858,
+    0.96,
+    0.9971
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.25,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "light collision / scrape-crash, ~1 s",
+   "peakDb": -1.16,
+   "lufs": -8.4,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/car_scrape_hit": {
+   "file": "impacts/car_scrape_hit.ogg",
+   "files": [
+    "impacts/car_scrape_hit.ogg"
+   ],
+   "duration": 0.55,
+   "durations": [
+    0.55
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.371,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "onset of a metal scrape: screech chirp + crunch, 0.5 s",
+   "peakDb": -1.57,
+   "lufs": -11.8,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/car_scrape_loop": {
+   "file": "impacts/car_scrape_loop.ogg",
+   "files": [
+    "impacts/car_scrape_loop.ogg"
+   ],
+   "duration": 1.6,
+   "durations": [
+    1.6
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.391,
+   "category": "impact_loop",
+   "channels": 1,
+   "notes": "metal scraping on asphalt, seamless 1.6 s loop; gain by slide speed, pitch 0.8-1.3",
+   "peakDb": -15.07,
+   "lufs": -21.3,
+   "loopStart": 0.0,
+   "loopEnd": 1.6,
+   "loopJumpRatio": 0.21,
+   "pitchRange": [
+    0.8,
+    1.3
+   ]
+  },
+  "impacts/debris_bounce": {
+   "file": "impacts/debris_bounce_1.ogg",
+   "files": [
+    "impacts/debris_bounce_1.ogg",
+    "impacts/debris_bounce_2.ogg",
+    "impacts/debris_bounce_3.ogg",
+    "impacts/debris_bounce_4.ogg"
+   ],
+   "duration": 0.75,
+   "durations": [
+    0.75,
+    0.75,
+    0.75,
+    0.75
+   ],
+   "loop": false,
+   "variations": 4,
+   "gain": 0.412,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "chunk of metal bouncing on asphalt, 3 bounces",
+   "peakDb": -1.39,
+   "lufs": -12.8,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/glass_shatter": {
+   "file": "impacts/glass_shatter_1.ogg",
+   "files": [
+    "impacts/glass_shatter_1.ogg",
+    "impacts/glass_shatter_2.ogg"
+   ],
+   "duration": 1.4,
+   "durations": [
+    1.4,
+    1.4
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 1.0,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "windscreen / window shatter, 1.3 s",
+   "peakDb": -2.15,
+   "lufs": -17.4,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/headshot_ping": {
+   "file": "impacts/headshot_ping.ogg",
+   "files": [
+    "impacts/headshot_ping.ogg"
+   ],
+   "duration": 0.8,
+   "durations": [
+    0.8
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.71,
+   "category": "impact_ui",
+   "channels": 1,
+   "notes": "bright metallic headshot ping",
+   "peakDb": -1.05,
+   "lufs": -18.5,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "impacts/hit_marker": {
+   "file": "impacts/hit_marker.ogg",
+   "files": [
+    "impacts/hit_marker.ogg"
+   ],
+   "duration": 0.11,
+   "durations": [
+    0.11
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.911,
+   "category": "impact_ui",
+   "channels": 1,
+   "notes": "crisp hit confirmation tick (2-3 kHz)",
+   "peakDb": -1.83,
+   "lufs": -22.6,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "impacts/hit_marker_kill": {
+   "file": "impacts/hit_marker_kill.ogg",
+   "files": [
+    "impacts/hit_marker_kill.ogg"
+   ],
+   "duration": 0.45,
+   "durations": [
+    0.45
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.914,
+   "category": "impact_ui",
+   "channels": 1,
+   "notes": "kill confirmation: double tick + low thock + ping",
+   "peakDb": -1.78,
+   "lufs": -19.7,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "impacts/metal_tear": {
+   "file": "impacts/metal_tear_1.ogg",
+   "files": [
+    "impacts/metal_tear_1.ogg",
+    "impacts/metal_tear_2.ogg",
+    "impacts/metal_tear_3.ogg"
+   ],
+   "duration": 1.0,
+   "durations": [
+    1.0,
+    0.8,
+    1.2
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.499,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "tearing / peeling sheet metal, ~1 s",
+   "peakDb": -1.26,
+   "lufs": -11.4,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/panel_detach": {
+   "file": "impacts/panel_detach_1.ogg",
+   "files": [
+    "impacts/panel_detach_1.ogg",
+    "impacts/panel_detach_2.ogg",
+    "impacts/panel_detach_3.ogg"
+   ],
+   "duration": 0.75,
+   "durations": [
+    0.75,
+    0.75,
+    0.75
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.668,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "body panel / bumper ripping off: clang + boing + skitter",
+   "peakDb": -1.46,
+   "lufs": -12.9,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/ram_hit": {
+   "file": "impacts/ram_hit_1.ogg",
+   "files": [
+    "impacts/ram_hit_1.ogg",
+    "impacts/ram_hit_2.ogg",
+    "impacts/ram_hit_3.ogg"
+   ],
+   "duration": 0.9,
+   "durations": [
+    0.9,
+    0.9,
+    0.9
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.372,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "vehicle-vehicle ram: solid low thud + crunch",
+   "peakDb": -1.46,
+   "lufs": -7.9,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "impacts/ricochet": {
+   "file": "impacts/ricochet_1.ogg",
+   "files": [
+    "impacts/ricochet_1.ogg",
+    "impacts/ricochet_2.ogg",
+    "impacts/ricochet_3.ogg",
+    "impacts/ricochet_4.ogg"
+   ],
+   "duration": 0.7,
+   "durations": [
+    0.7,
+    0.7,
+    0.7,
+    0.7
+   ],
+   "loop": false,
+   "variations": 4,
+   "gain": 0.289,
+   "category": "impact_bullet",
+   "channels": 1,
+   "notes": "ricochet zing: tonal noise gliding down, 0.6 s",
+   "peakDb": -1.17,
+   "lufs": -11.7,
+   "pitchRange": [
+    0.92,
+    1.08
+   ]
+  },
+  "impacts/wheel_off": {
+   "file": "impacts/wheel_off.ogg",
+   "files": [
+    "impacts/wheel_off.ogg"
+   ],
+   "duration": 1.8,
+   "durations": [
+    1.8
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.462,
+   "category": "impact_car",
+   "channels": 1,
+   "notes": "wheel shears off: bang + whirring roll-away + bounces, 1.8 s",
+   "peakDb": -1.34,
+   "lufs": -8.7,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "music/run_a_base": {
+   "file": "music/run_a_base.ogg",
+   "files": [
+    "music/run_a_base.ogg"
+   ],
+   "duration": 25.2632,
+   "durations": [
+    25.2632
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -6.83,
+   "lufs": -19.8,
+   "loopStart": 0.0,
+   "loopEnd": 25.26315192743764,
+   "loopJumpRatio": 0.06,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_a",
+   "bpm": 152.0,
+   "bpmNominal": 152,
+   "bars": 16,
+   "beats": 64,
+   "key": "A minor",
+   "loopBars": 16,
+   "samples": 1114105,
+   "secPerBar": 1.57895,
+   "stem": "base",
+   "intensity": 0
+  },
+  "music/run_a_drums": {
+   "file": "music/run_a_drums.ogg",
+   "files": [
+    "music/run_a_drums.ogg"
+   ],
+   "duration": 25.2632,
+   "durations": [
+    25.2632
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -8.96,
+   "lufs": -18.9,
+   "loopStart": 0.0,
+   "loopEnd": 25.26315192743764,
+   "loopJumpRatio": 0.12,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_a",
+   "bpm": 152.0,
+   "bpmNominal": 152,
+   "bars": 16,
+   "beats": 64,
+   "key": "A minor",
+   "loopBars": 16,
+   "samples": 1114105,
+   "secPerBar": 1.57895,
+   "stem": "drums",
+   "intensity": 1
+  },
+  "music/run_a_extra": {
+   "file": "music/run_a_extra.ogg",
+   "files": [
+    "music/run_a_extra.ogg"
+   ],
+   "duration": 25.2632,
+   "durations": [
+    25.2632
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -5.16,
+   "lufs": -20.9,
+   "loopStart": 0.0,
+   "loopEnd": 25.26315192743764,
+   "loopJumpRatio": 0.01,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_a",
+   "bpm": 152.0,
+   "bpmNominal": 152,
+   "bars": 16,
+   "beats": 64,
+   "key": "A minor",
+   "loopBars": 16,
+   "samples": 1114105,
+   "secPerBar": 1.57895,
+   "stem": "extra",
+   "intensity": 3
+  },
+  "music/run_a_lead": {
+   "file": "music/run_a_lead.ogg",
+   "files": [
+    "music/run_a_lead.ogg"
+   ],
+   "duration": 25.2632,
+   "durations": [
+    25.2632
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.4,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
+   "peakDb": -11.54,
+   "lufs": -20.8,
+   "loopStart": 0.0,
+   "loopEnd": 25.26315192743764,
+   "loopJumpRatio": 0.04,
+   "pitchRange": [
+    1.0,
+    1.0
+   ],
+   "track": "run_a",
+   "bpm": 152.0,
+   "bpmNominal": 152,
+   "bars": 16,
+   "beats": 64,
+   "key": "A minor",
+   "loopBars": 16,
+   "samples": 1114105,
+   "secPerBar": 1.57895,
+   "stem": "lead",
+   "intensity": 2
+  },
+  "stingers/boss_defeated": {
+   "file": "stingers/boss_defeated.ogg",
+   "files": [
+    "stingers/boss_defeated.ogg"
+   ],
+   "duration": 5.4509,
+   "durations": [
+    5.4509
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.424,
+   "category": "stinger",
+   "channels": 2,
+   "notes": "boss dies: huge boom then rising A-minor to A-major brass resolution, ~7 s",
+   "peakDb": -2.07,
+   "lufs": -7.0,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "stingers/boss_intro": {
+   "file": "stingers/boss_intro.ogg",
+   "files": [
+    "stingers/boss_intro.ogg"
+   ],
+   "duration": 7.6546,
+   "durations": [
+    7.6546
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.436,
+   "category": "stinger",
+   "channels": 2,
+   "notes": "boss appears: drone + phrygian minor-second swell + tom hits + massive E hit, ~7 s",
+   "peakDb": -1.7,
+   "lufs": -7.2,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "stingers/danger_riser": {
+   "file": "stingers/danger_riser.ogg",
+   "files": [
+    "stingers/danger_riser.ogg"
+   ],
+   "duration": 3.0,
+   "durations": [
+    3.0
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.511,
+   "category": "stinger",
+   "channels": 2,
+   "notes": "3 s tension riser (noise sweep + rising tone + accelerating tremolo); ends at peak, cut it with a hit",
+   "peakDb": -1.85,
+   "lufs": -9.6,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "stingers/game_over": {
+   "file": "stingers/game_over.ogg",
+   "files": [
+    "stingers/game_over.ogg"
+   ],
+   "duration": 4.8684,
+   "durations": [
+    4.8684
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.392,
+   "category": "stinger",
+   "channels": 2,
+   "notes": "car destroyed / run over: sub hit + tape-stop A-minor chord sinking, 3.8 s",
+   "peakDb": -1.49,
+   "lufs": -6.3,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "stingers/low_health_heartbeat_loop": {
+   "file": "stingers/low_health_heartbeat_loop.ogg",
+   "files": [
+    "stingers/low_health_heartbeat_loop.ogg"
+   ],
+   "duration": 1.0,
+   "durations": [
+    1.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.671,
+   "category": "stinger_loop",
+   "channels": 2,
+   "notes": "heartbeat lub-dub at 60 BPM, seamless 1 s loop; loop while HP < 30 %, raise rate via playbackRate",
+   "peakDb": -4.21,
+   "lufs": -21.0,
+   "loopStart": 0.0,
+   "loopEnd": 1.0,
+   "loopJumpRatio": 0.22,
+   "pitchRange": [
+    0.9,
+    1.4
+   ]
+  },
+  "stingers/run_start": {
+   "file": "stingers/run_start.ogg",
+   "files": [
+    "stingers/run_start.ogg"
+   ],
+   "duration": 3.5666,
+   "durations": [
+    3.5666
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.544,
+   "category": "stinger",
+   "channels": 2,
+   "notes": "run begins: 1.2 s riser (tom roll + swell) then A-minor power-chord impact; ~4 s total",
+   "peakDb": -2.2,
+   "lufs": -9.2,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "stingers/victory": {
+   "file": "stingers/victory.ogg",
+   "files": [
+    "stingers/victory.ogg"
+   ],
+   "duration": 4.0075,
+   "durations": [
+    4.0075
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.416,
+   "category": "stinger",
+   "channels": 2,
+   "notes": "short heroic C-major fanfare (stinger; full theme is music/victory), ~5 s",
+   "peakDb": -1.17,
+   "lufs": -6.8,
+   "pitchRange": [
+    1.0,
+    1.0
+   ]
+  },
+  "stingers/warning_alarm_loop": {
+   "file": "stingers/warning_alarm_loop.ogg",
+   "files": [
+    "stingers/warning_alarm_loop.ogg"
+   ],
+   "duration": 1.2,
+   "durations": [
+    1.2
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.842,
+   "category": "stinger_loop",
+   "channels": 2,
+   "notes": "two-tone electronic warning siren (960/720 Hz), seamless 1.2 s loop",
+   "peakDb": -21.86,
+   "lufs": -22.0,
+   "loopStart": 0.0,
+   "loopEnd": 1.2,
+   "loopJumpRatio": 0.06,
+   "pitchRange": [
+    0.9,
+    1.4
+   ]
+  },
+  "ui/buy": {
+   "file": "ui/buy.ogg",
+   "files": [
+    "ui/buy.ogg"
+   ],
+   "duration": 0.75,
+   "durations": [
+    0.75
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.229,
+   "category": "ui",
+   "channels": 1,
+   "notes": "purchase confirmation: cash-register bell + coin clink, 0.7 s",
+   "peakDb": -1.74,
+   "lufs": -12.7,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/click": {
+   "file": "ui/click.ogg",
+   "files": [
+    "ui/click.ogg"
+   ],
+   "duration": 0.07,
+   "durations": [
+    0.07
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.607,
+   "category": "ui",
+   "channels": 1,
+   "notes": "button press: dry tactile tick",
+   "peakDb": -2.6,
+   "lufs": -21.1,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/coin": {
+   "file": "ui/coin_1.ogg",
+   "files": [
+    "ui/coin_1.ogg",
+    "ui/coin_2.ogg"
+   ],
+   "duration": 0.45,
+   "durations": [
+    0.45,
+    0.45
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.227,
+   "category": "ui",
+   "channels": 1,
+   "notes": "coin pickup / cash ding (two variations, pitch up/down)",
+   "peakDb": -1.82,
+   "lufs": -14.6,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/countdown_beep": {
+   "file": "ui/countdown_beep.ogg",
+   "files": [
+    "ui/countdown_beep.ogg"
+   ],
+   "duration": 0.3,
+   "durations": [
+    0.3
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.226,
+   "category": "ui",
+   "channels": 1,
+   "notes": "3-2-1 countdown beep (880 Hz)",
+   "peakDb": -2.28,
+   "lufs": -14.5,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/error": {
+   "file": "ui/error.ogg",
+   "files": [
+    "ui/error.ogg"
+   ],
+   "duration": 0.36,
+   "durations": [
+    0.36
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.222,
+   "category": "ui",
+   "channels": 1,
+   "notes": "denied / cannot afford: low double buzz",
+   "peakDb": -1.7,
+   "lufs": -13.4,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/go": {
+   "file": "ui/go.ogg",
+   "files": [
+    "ui/go.ogg"
+   ],
+   "duration": 0.7,
+   "durations": [
+    0.7
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.311,
+   "category": "ui",
+   "channels": 1,
+   "notes": "GO! start beep: higher, longer, with rising sweep",
+   "peakDb": -2.01,
+   "lufs": -15.3,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/hover": {
+   "file": "ui/hover.ogg",
+   "files": [
+    "ui/hover.ogg"
+   ],
+   "duration": 0.05,
+   "durations": [
+    0.05
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.313,
+   "category": "ui",
+   "channels": 1,
+   "notes": "menu item hover: light high tick",
+   "peakDb": -2.11,
+   "lufs": -21.4,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/menu_close": {
+   "file": "ui/menu_close.ogg",
+   "files": [
+    "ui/menu_close.ogg"
+   ],
+   "duration": 0.3,
+   "durations": [
+    0.3
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.353,
+   "category": "ui",
+   "channels": 1,
+   "notes": "menu closes: falling whoosh + soft thock",
+   "peakDb": -1.6,
+   "lufs": -19.4,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/menu_open": {
+   "file": "ui/menu_open.ogg",
+   "files": [
+    "ui/menu_open.ogg"
+   ],
+   "duration": 0.32,
+   "durations": [
+    0.32
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.255,
+   "category": "ui",
+   "channels": 1,
+   "notes": "menu opens: short rising airy whoosh + soft click",
+   "peakDb": -2.45,
+   "lufs": -16.6,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/ready": {
+   "file": "ui/ready.ogg",
+   "files": [
+    "ui/ready.ogg"
+   ],
+   "duration": 0.36,
+   "durations": [
+    0.36
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.332,
+   "category": "ui",
+   "channels": 1,
+   "notes": "ready / confirm: two-note up chirp",
+   "peakDb": -1.95,
+   "lufs": -16.9,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/upgrade_unlock": {
+   "file": "ui/upgrade_unlock.ogg",
+   "files": [
+    "ui/upgrade_unlock.ogg"
+   ],
+   "duration": 1.05,
+   "durations": [
+    1.05
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.177,
+   "category": "ui",
+   "channels": 1,
+   "notes": "new upgrade / weapon unlocked: rising sparkle arpeggio, 1 s",
+   "peakDb": -1.48,
+   "lufs": -10.4,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "ui/whoosh_transition": {
+   "file": "ui/whoosh_transition.ogg",
+   "files": [
+    "ui/whoosh_transition.ogg"
+   ],
+   "duration": 0.95,
+   "durations": [
+    0.95
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.142,
+   "category": "ui",
+   "channels": 1,
+   "notes": "screen transition: swelling whoosh into a low thud, 0.8 s",
+   "peakDb": -1.86,
+   "lufs": -10.5,
+   "pitchRange": [
+    0.98,
+    1.02
+   ]
+  },
+  "vehicles/backfire": {
+   "file": "vehicles/backfire_1.ogg",
+   "files": [
+    "vehicles/backfire_1.ogg",
+    "vehicles/backfire_2.ogg",
+    "vehicles/backfire_3.ogg"
+   ],
+   "duration": 0.5219,
+   "durations": [
+    0.5219,
+    0.5933,
+    0.4267
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.403,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "exhaust backfire bang + crackle, 0.6 s",
+   "peakDb": -1.96,
+   "lufs": -14.6,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/brake_squeal": {
+   "file": "vehicles/brake_squeal.ogg",
+   "files": [
+    "vehicles/brake_squeal.ogg"
+   ],
+   "duration": 1.1,
+   "durations": [
+    1.1
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.123,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "brake squeal, 1.1 s (pitch 0.9-1.2)",
+   "peakDb": -1.3,
+   "lufs": -7.3,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/damaged_engine_loop": {
+   "file": "vehicles/damaged_engine_loop.ogg",
+   "files": [
+    "vehicles/damaged_engine_loop.ogg"
+   ],
+   "duration": 2.4545,
+   "durations": [
+    2.4545
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.549,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "dying engine: misfires, rod knock, steam hiss; overlay on engine when HP low; seamless 2.4 s loop",
+   "peakDb": -3.25,
+   "lufs": -22.2,
+   "loopStart": 0.0,
+   "loopEnd": 2.4545,
+   "loopJumpRatio": 0.29,
+   "pitchRange": [
+    0.8,
+    1.3
+   ]
+  },
+  "vehicles/engine_boss_high": {
+   "file": "vehicles/engine_boss_high.ogg",
+   "files": [
+    "vehicles/engine_boss_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.537,
+   "category": "engine",
+   "channels": 1,
+   "notes": "huge turbo-diesel V12 (boss war rig), menacing; high stage recorded at 1900 RPM (fire freq 190.0 Hz); crossfade neighbours, playbackRate = rpm/1900",
+   "peakDb": -7.24,
+   "lufs": -20.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.28,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_boss",
+   "stage": "high",
+   "rpm": 1900,
+   "fireHz": 190.0,
+   "cylinders": 12,
+   "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
+  },
+  "vehicles/engine_boss_idle": {
+   "file": "vehicles/engine_boss_idle.ogg",
+   "files": [
+    "vehicles/engine_boss_idle.ogg"
+   ],
+   "duration": 2.3077,
+   "durations": [
+    2.3077
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.673,
+   "category": "engine",
+   "channels": 1,
+   "notes": "huge turbo-diesel V12 (boss war rig), menacing; idle stage recorded at 520 RPM (fire freq 52.0 Hz); crossfade neighbours, playbackRate = rpm/520",
+   "peakDb": -6.42,
+   "lufs": -22.0,
+   "loopStart": 0.0,
+   "loopEnd": 2.3077,
+   "loopJumpRatio": 0.05,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_boss",
+   "stage": "idle",
+   "rpm": 520,
+   "fireHz": 52.0,
+   "cylinders": 12,
+   "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
+  },
+  "vehicles/engine_boss_low": {
+   "file": "vehicles/engine_boss_low.ogg",
+   "files": [
+    "vehicles/engine_boss_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.621,
+   "category": "engine",
+   "channels": 1,
+   "notes": "huge turbo-diesel V12 (boss war rig), menacing; low stage recorded at 900 RPM (fire freq 90.0 Hz); crossfade neighbours, playbackRate = rpm/900",
+   "peakDb": -7.14,
+   "lufs": -21.3,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.15,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_boss",
+   "stage": "low",
+   "rpm": 900,
+   "fireHz": 90.0,
+   "cylinders": 12,
+   "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
+  },
+  "vehicles/engine_boss_mid": {
+   "file": "vehicles/engine_boss_mid.ogg",
+   "files": [
+    "vehicles/engine_boss_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.575,
+   "category": "engine",
+   "channels": 1,
+   "notes": "huge turbo-diesel V12 (boss war rig), menacing; mid stage recorded at 1400 RPM (fire freq 140.0 Hz); crossfade neighbours, playbackRate = rpm/1400",
+   "peakDb": -7.99,
+   "lufs": -20.6,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.38,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_boss",
+   "stage": "mid",
+   "rpm": 1400,
+   "fireHz": 140.0,
+   "cylinders": 12,
+   "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
+  },
+  "vehicles/engine_boss_redline": {
+   "file": "vehicles/engine_boss_redline.ogg",
+   "files": [
+    "vehicles/engine_boss_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.506,
+   "category": "engine",
+   "channels": 1,
+   "notes": "huge turbo-diesel V12 (boss war rig), menacing; redline stage recorded at 2500 RPM (fire freq 250.0 Hz); crossfade neighbours, playbackRate = rpm/2500",
+   "peakDb": -7.68,
+   "lufs": -19.5,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.31,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_boss",
+   "stage": "redline",
+   "rpm": 2500,
+   "fireHz": 250.0,
+   "cylinders": 12,
+   "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
+  },
+  "vehicles/engine_buggy_high": {
+   "file": "vehicles/engine_buggy_high.ogg",
+   "files": [
+    "vehicles/engine_buggy_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.541,
+   "category": "engine",
+   "channels": 1,
+   "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; high stage recorded at 5800 RPM (fire freq 193.3 Hz); crossfade neighbours, playbackRate = rpm/5800",
+   "peakDb": -7.4,
+   "lufs": -20.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.57,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_buggy",
+   "stage": "high",
+   "rpm": 5800,
+   "fireHz": 193.33,
+   "cylinders": 4,
+   "engine_desc": "raspy air-cooled 4-cylinder / buzzy two-stroke style"
+  },
+  "vehicles/engine_buggy_idle": {
+   "file": "vehicles/engine_buggy_idle.ogg",
+   "files": [
+    "vehicles/engine_buggy_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.686,
+   "category": "engine",
+   "channels": 1,
+   "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; idle stage recorded at 1100 RPM (fire freq 36.7 Hz); crossfade neighbours, playbackRate = rpm/1100",
+   "peakDb": -5.45,
+   "lufs": -22.2,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.1,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_buggy",
+   "stage": "idle",
+   "rpm": 1100,
+   "fireHz": 36.67,
+   "cylinders": 4,
+   "engine_desc": "raspy air-cooled 4-cylinder / buzzy two-stroke style"
+  },
+  "vehicles/engine_buggy_low": {
+   "file": "vehicles/engine_buggy_low.ogg",
+   "files": [
+    "vehicles/engine_buggy_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.629,
+   "category": "engine",
+   "channels": 1,
+   "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; low stage recorded at 2600 RPM (fire freq 86.7 Hz); crossfade neighbours, playbackRate = rpm/2600",
+   "peakDb": -7.06,
+   "lufs": -21.4,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.66,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_buggy",
+   "stage": "low",
+   "rpm": 2600,
+   "fireHz": 86.67,
+   "cylinders": 4,
+   "engine_desc": "raspy air-cooled 4-cylinder / buzzy two-stroke style"
+  },
+  "vehicles/engine_buggy_mid": {
+   "file": "vehicles/engine_buggy_mid.ogg",
+   "files": [
+    "vehicles/engine_buggy_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.578,
+   "category": "engine",
+   "channels": 1,
+   "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; mid stage recorded at 4200 RPM (fire freq 140.0 Hz); crossfade neighbours, playbackRate = rpm/4200",
+   "peakDb": -8.83,
+   "lufs": -20.7,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.63,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_buggy",
+   "stage": "mid",
+   "rpm": 4200,
+   "fireHz": 140.0,
+   "cylinders": 4,
+   "engine_desc": "raspy air-cooled 4-cylinder / buzzy two-stroke style"
+  },
+  "vehicles/engine_buggy_redline": {
+   "file": "vehicles/engine_buggy_redline.ogg",
+   "files": [
+    "vehicles/engine_buggy_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.507,
+   "category": "engine",
+   "channels": 1,
+   "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; redline stage recorded at 7400 RPM (fire freq 246.7 Hz); crossfade neighbours, playbackRate = rpm/7400",
+   "peakDb": -9.01,
+   "lufs": -19.6,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.01,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_buggy",
+   "stage": "redline",
+   "rpm": 7400,
+   "fireHz": 246.67,
+   "cylinders": 4,
+   "engine_desc": "raspy air-cooled 4-cylinder / buzzy two-stroke style"
+  },
+  "vehicles/engine_diesel_high": {
+   "file": "vehicles/engine_diesel_high.ogg",
+   "files": [
+    "vehicles/engine_diesel_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.535,
+   "category": "engine",
+   "channels": 1,
+   "notes": "heavy diesel (trucks, vans, tankers); high stage recorded at 2000 RPM (fire freq 100.0 Hz); crossfade neighbours, playbackRate = rpm/2000",
+   "peakDb": -7.4,
+   "lufs": -20.0,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.13,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_diesel",
+   "stage": "high",
+   "rpm": 2000,
+   "fireHz": 100.0,
+   "cylinders": 6,
+   "engine_desc": "heavy diesel (trucks, vans, tankers)"
+  },
+  "vehicles/engine_diesel_idle": {
+   "file": "vehicles/engine_diesel_idle.ogg",
+   "files": [
+    "vehicles/engine_diesel_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.676,
+   "category": "engine",
+   "channels": 1,
+   "notes": "heavy diesel (trucks, vans, tankers); idle stage recorded at 600 RPM (fire freq 30.0 Hz); crossfade neighbours, playbackRate = rpm/600",
+   "peakDb": -2.66,
+   "lufs": -22.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.09,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_diesel",
+   "stage": "idle",
+   "rpm": 600,
+   "fireHz": 30.0,
+   "cylinders": 6,
+   "engine_desc": "heavy diesel (trucks, vans, tankers)"
+  },
+  "vehicles/engine_diesel_low": {
+   "file": "vehicles/engine_diesel_low.ogg",
+   "files": [
+    "vehicles/engine_diesel_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.622,
+   "category": "engine",
+   "channels": 1,
+   "notes": "heavy diesel (trucks, vans, tankers); low stage recorded at 1000 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/1000",
+   "peakDb": -5.96,
+   "lufs": -21.3,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.2,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_diesel",
+   "stage": "low",
+   "rpm": 1000,
+   "fireHz": 50.0,
+   "cylinders": 6,
+   "engine_desc": "heavy diesel (trucks, vans, tankers)"
+  },
+  "vehicles/engine_diesel_mid": {
+   "file": "vehicles/engine_diesel_mid.ogg",
+   "files": [
+    "vehicles/engine_diesel_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.572,
+   "category": "engine",
+   "channels": 1,
+   "notes": "heavy diesel (trucks, vans, tankers); mid stage recorded at 1500 RPM (fire freq 75.0 Hz); crossfade neighbours, playbackRate = rpm/1500",
+   "peakDb": -7.97,
+   "lufs": -20.6,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.24,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_diesel",
+   "stage": "mid",
+   "rpm": 1500,
+   "fireHz": 75.0,
+   "cylinders": 6,
+   "engine_desc": "heavy diesel (trucks, vans, tankers)"
+  },
+  "vehicles/engine_diesel_redline": {
+   "file": "vehicles/engine_diesel_redline.ogg",
+   "files": [
+    "vehicles/engine_diesel_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.504,
+   "category": "engine",
+   "channels": 1,
+   "notes": "heavy diesel (trucks, vans, tankers); redline stage recorded at 2600 RPM (fire freq 130.0 Hz); crossfade neighbours, playbackRate = rpm/2600",
+   "peakDb": -8.52,
+   "lufs": -19.5,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.22,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_diesel",
+   "stage": "redline",
+   "rpm": 2600,
+   "fireHz": 130.0,
+   "cylinders": 6,
+   "engine_desc": "heavy diesel (trucks, vans, tankers)"
+  },
+  "vehicles/engine_muscle_high": {
+   "file": "vehicles/engine_muscle_high.ogg",
+   "files": [
+    "vehicles/engine_muscle_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.533,
+   "category": "engine",
+   "channels": 1,
+   "notes": "loud V8 with lopey idle; high stage recorded at 5000 RPM (fire freq 333.3 Hz); crossfade neighbours, playbackRate = rpm/5000",
+   "peakDb": -10.42,
+   "lufs": -20.0,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.28,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_muscle",
+   "stage": "high",
+   "rpm": 5000,
+   "fireHz": 333.33,
+   "cylinders": 8,
+   "engine_desc": "loud V8 with lopey idle"
+  },
+  "vehicles/engine_muscle_idle": {
+   "file": "vehicles/engine_muscle_idle.ogg",
+   "files": [
+    "vehicles/engine_muscle_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.677,
+   "category": "engine",
+   "channels": 1,
+   "notes": "loud V8 with lopey idle; idle stage recorded at 650 RPM (fire freq 43.3 Hz); crossfade neighbours, playbackRate = rpm/650",
+   "peakDb": -7.47,
+   "lufs": -22.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.12,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_muscle",
+   "stage": "idle",
+   "rpm": 650,
+   "fireHz": 43.33,
+   "cylinders": 8,
+   "engine_desc": "loud V8 with lopey idle"
+  },
+  "vehicles/engine_muscle_low": {
+   "file": "vehicles/engine_muscle_low.ogg",
+   "files": [
+    "vehicles/engine_muscle_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.626,
+   "category": "engine",
+   "channels": 1,
+   "notes": "loud V8 with lopey idle; low stage recorded at 1900 RPM (fire freq 126.7 Hz); crossfade neighbours, playbackRate = rpm/1900",
+   "peakDb": -10.04,
+   "lufs": -21.4,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.3,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_muscle",
+   "stage": "low",
+   "rpm": 1900,
+   "fireHz": 126.67,
+   "cylinders": 8,
+   "engine_desc": "loud V8 with lopey idle"
+  },
+  "vehicles/engine_muscle_mid": {
+   "file": "vehicles/engine_muscle_mid.ogg",
+   "files": [
+    "vehicles/engine_muscle_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.578,
+   "category": "engine",
+   "channels": 1,
+   "notes": "loud V8 with lopey idle; mid stage recorded at 3300 RPM (fire freq 220.0 Hz); crossfade neighbours, playbackRate = rpm/3300",
+   "peakDb": -9.74,
+   "lufs": -20.7,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.1,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_muscle",
+   "stage": "mid",
+   "rpm": 3300,
+   "fireHz": 220.0,
+   "cylinders": 8,
+   "engine_desc": "loud V8 with lopey idle"
+  },
+  "vehicles/engine_muscle_redline": {
+   "file": "vehicles/engine_muscle_redline.ogg",
+   "files": [
+    "vehicles/engine_muscle_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.506,
+   "category": "engine",
+   "channels": 1,
+   "notes": "loud V8 with lopey idle; redline stage recorded at 6300 RPM (fire freq 420.0 Hz); crossfade neighbours, playbackRate = rpm/6300",
+   "peakDb": -9.97,
+   "lufs": -19.5,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 1.07,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_muscle",
+   "stage": "redline",
+   "rpm": 6300,
+   "fireHz": 420.0,
+   "cylinders": 8,
+   "engine_desc": "loud V8 with lopey idle"
+  },
+  "vehicles/engine_player_t1_high": {
+   "file": "vehicles/engine_player_t1_high.ogg",
+   "files": [
+    "vehicles/engine_player_t1_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.541,
+   "category": "engine",
+   "channels": 1,
+   "notes": "tired rattly 4-cylinder (starter truck); high stage recorded at 5200 RPM (fire freq 173.3 Hz); crossfade neighbours, playbackRate = rpm/5200",
+   "peakDb": -7.74,
+   "lufs": -20.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 1.18,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t1",
+   "stage": "high",
+   "rpm": 5200,
+   "fireHz": 173.33,
+   "cylinders": 4,
+   "engine_desc": "tired rattly 4-cylinder (starter truck)"
+  },
+  "vehicles/engine_player_t1_idle": {
+   "file": "vehicles/engine_player_t1_idle.ogg",
+   "files": [
+    "vehicles/engine_player_t1_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.693,
+   "category": "engine",
+   "channels": 1,
+   "notes": "tired rattly 4-cylinder (starter truck); idle stage recorded at 900 RPM (fire freq 30.0 Hz); crossfade neighbours, playbackRate = rpm/900",
+   "peakDb": -1.66,
+   "lufs": -22.3,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.21,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t1",
+   "stage": "idle",
+   "rpm": 900,
+   "fireHz": 30.0,
+   "cylinders": 4,
+   "engine_desc": "tired rattly 4-cylinder (starter truck)"
+  },
+  "vehicles/engine_player_t1_low": {
+   "file": "vehicles/engine_player_t1_low.ogg",
+   "files": [
+    "vehicles/engine_player_t1_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.63,
+   "category": "engine",
+   "channels": 1,
+   "notes": "tired rattly 4-cylinder (starter truck); low stage recorded at 2200 RPM (fire freq 73.3 Hz); crossfade neighbours, playbackRate = rpm/2200",
+   "peakDb": -6.04,
+   "lufs": -21.4,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.58,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t1",
+   "stage": "low",
+   "rpm": 2200,
+   "fireHz": 73.33,
+   "cylinders": 4,
+   "engine_desc": "tired rattly 4-cylinder (starter truck)"
+  },
+  "vehicles/engine_player_t1_mid": {
+   "file": "vehicles/engine_player_t1_mid.ogg",
+   "files": [
+    "vehicles/engine_player_t1_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.58,
+   "category": "engine",
+   "channels": 1,
+   "notes": "tired rattly 4-cylinder (starter truck); mid stage recorded at 3600 RPM (fire freq 120.0 Hz); crossfade neighbours, playbackRate = rpm/3600",
+   "peakDb": -5.62,
+   "lufs": -20.7,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.06,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t1",
+   "stage": "mid",
+   "rpm": 3600,
+   "fireHz": 120.0,
+   "cylinders": 4,
+   "engine_desc": "tired rattly 4-cylinder (starter truck)"
+  },
+  "vehicles/engine_player_t1_redline": {
+   "file": "vehicles/engine_player_t1_redline.ogg",
+   "files": [
+    "vehicles/engine_player_t1_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.508,
+   "category": "engine",
+   "channels": 1,
+   "notes": "tired rattly 4-cylinder (starter truck); redline stage recorded at 6500 RPM (fire freq 216.7 Hz); crossfade neighbours, playbackRate = rpm/6500",
+   "peakDb": -8.97,
+   "lufs": -19.6,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.3,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t1",
+   "stage": "redline",
+   "rpm": 6500,
+   "fireHz": 216.67,
+   "cylinders": 4,
+   "engine_desc": "tired rattly 4-cylinder (starter truck)"
+  },
+  "vehicles/engine_player_t2_high": {
+   "file": "vehicles/engine_player_t2_high.ogg",
+   "files": [
+    "vehicles/engine_player_t2_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.536,
+   "category": "engine",
+   "channels": 1,
+   "notes": "rough V8; high stage recorded at 5000 RPM (fire freq 333.3 Hz); crossfade neighbours, playbackRate = rpm/5000",
+   "peakDb": -9.88,
+   "lufs": -20.0,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.38,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t2",
+   "stage": "high",
+   "rpm": 5000,
+   "fireHz": 333.33,
+   "cylinders": 8,
+   "engine_desc": "rough V8"
+  },
+  "vehicles/engine_player_t2_idle": {
+   "file": "vehicles/engine_player_t2_idle.ogg",
+   "files": [
+    "vehicles/engine_player_t2_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.676,
+   "category": "engine",
+   "channels": 1,
+   "notes": "rough V8; idle stage recorded at 750 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/750",
+   "peakDb": -5.54,
+   "lufs": -22.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.09,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t2",
+   "stage": "idle",
+   "rpm": 750,
+   "fireHz": 50.0,
+   "cylinders": 8,
+   "engine_desc": "rough V8"
+  },
+  "vehicles/engine_player_t2_low": {
+   "file": "vehicles/engine_player_t2_low.ogg",
+   "files": [
+    "vehicles/engine_player_t2_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.621,
+   "category": "engine",
+   "channels": 1,
+   "notes": "rough V8; low stage recorded at 2000 RPM (fire freq 133.3 Hz); crossfade neighbours, playbackRate = rpm/2000",
+   "peakDb": -12.32,
+   "lufs": -21.3,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.07,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t2",
+   "stage": "low",
+   "rpm": 2000,
+   "fireHz": 133.33,
+   "cylinders": 8,
+   "engine_desc": "rough V8"
+  },
+  "vehicles/engine_player_t2_mid": {
+   "file": "vehicles/engine_player_t2_mid.ogg",
+   "files": [
+    "vehicles/engine_player_t2_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.575,
+   "category": "engine",
+   "channels": 1,
+   "notes": "rough V8; mid stage recorded at 3400 RPM (fire freq 226.7 Hz); crossfade neighbours, playbackRate = rpm/3400",
+   "peakDb": -10.66,
+   "lufs": -20.6,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.4,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t2",
+   "stage": "mid",
+   "rpm": 3400,
+   "fireHz": 226.67,
+   "cylinders": 8,
+   "engine_desc": "rough V8"
+  },
+  "vehicles/engine_player_t2_redline": {
+   "file": "vehicles/engine_player_t2_redline.ogg",
+   "files": [
+    "vehicles/engine_player_t2_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.506,
+   "category": "engine",
+   "channels": 1,
+   "notes": "rough V8; redline stage recorded at 6200 RPM (fire freq 413.3 Hz); crossfade neighbours, playbackRate = rpm/6200",
+   "peakDb": -11.04,
+   "lufs": -19.5,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.06,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t2",
+   "stage": "redline",
+   "rpm": 6200,
+   "fireHz": 413.33,
+   "cylinders": 8,
+   "engine_desc": "rough V8"
+  },
+  "vehicles/engine_player_t3_high": {
+   "file": "vehicles/engine_player_t3_high.ogg",
+   "files": [
+    "vehicles/engine_player_t3_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.534,
+   "category": "engine",
+   "channels": 1,
+   "notes": "big growly V8; high stage recorded at 4900 RPM (fire freq 326.7 Hz); crossfade neighbours, playbackRate = rpm/4900",
+   "peakDb": -10.37,
+   "lufs": -20.0,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.48,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t3",
+   "stage": "high",
+   "rpm": 4900,
+   "fireHz": 326.67,
+   "cylinders": 8,
+   "engine_desc": "big growly V8"
+  },
+  "vehicles/engine_player_t3_idle": {
+   "file": "vehicles/engine_player_t3_idle.ogg",
+   "files": [
+    "vehicles/engine_player_t3_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.675,
+   "category": "engine",
+   "channels": 1,
+   "notes": "big growly V8; idle stage recorded at 700 RPM (fire freq 46.7 Hz); crossfade neighbours, playbackRate = rpm/700",
+   "peakDb": -8.66,
+   "lufs": -22.0,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.07,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t3",
+   "stage": "idle",
+   "rpm": 700,
+   "fireHz": 46.67,
+   "cylinders": 8,
+   "engine_desc": "big growly V8"
+  },
+  "vehicles/engine_player_t3_low": {
+   "file": "vehicles/engine_player_t3_low.ogg",
+   "files": [
+    "vehicles/engine_player_t3_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.624,
+   "category": "engine",
+   "channels": 1,
+   "notes": "big growly V8; low stage recorded at 1900 RPM (fire freq 126.7 Hz); crossfade neighbours, playbackRate = rpm/1900",
+   "peakDb": -11.59,
+   "lufs": -21.4,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.16,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t3",
+   "stage": "low",
+   "rpm": 1900,
+   "fireHz": 126.67,
+   "cylinders": 8,
+   "engine_desc": "big growly V8"
+  },
+  "vehicles/engine_player_t3_mid": {
+   "file": "vehicles/engine_player_t3_mid.ogg",
+   "files": [
+    "vehicles/engine_player_t3_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.577,
+   "category": "engine",
+   "channels": 1,
+   "notes": "big growly V8; mid stage recorded at 3300 RPM (fire freq 220.0 Hz); crossfade neighbours, playbackRate = rpm/3300",
+   "peakDb": -11.22,
+   "lufs": -20.7,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.14,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t3",
+   "stage": "mid",
+   "rpm": 3300,
+   "fireHz": 220.0,
+   "cylinders": 8,
+   "engine_desc": "big growly V8"
+  },
+  "vehicles/engine_player_t3_redline": {
+   "file": "vehicles/engine_player_t3_redline.ogg",
+   "files": [
+    "vehicles/engine_player_t3_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.506,
+   "category": "engine",
+   "channels": 1,
+   "notes": "big growly V8; redline stage recorded at 6000 RPM (fire freq 400.0 Hz); crossfade neighbours, playbackRate = rpm/6000",
+   "peakDb": -9.41,
+   "lufs": -19.5,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.09,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t3",
+   "stage": "redline",
+   "rpm": 6000,
+   "fireHz": 400.0,
+   "cylinders": 8,
+   "engine_desc": "big growly V8"
+  },
+  "vehicles/engine_player_t4_high": {
+   "file": "vehicles/engine_player_t4_high.ogg",
+   "files": [
+    "vehicles/engine_player_t4_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.538,
+   "category": "engine",
+   "channels": 1,
+   "notes": "supercharged V8 with gear/blower whine; high stage recorded at 5500 RPM (fire freq 366.7 Hz); crossfade neighbours, playbackRate = rpm/5500",
+   "peakDb": -10.76,
+   "lufs": -20.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.93,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t4",
+   "stage": "high",
+   "rpm": 5500,
+   "fireHz": 366.67,
+   "cylinders": 8,
+   "engine_desc": "supercharged V8 with gear/blower whine"
+  },
+  "vehicles/engine_player_t4_idle": {
+   "file": "vehicles/engine_player_t4_idle.ogg",
+   "files": [
+    "vehicles/engine_player_t4_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.676,
+   "category": "engine",
+   "channels": 1,
+   "notes": "supercharged V8 with gear/blower whine; idle stage recorded at 750 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/750",
+   "peakDb": -8.68,
+   "lufs": -22.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.66,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t4",
+   "stage": "idle",
+   "rpm": 750,
+   "fireHz": 50.0,
+   "cylinders": 8,
+   "engine_desc": "supercharged V8 with gear/blower whine"
+  },
+  "vehicles/engine_player_t4_low": {
+   "file": "vehicles/engine_player_t4_low.ogg",
+   "files": [
+    "vehicles/engine_player_t4_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.624,
+   "category": "engine",
+   "channels": 1,
+   "notes": "supercharged V8 with gear/blower whine; low stage recorded at 2200 RPM (fire freq 146.7 Hz); crossfade neighbours, playbackRate = rpm/2200",
+   "peakDb": -11.37,
+   "lufs": -21.4,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.25,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t4",
+   "stage": "low",
+   "rpm": 2200,
+   "fireHz": 146.67,
+   "cylinders": 8,
+   "engine_desc": "supercharged V8 with gear/blower whine"
+  },
+  "vehicles/engine_player_t4_mid": {
+   "file": "vehicles/engine_player_t4_mid.ogg",
+   "files": [
+    "vehicles/engine_player_t4_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.574,
+   "category": "engine",
+   "channels": 1,
+   "notes": "supercharged V8 with gear/blower whine; mid stage recorded at 3800 RPM (fire freq 253.3 Hz); crossfade neighbours, playbackRate = rpm/3800",
+   "peakDb": -11.07,
+   "lufs": -20.6,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.33,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t4",
+   "stage": "mid",
+   "rpm": 3800,
+   "fireHz": 253.33,
+   "cylinders": 8,
+   "engine_desc": "supercharged V8 with gear/blower whine"
+  },
+  "vehicles/engine_player_t4_redline": {
+   "file": "vehicles/engine_player_t4_redline.ogg",
+   "files": [
+    "vehicles/engine_player_t4_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.506,
+   "category": "engine",
+   "channels": 1,
+   "notes": "supercharged V8 with gear/blower whine; redline stage recorded at 6800 RPM (fire freq 453.3 Hz); crossfade neighbours, playbackRate = rpm/6800",
+   "peakDb": -9.19,
+   "lufs": -19.5,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.66,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_player_t4",
+   "stage": "redline",
+   "rpm": 6800,
+   "fireHz": 453.33,
+   "cylinders": 8,
+   "engine_desc": "supercharged V8 with gear/blower whine"
+  },
+  "vehicles/engine_sedan_high": {
+   "file": "vehicles/engine_sedan_high.ogg",
+   "files": [
+    "vehicles/engine_sedan_high.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.535,
+   "category": "engine",
+   "channels": 1,
+   "notes": "thin inline-6 (sedan raiders); high stage recorded at 5100 RPM (fire freq 255.0 Hz); crossfade neighbours, playbackRate = rpm/5100",
+   "peakDb": -10.12,
+   "lufs": -20.0,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.04,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_sedan",
+   "stage": "high",
+   "rpm": 5100,
+   "fireHz": 255.0,
+   "cylinders": 6,
+   "engine_desc": "thin inline-6 (sedan raiders)"
+  },
+  "vehicles/engine_sedan_idle": {
+   "file": "vehicles/engine_sedan_idle.ogg",
+   "files": [
+    "vehicles/engine_sedan_idle.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.678,
+   "category": "engine",
+   "channels": 1,
+   "notes": "thin inline-6 (sedan raiders); idle stage recorded at 850 RPM (fire freq 42.5 Hz); crossfade neighbours, playbackRate = rpm/850",
+   "peakDb": -9.36,
+   "lufs": -22.1,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.56,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_sedan",
+   "stage": "idle",
+   "rpm": 850,
+   "fireHz": 42.5,
+   "cylinders": 6,
+   "engine_desc": "thin inline-6 (sedan raiders)"
+  },
+  "vehicles/engine_sedan_low": {
+   "file": "vehicles/engine_sedan_low.ogg",
+   "files": [
+    "vehicles/engine_sedan_low.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.624,
+   "category": "engine",
+   "channels": 1,
+   "notes": "thin inline-6 (sedan raiders); low stage recorded at 2100 RPM (fire freq 105.0 Hz); crossfade neighbours, playbackRate = rpm/2100",
+   "peakDb": -8.21,
+   "lufs": -21.4,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.3,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_sedan",
+   "stage": "low",
+   "rpm": 2100,
+   "fireHz": 105.0,
+   "cylinders": 6,
+   "engine_desc": "thin inline-6 (sedan raiders)"
+  },
+  "vehicles/engine_sedan_mid": {
+   "file": "vehicles/engine_sedan_mid.ogg",
+   "files": [
+    "vehicles/engine_sedan_mid.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.571,
+   "category": "engine",
+   "channels": 1,
+   "notes": "thin inline-6 (sedan raiders); mid stage recorded at 3500 RPM (fire freq 175.0 Hz); crossfade neighbours, playbackRate = rpm/3500",
+   "peakDb": -11.09,
+   "lufs": -20.6,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.16,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_sedan",
+   "stage": "mid",
+   "rpm": 3500,
+   "fireHz": 175.0,
+   "cylinders": 6,
+   "engine_desc": "thin inline-6 (sedan raiders)"
+  },
+  "vehicles/engine_sedan_redline": {
+   "file": "vehicles/engine_sedan_redline.ogg",
+   "files": [
+    "vehicles/engine_sedan_redline.ogg"
+   ],
+   "duration": 2.4,
+   "durations": [
+    2.4
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.505,
+   "category": "engine",
+   "channels": 1,
+   "notes": "thin inline-6 (sedan raiders); redline stage recorded at 6400 RPM (fire freq 320.0 Hz); crossfade neighbours, playbackRate = rpm/6400",
+   "peakDb": -8.17,
+   "lufs": -19.5,
+   "loopStart": 0.0,
+   "loopEnd": 2.4,
+   "loopJumpRatio": 0.33,
+   "pitchRange": [
+    0.75,
+    1.35
+   ],
+   "engine": "engine_sedan",
+   "stage": "redline",
+   "rpm": 6400,
+   "fireHz": 320.0,
+   "cylinders": 6,
+   "engine_desc": "thin inline-6 (sedan raiders)"
+  },
+  "vehicles/engine_stall": {
+   "file": "vehicles/engine_stall.ogg",
+   "files": [
+    "vehicles/engine_stall.ogg"
+   ],
+   "duration": 2.6,
+   "durations": [
+    2.6
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.446,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "engine dies: sputtering chugs slowing to a stop, 2.4 s",
+   "peakDb": -1.9,
+   "lufs": -16.4,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/engine_start": {
+   "file": "vehicles/engine_start.ogg",
+   "files": [
+    "vehicles/engine_start.ogg"
+   ],
+   "duration": 3.2,
+   "durations": [
+    3.2
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.38,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "starter crank -> catch -> rev overshoot -> idle (~800 rpm), 3 s",
+   "peakDb": -1.91,
+   "lufs": -14.0,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/gear_shift": {
+   "file": "vehicles/gear_shift_1.ogg",
+   "files": [
+    "vehicles/gear_shift_1.ogg",
+    "vehicles/gear_shift_2.ogg"
+   ],
+   "duration": 0.5,
+   "durations": [
+    0.5,
+    0.5
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.173,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "gear change: drivetrain clunk + blow-off chuff, 0.45 s",
+   "peakDb": -1.51,
+   "lufs": -10.2,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/hit_car_body": {
+   "file": "vehicles/hit_car_body_1.ogg",
+   "files": [
+    "vehicles/hit_car_body_1.ogg",
+    "vehicles/hit_car_body_2.ogg",
+    "vehicles/hit_car_body_3.ogg"
+   ],
+   "duration": 0.42,
+   "durations": [
+    0.42,
+    0.42,
+    0.42
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.342,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "bullet hits on the PLAYER truck body: heavier panel bong + thud",
+   "peakDb": -1.57,
+   "lufs": -14.1,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/horn": {
+   "file": "vehicles/horn_1.ogg",
+   "files": [
+    "vehicles/horn_1.ogg",
+    "vehicles/horn_2.ogg"
+   ],
+   "duration": 1.0,
+   "durations": [
+    1.0,
+    1.35
+   ],
+   "loop": false,
+   "variations": 2,
+   "gain": 0.155,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "horn: [0]=car honk (415+520 Hz), [1]=heavy truck horn (235+295 Hz); ~1 s sustained",
+   "peakDb": -1.23,
+   "lufs": -6.3,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/jump_land_heavy": {
+   "file": "vehicles/jump_land_heavy.ogg",
+   "files": [
+    "vehicles/jump_land_heavy.ogg"
+   ],
+   "duration": 1.1,
+   "durations": [
+    1.1
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.234,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "hard landing after a jump: sub thump + suspension crash + rattle, 1.1 s",
+   "peakDb": -1.95,
+   "lufs": -6.8,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/mine_drop_beep": {
+   "file": "vehicles/mine_drop_beep.ogg",
+   "files": [
+    "vehicles/mine_drop_beep.ogg"
+   ],
+   "duration": 0.8,
+   "durations": [
+    0.8
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.3,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "mine dropped: clink + two arming beeps (2.1 kHz), 0.75 s",
+   "peakDb": -1.61,
+   "lufs": -14.0,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/mine_explosion": {
+   "file": "vehicles/mine_explosion.ogg",
+   "files": [
+    "vehicles/mine_explosion.ogg"
+   ],
+   "duration": 2.8127,
+   "durations": [
+    2.8127
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.552,
+   "category": "explosion",
+   "channels": 1,
+   "notes": "road mine blast: crack + dirt spray + medium boom, 2.3 s",
+   "peakDb": -1.01,
+   "lufs": -9.3,
+   "pitchRange": [
+    0.9,
+    1.1
+   ]
+  },
+  "vehicles/nitro_end": {
+   "file": "vehicles/nitro_end.ogg",
+   "files": [
+    "vehicles/nitro_end.ogg"
+   ],
+   "duration": 1.1,
+   "durations": [
+    1.1
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.377,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "nitro off: fading hiss, pitch-dropping whistle + crackling pops, 1.1 s",
+   "peakDb": -1.03,
+   "lufs": -14.0,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/nitro_ignite": {
+   "file": "vehicles/nitro_ignite.ogg",
+   "files": [
+    "vehicles/nitro_ignite.ogg"
+   ],
+   "duration": 1.1,
+   "durations": [
+    1.1
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.398,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "nitro / boost kick-in: whump + pssht + rising scream, 1.1 s",
+   "peakDb": -2.05,
+   "lufs": -11.4,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/nitro_loop": {
+   "file": "vehicles/nitro_loop.ogg",
+   "files": [
+    "vehicles/nitro_loop.ogg"
+   ],
+   "duration": 1.6,
+   "durations": [
+    1.6
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.547,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "nitro burn: flame roar + turbine whistle, seamless 1.6 s loop",
+   "peakDb": -9.3,
+   "lufs": -22.2,
+   "loopStart": 0.0,
+   "loopEnd": 1.6,
+   "loopJumpRatio": 0.48,
+   "pitchRange": [
+    0.85,
+    1.25
+   ]
+  },
+  "vehicles/oil_slick_splat": {
+   "file": "vehicles/oil_slick_splat.ogg",
+   "files": [
+    "vehicles/oil_slick_splat.ogg"
+   ],
+   "duration": 0.7,
+   "durations": [
+    0.7
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.189,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "oil slick deployed: wet splat + bubbles, 0.7 s",
+   "peakDb": -1.55,
+   "lufs": -10.0,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/skid_gravel_loop": {
+   "file": "vehicles/skid_gravel_loop.ogg",
+   "files": [
+    "vehicles/skid_gravel_loop.ogg"
+   ],
+   "duration": 1.6,
+   "durations": [
+    1.6
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.617,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "sliding on gravel / dirt: spray hiss + stone crackle, seamless 1.6 s loop",
+   "peakDb": -8.79,
+   "lufs": -23.2,
+   "loopStart": 0.0,
+   "loopEnd": 1.6,
+   "loopJumpRatio": 0.88,
+   "pitchRange": [
+    0.7,
+    1.6
+   ]
+  },
+  "vehicles/skid_loop": {
+   "file": "vehicles/skid_loop.ogg",
+   "files": [
+    "vehicles/skid_loop.ogg"
+   ],
+   "duration": 1.6,
+   "durations": [
+    1.6
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.605,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "tyre squeal on asphalt (drift), seamless 1.6 s loop; gain by slip, pitch 0.85-1.25",
+   "peakDb": -13.13,
+   "lufs": -23.1,
+   "loopStart": 0.0,
+   "loopEnd": 1.6,
+   "loopJumpRatio": 0.29,
+   "pitchRange": [
+    0.85,
+    1.25
+   ]
+  },
+  "vehicles/supercharger_whine_loop": {
+   "file": "vehicles/supercharger_whine_loop.ogg",
+   "files": [
+    "vehicles/supercharger_whine_loop.ogg"
+   ],
+   "duration": 1.5,
+   "durations": [
+    1.5
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.755,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "roots-blower / gear whine, reference 1.5 kHz; playbackRate follows rpm (0.5-1.5)",
+   "peakDb": -20.07,
+   "lufs": -27.0,
+   "loopStart": 0.0,
+   "loopEnd": 1.5,
+   "loopJumpRatio": 0.38,
+   "pitchRange": [
+    0.5,
+    1.5
+   ]
+  },
+  "vehicles/suspension_thunk": {
+   "file": "vehicles/suspension_thunk_1.ogg",
+   "files": [
+    "vehicles/suspension_thunk_1.ogg",
+    "vehicles/suspension_thunk_2.ogg",
+    "vehicles/suspension_thunk_3.ogg"
+   ],
+   "duration": 0.55,
+   "durations": [
+    0.55,
+    0.55,
+    0.55
+   ],
+   "loop": false,
+   "variations": 3,
+   "gain": 0.201,
+   "category": "vehicle_fx",
+   "channels": 1,
+   "notes": "landing / bump: dull thunk + spring settle, 0.55 s",
+   "peakDb": -1.33,
+   "lufs": -8.5,
+   "pitchRange": [
+    0.94,
+    1.06
+   ]
+  },
+  "vehicles/turbo_whine_loop": {
+   "file": "vehicles/turbo_whine_loop.ogg",
+   "files": [
+    "vehicles/turbo_whine_loop.ogg"
+   ],
+   "duration": 1.5,
+   "durations": [
+    1.5
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.757,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "turbine whistle, reference 3.3 kHz; playbackRate 0.5-1.6 with boost / rpm; layer with engine",
+   "peakDb": -20.04,
+   "lufs": -27.0,
+   "loopStart": 0.0,
+   "loopEnd": 1.5,
+   "loopJumpRatio": 0.56,
+   "pitchRange": [
+    0.5,
+    1.6
+   ]
+  },
+  "vehicles/tyre_asphalt_loop": {
+   "file": "vehicles/tyre_asphalt_loop.ogg",
+   "files": [
+    "vehicles/tyre_asphalt_loop.ogg"
+   ],
+   "duration": 2.0,
+   "durations": [
+    2.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.768,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "road roar on asphalt; volume ~ speed^1, pitch 0.7-1.6 with speed; seamless 2 s loop",
+   "peakDb": -11.84,
+   "lufs": -25.2,
+   "loopStart": 0.0,
+   "loopEnd": 2.0,
+   "loopJumpRatio": 0.36,
+   "pitchRange": [
+    0.7,
+    1.6
+   ]
+  },
+  "vehicles/tyre_dirt_loop": {
+   "file": "vehicles/tyre_dirt_loop.ogg",
+   "files": [
+    "vehicles/tyre_dirt_loop.ogg"
+   ],
+   "duration": 2.0,
+   "durations": [
+    2.0
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.773,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "tyres on dirt / gravel road: rumble + stone rattle; pitch 0.7-1.5 with speed; 2 s loop",
+   "peakDb": -8.03,
+   "lufs": -25.2,
+   "loopStart": 0.0,
+   "loopEnd": 2.0,
+   "loopJumpRatio": 0.5,
+   "pitchRange": [
+    0.7,
+    1.5
+   ]
+  },
+  "vehicles/wind_loop": {
+   "file": "vehicles/wind_loop.ogg",
+   "files": [
+    "vehicles/wind_loop.ogg"
+   ],
+   "duration": 2.5,
+   "durations": [
+    2.5
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.772,
+   "category": "vehicle_loop",
+   "channels": 1,
+   "notes": "wind rush around the truck; volume ~ speed^1.5, pitch 0.7-1.6; 2.5 s loop",
+   "peakDb": -9.74,
+   "lufs": -25.2,
+   "loopStart": 0.0,
+   "loopEnd": 2.5,
+   "loopJumpRatio": 0.96,
+   "pitchRange": [
+    0.7,
+    1.6
+   ]
+  }
+ }
+}

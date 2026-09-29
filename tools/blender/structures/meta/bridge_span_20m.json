@@ -1,0 +1,70 @@
+{
+ "id": "bridge_span_20m",
+ "file": "models/structures/bridge_span_20m.glb",
+ "tris": 7612,
+ "collision_tris": 60,
+ "size_kb": 663.7,
+ "bbox_min": [
+  -8.0,
+  -1.92,
+  0.0
+ ],
+ "bbox_max": [
+  8.0,
+  8.92,
+  20.0
+ ],
+ "dims": [
+  16.0,
+  10.84,
+  20.0
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "metal_bare",
+  "metal_dark",
+  "steel_beam"
+ ],
+ "nodes": {
+  "road_surface": 280,
+  "concrete": 1472,
+  "concrete_dark": 872,
+  "steel_beam": 2348,
+  "metal_dark": 2336,
+  "light_amber": 216,
+  "metal_bare": 88
+ },
+ "sockets": {
+  "lamp_0": [
+   4.97,
+   8.63,
+   5.0
+  ],
+  "lamp_1": [
+   -4.97,
+   8.63,
+   15.0
+  ],
+  "pier": [
+   0,
+   -1.92,
+   0
+  ],
+  "pier_end": [
+   0,
+   -1.92,
+   20.0
+  ]
+ },
+ "notes": {
+  "desc": "Steel plate-girder + concrete deck bridge span, road along +Z from z=0 to z=20. Chain spans end to end.",
+  "road_width": 14,
+  "deck_underside_y": -1.92,
+  "deck_width": 15.9,
+  "pier_sockets": "pier at z=0 (start joint), pier_end at z=20",
+  "lamps": "lamp_0 (+X side, z=5), lamp_1 (-X side, z=15) sockets at the light heads"
+ }
+}

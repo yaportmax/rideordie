@@ -1,0 +1,90 @@
+{
+ "id": "road_gate",
+ "file": "models/structures/road_gate.glb",
+ "tris": 9300,
+ "collision_tris": 120,
+ "size_kb": 796.4,
+ "bbox_min": [
+  -10.42,
+  0.0,
+  -4.6
+ ],
+ "bbox_max": [
+  10.42,
+  16.4,
+  4.6
+ ],
+ "dims": [
+  20.84,
+  16.4,
+  9.2
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "light_head",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rubber",
+  "spike",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 160,
+  "steel_beam": 4788,
+  "metal_dark": 1516,
+  "light_amber": 72,
+  "concrete": 128,
+  "rubber": 528,
+  "canvas": 808,
+  "paint": 96,
+  "hazard": 208,
+  "bone": 412,
+  "paint2": 76,
+  "light_head": 188,
+  "spike": 320
+ },
+ "sockets": {
+  "banner_R": [
+   -8.6,
+   13.8,
+   -1.6
+  ],
+  "banner_L": [
+   8.6,
+   13.8,
+   -1.6
+  ],
+  "flood_0": [
+   -6.5,
+   12.4,
+   -1.15
+  ],
+  "flood_1": [
+   -2.2,
+   12.4,
+   -1.15
+  ],
+  "flood_2": [
+   2.2,
+   12.4,
+   -1.15
+  ],
+  "flood_3": [
+   6.5,
+   12.4,
+   -1.15
+  ]
+ },
+ "notes": {
+  "desc": "Raider checkpoint arch across the road (origin road centre, depth ~3.4 m along z). Lattice towers at x=+-8.6, truss gantry at y 8.0-9.6 (clear height 8.0 m), big sign board on top, banner poles, floodlights, raised boom barriers. Road (x -7..7) is fully clear.",
+  "clear_height": 8.0,
+  "banner_sockets": "banner_L, banner_R",
+  "light_sockets": "flood_0..3"
+ }
+}

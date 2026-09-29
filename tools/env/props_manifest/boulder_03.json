@@ -1,0 +1,18 @@
+{
+ "name": "boulder_03",
+ "file": "boulder_03.glb",
+ "category": "boulder",
+ "height": 3.528,
+ "radius": 3.585,
+ "size": [
+  7.17,
+  3.528,
+  5.725
+ ],
+ "tris": 1920,
+ "materials": [
+  "rock_red"
+ ],
+ "notes": "rounded canyon sandstone boulder with strata; material rock_red",
+ "kb": 312.6
+}

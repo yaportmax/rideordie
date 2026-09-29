@@ -1,0 +1,52 @@
+{
+ "id": "shanty_hut",
+ "file": "models/structures/shanty_hut.glb",
+ "tris": 2488,
+ "collision_tris": 24,
+ "size_kb": 216.9,
+ "bbox_min": [
+  -4.46,
+  -0.17,
+  -3.05
+ ],
+ "bbox_max": [
+  4.2,
+  4.43,
+  4.13
+ ],
+ "dims": [
+  8.66,
+  4.59,
+  7.18
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "rubber",
+  "rust",
+  "wood"
+ ],
+ "nodes": {
+  "wood": 444,
+  "rust": 364,
+  "metal_bare": 100,
+  "paint": 72,
+  "metal_dark": 256,
+  "rubber": 1160,
+  "canvas": 24,
+  "bone": 68
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Raider scrap shack ~5.2 x 4.4 m, 3.2 m tall: patchwork of plywood/corrugated sheets/car door, tyre-weighted roof, stovepipe, tarp lean-to on the side. Front (door) faces +Z.",
+  "footprint": [
+   7,
+   6
+  ],
+  "front": "+Z",
+  "height": 3.6
+ }
+}

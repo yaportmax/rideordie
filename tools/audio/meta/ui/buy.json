@@ -1,0 +1,1 @@
+{"duration": 0.75, "peak_db": -1.74, "rms_db": -20.34, "lufs_i": -18.67, "lufs_m": -14.77, "lufs_s": -12.66, "dc": -2.1e-05, "centroid": 2455.0, "clip": 0, "rise_ms": 0.66, "tail_50db_s": 0.654, "bands_db": [-30.0, -11.1, -0.9, -9.8], "src_len": 33075, "dec_len": 33075, "variation": 0, "build_s": 0.58, "file": "ui/buy.ogg", "bytes": 7770}

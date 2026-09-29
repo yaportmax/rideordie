@@ -1,0 +1,71 @@
+{
+ "id": "warehouse",
+ "file": "models/structures/warehouse.glb",
+ "tris": 4928,
+ "collision_tris": 36,
+ "size_kb": 426.6,
+ "bbox_min": [
+  -19.0,
+  -0.05,
+  -11.5
+ ],
+ "bbox_max": [
+  18.0,
+  8.51,
+  15.5
+ ],
+ "dims": [
+  37.0,
+  8.56,
+  27.0
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "light_head",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rubber",
+  "rust",
+  "sand",
+  "steel_beam",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 452,
+  "asphalt": 6,
+  "concrete": 284,
+  "steel_beam": 456,
+  "paint": 954,
+  "metal_dark": 890,
+  "paint2": 12,
+  "glass": 10,
+  "rust": 192,
+  "metal_bare": 956,
+  "wood": 216,
+  "rubber": 448,
+  "light_head": 12,
+  "sand": 40
+ },
+ "sockets": {
+  "yard_lamp": [
+   12.1,
+   7.9,
+   13.0
+  ]
+ },
+ "notes": {
+  "desc": "Steel-frame corrugated warehouse 30 x 18 m, eaves 6.5 m / ridge 8.3 m. Front (3 roll-up doors + pedestrian door) faces +Z; ruined: torn front-left corner, missing roof sheets, collapsed door. Cladding = `paint` (tintable), roof = metal_bare, rust patches. Yard clutter around.",
+  "footprint": [
+   34,
+   24
+  ],
+  "front": "+Z",
+  "eave": 6.5,
+  "ridge": 8.3
+ }
+}

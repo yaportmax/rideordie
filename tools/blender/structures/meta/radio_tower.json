@@ -1,0 +1,64 @@
+{
+ "id": "radio_tower",
+ "file": "models/structures/radio_tower.glb",
+ "tris": 7004,
+ "collision_tris": 36,
+ "size_kb": 594.9,
+ "bbox_min": [
+  -4.15,
+  -0.04,
+  -4.15
+ ],
+ "bbox_max": [
+  4.82,
+  63.65,
+  9.7
+ ],
+ "dims": [
+  8.97,
+  63.69,
+  13.85
+ ],
+ "materials": [
+  "concrete_dark",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "rust",
+  "steel_beam"
+ ],
+ "nodes": {
+  "steel_beam": 3000,
+  "concrete_dark": 488,
+  "rust": 664,
+  "metal_dark": 1632,
+  "paint": 574,
+  "metal_bare": 562,
+  "light_tail": 84
+ },
+ "sockets": {
+  "beacon_0": [
+   2.565,
+   20.3,
+   2.565
+  ],
+  "beacon_1": [
+   1.729,
+   39.3,
+   1.729
+  ],
+  "beacon_2": [
+   0.0,
+   63.7,
+   6.154
+  ]
+ },
+ "notes": {
+  "desc": "60 m self-supporting steel lattice radio tower: 3 platforms with dishes and panel antennas, red beacons, bent upper section with a hanging dish, equipment shed at the base (+Z).",
+  "height": 63.0,
+  "base_half_width": 3.4,
+  "top_half_width": 0.9,
+  "beacons": "sockets beacon_0..2"
+ }
+}

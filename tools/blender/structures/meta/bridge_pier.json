@@ -1,0 +1,54 @@
+{
+ "id": "bridge_pier",
+ "file": "models/structures/bridge_pier.glb",
+ "tris": 1644,
+ "collision_tris": 36,
+ "size_kb": 144.7,
+ "bbox_min": [
+  -8.4,
+  0.0,
+  -2.4
+ ],
+ "bbox_max": [
+  8.4,
+  12.42,
+  2.4
+ ],
+ "dims": [
+  16.8,
+  12.42,
+  4.8
+ ],
+ "materials": [
+  "concrete",
+  "concrete_dark",
+  "metal_dark",
+  "rebar",
+  "rubber"
+ ],
+ "nodes": {
+  "concrete_dark": 472,
+  "concrete": 464,
+  "rubber": 60,
+  "rebar": 192,
+  "metal_dark": 456
+ },
+ "sockets": {
+  "deck_socket": [
+   0,
+   12.0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Hammerhead concrete pier, origin = base centre (y=0 at footing bottom). Top of bearing pads at y=12 = deck underside: align `deck_socket` to the deck underside (bridge_span_20m socket `pier`). Sink the footing into terrain as needed.",
+  "height": 12.0,
+  "cap_width": 16.8,
+  "footing": [
+   6.8,
+   1.4,
+   4.8
+  ],
+  "repeat": "place one at each span joint (every 20 m) under x=0"
+ }
+}

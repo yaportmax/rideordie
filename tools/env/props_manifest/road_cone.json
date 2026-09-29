@@ -1,0 +1,18 @@
+{
+ "name": "road_cone",
+ "file": "road_cone.glb",
+ "category": "furniture",
+ "height": 0.7,
+ "radius": 0.18,
+ "size": [
+  0.36,
+  0.7,
+  0.36
+ ],
+ "tris": 444,
+ "materials": [
+  "road_cone"
+ ],
+ "notes": "0.70 m safety cone; single textured material (orange + 2 reflective bands + rubber base painted in the texture)",
+ "kb": 387.0
+}

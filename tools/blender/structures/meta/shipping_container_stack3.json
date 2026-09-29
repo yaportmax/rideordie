@@ -1,0 +1,50 @@
+{
+ "id": "shipping_container_stack3",
+ "file": "models/structures/shipping_container_stack3.glb",
+ "tris": 4040,
+ "collision_tris": 36,
+ "size_kb": 345.9,
+ "bbox_min": [
+  -2.27,
+  -0.0,
+  -3.82
+ ],
+ "bbox_max": [
+  2.9,
+  7.91,
+  4.6
+ ],
+ "dims": [
+  5.17,
+  7.91,
+  8.42
+ ],
+ "materials": [
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rubber",
+  "rust",
+  "wood"
+ ],
+ "nodes": {
+  "paint": 1824,
+  "metal_dark": 1320,
+  "wood": 180,
+  "metal_bare": 240,
+  "rust": 300,
+  "paint2": 48,
+  "rubber": 128
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "3 ISO containers stacked untidily: middle shifted/yawed with a door ajar, top one slid off, rolled ~3 deg and propped on junk. Shell = `paint` (tint). Front +Z (doors).",
+  "footprint": [
+   3.6,
+   6.4
+  ],
+  "height": 7.9,
+  "front": "+Z"
+ }
+}

@@ -1,0 +1,1 @@
+{"duration": 0.38, "peak_db": -1.4, "rms_db": -26.2, "lufs_i": -26.08, "lufs_m": -23.46, "lufs_s": -18.39, "dc": 9e-06, "centroid": 3077.0, "clip": 0, "rise_ms": 1.77, "tail_50db_s": 0.234, "bands_db": [-21.2, -13.8, -1.5, -6.1], "src_len": 16758, "dec_len": 16758, "variation": 0, "build_s": 0.3, "file": "guns/rifle_mag_out.ogg", "bytes": 6600}

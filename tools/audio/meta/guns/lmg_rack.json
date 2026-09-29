@@ -1,0 +1,1 @@
+{"duration": 0.8, "peak_db": -1.79, "rms_db": -28.51, "lufs_i": -26.85, "lufs_m": -22.55, "lufs_s": -18.34, "dc": 1.7e-05, "centroid": 811.0, "clip": 0, "rise_ms": 315.26, "tail_50db_s": 0.636, "bands_db": [-6.7, -3.2, -5.4, -16.2], "src_len": 35280, "dec_len": 35280, "variation": 0, "build_s": 0.27, "file": "guns/lmg_rack.ogg", "bytes": 9117}

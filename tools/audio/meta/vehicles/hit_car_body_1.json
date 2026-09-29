@@ -1,0 +1,1 @@
+{"duration": 0.42, "peak_db": -1.57, "rms_db": -22.91, "lufs_i": -26.0, "lufs_m": -19.74, "lufs_s": -14.05, "dc": 0.000173, "centroid": 613.0, "clip": 0, "rise_ms": 0.82, "tail_50db_s": 0.339, "bands_db": [-6.4, -2.2, -8.3, -15.8], "src_len": 18522, "dec_len": 18522, "variation": 0, "build_s": 0.41, "file": "vehicles/hit_car_body_1.ogg", "bytes": 7272}

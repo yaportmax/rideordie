@@ -1,0 +1,1 @@
+{"duration": 0.7, "peak_db": -1.64, "rms_db": -25.23, "lufs_i": -24.8, "lufs_m": -19.88, "lufs_s": -15.56, "dc": 9e-06, "centroid": 1202.0, "clip": 0, "rise_ms": 240.54, "tail_50db_s": 0.567, "bands_db": [-6.5, -5.3, -3.4, -17.6], "src_len": 30870, "dec_len": 30870, "variation": 0, "build_s": 0.33, "file": "guns/lmg_cover_open.ogg", "bytes": 9743}

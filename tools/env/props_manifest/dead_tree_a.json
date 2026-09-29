@@ -1,0 +1,18 @@
+{
+ "name": "dead_tree_a",
+ "file": "dead_tree_a.glb",
+ "category": "tree_dead",
+ "height": 8.429,
+ "radius": 1.959,
+ "size": [
+  3.312,
+  8.429,
+  3.806
+ ],
+ "tris": 2565,
+ "materials": [
+  "bark_dead"
+ ],
+ "notes": "bare weathered snag, bark_dead texture (0.9 m/tile), origin at trunk base, no alpha cards",
+ "kb": 521.9
+}

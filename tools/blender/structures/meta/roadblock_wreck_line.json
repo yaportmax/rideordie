@@ -1,0 +1,61 @@
+{
+ "id": "roadblock_wreck_line",
+ "file": "models/structures/roadblock_wreck_line.glb",
+ "tris": 5318,
+ "collision_tris": 228,
+ "size_kb": 447.4,
+ "bbox_min": [
+  -8.12,
+  -1.77,
+  -0.31
+ ],
+ "bbox_max": [
+  8.33,
+  3.65,
+  9.22
+ ],
+ "dims": [
+  16.45,
+  5.42,
+  9.54
+ ],
+ "materials": [
+  "canvas",
+  "concrete",
+  "hazard",
+  "metal_dark",
+  "paint",
+  "rubber",
+  "rust",
+  "spike"
+ ],
+ "nodes": {
+  "metal_dark": 1382,
+  "paint": 488,
+  "rubber": 1232,
+  "rust": 888,
+  "concrete": 192,
+  "hazard": 288,
+  "canvas": 704,
+  "spike": 144
+ },
+ "sockets": {
+  "gap_center": [
+   2.6,
+   0.0,
+   4.0
+  ]
+ },
+ "notes": {
+  "desc": "Raider roadblock: a line of wrecked cars, jersey barriers, sandbags, tyres and drums across the road (x -7..7, depth ~8 m, z 0..8) with a gap. The gap is x in [0.4, 4.8] (4.4 m wide, centre x=2.6); mirror with scale.x=-1 for a gap on the other side (or rotate 180 deg about Y). Socket `gap_center`.",
+  "gap": [
+   0.4,
+   4.8
+  ],
+  "gap_center": [
+   2.6,
+   0,
+   4
+  ]
+ }
+}

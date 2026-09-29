@@ -1,0 +1,38 @@
+{
+ "id": "sea_stack_b",
+ "file": "models/structures/sea_stack_b.glb",
+ "tris": 1776,
+ "collision_tris": 60,
+ "size_kb": 164.5,
+ "bbox_min": [
+  -19.97,
+  -1.5,
+  -21.9
+ ],
+ "bbox_max": [
+  21.0,
+  24.91,
+  19.4
+ ],
+ "dims": [
+  40.97,
+  26.41,
+  41.3
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_red",
+  "sand"
+ ],
+ "nodes": {
+  "rock_red": 1248,
+  "sand": 352,
+  "dirt_red": 176
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Wide table-top sea stack, sandstone, sheer cliffs, flat rough top. Origin at waterline centre.",
+  "height": 24.0,
+  "radius_base": 21
+ }
+}

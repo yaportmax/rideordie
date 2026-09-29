@@ -1,0 +1,57 @@
+{
+ "id": "ruin_lowrise_a",
+ "file": "models/structures/ruin_lowrise_a.glb",
+ "tris": 1613,
+ "collision_tris": 36,
+ "size_kb": 147.3,
+ "bbox_min": [
+  -9.15,
+  -0.27,
+  -7.05
+ ],
+ "bbox_max": [
+  13.01,
+  15.36,
+  11.15
+ ],
+ "dims": [
+  22.15,
+  15.63,
+  18.2
+ ],
+ "materials": [
+  "brick",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "rebar",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 54,
+  "concrete": 686,
+  "glass": 23,
+  "canvas": 20,
+  "brick": 216,
+  "metal_bare": 42,
+  "rebar": 180,
+  "metal_dark": 324,
+  "paint": 24,
+  "wood": 44
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined 3-floor corner shop: storefront with torn striped awning, blank sign panel, roof billboard, collapsed +X roof corner. Front +Z, origin base centre.",
+  "height": 10.8,
+  "footprint": [
+   17,
+   13
+  ],
+  "front": "+Z",
+  "lean_deg": 0.0
+ }
+}

@@ -1,0 +1,68 @@
+{
+ "id": "tunnel_portal_rock",
+ "file": "models/structures/tunnel_portal_rock.glb",
+ "tris": 5781,
+ "collision_tris": 192,
+ "size_kb": 508.5,
+ "bbox_min": [
+  -34.0,
+  -2.5,
+  -7.51
+ ],
+ "bbox_max": [
+  34.0,
+  25.19,
+  17.0
+ ],
+ "dims": [
+  68.0,
+  27.69,
+  24.51
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "light_green",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "rock_red",
+  "rust"
+ ],
+ "nodes": {
+  "rock_red": 1757,
+  "concrete": 532,
+  "concrete_dark": 1696,
+  "metal_dark": 1116,
+  "light_head": 24,
+  "light_amber": 248,
+  "road_surface": 280,
+  "rust": 40,
+  "light_green": 12,
+  "light_tail": 12,
+  "metal_bare": 64
+ },
+ "sockets": {
+  "entrance": [
+   0,
+   0,
+   0
+  ],
+  "tube_end": [
+   0,
+   0,
+   12
+  ]
+ },
+ "notes": {
+  "desc": "Rock tunnel portal in a hillside: rock mass with arched opening, concrete portal ring, 12 m of tube. Entrance: face at z=0 facing -Z, tube z 0..12, rock mass extends to z=17 behind. Rock is `rock_red` (swap material to rock_grey for pine mountains).",
+  "opening": [
+   14.8,
+   7.4
+  ],
+  "rock_height": 24
+ }
+}

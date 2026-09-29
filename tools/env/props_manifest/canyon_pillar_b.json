@@ -1,0 +1,18 @@
+{
+ "name": "canyon_pillar_b",
+ "file": "canyon_pillar_b.glb",
+ "category": "pillar",
+ "height": 30.282,
+ "radius": 9.156,
+ "size": [
+  17.039,
+  30.282,
+  18.312
+ ],
+ "tris": 2848,
+ "materials": [
+  "rock_red"
+ ],
+ "notes": "canyon hoodoo/butte, strata bands in COLOR_0; cylindrical UVs at 7 m/tile; material rock_red",
+ "kb": 323.1
+}

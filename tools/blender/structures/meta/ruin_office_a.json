@@ -1,0 +1,55 @@
+{
+ "id": "ruin_office_a",
+ "file": "models/structures/ruin_office_a.glb",
+ "tris": 5799,
+ "collision_tris": 228,
+ "size_kb": 509.5,
+ "bbox_min": [
+  -15.15,
+  -0.36,
+  -10.35
+ ],
+ "bbox_max": [
+  19.25,
+  55.5,
+  19.56
+ ],
+ "dims": [
+  34.4,
+  55.86,
+  29.92
+ ],
+ "materials": [
+  "brick",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "metal_bare",
+  "metal_dark",
+  "rebar",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 1520,
+  "concrete": 2770,
+  "glass": 217,
+  "canvas": 20,
+  "rebar": 876,
+  "metal_bare": 24,
+  "metal_dark": 280,
+  "wood": 44,
+  "brick": 48
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined 14-floor concrete office tower, big corner bite at the top, blast hole in the front facade. Front faces +Z; origin base centre.",
+  "height": 50.4,
+  "footprint": [
+   30.0,
+   20.0
+  ],
+  "front": "+Z",
+  "lean_deg": 3.2
+ }
+}

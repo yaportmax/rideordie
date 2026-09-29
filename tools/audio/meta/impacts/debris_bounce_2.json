@@ -1,0 +1,1 @@
+{"duration": 0.75, "peak_db": -1.29, "rms_db": -21.0, "lufs_i": -20.66, "lufs_m": -15.31, "lufs_s": -11.44, "dc": -5e-06, "centroid": 2682.0, "clip": 0, "rise_ms": 0.45, "tail_50db_s": 0.325, "bands_db": [-17.9, -4.2, -3.8, -7.3], "src_len": 33075, "dec_len": 33075, "file": "impacts/debris_bounce_2.ogg", "variation": 1, "bytes": 8903, "build_s": 1.65}

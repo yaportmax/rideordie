@@ -1,0 +1,61 @@
+{
+ "id": "industrial_tanks",
+ "file": "models/structures/industrial_tanks.glb",
+ "tris": 6772,
+ "collision_tris": 336,
+ "size_kb": 581.1,
+ "bbox_min": [
+  -25.55,
+  0.0,
+  -14.55
+ ],
+ "bbox_max": [
+  26.05,
+  17.36,
+  16.5
+ ],
+ "dims": [
+  51.6,
+  17.36,
+  31.05
+ ],
+ "materials": [
+  "concrete",
+  "concrete_dark",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rebar",
+  "rust",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 732,
+  "paint": 374,
+  "metal_dark": 4086,
+  "metal_bare": 144,
+  "rust": 420,
+  "paint2": 414,
+  "steel_beam": 288,
+  "concrete": 218,
+  "rebar": 96
+ },
+ "sockets": {
+  "gate": [
+   0,
+   0,
+   16.0
+  ]
+ },
+ "notes": {
+  "desc": "Tank farm: 3 big tanks (cone roof, floating roof, dome roof) on a concrete pad with a cracked bund wall, elevated pipe rack along the +Z front, spiral stairs, roof catwalk bridge.",
+  "footprint": [
+   52,
+   34
+  ],
+  "max_height": 15.0,
+  "pipe_rack": "along +X at z=12.5, y=5.8",
+  "bund_gap": "+Z front, x in [-3, 3]"
+ }
+}

@@ -1,0 +1,38 @@
+{
+ "id": "hoodoo_a",
+ "file": "models/structures/hoodoo_a.glb",
+ "tris": 1246,
+ "collision_tris": 164,
+ "size_kb": 127.0,
+ "bbox_min": [
+  -10.64,
+  -1.5,
+  -10.11
+ ],
+ "bbox_max": [
+  11.26,
+  37.22,
+  9.81
+ ],
+ "dims": [
+  21.9,
+  38.72,
+  19.92
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_red",
+  "sand"
+ ],
+ "nodes": {
+  "rock_red": 1006,
+  "sand": 120,
+  "dirt_red": 120
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Tall eroded hoodoo (36 m): soft red sandstone shaft, hard dark caprock flares, balanced boulder on top. Origin at base centre.",
+  "height": 33.0,
+  "radius_base": 12.5
+ }
+}

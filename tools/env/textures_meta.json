@@ -1,0 +1,137 @@
+{
+ "asphalt": {
+  "source": "asphalt_pit_lane",
+  "tile": 2.0,
+  "size": 2048,
+  "seam": 0.96,
+  "kb": 2846
+ },
+ "asphalt_worn": {
+  "source": "asphalt_01 (+procedural wear)",
+  "tile": 3.7,
+  "note": "one lane wide, tile U across the lane",
+  "size": 2048,
+  "seam": 1.4,
+  "kb": 3846
+ },
+ "asphalt_cracked": {
+  "source": "asphalt_02",
+  "tile": 3.000000238418579,
+  "size": 2048,
+  "seam": 1.01,
+  "kb": 4472
+ },
+ "sand": {
+  "source": "sandy_gravel_02 (+procedural wind ripples)",
+  "tile": 2.5299999713897705,
+  "size": 2048,
+  "seam": 0.99,
+  "kb": 5240
+ },
+ "dirt_red": {
+  "source": "red_dirt_mud_01",
+  "tile": 1.5,
+  "size": 2048,
+  "seam": 1.07,
+  "kb": 4273
+ },
+ "dry_grass": {
+  "source": "withered_grass",
+  "tile": 1.9999996423721313,
+  "size": 2048,
+  "seam": 0.98,
+  "kb": 5515
+ },
+ "gravel": {
+  "source": "gravel_floor_03",
+  "tile": 2.5,
+  "size": 2048,
+  "seam": 1.02,
+  "kb": 5010
+ },
+ "rock_red": {
+  "source": "cliff_side",
+  "tile": 1.8300000429153442,
+  "size": 2048,
+  "seam": 1.08,
+  "kb": 2215
+ },
+ "rock_grey": {
+  "source": "rock_face_03 (desaturated)",
+  "tile": 2.6999995708465576,
+  "size": 2048,
+  "seam": 0.92,
+  "kb": 2757
+ },
+ "cliff": {
+  "source": "dry_riverbed_rock",
+  "tile": 2.0,
+  "note": "strata run horizontally (image X)",
+  "size": 2048,
+  "seam": 0.92,
+  "kb": 3189
+ },
+ "snow": {
+  "source": "snow_02",
+  "tile": 2.0,
+  "size": 2048,
+  "seam": 1.09,
+  "kb": 2531
+ },
+ "forest_floor": {
+  "source": "forest_leaves_04",
+  "tile": 1.5,
+  "size": 2048,
+  "seam": 1.13,
+  "kb": 4772
+ },
+ "grass_green": {
+  "source": "forrest_ground_01",
+  "tile": 2.0,
+  "size": 2048,
+  "seam": 1.24,
+  "kb": 4701
+ },
+ "beach_sand": {
+  "source": "coast_sand_03",
+  "tile": 3.0,
+  "size": 2048,
+  "seam": 0.94,
+  "kb": 4724
+ },
+ "pebbles": {
+  "source": "dry_river_pebbles",
+  "tile": 2.0009167194366455,
+  "size": 1024,
+  "seam": 1.08,
+  "kb": 852
+ },
+ "concrete": {
+  "source": "concrete_floor_03 (bleached)",
+  "tile": 2.499999761581421,
+  "size": 1024,
+  "seam": 1.02,
+  "kb": 997
+ },
+ "concrete_cracked": {
+  "source": "cracked_concrete (bleached)",
+  "tile": 2.0,
+  "size": 1024,
+  "seam": 0.98,
+  "kb": 582
+ },
+ "rust_metal": {
+  "source": "rust_coarse_01",
+  "tile": 2.1999998092651367,
+  "size": 1024,
+  "seam": 0.97,
+  "kb": 489
+ },
+ "brick_ruin": {
+  "source": "red_bricks_02",
+  "tile": 2.5,
+  "size": 1024,
+  "seam": 1.11,
+  "kb": 799
+ }
+}

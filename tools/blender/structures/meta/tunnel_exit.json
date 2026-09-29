@@ -1,0 +1,68 @@
+{
+ "id": "tunnel_exit",
+ "file": "models/structures/tunnel_exit.glb",
+ "tris": 5529,
+ "collision_tris": 192,
+ "size_kb": 489.3,
+ "bbox_min": [
+  -34.0,
+  -2.5,
+  -5.0
+ ],
+ "bbox_max": [
+  34.0,
+  25.43,
+  19.57
+ ],
+ "dims": [
+  68.0,
+  27.93,
+  24.57
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "light_green",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "rock_red",
+  "rust"
+ ],
+ "nodes": {
+  "rock_red": 1789,
+  "concrete": 532,
+  "concrete_dark": 1548,
+  "metal_dark": 980,
+  "light_head": 24,
+  "light_amber": 248,
+  "road_surface": 280,
+  "rust": 40,
+  "light_green": 12,
+  "light_tail": 12,
+  "metal_bare": 64
+ },
+ "sockets": {
+  "exit": [
+   0,
+   0,
+   12
+  ],
+  "tube_start": [
+   0,
+   0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Rock tunnel EXIT: tube z 0..12 then the portal face at z=12 facing +Z (leaving the tunnel). Chains after tunnel_mid_10m. Rock mass extends back over the tube (to z=-5).",
+  "opening": [
+   14.8,
+   7.4
+  ],
+  "rock_height": 24
+ }
+}

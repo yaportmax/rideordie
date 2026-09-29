@@ -1,0 +1,71 @@
+{
+ "id": "tunnel_portal_concrete",
+ "file": "models/structures/tunnel_portal_concrete.glb",
+ "tris": 5868,
+ "collision_tris": 228,
+ "size_kb": 506.1,
+ "bbox_min": [
+  -20.85,
+  -0.6,
+  -15.45
+ ],
+ "bbox_max": [
+  20.85,
+  13.72,
+  12.0
+ ],
+ "dims": [
+  41.7,
+  14.32,
+  27.45
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "light_green",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint2",
+  "rebar",
+  "rust"
+ ],
+ "nodes": {
+  "concrete": 1580,
+  "concrete_dark": 1972,
+  "metal_dark": 1432,
+  "light_head": 36,
+  "light_amber": 248,
+  "hazard": 68,
+  "paint2": 12,
+  "rebar": 112,
+  "road_surface": 280,
+  "rust": 40,
+  "light_green": 12,
+  "light_tail": 12,
+  "metal_bare": 64
+ },
+ "sockets": {
+  "entrance": [
+   0,
+   0,
+   0
+  ],
+  "tube_end": [
+   0,
+   0,
+   12
+  ]
+ },
+ "notes": {
+  "desc": "Concrete tunnel portal: headwall at z=0 facing -Z, 12 m of tube (z 0..12), splayed wing walls. Headwall 27 m wide, 11.5 m high + cornice. Opening 14.8 m wide, crown 7.4 m. Meant to be embedded in a hillside.",
+  "opening": [
+   14.8,
+   7.4
+  ]
+ }
+}

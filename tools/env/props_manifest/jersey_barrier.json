@@ -1,0 +1,19 @@
+{
+ "name": "jersey_barrier",
+ "file": "jersey_barrier.glb",
+ "category": "furniture",
+ "height": 0.898,
+ "radius": 1.885,
+ "size": [
+  0.605,
+  0.898,
+  3.77
+ ],
+ "tris": 762,
+ "materials": [
+  "concrete",
+  "rust_metal"
+ ],
+ "notes": "NJ concrete barrier 3.66 m long along Z (glTF), 0.81 m high, chipped end with exposed rebar (top-corner at +Z end)",
+ "kb": 421.6
+}

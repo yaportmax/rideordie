@@ -1,0 +1,71 @@
+{
+ "id": "raider_camp_tent",
+ "file": "models/structures/raider_camp_tent.glb",
+ "tris": 3070,
+ "collision_tris": 48,
+ "size_kb": 271.1,
+ "bbox_min": [
+  -9.87,
+  -0.05,
+  -8.43
+ ],
+ "bbox_max": [
+  9.58,
+  6.3,
+  8.6
+ ],
+ "dims": [
+  19.45,
+  6.35,
+  17.02
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "concrete_dark",
+  "dirt_red",
+  "light_amber",
+  "metal_bare",
+  "metal_dark",
+  "rock_grey",
+  "rubber",
+  "rust",
+  "spike",
+  "wood"
+ ],
+ "nodes": {
+  "dirt_red": 76,
+  "canvas": 300,
+  "metal_dark": 518,
+  "wood": 656,
+  "bone": 648,
+  "rubber": 296,
+  "metal_bare": 156,
+  "rock_grey": 108,
+  "light_amber": 68,
+  "concrete_dark": 12,
+  "spike": 64,
+  "rust": 168
+ },
+ "sockets": {
+  "fire": [
+   1.2,
+   0.4,
+   3.6
+  ],
+  "totem": [
+   6.2,
+   5.5,
+   3.4
+  ]
+ },
+ "notes": {
+  "desc": "Raider camp: large conical war tent (patched canvas, skull totem on top), 2 A-frame tents, fire pit ring with logs + emissive flames, skull-and-banner totem pole, weapon rack, crates/barrels/bones. Front (war-tent door) faces +Z. Footprint ~16 x 14 m.",
+  "footprint": [
+   16,
+   14
+  ],
+  "front": "+Z",
+  "sockets": "fire (flame origin), totem (skull totem), tent_door"
+ }
+}

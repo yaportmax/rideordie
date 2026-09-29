@@ -1,0 +1,203 @@
+{
+ "name": "pistol",
+ "tris": 23518,
+ "glb_kb": 5490,
+ "parts": {
+  "body": {
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": null,
+   "tris": 10468,
+   "materials": [
+    "polymer",
+    "gun_steel",
+    "gun_metal",
+    "brass"
+   ]
+  },
+  "slide": {
+   "pivot": [
+    0.0,
+    58.0,
+    -20.0
+   ],
+   "parent": null,
+   "tris": 5452,
+   "materials": [
+    "gun_black",
+    "gun_steel",
+    "gun_metal"
+   ]
+  },
+  "trigger": {
+   "pivot": [
+    0.0,
+    26.0,
+    34.0
+   ],
+   "parent": null,
+   "tris": 1152,
+   "materials": [
+    "polymer",
+    "gun_metal",
+    "gun_steel"
+   ]
+  },
+  "mag": {
+   "pivot": [
+    0.0,
+    34.77,
+    12.65
+   ],
+   "parent": null,
+   "tris": 6446,
+   "materials": [
+    "gun_black",
+    "polymer",
+    "gun_steel",
+    "brass",
+    "gun_metal"
+   ]
+  }
+ },
+ "sockets": {
+  "muzzle": {
+   "pos": [
+    0.0,
+    58.0,
+    158.3
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "eject": {
+   "pos": [
+    -12.0,
+    64.0,
+    38.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    180
+   ],
+   "parent": null
+  },
+  "grip_R": {
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "grip_L": {
+   "pos": [
+    15.0,
+    4.0,
+    14.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "mag_well": {
+   "pos": [
+    0.0,
+    34.77,
+    12.65
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  },
+  "sight": {
+   "pos": [
+    0.0,
+    77.2,
+    -70.0
+   ],
+   "rot_deg": [
+    0,
+    0,
+    0
+   ],
+   "parent": null
+  }
+ },
+ "motions": [
+  {
+   "node": "slide",
+   "kind": "translate",
+   "axis_g": [
+    -1,
+    0,
+    0
+   ],
+   "axis_gltf": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "amount": 38.0,
+   "note": "recoil / rack: slides straight back along the bore; barrel and guide rod stay fixed. Pivot = bore axis at the rear face."
+  },
+  {
+   "node": "trigger",
+   "kind": "rotate",
+   "axis_g": [
+    0,
+    1,
+    0
+   ],
+   "axis_gltf": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "amount": 12.0,
+   "note": "pull: +12 deg about the node's +X (glTF) rotates the finger blade rearward. Pivot = trigger pin."
+  },
+  {
+   "node": "mag",
+   "kind": "translate",
+   "axis_g": [
+    -0.3420201433256687,
+    0,
+    -0.9396926207859084
+   ],
+   "axis_gltf": [
+    0.0,
+    -0.9397,
+    -0.342
+   ],
+   "amount": 135.0,
+   "note": "eject/insert along the grip axis (down and rearward, 20 deg rake). Origin = top of the magazine where it seats."
+  }
+ ],
+ "remarks": [
+  "Rounds are visible in the mag windows and the chambered round shows through the ejection port. Chambered case is part of `body`.",
+  "Hands: right palm on the backstrap/right panel around grip_R; support hand cups the left panel at grip_L with the index finger along the trigger guard."
+ ],
+ "style_keys": [
+  "decals"
+ ]
+}

@@ -1,0 +1,1 @@
+{"duration": 0.68, "peak_db": -1.53, "rms_db": -20.12, "lufs_i": -17.65, "lufs_m": -14.97, "lufs_s": -10.74, "dc": -3e-05, "centroid": 1711.0, "clip": 0, "rise_ms": 241.63, "tail_50db_s": 0.52, "bands_db": [-22.3, -2.4, -5.7, -8.4], "src_len": 29988, "dec_len": 29988, "variation": 0, "build_s": 0.28, "file": "guns/lmg_belt_in.ogg", "bytes": 10577}

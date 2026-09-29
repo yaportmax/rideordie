@@ -1,0 +1,1 @@
+{"duration": 0.3, "peak_db": -1.6, "rms_db": -24.93, "lufs_i": -25.66, "lufs_m": -23.22, "lufs_s": -19.4, "dc": -6e-06, "centroid": 2212.0, "clip": 0, "rise_ms": 165.37, "tail_50db_s": 0.25, "bands_db": [-23.8, -4.9, -2.7, -8.6], "src_len": 13230, "dec_len": 13230, "variation": 0, "build_s": 0.78, "file": "ui/menu_close.ogg", "bytes": 6834}

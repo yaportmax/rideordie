@@ -1,0 +1,19 @@
+{
+ "name": "cactus_prickly_pear",
+ "file": "cactus_prickly_pear.glb",
+ "category": "cactus",
+ "height": 1.376,
+ "radius": 0.702,
+ "size": [
+  0.551,
+  1.376,
+  1.122
+ ],
+ "tris": 620,
+ "materials": [
+  "cactus_fruit",
+  "cactus_pear_skin"
+ ],
+ "notes": "prickly pear: chained flattened pads + red fruit, cactus_pear_skin (areoles); origin at base centre",
+ "kb": 87.7
+}

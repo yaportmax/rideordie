@@ -1,0 +1,1 @@
+{"duration": 0.54, "peak_db": -1.68, "rms_db": -27.09, "lufs_i": -24.12, "lufs_m": -22.83, "lufs_s": -17.75, "dc": -1e-06, "centroid": 2364.0, "clip": 0, "rise_ms": 282.65, "tail_50db_s": 0.426, "bands_db": [-16.1, -7.6, -1.7, -9.2], "src_len": 23814, "dec_len": 23814, "variation": 0, "build_s": 0.3, "file": "guns/rifle_bolt.ogg", "bytes": 8721}

@@ -1,0 +1,1 @@
+{"duration": 0.55, "peak_db": -1.32, "rms_db": -23.34, "lufs_i": -22.85, "lufs_m": -18.99, "lufs_s": -14.13, "dc": -1.8e-05, "centroid": 1480.0, "clip": 0, "rise_ms": 1.11, "tail_50db_s": 0.271, "bands_db": [-30.6, -6.4, -1.2, -19.6], "src_len": 24255, "dec_len": 24255, "variation": 2, "build_s": 0.3, "file": "guns/shell_drop_shotgun_3.ogg", "bytes": 6371}

@@ -1,0 +1,1 @@
+{"duration": 0.22, "peak_db": -1.74, "rms_db": -17.09, "lufs_i": -21.05, "lufs_m": -16.72, "lufs_s": -10.7, "dc": -0.000229, "centroid": 409.0, "clip": 0, "rise_ms": 3.63, "tail_50db_s": 0.119, "bands_db": [-2.7, -4.8, -9.1, -25.6], "src_len": 9702, "dec_len": 9702, "file": "impacts/bullet_flesh_2.ogg", "variation": 1, "bytes": 5277, "build_s": 1.5}

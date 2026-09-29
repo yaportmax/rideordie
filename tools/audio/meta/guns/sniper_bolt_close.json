@@ -1,0 +1,1 @@
+{"duration": 0.55, "peak_db": -1.54, "rms_db": -25.69, "lufs_i": -22.96, "lufs_m": -21.35, "lufs_s": -16.26, "dc": 4e-06, "centroid": 2842.0, "clip": 0, "rise_ms": 149.34, "tail_50db_s": 0.326, "bands_db": [-19.0, -10.5, -2.0, -5.6], "src_len": 24255, "dec_len": 24255, "variation": 0, "build_s": 0.51, "file": "guns/sniper_bolt_close.ogg", "bytes": 7626}

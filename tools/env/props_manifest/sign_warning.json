@@ -1,0 +1,19 @@
+{
+ "name": "sign_warning",
+ "file": "sign_warning.glb",
+ "category": "furniture",
+ "height": 2.6,
+ "radius": 0.43,
+ "size": [
+  0.86,
+  2.6,
+  0.218
+ ],
+ "tris": 940,
+ "materials": [
+  "galvanized",
+  "sign_warning"
+ ],
+ "notes": "Chevron / curve-arrow warning plate 0.76 x 0.95 m (arrow points to the viewer's right) on a 2.6 m post, drooping and bent. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction.",
+ "kb": 427.5
+}

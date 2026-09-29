@@ -1,0 +1,1 @@
+{"duration": 1.1, "peak_db": -1.95, "rms_db": -16.68, "lufs_i": -18.23, "lufs_m": -9.75, "lufs_s": -6.83, "dc": -0.000271, "centroid": 633.0, "clip": 0, "rise_ms": 7.37, "tail_50db_s": 1.006, "bands_db": [-2.6, -7.0, -6.3, -18.7], "src_len": 48510, "dec_len": 48510, "variation": 0, "build_s": 0.68, "file": "vehicles/jump_land_heavy.ogg", "bytes": 12457}

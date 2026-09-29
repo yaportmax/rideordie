@@ -1,0 +1,1 @@
+{"duration": 0.3, "peak_db": -1.77, "rms_db": -17.14, "lufs_i": -19.68, "lufs_m": -15.43, "lufs_s": -10.18, "dc": -3e-06, "centroid": 1322.0, "clip": 0, "rise_ms": 1.61, "tail_50db_s": 0.257, "bands_db": [-5.9, -8.4, -2.4, -16.0], "src_len": 13230, "dec_len": 13230, "file": "impacts/bullet_dirt_1.ogg", "variation": 0, "bytes": 7401, "build_s": 1.24}

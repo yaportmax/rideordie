@@ -1,0 +1,63 @@
+{
+ "id": "lighthouse",
+ "file": "models/structures/lighthouse.glb",
+ "tris": 5242,
+ "collision_tris": 122,
+ "size_kb": 459.5,
+ "bbox_min": [
+  -32.66,
+  -2.0,
+  -24.86
+ ],
+ "bbox_max": [
+  40.06,
+  29.3,
+  26.76
+ ],
+ "dims": [
+  72.72,
+  31.3,
+  51.62
+ ],
+ "materials": [
+  "brick",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "light_head",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rock_grey",
+  "rust",
+  "wood"
+ ],
+ "nodes": {
+  "rock_grey": 832,
+  "brick": 368,
+  "paint": 612,
+  "paint2": 240,
+  "concrete_dark": 724,
+  "concrete": 612,
+  "metal_dark": 1340,
+  "glass": 18,
+  "light_head": 44,
+  "metal_bare": 60,
+  "rust": 308,
+  "wood": 84
+ },
+ "sockets": {
+  "light": [
+   0,
+   24.35,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Ruined lighthouse on a rock outcrop: 28 m tapered tower (brick base, white/red paint bands) + gallery + lantern (emissive light_head) + half-collapsed keeper cottage at +X. Tower at (0,0); ground y=0 = sea level, island top y=2. Door faces +Z.",
+  "height": 29.2,
+  "sockets": "light = lantern lamp position (add a real point light there)",
+  "tint": "paint bands = white, paint2 bands = red (base colours already set; game may tint)"
+ }
+}

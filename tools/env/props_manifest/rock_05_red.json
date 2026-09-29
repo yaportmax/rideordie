@@ -1,0 +1,19 @@
+{
+ "name": "rock_05_red",
+ "file": "rock_05_red.glb",
+ "category": "rock",
+ "height": 1.672,
+ "radius": 2.198,
+ "size": [
+  4.395,
+  1.672,
+  2.856
+ ],
+ "tris": 1920,
+ "materials": [
+  "rock_red"
+ ],
+ "notes": "angular rock; material rock_red (swap by name for other biomes: rock_grey / rock_red / cliff)",
+ "variant_of": "rock_05",
+ "kb": 307.9
+}

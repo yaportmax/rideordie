@@ -1,0 +1,1 @@
+{"duration": 0.42, "peak_db": -1.46, "rms_db": -20.21, "lufs_i": -20.82, "lufs_m": -17.04, "lufs_s": -11.2, "dc": -0.000285, "centroid": 570.0, "clip": 0, "rise_ms": 0.75, "tail_50db_s": 0.27, "bands_db": [-5.5, -2.2, -10.2, -16.4], "src_len": 18522, "dec_len": 18522, "file": "impacts/armor_hit_1.ogg", "variation": 0, "bytes": 6974, "build_s": 1.31}

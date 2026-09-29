@@ -1,0 +1,1 @@
+{"duration": 1.9126, "peak_db": -1.04, "rms_db": -18.93, "lufs_i": -17.18, "lufs_m": -10.07, "lufs_s": -8.41, "dc": 0.000137, "centroid": 998.0, "clip": 0, "rise_ms": 35.76, "tail_50db_s": 1.69, "bands_db": [-5.3, -6.2, -3.6, -16.4], "src_len": 84346, "dec_len": 84346, "file": "explosions/fuel_ignite.ogg", "variation": 0, "bytes": 22447, "build_s": 0.95}

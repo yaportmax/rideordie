@@ -1,0 +1,1 @@
+{"duration": 1.0435, "peak_db": -1.96, "rms_db": -19.74, "lufs_i": -20.08, "lufs_m": -12.71, "lufs_s": -9.88, "dc": 2.1e-05, "centroid": 830.0, "clip": 0, "rise_ms": 0.14, "tail_50db_s": 0.81, "bands_db": [-2.9, -7.1, -5.8, -14.9], "src_len": 46020, "dec_len": 46020, "variation": 2, "build_s": 0.98, "file": "guns/fire_revolver_3.ogg", "bytes": 12122}

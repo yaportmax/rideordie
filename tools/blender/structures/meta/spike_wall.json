@@ -1,0 +1,52 @@
+{
+ "id": "spike_wall",
+ "file": "models/structures/spike_wall.glb",
+ "tris": 2236,
+ "collision_tris": 12,
+ "size_kb": 195.2,
+ "bbox_min": [
+  -3.67,
+  0.0,
+  -2.15
+ ],
+ "bbox_max": [
+  3.69,
+  5.09,
+  1.56
+ ],
+ "dims": [
+  7.36,
+  5.09,
+  3.71
+ ],
+ "materials": [
+  "bone",
+  "concrete_dark",
+  "hazard",
+  "metal_bare",
+  "metal_dark",
+  "rubber",
+  "rust",
+  "spike",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 116,
+  "steel_beam": 144,
+  "rust": 112,
+  "metal_dark": 428,
+  "metal_bare": 72,
+  "spike": 768,
+  "rubber": 320,
+  "bone": 144,
+  "hazard": 132
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Raider spiked barricade segment, 7 m wide (x -3.5..3.5), origin at road centre/segment centre on the ground. Front (spikes) faces -Z toward the approaching player, depth ~2 m to the spike tips (z -2.0..0.5). Chain two segments (x=+-3.5) to block the 14 m road.",
+  "width": 7.0,
+  "height": 3.6,
+  "spike_tip_height": 4.6,
+  "chain": "x = -3.5 and +3.5"
+ }
+}

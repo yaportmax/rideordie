@@ -1,0 +1,1 @@
+{"duration": 0.5933, "peak_db": -2.06, "rms_db": -22.96, "lufs_i": -23.6, "lufs_m": -18.61, "lufs_s": -14.27, "dc": 0.000136, "centroid": 1288.0, "clip": 0, "rise_ms": 0.36, "tail_50db_s": 0.529, "bands_db": [-6.6, -6.4, -3.0, -12.7], "src_len": 26164, "dec_len": 26164, "variation": 1, "build_s": 1.29, "file": "vehicles/backfire_2.ogg", "bytes": 9335}

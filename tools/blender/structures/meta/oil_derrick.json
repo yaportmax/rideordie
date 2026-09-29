@@ -1,0 +1,71 @@
+{
+ "id": "oil_derrick",
+ "file": "models/structures/oil_derrick.glb",
+ "tris": 4518,
+ "collision_tris": 116,
+ "size_kb": 384.1,
+ "bbox_min": [
+  -21.46,
+  -0.25,
+  -12.8
+ ],
+ "bbox_max": [
+  21.51,
+  24.0,
+  12.17
+ ],
+ "dims": [
+  42.97,
+  24.25,
+  24.97
+ ],
+ "materials": [
+  "concrete_dark",
+  "dirt_red",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rubber",
+  "rust",
+  "steel_beam"
+ ],
+ "nodes": {
+  "dirt_red": 114,
+  "rubber": 24,
+  "concrete_dark": 276,
+  "steel_beam": 1672,
+  "metal_dark": 1700,
+  "metal_bare": 64,
+  "rust": 432,
+  "paint2": 80,
+  "paint": 128,
+  "light_tail": 28
+ },
+ "sockets": {
+  "wellhead": [
+   0.0,
+   1.2,
+   4.638
+  ],
+  "beacon": [
+   -13.5,
+   24.0,
+   -3.0
+  ]
+ },
+ "notes": {
+  "desc": "Oil lease: nodding-donkey pumpjack (horsehead toward +Z), 22 m lattice derrick with crown block, two small storage tanks, wellhead + flow lines on an oil-stained pad.",
+  "height": 22.8,
+  "footprint": [
+   40,
+   24
+  ],
+  "wellhead": [
+   0,
+   1.0,
+   4.4
+  ]
+ }
+}

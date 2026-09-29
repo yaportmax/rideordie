@@ -1,0 +1,1 @@
+{"duration": 0.45, "peak_db": -1.78, "rms_db": -28.59, "lufs_i": -28.74, "lufs_m": -25.12, "lufs_s": -19.67, "dc": -3.7e-05, "centroid": 2086.0, "clip": 0, "rise_ms": 0.39, "tail_50db_s": 0.431, "bands_db": [-27.3, -6.2, -1.9, -9.6], "src_len": 19845, "dec_len": 19845, "file": "impacts/hit_marker_kill.ogg", "variation": 0, "bytes": 6330, "build_s": 0.4}

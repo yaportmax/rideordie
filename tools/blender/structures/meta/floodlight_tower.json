@@ -1,0 +1,63 @@
+{
+ "id": "floodlight_tower",
+ "file": "models/structures/floodlight_tower.glb",
+ "tris": 2080,
+ "collision_tris": 36,
+ "size_kb": 187.2,
+ "bbox_min": [
+  -3.45,
+  0.0,
+  -2.7
+ ],
+ "bbox_max": [
+  5.33,
+  29.55,
+  2.7
+ ],
+ "dims": [
+  8.78,
+  29.55,
+  5.4
+ ],
+ "materials": [
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "light_head",
+  "light_tail",
+  "metal_dark",
+  "rubber",
+  "steel_beam"
+ ],
+ "nodes": {
+  "steel_beam": 936,
+  "concrete_dark": 176,
+  "hazard": 96,
+  "metal_dark": 720,
+  "light_tail": 28,
+  "light_head": 96,
+  "light_amber": 12,
+  "rubber": 16
+ },
+ "sockets": {
+  "lamp_0": [
+   0.0,
+   26.56,
+   1.264
+  ],
+  "beacon_0": [
+   0.0,
+   29.6,
+   0.0
+  ]
+ },
+ "notes": {
+  "desc": "26 m lattice floodlight tower, origin at base centre, lamp bank (8 emissive lamps) faces +Z, tilted 22 deg down. Rotate yaw to aim at the arena.",
+  "height": 30.5,
+  "base": [
+   4.2,
+   4.2
+  ],
+  "sockets": "lamp_0 = light source centre (+Z aim), beacon_0 = red aircraft beacon"
+ }
+}

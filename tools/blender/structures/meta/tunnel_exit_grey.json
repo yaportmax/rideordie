@@ -1,0 +1,68 @@
+{
+ "id": "tunnel_exit_grey",
+ "file": "models/structures/tunnel_exit_grey.glb",
+ "tris": 5513,
+ "collision_tris": 192,
+ "size_kb": 488.0,
+ "bbox_min": [
+  -34.0,
+  -2.5,
+  -5.0
+ ],
+ "bbox_max": [
+  34.0,
+  26.4,
+  19.49
+ ],
+ "dims": [
+  68.0,
+  28.9,
+  24.49
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "light_green",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "rock_grey",
+  "rust"
+ ],
+ "nodes": {
+  "concrete": 532,
+  "concrete_dark": 1548,
+  "metal_dark": 980,
+  "light_head": 24,
+  "light_amber": 248,
+  "rock_grey": 1773,
+  "road_surface": 280,
+  "rust": 40,
+  "light_green": 12,
+  "light_tail": 12,
+  "metal_bare": 64
+ },
+ "sockets": {
+  "exit": [
+   0,
+   0,
+   12
+  ],
+  "tube_start": [
+   0,
+   0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Grey-rock variant of tunnel_exit (pine mountains): tube z 0..12 then the portal face at z=12 facing +Z.",
+  "opening": [
+   14.8,
+   7.4
+  ],
+  "rock_height": 24
+ }
+}

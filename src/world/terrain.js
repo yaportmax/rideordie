@@ -1,0 +1,154 @@
+// Chunk streamer: schedules terrain/road chunk generation in workers, builds meshes + Rapier trimesh colliders,
+// swaps LODs, disposes what is behind / too far. Chunk = CHUNK_LEN metres along the road.
+import * as THREE from 'three';
+import { CHUNK_LEN } from './terrain_gen.js';
+import { RAPIER, GROUPS } from '../sim/physics.js';
+
+const LOD_DIST = [320, 850, 5000];      // chunk-centre distance thresholds (m) for LOD0/1/2
+const AHEAD = 2100, BEHIND = 260;      // streaming window along s
+const COLLIDE_AHEAD = 400, COLLIDE_BEHIND = 330;
+
+export class TerrainStreamer {
+  /**
+   * @param {{scene:THREE.Scene, world:any|null, seed:number, terrainMat:THREE.Material, roadMat:THREE.Material, workers?:number}} o
+   */
+  constructor(o) {
+    this.scene = o.scene; this.world = o.world; this.seed = o.seed;
+    this.terrainMat = o.terrainMat; this.roadMat = o.roadMat;
+    this.chunks = new Map();      // chunk index -> record
+    this.group = new THREE.Group(); this.group.name = 'terrain'; this.scene.add(this.group);
+    this.pending = new Set();     // keys in flight  `${chunk}:${lod}`
+    this.workers = [];
+    this.ready = 0;
+    const n = o.workers ?? 3;
+    for (let i = 0; i < n; i++) {
+      const w = new Worker(new URL('./terrain_worker.js', import.meta.url), { type: 'module' });
+      w.busy = 0;
+      w.onmessage = (e) => this._onMsg(w, e.data);
+      w.postMessage({ type: 'init', seed: this.seed });
+      this.workers.push(w);
+    }
+    this.stats = { built: 0, tris: 0 };
+    this.onChunk = null; // callback(chunkIndex, record)
+    this._sLast = 0;
+  }
+
+  lodFor(dist) { return dist < LOD_DIST[0] ? 0 : dist < LOD_DIST[1] ? 1 : 2; }
+
+  /** Ask for the chunks around road distance s. Cheap to call every frame. */
+  update(s) {
+    this._sLast = s;
+    const c0 = Math.floor((s - BEHIND) / CHUNK_LEN), c1 = Math.floor((s + AHEAD) / CHUNK_LEN);
+    const want = [];
+    for (let c = Math.max(0, c0); c <= c1; c++) {
+      const centre = c * CHUNK_LEN + CHUNK_LEN / 2;
+      const dist = Math.abs(centre - s);
+      const lod = this.lodFor(centre < s ? dist * 1.6 : dist); // keep LOD0 a bit less behind
+      want.push({ c, lod, dist });
+    }
+    want.sort((a, b) => a.dist - b.dist);
+    for (const w of want) {
+      const rec = this.chunks.get(w.c);
+      if (rec && rec.lod === w.lod) continue;
+      const key = `${w.c}:${w.lod}`;
+      if (this.pending.has(key)) continue;
+      const wk = this.workers.reduce((a, b) => (a.busy <= b.busy ? a : b));
+      if (wk.busy >= 2) break;
+      this.pending.add(key); wk.busy++;
+      wk.postMessage({ type: 'chunk', key, chunk: w.c, lod: w.lod, road: !rec });
+    }
+    // drop far chunks
+    for (const [c, rec] of this.chunks) {
+      if (c < c0 - 1 || c > c1 + 2) this._dispose(c, rec);
+      else this._collision(c, rec, s);
+    }
+  }
+
+  _onMsg(w, m) {
+    if (m.type === 'ready') { this.ready++; return; }
+    if (m.type !== 'chunk') return;
+    w.busy = Math.max(0, w.busy - 1); this.pending.delete(m.key);
+    const c0 = Math.floor((this._sLast - BEHIND) / CHUNK_LEN) - 1, c1 = Math.floor((this._sLast + AHEAD) / CHUNK_LEN) + 2;
+    if (m.chunk < c0 || m.chunk > c1) return;
+    let rec = this.chunks.get(m.chunk);
+    if (!rec) { rec = { chunk: m.chunk, lod: -1, mesh: null, roadMesh: null, colT: null, colR: null, tCol: null, rCol: null }; this.chunks.set(m.chunk, rec); }
+    // terrain mesh
+    const t = m.t;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(t.positions, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(t.normals, 3));
+    g.setAttribute('aSplat0', new THREE.BufferAttribute(t.splat[0], 4));
+    g.setAttribute('aSplat1', new THREE.BufferAttribute(t.splat[1], 4));
+    g.setAttribute('aSplat2', new THREE.BufferAttribute(t.splat[2], 4));
+    g.setAttribute('aMacro', new THREE.BufferAttribute(t.macro, 1));
+    g.setIndex(new THREE.BufferAttribute(t.indices, 1));
+    g.computeBoundingSphere();
+    const mesh = new THREE.Mesh(g, this.terrainMat);
+    mesh.position.set(t.anchor[0], t.anchor[1], t.anchor[2]);
+    mesh.receiveShadow = true; mesh.castShadow = m.lod === 0; mesh.frustumCulled = true;
+    mesh.matrixAutoUpdate = false; mesh.updateMatrix();
+    if (rec.mesh) { this.group.remove(rec.mesh); rec.mesh.geometry.dispose(); }
+    rec.mesh = mesh; rec.lod = m.lod; this.group.add(mesh);
+    this.stats.built++;
+    rec.tCol = t.colPositions ? { pos: t.colPositions, idx: t.colIndices, anchor: t.anchor } : null;
+    // road mesh (first time only; road strip does not change with LOD)
+    if (m.r) {
+      const r = m.r, rg = new THREE.BufferGeometry();
+      rg.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
+      rg.setAttribute('normal', new THREE.BufferAttribute(r.normals, 3));
+      rg.setAttribute('uv', new THREE.BufferAttribute(r.uvs, 2));
+      rg.setIndex(new THREE.BufferAttribute(r.indices, 1));
+      rg.computeBoundingSphere();
+      const rm = new THREE.Mesh(rg, this.roadMat);
+      rm.position.set(r.anchor[0], r.anchor[1] + 0.012, r.anchor[2]);
+      rm.receiveShadow = true; rm.matrixAutoUpdate = false; rm.updateMatrix();
+      if (rec.roadMesh) { this.group.remove(rec.roadMesh); rec.roadMesh.geometry.dispose(); }
+      rec.roadMesh = rm; this.group.add(rm);
+      rec.rCol = { pos: r.positions, idx: null, anchor: r.anchor, uvIdx: r.indices };
+      // the road strip's collision uses its own (Uint16) indices as Uint32
+      rec.rCol.idx = Uint32Array.from(r.indices);
+    }
+    if (this.onChunk) this.onChunk(m.chunk, rec);
+    this._collision(m.chunk, rec, this._sLast);
+  }
+
+  /** Create/destroy Rapier trimesh colliders for chunks near the player. */
+  _collision(c, rec, s) {
+    if (!this.world) return;
+    const centre = c * CHUNK_LEN + CHUNK_LEN / 2;
+    const near = centre > s - COLLIDE_BEHIND && centre < s + COLLIDE_AHEAD;
+    if (near && !rec.colT && rec.tCol) {
+      rec.colT = this._trimesh(rec.tCol);
+      if (rec.rCol) rec.colR = this._trimesh(rec.rCol);
+    } else if (!near && rec.colT) this._dropCol(rec);
+    if (near && rec.tCol && rec.rCol && !rec.colR) rec.colR = this._trimesh(rec.rCol);
+  }
+  _trimesh(d) {
+    const rb = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(d.anchor[0], d.anchor[1], d.anchor[2]));
+    const cd = RAPIER.ColliderDesc.trimesh(d.pos, d.idx).setCollisionGroups(GROUPS.world).setFriction(0.9).setRestitution(0);
+    const col = this.world.createCollider(cd, rb);
+    return { rb, col };
+  }
+  _dropCol(rec) {
+    if (rec.colT) { this.world.removeRigidBody(rec.colT.rb); rec.colT = null; }
+    if (rec.colR) { this.world.removeRigidBody(rec.colR.rb); rec.colR = null; }
+  }
+  _dispose(c, rec) {
+    this._dropCol(rec);
+    if (rec.mesh) { this.group.remove(rec.mesh); rec.mesh.geometry.dispose(); }
+    if (rec.roadMesh) { this.group.remove(rec.roadMesh); rec.roadMesh.geometry.dispose(); }
+    this.chunks.delete(c);
+    if (this.onChunkDrop) this.onChunkDrop(c);
+  }
+
+  hasColliderAt(s) { const r = this.chunks.get(Math.floor(s / CHUNK_LEN)); return !!(r && r.colT && r.colR); }
+
+  /** True once the chunks around s have their colliders (used to hold the car until the ground exists). */
+  groundReady(s) {
+    for (let c = Math.floor((s - 40) / CHUNK_LEN); c <= Math.floor((s + 80) / CHUNK_LEN); c++) {
+      const r = this.chunks.get(c); if (!r || !r.mesh || (this.world && (!r.colT || !r.colR))) return false;
+    }
+    return true;
+  }
+  dispose() { for (const w of this.workers) w.terminate(); for (const [c, r] of this.chunks) this._dispose(c, r); this.scene.remove(this.group); }
+}

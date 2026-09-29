@@ -1,0 +1,1 @@
+{"duration": 1.15, "peak_db": -1.64, "rms_db": -29.02, "lufs_i": -26.95, "lufs_m": -22.36, "lufs_s": -17.93, "dc": -1.7e-05, "centroid": 1139.0, "clip": 0, "rise_ms": 564.17, "tail_50db_s": 0.908, "bands_db": [-6.1, -4.0, -4.9, -15.3], "src_len": 50715, "dec_len": 50715, "variation": 0, "build_s": 0.46, "file": "guns/rpg_reload.ogg", "bytes": 13419}

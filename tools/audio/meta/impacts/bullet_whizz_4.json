@@ -1,0 +1,1 @@
+{"duration": 0.5, "peak_db": -1.23, "rms_db": -18.61, "lufs_i": -16.85, "lufs_m": -14.69, "lufs_s": -10.13, "dc": 6e-05, "centroid": 3524.0, "clip": 0, "rise_ms": 15.53, "tail_50db_s": 0.484, "bands_db": [-20.0, -15.0, -1.1, -7.3], "src_len": 22050, "dec_len": 22050, "file": "impacts/bullet_whizz_4.ogg", "variation": 3, "bytes": 9295, "build_s": 2.7}

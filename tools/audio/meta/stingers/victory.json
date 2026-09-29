@@ -1,0 +1,1 @@
+{"duration": 4.0075, "peak_db": -1.17, "rms_db": -17.83, "lufs_i": -12.0, "lufs_m": -7.4, "lufs_s": -6.84, "dc": 1.8e-05, "centroid": 2452.0, "clip": 0, "rise_ms": 985.9, "tail_50db_s": 3.357, "bands_db": [-9.1, -4.2, -4.8, -7.8], "src_len": 176729, "dec_len": 176729, "variation": 0, "build_s": 1.26, "file": "stingers/victory.ogg", "bytes": 70926}

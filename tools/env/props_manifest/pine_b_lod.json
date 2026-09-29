@@ -1,0 +1,19 @@
+{
+ "name": "pine_b_lod",
+ "file": "pine_b_lod.glb",
+ "category": "tree_pine_lod",
+ "height": 16.968,
+ "radius": 5.453,
+ "size": [
+  8.801,
+  16.968,
+  8.601
+ ],
+ "tris": 156,
+ "materials": [
+  "bark_pine",
+  "pine_needles_b"
+ ],
+ "notes": "LOD1 of pine_b (alpha-tested cards, same materials)",
+ "kb": 609.0
+}

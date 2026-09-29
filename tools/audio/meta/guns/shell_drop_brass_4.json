@@ -1,0 +1,1 @@
+{"duration": 0.5, "peak_db": -1.78, "rms_db": -18.91, "lufs_i": -16.61, "lufs_m": -14.98, "lufs_s": -10.4, "dc": -1.2e-05, "centroid": 4979.0, "clip": 0, "rise_ms": 1.66, "tail_50db_s": 0.427, "bands_db": [-56.2, -49.6, -12.6, -0.2], "src_len": 22050, "dec_len": 22050, "variation": 3, "build_s": 0.38, "file": "guns/shell_drop_brass_4.ogg", "bytes": 7249}

@@ -1,0 +1,1 @@
+{"duration": 0.7, "peak_db": -2.01, "rms_db": -22.68, "lufs_i": -21.27, "lufs_m": -17.97, "lufs_s": -15.3, "dc": 1e-06, "centroid": 1800.0, "clip": 0, "rise_ms": 0.23, "tail_50db_s": 0.685, "bands_db": [-9.5, -14.0, -1.1, -11.2], "src_len": 30870, "dec_len": 30870, "variation": 0, "build_s": 0.84, "file": "ui/go.ogg", "bytes": 9987}

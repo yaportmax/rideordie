@@ -1,0 +1,19 @@
+{
+ "name": "sign_exit",
+ "file": "sign_exit.glb",
+ "category": "furniture",
+ "height": 4.736,
+ "radius": 2.0,
+ "size": [
+  4.0,
+  4.736,
+  1.076
+ ],
+ "tris": 1564,
+ "materials": [
+  "galvanized",
+  "sign_exit"
+ ],
+ "notes": "Big green highway EXIT sign 4.0 x 2.0 m on two I-beam posts (plate bottom 2.35 m, top 4.35 m), lamp arms, folded corner. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction.",
+ "kb": 554.9
+}

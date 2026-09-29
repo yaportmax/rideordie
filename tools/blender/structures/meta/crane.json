@@ -1,0 +1,72 @@
+{
+ "id": "crane",
+ "file": "models/structures/crane.glb",
+ "tris": 3312,
+ "collision_tris": 72,
+ "size_kb": 290.1,
+ "bbox_min": [
+  -19.0,
+  0.0,
+  -15.5
+ ],
+ "bbox_max": [
+  19.0,
+  41.82,
+  25.51
+ ],
+ "dims": [
+  38.0,
+  41.82,
+  41.01
+ ],
+ "materials": [
+  "concrete_dark",
+  "glass",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rust",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 252,
+  "metal_bare": 356,
+  "metal_dark": 1044,
+  "steel_beam": 1268,
+  "paint": 128,
+  "paint2": 48,
+  "glass": 12,
+  "rust": 112,
+  "light_head": 36,
+  "light_tail": 56
+ },
+ "sockets": {
+  "beacon_boom": [
+   0.0,
+   41.898,
+   22.113
+  ],
+  "beacon_mast": [
+   0.0,
+   35.3,
+   -5.5
+  ]
+ },
+ "notes": {
+  "desc": "Dock ship-to-shore gantry crane, ~41 m tall. Travels along X on rails; boom (raised ~55 deg) points +Z (sea side). Portal legs at z=+-6.5, x=+-8, machinery house on top, hanging spreader + rusty container from the boom tip.",
+  "height": 41.5,
+  "rails": "along X at z=-6.5 and z=+6.5 (y=0.3)",
+  "footprint": [
+   36,
+   40
+  ],
+  "boom_tip": [
+   0,
+   40.5,
+   21.5
+  ]
+ }
+}

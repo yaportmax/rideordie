@@ -1,0 +1,1 @@
+{"duration": 1.0266, "peak_db": -1.52, "rms_db": -16.78, "lufs_i": -15.5, "lufs_m": -10.35, "lufs_s": -8.25, "dc": 0.000235, "centroid": 1833.0, "clip": 0, "rise_ms": 1.45, "tail_50db_s": 0.931, "bands_db": [-7.4, -6.6, -3.3, -8.7], "src_len": 45273, "dec_len": 45273, "file": "impacts/car_crash_light_3.ogg", "variation": 2, "bytes": 14409, "build_s": 4.8}

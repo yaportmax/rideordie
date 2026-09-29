@@ -1,0 +1,39 @@
+{
+ "id": "mesa_b",
+ "file": "models/structures/mesa_b.glb",
+ "tris": 4552,
+ "collision_tris": 166,
+ "size_kb": 415.8,
+ "bbox_min": [
+  -81.89,
+  -3.0,
+  -48.39
+ ],
+ "bbox_max": [
+  74.4,
+  110.75,
+  51.47
+ ],
+ "dims": [
+  156.3,
+  113.75,
+  99.86
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_red",
+  "sand"
+ ],
+ "nodes": {
+  "rock_red": 3112,
+  "sand": 960,
+  "dirt_red": 480
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Two-tier butte/mesa backdrop, ~112 m wide lower tier (62 m) + 48 m upper butte offset to +X, total ~110 m tall, red banded cliffs. Origin at base centre; backdrop only.",
+  "width": 112,
+  "height": 110.0,
+  "placement": "far backdrop, 60-400 m from the road"
+ }
+}

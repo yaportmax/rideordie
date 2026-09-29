@@ -1,0 +1,19 @@
+{
+ "name": "wire_span",
+ "file": "wire_span.glb",
+ "category": "furniture",
+ "height": 1.492,
+ "radius": 19.974,
+ "size": [
+  1.919,
+  1.492,
+  20.006
+ ],
+ "tris": 222,
+ "materials": [
+  "wire"
+ ],
+ "notes": "3 sagging power wires spanning 20 m along glTF +Z from the attach points of utility_pole (origin at the ground under pole A: place with the same transform as pole A, pole B stands at z=+20). Thin dark 3-sided tubes, no textures.",
+ "span": 20.0,
+ "kb": 10.4
+}

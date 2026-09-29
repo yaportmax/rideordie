@@ -1,0 +1,1 @@
+{"duration": 0.13, "peak_db": -1.64, "rms_db": -22.72, "lufs_i": -24.86, "lufs_m": -24.64, "lufs_s": -18.62, "dc": -0.000134, "centroid": 3765.0, "clip": 0, "rise_ms": 1.18, "tail_50db_s": 0.081, "bands_db": [-35.5, -7.9, -5.5, -2.6], "src_len": 5733, "dec_len": 5733, "variation": 0, "build_s": 0.28, "file": "guns/dry_click.ogg", "bytes": 5199}

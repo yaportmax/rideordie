@@ -1,0 +1,71 @@
+{
+ "id": "watchtower",
+ "file": "models/structures/watchtower.glb",
+ "tris": 3780,
+ "collision_tris": 48,
+ "size_kb": 335.4,
+ "bbox_min": [
+  -3.6,
+  -0.05,
+  -4.5
+ ],
+ "bbox_max": [
+  6.5,
+  15.52,
+  3.82
+ ],
+ "dims": [
+  10.1,
+  15.57,
+  8.32
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "concrete_dark",
+  "light_head",
+  "metal_bare",
+  "metal_dark",
+  "rubber",
+  "rust",
+  "sand",
+  "spike",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 72,
+  "wood": 1084,
+  "rubber": 624,
+  "rust": 496,
+  "metal_bare": 60,
+  "metal_dark": 302,
+  "canvas": 834,
+  "light_head": 36,
+  "bone": 204,
+  "spike": 48,
+  "sand": 20
+ },
+ "sockets": {
+  "searchlight": [
+   -1.85,
+   10.7,
+   2.55
+  ],
+  "platform": [
+   0,
+   9.12,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Raider watchtower ~13 m: timber legs + X bracing, scrap-plate platform at y=9 with ladder on the +Z face, corrugated roof, searchlight, skull banner pole. Front (ladder) faces +Z. Sandbag/tyre nest at the base.",
+  "footprint": [
+   7,
+   7
+  ],
+  "height": 13.2,
+  "platform_y": 9.0,
+  "front": "+Z",
+  "sockets": "searchlight (aim +Z), platform (gunner stand)"
+ }
+}

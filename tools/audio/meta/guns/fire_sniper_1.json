@@ -1,0 +1,1 @@
+{"duration": 2.8423, "peak_db": -1.66, "rms_db": -22.1, "lufs_i": -20.25, "lufs_m": -11.67, "lufs_s": -9.6, "dc": -4.3e-05, "centroid": 805.0, "clip": 0, "rise_ms": 0.2, "tail_50db_s": 2.081, "bands_db": [-4.4, -4.5, -6.0, -15.2], "src_len": 125344, "dec_len": 125344, "variation": 0, "build_s": 0.73, "file": "guns/fire_sniper_1.ogg", "bytes": 25249}

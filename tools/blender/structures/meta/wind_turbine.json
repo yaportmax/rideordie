@@ -1,0 +1,62 @@
+{
+ "id": "wind_turbine",
+ "file": "models/structures/wind_turbine.glb",
+ "tris": 3178,
+ "collision_tris": 116,
+ "size_kb": 271.7,
+ "bbox_min": [
+  -27.6,
+  0.0,
+  -5.85
+ ],
+ "bbox_max": [
+  16.56,
+  95.1,
+  8.1
+ ],
+ "dims": [
+  44.16,
+  95.1,
+  13.95
+ ],
+ "materials": [
+  "concrete_dark",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "steel_beam"
+ ],
+ "nodes": {
+  "paint": 1742,
+  "metal_bare": 1072,
+  "concrete_dark": 92,
+  "metal_dark": 232,
+  "steel_beam": 12,
+  "light_tail": 28
+ },
+ "sockets": {
+  "hub": [
+   0.0,
+   61.7,
+   4.6
+  ],
+  "beacon": [
+   1.0,
+   65.5,
+   -4.6
+  ]
+ },
+ "notes": {
+  "desc": "Dead wind turbine: 60 m tapered tower, nacelle facing +Z, 3 blades frozen (one snapped and hanging). Origin = tower base centre.",
+  "hub_height": 60,
+  "rotor_radius": 33.5,
+  "total_height": 94,
+  "blade_angles_deg": [
+   95,
+   215,
+   335
+  ],
+  "rotor_axis": "+Z"
+ }
+}

@@ -1,0 +1,39 @@
+{
+ "id": "sea_stack_a",
+ "file": "models/structures/sea_stack_a.glb",
+ "tris": 1680,
+ "collision_tris": 42,
+ "size_kb": 154.7,
+ "bbox_min": [
+  -18.58,
+  -1.5,
+  -16.22
+ ],
+ "bbox_max": [
+  17.3,
+  36.5,
+  16.82
+ ],
+ "dims": [
+  35.89,
+  38.0,
+  33.04
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_grey",
+  "sand"
+ ],
+ "nodes": {
+  "rock_grey": 1364,
+  "sand": 158,
+  "dirt_red": 158
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Tall leaning sea stack (limestone, banded), origin at waterline centre; base talus + boulders. Undercut waist at y~2.",
+  "height": 35.0,
+  "radius_base": 15.5,
+  "placement": "stand in the sea beside coastal road, any yaw"
+ }
+}

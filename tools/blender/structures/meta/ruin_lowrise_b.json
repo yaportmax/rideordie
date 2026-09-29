@@ -1,0 +1,56 @@
+{
+ "id": "ruin_lowrise_b",
+ "file": "models/structures/ruin_lowrise_b.glb",
+ "tris": 1843,
+ "collision_tris": 84,
+ "size_kb": 169.0,
+ "bbox_min": [
+  -20.74,
+  -0.37,
+  -5.54
+ ],
+ "bbox_max": [
+  20.4,
+  11.9,
+  14.49
+ ],
+ "dims": [
+  41.14,
+  12.27,
+  20.03
+ ],
+ "materials": [
+  "brick",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rebar",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 492,
+  "metal_dark": 436,
+  "glass": 23,
+  "concrete": 438,
+  "paint2": 148,
+  "metal_bare": 34,
+  "rebar": 168,
+  "paint": 12,
+  "wood": 44,
+  "brick": 48
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined 2-floor strip mall with colonnade canopy, pylon sign, one end collapsed to rubble. Front +Z, origin base centre. Pylon sign stands at x=20 (outside the 32 m body).",
+  "height": 8.4,
+  "footprint": [
+   32,
+   10
+  ],
+  "front": "+Z"
+ }
+}

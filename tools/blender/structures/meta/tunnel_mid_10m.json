@@ -1,0 +1,58 @@
+{
+ "id": "tunnel_mid_10m",
+ "file": "models/structures/tunnel_mid_10m.glb",
+ "tris": 2780,
+ "collision_tris": 192,
+ "size_kb": 240.0,
+ "bbox_min": [
+  -8.1,
+  -0.6,
+  0.0
+ ],
+ "bbox_max": [
+  8.1,
+  8.1,
+  10.0
+ ],
+ "dims": [
+  16.2,
+  8.7,
+  10.0
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "light_green",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "rust"
+ ],
+ "nodes": {
+  "concrete": 64,
+  "concrete_dark": 1320,
+  "road_surface": 224,
+  "light_amber": 192,
+  "metal_dark": 852,
+  "rust": 40,
+  "light_green": 12,
+  "light_tail": 12,
+  "metal_bare": 64
+ },
+ "sockets": {
+  "end": [
+   0,
+   0,
+   10
+  ]
+ },
+ "notes": {
+  "desc": "Repeatable 10 m tunnel tube segment (z 0..10). Interior half-width 7.4 (14.8 m), walls to y=3.8, crown y=7.4. Ribs every 2.5 m (phase 1.5 + 2.5k) so it chains seamlessly with portals (12 m tube) and itself. Floor = road_surface (x -7..7). Interior only: bury it in terrain.",
+  "length": 10.0,
+  "interior_half_width": 7.4,
+  "crown": 7.4,
+  "lights": "light_amber strips at crown x=+-2.7 (some dark), jet fans, cable trays"
+ }
+}

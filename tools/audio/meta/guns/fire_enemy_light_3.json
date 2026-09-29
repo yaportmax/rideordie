@@ -1,0 +1,1 @@
+{"duration": 0.7073, "peak_db": -1.61, "rms_db": -19.96, "lufs_i": -20.13, "lufs_m": -14.52, "lufs_s": -10.13, "dc": 1.9e-05, "centroid": 1273.0, "clip": 0, "rise_ms": 0.43, "tail_50db_s": 0.539, "bands_db": [-12.2, -6.9, -1.4, -20.9], "src_len": 31194, "dec_len": 31194, "variation": 2, "build_s": 0.31, "file": "guns/fire_enemy_light_3.ogg", "bytes": 8990}

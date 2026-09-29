@@ -1,0 +1,68 @@
+{
+ "id": "tunnel_portal_rock_grey",
+ "file": "models/structures/tunnel_portal_rock_grey.glb",
+ "tris": 5773,
+ "collision_tris": 192,
+ "size_kb": 507.8,
+ "bbox_min": [
+  -34.0,
+  -2.5,
+  -6.72
+ ],
+ "bbox_max": [
+  34.0,
+  24.32,
+  17.0
+ ],
+ "dims": [
+  68.0,
+  26.82,
+  23.72
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "light_amber",
+  "light_green",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "rock_grey",
+  "rust"
+ ],
+ "nodes": {
+  "concrete": 532,
+  "concrete_dark": 1696,
+  "metal_dark": 1116,
+  "light_head": 24,
+  "light_amber": 248,
+  "rock_grey": 1749,
+  "road_surface": 280,
+  "rust": 40,
+  "light_green": 12,
+  "light_tail": 12,
+  "metal_bare": 64
+ },
+ "sockets": {
+  "entrance": [
+   0,
+   0,
+   0
+  ],
+  "tube_end": [
+   0,
+   0,
+   12
+  ]
+ },
+ "notes": {
+  "desc": "Grey-rock variant of tunnel_portal_rock (pine mountains): face at z=0 facing -Z, 12 m of tube.",
+  "opening": [
+   14.8,
+   7.4
+  ],
+  "rock_height": 24
+ }
+}

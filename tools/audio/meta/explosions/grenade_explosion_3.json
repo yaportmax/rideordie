@@ -1,0 +1,1 @@
+{"duration": 2.247, "peak_db": -1.42, "rms_db": -20.02, "lufs_i": -18.48, "lufs_m": -10.33, "lufs_s": -8.65, "dc": -5.1e-05, "centroid": 900.0, "clip": 0, "rise_ms": 52.0, "tail_50db_s": 1.955, "bands_db": [-5.0, -4.1, -6.1, -13.1], "src_len": 99093, "dec_len": 99093, "file": "explosions/grenade_explosion_3.ogg", "variation": 2, "bytes": 19927, "build_s": 2.79}

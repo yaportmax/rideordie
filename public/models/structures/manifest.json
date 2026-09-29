@@ -1,0 +1,4048 @@
+{
+ "generated": "2026-09-29T02:43:47",
+ "count": 64,
+ "total_kb": 26938,
+ "conventions": "see README.md",
+ "structures": [
+  {
+   "id": "jump_ramp",
+   "group": "road",
+   "file": "models/structures/jump_ramp.glb",
+   "tris": 6574,
+   "collision_tris": 36,
+   "size_kb": 583.7,
+   "bbox_min": [
+    -7.45,
+    -0.35,
+    -0.0
+   ],
+   "bbox_max": [
+    7.45,
+    3.36,
+    12.85
+   ],
+   "dims": [
+    14.9,
+    3.71,
+    12.85
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "road_surface",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "lip": [
+     0,
+     2.2,
+     12.0
+    ]
+   },
+   "notes": {
+    "desc": "Kicker ramp spanning the road. Drive +Z. Surface curve y = H*(z/L)^1.45 (flush at z=0, lip at z=L).",
+    "lip_height": 2.2,
+    "length": 12.0,
+    "width": 14.0,
+    "launch_angle_deg": 14.9
+   }
+  },
+  {
+   "id": "jump_ramp_small",
+   "group": "road",
+   "file": "models/structures/jump_ramp_small.glb",
+   "tris": 3934,
+   "collision_tris": 36,
+   "size_kb": 356.7,
+   "bbox_min": [
+    -3.25,
+    -0.35,
+    -0.0
+   ],
+   "bbox_max": [
+    3.25,
+    2.31,
+    8.35
+   ],
+   "dims": [
+    6.5,
+    2.66,
+    8.35
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "road_surface",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "lip": [
+     0,
+     1.15,
+     7.5
+    ]
+   },
+   "notes": {
+    "desc": "Kicker ramp spanning the road. Drive +Z. Surface curve y = H*(z/L)^1.35 (flush at z=0, lip at z=L).",
+    "lip_height": 1.15,
+    "length": 7.5,
+    "width": 5.6,
+    "launch_angle_deg": 11.7
+   }
+  },
+  {
+   "id": "speed_boost_pad",
+   "group": "road",
+   "file": "models/structures/speed_boost_pad.glb",
+   "tris": 2656,
+   "collision_tris": 12,
+   "size_kb": 224.7,
+   "bbox_min": [
+    -7.0,
+    -0.02,
+    -0.0
+   ],
+   "bbox_max": [
+    7.0,
+    0.08,
+    4.0
+   ],
+   "dims": [
+    14.0,
+    0.1,
+    4.0
+   ],
+   "materials": [
+    "light_boost",
+    "metal_bare",
+    "metal_dark"
+   ],
+   "nodes": [
+    "light_boost",
+    "metal_bare",
+    "metal_dark",
+    "collision"
+   ],
+   "sockets": {
+    "trigger": [
+     0,
+     0.06,
+     2.0
+    ]
+   },
+   "notes": {
+    "desc": "Flat boost pad 14 x 4 m, drive-over (trigger volume = bbox). Emissive chevrons point +Z (light_boost, cyan).",
+    "trigger_size": [
+     14,
+     0.3,
+     4
+    ]
+   }
+  },
+  {
+   "id": "bridge_span_20m",
+   "group": "road",
+   "file": "models/structures/bridge_span_20m.glb",
+   "tris": 7612,
+   "collision_tris": 60,
+   "size_kb": 663.7,
+   "bbox_min": [
+    -8.0,
+    -1.92,
+    0.0
+   ],
+   "bbox_max": [
+    8.0,
+    8.92,
+    20.0
+   ],
+   "dims": [
+    16.0,
+    10.84,
+    20.0
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "lamp_0": [
+     4.97,
+     8.63,
+     5.0
+    ],
+    "lamp_1": [
+     -4.97,
+     8.63,
+     15.0
+    ],
+    "pier": [
+     0,
+     -1.92,
+     0
+    ],
+    "pier_end": [
+     0,
+     -1.92,
+     20.0
+    ]
+   },
+   "notes": {
+    "desc": "Steel plate-girder + concrete deck bridge span, road along +Z from z=0 to z=20. Chain spans end to end.",
+    "road_width": 14,
+    "deck_underside_y": -1.92,
+    "deck_width": 15.9,
+    "pier_sockets": "pier at z=0 (start joint), pier_end at z=20",
+    "lamps": "lamp_0 (+X side, z=5), lamp_1 (-X side, z=15) sockets at the light heads"
+   }
+  },
+  {
+   "id": "bridge_span_20m_damaged",
+   "group": "road",
+   "file": "models/structures/bridge_span_20m_damaged.glb",
+   "tris": 8124,
+   "collision_tris": 60,
+   "size_kb": 709.4,
+   "bbox_min": [
+    -8.0,
+    -1.92,
+    0.0
+   ],
+   "bbox_max": [
+    8.26,
+    8.92,
+    20.0
+   ],
+   "dims": [
+    16.26,
+    10.84,
+    20.0
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "road_surface",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "lamp_0": [
+     4.97,
+     8.63,
+     5.0
+    ],
+    "lamp_1": [
+     -4.97,
+     8.63,
+     15.0
+    ],
+    "pier": [
+     0,
+     -1.92,
+     0
+    ],
+    "pier_end": [
+     0,
+     -1.92,
+     20.0
+    ]
+   },
+   "notes": {
+    "desc": "Steel plate-girder + concrete deck bridge span, road along +Z from z=0 to z=20. Chain spans end to end. DAMAGED variant: parapet panel missing on the +X side at z 5-10 with hanging rails/rebar and debris on the deck.",
+    "road_width": 14,
+    "deck_underside_y": -1.92,
+    "deck_width": 15.9,
+    "pier_sockets": "pier at z=0 (start joint), pier_end at z=20",
+    "lamps": "lamp_0 (+X side, z=5), lamp_1 (-X side, z=15) sockets at the light heads"
+   }
+  },
+  {
+   "id": "bridge_pier",
+   "group": "road",
+   "file": "models/structures/bridge_pier.glb",
+   "tris": 1644,
+   "collision_tris": 36,
+   "size_kb": 144.7,
+   "bbox_min": [
+    -8.4,
+    0.0,
+    -2.4
+   ],
+   "bbox_max": [
+    8.4,
+    12.42,
+    2.4
+   ],
+   "dims": [
+    16.8,
+    12.42,
+    4.8
+   ],
+   "materials": [
+    "concrete",
+    "concrete_dark",
+    "metal_dark",
+    "rebar",
+    "rubber"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "metal_dark",
+    "rebar",
+    "rubber",
+    "collision"
+   ],
+   "sockets": {
+    "deck_socket": [
+     0,
+     12.0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Hammerhead concrete pier, origin = base centre (y=0 at footing bottom). Top of bearing pads at y=12 = deck underside: align `deck_socket` to the deck underside (bridge_span_20m socket `pier`). Sink the footing into terrain as needed.",
+    "height": 12.0,
+    "cap_width": 16.8,
+    "footing": [
+     6.8,
+     1.4,
+     4.8
+    ],
+    "repeat": "place one at each span joint (every 20 m) under x=0"
+   }
+  },
+  {
+   "id": "bridge_arch",
+   "group": "road",
+   "file": "models/structures/bridge_arch.glb",
+   "tris": 10044,
+   "collision_tris": 468,
+   "size_kb": 878.2,
+   "bbox_min": [
+    -9.3,
+    -3.2,
+    -1.6
+   ],
+   "bbox_max": [
+    9.3,
+    19.1,
+    41.6
+   ],
+   "dims": [
+    18.6,
+    22.3,
+    43.2
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "road_surface",
+    "collision"
+   ],
+   "sockets": {
+    "arch_crown": [
+     0,
+     17.6,
+     20
+    ]
+   },
+   "notes": {
+    "desc": "Steel through-arch bridge, 40 m, road along +Z (z=0..40). Twin truss arch ribs at x=+-8.3, crown y=17.6 at z=20, bracing above y=7.5 (clear of vehicles).",
+    "clearance_under_bracing": 7.5,
+    "deck_underside_y": -1.3,
+    "beacon": "light_tail red beacons on the crown; crown socket `arch_crown`"
+   }
+  },
+  {
+   "id": "overpass_concrete",
+   "group": "road",
+   "file": "models/structures/overpass_concrete.glb",
+   "tris": 9116,
+   "collision_tris": 168,
+   "size_kb": 758.0,
+   "bbox_min": [
+    -20.0,
+    -0.5,
+    0.0
+   ],
+   "bbox_max": [
+    20.0,
+    9.38,
+    12.81
+   ],
+   "dims": [
+    40.0,
+    9.88,
+    12.81
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_head",
+    "metal_dark",
+    "rebar",
+    "rubber"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_head",
+    "metal_dark",
+    "rebar",
+    "road_surface",
+    "rubber",
+    "collision"
+   ],
+   "sockets": {
+    "deck_top": [
+     0,
+     8.0,
+     6.0
+    ]
+   },
+   "notes": {
+    "desc": "Concrete highway overpass crossing OVER the road at 90 deg. Deck runs along X (x -20..20), spans z 0..12; the road (x -7..7) passes underneath along +Z. Clearance 6.5 m under girders. Pier bents beside the road at x=+-9.6; end spans sit on sloped embankment abutments (x +-10.5..20). Deck top road surface at y=8.0 (node road_surface).",
+    "clearance": 6.5,
+    "deck_top_y": 8.0,
+    "deck_size": [
+     40.0,
+     12.0
+    ],
+    "damage": "one parapet section collapsed at +X/+Z corner with hanging rebar"
+   }
+  },
+  {
+   "id": "tunnel_portal_rock",
+   "group": "road",
+   "file": "models/structures/tunnel_portal_rock.glb",
+   "tris": 5781,
+   "collision_tris": 192,
+   "size_kb": 508.5,
+   "bbox_min": [
+    -34.0,
+    -2.5,
+    -7.51
+   ],
+   "bbox_max": [
+    34.0,
+    25.19,
+    17.0
+   ],
+   "dims": [
+    68.0,
+    27.69,
+    24.51
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rock_red",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "rock_red",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "entrance": [
+     0,
+     0,
+     0
+    ],
+    "tube_end": [
+     0,
+     0,
+     12
+    ]
+   },
+   "notes": {
+    "desc": "Rock tunnel portal in a hillside: rock mass with arched opening, concrete portal ring, 12 m of tube. Entrance: face at z=0 facing -Z, tube z 0..12, rock mass extends to z=17 behind. Rock is `rock_red` (swap material to rock_grey for pine mountains).",
+    "opening": [
+     14.8,
+     7.4
+    ],
+    "rock_height": 24
+   }
+  },
+  {
+   "id": "tunnel_mid_10m",
+   "group": "road",
+   "file": "models/structures/tunnel_mid_10m.glb",
+   "tris": 2780,
+   "collision_tris": 192,
+   "size_kb": 240.0,
+   "bbox_min": [
+    -8.1,
+    -0.6,
+    0.0
+   ],
+   "bbox_max": [
+    8.1,
+    8.1,
+    10.0
+   ],
+   "dims": [
+    16.2,
+    8.7,
+    10.0
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "end": [
+     0,
+     0,
+     10
+    ]
+   },
+   "notes": {
+    "desc": "Repeatable 10 m tunnel tube segment (z 0..10). Interior half-width 7.4 (14.8 m), walls to y=3.8, crown y=7.4. Ribs every 2.5 m (phase 1.5 + 2.5k) so it chains seamlessly with portals (12 m tube) and itself. Floor = road_surface (x -7..7). Interior only: bury it in terrain.",
+    "length": 10.0,
+    "interior_half_width": 7.4,
+    "crown": 7.4,
+    "lights": "light_amber strips at crown x=+-2.7 (some dark), jet fans, cable trays"
+   }
+  },
+  {
+   "id": "tunnel_exit",
+   "group": "road",
+   "file": "models/structures/tunnel_exit.glb",
+   "tris": 5529,
+   "collision_tris": 192,
+   "size_kb": 489.3,
+   "bbox_min": [
+    -34.0,
+    -2.5,
+    -5.0
+   ],
+   "bbox_max": [
+    34.0,
+    25.43,
+    19.57
+   ],
+   "dims": [
+    68.0,
+    27.93,
+    24.57
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rock_red",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "rock_red",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "exit": [
+     0,
+     0,
+     12
+    ],
+    "tube_start": [
+     0,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Rock tunnel EXIT: tube z 0..12 then the portal face at z=12 facing +Z (leaving the tunnel). Chains after tunnel_mid_10m. Rock mass extends back over the tube (to z=-5).",
+    "opening": [
+     14.8,
+     7.4
+    ],
+    "rock_height": 24
+   }
+  },
+  {
+   "id": "tunnel_portal_concrete",
+   "group": "road",
+   "file": "models/structures/tunnel_portal_concrete.glb",
+   "tris": 5868,
+   "collision_tris": 228,
+   "size_kb": 506.1,
+   "bbox_min": [
+    -20.85,
+    -0.6,
+    -15.45
+   ],
+   "bbox_max": [
+    20.85,
+    13.72,
+    12.0
+   ],
+   "dims": [
+    41.7,
+    14.32,
+    27.45
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint2",
+    "rebar",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint2",
+    "rebar",
+    "road_surface",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "entrance": [
+     0,
+     0,
+     0
+    ],
+    "tube_end": [
+     0,
+     0,
+     12
+    ]
+   },
+   "notes": {
+    "desc": "Concrete tunnel portal: headwall at z=0 facing -Z, 12 m of tube (z 0..12), splayed wing walls. Headwall 27 m wide, 11.5 m high + cornice. Opening 14.8 m wide, crown 7.4 m. Meant to be embedded in a hillside.",
+    "opening": [
+     14.8,
+     7.4
+    ]
+   }
+  },
+  {
+   "id": "tunnel_exit_concrete",
+   "group": "road",
+   "file": "models/structures/tunnel_exit_concrete.glb",
+   "tris": 5584,
+   "collision_tris": 228,
+   "size_kb": 484.3,
+   "bbox_min": [
+    -20.85,
+    -0.6,
+    0.0
+   ],
+   "bbox_max": [
+    20.85,
+    13.72,
+    27.45
+   ],
+   "dims": [
+    41.7,
+    14.32,
+    27.45
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint2",
+    "rebar",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint2",
+    "rebar",
+    "road_surface",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "exit": [
+     0,
+     0,
+     12
+    ],
+    "tube_start": [
+     0,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Concrete tunnel EXIT: tube z 0..12 then portal face at z=12 facing +Z. Chains after tunnel_mid_10m.",
+    "opening": [
+     14.8,
+     7.4
+    ]
+   }
+  },
+  {
+   "id": "tunnel_portal_rock_grey",
+   "group": "road",
+   "file": "models/structures/tunnel_portal_rock_grey.glb",
+   "tris": 5773,
+   "collision_tris": 192,
+   "size_kb": 507.8,
+   "bbox_min": [
+    -34.0,
+    -2.5,
+    -6.72
+   ],
+   "bbox_max": [
+    34.0,
+    24.32,
+    17.0
+   ],
+   "dims": [
+    68.0,
+    26.82,
+    23.72
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rock_grey",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "rock_grey",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "entrance": [
+     0,
+     0,
+     0
+    ],
+    "tube_end": [
+     0,
+     0,
+     12
+    ]
+   },
+   "notes": {
+    "desc": "Grey-rock variant of tunnel_portal_rock (pine mountains): face at z=0 facing -Z, 12 m of tube.",
+    "opening": [
+     14.8,
+     7.4
+    ],
+    "rock_height": 24
+   }
+  },
+  {
+   "id": "tunnel_exit_grey",
+   "group": "road",
+   "file": "models/structures/tunnel_exit_grey.glb",
+   "tris": 5513,
+   "collision_tris": 192,
+   "size_kb": 488.0,
+   "bbox_min": [
+    -34.0,
+    -2.5,
+    -5.0
+   ],
+   "bbox_max": [
+    34.0,
+    26.4,
+    19.49
+   ],
+   "dims": [
+    68.0,
+    28.9,
+    24.49
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rock_grey",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "rock_grey",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "exit": [
+     0,
+     0,
+     12
+    ],
+    "tube_start": [
+     0,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Grey-rock variant of tunnel_exit (pine mountains): tube z 0..12 then the portal face at z=12 facing +Z.",
+    "opening": [
+     14.8,
+     7.4
+    ],
+    "rock_height": 24
+   }
+  },
+  {
+   "id": "road_gate",
+   "group": "road",
+   "file": "models/structures/road_gate.glb",
+   "tris": 9300,
+   "collision_tris": 120,
+   "size_kb": 796.4,
+   "bbox_min": [
+    -10.42,
+    0.0,
+    -4.6
+   ],
+   "bbox_max": [
+    10.42,
+    16.4,
+    4.6
+   ],
+   "dims": [
+    20.84,
+    16.4,
+    9.2
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "spike",
+    "steel_beam"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "spike",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "banner_R": [
+     -8.6,
+     13.8,
+     -1.6
+    ],
+    "banner_L": [
+     8.6,
+     13.8,
+     -1.6
+    ],
+    "flood_0": [
+     -6.5,
+     12.4,
+     -1.15
+    ],
+    "flood_1": [
+     -2.2,
+     12.4,
+     -1.15
+    ],
+    "flood_2": [
+     2.2,
+     12.4,
+     -1.15
+    ],
+    "flood_3": [
+     6.5,
+     12.4,
+     -1.15
+    ]
+   },
+   "notes": {
+    "desc": "Raider checkpoint arch across the road (origin road centre, depth ~3.4 m along z). Lattice towers at x=+-8.6, truss gantry at y 8.0-9.6 (clear height 8.0 m), big sign board on top, banner poles, floodlights, raised boom barriers. Road (x -7..7) is fully clear.",
+    "clear_height": 8.0,
+    "banner_sockets": "banner_L, banner_R",
+    "light_sockets": "flood_0..3"
+   }
+  },
+  {
+   "id": "toll_booth_ruined",
+   "group": "road",
+   "file": "models/structures/toll_booth_ruined.glb",
+   "tris": 6612,
+   "collision_tris": 156,
+   "size_kb": 596.6,
+   "bbox_min": [
+    -9.0,
+    -0.11,
+    0.99
+   ],
+   "bbox_max": [
+    9.24,
+    6.6,
+    13.0
+   ],
+   "dims": [
+    18.24,
+    6.71,
+    12.01
+   ],
+   "materials": [
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "hazard",
+    "light_green",
+    "light_tail",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "hazard",
+    "light_green",
+    "light_tail",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined toll plaza: canopy over the road (z 1..13, clear height 5.1 m), two islands with booths at x=+-3.3; -X outer lane and the centre lane are open, +X outer lane is blocked by the collapsed canopy corner. Origin = road centre at the start of the piece.",
+    "open_lanes": "centre x -2.4..2.4 (4.8 m) and -X lane x -7..-4.1",
+    "blocked_lane": "+X lane x 4.1..7 under the collapsed canopy",
+    "clear_height": 5.1
+   }
+  },
+  {
+   "id": "roadblock_wreck_line",
+   "group": "road",
+   "file": "models/structures/roadblock_wreck_line.glb",
+   "tris": 5318,
+   "collision_tris": 228,
+   "size_kb": 447.4,
+   "bbox_min": [
+    -8.12,
+    -1.77,
+    -0.31
+   ],
+   "bbox_max": [
+    8.33,
+    3.65,
+    9.22
+   ],
+   "dims": [
+    16.45,
+    5.42,
+    9.54
+   ],
+   "materials": [
+    "canvas",
+    "concrete",
+    "hazard",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust",
+    "spike"
+   ],
+   "nodes": [
+    "canvas",
+    "concrete",
+    "hazard",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust",
+    "spike",
+    "collision"
+   ],
+   "sockets": {
+    "gap_center": [
+     2.6,
+     0.0,
+     4.0
+    ]
+   },
+   "notes": {
+    "desc": "Raider roadblock: a line of wrecked cars, jersey barriers, sandbags, tyres and drums across the road (x -7..7, depth ~8 m, z 0..8) with a gap. The gap is x in [0.4, 4.8] (4.4 m wide, centre x=2.6); mirror with scale.x=-1 for a gap on the other side (or rotate 180 deg about Y). Socket `gap_center`.",
+    "gap": [
+     0.4,
+     4.8
+    ],
+    "gap_center": [
+     2.6,
+     0,
+     4
+    ]
+   }
+  },
+  {
+   "id": "ruin_office_a",
+   "group": "city",
+   "file": "models/structures/ruin_office_a.glb",
+   "tris": 5799,
+   "collision_tris": 228,
+   "size_kb": 509.5,
+   "bbox_min": [
+    -15.15,
+    -0.36,
+    -10.35
+   ],
+   "bbox_max": [
+    19.25,
+    55.5,
+    19.56
+   ],
+   "dims": [
+    34.4,
+    55.86,
+    29.92
+   ],
+   "materials": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined 14-floor concrete office tower, big corner bite at the top, blast hole in the front facade. Front faces +Z; origin base centre.",
+    "height": 50.4,
+    "footprint": [
+     30.0,
+     20.0
+    ],
+    "front": "+Z",
+    "lean_deg": 3.2
+   }
+  },
+  {
+   "id": "ruin_office_b",
+   "group": "city",
+   "file": "models/structures/ruin_office_b.glb",
+   "tris": 5367,
+   "collision_tris": 156,
+   "size_kb": 470.0,
+   "bbox_min": [
+    -20.79,
+    -0.4,
+    -14.2
+   ],
+   "bbox_max": [
+    22.76,
+    64.9,
+    28.29
+   ],
+   "dims": [
+    43.55,
+    65.31,
+    42.49
+   ],
+   "materials": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "steel_beam",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "steel_beam",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined 3-storey podium + 13-storey dark steel/glass tower with a slanted collapsed crown and a gaping wound; leaning slightly. Front +Z, origin base centre.",
+    "height": 61.3,
+    "footprint": [
+     40,
+     28
+    ],
+    "front": "+Z",
+    "lean_deg": -2.0
+   }
+  },
+  {
+   "id": "ruin_office_c",
+   "group": "city",
+   "file": "models/structures/ruin_office_c.glb",
+   "tris": 5965,
+   "collision_tris": 156,
+   "size_kb": 519.2,
+   "bbox_min": [
+    -24.65,
+    -0.56,
+    -7.65
+   ],
+   "bbox_max": [
+    21.16,
+    60.0,
+    17.6
+   ],
+   "dims": [
+    45.81,
+    60.56,
+    25.25
+   ],
+   "materials": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined slim 16-floor tower with heavy concrete fins + a long 9-floor wing; both broken, whole complex leans hard. Front +Z, origin base centre.",
+    "height": 56.0,
+    "footprint": [
+     41,
+     14
+    ],
+    "front": "+Z",
+    "lean_deg": 4.5
+   }
+  },
+  {
+   "id": "ruin_apartment_a",
+   "group": "city",
+   "file": "models/structures/ruin_apartment_a.glb",
+   "tris": 5569,
+   "collision_tris": 168,
+   "size_kb": 484.2,
+   "bbox_min": [
+    -20.8,
+    -0.4,
+    -7.7
+   ],
+   "bbox_max": [
+    21.36,
+    28.4,
+    15.77
+   ],
+   "dims": [
+    42.16,
+    28.8,
+    23.47
+   ],
+   "materials": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined 8-floor brick apartment slab with balconies, stair tower at the -X end, collapsed +X end and a blast hole. Front +Z, origin base centre.",
+    "height": 24.0,
+    "footprint": [
+     37,
+     13
+    ],
+    "front": "+Z",
+    "lean_deg": 1.2
+   }
+  },
+  {
+   "id": "ruin_apartment_b",
+   "group": "city",
+   "file": "models/structures/ruin_apartment_b.glb",
+   "tris": 4418,
+   "collision_tris": 156,
+   "size_kb": 388.8,
+   "bbox_min": [
+    -16.73,
+    -0.26,
+    -6.05
+   ],
+   "bbox_max": [
+    13.21,
+    24.5,
+    30.61
+   ],
+   "dims": [
+    29.93,
+    24.76,
+    36.66
+   ],
+   "materials": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined 7-floor concrete apartment complex, L-plan (long block + front wing) with access galleries, collapsed slanted roof-lines. Front +Z, origin base centre.",
+    "height": 21.7,
+    "footprint": [
+     24,
+     27.5
+    ],
+    "front": "+Z",
+    "lean_deg": 1.5
+   }
+  },
+  {
+   "id": "ruin_lowrise_a",
+   "group": "city",
+   "file": "models/structures/ruin_lowrise_a.glb",
+   "tris": 1613,
+   "collision_tris": 36,
+   "size_kb": 147.3,
+   "bbox_min": [
+    -9.15,
+    -0.27,
+    -7.05
+   ],
+   "bbox_max": [
+    13.01,
+    15.36,
+    11.15
+   ],
+   "dims": [
+    22.15,
+    15.63,
+    18.2
+   ],
+   "materials": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "rebar",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "rebar",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined 3-floor corner shop: storefront with torn striped awning, blank sign panel, roof billboard, collapsed +X roof corner. Front +Z, origin base centre.",
+    "height": 10.8,
+    "footprint": [
+     17,
+     13
+    ],
+    "front": "+Z",
+    "lean_deg": 0.0
+   }
+  },
+  {
+   "id": "ruin_lowrise_b",
+   "group": "city",
+   "file": "models/structures/ruin_lowrise_b.glb",
+   "tris": 1843,
+   "collision_tris": 84,
+   "size_kb": 169.0,
+   "bbox_min": [
+    -20.74,
+    -0.37,
+    -5.54
+   ],
+   "bbox_max": [
+    20.4,
+    11.9,
+    14.49
+   ],
+   "dims": [
+    41.14,
+    12.27,
+    20.03
+   ],
+   "materials": [
+    "brick",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined 2-floor strip mall with colonnade canopy, pylon sign, one end collapsed to rubble. Front +Z, origin base centre. Pylon sign stands at x=20 (outside the 32 m body).",
+    "height": 8.4,
+    "footprint": [
+     32,
+     10
+    ],
+    "front": "+Z"
+   }
+  },
+  {
+   "id": "ruin_lowrise_c",
+   "group": "city",
+   "file": "models/structures/ruin_lowrise_c.glb",
+   "tris": 2053,
+   "collision_tris": 48,
+   "size_kb": 182.8,
+   "bbox_min": [
+    -13.93,
+    -0.32,
+    -12.53
+   ],
+   "bbox_max": [
+    14.65,
+    12.0,
+    15.72
+   ],
+   "dims": [
+    28.58,
+    12.32,
+    28.25
+   ],
+   "materials": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar"
+   ],
+   "nodes": [
+    "brick",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_bare",
+    "metal_dark",
+    "rebar",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined 3-floor brick block with a round corner turret (jagged broken top) at the front-right corner and a slanted collapsed roof. Front +Z, origin base centre.",
+    "height": 11.1,
+    "footprint": [
+     16,
+     14
+    ],
+    "front": "+Z"
+   }
+  },
+  {
+   "id": "warehouse",
+   "group": "outpost",
+   "file": "models/structures/warehouse.glb",
+   "tris": 4928,
+   "collision_tris": 36,
+   "size_kb": 426.6,
+   "bbox_min": [
+    -19.0,
+    -0.05,
+    -11.5
+   ],
+   "bbox_max": [
+    18.0,
+    8.51,
+    15.5
+   ],
+   "dims": [
+    37.0,
+    8.56,
+    27.0
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "sand",
+    "steel_beam",
+    "wood"
+   ],
+   "nodes": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "sand",
+    "steel_beam",
+    "wood",
+    "collision"
+   ],
+   "sockets": {
+    "yard_lamp": [
+     12.1,
+     7.9,
+     13.0
+    ]
+   },
+   "notes": {
+    "desc": "Steel-frame corrugated warehouse 30 x 18 m, eaves 6.5 m / ridge 8.3 m. Front (3 roll-up doors + pedestrian door) faces +Z; ruined: torn front-left corner, missing roof sheets, collapsed door. Cladding = `paint` (tintable), roof = metal_bare, rust patches. Yard clutter around.",
+    "footprint": [
+     34,
+     24
+    ],
+    "front": "+Z",
+    "eave": 6.5,
+    "ridge": 8.3
+   }
+  },
+  {
+   "id": "gas_station",
+   "group": "outpost",
+   "file": "models/structures/gas_station.glb",
+   "tris": 5868,
+   "collision_tris": 132,
+   "size_kb": 505.1,
+   "bbox_min": [
+    -13.0,
+    0.0,
+    -7.5
+   ],
+   "bbox_max": [
+    13.38,
+    10.16,
+    14.5
+   ],
+   "dims": [
+    26.38,
+    10.16,
+    22.0
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_amber",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "rubber",
+    "rust",
+    "steel_beam",
+    "wood"
+   ],
+   "nodes": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_amber",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "rubber",
+    "rust",
+    "steel_beam",
+    "wood",
+    "collision"
+   ],
+   "sockets": {
+    "sign_light": [
+     11.6,
+     9.0,
+     13.3
+    ],
+    "pump_0": [
+     0.5,
+     0.33,
+     6.6
+    ],
+    "pump_1": [
+     0.5,
+     0.33,
+     8.6
+    ],
+    "pump_2": [
+     4.5,
+     0.33,
+     6.6
+    ],
+    "pump_3": [
+     4.5,
+     0.33,
+     8.6
+    ]
+   },
+   "notes": {
+    "desc": "Roadside gas station: convenience shop + garage bay (back, x<0), pump canopy (front, z>0) with 2 islands x 2 double-sided pumps, price sign pole. Front faces +Z; footprint 26 x 22 m; canopy underside y=5.0.",
+    "footprint": [
+     26,
+     22
+    ],
+    "front": "+Z",
+    "canopy_clearance": 5.0
+   }
+  },
+  {
+   "id": "diner",
+   "group": "outpost",
+   "file": "models/structures/diner.glb",
+   "tris": 4255,
+   "collision_tris": 60,
+   "size_kb": 366.3,
+   "bbox_min": [
+    -13.0,
+    -0.05,
+    -6.0
+   ],
+   "bbox_max": [
+    13.0,
+    11.3,
+    13.0
+   ],
+   "dims": [
+    26.0,
+    11.35,
+    19.0
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_amber",
+    "light_boost",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "sand",
+    "steel_beam",
+    "wood"
+   ],
+   "nodes": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_amber",
+    "light_boost",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "sand",
+    "steel_beam",
+    "wood",
+    "collision"
+   ],
+   "sockets": {
+    "sign_neon": [
+     -11.0,
+     9.0,
+     9.0
+    ],
+    "roof_sign": [
+     0,
+     5.5,
+     2.8
+    ]
+   },
+   "notes": {
+    "desc": "Roadside railcar-style diner: stainless lower band, glass window strip (some panes gone), barrel roof, entrance vestibule at +X end, rooftop DINER sign + tall pole 'EAT' neon sign. Front faces +Z; footprint ~26 x 20 m (incl. apron). paint2 = red trim band (tintable), paint = sign board.",
+    "footprint": [
+     26,
+     20
+    ],
+    "front": "+Z",
+    "sockets": "sign_neon (pole sign), roof_sign"
+   }
+  },
+  {
+   "id": "motel",
+   "group": "outpost",
+   "file": "models/structures/motel.glb",
+   "tris": 5834,
+   "collision_tris": 48,
+   "size_kb": 505.9,
+   "bbox_min": [
+    -15.0,
+    -1.8,
+    -9.2
+   ],
+   "bbox_max": [
+    17.0,
+    9.6,
+    17.0
+   ],
+   "dims": [
+    32.0,
+    11.4,
+    26.2
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_green",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "rubber",
+    "sand",
+    "water_dark",
+    "wood"
+   ],
+   "nodes": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_green",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "rubber",
+    "sand",
+    "water_dark",
+    "wood",
+    "collision"
+   ],
+   "sockets": {
+    "sign_neon": [
+     -12.0,
+     8.6,
+     13.0
+    ]
+   },
+   "notes": {
+    "desc": "L-shaped single-storey motel: wing A (rooms, doors face +Z into the courtyard) + wing B (office + rooms, doors face -X), walkway canopies, empty pool with fence, pole sign MOTEL/VACANCY. Wing B has a collapsed roof section. Front faces +Z, courtyard opens toward +Z/-X. Footprint ~31 x 23 m. paint = doors (tint), paint2 = fascia/trim (tint).",
+    "footprint": [
+     31,
+     23
+    ],
+    "front": "+Z"
+   }
+  },
+  {
+   "id": "water_tower",
+   "group": "outpost",
+   "file": "models/structures/water_tower.glb",
+   "tris": 5866,
+   "collision_tris": 198,
+   "size_kb": 510.4,
+   "bbox_min": [
+    -7.06,
+    0.0,
+    -7.06
+   ],
+   "bbox_max": [
+    7.06,
+    30.19,
+    7.06
+   ],
+   "dims": [
+    14.12,
+    30.19,
+    14.12
+   ],
+   "materials": [
+    "concrete_dark",
+    "light_tail",
+    "metal_dark",
+    "paint",
+    "rebar",
+    "rubber",
+    "rust",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "light_tail",
+    "metal_dark",
+    "paint",
+    "rebar",
+    "rubber",
+    "rust",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "beacon": [
+     0,
+     30.2,
+     0
+    ],
+    "gallery": [
+     0,
+     18.95,
+     5.0
+    ]
+   },
+   "notes": {
+    "desc": "Elevated steel water tank on 8 braced legs, ~27 m. Rusty red-brown tank with a pale band, gash in the tank wall, cone roof, gallery, ladder on +Z side.",
+    "height": 27.6,
+    "footprint_radius": 7.2,
+    "tank_radius": 4.2,
+    "gallery_y": 19.0,
+    "ladder": "+Z panel, ground to gallery"
+   }
+  },
+  {
+   "id": "silo_group",
+   "group": "outpost",
+   "file": "models/structures/silo_group.glb",
+   "tris": 5702,
+   "collision_tris": 256,
+   "size_kb": 495.8,
+   "bbox_min": [
+    -27.0,
+    0.0,
+    -17.0
+   ],
+   "bbox_max": [
+    21.0,
+    45.6,
+    14.0
+   ],
+   "dims": [
+    48.0,
+    45.6,
+    31.0
+   ],
+   "materials": [
+    "concrete",
+    "concrete_dark",
+    "metal_bare",
+    "metal_dark",
+    "paint2",
+    "rebar",
+    "rust",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "metal_bare",
+    "metal_dark",
+    "paint2",
+    "rebar",
+    "rust",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "front": [
+     0,
+     0,
+     10
+    ]
+   },
+   "notes": {
+    "desc": "Grain elevator complex: 4 concrete silos (one with a collapsed top), central-rear elevator tower with head house, enclosed conveyor gantry over the silo tops, steel shed and two corrugated bins.",
+    "footprint": [
+     42,
+     34
+    ],
+    "silo_height": 26,
+    "tower_height": 37,
+    "front": "+Z"
+   }
+  },
+  {
+   "id": "shipping_container",
+   "group": "outpost",
+   "file": "models/structures/shipping_container.glb",
+   "tris": 1488,
+   "collision_tris": 12,
+   "size_kb": 132.7,
+   "bbox_min": [
+    -1.23,
+    0.0,
+    -3.04
+   ],
+   "bbox_max": [
+    1.23,
+    2.59,
+    3.09
+   ],
+   "dims": [
+    2.46,
+    2.59,
+    6.13
+   ],
+   "materials": [
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rust",
+    "wood"
+   ],
+   "nodes": [
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rust",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "20 ft ISO container 6.06 x 2.44 x 2.59 m, doors at +Z. `paint` = whole shell (grayscale wear, game tints it); `paint2` = stencil marks; rust patches.",
+    "dims": [
+     2.44,
+     2.59,
+     6.06
+    ],
+    "front": "+Z (doors)",
+    "stack_height": 2.59
+   }
+  },
+  {
+   "id": "shipping_container_stack3",
+   "group": "outpost",
+   "file": "models/structures/shipping_container_stack3.glb",
+   "tris": 4040,
+   "collision_tris": 36,
+   "size_kb": 345.9,
+   "bbox_min": [
+    -2.27,
+    -0.0,
+    -3.82
+   ],
+   "bbox_max": [
+    2.9,
+    7.91,
+    4.6
+   ],
+   "dims": [
+    5.17,
+    7.91,
+    8.42
+   ],
+   "materials": [
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "wood"
+   ],
+   "nodes": [
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "3 ISO containers stacked untidily: middle shifted/yawed with a door ajar, top one slid off, rolled ~3 deg and propped on junk. Shell = `paint` (tint). Front +Z (doors).",
+    "footprint": [
+     3.6,
+     6.4
+    ],
+    "height": 7.9,
+    "front": "+Z"
+   }
+  },
+  {
+   "id": "radio_tower",
+   "group": "outpost",
+   "file": "models/structures/radio_tower.glb",
+   "tris": 7004,
+   "collision_tris": 36,
+   "size_kb": 594.9,
+   "bbox_min": [
+    -4.15,
+    -0.04,
+    -4.15
+   ],
+   "bbox_max": [
+    4.82,
+    63.65,
+    9.7
+   ],
+   "dims": [
+    8.97,
+    63.69,
+    13.85
+   ],
+   "materials": [
+    "concrete_dark",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "rust",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "rust",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "beacon_0": [
+     2.565,
+     20.3,
+     2.565
+    ],
+    "beacon_1": [
+     1.729,
+     39.3,
+     1.729
+    ],
+    "beacon_2": [
+     0.0,
+     63.7,
+     6.154
+    ]
+   },
+   "notes": {
+    "desc": "60 m self-supporting steel lattice radio tower: 3 platforms with dishes and panel antennas, red beacons, bent upper section with a hanging dish, equipment shed at the base (+Z).",
+    "height": 63.0,
+    "base_half_width": 3.4,
+    "top_half_width": 0.9,
+    "beacons": "sockets beacon_0..2"
+   }
+  },
+  {
+   "id": "wind_turbine",
+   "group": "outpost",
+   "file": "models/structures/wind_turbine.glb",
+   "tris": 3178,
+   "collision_tris": 116,
+   "size_kb": 271.7,
+   "bbox_min": [
+    -27.6,
+    0.0,
+    -5.85
+   ],
+   "bbox_max": [
+    16.56,
+    95.1,
+    8.1
+   ],
+   "dims": [
+    44.16,
+    95.1,
+    13.95
+   ],
+   "materials": [
+    "concrete_dark",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "hub": [
+     0.0,
+     61.7,
+     4.6
+    ],
+    "beacon": [
+     1.0,
+     65.5,
+     -4.6
+    ]
+   },
+   "notes": {
+    "desc": "Dead wind turbine: 60 m tapered tower, nacelle facing +Z, 3 blades frozen (one snapped and hanging). Origin = tower base centre.",
+    "hub_height": 60,
+    "rotor_radius": 33.5,
+    "total_height": 94,
+    "blade_angles_deg": [
+     95,
+     215,
+     335
+    ],
+    "rotor_axis": "+Z"
+   }
+  },
+  {
+   "id": "crane",
+   "group": "outpost",
+   "file": "models/structures/crane.glb",
+   "tris": 3312,
+   "collision_tris": 72,
+   "size_kb": 290.1,
+   "bbox_min": [
+    -19.0,
+    0.0,
+    -15.5
+   ],
+   "bbox_max": [
+    19.0,
+    41.82,
+    25.51
+   ],
+   "dims": [
+    38.0,
+    41.82,
+    41.01
+   ],
+   "materials": [
+    "concrete_dark",
+    "glass",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rust",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "glass",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rust",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "beacon_boom": [
+     0.0,
+     41.898,
+     22.113
+    ],
+    "beacon_mast": [
+     0.0,
+     35.3,
+     -5.5
+    ]
+   },
+   "notes": {
+    "desc": "Dock ship-to-shore gantry crane, ~41 m tall. Travels along X on rails; boom (raised ~55 deg) points +Z (sea side). Portal legs at z=+-6.5, x=+-8, machinery house on top, hanging spreader + rusty container from the boom tip.",
+    "height": 41.5,
+    "rails": "along X at z=-6.5 and z=+6.5 (y=0.3)",
+    "footprint": [
+     36,
+     40
+    ],
+    "boom_tip": [
+     0,
+     40.5,
+     21.5
+    ]
+   }
+  },
+  {
+   "id": "shanty_hut",
+   "group": "outpost",
+   "file": "models/structures/shanty_hut.glb",
+   "tris": 2488,
+   "collision_tris": 24,
+   "size_kb": 216.9,
+   "bbox_min": [
+    -4.46,
+    -0.17,
+    -3.05
+   ],
+   "bbox_max": [
+    4.2,
+    4.43,
+    4.13
+   ],
+   "dims": [
+    8.66,
+    4.59,
+    7.18
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust",
+    "wood"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "rubber",
+    "rust",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Raider scrap shack ~5.2 x 4.4 m, 3.2 m tall: patchwork of plywood/corrugated sheets/car door, tyre-weighted roof, stovepipe, tarp lean-to on the side. Front (door) faces +Z.",
+    "footprint": [
+     7,
+     6
+    ],
+    "front": "+Z",
+    "height": 3.6
+   }
+  },
+  {
+   "id": "raider_camp_tent",
+   "group": "outpost",
+   "file": "models/structures/raider_camp_tent.glb",
+   "tris": 3070,
+   "collision_tris": 48,
+   "size_kb": 271.1,
+   "bbox_min": [
+    -9.87,
+    -0.05,
+    -8.43
+   ],
+   "bbox_max": [
+    9.58,
+    6.3,
+    8.6
+   ],
+   "dims": [
+    19.45,
+    6.35,
+    17.02
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "dirt_red",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rock_grey",
+    "rubber",
+    "rust",
+    "spike",
+    "wood"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "dirt_red",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rock_grey",
+    "rubber",
+    "rust",
+    "spike",
+    "wood",
+    "collision"
+   ],
+   "sockets": {
+    "fire": [
+     1.2,
+     0.4,
+     3.6
+    ],
+    "totem": [
+     6.2,
+     5.5,
+     3.4
+    ]
+   },
+   "notes": {
+    "desc": "Raider camp: large conical war tent (patched canvas, skull totem on top), 2 A-frame tents, fire pit ring with logs + emissive flames, skull-and-banner totem pole, weapon rack, crates/barrels/bones. Front (war-tent door) faces +Z. Footprint ~16 x 14 m.",
+    "footprint": [
+     16,
+     14
+    ],
+    "front": "+Z",
+    "sockets": "fire (flame origin), totem (skull totem), tent_door"
+   }
+  },
+  {
+   "id": "watchtower",
+   "group": "outpost",
+   "file": "models/structures/watchtower.glb",
+   "tris": 3780,
+   "collision_tris": 48,
+   "size_kb": 335.4,
+   "bbox_min": [
+    -3.6,
+    -0.05,
+    -4.5
+   ],
+   "bbox_max": [
+    6.5,
+    15.52,
+    3.82
+   ],
+   "dims": [
+    10.1,
+    15.57,
+    8.32
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "sand",
+    "spike",
+    "wood"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "sand",
+    "spike",
+    "wood",
+    "collision"
+   ],
+   "sockets": {
+    "searchlight": [
+     -1.85,
+     10.7,
+     2.55
+    ],
+    "platform": [
+     0,
+     9.12,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Raider watchtower ~13 m: timber legs + X bracing, scrap-plate platform at y=9 with ladder on the +Z face, corrugated roof, searchlight, skull banner pole. Front (ladder) faces +Z. Sandbag/tyre nest at the base.",
+    "footprint": [
+     7,
+     7
+    ],
+    "height": 13.2,
+    "platform_y": 9.0,
+    "front": "+Z",
+    "sockets": "searchlight (aim +Z), platform (gunner stand)"
+   }
+  },
+  {
+   "id": "oil_derrick",
+   "group": "outpost",
+   "file": "models/structures/oil_derrick.glb",
+   "tris": 4518,
+   "collision_tris": 116,
+   "size_kb": 384.1,
+   "bbox_min": [
+    -21.46,
+    -0.25,
+    -12.8
+   ],
+   "bbox_max": [
+    21.51,
+    24.0,
+    12.17
+   ],
+   "dims": [
+    42.97,
+    24.25,
+    24.97
+   ],
+   "materials": [
+    "concrete_dark",
+    "dirt_red",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "dirt_red",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rubber",
+    "rust",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "wellhead": [
+     0.0,
+     1.2,
+     4.638
+    ],
+    "beacon": [
+     -13.5,
+     24.0,
+     -3.0
+    ]
+   },
+   "notes": {
+    "desc": "Oil lease: nodding-donkey pumpjack (horsehead toward +Z), 22 m lattice derrick with crown block, two small storage tanks, wellhead + flow lines on an oil-stained pad.",
+    "height": 22.8,
+    "footprint": [
+     40,
+     24
+    ],
+    "wellhead": [
+     0,
+     1.0,
+     4.4
+    ]
+   }
+  },
+  {
+   "id": "industrial_tanks",
+   "group": "outpost",
+   "file": "models/structures/industrial_tanks.glb",
+   "tris": 6772,
+   "collision_tris": 336,
+   "size_kb": 581.1,
+   "bbox_min": [
+    -25.55,
+    0.0,
+    -14.55
+   ],
+   "bbox_max": [
+    26.05,
+    17.36,
+    16.5
+   ],
+   "dims": [
+    51.6,
+    17.36,
+    31.05
+   ],
+   "materials": [
+    "concrete",
+    "concrete_dark",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "rust",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rebar",
+    "rust",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "gate": [
+     0,
+     0,
+     16.0
+    ]
+   },
+   "notes": {
+    "desc": "Tank farm: 3 big tanks (cone roof, floating roof, dome roof) on a concrete pad with a cracked bund wall, elevated pipe rack along the +Z front, spiral stairs, roof catwalk bridge.",
+    "footprint": [
+     52,
+     34
+    ],
+    "max_height": 15.0,
+    "pipe_rack": "along +X at z=12.5, y=5.8",
+    "bund_gap": "+Z front, x in [-3, 3]"
+   }
+  },
+  {
+   "id": "cooling_tower",
+   "group": "outpost",
+   "file": "models/structures/cooling_tower.glb",
+   "tris": 3756,
+   "collision_tris": 288,
+   "size_kb": 339.7,
+   "bbox_min": [
+    -24.6,
+    -0.37,
+    -24.6
+   ],
+   "bbox_max": [
+    24.6,
+    51.58,
+    28.42
+   ],
+   "dims": [
+    49.2,
+    51.95,
+    53.02
+   ],
+   "materials": [
+    "concrete",
+    "concrete_dark",
+    "metal_dark",
+    "rebar"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "metal_dark",
+    "rebar",
+    "collision"
+   ],
+   "sockets": {
+    "bite_center": [
+     0,
+     40.0,
+     13.639
+    ]
+   },
+   "notes": {
+    "desc": "Ruined hyperbolic concrete cooling tower, 50 m, big bite out of the +Z rim (down to y~33), exposed rebar, open V-column base with dark interior and dry basin.",
+    "height": 50.0,
+    "base_radius": 24.0,
+    "throat_radius": 13.5,
+    "bite": "front (+Z) rim"
+   }
+  },
+  {
+   "id": "barn_ruin",
+   "group": "outpost",
+   "file": "models/structures/barn_ruin.glb",
+   "tris": 3334,
+   "collision_tris": 24,
+   "size_kb": 288.1,
+   "bbox_min": [
+    -13.42,
+    -0.21,
+    -10.81
+   ],
+   "bbox_max": [
+    12.12,
+    10.1,
+    11.0
+   ],
+   "dims": [
+    25.54,
+    10.31,
+    21.81
+   ],
+   "materials": [
+    "concrete_dark",
+    "dirt_red",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "sand",
+    "wood"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "dirt_red",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "sand",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Weathered timber barn 15 x 10 m, eaves 5 m / ridge 8.5 m, half collapsed (rear-left roof and walls gone), tin roof with holes, hanging sliding door, hay bales, broken fence. Front (big door) faces +Z. Footprint ~20 x 16 m.",
+    "footprint": [
+     20,
+     16
+    ],
+    "front": "+Z",
+    "eave": 5.0,
+    "ridge": 8.5
+   }
+  },
+  {
+   "id": "dam_road_10m",
+   "group": "dam",
+   "file": "models/structures/dam_road_10m.glb",
+   "tris": 3568,
+   "collision_tris": 36,
+   "size_kb": 315.3,
+   "bbox_min": [
+    -9.35,
+    -4.0,
+    0.0
+   ],
+   "bbox_max": [
+    9.98,
+    9.39,
+    10.07
+   ],
+   "dims": [
+    19.33,
+    13.39,
+    10.07
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rust"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "rust",
+    "collision"
+   ],
+   "sockets": {
+    "lamp_0": [
+     5.1,
+     9.1,
+     2.5
+    ],
+    "lamp_1": [
+     -5.1,
+     9.1,
+     7.5
+    ]
+   },
+   "notes": {
+    "desc": "Modular 10 m crest-road segment for the dam. Origin road centre at z=0, extends +Z, road_surface y=0 (x -7..7). Chains seamlessly every 10 m.",
+    "sides": "Reservoir side = -X (right of driver), downstream drop = +X (left). Rotate yaw to suit; crest width 18 m (x -9.4..9.5).",
+    "body": "crest body extends to y=-4 (fill below with dam_wall_backdrop or terrain)",
+    "lamps": "sockets lamp_0 (+X, z=2.5), lamp_1 (-X, z=7.5)"
+   }
+  },
+  {
+   "id": "dam_wall_backdrop",
+   "group": "dam",
+   "file": "models/structures/dam_wall_backdrop.glb",
+   "tris": 9702,
+   "collision_tris": 60,
+   "size_kb": 815.0,
+   "bbox_min": [
+    -220.0,
+    -0.6,
+    -80.0
+   ],
+   "bbox_max": [
+    220.0,
+    160.04,
+    338.17
+   ],
+   "dims": [
+    440.0,
+    160.64,
+    418.17
+   ],
+   "materials": [
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_tail",
+    "metal_dark",
+    "rock_grey",
+    "rust",
+    "steel_beam",
+    "water_dark"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_tail",
+    "metal_dark",
+    "rock_grey",
+    "rust",
+    "steel_beam",
+    "water_dark",
+    "collision"
+   ],
+   "sockets": {
+    "intake_beacon_L": [
+     -68.0,
+     119.8,
+     37.0
+    ],
+    "intake_beacon_R": [
+     68.0,
+     119.8,
+     37.0
+    ],
+    "crest_start": [
+     -100,
+     80.0,
+     33.0
+    ],
+    "crest_end": [
+     100,
+     80.0,
+     33.0
+    ],
+    "arena_center": [
+     0,
+     0,
+     -70
+    ],
+    "spillway_center": [
+     0,
+     62,
+     17.4
+    ]
+   },
+   "notes": {
+    "desc": "Concrete dam wall backdrop, 200 m wide x 79.4 m tall (crest deck y=79.4; road level y=80 for dam_road_10m modules). Wall runs along X (x -100..100); DOWNSTREAM face (the one the player sees) faces -Z with base toe at z~0, y=0; reservoir (water_dark, y=76) is at +Z. Straight crest at z=24..42 (centre z=33). Central spillway: 5 radial-gate bays (x=-40..40, 16 m clear, gates y 62..78) with stepped chutes down the face; 2 intake towers on the crest (x=+-68, top y=106); 2 powerhouses + penstocks at the toe (x=+-75); grey rock abutments beyond x=+-100. To use as a side backdrop rotate yaw 90 deg. Ground/terrain is NOT included (place terrain at y=0 in front, z<0).",
+    "crest_road": "place dam_road_10m modules along X at y=80, z=33 with yaw +90 (module +Z -> +X): sockets crest_start (x=-100) crest_end (x=100)",
+    "arena": "socket arena_center (0,0,-70): open flat ground area expected in front of the wall"
+   }
+  },
+  {
+   "id": "dam_wall",
+   "group": "dam",
+   "file": "models/structures/dam_wall.glb",
+   "tris": 7948,
+   "collision_tris": 156,
+   "size_kb": 691.3,
+   "bbox_min": [
+    -75.0,
+    -45.0,
+    -25.0
+   ],
+   "bbox_max": [
+    43.4,
+    9.39,
+    85.0
+   ],
+   "dims": [
+    118.4,
+    54.39,
+    110.0
+   ],
+   "materials": [
+    "asphalt",
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "steel_beam",
+    "water_dark"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "road_surface",
+    "steel_beam",
+    "water_dark",
+    "collision"
+   ],
+   "sockets": {
+    "lampA_0": [
+     5.1,
+     9.1,
+     6.0
+    ],
+    "lampA_1": [
+     -5.1,
+     9.1,
+     16.0
+    ],
+    "lampB_0": [
+     5.1,
+     9.1,
+     30.0
+    ],
+    "lampC_0": [
+     5.1,
+     9.1,
+     44.0
+    ],
+    "lampC_1": [
+     -5.1,
+     9.1,
+     54.0
+    ],
+    "crest_start": [
+     0,
+     0,
+     0
+    ],
+    "crest_end": [
+     0,
+     0,
+     60
+    ],
+    "spillway_center": [
+     0,
+     -14,
+     30
+    ]
+   },
+   "notes": {
+    "desc": "60 m hero section of the dam crest. Road along +Z (z 0..60) at y=0 (road_surface, x -7..7), balustrades, lamps, expansion joints; reservoir on -X (water_dark at y=-4), gravity-dam body drops 45 m on the downstream +X side (sloped face, base at y=-45), one spillway bay (z 22..38, 16 m) with a steel radial gate and a stepped chute; road crosses the bay on a girder deck over the piers (z 18..22, 38..42). Chain more `dam_road_10m` beyond z=0 / z=60 (same crest width). No terrain included: place terrain at y=-45 on the +X side.",
+    "crest_width": 18.0,
+    "base_y": -45.0
+   }
+  },
+  {
+   "id": "dam_control_tower",
+   "group": "dam",
+   "file": "models/structures/dam_control_tower.glb",
+   "tris": 5894,
+   "collision_tris": 36,
+   "size_kb": 511.5,
+   "bbox_min": [
+    -12.7,
+    -0.12,
+    -7.3
+   ],
+   "bbox_max": [
+    9.13,
+    37.15,
+    9.22
+   ],
+   "dims": [
+    21.83,
+    37.27,
+    16.52
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "hazard",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rust",
+    "spike",
+    "steel_beam"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "hazard",
+    "light_amber",
+    "light_green",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rust",
+    "spike",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "roof_beacon": [
+     4.4,
+     37.1,
+     -2.6
+    ],
+    "searchlight": [
+     5.5,
+     28.8,
+     4.1
+    ],
+    "door": [
+     0,
+     0,
+     5.6
+    ]
+   },
+   "notes": {
+    "desc": "Concrete dam control tower / gatehouse, 28 m + antenna (top ~36 m). Origin base centre on the crest, front (entrance, exterior stair, banner) faces +Z. Footprint podium 15 x 11 m. Half the cab glass is smashed; raider banner + spikes on the roof.",
+    "height": 36.0,
+    "footprint": [
+     15.0,
+     11.0
+    ],
+    "sockets": "searchlight (beam origin), roof_beacon, door (entrance, +Z)"
+   }
+  },
+  {
+   "id": "dam_gate_big",
+   "group": "dam",
+   "file": "models/structures/dam_gate_big.glb",
+   "tris": 9552,
+   "collision_tris": 36,
+   "size_kb": 803.9,
+   "bbox_min": [
+    -16.22,
+    -0.03,
+    -2.91
+   ],
+   "bbox_max": [
+    16.22,
+    26.81,
+    8.5
+   ],
+   "dims": [
+    32.45,
+    26.84,
+    11.41
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "steel_beam"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "concrete",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "spawn_center": [
+     0,
+     0,
+     6.0
+    ],
+    "spawn_L": [
+     3.5,
+     0,
+     6.0
+    ],
+    "spawn_R": [
+     -3.5,
+     0,
+     6.0
+    ],
+    "flame_R": [
+     -8.6,
+     1.2,
+     -2.4
+    ],
+    "light_R": [
+     -8.8,
+     24.7,
+     1.4
+    ],
+    "flame_L": [
+     8.6,
+     1.2,
+     -2.4
+    ],
+    "light_L": [
+     8.8,
+     24.7,
+     1.4
+    ]
+   },
+   "notes": {
+    "desc": "Raider fortress blast gate spanning the road (boss spawn). Road along +Z, origin road centre, gate front faces -Z (toward the player), depth z 0..8. Road clear width 14 (x +-7), clearance 11 m to the portcullis spikes. Two 26 m towers with scrap plating, braziers, searchlights, skulls; lintel gatehouse with big horned skull emblem; banners.",
+    "clearance": 11.0,
+    "road_clear": 14.0,
+    "tower_height": 27.0,
+    "spawn": "sockets spawn_center (0,0,6), spawn_L (-3.5,0,6), spawn_R (3.5,0,6): boss/escort spawn points inside the gate; flame_* = brazier fire positions, light_* = searchlight positions",
+    "banners_hang_min_y": 7.3
+   }
+  },
+  {
+   "id": "boss_arena_lights",
+   "group": "dam",
+   "file": "models/structures/boss_arena_lights.glb",
+   "tris": 8320,
+   "collision_tris": 144,
+   "size_kb": 718.2,
+   "bbox_min": [
+    -23.0,
+    0.0,
+    -32.7
+   ],
+   "bbox_max": [
+    25.33,
+    29.55,
+    32.7
+   ],
+   "dims": [
+    48.33,
+    29.55,
+    65.4
+   ],
+   "materials": [
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_dark",
+    "rubber",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_dark",
+    "rubber",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "lamp_0": [
+     -19.445,
+     26.623,
+     -28.891
+    ],
+    "beacon_0": [
+     -20.0,
+     29.6,
+     -30.0
+    ],
+    "lamp_1": [
+     -19.445,
+     27.246,
+     29.566
+    ],
+    "beacon_1": [
+     -20.0,
+     29.6,
+     30.0
+    ],
+    "lamp_2": [
+     19.445,
+     26.623,
+     -28.891
+    ],
+    "beacon_2": [
+     20.0,
+     29.6,
+     -30.0
+    ],
+    "lamp_3": [
+     19.445,
+     27.246,
+     29.566
+    ],
+    "beacon_3": [
+     20.0,
+     29.6,
+     30.0
+    ],
+    "arena_center": [
+     0,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Four 26 m floodlight towers at the corners of a 40 (X) x 60 (Z) m rectangle centred on the origin, each lamp bank aimed at the centre. Same tower as `floodlight_tower`. Origin = arena centre at ground level.",
+    "rect": [
+     40,
+     60
+    ],
+    "corners": "(+-20, +-30)",
+    "sockets": "lamp_0..3 (spot light sources, aimed at arena_center), beacon_0..3, arena_center"
+   }
+  },
+  {
+   "id": "floodlight_tower",
+   "group": "dam",
+   "file": "models/structures/floodlight_tower.glb",
+   "tris": 2080,
+   "collision_tris": 36,
+   "size_kb": 187.2,
+   "bbox_min": [
+    -3.45,
+    0.0,
+    -2.7
+   ],
+   "bbox_max": [
+    5.33,
+    29.55,
+    2.7
+   ],
+   "dims": [
+    8.78,
+    29.55,
+    5.4
+   ],
+   "materials": [
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_dark",
+    "rubber",
+    "steel_beam"
+   ],
+   "nodes": [
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "light_head",
+    "light_tail",
+    "metal_dark",
+    "rubber",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "lamp_0": [
+     0.0,
+     26.56,
+     1.264
+    ],
+    "beacon_0": [
+     0.0,
+     29.6,
+     0.0
+    ]
+   },
+   "notes": {
+    "desc": "26 m lattice floodlight tower, origin at base centre, lamp bank (8 emissive lamps) faces +Z, tilted 22 deg down. Rotate yaw to aim at the arena.",
+    "height": 30.5,
+    "base": [
+     4.2,
+     4.2
+    ],
+    "sockets": "lamp_0 = light source centre (+Z aim), beacon_0 = red aircraft beacon"
+   }
+  },
+  {
+   "id": "banner_skull",
+   "group": "dam",
+   "file": "models/structures/banner_skull.glb",
+   "tris": 1588,
+   "collision_tris": 24,
+   "size_kb": 141.4,
+   "bbox_min": [
+    -1.65,
+    0.0,
+    -1.32
+   ],
+   "bbox_max": [
+    1.85,
+    8.35,
+    1.8
+   ],
+   "dims": [
+    3.5,
+    8.35,
+    3.12
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "light_amber",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "light_amber",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "collision"
+   ],
+   "sockets": {
+    "flame": [
+     0.12,
+     7.6,
+     0.0
+    ]
+   },
+   "notes": {
+    "desc": "Raider banner pole (7.4 m): tilted steel pole on a tyre + concrete cairn base, crossbar with skull finials, tattered red banner with skull emblem on both faces (front faces -Z), brazier fire on top (light_amber), chains, skull string. Origin base centre.",
+    "height": 8.4,
+    "sockets": "flame = brazier fire position"
+   }
+  },
+  {
+   "id": "spike_wall",
+   "group": "dam",
+   "file": "models/structures/spike_wall.glb",
+   "tris": 2236,
+   "collision_tris": 12,
+   "size_kb": 195.2,
+   "bbox_min": [
+    -3.67,
+    0.0,
+    -2.15
+   ],
+   "bbox_max": [
+    3.69,
+    5.09,
+    1.56
+   ],
+   "dims": [
+    7.36,
+    5.09,
+    3.71
+   ],
+   "materials": [
+    "bone",
+    "concrete_dark",
+    "hazard",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "steel_beam"
+   ],
+   "nodes": [
+    "bone",
+    "concrete_dark",
+    "hazard",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Raider spiked barricade segment, 7 m wide (x -3.5..3.5), origin at road centre/segment centre on the ground. Front (spikes) faces -Z toward the approaching player, depth ~2 m to the spike tips (z -2.0..0.5). Chain two segments (x=+-3.5) to block the 14 m road.",
+    "width": 7.0,
+    "height": 3.6,
+    "spike_tip_height": 4.6,
+    "chain": "x = -3.5 and +3.5"
+   }
+  },
+  {
+   "id": "spike_gate",
+   "group": "dam",
+   "file": "models/structures/spike_gate.glb",
+   "tris": 4756,
+   "collision_tris": 48,
+   "size_kb": 405.9,
+   "bbox_min": [
+    -7.19,
+    0.0,
+    -2.13
+   ],
+   "bbox_max": [
+    7.19,
+    7.06,
+    1.96
+   ],
+   "dims": [
+    14.39,
+    7.06,
+    4.09
+   ],
+   "materials": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "steel_beam"
+   ],
+   "nodes": [
+    "bone",
+    "canvas",
+    "concrete_dark",
+    "hazard",
+    "light_amber",
+    "metal_bare",
+    "metal_dark",
+    "rubber",
+    "rust",
+    "spike",
+    "steel_beam",
+    "collision"
+   ],
+   "sockets": {
+    "gap_center": [
+     0,
+     0,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Raider spiked road gate: 14 m wide (x -7..7) with a 5 m gap (x -2.5..2.5) between two gate posts with braziers and skulls; open gate leaves folded against the posts; lintel banner at y=5.2 (clearance 5 m). Front faces -Z. Origin road centre, ground level.",
+    "gap": [
+     -2.5,
+     2.5
+    ],
+    "clearance": 5.0
+   }
+  },
+  {
+   "id": "lighthouse",
+   "group": "coast",
+   "file": "models/structures/lighthouse.glb",
+   "tris": 5242,
+   "collision_tris": 122,
+   "size_kb": 459.5,
+   "bbox_min": [
+    -32.66,
+    -2.0,
+    -24.86
+   ],
+   "bbox_max": [
+    40.06,
+    29.3,
+    26.76
+   ],
+   "dims": [
+    72.72,
+    31.3,
+    51.62
+   ],
+   "materials": [
+    "brick",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rock_grey",
+    "rust",
+    "wood"
+   ],
+   "nodes": [
+    "brick",
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "light_head",
+    "metal_bare",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rock_grey",
+    "rust",
+    "wood",
+    "collision"
+   ],
+   "sockets": {
+    "light": [
+     0,
+     24.35,
+     0
+    ]
+   },
+   "notes": {
+    "desc": "Ruined lighthouse on a rock outcrop: 28 m tapered tower (brick base, white/red paint bands) + gallery + lantern (emissive light_head) + half-collapsed keeper cottage at +X. Tower at (0,0); ground y=0 = sea level, island top y=2. Door faces +Z.",
+    "height": 29.2,
+    "sockets": "light = lantern lamp position (add a real point light there)",
+    "tint": "paint bands = white, paint2 bands = red (base colours already set; game may tint)"
+   }
+  },
+  {
+   "id": "sea_stack_a",
+   "group": "coast",
+   "file": "models/structures/sea_stack_a.glb",
+   "tris": 1680,
+   "collision_tris": 42,
+   "size_kb": 154.7,
+   "bbox_min": [
+    -18.58,
+    -1.5,
+    -16.22
+   ],
+   "bbox_max": [
+    17.3,
+    36.5,
+    16.82
+   ],
+   "dims": [
+    35.89,
+    38.0,
+    33.04
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_grey",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_grey",
+    "sand",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Tall leaning sea stack (limestone, banded), origin at waterline centre; base talus + boulders. Undercut waist at y~2.",
+    "height": 35.0,
+    "radius_base": 15.5,
+    "placement": "stand in the sea beside coastal road, any yaw"
+   }
+  },
+  {
+   "id": "sea_stack_b",
+   "group": "coast",
+   "file": "models/structures/sea_stack_b.glb",
+   "tris": 1776,
+   "collision_tris": 60,
+   "size_kb": 164.5,
+   "bbox_min": [
+    -19.97,
+    -1.5,
+    -21.9
+   ],
+   "bbox_max": [
+    21.0,
+    24.91,
+    19.4
+   ],
+   "dims": [
+    40.97,
+    26.41,
+    41.3
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_red",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_red",
+    "sand",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Wide table-top sea stack, sandstone, sheer cliffs, flat rough top. Origin at waterline centre.",
+    "height": 24.0,
+    "radius_base": 21
+   }
+  },
+  {
+   "id": "sea_stack_c",
+   "group": "coast",
+   "file": "models/structures/sea_stack_c.glb",
+   "tris": 2552,
+   "collision_tris": 108,
+   "size_kb": 234.7,
+   "bbox_min": [
+    -22.43,
+    -1.5,
+    -18.47
+   ],
+   "bbox_max": [
+    23.56,
+    37.5,
+    18.44
+   ],
+   "dims": [
+    45.99,
+    39.0,
+    36.92
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_grey",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_grey",
+    "sand",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Twin-spire sea stack (34 m + 23 m) joined by a saddle. Origin at waterline centre between the spires.",
+    "height": 34
+   }
+  },
+  {
+   "id": "wharf_ruin",
+   "group": "coast",
+   "file": "models/structures/wharf_ruin.glb",
+   "tris": 5804,
+   "collision_tris": 68,
+   "size_kb": 486.3,
+   "bbox_min": [
+    -6.05,
+    -3.61,
+    -5.05
+   ],
+   "bbox_max": [
+    12.98,
+    15.56,
+    37.77
+   ],
+   "dims": [
+    19.03,
+    19.16,
+    42.82
+   ],
+   "materials": [
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_dark",
+    "rust",
+    "wood"
+   ],
+   "nodes": [
+    "concrete",
+    "concrete_dark",
+    "glass",
+    "metal_dark",
+    "rust",
+    "wood",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Ruined wharf: concrete quay head + 38 m timber pier along +Z with missing/broken planks and piles, rusty crane stump (z=17, x=-2.2), half-sunk boat hull at (9.5,-0.9,20). Pier deck top y=3.15, sea level y=0 (piles go to y=-3.6). Origin = pier centre at the quay edge (z=0).",
+    "length": 38,
+    "deck_y": 3.15,
+    "placement": "sea level = y 0; quay head sits on the shore, pier runs out to sea along +Z"
+   }
+  },
+  {
+   "id": "natural_arch",
+   "group": "canyon",
+   "file": "models/structures/natural_arch.glb",
+   "tris": 5236,
+   "collision_tris": 98,
+   "size_kb": 463.8,
+   "bbox_min": [
+    -27.17,
+    -1.5,
+    -1.19
+   ],
+   "bbox_max": [
+    28.84,
+    27.73,
+    15.45
+   ],
+   "dims": [
+    56.01,
+    29.23,
+    16.64
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_red",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_red",
+    "sand",
+    "collision"
+   ],
+   "sockets": {
+    "arch_crown": [
+     0,
+     17.6,
+     7.0
+    ]
+   },
+   "notes": {
+    "desc": "Natural rock arch over the road, road-aligned (+Z), z=0..14. Inner clear opening: 26.8 m wide at the ground (x +-13.4), 17.6 m crown; >=15 m over the driving lane x in [-7,7]. Legs beyond |x|=13.4 out to |x|~24.",
+    "clear_span": 26.8,
+    "crown_y": 17.6,
+    "depth": 14.0,
+    "collision": "legs only (2 hulls)",
+    "placement": "road passes through at x=0; terrain should rise at the legs"
+   }
+  },
+  {
+   "id": "hoodoo_a",
+   "group": "canyon",
+   "file": "models/structures/hoodoo_a.glb",
+   "tris": 1246,
+   "collision_tris": 164,
+   "size_kb": 127.0,
+   "bbox_min": [
+    -10.64,
+    -1.5,
+    -10.11
+   ],
+   "bbox_max": [
+    11.26,
+    37.22,
+    9.81
+   ],
+   "dims": [
+    21.9,
+    38.72,
+    19.92
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_red",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_red",
+    "sand",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Tall eroded hoodoo (36 m): soft red sandstone shaft, hard dark caprock flares, balanced boulder on top. Origin at base centre.",
+    "height": 33.0,
+    "radius_base": 12.5
+   }
+  },
+  {
+   "id": "hoodoo_b",
+   "group": "canyon",
+   "file": "models/structures/hoodoo_b.glb",
+   "tris": 1668,
+   "collision_tris": 240,
+   "size_kb": 168.8,
+   "bbox_min": [
+    -16.16,
+    -1.5,
+    -8.85
+   ],
+   "bbox_max": [
+    20.83,
+    29.81,
+    15.49
+   ],
+   "dims": [
+    36.99,
+    31.31,
+    24.35
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_red",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_red",
+    "sand",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Squat eroded hoodoo (27 m) with a wide mushroom cap and a smaller companion pillar (15 m). Origin between the pillars.",
+    "height": 27.0
+   }
+  },
+  {
+   "id": "mesa_a",
+   "group": "canyon",
+   "file": "models/structures/mesa_a.glb",
+   "tris": 3948,
+   "collision_tris": 108,
+   "size_kb": 362.0,
+   "bbox_min": [
+    -104.78,
+    -3.0,
+    -51.69
+   ],
+   "bbox_max": [
+    99.02,
+    99.71,
+    51.37
+   ],
+   "dims": [
+    203.81,
+    102.71,
+    103.06
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_red",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_red",
+    "sand",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Flat-top mesa backdrop, 144 x ~72 m footprint (~190 m with talus), 95 m tall, red banded cliffs + talus apron. Origin at base centre; low detail (backdrop, place 60-400 m off the road).",
+    "width": 140,
+    "height": 95.0,
+    "placement": "far backdrop; yaw freely; long axis = x"
+   }
+  },
+  {
+   "id": "mesa_b",
+   "group": "canyon",
+   "file": "models/structures/mesa_b.glb",
+   "tris": 4552,
+   "collision_tris": 166,
+   "size_kb": 415.8,
+   "bbox_min": [
+    -81.89,
+    -3.0,
+    -48.39
+   ],
+   "bbox_max": [
+    74.4,
+    110.75,
+    51.47
+   ],
+   "dims": [
+    156.3,
+    113.75,
+    99.86
+   ],
+   "materials": [
+    "dirt_red",
+    "rock_red",
+    "sand"
+   ],
+   "nodes": [
+    "dirt_red",
+    "rock_red",
+    "sand",
+    "collision"
+   ],
+   "sockets": {},
+   "notes": {
+    "desc": "Two-tier butte/mesa backdrop, ~112 m wide lower tier (62 m) + 48 m upper butte offset to +X, total ~110 m tall, red banded cliffs. Origin at base centre; backdrop only.",
+    "width": 112,
+    "height": 110.0,
+    "placement": "far backdrop, 60-400 m from the road"
+   }
+  }
+ ]
+}

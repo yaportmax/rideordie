@@ -1,0 +1,82 @@
+{
+ "id": "dam_control_tower",
+ "file": "models/structures/dam_control_tower.glb",
+ "tris": 5894,
+ "collision_tris": 36,
+ "size_kb": 511.5,
+ "bbox_min": [
+  -12.7,
+  -0.12,
+  -7.3
+ ],
+ "bbox_max": [
+  9.13,
+  37.15,
+  9.22
+ ],
+ "dims": [
+  21.83,
+  37.27,
+  16.52
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "hazard",
+  "light_amber",
+  "light_green",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "rust",
+  "spike",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 824,
+  "concrete": 872,
+  "metal_dark": 1192,
+  "hazard": 24,
+  "light_amber": 36,
+  "glass": 422,
+  "light_green": 24,
+  "steel_beam": 1128,
+  "metal_bare": 520,
+  "light_tail": 28,
+  "light_head": 36,
+  "spike": 288,
+  "canvas": 224,
+  "bone": 220,
+  "rust": 56
+ },
+ "sockets": {
+  "roof_beacon": [
+   4.4,
+   37.1,
+   -2.6
+  ],
+  "searchlight": [
+   5.5,
+   28.8,
+   4.1
+  ],
+  "door": [
+   0,
+   0,
+   5.6
+  ]
+ },
+ "notes": {
+  "desc": "Concrete dam control tower / gatehouse, 28 m + antenna (top ~36 m). Origin base centre on the crest, front (entrance, exterior stair, banner) faces +Z. Footprint podium 15 x 11 m. Half the cab glass is smashed; raider banner + spikes on the roof.",
+  "height": 36.0,
+  "footprint": [
+   15.0,
+   11.0
+  ],
+  "sockets": "searchlight (beam origin), roof_beacon, door (entrance, +Z)"
+ }
+}

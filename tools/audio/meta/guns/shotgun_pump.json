@@ -1,0 +1,1 @@
+{"duration": 0.75, "peak_db": -1.35, "rms_db": -27.83, "lufs_i": -24.98, "lufs_m": -22.15, "lufs_s": -17.26, "dc": 3.1e-05, "centroid": 1377.0, "clip": 0, "rise_ms": 326.55, "tail_50db_s": 0.53, "bands_db": [-12.6, -4.4, -2.9, -11.4], "src_len": 33075, "dec_len": 33075, "variation": 0, "build_s": 0.28, "file": "guns/shotgun_pump.ogg", "bytes": 9306}

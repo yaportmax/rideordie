@@ -1,0 +1,18 @@
+{
+ "name": "barrel",
+ "file": "barrel.glb",
+ "category": "furniture",
+ "height": 0.886,
+ "radius": 0.293,
+ "size": [
+  0.585,
+  0.886,
+  0.586
+ ],
+ "tris": 1008,
+ "materials": [
+  "barrel"
+ ],
+ "notes": "200 L steel drum, faded blue paint over rust, two rolling hoops, dented; textured (1024 albedo/normal/ORM)",
+ "kb": 1225.4
+}

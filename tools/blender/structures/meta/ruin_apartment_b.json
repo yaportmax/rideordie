@@ -1,0 +1,55 @@
+{
+ "id": "ruin_apartment_b",
+ "file": "models/structures/ruin_apartment_b.glb",
+ "tris": 4418,
+ "collision_tris": 156,
+ "size_kb": 388.8,
+ "bbox_min": [
+  -16.73,
+  -0.26,
+  -6.05
+ ],
+ "bbox_max": [
+  13.21,
+  24.5,
+  30.61
+ ],
+ "dims": [
+  29.93,
+  24.76,
+  36.66
+ ],
+ "materials": [
+  "brick",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "metal_bare",
+  "metal_dark",
+  "rebar",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 1100,
+  "concrete": 1822,
+  "canvas": 18,
+  "glass": 122,
+  "metal_bare": 104,
+  "rebar": 756,
+  "metal_dark": 380,
+  "wood": 44,
+  "brick": 72
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined 7-floor concrete apartment complex, L-plan (long block + front wing) with access galleries, collapsed slanted roof-lines. Front +Z, origin base centre.",
+  "height": 21.7,
+  "footprint": [
+   24,
+   27.5
+  ],
+  "front": "+Z",
+  "lean_deg": 1.5
+ }
+}

@@ -1,0 +1,18 @@
+{
+ "name": "grass_tuft",
+ "file": "grass_tuft.glb",
+ "category": "grass",
+ "height": 0.529,
+ "radius": 0.337,
+ "size": [
+  0.674,
+  0.529,
+  0.584
+ ],
+ "tris": 54,
+ "materials": [
+  "grass_dry"
+ ],
+ "notes": "dry golden grass tuft: 3 crossed vertical cards + 3 leaning fans (MASK, double-sided), ~0.50 m",
+ "kb": 70.4
+}

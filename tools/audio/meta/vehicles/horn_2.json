@@ -1,0 +1,1 @@
+{"duration": 1.35, "peak_db": -1.17, "rms_db": -10.16, "lufs_i": -10.67, "lufs_m": -6.72, "lufs_s": -6.63, "dc": -7.9e-05, "centroid": 434.0, "clip": 0, "rise_ms": 32.65, "tail_50db_s": 1.346, "bands_db": [-41.1, -0.8, -7.9, -38.6], "src_len": 59535, "dec_len": 59535, "file": "vehicles/horn_2.ogg", "variation": 1, "bytes": 17303, "build_s": 1.17}

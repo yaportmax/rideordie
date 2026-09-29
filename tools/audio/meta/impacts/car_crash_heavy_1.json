@@ -1,0 +1,1 @@
+{"duration": 1.8396, "peak_db": -1.11, "rms_db": -18.98, "lufs_i": -16.57, "lufs_m": -10.84, "lufs_s": -8.55, "dc": -0.000112, "centroid": 1508.0, "clip": 0, "rise_ms": 1.97, "tail_50db_s": 1.421, "bands_db": [-5.1, -6.9, -4.2, -9.8], "src_len": 81127, "dec_len": 81127, "file": "impacts/car_crash_heavy_1.ogg", "variation": 0, "bytes": 22408, "build_s": 3.03}

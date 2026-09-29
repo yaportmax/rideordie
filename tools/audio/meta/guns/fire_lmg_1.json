@@ -1,0 +1,1 @@
+{"duration": 0.7405, "peak_db": -1.93, "rms_db": -22.23, "lufs_i": -23.27, "lufs_m": -16.6, "lufs_s": -12.14, "dc": -5.3e-05, "centroid": 1068.0, "clip": 0, "rise_ms": 0.16, "tail_50db_s": 0.554, "bands_db": [-4.0, -6.5, -4.9, -12.9], "src_len": 32657, "dec_len": 32657, "variation": 0, "build_s": 0.36, "file": "guns/fire_lmg_1.ogg", "bytes": 9783}

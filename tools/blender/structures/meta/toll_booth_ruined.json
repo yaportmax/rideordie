@@ -1,0 +1,55 @@
+{
+ "id": "toll_booth_ruined",
+ "file": "models/structures/toll_booth_ruined.glb",
+ "tris": 6612,
+ "collision_tris": 156,
+ "size_kb": 596.6,
+ "bbox_min": [
+  -9.0,
+  -0.11,
+  0.99
+ ],
+ "bbox_max": [
+  9.24,
+  6.6,
+  13.0
+ ],
+ "dims": [
+  18.24,
+  6.71,
+  12.01
+ ],
+ "materials": [
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "hazard",
+  "light_green",
+  "light_tail",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rebar",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 312,
+  "metal_dark": 540,
+  "hazard": 136,
+  "concrete": 4448,
+  "steel_beam": 192,
+  "paint2": 48,
+  "glass": 180,
+  "rebar": 720,
+  "light_tail": 12,
+  "light_green": 12,
+  "paint": 12
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined toll plaza: canopy over the road (z 1..13, clear height 5.1 m), two islands with booths at x=+-3.3; -X outer lane and the centre lane are open, +X outer lane is blocked by the collapsed canopy corner. Origin = road centre at the start of the piece.",
+  "open_lanes": "centre x -2.4..2.4 (4.8 m) and -X lane x -7..-4.1",
+  "blocked_lane": "+X lane x 4.1..7 under the collapsed canopy",
+  "clear_height": 5.1
+ }
+}

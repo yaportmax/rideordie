@@ -1,0 +1,1 @@
+{"duration": 0.22, "peak_db": -1.79, "rms_db": -20.22, "lufs_i": -22.65, "lufs_m": -19.85, "lufs_s": -13.83, "dc": -2.6e-05, "centroid": 1150.0, "clip": 0, "rise_ms": 0.73, "tail_50db_s": 0.101, "bands_db": [-28.4, -1.9, -5.3, -11.9], "src_len": 9702, "dec_len": 9702, "variation": 2, "build_s": 1.0, "file": "guns/shotgun_shell_in_3.ogg", "bytes": 5351}

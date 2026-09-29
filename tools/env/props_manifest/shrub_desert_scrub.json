@@ -1,0 +1,19 @@
+{
+ "name": "shrub_desert_scrub",
+ "file": "shrub_desert_scrub.glb",
+ "category": "shrub",
+ "height": 1.273,
+ "radius": 1.08,
+ "size": [
+  2.007,
+  1.273,
+  2.073
+ ],
+ "tris": 438,
+ "materials": [
+  "bark_dead",
+  "shrub_scrub_leaves"
+ ],
+ "notes": "sagebrush-like desert scrub: 30 alpha-tested (MASK) cards + woody stems; ~1 m tall, 1.4 m wide",
+ "kb": 473.6
+}

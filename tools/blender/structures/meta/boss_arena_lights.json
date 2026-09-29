@@ -1,0 +1,98 @@
+{
+ "id": "boss_arena_lights",
+ "file": "models/structures/boss_arena_lights.glb",
+ "tris": 8320,
+ "collision_tris": 144,
+ "size_kb": 718.2,
+ "bbox_min": [
+  -23.0,
+  0.0,
+  -32.7
+ ],
+ "bbox_max": [
+  25.33,
+  29.55,
+  32.7
+ ],
+ "dims": [
+  48.33,
+  29.55,
+  65.4
+ ],
+ "materials": [
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "light_head",
+  "light_tail",
+  "metal_dark",
+  "rubber",
+  "steel_beam"
+ ],
+ "nodes": {
+  "steel_beam": 3744,
+  "concrete_dark": 704,
+  "hazard": 384,
+  "metal_dark": 2880,
+  "light_tail": 112,
+  "light_head": 384,
+  "light_amber": 48,
+  "rubber": 64
+ },
+ "sockets": {
+  "lamp_0": [
+   -19.445,
+   26.623,
+   -28.891
+  ],
+  "beacon_0": [
+   -20.0,
+   29.6,
+   -30.0
+  ],
+  "lamp_1": [
+   -19.445,
+   27.246,
+   29.566
+  ],
+  "beacon_1": [
+   -20.0,
+   29.6,
+   30.0
+  ],
+  "lamp_2": [
+   19.445,
+   26.623,
+   -28.891
+  ],
+  "beacon_2": [
+   20.0,
+   29.6,
+   -30.0
+  ],
+  "lamp_3": [
+   19.445,
+   27.246,
+   29.566
+  ],
+  "beacon_3": [
+   20.0,
+   29.6,
+   30.0
+  ],
+  "arena_center": [
+   0,
+   0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Four 26 m floodlight towers at the corners of a 40 (X) x 60 (Z) m rectangle centred on the origin, each lamp bank aimed at the centre. Same tower as `floodlight_tower`. Origin = arena centre at ground level.",
+  "rect": [
+   40,
+   60
+  ],
+  "corners": "(+-20, +-30)",
+  "sockets": "lamp_0..3 (spot light sources, aimed at arena_center), beacon_0..3, arena_center"
+ }
+}

@@ -1,0 +1,48 @@
+{
+ "id": "cooling_tower",
+ "file": "models/structures/cooling_tower.glb",
+ "tris": 3756,
+ "collision_tris": 288,
+ "size_kb": 339.7,
+ "bbox_min": [
+  -24.6,
+  -0.37,
+  -24.6
+ ],
+ "bbox_max": [
+  24.6,
+  51.58,
+  28.42
+ ],
+ "dims": [
+  49.2,
+  51.95,
+  53.02
+ ],
+ "materials": [
+  "concrete",
+  "concrete_dark",
+  "metal_dark",
+  "rebar"
+ ],
+ "nodes": {
+  "concrete": 1390,
+  "concrete_dark": 1934,
+  "metal_dark": 48,
+  "rebar": 384
+ },
+ "sockets": {
+  "bite_center": [
+   0,
+   40.0,
+   13.639
+  ]
+ },
+ "notes": {
+  "desc": "Ruined hyperbolic concrete cooling tower, 50 m, big bite out of the +Z rim (down to y~33), exposed rebar, open V-column base with dark interior and dry basin.",
+  "height": 50.0,
+  "base_radius": 24.0,
+  "throat_radius": 13.5,
+  "bite": "front (+Z) rim"
+ }
+}

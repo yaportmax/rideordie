@@ -1,0 +1,47 @@
+{
+ "id": "speed_boost_pad",
+ "file": "models/structures/speed_boost_pad.glb",
+ "tris": 2656,
+ "collision_tris": 12,
+ "size_kb": 224.7,
+ "bbox_min": [
+  -7.0,
+  -0.02,
+  -0.0
+ ],
+ "bbox_max": [
+  7.0,
+  0.08,
+  4.0
+ ],
+ "dims": [
+  14.0,
+  0.1,
+  4.0
+ ],
+ "materials": [
+  "light_boost",
+  "metal_bare",
+  "metal_dark"
+ ],
+ "nodes": {
+  "metal_dark": 512,
+  "metal_bare": 1304,
+  "light_boost": 840
+ },
+ "sockets": {
+  "trigger": [
+   0,
+   0.06,
+   2.0
+  ]
+ },
+ "notes": {
+  "desc": "Flat boost pad 14 x 4 m, drive-over (trigger volume = bbox). Emissive chevrons point +Z (light_boost, cyan).",
+  "trigger_size": [
+   14,
+   0.3,
+   4
+  ]
+ }
+}

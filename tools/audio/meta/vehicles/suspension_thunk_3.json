@@ -1,0 +1,1 @@
+{"duration": 0.55, "peak_db": -1.44, "rms_db": -17.64, "lufs_i": -20.79, "lufs_m": -13.3, "lufs_s": -8.25, "dc": -9e-06, "centroid": 363.0, "clip": 0, "rise_ms": 0.84, "tail_50db_s": 0.512, "bands_db": [-3.7, -3.1, -11.1, -22.6], "src_len": 24255, "dec_len": 24255, "variation": 2, "build_s": 1.39, "file": "vehicles/suspension_thunk_3.ogg", "bytes": 8117}

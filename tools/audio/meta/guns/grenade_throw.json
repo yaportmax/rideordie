@@ -1,0 +1,1 @@
+{"duration": 0.4, "peak_db": -1.87, "rms_db": -19.75, "lufs_i": -18.65, "lufs_m": -16.79, "lufs_s": -12.65, "dc": 2.5e-05, "centroid": 2090.0, "clip": 0, "rise_ms": 113.83, "tail_50db_s": 0.35, "bands_db": [-25.8, -5.2, -2.6, -8.6], "src_len": 17640, "dec_len": 17640, "variation": 0, "build_s": 0.44, "file": "guns/grenade_throw.ogg", "bytes": 8004}

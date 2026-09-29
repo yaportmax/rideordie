@@ -1,0 +1,18 @@
+{
+ "name": "pine_b_billboard",
+ "file": "pine_b_billboard.glb",
+ "category": "tree_pine_billboard",
+ "height": 17.622,
+ "radius": 5.982,
+ "size": [
+  11.963,
+  17.622,
+  11.963
+ ],
+ "tris": 4,
+ "materials": [
+  "pine_billboard_b"
+ ],
+ "notes": "crossed-quad far billboard (2 quads, 4 tris) baked from the real pine_b model (front + side view in one texture), alphaMode MASK, 12.0 x 17.6 m",
+ "kb": 286.6
+}

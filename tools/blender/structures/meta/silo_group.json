@@ -1,0 +1,59 @@
+{
+ "id": "silo_group",
+ "file": "models/structures/silo_group.glb",
+ "tris": 5702,
+ "collision_tris": 256,
+ "size_kb": 495.8,
+ "bbox_min": [
+  -27.0,
+  0.0,
+  -17.0
+ ],
+ "bbox_max": [
+  21.0,
+  45.6,
+  14.0
+ ],
+ "dims": [
+  48.0,
+  45.6,
+  31.0
+ ],
+ "materials": [
+  "concrete",
+  "concrete_dark",
+  "metal_bare",
+  "metal_dark",
+  "paint2",
+  "rebar",
+  "rust",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete": 1576,
+  "concrete_dark": 1322,
+  "metal_dark": 896,
+  "rust": 324,
+  "rebar": 112,
+  "steel_beam": 452,
+  "metal_bare": 108,
+  "paint2": 912
+ },
+ "sockets": {
+  "front": [
+   0,
+   0,
+   10
+  ]
+ },
+ "notes": {
+  "desc": "Grain elevator complex: 4 concrete silos (one with a collapsed top), central-rear elevator tower with head house, enclosed conveyor gantry over the silo tops, steel shed and two corrugated bins.",
+  "footprint": [
+   42,
+   34
+  ],
+  "silo_height": 26,
+  "tower_height": 37,
+  "front": "+Z"
+ }
+}

@@ -1,0 +1,57 @@
+{
+ "id": "ruin_office_b",
+ "file": "models/structures/ruin_office_b.glb",
+ "tris": 5367,
+ "collision_tris": 156,
+ "size_kb": 470.0,
+ "bbox_min": [
+  -20.79,
+  -0.4,
+  -14.2
+ ],
+ "bbox_max": [
+  22.76,
+  64.9,
+  28.29
+ ],
+ "dims": [
+  43.55,
+  65.31,
+  42.49
+ ],
+ "materials": [
+  "brick",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "metal_bare",
+  "metal_dark",
+  "rebar",
+  "steel_beam",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 474,
+  "concrete": 1428,
+  "metal_dark": 1366,
+  "glass": 189,
+  "steel_beam": 778,
+  "rebar": 882,
+  "canvas": 14,
+  "metal_bare": 24,
+  "wood": 44,
+  "brick": 168
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined 3-storey podium + 13-storey dark steel/glass tower with a slanted collapsed crown and a gaping wound; leaning slightly. Front +Z, origin base centre.",
+  "height": 61.3,
+  "footprint": [
+   40,
+   28
+  ],
+  "front": "+Z",
+  "lean_deg": -2.0
+ }
+}

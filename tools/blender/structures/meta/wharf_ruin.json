@@ -1,0 +1,45 @@
+{
+ "id": "wharf_ruin",
+ "file": "models/structures/wharf_ruin.glb",
+ "tris": 5804,
+ "collision_tris": 68,
+ "size_kb": 486.3,
+ "bbox_min": [
+  -6.05,
+  -3.61,
+  -5.05
+ ],
+ "bbox_max": [
+  12.98,
+  15.56,
+  37.77
+ ],
+ "dims": [
+  19.03,
+  19.16,
+  42.82
+ ],
+ "materials": [
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "metal_dark",
+  "rust",
+  "wood"
+ ],
+ "nodes": {
+  "concrete": 680,
+  "concrete_dark": 88,
+  "metal_dark": 260,
+  "wood": 3988,
+  "rust": 776,
+  "glass": 12
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Ruined wharf: concrete quay head + 38 m timber pier along +Z with missing/broken planks and piles, rusty crane stump (z=17, x=-2.2), half-sunk boat hull at (9.5,-0.9,20). Pier deck top y=3.15, sea level y=0 (piles go to y=-3.6). Origin = pier centre at the quay edge (z=0).",
+  "length": 38,
+  "deck_y": 3.15,
+  "placement": "sea level = y 0; quay head sits on the shore, pier runs out to sea along +Z"
+ }
+}

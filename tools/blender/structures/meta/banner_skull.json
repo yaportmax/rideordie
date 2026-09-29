@@ -1,0 +1,54 @@
+{
+ "id": "banner_skull",
+ "file": "models/structures/banner_skull.glb",
+ "tris": 1588,
+ "collision_tris": 24,
+ "size_kb": 141.4,
+ "bbox_min": [
+  -1.65,
+  0.0,
+  -1.32
+ ],
+ "bbox_max": [
+  1.85,
+  8.35,
+  1.8
+ ],
+ "dims": [
+  3.5,
+  8.35,
+  3.12
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "concrete_dark",
+  "light_amber",
+  "metal_dark",
+  "rubber",
+  "rust",
+  "spike"
+ ],
+ "nodes": {
+  "concrete_dark": 44,
+  "rubber": 128,
+  "rust": 56,
+  "metal_dark": 680,
+  "spike": 128,
+  "bone": 364,
+  "canvas": 136,
+  "light_amber": 52
+ },
+ "sockets": {
+  "flame": [
+   0.12,
+   7.6,
+   0.0
+  ]
+ },
+ "notes": {
+  "desc": "Raider banner pole (7.4 m): tilted steel pole on a tyre + concrete cairn base, crossbar with skull finials, tattered red banner with skull emblem on both faces (front faces -Z), brazier fire on top (light_amber), chains, skull string. Origin base centre.",
+  "height": 8.4,
+  "sockets": "flame = brazier fire position"
+ }
+}

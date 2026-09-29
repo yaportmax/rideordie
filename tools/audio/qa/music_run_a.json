@@ -1,0 +1,188 @@
+{
+ "run_a": {
+  "track": "run_a",
+  "key": "A minor",
+  "bpm": 152.0,
+  "bars": 16,
+  "scale_pcs": [
+   "C",
+   "D",
+   "E",
+   "F",
+   "G",
+   "A",
+   "B"
+  ],
+  "lengths": {
+   "base": 1114105,
+   "drums": 1114105,
+   "lead": 1114105,
+   "extra": 1114105
+  },
+  "equal_length": true,
+  "duration_s": 25.2632,
+  "stems": {
+   "base": {
+    "peak_db": -6.83,
+    "dc": 3.2e-05,
+    "lufs": -19.8,
+    "seam": {
+     "jump_ratio": 0.13,
+     "jump_ratio_995": 0.06,
+     "seam_rms": 0.07183,
+     "interior_med": 0.12028,
+     "seam_vs_med": 0.6,
+     "seam_pct": 0.159
+    }
+   },
+   "drums": {
+    "peak_db": -8.96,
+    "dc": 6.8e-05,
+    "lufs": -18.85,
+    "seam": {
+     "jump_ratio": 0.22,
+     "jump_ratio_995": 0.12,
+     "seam_rms": 0.15708,
+     "interior_med": 0.09512,
+     "seam_vs_med": 1.65,
+     "seam_pct": 0.729
+    }
+   },
+   "lead": {
+    "peak_db": -11.54,
+    "dc": 4e-06,
+    "lufs": -20.75,
+    "seam": {
+     "jump_ratio": 0.08,
+     "jump_ratio_995": 0.04,
+     "seam_rms": 0.04113,
+     "interior_med": 0.07571,
+     "seam_vs_med": 0.54,
+     "seam_pct": 0.09
+    }
+   },
+   "extra": {
+    "peak_db": -5.16,
+    "dc": 2.7e-05,
+    "lufs": -20.86,
+    "seam": {
+     "jump_ratio": 0.03,
+     "jump_ratio_995": 0.01,
+     "seam_rms": 0.10903,
+     "interior_med": 0.06249,
+     "seam_vs_med": 1.74,
+     "seam_pct": 0.902
+    }
+   }
+  },
+  "mix": {
+   "lufs": -14.03,
+   "peak_db": -1.29,
+   "crest_db": 14.91,
+   "crest_vs_lufs_db": 12.75,
+   "bands_pct": [
+    40.9,
+    28.8,
+    20.7,
+    7.0,
+    2.7
+   ],
+   "flags": []
+  },
+  "chroma": {
+   "base": {
+    "attributed": {
+     "in_scale": 0.9207,
+     "tonic": 0.146,
+     "fifth": 0.019,
+     "top_pcs": [
+      "G",
+      "C",
+      "A"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9479,
+     "tonic": 0.158,
+     "fifth": 0.045,
+     "top_pcs": [
+      "G",
+      "C",
+      "A"
+     ]
+    }
+   },
+   "lead": {
+    "attributed": {
+     "in_scale": 0.9986,
+     "tonic": 0.167,
+     "fifth": 0.118,
+     "top_pcs": [
+      "A",
+      "G",
+      "C"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9871,
+     "tonic": 0.17,
+     "fifth": 0.112,
+     "top_pcs": [
+      "A",
+      "G",
+      "B"
+     ]
+    }
+   },
+   "extra": {
+    "attributed": {
+     "in_scale": 0.9516,
+     "tonic": 0.148,
+     "fifth": 0.061,
+     "top_pcs": [
+      "D",
+      "C",
+      "G"
+     ]
+    },
+    "raw": {
+     "in_scale": 0.9384,
+     "tonic": 0.154,
+     "fifth": 0.07,
+     "top_pcs": [
+      "D",
+      "G",
+      "C"
+     ]
+    }
+   }
+  },
+  "rhythm": {
+   "beat_s": 0.39474,
+   "ac_period_s": 0.39473,
+   "period_err_pct": 0.001,
+   "ac_at_beat": 0.983,
+   "ac_shorter": 0.685,
+   "kicks_present": 64,
+   "kick_e_min_db": -1.5,
+   "beats": 64,
+   "kick_onset_db_min": 3.0,
+   "kick_onset_db_med": 65.9,
+   "onsets": 71,
+   "grid_dev_ms_p95": 1.9,
+   "grid_dev_ms_med": 1.48,
+   "grid_dev_ms_max": 6.24
+  },
+  "duck": {
+   "gen_dip_offset_samples": [
+    199
+   ],
+   "gen_min_gain": 0.34,
+   "gen_recover90_ms": 0.0,
+   "slot_corr_mean": 0.55,
+   "slot_corr_min": 0.212,
+   "slot_lag_ms_p90": 0.23,
+   "slot_lag_ms_max": 1.22
+  }
+ }
+}

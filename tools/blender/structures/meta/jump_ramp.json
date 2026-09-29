@@ -1,0 +1,58 @@
+{
+ "id": "jump_ramp",
+ "file": "models/structures/jump_ramp.glb",
+ "tris": 6574,
+ "collision_tris": 36,
+ "size_kb": 583.7,
+ "bbox_min": [
+  -7.45,
+  -0.35,
+  -0.0
+ ],
+ "bbox_max": [
+  7.45,
+  3.36,
+  12.85
+ ],
+ "dims": [
+  14.9,
+  3.71,
+  12.85
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "metal_bare",
+  "metal_dark",
+  "rebar",
+  "steel_beam"
+ ],
+ "nodes": {
+  "road_surface": 784,
+  "concrete": 2702,
+  "concrete_dark": 1276,
+  "hazard": 164,
+  "metal_bare": 44,
+  "metal_dark": 140,
+  "steel_beam": 1132,
+  "rebar": 144,
+  "light_amber": 188
+ },
+ "sockets": {
+  "lip": [
+   0,
+   2.2,
+   12.0
+  ]
+ },
+ "notes": {
+  "desc": "Kicker ramp spanning the road. Drive +Z. Surface curve y = H*(z/L)^1.45 (flush at z=0, lip at z=L).",
+  "lip_height": 2.2,
+  "length": 12.0,
+  "width": 14.0,
+  "launch_angle_deg": 14.9
+ }
+}

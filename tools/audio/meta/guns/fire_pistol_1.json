@@ -1,0 +1,1 @@
+{"duration": 0.5023, "peak_db": -1.22, "rms_db": -20.97, "lufs_i": -21.24, "lufs_m": -17.02, "lufs_s": -11.68, "dc": 0.000216, "centroid": 1967.0, "clip": 0, "rise_ms": 0.14, "tail_50db_s": 0.368, "bands_db": [-11.4, -7.7, -1.9, -9.6], "src_len": 22153, "dec_len": 22153, "variation": 0, "build_s": 1.68, "file": "guns/fire_pistol_1.ogg", "bytes": 8574}

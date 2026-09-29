@@ -1,0 +1,1 @@
+{"duration": 5.3885, "peak_db": -1.58, "rms_db": -20.75, "lufs_i": -19.3, "lufs_m": -9.65, "lufs_s": -8.18, "dc": 6e-06, "centroid": 602.0, "clip": 0, "rise_ms": 0.2, "tail_50db_s": 4.343, "bands_db": [-3.5, -4.3, -8.2, -15.6], "src_len": 237632, "dec_len": 237632, "file": "explosions/explosion_large_2.ogg", "variation": 1, "bytes": 46551, "build_s": 3.5}

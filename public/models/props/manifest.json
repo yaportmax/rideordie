@@ -1,0 +1,1067 @@
+{
+ "_readme": "Props are instancing-friendly GLBs: metres, Y up, origin at base centre (min y = 0). COLOR_0 holds baked ambient occlusion (multiply base colour). Materials are named after the textures in public/textures/<name>/ where applicable (rock_grey, rock_red, cliff, concrete, rust_metal...): game code may swap them. *_lod / *_billboard files are cheaper stand-ins for the same prop (same base footprint).",
+ "props": {
+  "barrel": {
+   "file": "barrel.glb",
+   "category": "furniture",
+   "height": 0.886,
+   "radius": 0.293,
+   "size": [
+    0.586,
+    0.886,
+    0.586
+   ],
+   "tris": 1008,
+   "materials": [
+    "barrel"
+   ],
+   "kb": 1225.4,
+   "notes": "200 L steel drum, faded blue paint over rust, two rolling hoops, dented; textured (1024 albedo/normal/ORM)"
+  },
+  "barrel_explosive": {
+   "file": "barrel_explosive.glb",
+   "category": "furniture",
+   "height": 0.886,
+   "radius": 0.293,
+   "size": [
+    0.586,
+    0.886,
+    0.586
+   ],
+   "tris": 1008,
+   "materials": [
+    "barrel_explosive"
+   ],
+   "kb": 1186.5,
+   "notes": "200 L drum, red with yellow/black hazard band and flammable diamond + DANGER FLAMMABLE stencil (label faces -Y in Blender = +Z glTF, like vehicles)"
+  },
+  "billboard": {
+   "file": "billboard.glb",
+   "category": "furniture",
+   "height": 10.83,
+   "radius": 6.2,
+   "size": [
+    12.4,
+    10.83,
+    2.394
+   ],
+   "tris": 2113,
+   "materials": [
+    "galvanized",
+    "billboard_ad"
+   ],
+   "kb": 1606.7,
+   "notes": "Large faded ad billboard: 12 x 4 m panel (bottom edge 6 m, top 10 m) on two I-beam columns with catwalk, ladder, flood lights; peeling ad texture, torn lower-left corner. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
+  },
+  "bollard": {
+   "file": "bollard.glb",
+   "category": "furniture",
+   "height": 1.01,
+   "radius": 0.17,
+   "size": [
+    0.34,
+    1.01,
+    0.334
+   ],
+   "tris": 404,
+   "materials": [
+    "bollard",
+    "galvanized"
+   ],
+   "kb": 613.2,
+   "notes": "1.0 m steel bollard, faded yellow paint (texture) with two reflective bands, flanged base with anchor bolts"
+  },
+  "boulder_01": {
+   "file": "boulder_01.glb",
+   "category": "boulder",
+   "height": 2.184,
+   "radius": 1.722,
+   "size": [
+    3.444,
+    2.184,
+    3.174
+   ],
+   "tris": 1920,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 313.0,
+   "notes": "rounded canyon sandstone boulder with strata; material rock_red"
+  },
+  "boulder_02": {
+   "file": "boulder_02.glb",
+   "category": "boulder",
+   "height": 2.772,
+   "radius": 2.403,
+   "size": [
+    4.598,
+    2.772,
+    4.806
+   ],
+   "tris": 1920,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 313.6,
+   "notes": "rounded canyon sandstone boulder with strata; material rock_red"
+  },
+  "boulder_03": {
+   "file": "boulder_03.glb",
+   "category": "boulder",
+   "height": 3.528,
+   "radius": 3.585,
+   "size": [
+    7.17,
+    3.528,
+    5.726
+   ],
+   "tris": 1920,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 312.6,
+   "notes": "rounded canyon sandstone boulder with strata; material rock_red"
+  },
+  "cactus_barrel": {
+   "file": "cactus_barrel.glb",
+   "category": "cactus",
+   "height": 0.801,
+   "radius": 0.461,
+   "size": [
+    0.922,
+    0.801,
+    0.922
+   ],
+   "tris": 804,
+   "materials": [
+    "cactus_skin",
+    "cactus_flower"
+   ],
+   "kb": 94.7,
+   "notes": "barrel cactus 0.8 m, 16 ribs with spines on crests (texture), yellow flower ring; origin at base centre"
+  },
+  "cactus_prickly_pear": {
+   "file": "cactus_prickly_pear.glb",
+   "category": "cactus",
+   "height": 1.376,
+   "radius": 0.702,
+   "size": [
+    0.552,
+    1.376,
+    1.122
+   ],
+   "tris": 620,
+   "materials": [
+    "cactus_pear_skin",
+    "cactus_fruit"
+   ],
+   "kb": 87.7,
+   "notes": "prickly pear: chained flattened pads + red fruit, cactus_pear_skin (areoles); origin at base centre"
+  },
+  "cactus_saguaro": {
+   "file": "cactus_saguaro.glb",
+   "category": "cactus",
+   "height": 5.291,
+   "radius": 1.139,
+   "size": [
+    1.904,
+    5.291,
+    1.244
+   ],
+   "tris": 2572,
+   "materials": [
+    "cactus_skin"
+   ],
+   "kb": 154.0,
+   "notes": "saguaro with 3 arms, 12 ribs (UV u = rib index, spines on crests), cactus_skin material; origin at trunk base"
+  },
+  "canyon_pillar_a": {
+   "file": "canyon_pillar_a.glb",
+   "category": "pillar",
+   "height": 20.18,
+   "radius": 4.969,
+   "size": [
+    9.938,
+    20.18,
+    8.474
+   ],
+   "tris": 2848,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 320.2,
+   "notes": "canyon hoodoo/butte, strata bands in COLOR_0; cylindrical UVs at 6 m/tile; material rock_red"
+  },
+  "canyon_pillar_b": {
+   "file": "canyon_pillar_b.glb",
+   "category": "pillar",
+   "height": 30.282,
+   "radius": 9.156,
+   "size": [
+    17.04,
+    30.282,
+    18.312
+   ],
+   "tris": 2848,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 323.1,
+   "notes": "canyon hoodoo/butte, strata bands in COLOR_0; cylindrical UVs at 7 m/tile; material rock_red"
+  },
+  "crate_stack": {
+   "file": "crate_stack.glb",
+   "category": "furniture",
+   "height": 1.0,
+   "radius": 1.162,
+   "size": [
+    2.324,
+    1.0,
+    1.18
+   ],
+   "tris": 1311,
+   "materials": [
+    "wood_rough",
+    "paint_olive",
+    "galvanized",
+    "paint_red"
+   ],
+   "kb": 430.9,
+   "notes": "3 weathered wooden crates (one stacked, slats missing), 2 olive ammo cans, 1 red jerrycan"
+  },
+  "dead_tree_a": {
+   "file": "dead_tree_a.glb",
+   "category": "tree_dead",
+   "height": 8.429,
+   "radius": 1.959,
+   "size": [
+    3.312,
+    8.429,
+    3.806
+   ],
+   "tris": 2565,
+   "materials": [
+    "bark_dead"
+   ],
+   "kb": 521.9,
+   "notes": "bare weathered snag, bark_dead texture (0.9 m/tile), origin at trunk base, no alpha cards"
+  },
+  "dead_tree_b": {
+   "file": "dead_tree_b.glb",
+   "category": "tree_dead",
+   "height": 7.703,
+   "radius": 4.11,
+   "size": [
+    5.726,
+    7.703,
+    3.981
+   ],
+   "tris": 2716,
+   "materials": [
+    "bark_dead"
+   ],
+   "kb": 526.6,
+   "notes": "bare weathered snag, bark_dead texture (0.9 m/tile), origin at trunk base, no alpha cards"
+  },
+  "dead_tree_c": {
+   "file": "dead_tree_c.glb",
+   "category": "tree_dead",
+   "height": 5.035,
+   "radius": 1.399,
+   "size": [
+    2.007,
+    5.035,
+    2.423
+   ],
+   "tris": 2448,
+   "materials": [
+    "bark_dead"
+   ],
+   "kb": 521.2,
+   "notes": "bare weathered snag, bark_dead texture (0.9 m/tile), origin at trunk base, no alpha cards"
+  },
+  "debris_pile": {
+   "file": "debris_pile.glb",
+   "category": "furniture",
+   "height": 1.017,
+   "radius": 1.107,
+   "size": [
+    2.206,
+    1.017,
+    2.214
+   ],
+   "tris": 1692,
+   "materials": [
+    "concrete_cracked",
+    "concrete",
+    "wood_planks",
+    "galvanized",
+    "rust_metal"
+   ],
+   "kb": 985.3,
+   "notes": "2 m collapsed-building rubble heap: concrete chunks, cinder blocks, planks, sheet metal, bent rebar, pipe"
+  },
+  "fence_chainlink_4m": {
+   "file": "fence_chainlink_4m.glb",
+   "category": "furniture",
+   "height": 1.945,
+   "radius": 2.0,
+   "size": [
+    0.202,
+    1.945,
+    4.0
+   ],
+   "tris": 492,
+   "materials": [
+    "galvanized",
+    "concrete",
+    "chainlink"
+   ],
+   "kb": 626.2,
+   "notes": "4.0 m chain-link fence section along Z (glTF), 1.9 m high, post at the segment centre so instances tile every 4 m; mesh = alphaMode MASK double-sided card texture, torn hole near the bottom. Mesh sits on the +X side of the post.",
+   "alpha_tested": true
+  },
+  "fern": {
+   "file": "fern.glb",
+   "category": "shrub",
+   "height": 0.641,
+   "radius": 0.883,
+   "size": [
+    1.691,
+    0.641,
+    1.369
+   ],
+   "tris": 312,
+   "materials": [
+    "fern_fronds"
+   ],
+   "kb": 127.2,
+   "notes": "fern clump: 26 arching V-folded frond cards (MASK); ~0.7 m tall, 1.4 m wide",
+   "alpha_tested": true
+  },
+  "grass_tuft": {
+   "file": "grass_tuft.glb",
+   "category": "grass",
+   "height": 0.529,
+   "radius": 0.337,
+   "size": [
+    0.674,
+    0.529,
+    0.584
+   ],
+   "tris": 54,
+   "materials": [
+    "grass_dry"
+   ],
+   "kb": 70.4,
+   "notes": "dry golden grass tuft: 3 crossed vertical cards + 3 leaning fans (MASK, double-sided), ~0.50 m",
+   "alpha_tested": true
+  },
+  "grass_tuft_green": {
+   "file": "grass_tuft_green.glb",
+   "category": "grass",
+   "height": 0.426,
+   "radius": 0.293,
+   "size": [
+    0.586,
+    0.426,
+    0.507
+   ],
+   "tris": 54,
+   "materials": [
+    "grass_green"
+   ],
+   "kb": 77.1,
+   "notes": "green grass tuft: 3 crossed vertical cards + 3 leaning fans (MASK, double-sided), ~0.42 m",
+   "alpha_tested": true
+  },
+  "guardrail_4m": {
+   "file": "guardrail_4m.glb",
+   "category": "furniture",
+   "height": 0.8,
+   "radius": 2.0,
+   "size": [
+    0.328,
+    0.8,
+    4.0
+   ],
+   "tris": 936,
+   "materials": [
+    "galvanized",
+    "wood_rough"
+   ],
+   "kb": 380.2,
+   "notes": "W-beam guardrail, 4.0 m along Z (glTF); traffic side is +X (right shoulder when driving +Z; rotate 180 deg about Y for the left shoulder). Posts at z=+-1.0 so instances placed every 4.0 m keep a uniform 2 m post spacing; rail runs edge to edge."
+  },
+  "jersey_barrier": {
+   "file": "jersey_barrier.glb",
+   "category": "furniture",
+   "height": 0.898,
+   "radius": 1.885,
+   "size": [
+    0.604,
+    0.898,
+    3.77
+   ],
+   "tris": 762,
+   "materials": [
+    "concrete",
+    "rust_metal"
+   ],
+   "kb": 421.6,
+   "notes": "NJ concrete barrier 3.66 m long along Z (glTF), 0.81 m high, chipped end with exposed rebar (top-corner at +Z end)"
+  },
+  "mile_marker": {
+   "file": "mile_marker.glb",
+   "category": "furniture",
+   "height": 1.361,
+   "radius": 0.169,
+   "size": [
+    0.338,
+    1.361,
+    0.122
+   ],
+   "tris": 352,
+   "materials": [
+    "galvanized",
+    "reflective_white",
+    "mile_marker"
+   ],
+   "kb": 236.2,
+   "notes": "Highway mile marker MILE 87, plate 0.30 x 0.45 m on a 1.36 m post, leaning. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
+  },
+  "palm_coast": {
+   "file": "palm_coast.glb",
+   "category": "tree_palm",
+   "height": 10.249,
+   "radius": 5.347,
+   "size": [
+    7.609,
+    10.249,
+    7.446
+   ],
+   "tris": 1166,
+   "materials": [
+    "bark_palm",
+    "palm_fronds",
+    "palm_coconut"
+   ],
+   "kb": 390.0,
+   "notes": "coastal palm: ringed bark_palm trunk (curved, leans +X), 15 alpha-tested (MASK) V-folded frond cards, coconuts; origin at trunk base",
+   "alpha_tested": true
+  },
+  "pine_a": {
+   "file": "pine_a.glb",
+   "category": "tree_pine",
+   "height": 14.682,
+   "radius": 4.797,
+   "size": [
+    8.354,
+    14.682,
+    8.495
+   ],
+   "tris": 3178,
+   "materials": [
+    "bark_pine",
+    "pine_needles_a"
+   ],
+   "kb": 709.7,
+   "lod": "pine_a_lod.glb",
+   "billboard": "pine_a_billboard.glb",
+   "notes": "conifer: bark_pine trunk + drooping branch tubes carrying many small needle-cluster cards (alphaMode MASK, double-sided); dead lower branches; origin = trunk base; use _lod beyond ~60 m and _billboard beyond ~150 m",
+   "alpha_tested": true
+  },
+  "pine_a_billboard": {
+   "file": "pine_a_billboard.glb",
+   "category": "tree_pine_billboard",
+   "height": 14.829,
+   "radius": 4.941,
+   "size": [
+    9.882,
+    14.829,
+    9.882
+   ],
+   "tris": 4,
+   "materials": [
+    "pine_billboard_a"
+   ],
+   "kb": 259.2,
+   "notes": "crossed-quad far billboard (2 quads, 4 tris) baked from the real pine_a model (front + side view in one texture), alphaMode MASK, 9.9 x 14.8 m",
+   "alpha_tested": true
+  },
+  "pine_a_lod": {
+   "file": "pine_a_lod.glb",
+   "category": "tree_pine_lod",
+   "height": 14.048,
+   "radius": 5.013,
+   "size": [
+    8.253,
+    14.048,
+    7.513
+   ],
+   "tris": 164,
+   "materials": [
+    "bark_pine",
+    "pine_needles_a"
+   ],
+   "kb": 519.1,
+   "notes": "LOD1 of pine_a (alpha-tested cards, same materials)",
+   "alpha_tested": true
+  },
+  "pine_b": {
+   "file": "pine_b.glb",
+   "category": "tree_pine",
+   "height": 17.448,
+   "radius": 5.807,
+   "size": [
+    10.429,
+    17.448,
+    9.575
+   ],
+   "tris": 3354,
+   "materials": [
+    "bark_pine",
+    "pine_needles_b"
+   ],
+   "kb": 805.4,
+   "lod": "pine_b_lod.glb",
+   "billboard": "pine_b_billboard.glb",
+   "notes": "conifer: bark_pine trunk + drooping branch tubes carrying many small needle-cluster cards (alphaMode MASK, double-sided); dead lower branches; origin = trunk base; use _lod beyond ~60 m and _billboard beyond ~150 m",
+   "alpha_tested": true
+  },
+  "pine_b_billboard": {
+   "file": "pine_b_billboard.glb",
+   "category": "tree_pine_billboard",
+   "height": 17.622,
+   "radius": 5.982,
+   "size": [
+    11.964,
+    17.622,
+    11.964
+   ],
+   "tris": 4,
+   "materials": [
+    "pine_billboard_b"
+   ],
+   "kb": 286.6,
+   "notes": "crossed-quad far billboard (2 quads, 4 tris) baked from the real pine_b model (front + side view in one texture), alphaMode MASK, 12.0 x 17.6 m",
+   "alpha_tested": true
+  },
+  "pine_b_lod": {
+   "file": "pine_b_lod.glb",
+   "category": "tree_pine_lod",
+   "height": 16.507,
+   "radius": 5.484,
+   "size": [
+    8.801,
+    16.507,
+    8.645
+   ],
+   "tris": 156,
+   "materials": [
+    "bark_pine",
+    "pine_needles_b"
+   ],
+   "kb": 609.5,
+   "notes": "LOD1 of pine_b (alpha-tested cards, same materials)",
+   "alpha_tested": true
+  },
+  "pine_c": {
+   "file": "pine_c.glb",
+   "category": "tree_pine",
+   "height": 10.969,
+   "radius": 4.369,
+   "size": [
+    7.028,
+    10.969,
+    7.703
+   ],
+   "tris": 3189,
+   "materials": [
+    "bark_pine",
+    "pine_needles_c"
+   ],
+   "kb": 680.1,
+   "lod": "pine_c_lod.glb",
+   "billboard": "pine_c_billboard.glb",
+   "notes": "conifer: bark_pine trunk + drooping branch tubes carrying many small needle-cluster cards (alphaMode MASK, double-sided); dead lower branches; origin = trunk base; use _lod beyond ~60 m and _billboard beyond ~150 m",
+   "alpha_tested": true
+  },
+  "pine_c_billboard": {
+   "file": "pine_c_billboard.glb",
+   "category": "tree_pine_billboard",
+   "height": 11.079,
+   "radius": 4.501,
+   "size": [
+    9.002,
+    11.079,
+    9.002
+   ],
+   "tris": 4,
+   "materials": [
+    "pine_billboard_c"
+   ],
+   "kb": 258.8,
+   "notes": "crossed-quad far billboard (2 quads, 4 tris) baked from the real pine_c model (front + side view in one texture), alphaMode MASK, 9.0 x 11.1 m",
+   "alpha_tested": true
+  },
+  "pine_c_lod": {
+   "file": "pine_c_lod.glb",
+   "category": "tree_pine_lod",
+   "height": 9.474,
+   "radius": 3.852,
+   "size": [
+    6.6,
+    9.474,
+    6.588
+   ],
+   "tris": 156,
+   "materials": [
+    "bark_pine",
+    "pine_needles_c"
+   ],
+   "kb": 488.2,
+   "notes": "LOD1 of pine_c (alpha-tested cards, same materials)",
+   "alpha_tested": true
+  },
+  "road_cone": {
+   "file": "road_cone.glb",
+   "category": "furniture",
+   "height": 0.7,
+   "radius": 0.18,
+   "size": [
+    0.36,
+    0.7,
+    0.36
+   ],
+   "tris": 444,
+   "materials": [
+    "road_cone"
+   ],
+   "kb": 387.0,
+   "notes": "0.70 m safety cone; single textured material (orange + 2 reflective bands + rubber base painted in the texture)"
+  },
+  "rock_01": {
+   "file": "rock_01.glb",
+   "category": "rock",
+   "height": 0.299,
+   "radius": 0.239,
+   "size": [
+    0.442,
+    0.299,
+    0.478
+   ],
+   "tris": 320,
+   "materials": [
+    "rock_grey"
+   ],
+   "kb": 253.5,
+   "variants": [
+    "rock_grey",
+    "rock_red",
+    "cliff"
+   ],
+   "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)"
+  },
+  "rock_01_red": {
+   "file": "rock_01_red.glb",
+   "category": "rock",
+   "height": 0.299,
+   "radius": 0.239,
+   "size": [
+    0.442,
+    0.299,
+    0.478
+   ],
+   "tris": 320,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 254.7,
+   "notes": "angular rock; material rock_red (swap by name for other biomes: rock_grey / rock_red / cliff)"
+  },
+  "rock_02": {
+   "file": "rock_02.glb",
+   "category": "rock",
+   "height": 0.458,
+   "radius": 0.446,
+   "size": [
+    0.892,
+    0.458,
+    0.722
+   ],
+   "tris": 320,
+   "materials": [
+    "rock_grey"
+   ],
+   "kb": 254.0,
+   "variants": [
+    "rock_grey",
+    "rock_red",
+    "cliff"
+   ],
+   "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)"
+  },
+  "rock_02_red": {
+   "file": "rock_02_red.glb",
+   "category": "rock",
+   "height": 0.458,
+   "radius": 0.446,
+   "size": [
+    0.892,
+    0.458,
+    0.722
+   ],
+   "tris": 320,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 255.1,
+   "notes": "angular rock; material rock_red (swap by name for other biomes: rock_grey / rock_red / cliff)"
+  },
+  "rock_03": {
+   "file": "rock_03.glb",
+   "category": "rock",
+   "height": 0.722,
+   "radius": 0.674,
+   "size": [
+    1.0,
+    0.722,
+    1.348
+   ],
+   "tris": 1280,
+   "materials": [
+    "rock_grey"
+   ],
+   "kb": 285.6,
+   "variants": [
+    "rock_grey",
+    "rock_red",
+    "cliff"
+   ],
+   "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)"
+  },
+  "rock_03_red": {
+   "file": "rock_03_red.glb",
+   "category": "rock",
+   "height": 0.722,
+   "radius": 0.674,
+   "size": [
+    1.0,
+    0.722,
+    1.348
+   ],
+   "tris": 1280,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 286.7,
+   "notes": "angular rock; material rock_red (swap by name for other biomes: rock_grey / rock_red / cliff)"
+  },
+  "rock_04": {
+   "file": "rock_04.glb",
+   "category": "rock",
+   "height": 0.492,
+   "radius": 1.113,
+   "size": [
+    2.226,
+    0.492,
+    1.474
+   ],
+   "tris": 1280,
+   "materials": [
+    "rock_grey"
+   ],
+   "kb": 284.7,
+   "variants": [
+    "rock_grey",
+    "rock_red",
+    "cliff"
+   ],
+   "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)"
+  },
+  "rock_05": {
+   "file": "rock_05.glb",
+   "category": "rock",
+   "height": 1.672,
+   "radius": 2.198,
+   "size": [
+    4.396,
+    1.672,
+    2.856
+   ],
+   "tris": 1920,
+   "materials": [
+    "rock_grey"
+   ],
+   "kb": 306.8,
+   "variants": [
+    "rock_grey",
+    "rock_red",
+    "cliff"
+   ],
+   "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)"
+  },
+  "rock_05_red": {
+   "file": "rock_05_red.glb",
+   "category": "rock",
+   "height": 1.672,
+   "radius": 2.198,
+   "size": [
+    4.396,
+    1.672,
+    2.856
+   ],
+   "tris": 1920,
+   "materials": [
+    "rock_red"
+   ],
+   "kb": 307.9,
+   "notes": "angular rock; material rock_red (swap by name for other biomes: rock_grey / rock_red / cliff)"
+  },
+  "rock_06": {
+   "file": "rock_06.glb",
+   "category": "rock",
+   "height": 2.552,
+   "radius": 3.608,
+   "size": [
+    7.216,
+    2.552,
+    4.844
+   ],
+   "tris": 1920,
+   "materials": [
+    "rock_grey"
+   ],
+   "kb": 307.0,
+   "variants": [
+    "rock_grey",
+    "rock_red",
+    "cliff"
+   ],
+   "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)"
+  },
+  "shrub_desert_scrub": {
+   "file": "shrub_desert_scrub.glb",
+   "category": "shrub",
+   "height": 1.273,
+   "radius": 1.08,
+   "size": [
+    2.008,
+    1.273,
+    2.073
+   ],
+   "tris": 438,
+   "materials": [
+    "shrub_scrub_leaves",
+    "bark_dead"
+   ],
+   "kb": 473.6,
+   "notes": "sagebrush-like desert scrub: 30 alpha-tested (MASK) cards + woody stems; ~1 m tall, 1.4 m wide",
+   "alpha_tested": true
+  },
+  "shrub_dry_bush": {
+   "file": "shrub_dry_bush.glb",
+   "category": "shrub",
+   "height": 0.72,
+   "radius": 0.654,
+   "size": [
+    1.111,
+    0.72,
+    1.173
+   ],
+   "tris": 884,
+   "materials": [
+    "twig_dry",
+    "shrub_dry_leaves"
+   ],
+   "kb": 115.9,
+   "notes": "dry dead shrub / tumbleweed-like: 34 woody twigs + a few papery leaf cards; ~0.9 m",
+   "alpha_tested": true
+  },
+  "shrub_green_bush": {
+   "file": "shrub_green_bush.glb",
+   "category": "shrub",
+   "height": 1.433,
+   "radius": 1.094,
+   "size": [
+    1.906,
+    1.433,
+    2.117
+   ],
+   "tris": 467,
+   "materials": [
+    "shrub_green_leaves",
+    "bark_dead"
+   ],
+   "kb": 474.2,
+   "notes": "green broadleaf bush (coast / lower biomes): 46 alpha-tested cards + 3 stems; ~1.2 m",
+   "alpha_tested": true
+  },
+  "sign_exit": {
+   "file": "sign_exit.glb",
+   "category": "furniture",
+   "height": 4.736,
+   "radius": 2.0,
+   "size": [
+    4.0,
+    4.736,
+    1.076
+   ],
+   "tris": 1564,
+   "materials": [
+    "galvanized",
+    "sign_exit"
+   ],
+   "kb": 554.9,
+   "notes": "Big green highway EXIT sign 4.0 x 2.0 m on two I-beam posts (plate bottom 2.35 m, top 4.35 m), lamp arms, folded corner. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
+  },
+  "sign_gas": {
+   "file": "sign_gas.glb",
+   "category": "furniture",
+   "height": 8.641,
+   "radius": 1.727,
+   "size": [
+    3.454,
+    8.641,
+    0.84
+   ],
+   "tris": 2342,
+   "materials": [
+    "concrete",
+    "galvanized",
+    "rust_metal",
+    "sign_gas_cabinet",
+    "sign_gas_prices"
+   ],
+   "kb": 1118.6,
+   "notes": "Roadside gas-station pole sign, 8.6 m: double-sided GAS cabinet 3.2 x 1.5 m + hanging price board 1.4 x 1.4 m (right half, one chain broken), concrete pier. Both faces readable (+Y and -Y in Blender)."
+  },
+  "sign_speed": {
+   "file": "sign_speed.glb",
+   "category": "furniture",
+   "height": 2.599,
+   "radius": 0.405,
+   "size": [
+    0.81,
+    2.599,
+    0.192
+   ],
+   "tris": 940,
+   "materials": [
+    "galvanized",
+    "sign_speed"
+   ],
+   "kb": 392.0,
+   "notes": "US-style speed limit 65 plate 0.76 x 0.95 m on a 2.6 m post, dented/bent, bullet holes + rust in the texture. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
+  },
+  "sign_warning": {
+   "file": "sign_warning.glb",
+   "category": "furniture",
+   "height": 2.6,
+   "radius": 0.43,
+   "size": [
+    0.86,
+    2.6,
+    0.218
+   ],
+   "tris": 940,
+   "materials": [
+    "galvanized",
+    "sign_warning"
+   ],
+   "kb": 427.5,
+   "notes": "Chevron / curve-arrow warning plate 0.76 x 0.95 m (arrow points to the viewer's right) on a 2.6 m post, drooping and bent. readable face points to -Z in glTF (toward oncoming traffic when the road runs +Z); rotate 180 deg about Y for the other direction."
+  },
+  "skeleton_car_frame": {
+   "file": "skeleton_car_frame.glb",
+   "category": "furniture",
+   "height": 1.275,
+   "radius": 2.309,
+   "size": [
+    3.536,
+    1.275,
+    4.618
+   ],
+   "tris": 3632,
+   "materials": [
+    "rust_metal",
+    "burnt_black"
+   ],
+   "kb": 370.5,
+   "notes": "Burnt-out rusty car shell, 4.5 m long, front toward Blender -Y (= +Z glTF): chassis rails, floor remnants, pillars + roof rails, dash/steering wheel, seat frames, charred engine block, radiator support, wheel arches, open doors (hinged at the A pillar), bare rims on drums, exhaust/tank; no glass, no tyres."
+  },
+  "street_lamp": {
+   "file": "street_lamp.glb",
+   "category": "furniture",
+   "height": 9.34,
+   "radius": 1.833,
+   "size": [
+    3.666,
+    9.34,
+    0.54
+   ],
+   "tris": 650,
+   "materials": [
+    "galvanized",
+    "lamp_lens"
+   ],
+   "kb": 189.4,
+   "notes": "Highway street lamp, 9.3 m: tapered octagonal pole, 2.7 m curved arm toward +X (traffic side), cobra-head luminaire with dark 'lamp_lens' glass (swap for an emissive material if lit)."
+  },
+  "tire_stack": {
+   "file": "tire_stack.glb",
+   "category": "furniture",
+   "height": 0.689,
+   "radius": 0.832,
+   "size": [
+    1.664,
+    0.689,
+    1.224
+   ],
+   "tris": 2160,
+   "materials": [
+    "tire"
+   ],
+   "kb": 478.5,
+   "notes": "3 stacked + 1 leaning + 1 flat tyre (0.68 m dia), tread/sidewall texture with lettering"
+  },
+  "utility_pole": {
+   "file": "utility_pole.glb",
+   "category": "furniture",
+   "height": 10.207,
+   "radius": 1.25,
+   "size": [
+    2.5,
+    10.207,
+    0.61
+   ],
+   "tris": 1477,
+   "materials": [
+    "wood_pole",
+    "galvanized",
+    "insulator_glass",
+    "paint_grey"
+   ],
+   "kb": 404.5,
+   "notes": "10 m leaning wooden utility pole (cross arm along X, 2.5 m), 3 glass insulators, transformer can, step bolts. Wire attach points (glTF x,y,z): (-0.9,9.4,0) (1.0,9.4,0) (0.06,10.2,0) approx; see wire_span."
+  },
+  "wire_span": {
+   "file": "wire_span.glb",
+   "category": "furniture",
+   "height": 1.492,
+   "radius": 19.974,
+   "size": [
+    1.92,
+    1.492,
+    20.006
+   ],
+   "tris": 222,
+   "materials": [
+    "wire"
+   ],
+   "kb": 10.4,
+   "notes": "3 sagging power wires spanning 20 m along glTF +Z from the attach points of utility_pole (origin at the ground under pole A: place with the same transform as pole A, pole B stands at z=+20). Thin dark 3-sided tubes, no textures."
+  }
+ }
+}

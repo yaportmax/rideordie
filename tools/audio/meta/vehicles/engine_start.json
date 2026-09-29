@@ -1,0 +1,1 @@
+{"duration": 3.2, "peak_db": -1.91, "rms_db": -19.36, "lufs_i": -20.94, "lufs_m": -15.55, "lufs_s": -14.04, "dc": -1.9e-05, "centroid": 440.0, "clip": 0, "rise_ms": 1.5, "tail_50db_s": 3.2, "bands_db": [-1.9, -6.1, -11.1, -16.1], "src_len": 141120, "dec_len": 141120, "variation": 0, "build_s": 1.21, "file": "vehicles/engine_start.ogg", "bytes": 40758}

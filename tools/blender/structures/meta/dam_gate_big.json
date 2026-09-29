@@ -1,0 +1,99 @@
+{
+ "id": "dam_gate_big",
+ "file": "models/structures/dam_gate_big.glb",
+ "tris": 9552,
+ "collision_tris": 36,
+ "size_kb": 803.9,
+ "bbox_min": [
+  -16.22,
+  -0.03,
+  -2.91
+ ],
+ "bbox_max": [
+  16.22,
+  26.81,
+  8.5
+ ],
+ "dims": [
+  32.45,
+  26.84,
+  11.41
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "concrete",
+  "concrete_dark",
+  "hazard",
+  "light_amber",
+  "light_head",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "rubber",
+  "rust",
+  "spike",
+  "steel_beam"
+ ],
+ "nodes": {
+  "concrete_dark": 760,
+  "concrete": 424,
+  "metal_dark": 2584,
+  "light_amber": 392,
+  "metal_bare": 1196,
+  "rust": 708,
+  "spike": 1060,
+  "light_head": 180,
+  "rubber": 640,
+  "bone": 1004,
+  "hazard": 112,
+  "steel_beam": 48,
+  "light_tail": 108,
+  "canvas": 336
+ },
+ "sockets": {
+  "spawn_center": [
+   0,
+   0,
+   6.0
+  ],
+  "spawn_L": [
+   3.5,
+   0,
+   6.0
+  ],
+  "spawn_R": [
+   -3.5,
+   0,
+   6.0
+  ],
+  "flame_R": [
+   -8.6,
+   1.2,
+   -2.4
+  ],
+  "light_R": [
+   -8.8,
+   24.7,
+   1.4
+  ],
+  "flame_L": [
+   8.6,
+   1.2,
+   -2.4
+  ],
+  "light_L": [
+   8.8,
+   24.7,
+   1.4
+  ]
+ },
+ "notes": {
+  "desc": "Raider fortress blast gate spanning the road (boss spawn). Road along +Z, origin road centre, gate front faces -Z (toward the player), depth z 0..8. Road clear width 14 (x +-7), clearance 11 m to the portcullis spikes. Two 26 m towers with scrap plating, braziers, searchlights, skulls; lintel gatehouse with big horned skull emblem; banners.",
+  "clearance": 11.0,
+  "road_clear": 14.0,
+  "tower_height": 27.0,
+  "spawn": "sockets spawn_center (0,0,6), spawn_L (-3.5,0,6), spawn_R (3.5,0,6): boss/escort spawn points inside the gate; flame_* = brazier fire positions, light_* = searchlight positions",
+  "banners_hang_min_y": 7.3
+ }
+}

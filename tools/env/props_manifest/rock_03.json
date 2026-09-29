@@ -1,0 +1,23 @@
+{
+ "name": "rock_03",
+ "file": "rock_03.glb",
+ "category": "rock",
+ "height": 0.722,
+ "radius": 0.674,
+ "size": [
+  0.999,
+  0.722,
+  1.349
+ ],
+ "tris": 1280,
+ "materials": [
+  "rock_grey"
+ ],
+ "notes": "angular rock; material rock_grey (swap to rock_red / cliff by name for other biomes)",
+ "variants": [
+  "rock_grey",
+  "rock_red",
+  "cliff"
+ ],
+ "kb": 285.6
+}

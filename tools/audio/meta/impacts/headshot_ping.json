@@ -1,0 +1,1 @@
+{"duration": 0.8, "peak_db": -1.05, "rms_db": -28.76, "lufs_i": -28.32, "lufs_m": -22.97, "lufs_s": -18.47, "dc": 1e-06, "centroid": 2849.0, "clip": 0, "rise_ms": 0.75, "tail_50db_s": 0.785, "bands_db": [-23.9, -7.0, -2.3, -6.8], "src_len": 35280, "dec_len": 35280, "file": "impacts/headshot_ping.ogg", "variation": 0, "bytes": 6683, "build_s": 0.46}

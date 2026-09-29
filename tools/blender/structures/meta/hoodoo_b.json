@@ -1,0 +1,37 @@
+{
+ "id": "hoodoo_b",
+ "file": "models/structures/hoodoo_b.glb",
+ "tris": 1668,
+ "collision_tris": 240,
+ "size_kb": 168.8,
+ "bbox_min": [
+  -16.16,
+  -1.5,
+  -8.85
+ ],
+ "bbox_max": [
+  20.83,
+  29.81,
+  15.49
+ ],
+ "dims": [
+  36.99,
+  31.31,
+  24.35
+ ],
+ "materials": [
+  "dirt_red",
+  "rock_red",
+  "sand"
+ ],
+ "nodes": {
+  "rock_red": 1316,
+  "sand": 176,
+  "dirt_red": 176
+ },
+ "sockets": {},
+ "notes": {
+  "desc": "Squat eroded hoodoo (27 m) with a wide mushroom cap and a smaller companion pillar (15 m). Origin between the pillars.",
+  "height": 27.0
+ }
+}

@@ -1,0 +1,1 @@
+{"duration": 7.6546, "peak_db": -1.7, "rms_db": -21.38, "lufs_i": -18.04, "lufs_m": -8.76, "lufs_s": -7.23, "dc": 7.9e-05, "centroid": 1476.0, "clip": 0, "rise_ms": -148.07, "tail_50db_s": 7.004, "bands_db": [-2.4, -5.9, -12.5, -9.7], "src_len": 337566, "dec_len": 337566, "variation": 0, "build_s": 1.71, "file": "stingers/boss_intro.ogg", "bytes": 117896}

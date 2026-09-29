@@ -1,0 +1,79 @@
+{
+ "id": "diner",
+ "file": "models/structures/diner.glb",
+ "tris": 4255,
+ "collision_tris": 60,
+ "size_kb": 366.3,
+ "bbox_min": [
+  -13.0,
+  -0.05,
+  -6.0
+ ],
+ "bbox_max": [
+  13.0,
+  11.3,
+  13.0
+ ],
+ "dims": [
+  26.0,
+  11.35,
+  19.0
+ ],
+ "materials": [
+  "asphalt",
+  "concrete",
+  "concrete_dark",
+  "glass",
+  "light_amber",
+  "light_boost",
+  "light_tail",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rubber",
+  "rust",
+  "sand",
+  "steel_beam",
+  "wood"
+ ],
+ "nodes": {
+  "concrete_dark": 324,
+  "concrete": 164,
+  "asphalt": 6,
+  "metal_bare": 1340,
+  "metal_dark": 676,
+  "paint2": 548,
+  "glass": 33,
+  "wood": 120,
+  "light_tail": 304,
+  "light_boost": 108,
+  "rust": 84,
+  "paint": 112,
+  "steel_beam": 72,
+  "light_amber": 112,
+  "sand": 60,
+  "rubber": 192
+ },
+ "sockets": {
+  "sign_neon": [
+   -11.0,
+   9.0,
+   9.0
+  ],
+  "roof_sign": [
+   0,
+   5.5,
+   2.8
+  ]
+ },
+ "notes": {
+  "desc": "Roadside railcar-style diner: stainless lower band, glass window strip (some panes gone), barrel roof, entrance vestibule at +X end, rooftop DINER sign + tall pole 'EAT' neon sign. Front faces +Z; footprint ~26 x 20 m (incl. apron). paint2 = red trim band (tintable), paint = sign board.",
+  "footprint": [
+   26,
+   20
+  ],
+  "front": "+Z",
+  "sockets": "sign_neon (pole sign), roof_sign"
+ }
+}

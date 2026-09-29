@@ -1,0 +1,1 @@
+{"duration": 3.1076, "peak_db": -1.06, "rms_db": -18.47, "lufs_i": -16.99, "lufs_m": -8.13, "lufs_s": -7.74, "dc": -3.6e-05, "centroid": 678.0, "clip": 0, "rise_ms": 31.93, "tail_50db_s": 2.815, "bands_db": [-4.1, -3.7, -8.1, -14.6], "src_len": 137046, "dec_len": 137046, "file": "explosions/explosion_medium_3.ogg", "variation": 2, "bytes": 29937, "build_s": 3.34}
