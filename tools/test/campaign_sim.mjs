@@ -77,7 +77,7 @@ async function playRun() {
   total += sim.time + 45; // + ~45 s in the garage per run
   creditRun(prof, { cash, distance: dist, time: sim.time, kills: sim.stats.kills, won: sim.won });
   const big = (globalThis.__crashLog || []).filter((x) => x.other === -1 && x.force > 150000);
-  if ((sim.stats.damageBy?.crash || 0) > 400) console.log('   crash sample:', big.slice(0, 6).map((x) => `t${x.t.toFixed(1)} F${(x.force / 1000) | 0}k dir${x.dir} v${x.v} air${x.air} s${x.s}`).join(' | '), 'n=', big.length);
+  if ((sim.stats.damageBy?.crash || 0) > 400) console.log('   crash sample:', big.slice(0, 6).map((x) => `${x.what} t${x.t.toFixed(1)} F${(x.force / 1000) | 0}k dir${x.dir} v${x.v} air${x.air} s${x.s}`).join(' | '), 'n=', big.length);
   const dby = Object.entries(sim.stats.damageBy || {}).map(([k, v]) => `${k}:${v | 0}`).join(' ');
   return { dby, time: sim.time, dist, cash, won: sim.won, why: sim.result?.why, kills: sim.stats.kills, weapon: W.id, dps: W.dps.toFixed(0), truck: spec.id };
 }

@@ -53,9 +53,14 @@ export class Vehicle {
     this.body = world.createRigidBody(desc);
     this.body.userData = { vehicle: this, id: this.id };
     this.colliders = [];
-    for (const b of s.colliders) {
+    const clearance = s.clearance ?? 0.52; // hull boxes stay this high above the ground at rest: wheels (raycasts) carry the ground,
+    for (const b0 of s.colliders) {         // so the hull never snags on ramp faces / triangle edges when the suspension bottoms out
+      const bottom = Math.max(b0.center[1] - b0.half[1], clearance), top = b0.center[1] + b0.half[1];
+      if (top - bottom < 0.15) continue;
+      const b = { center: [b0.center[0], (bottom + top) / 2, b0.center[2]], half: [b0.half[0], (top - bottom) / 2, b0.half[2]] };
+      const r = Math.min(0.12, b.half[0] * 0.3, b.half[1] * 0.45, b.half[2] * 0.3);
       // boxes are described relative to ground at rest: centre [x,yFromGround,z], half [hx,hy,hz]
-      const cd = RAPIER.ColliderDesc.cuboid(b.half[0], b.half[1], b.half[2])
+      const cd = RAPIER.ColliderDesc.roundCuboid(b.half[0] - r, b.half[1] - r, b.half[2] - r, r)
         .setTranslation(b.center[0], b.center[1] - this.restComHeight, b.center[2])
         .setDensity(0).setFriction(s.hullFriction ?? 0.12).setRestitution(s.hullRestitution ?? 0.18)
         .setCollisionGroups(GROUPS.car)

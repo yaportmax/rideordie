@@ -1,7 +1,7 @@
 // Road feature physics: jump ramps, boost pads, roadblocks, guard rails (colliders built from road.features near the player),
 // plus player-dropped hazards (oil slicks, mines). Visuals for the road features come from world/dressing.js (same feature data).
 import * as THREE from 'three';
-import { RAPIER, GROUPS } from './physics.js';
+import { RAPIER, GROUPS, COLLIDER_LABELS } from './physics.js';
 import { HALF_ROAD } from '../data/biomes.js';
 import { rng, clamp } from '../core/util.js';
 import { RAMP, ROADBLOCK } from '../data/features.js';
@@ -94,7 +94,8 @@ export class Hazards {
 
   _fixedBox(sim, pos, half, yaw, opts = {}) {
     const rb = sim.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(pos.x, pos.y, pos.z).setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }));
-    sim.world.createCollider(RAPIER.ColliderDesc.cuboid(half[0], half[1], half[2]).setCollisionGroups(GROUPS.world).setFriction(opts.friction ?? 0.1).setRestitution(opts.restitution ?? 0.05), rb);
+    const col = sim.world.createCollider(RAPIER.ColliderDesc.cuboid(half[0], half[1], half[2]).setCollisionGroups(GROUPS.world).setFriction(opts.friction ?? 0.1).setRestitution(opts.restitution ?? 0.05), rb);
+    COLLIDER_LABELS.set(col.handle, opts.label || 'hazardbox');
     return rb;
   }
 
@@ -113,7 +114,7 @@ export class Hazards {
       for (let r = 0; r < rows - 1; r++) for (let c = 0; c < 2; c++) { const a = r * 3 + c, b = (r + 1) * 3 + c; idx.push(a, b, b + 1, a, b + 1, a + 1); }
       // lip wall (closed underside so wheels never poke through)
       const rb = sim.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(anchor.x, anchor.y, anchor.z));
-      sim.world.createCollider(RAPIER.ColliderDesc.trimesh(new Float32Array(verts), new Uint32Array(idx)).setCollisionGroups(GROUPS.world).setFriction(0.9), rb);
+      const rc = sim.world.createCollider(RAPIER.ColliderDesc.trimesh(new Float32Array(verts), new Uint32Array(idx)).setCollisionGroups(GROUPS.world).setFriction(0.9), rb); COLLIDER_LABELS.set(rc.handle, 'ramp');
       bodies.push(rb);
       return { bodies };
     }

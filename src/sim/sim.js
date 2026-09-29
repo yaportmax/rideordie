@@ -1,6 +1,6 @@
 // Authoritative simulation (runs on the DRIVER's machine, or locally in solo). DOM-free.
 import * as THREE from 'three';
-import { RAPIER, initPhysics, createWorld } from './physics.js';
+import { RAPIER, initPhysics, createWorld, COLLIDER_LABELS } from './physics.js';
 import { Vehicle } from './vehicle.js';
 import { Car } from './car.js';
 import { VEHICLES } from '../data/vehicles.js';
@@ -158,6 +158,7 @@ export class Sim {
   _contacts(dt) {
     this.eventQueue.drainContactForceEvents((ev) => {
       const A = this.colMap.get(ev.collider1()), B = this.colMap.get(ev.collider2());
+      this._lastOther = COLLIDER_LABELS.get(A ? ev.collider2() : ev.collider1()) || (this.boss && (A ? ev.collider2() : ev.collider1()) ? 'boss?' : 'unknown');
       const mag = ev.totalForceMagnitude();
       if (!A && !B) return;
       const dir = ev.maxForceDirection();
@@ -169,7 +170,7 @@ export class Sim {
   }
 
   _crash(car, other, force, dir, dt) {
-    if (globalThis.__crashLog && car.kind === 'player') globalThis.__crashLog.push({ t: this.time, other: other ? other.id : -1, force: force | 0, dir: [dir.x, dir.y, dir.z].map((v) => +v.toFixed(2)), v: (car.veh.speed * 3.6) | 0, air: +car.veh.airTime.toFixed(2), s: car.s | 0 });
+    if (globalThis.__crashLog && car.kind === 'player') globalThis.__crashLog.push({ what: this._lastOther, t: this.time, other: other ? other.id : -1, force: force | 0, dir: [dir.x, dir.y, dir.z].map((v) => +v.toFixed(2)), v: (car.veh.speed * 3.6) | 0, air: +car.veh.airTime.toFixed(2), s: car.s | 0 });
     if (car.dead && car.exploded) return;
     const dv = force * dt / car.veh.mass; // velocity change contributed this step
     if (dv < 0.35) return;
@@ -183,6 +184,11 @@ export class Sim {
       if (Math.abs(dir.y) > 0.72) dmg *= 0.25;                 // landing on the ground hurts far less than hitting a wall
       else if (this.hazards.roadblockNear(car.veh.pos)) dmg *= 0.5; // wreck lines are meant to be survivable
     }
+    if (dmg <= 0) return;
+    // one impact (0.5 s window) can take at most 30% of the truck: a big crash is brutal, but survivable once
+    const win = car.crashWin || (car.crashWin = { t0: -9, dmg: 0 });
+    if (this.time - win.t0 > 0.5) { win.t0 = this.time; win.dmg = 0; }
+    dmg = Math.min(dmg, Math.max(0, car.maxHp * (car.kind === 'player' ? 0.3 : 0.6) - win.dmg)); win.dmg += dmg;
     if (dmg <= 0) return;
     // blame: a car the player crippled (dead driver, recent hits) that plows into others earns the player a crash kill
     const blame = (c) => c && c.kind === 'enemy' && (c.driverless || (c.lastHitBy === 1 && this.time - c.lastHitT < 8));

@@ -51,3 +51,6 @@ export function addStaticBox(world, center, half, rotQuat, opts = {}) {
 }
 
 export function removeBody(world, rb) { if (rb) world.removeRigidBody(rb); }
+
+/** Debug: collider handle -> label for static geometry (terrain chunk, road chunk, hazard ...). */
+export const COLLIDER_LABELS = new Map();
