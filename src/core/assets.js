@@ -44,7 +44,7 @@ export async function preload(urls, onProgress) {
         if (!o.isMesh) return;
         for (const m of [].concat(o.material)) {
           if (m.__t) continue;
-          if (m.name === 'chrome') { m.__t = true; m.color.multiplyScalar(0.45); m.roughness = Math.max(m.roughness, 0.28); }
+          if (m.name === 'chrome') { m.__t = true; m.color.multiplyScalar(0.3); m.roughness = Math.max(m.roughness, 0.38); m.envMapIntensity = 0.7; }
           // glass read as milky white and hid the crews: clearer, weaker reflections
           if (m.name === 'glass') { m.__t = true; m.transparent = true; m.opacity = Math.min(m.opacity ?? 1, 0.22); m.depthWrite = false; m.envMapIntensity = 0.45; m.roughness = Math.min(m.roughness, 0.08); m.color.multiplyScalar(0.6); }
         }

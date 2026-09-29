@@ -94,7 +94,7 @@ function renderSheet(dist) {
 
 if (!modelUrl) { info.textContent = 'no ?model='; window.__ready = true; renderer.render(scene, cam); }
 else loader.load(modelUrl, (gltf) => {
-  root = gltf.scene; scene.add(root);
+  root = gltf.scene; scene.add(root); window.__root = root;
   const tint = q.get('tint') ? new THREE.Color('#' + q.get('tint')) : null;
   const mats = new Set();
   root.traverse((o) => {
