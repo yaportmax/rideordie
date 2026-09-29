@@ -48,6 +48,9 @@ export class MB {
   col(r, g, b) { this.c[0] = r; this.c[1] = g; this.c[2] = b; return this; }
   setFac(a, b, c, d) { const f = this.f; f[0] = a; f[1] = b; f[2] = c; f[3] = d; return this; }
   setFac2(a, b, c, d) { const f = this.f2; f[0] = a; f[1] = b; f[2] = c; f[3] = d; return this; }
+  /** Save / restore the current colour + facade attributes (for helpers that emit with their own style). */
+  pushFac() { (this._st || (this._st = [])).push([...this.c, ...this.f, ...this.f2]); return this; }
+  popFac() { const v = this._st.pop(); this.c = v.slice(0, 3); this.f = v.slice(3, 7); this.f2 = v.slice(7, 11); return this; }
 
   /** Raw vertex in WORLD coordinates. */
   vert(x, y, z, nx, ny, nz, u, v) {

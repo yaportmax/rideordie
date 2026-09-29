@@ -21,7 +21,7 @@ const KINDS = ['grass', 'scrub', 'flower', 'pebble'];
 // density per m2 at the road side (before clumping / falloff); dry = share of dry grass cards; tints are linear multipliers [a, b]
 const COVER = {
   desert:   { grass: 0.3, scrub: 0.05, flower: 0.0, pebble: 0.42, dry: 1.0, g: [[1.08, 1.0, 0.86], [0.92, 0.82, 0.66]], s: [[1.95, 1.8, 1.35], [1.7, 1.52, 1.18]], f: [0xe8d27a, 0xd9a05a], p: [0xb89878, 0x8a6048] },
-  canyon:   { grass: 0.12, scrub: 0.04, flower: 0.0, pebble: 0.6, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.62, 1.25], [1.7, 1.42, 1.1]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
+  canyon:   { grass: 0.22, scrub: 0.06, flower: 0.0, pebble: 0.85, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.62, 1.25], [1.7, 1.42, 1.1]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
   coast:    { grass: 1.3, scrub: 0.05, flower: 0.14, pebble: 0.14, dry: 0.22, g: [[1.12, 1.12, 0.78], [1.22, 1.12, 0.72]], s: [[1.5, 1.65, 1.2], [1.68, 1.62, 1.22]], f: [0xf2efe4, 0xf0cc48], p: [0x9a978f, 0x75726c] },
   mountain: { grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.4, 1.55, 1.15], [1.6, 1.5, 1.15]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
   city:     { grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.45, 1.45, 1.15], [1.55, 1.45, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },

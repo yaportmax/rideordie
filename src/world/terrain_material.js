@@ -100,14 +100,18 @@ const GROUND_GLSL = /* glsl */`
   // Whiteout-blended world normal of one layer. uv conventions: image up = +z (top), +y (sides) - the array rows start at the image top.
   // Gradients come from gDx/gDy (d tp / d screen, computed once outside every loop / branch: no undefined derivatives).
   vec3 gDx, gDy;
-  // triplanar projection sample + a half-scale mirrored copy (anti-tiling; half scale keeps the TEX_WRAP period, strata stay horizontal)
+  // triplanar projection sample + a quarter-scale mirrored copy (anti-tiling on big faces; quarter scale keeps the TEX_WRAP period and
+  // the strata horizontal)
   void triS(float fi, vec2 uv, vec2 g1, vec2 g2, float aw, out vec4 a, out vec4 m) {
     a = textureGrad(uAlbedo, vec3(uv, fi), g1, g2); m = textureGrad(uNRA, vec3(uv, fi), g1, g2);
-    vec2 uv2 = vec2(-uv.x, uv.y) * 0.5 + vec2(0.37, 0.21), k = vec2(-0.5, 0.5);
-    vec4 a2 = textureGrad(uAlbedo, vec3(uv2, fi), g1 * k, g2 * k), m2 = textureGrad(uNRA, vec3(uv2, fi), g1 * k, g2 * k);
-    m2.x = 1.0 - m2.x;
-    a = mix(a, a2, aw); m = mix(m, m2, aw);
+    if (aw > 0.01) {
+      vec2 uv2 = vec2(-uv.x, uv.y) * 0.25 + vec2(0.37, 0.21), k = vec2(-0.25, 0.25);
+      vec4 a2 = textureGrad(uAlbedo, vec3(uv2, fi), g1 * k, g2 * k), m2 = textureGrad(uNRA, vec3(uv2, fi), g1 * k, g2 * k);
+      m2.x = 1.0 - m2.x;
+      a = mix(a, a2, aw); m = mix(m, m2, aw);
+    }
   }
+  float triW;
   void gLayer(int i, vec3 tp, vec3 N, vec3 bl, float antiW, float fadeN, out vec3 alb, out vec3 nW, out vec2 ra) {
     float sc = uTile[i], fi = float(i);
     if (uTri[i] > 0.5) {
@@ -116,21 +120,21 @@ const GROUND_GLSL = /* glsl */`
       alb = vec3(0.0); nW = vec3(0.0); ra = vec2(0.0);
       if (bl.x > 0.02) {
         vec2 uv = vec2(tp.z * sg.x, -tp.y) * sc, g1 = vec2(gDx.z * sg.x, -gDx.y) * sc, g2 = vec2(gDy.z * sg.x, -gDy.y) * sc;
-        vec4 a, m; triS(fi, uv, g1, g2, antiW, a, m);
+        vec4 a, m; triS(fi, uv, g1, g2, triW, a, m);
         vec3 t = vec3((m.xy * 2.0 - 1.0) * fadeN, 1.0); t.x *= sg.x;
         t = vec3(t.xy + N.zy, t.z * aN.x); t.z *= sg.x;
         alb += a.rgb * bl.x; nW += t.zyx * bl.x; ra += m.zw * bl.x;
       }
       if (bl.y > 0.02) {
         vec2 uv = vec2(tp.x * sg.y, -tp.z) * sc, g1 = vec2(gDx.x * sg.y, -gDx.z) * sc, g2 = vec2(gDy.x * sg.y, -gDy.z) * sc;
-        vec4 a, m; triS(fi, uv, g1, g2, antiW, a, m);
+        vec4 a, m; triS(fi, uv, g1, g2, triW, a, m);
         vec3 t = vec3((m.xy * 2.0 - 1.0) * fadeN, 1.0); t.x *= sg.y;
         t = vec3(t.xy + N.xz, t.z * aN.y); t.z *= sg.y;
         alb += a.rgb * bl.y; nW += t.xzy * bl.y; ra += m.zw * bl.y;
       }
       if (bl.z > 0.02) {
         vec2 uv = vec2(-tp.x * sg.z, -tp.y) * sc, g1 = vec2(-gDx.x * sg.z, -gDx.y) * sc, g2 = vec2(-gDy.x * sg.z, -gDy.y) * sc;
-        vec4 a, m; triS(fi, uv, g1, g2, antiW, a, m);
+        vec4 a, m; triS(fi, uv, g1, g2, triW, a, m);
         vec3 t = vec3((m.xy * 2.0 - 1.0) * fadeN, 1.0); t.x *= -sg.z;
         t = vec3(t.xy + N.xy, t.z * aN.z); t.z *= sg.z;
         alb += a.rgb * bl.z; nW += t.xyz * bl.z; ra += m.zw * bl.z;
@@ -140,13 +144,17 @@ const GROUND_GLSL = /* glsl */`
     } else {
       vec2 uv = vec2(tp.x, -tp.z) * sc, g1 = vec2(gDx.x, -gDx.z) * sc, g2 = vec2(gDy.x, -gDy.z) * sc;
       vec4 a = textureGrad(uAlbedo, vec3(uv, fi), g1, g2), m = textureGrad(uNRA, vec3(uv, fi), g1, g2);
-      vec2 uv2 = vec2(uv.x - uv.y, uv.x + uv.y) * 0.25 + vec2(0.37, 0.61);          // 45 deg, x0.354: keeps the TEX_WRAP period
-      vec2 h1 = vec2(g1.x - g1.y, g1.x + g1.y) * 0.25, h2 = vec2(g2.x - g2.y, g2.x + g2.y) * 0.25;
-      vec4 a2 = textureGrad(uAlbedo, vec3(uv2, fi), h1, h2), m2 = textureGrad(uNRA, vec3(uv2, fi), h1, h2);
-      vec2 n1 = m.xy * 2.0 - 1.0, n2 = m2.xy * 2.0 - 1.0;
-      n2 = vec2(n2.x + n2.y, -n2.x + n2.y) * 0.70710678;                               // back into the uv frame
-      alb = mix(a.rgb, a2.rgb, antiW); ra = mix(m.zw, m2.zw, antiW);
-      vec2 nxy = mix(n1, n2, antiW) * fadeN;
+      vec2 n1 = m.xy * 2.0 - 1.0;
+      alb = a.rgb; ra = m.zw; vec2 nxy = n1;
+      if (antiW > 0.01) {
+        vec2 uv2 = vec2(uv.x - uv.y, uv.x + uv.y) * 0.25 + vec2(0.37, 0.61);        // 45 deg, x0.354: keeps the TEX_WRAP period
+        vec2 h1 = vec2(g1.x - g1.y, g1.x + g1.y) * 0.25, h2 = vec2(g2.x - g2.y, g2.x + g2.y) * 0.25;
+        vec4 a2 = textureGrad(uAlbedo, vec3(uv2, fi), h1, h2), m2 = textureGrad(uNRA, vec3(uv2, fi), h1, h2);
+        vec2 n2 = m2.xy * 2.0 - 1.0;
+        n2 = vec2(n2.x + n2.y, -n2.x + n2.y) * 0.70710678;                             // back into the uv frame
+        alb = mix(a.rgb, a2.rgb, antiW); ra = mix(m.zw, m2.zw, antiW); nxy = mix(n1, n2, antiW);
+      }
+      nxy *= fadeN;
       if (i == 0) {                                                                    // sand: wind ripples (0.9 m) at eye level
         vec4 q = textureGrad(uMacroT, tp.xz / 45.0, gDx.xz / 45.0, gDy.xz / 45.0);
         float ph = dot(tp.xz, vec2(0.6, 0.8)) * 6.9813170 + q.y * 7.0 + q.z * 3.0;
@@ -164,7 +172,9 @@ const GROUND_GLSL = /* glsl */`
   GS groundSample(vec3 tp, vec3 N, float wv[12], float dist, float strata) {
     vec3 bl = pow(abs(N), vec3(4.0)); bl /= (bl.x + bl.y + bl.z);
     vec4 q1 = gTex(uMacroT, tp.xz / 45.0, 1.0 / 45.0), q2 = gTex(uMacroT, tp.xz / 15.0 + 0.31, 1.0 / 15.0);
+    float farK = smoothstep(220.0, 480.0, dist);                          // far away: cheaper (macro variation hides tiling there)
     float antiW = 0.22 + 0.36 * q1.w;
+    triW = mix(0.28, 0.6, farK) * (0.7 + 0.6 * q1.w);
     float fadeN = uNormalStrength * (1.0 - 0.75 * smoothstep(90.0, 420.0, dist));
     // weight break-up: every layer gets its own low-frequency noise so borders stop following the vertex grid
     float wsum = 0.0;
@@ -179,14 +189,15 @@ const GROUND_GLSL = /* glsl */`
     wv[6] -= snowOff; wv[10] += snowOff * 0.7; wv[5] += snowOff * 0.3;
     for (int i = 0; i < 12; i++) wsum += wv[i];
     // layered sandstone: colour bands follow world height (warped), thin dark erosion ledges
+    // (strata = 0: neutral light / dark bands only, so big grey cliffs don't read as one repeated tile)
     vec3 stTint = vec3(1.0);
-    if (strata > 0.01) {
+    if (bl.x + bl.z > 0.05) {
       float y = tp.y + (gTex(uMacroT, tp.xz / 180.0, 1.0 / 180.0).x - 0.5) * 16.0;
       vec2 gy1 = vec2(gDx.y, 0.0), gy2 = vec2(gDy.y, 0.0);
       float b1 = textureGrad(uMacroT, vec2(y / 61.0, 0.21), gy1 / 61.0, gy2 / 61.0).y, b2 = textureGrad(uMacroT, vec2(y / 14.0, 0.73), gy1 / 14.0, gy2 / 14.0).z;
-      vec3 tint = mix(vec3(1.1, 0.96, 0.86), vec3(0.78, 0.56, 0.46), smoothstep(0.3, 0.7, b1)) * mix(0.86, 1.12, b2);
-      tint *= 1.0 - 0.25 * smoothstep(0.82, 0.93, b2);
-      stTint = mix(vec3(1.0), tint, strata);
+      float band = mix(0.86, 1.12, b2) * (1.0 - 0.25 * smoothstep(0.82, 0.93, b2));
+      vec3 tint = mix(vec3(1.1, 0.96, 0.86), vec3(0.78, 0.56, 0.46), smoothstep(0.3, 0.7, b1)) * band;
+      stTint = mix(vec3(mix(1.0, band * mix(0.92, 1.06, b1), 0.8)), tint, strata);
     }
     float rockStreak = 1.0;
     if (bl.x + bl.z > 0.05) {
@@ -196,13 +207,16 @@ const GROUND_GLSL = /* glsl */`
       rockStreak = 1.0 - 0.32 * smoothstep(0.5, 0.78, st) * smoothstep(0.05, 0.3, bl.x + bl.z) + 0.08 * smoothstep(0.35, 0.1, st);
     }
     vec3 A[4]; vec3 NN[4]; vec2 R[4]; float H[4]; int n = 0; float hm = -10.0;
+    float wmx = 0.0; for (int i = 0; i < 12; i++) wmx = max(wmx, wv[i]);
+    float wthr = min(mix(0.04, 0.2, farK), 0.95 * wmx / max(wsum, 1e-4));   // never drop the dominant layer
     for (int i = 0; i < 12; i++) {
       float w = wv[i] / max(wsum, 1e-4);
-      if (w < 0.04 || n >= 4) continue;
+      if (w < wthr || n >= 4) continue;
+      w *= smoothstep(wthr, wthr * 1.6, w);
       vec3 a; vec3 nw; vec2 ra;
       gLayer(i, tp, N, bl, antiW, fadeN, a, nw, ra);
       a *= uGain[i];
-      if (i == 4 || i == 10) a *= stTint;
+      if (i == 4 || i == 5 || i == 10) a *= stTint;
       if (i == 4 || i == 5 || i == 10) a *= rockStreak;
       float h = ra.y * 0.6 + gLum(a) * 0.6;
       A[n] = a; NN[n] = nw; R[n] = ra; H[n] = w + h * 0.3; hm = max(hm, H[n]); n++;
@@ -421,8 +435,8 @@ export function makeRoadMaterial(tex) {
           float across = boxCov(ad - 6.98, 0.13, fw.x);
           float fy = fw.y; float gr = fy > 0.2 ? 0.45 : boxCov(gv, 0.075, fy);
           rumble = across * gr * (1.0 - city) * smoothstep(0.2, 0.45, nA.x + 0.3);
-          alb *= 1.0 - 0.3 * rumble; ao = mix(ao, ao * 0.7, rumble);
-          nxy.y += (fy > 0.2 ? 0.0 : sign(gv) * 0.55) * across * (1.0 - city);
+          alb *= 1.0 - 0.14 * rumble; ao = mix(ao, ao * 0.85, rumble);
+          nxy.y += (fy > 0.2 ? 0.0 : sign(gv) * 0.22 * (1.0 - smoothstep(0.03, 0.12, fy))) * across * (1.0 - city);
         }
         paintA *= mix(0.55, 1.0, smoothstep(0.25, 0.6, nB.z)) * (1.0 - 0.28 * dusty) * (1.0 - 0.6 * tar);
         alb = mix(alb, paintTint * (0.7 + 0.35 * paintL), paintA);

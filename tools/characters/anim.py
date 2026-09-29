@@ -195,9 +195,64 @@ class Rig:
         mid = root + c * a + pp * hgt
         return mid, root + c * dc, c, pp
 
+    state = None          # per-bake temporal continuity (reset_state() at the start of every bake)
+
+    def reset_state(self):
+        self.state = {}
+
     def _limb(self, key, root, target, pole):
         r = self.arm[key]
+        st = self.state
+        # keep the target at least a third of the limb length from the root: at the folded singularity the bend plane
+        # is undefined and the limb would flip; slide around the root in the previous frame's direction instead
+        target = np.asarray(target, float)
+        rmin = 0.33 * (r["l1"] + r["l2"])
+        ch = target - root
+        d = float(np.linalg.norm(ch))
+        prev_dir = st.get(("dir", key)) if st is not None else None
+        if d < rmin:
+            dirn = ch / d if d > 1e-9 else (prev_dir if prev_dir is not None else np.array([0.0, -1.0, 0.0]))
+            if prev_dir is not None:
+                w = d / rmin
+                dirn = unit(dirn * w + prev_dir * (1.0 - w))
+            target = root + dirn * rmin
+        if st is not None:
+            st[("dir", key)] = unit(target - root)
+        if st is not None:
+            # pole continuity: when the pole is nearly parallel to the reach line the bend plane is ill-defined; lean on the
+            # previous frame's bend direction instead of letting it flip
+            chord = unit(np.asarray(target, float) - root)
+            pole = np.asarray(pole, float)
+            pr = pole - chord * np.dot(chord, pole)
+            q = float(np.linalg.norm(pr)) / max(float(np.linalg.norm(pole)), 1e-9)
+            prev = st.get(("pp", key))
+            if prev is not None:
+                prev_p = prev - chord * np.dot(chord, prev)
+                if np.linalg.norm(prev_p) > 1e-6:
+                    w = float(np.clip(q / 0.45, 0.0, 1.0))
+                    pole = unit(unit(pr) * w + unit(prev_p) * (1.0 - w)) if q > 1e-6 else unit(prev_p)
         mid, end, c, pp = self.two_bone(root, target, r["l1"], r["l2"], pole)
+        if st is not None:
+            prev = st.get(("pp", key))
+            if prev is not None:
+                prev_p = prev - c * np.dot(c, prev)
+                if np.linalg.norm(prev_p) > 1e-6:
+                    prev_p = unit(prev_p)
+                    ang = np.arccos(np.clip(np.dot(prev_p, pp), -1.0, 1.0))
+                    lim = np.radians(28.0)
+                    if ang > lim:
+                        ax_ = np.cross(prev_p, pp)
+                        ax_ = unit(ax_) if np.linalg.norm(ax_) > 1e-9 else c
+                        pp = rot_axis(ax_, lim) @ prev_p
+                        pp = unit(pp - c * np.dot(c, pp))
+                        # rebuild the elbow with the limited bend direction
+                        l1, l2 = r["l1"], r["l2"]
+                        chord = end - root
+                        dc = float(np.linalg.norm(chord))
+                        a = (l1 * l1 - l2 * l2 + dc * dc) / (2 * dc)
+                        hgt = np.sqrt(max(l1 * l1 - a * a, 0.0))
+                        mid = root + c * a + pp * hgt
+            st[("pp", key)] = pp
         N = unit(np.cross(c, pp))
         u, f = unit(mid - root), unit(end - mid)
         Wu = frame(u, N) @ frame(r["d0u"], r["N0"]).T
@@ -254,8 +309,18 @@ class Rig:
             P[a] = P[b] + W[b] @ self.off[a]
             # hand orientation and wrist target
             hd = self.hand[S]
-            fdir = to_world(S, p["h%s_f" % S], False)
+            fdir = unit(to_world(S, p["h%s_f" % S], False))
             pal = to_world(S, p["h%s_p" % S], False)
+            if self.state is not None:
+                pr = pal - fdir * np.dot(fdir, pal)
+                q = float(np.linalg.norm(pr)) / max(float(np.linalg.norm(pal)), 1e-9)
+                prev = self.state.get(("pal", S))
+                if prev is not None and q < 0.5:
+                    pp_ = prev - fdir * np.dot(fdir, prev)
+                    if np.linalg.norm(pp_) > 1e-6:
+                        w = q / 0.5
+                        pal = unit(pr) * w + unit(pp_) * (1 - w) if q > 1e-6 else unit(pp_)
+                self.state[("pal", S)] = unit(pal - fdir * np.dot(fdir, pal))
             Rh = frame(fdir, pal) @ frame(hd["d0"], hd["palm0"]).T
             pole = to_world(S, p["h%s_pole" % S], False)
             for _ in range(8):
@@ -270,6 +335,14 @@ class Rig:
                     break
                 ax_w = unit(np.cross(h_dir, fa_dir))
                 Rh = rot_axis(ax_w, ang - self.WRIST_MAX) @ Rh
+            if self.state is not None:
+                prevR = self.state.get(("Rh", S))
+                if prevR is not None:
+                    rel_ = R.from_matrix(prevR.T @ Rh).as_rotvec()
+                    a_ = float(np.linalg.norm(rel_))
+                    lim = np.radians(40.0)
+                    if a_ > lim:
+                        Rh = prevR @ R.from_rotvec(rel_ * (lim / a_)).as_matrix()
             wrist = tgt - Rh @ hd["grip_local"]
             Wu, Wf = self._limb(S, P[a], wrist, pole)
             fa_dir = Wf @ self.arm[S]["d0f"]
@@ -277,11 +350,16 @@ class Rig:
             ang = np.arccos(np.clip(np.dot(fa_dir, h_dir), -1.0, 1.0))
             if ang > self.WRIST_MAX + 1e-3:       # did not converge (folded arm): give up the exact grip point, keep the limit
                 Rh = rot_axis(unit(np.cross(h_dir, fa_dir)), ang - self.WRIST_MAX) @ Rh
+            if self.state is not None:
+                self.state[("Rh", S)] = Rh
             # give the forearm half of the hand's twist about its own axis (softens the wrist candy-wrapper)
             ax = self.arm[S]["d0f"]
             rel_r = (Wf.T @ Rh)
             tw = self._twist(rel_r, ax)
-            Wf = Wf @ rot_axis(ax, 0.5 * tw)
+            # forearm takes half of the hand's twist, fading to none toward +-180 deg so the share never jumps at the wrap
+            a_ = abs(tw)
+            fade = 1.0 - float(np.clip((a_ - np.radians(100.0)) / np.radians(80.0), 0.0, 1.0)) ** 2
+            Wf = Wf @ rot_axis(ax, 0.5 * tw * fade)
             W[a] = Wu
             fa = H[F + "ForeArm"]
             W[fa] = Wf
@@ -527,6 +605,7 @@ def bake(rig, track, T, loop, frames=("chest", "chest"), extra=None, ground=Fals
     n = int(round(T * FPS))
     times = np.arange(n + 1) / FPS
     params = track.sample(times, loop=loop)
+    rig.reset_state()
     ground0 = 0.0
     Ls, hips, poses = [], [], []
     for t, p in zip(times, params):
@@ -543,6 +622,7 @@ def bake(rig, track, T, loop, frames=("chest", "chest"), extra=None, ground=Fals
         Ls.append(rig.local_from_world(W))
         hips.append(P[0].copy())
         poses.append((W, P))
+    rig.state = None
     Ls = np.array(Ls)
     q = R.from_matrix(Ls.reshape(-1, 3, 3)).as_quat().reshape(len(times), NB, 4)
     for t in range(1, len(q)):                       # keep one hemisphere so LINEAR interpolation is safe

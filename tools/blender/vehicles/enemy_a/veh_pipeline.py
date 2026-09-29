@@ -179,13 +179,13 @@ RECIPES = {
                         bump=dict(dist=0.0022, rust=1.0, chip=1.0, scr=1.0, grain=0.10, dent=1.0)),
     "rust":        dict(a=(0.20, 0.068, 0.028), dust=(0.20, 0.13, 0.08), rustc=(0.06, 0.024, 0.012), edgec=(0.40, 0.17, 0.06), rough=0.9, metal=0.1, rusty=0.0, dirty=0.12, mottle=0.85,
                         bump=dict(dist=0.004, crust=1.0, grain=0.6)),
-    "metal_dark":  dict(a=(0.05, 0.05, 0.052), dust=(0.20, 0.17, 0.14), rustc=(0.14, 0.058, 0.025), edgec=(0.30, 0.30, 0.31), rough=0.6, metal=0.25, rusty=0.6, dirty=0.8, mottle=0.4,
+    "metal_dark":  dict(a=(0.042, 0.042, 0.045), dust=(0.16, 0.14, 0.11), rustc=(0.14, 0.058, 0.025), edgec=(0.30, 0.30, 0.31), rough=0.6, metal=0.25, rusty=0.6, dirty=0.6, mottle=0.4,
                         bump=dict(dist=0.002, grain=0.5, rust=0.8, chip=0.4)),
     "metal_bare":  dict(a=(0.26, 0.26, 0.27), dust=(0.22, 0.19, 0.15), rustc=(0.20, 0.08, 0.032), edgec=(0.55, 0.55, 0.57), rough=0.42, metal=1.0, rusty=0.6, dirty=0.8, mottle=0.45,
                         bump=dict(dist=0.002, grain=0.5, rust=0.8, scr=1.0, pit=0.5)),
-    "armor":       dict(a=(0.075, 0.076, 0.07), dust=(0.24, 0.20, 0.155), rustc=(0.18, 0.068, 0.026), edgec=(0.36, 0.36, 0.37), rough=0.62, metal=0.3, rusty=0.9, dirty=0.8, mottle=0.5,
+    "armor":       dict(a=(0.055, 0.057, 0.053), dust=(0.17, 0.145, 0.115), rustc=(0.18, 0.068, 0.026), edgec=(0.3, 0.3, 0.31), rough=0.62, metal=0.3, rusty=0.9, dirty=0.6, mottle=0.5,
                         bump=dict(dist=0.003, grain=0.3, rust=1.0, chip=0.8, scr=1.0, dent=0.6)),
-    "rim":         dict(a=(0.07, 0.07, 0.072), dust=(0.24, 0.19, 0.14), rustc=(0.18, 0.07, 0.028), edgec=(0.38, 0.38, 0.40), rough=0.5, metal=0.3, rusty=1.0, dirty=0.45, mottle=0.4,
+    "rim":         dict(a=(0.05, 0.05, 0.052), dust=(0.17, 0.14, 0.105), rustc=(0.18, 0.07, 0.028), edgec=(0.32, 0.32, 0.33), rough=0.5, metal=0.3, rusty=1.0, dirty=0.45, mottle=0.4,
                         bump=dict(dist=0.002, grain=0.4, rust=0.8, chip=0.6)),
     "interior":    dict(a=(0.065, 0.057, 0.048), dust=(0.20, 0.17, 0.13), rustc=(0.12, 0.06, 0.03), edgec=(0.2, 0.17, 0.14), rough=0.85, metal=0.0, rusty=0.2, dirty=1.0, mottle=0.4,
                         bump=dict(dist=0.0015, grain=0.8, crinkle=0.4)),
@@ -193,7 +193,7 @@ RECIPES = {
                         bump=dict(dist=0.002, weave=1.0, crinkle=0.6)),
     "leather":     dict(a=(0.11, 0.05, 0.022), dust=(0.24, 0.18, 0.12), rustc=(0.05, 0.02, 0.01), edgec=(0.26, 0.15, 0.08), rough=0.62, metal=0.0, rusty=0.1, dirty=1.0, mottle=0.5,
                         bump=dict(dist=0.0015, crinkle=1.0)),
-    "wood":        dict(a=(0.20, 0.115, 0.055), dust=(0.30, 0.23, 0.15), rustc=(0.08, 0.05, 0.03), edgec=(0.34, 0.24, 0.14), rough=0.85, metal=0.0, rusty=0.0, dirty=0.5, mottle=0.6,
+    "wood":        dict(a=(0.17, 0.095, 0.045), dust=(0.18, 0.14, 0.09), rustc=(0.08, 0.05, 0.03), edgec=(0.24, 0.16, 0.09), rough=0.85, metal=0.0, rusty=0.0, dirty=0.4, mottle=0.6,
                         bump=dict(dist=0.003, wood=1.0)),
     "canvas":      dict(a=(0.25, 0.195, 0.12), dust=(0.40, 0.34, 0.25), rustc=(0.12, 0.09, 0.06), edgec=(0.44, 0.38, 0.28), rough=0.95, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.5,
                         bump=dict(dist=0.004, weave=0.6, crinkle=1.0)),
@@ -205,7 +205,7 @@ RECIPES = {
                         bump=dict(dist=0.002, weave=1.0, crinkle=0.5)),
     "rubber":      dict(a=(0.02, 0.02, 0.02), dust=(0.10, 0.09, 0.07), rustc=(0.02, 0.02, 0.02), edgec=(0.09, 0.085, 0.08), rough=0.85, metal=0.0, rusty=0.0, dirty=1.0, mottle=0.3,
                         bump=dict(dist=0.0015, grain=0.8)),
-    "rubber_tire": dict(a=(0.024, 0.023, 0.022), dust=(0.13, 0.11, 0.085), rustc=(0.02, 0.02, 0.02), edgec=(0.07, 0.065, 0.06), rough=0.9, metal=0.0, rusty=0.0, dirty=0.45, mottle=0.3,
+    "rubber_tire": dict(a=(0.024, 0.023, 0.022), dust=(0.11, 0.095, 0.075), rustc=(0.02, 0.02, 0.02), edgec=(0.07, 0.065, 0.06), rough=0.9, metal=0.0, rusty=0.0, dirty=0.45, mottle=0.3,
                         bump=dict(dist=0.0015, grain=1.0)),
     "plastic":     dict(a=(0.03, 0.03, 0.032), dust=(0.18, 0.16, 0.13), rustc=(0.04, 0.04, 0.04), edgec=(0.2, 0.2, 0.2), rough=0.62, metal=0.0, rusty=0.0, dirty=0.45, mottle=0.3,
                         bump=dict(dist=0.001, grain=0.5)),
@@ -255,7 +255,7 @@ def build_wear(m, S, img_hooks=None):
     ao = g.ao(0.5, 16)
     cav = g.ao(0.06, 10)
     bev = g.bevel(0.012 if not is_paint else 0.02, 6)
-    ed = g.clamp(g.mul(g.sub(1.0, g.dot(bev, g.geo("Normal"))), 7.0))
+    ed = g.clamp(g.mul(g.sub(1.0, g.dot(bev, g.geo("Normal"))), 5.0))
     _, _, nzn = g.sep(nrm)
     top = g.new_map_range(nzn, 0.25, 0.95)
     under = g.new_map_range(nzn, -0.35, -0.85)
@@ -286,7 +286,7 @@ def build_wear(m, S, img_hooks=None):
         sn = nz(1.0, 3.0, 0.5, 0.0, (40, 40, 1.2))
         run = g.clamp(g.mul(g.mul(acc, vs), g.new_map_range(sn, 0.42, 0.62)))
     # ---- dirt: grime low on the body, in crevices, streaks under ledges, dust on horizontals, mud around the wheels
-    dirt = g.add(g.mul(low, g.lin(n_m, 0.35 if is_cloth else 1.1, 0.05 if is_cloth else 0.15)), g.mul(g.sub(1.0, cav), 0.30 if is_cloth else 0.45))
+    dirt = g.add(g.mul(low, g.lin(n_m, 0.35 if is_cloth else 1.1, 0.05 if is_cloth else 0.15)), g.mul(g.sub(1.0, cav), 0.25 if is_cloth else 0.32))
     dirt = g.add(dirt, g.mul(g.new_map_range(streak, 0.5, 0.75), g.mul(g.sub(1.0, top), g.mul(g.new_map_range(pz, 0.2, 0.9), 0.28))))
     dust_top = g.mul(top, g.mul(g.new_map_range(n_l, 0.35, 0.75), (0.10 if is_cloth else 0.26) * S.get("dust", 1.0)))
     dirt = g.add(dirt, dust_top)
@@ -305,7 +305,7 @@ def build_wear(m, S, img_hooks=None):
     dirt = g.clamp(g.mul(dirt, dirtS))
     # ---- chipped edges, random paint chips (primer ring + bare core) and scratches
     chipn = n_f
-    chip = g.mul(ed, g.new_map_range(chipn, 0.54 - 0.2 * wearS, 0.57 - 0.2 * wearS))
+    chip = g.mul(ed, g.new_map_range(chipn, 0.57 - 0.08 * wearS, 0.59 - 0.08 * wearS))
     fch = nz(9.0, 3.0, 0.55)
     fchip = g.mul(g.new_map_range(fch, 0.70 - 0.05 * wearS, 0.715 - 0.05 * wearS), wearS)
     fring = g.mul(g.new_map_range(fch, 0.655 - 0.05 * wearS, 0.67 - 0.05 * wearS), wearS)
@@ -429,8 +429,9 @@ def area_report():
     print("AREA total %.1f m2" % sum(tot.values()))
 
 
-DENS = {"metal_dark": 0.42, "interior": 0.65, "fabric": 0.6, "rubber_tire": 0.78, "rust": 0.8, "metal_bare": 0.8, "leather": 0.6,
-        "canvas": 0.7, "cloth_red": 0.7, "cloth_dark": 0.7, "cloth_tan": 0.7, "rubber": 0.6, "plastic": 0.7}
+DENS = {"metal_dark": 0.36, "interior": 0.45, "fabric": 0.45, "rubber_tire": 0.5, "rust": 0.6, "metal_bare": 0.6, "leather": 0.45,
+        "canvas": 0.55, "cloth_red": 0.6, "cloth_dark": 0.5, "cloth_tan": 0.55, "rubber": 0.5, "plastic": 0.5, "wood": 0.6, "armor": 0.75,
+        "rim": 0.55, "chrome": 0.55, "spike": 0.5, "gun_metal": 0.9, "paint": 1.4, "paint2": 1.4}
 
 
 def scale_islands(use):
@@ -477,7 +478,7 @@ def scale_islands(use):
                     d *= 0.55
                 k += d * f.calc_area()
             k /= area
-            if k > 0.985:
+            if abs(k - 1.0) < 0.015:
                 continue
             uvs = [l[uvl] for f in gf for l in f.loops]
             cx = sum(u.uv.x for u in uvs) / len(uvs)
@@ -495,7 +496,7 @@ def spot_uv(idx, res):
     return ((SPOT_CELL * idx + SPOT_CELL * 0.5) / res, 1.0 - SPOT_CELL * 0.5 / res)
 
 
-def unwrap_atlas(objs, tex_mats, res, margin=0.003, angle=66.0):
+def unwrap_atlas(objs, tex_mats, res, margin=0.0018, angle=66.0):
     """Pack every textured, non-flat face into one atlas (scaled to leave the top strip free); flat faces get a per-material colour cell."""
     bpy.ops.object.select_all(action="DESELECT")
     use = []
@@ -894,7 +895,7 @@ def _fill_spots(img_a, img_o, tex, res, orm_res, S, img_n=None, nres=0):
             cell = max(int(SPOT_CELL * r / res), 2)
             x0, y0 = cell * i, 0
             if kind == "a":
-                col = np.array(R["a"], dtype=np.float32) * 0.6 + np.array(R["dust"], dtype=np.float32) * 0.4
+                col = np.array(R["a"], dtype=np.float32) * 0.8 + np.array(R["dust"], dtype=np.float32) * 0.2
                 col = _lin2srgb(col)
                 val = np.array([col[0], col[1], col[2], 1.0], dtype=np.float32)
             else:
@@ -1017,6 +1018,8 @@ class Vehicle:
         for o in bpy.context.scene.objects:
             if o.type == "MESH" and not o.data.uv_layers:
                 o.data.uv_layers.new(name="UVMap")          # tangent export needs a UV map on every mesh
+        if not args.get("nomerge"):
+            consolidate_materials(self.style.get("merge_tris", 130))
         tris = tri_count()
         print("TRIS(before bake)", tris)
         if bake and not args.get("nobake"):
@@ -1101,3 +1104,36 @@ def _rename(o, name):
     o.name = name
     o.data.name = name
     return o
+
+
+# tiny per-object material uses fold into a visually close palette neighbour (each material in a mesh = one draw call)
+MERGE_TO = {"leather": "interior", "plastic": "interior", "rubber": "rubber_tire", "gun_metal": "metal_dark", "gun_steel": "metal_bare",
+            "gun_black": "metal_dark", "cloth_tan": "canvas", "fabric": "interior", "cloth_dark": "interior", "brass": "metal_bare",
+            "wood": "rust", "spike": "metal_bare", "rim": "metal_dark"}
+
+
+def consolidate_materials(max_tris=130):
+    for o in bpy.context.scene.objects:
+        if o.type != "MESH" or o.name == "gun_mg" or o.name.startswith("wheel_"):
+            continue
+        me = o.data
+        names = [s.material.name if s.material else "" for s in o.material_slots]
+        cnt = defaultdict(int)
+        for p in me.polygons:
+            cnt[p.material_index] += len(p.vertices) - 2
+        remap = {}
+        for i, nm in enumerate(names):
+            tgt = MERGE_TO.get(nm)
+            if not tgt or cnt.get(i, 0) == 0 or cnt[i] > max_tris:
+                continue
+            if tgt not in names:
+                if tgt not in rod_lib._MATS:
+                    continue
+                me.materials.append(rod_lib._MATS[tgt])
+                names.append(tgt)
+            remap[i] = names.index(tgt)
+        if remap:
+            for p in me.polygons:
+                if p.material_index in remap:
+                    p.material_index = remap[p.material_index]
+            print("MERGED %-20s %s" % (o.name, ", ".join("%s->%s(%d)" % (names[a], names[b], cnt[a]) for a, b in remap.items())))

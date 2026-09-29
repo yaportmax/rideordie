@@ -14,6 +14,7 @@ export function buildPlayerSpec(profile) {
     nitro: { ...(base.nitro || {}), capacity: e.nitroCap, regen: e.nitroRegen, mul: base.nitro?.mul ?? 1.7 },
     driverHp: e.driverHp, gunnerHp: e.gunnerHp, driverArmor: e.driverArmor, gunnerArmor: e.gunnerArmor,
     tireMul: e.runFlat ? 0.3 : 1, crashMul: 1 - 0.14 * e.ramLevel,
+    ramHurt: 1 + 0.4 * e.ramLevel, spikes: e.spikes, fuelSeal: e.fueltank, // RAM PLATE / SPIKED SKIRTS / SELF-SEALING TANK (read by the sim)
     gunners: 1, susp: base.susp,
   };
   return { spec, effects: e };

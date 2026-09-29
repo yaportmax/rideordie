@@ -13,6 +13,7 @@ import common
 import gear
 import kit
 import lod
+import menace
 import mh
 import outfit
 import paintcloth as PC
@@ -49,10 +50,14 @@ def pants_extra(bk, alb, h):
     front = bk.P[..., 2] < kn[2] + 0.01
     patch = ((np.abs(bk.P[..., 0] - kn[0]) < 0.055) & (np.abs(bk.P[..., 1] - kn[1]) < 0.065) & front & (bk.P[..., 0] < fit.cx)).astype(np.float32)
     edge = U.blur(patch, 1.0) - patch
-    alb = alb * (1 - patch[..., None]) + np.array([0.09, 0.075, 0.05], np.float32) * patch[..., None]
-    stitch = (np.abs(d - 0.06) < 0.0012).astype(np.float32) * patch
+    pc = np.array([0.20, 0.19, 0.12], np.float32) * (0.85 + 0.3 * U.fbm(patch.shape, 30.0, 2, 44))[..., None]
+    alb = alb * (1 - patch[..., None]) + pc * patch[..., None]
+    inner = U.blur(patch, 3.0)
+    ring = np.clip((patch - inner) * 6.0, 0, 1) * patch
+    dash = (np.sin((bk.P[..., 0] + bk.P[..., 1]) * 2 * np.pi / 0.008) > 0.2).astype(np.float32)
+    alb *= (1 - 0.55 * ring * dash)[..., None]
     alb *= (1 - 0.35 * np.clip(edge * 4, 0, 1))[..., None]
-    h = h + patch * 0.0009
+    h = h + patch * 0.0012 - ring * dash * 0.0004
     return alb, h
 
 
@@ -158,6 +163,14 @@ def add_gear(ctx, fit, pcs, gl):
     for g_, m_, r_ in ((pcs["g_vest"], leather_dk, 0.0045),):
         for tube in cloth.bindings(g_, radius=r_, min_len=0.14, sides=3, spacing=0.045):
             common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), m_, binder, label="trim")
+    # --- silhouette upgrades: scrap pauldron with spikes (left), machete across the back, knee pads
+    armor = common.gear_material(ctx, "armor", "scrap", color=(0.60, 0.55, 0.50), rough=1.0, metal=1.0)
+    spike_m = common.gear_material(ctx, "spike", "metal_dark", color=(0.70, 0.68, 0.64), rough=0.8, metal=1.0)
+    menace.pauldron(ctx, brc, binder, "Left", dict(plate=armor, rivet=metal, strap=leather_dk, spike=spike_m), layers=3, spikes=3, size=1.0)
+    grip_m = common.gear_material(ctx, "cloth_tape", "canvas", color=(0.33, 0.29, 0.20), rough=0.95)
+    menace.machete_on_back(ctx, binder, H, dict(sheath=leather, grip=grip_m, metal=metal, strap=leather_dk), brc=brc, standoff=0.045, length=0.46)
+    pad_m = common.gear_material(ctx, "plastic_pad", "plastic", color=(0.12, 0.12, 0.11), rough=0.7)
+    menace.knee_pads(ctx, brc, binder, rc_c, dict(pad=pad_m, strap=black))
     ctx.brc, ctx.binder = brc, binder
 
 
@@ -177,17 +190,21 @@ def build():
         cut_y = hf["eye"][1] + 0.052 - 0.10 * (t * t * (3 - 2 * t)) ** 1.2
         return cent[:, 1] > cut_y
     band = cloth.head_shell(fit, bandana_keep, off=0.006, bridge=0.003)
+    scarf = menace.face_scarf_garment(fit, top=-0.028, off=0.011, point=0.075)
+    pc_scarf = cloth.finish(scarf, fit)
     pc_vest = cloth.finish(vest, fit)
     pc_pants = cloth.finish(pants, fit)
     pc_band = cloth.finish(band, fit)
-    tris = common.cull_tris(ch, [vest.cover, pants.cover, band.cover] + [g.cover for g in gl],
+    tris = common.cull_tris(ch, [vest.cover, pants.cover, band.cover, scarf.cover] + [g.cover for g in gl],
                             hide_bones=("LeftFoot", "RightFoot", "LeftToeBase", "RightToeBase"))
     common.add_skin(ctx, tris, skin_texture(ctx, fit))
     common.add_eyes_lite(ctx, iris=(0.20, 0.32, 0.36))
     common.add_brows(ctx, (0.07, 0.055, 0.045), lashes=False)
-    common.cloth_group(ctx, "cloth_vest", [pc_vest], outfit.leather_painter(VEST, scuff_col=(0.32, 0.2, 0.12), dust=0.5, seed=21, wear=0.8), rough=0.75)
+    emblem = lambda bk, alb, h: menace.paint_back_emblem(bk, alb, h, fit.belt_y + 0.30, "skull", 0.12, colour=(0.80, 0.76, 0.66))
+    common.cloth_group(ctx, "cloth_vest", [pc_vest], outfit.leather_painter(VEST, scuff_col=(0.32, 0.2, 0.12), dust=0.5, seed=21, wear=0.8, extra=emblem),
+                       rough=0.75)
     common.cloth_group(ctx, "cloth_pants", [pc_pants], outfit.fabric_painter(PANTS, dust=0.7, seed=31, legs=True, folds_scale=0.8, extra=pants_extra))
-    common.cloth_group(ctx, "paint", [pc_band], bandana_painter(), color=BANDANA_TINT + (1.0,), rough=0.9, ppm=420)
+    common.cloth_group(ctx, "paint", [pc_band, pc_scarf], bandana_painter(), color=BANDANA_TINT + (1.0,), rough=0.9, ppm=420)
     pcs = dict(vest=pc_vest, pants=pc_pants, g_vest=vest, g_pants=pants)
     add_gear(ctx, fit, pcs, gl)
     ctx.report()

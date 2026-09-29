@@ -7,6 +7,8 @@ import { lookAt } from './look.js';
 import { CoverField } from './dressing/groundcover.js';
 import { RAPIER, GROUPS } from '../sim/physics.js';
 
+/** Private look output (lookAt's default output object is shared by the render loop: never overwrite it from here). */
+const _look = (() => { const src = lookAt(0), o = {}; for (const [k, v] of Object.entries(src)) o[k] = v && v.isColor ? v.clone() : k === 'grade' ? { con: 0, sat: 1, shT: [0, 0, 0], hiT: [1, 1, 1] } : v; return o; })();
 const LOD_DIST = [320, 850, 5000];      // chunk-centre distance thresholds (m) for LOD0/1/2
 const AHEAD = 2100, BEHIND = 260;      // streaming window along s
 const COLLIDE_AHEAD = 400, COLLIDE_BEHIND = 330;
@@ -42,7 +44,7 @@ export class TerrainStreamer {
   /** Ask for the chunks around road distance s. Cheap to call every frame. */
   update(s) {
     this._sLast = s;
-    setRoadNight(this.roadMat, lookAt(s).night);
+    setRoadNight(this.roadMat, lookAt(s, _look).night);
     const c0 = Math.floor((s - BEHIND) / CHUNK_LEN), c1 = Math.floor((s + AHEAD) / CHUNK_LEN);
     const want = [];
     for (let c = Math.max(0, c0); c <= c1; c++) {

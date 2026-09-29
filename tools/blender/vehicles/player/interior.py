@@ -344,7 +344,7 @@ class InteriorMixin:
         # compass ball on the passenger side of the binnacle
         cp = (0.08, lf + 0.2, ztop(lf + 0.2) + 0.03)
         b.box('rubber', (cp[0], cp[1], cp[2] - 0.022), (0.05, 0.05, 0.012), bev=0.003)
-        b.sph('glass', cp, 0.026, n=12)
+        b.sph('glass_lens', cp, 0.026, n=12)
         b.swatch('white')
         b.cyl('decal', (cp[0], cp[1], cp[2] - 0.004), 0.019, 0.004, axis='z', n=12)
         b.swatch(None)

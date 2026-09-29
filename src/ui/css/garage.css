@@ -28,7 +28,7 @@
 .rod-ui .sbar .delta{background:repeating-linear-gradient(-45deg,var(--haz) 0 6px,#a87d0d 6px 12px); animation:deltaGlow 1s ease-in-out infinite alternate}
 .rod-ui .sbar .delta.down{background:repeating-linear-gradient(-45deg,#e2412f 0 6px,#7a231a 6px 12px)}
 @keyframes deltaGlow{from{filter:brightness(.95)}to{filter:brightness(1.3)}}
-.rod-ui .compact .stat{grid-template-columns:128px 1fr auto; column-gap:14px; margin-bottom:0; height:34px; align-items:center}
+.rod-ui .compact .stat{grid-template-columns:128px 1fr auto; column-gap:14px; margin-bottom:0; height:31px; align-items:center}
 .rod-ui .compact .slabel{grid-column:1; grid-row:1} .rod-ui .compact .sbar{grid-column:2; grid-row:1; height:12px} .rod-ui .compact .sval{grid-column:3; grid-row:1}
 .rod-ui .compact .slabel{font-size:16px; letter-spacing:.12em}
 .rod-ui .compact .sval{font-size:20px; min-width:118px}
@@ -43,7 +43,7 @@
 .rod-ui .g-cash .cv{font-family:var(--disp); font-size:62px; letter-spacing:.05em; color:var(--haz); text-shadow:0 0 22px rgba(255,194,26,.35); transform:skewX(-8deg)}
 .rod-ui .g-cash.down .cv{animation:cashDown .7s} .rod-ui .g-cash.up .cv{animation:cashUp .7s}
 @keyframes cashDown{0%{color:#ff6a55}100%{color:var(--haz)}} @keyframes cashUp{0%{color:#b6ff6a}100%{color:var(--haz)}}
-.rod-ui .g-cash .cf{position:absolute; right:34px; top:78px; pointer-events:none}
+.rod-ui .g-cf{position:absolute; right:90px; top:112px; z-index:5; pointer-events:none; text-shadow:0 2px 6px #000}
 .rod-ui .cfl{position:absolute; right:0; white-space:nowrap; font-family:var(--disp); font-size:34px; letter-spacing:.05em; animation:cfloat 1.2s ease-out forwards}
 .rod-ui .cfl.down{color:#ff6a55} .rod-ui .cfl.up{color:#9de34a}
 @keyframes cfloat{0%{opacity:0; transform:translateY(-14px)}15%{opacity:1}100%{opacity:0; transform:translateY(34px)}}
@@ -157,13 +157,13 @@
 .rod-ui .slot.is-f{background:linear-gradient(180deg,#ffa447,#e8792b); border-color:var(--haz); box-shadow:0 0 0 3px var(--haz),0 0 20px rgba(255,194,26,.5)}
 .rod-ui .slot.is-f b,.rod-ui .slot.is-f span{color:#1a0e06}
 .rod-ui .tracks{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-.rod-ui .tracks .trk{position:relative; display:grid; grid-template-columns:1fr auto; align-items:center; row-gap:6px; height:76px; padding:8px 14px 8px 18px; background:#1e1915; border:2px solid #3b322a; transform:skewX(-8deg)}
+.rod-ui .tracks .trk{position:relative; display:grid; grid-template-columns:1fr auto; align-items:center; column-gap:8px; row-gap:5px; height:64px; padding:6px 14px 6px 18px; background:#1e1915; border:2px solid #3b322a; transform:skewX(-8deg)}
 .rod-ui .tracks .trk>*{transform:skewX(8deg)}
 .rod-ui .trk .pips{grid-column:1/-1; justify-self:start}
-.rod-ui .trk b{font-size:18px; font-weight:800; letter-spacing:.11em}
+.rod-ui .trk b{font-size:15px; font-weight:800; letter-spacing:.08em; white-space:nowrap}
 .rod-ui .trk .pips i{width:24px}
 .rod-ui .trk .tp{justify-self:end}
-.rod-ui .trk .pc{font-size:25px} .rod-ui .trk .lk{width:22px; height:22px; color:var(--mute)}
+.rod-ui .trk .pc{font-size:22px} .rod-ui .trk .lk{width:22px; height:22px; color:var(--mute)}
 .rod-ui .trk.st-locked{opacity:.55}
 .rod-ui .trk.prev{border-color:var(--rust)}
 .rod-ui .trk.is-f{background:linear-gradient(180deg,#ffa447,#e8792b); border-color:var(--haz); box-shadow:0 0 0 3px var(--haz),0 0 20px rgba(255,194,26,.5); color:#1a0e06}
@@ -228,3 +228,12 @@
 @keyframes bflash{0%{opacity:.9}100%{opacity:0}}
 .rod-ui .g-cash.deny{animation:shake .38s}
 .rod-ui .g-cash.deny .cv{animation:cashDown .7s}
+
+/* detail panel scroll affordance */
+.rod-ui .g-detail::after{content:''; position:absolute; left:2px; right:12px; bottom:112px; height:70px; pointer-events:none; opacity:0; transition:opacity .2s; z-index:3;
+  background:linear-gradient(180deg,rgba(17,13,10,0),rgba(17,13,10,.95))}
+.rod-ui .g-detail.nofoot::after{bottom:2px}
+.rod-ui .g-detail.has-below::after{opacity:1}
+.rod-ui .g-detail .d-more{position:absolute; left:50%; bottom:122px; z-index:4; transform:translateX(-50%) skewX(-10deg); padding:4px 12px; font-size:13px; font-weight:800; letter-spacing:.24em; color:#1a0e06; background:var(--haz); opacity:0; transition:opacity .2s; pointer-events:none}
+.rod-ui .g-detail.nofoot .d-more{bottom:12px}
+.rod-ui .g-detail.has-below .d-more{opacity:1}

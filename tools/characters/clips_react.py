@@ -37,7 +37,8 @@ def _shove(c, base, d, s, twist_bias=0.0):
             neck=rv(-2 * pz * s, 0, -2 * px * s), head=rv(-3 * pz * s, 2 * px * s, -3 * px * s),
             shr_L=V(0, 0, 7 * s), shr_R=V(0, 0, -7 * s))
     q = weapon_delta(c.rig, q, drot_world=rv(-9 * s * (1 if pz <= 0 else -0.3), 8 * px * s, 0), dpos_world=V(px * 0.03, 0.02, pz * 0.03) * s)
-    q = mod(q, attL=S1(max(0.0, 1.0 - 0.7 * s)))
+    q = mod(q, attL=S1(max(0.0, 1.0 - 0.45 * s)))
+    q = add(q, hL_pos=V(0.04 * s, 0.02 * s, -0.03 * s) * c.k)
     return fingers(q, L_="splay")
 
 
@@ -52,10 +53,20 @@ def _curl(c, base, d, s):
     return mod(q, attL=S1(max(0.0, 1.0 - 0.5 * s)))
 
 
+def free_at_grip(c, p):
+    """Left-hand free target = where the attached hand currently is (chest frame), so releasing it (attL -> 0) is continuous."""
+    rig = c.rig
+    q = M.resolve_grips(rig, p, c.rel)
+    out = copy.deepcopy(p)
+    for key in ("hL_pos", "hL_f", "hL_p"):
+        out[key] = np.asarray(q[key], float).copy()
+    return out
+
+
 def clip_hit(c, dname, heavy=False):
     k = c.k
     rig = c.rig
-    base = strip_private(c.ready["rifle"])
+    base = free_at_grip(c, strip_private(c.ready["rifle"]))
     d = PUSH[dname]
     tr = A.Track(base)
     K(tr, 0.0, base)

@@ -36,7 +36,7 @@ with m.tag('under'):
         m.box('metal_dark', (1.16, 0.09, 0.10), at=(0, 0.37, z), bevel=0.005, seg=1)                           # cross members
     for zc in (ZF, ZR):
         m.cyl('metal_dark', (-0.72, HUBY, zc), (0.72, HUBY, zc), 0.055, seg=8)
-        m.revolve('metal_dark', [(0, -0.2), (0.17, -0.17), (0.2, -0.05), (0.2, 0.05), (0.17, 0.17), (0, 0.2)], at=(0, HUBY, zc), axis='z', seg=12)
+        m.revolve('metal_dark', [(0, -0.2), (0.17, -0.17), (0.2, -0.05), (0.2, 0.05), (0.17, 0.17), (0, 0.2)], at=(0, HUBY, zc), axis='z', seg=8)
         m.cyl('metal_dark', (-0.2, HUBY, zc + 0.19), (0.2, HUBY, zc + 0.19), 0.06, seg=10)
         for sx in (1, -1):
             m.box('metal_dark', (0.09, 0.03, 0.9), at=(0.62 * sx, HUBY + 0.13, zc), bevel=0.004, seg=1)       # leaf springs
@@ -50,7 +50,7 @@ with m.tag('under'):
     for z in (-0.25, -0.85):
         m.box('armor', (0.54, 0.03, 0.05), at=(0.66, 0.2, z), bevel=0.004, seg=1)
     m.tube('metal_dark', [(-0.3, 0.75, 2.05), (-0.42, 0.55, 1.6), (-0.5, 0.36, 1.2), (-0.5, 0.33, -1.9), (-0.45, 0.33, -2.25)], 0.045, seg=7, bend=0.2)
-    m.revolve('metal_dark', [(0, -0.5), (0.11, -0.46), (0.13, -0.3), (0.13, 0.3), (0.11, 0.46), (0, 0.5)], at=(-0.5, 0.31, -1.55), axis='z', seg=12, sx=1.1, sy=0.8)
+    m.revolve('metal_dark', [(0, -0.5), (0.11, -0.46), (0.13, -0.3), (0.13, 0.3), (0.11, 0.46), (0, 0.5)], at=(-0.5, 0.31, -1.55), axis='z', seg=8, sx=1.1, sy=0.8)
     m.tube('metal_dark', [(-0.45, 0.33, -2.25), (0.0, 0.3, -2.3), (0.45, 0.33, -2.2)], 0.045, seg=7, bend=0.1)
 m.tube('chrome', [(0.45, 0.33, -2.2), (0.45, 0.33, -2.68), (0.45, 0.4, -2.88)], 0.05, seg=10, bend=0.1, r_end=0.056)     # tailpipe (exhaust_L)
 for sx in (1, -1):                                                                                             # front recovery hooks
@@ -160,10 +160,8 @@ for sx in (1, -1):
     # rear corner posts (armor angle) with the tail lamps
     m.box('armor', (0.1, 1.9, 0.1), at=(0.955 * sx, 1.45, -2.77), bevel=0.012, seg=1)
     m.rivet_line('metal_dark', (1.008 * sx, 0.6, -2.77), (1.008 * sx, 2.3, -2.77), (sx, 0, 0), step=0.17, r=0.011)
-    for i in range(3):
-        m.box('decal_yellow', (0.1, 0.07, 0.012), at=(0.955 * sx, 1.78 + i * 0.16, -2.826), rot=(0, 0, 35 * sx), bevel=0, seg=1)
     # cab corner armor between door and wheel arch (welded plate) + seam
-    patch_plate(m, (0.998 * sx, 0.84, 1.28), (sx, 0, 0), 0.42, 0.5, mat='armor', t=0.012, bolts=4, bead=sx > 0)
+    patch_plate(m, (0.998 * sx, 0.84, 1.28), (sx, 0, 0), 0.42, 0.5, mat='armor', t=0.012, bolts=4, bead=False)
     m.bead('armor', [(1.0 * sx, 1.46, 1.02), (1.0 * sx, 1.46, 1.66)], r=0.006, n=(sx, 0, 0))
 
 # roof plate with the hatch opening
@@ -209,7 +207,7 @@ m.rivet_rect('metal_dark', ws(0.76, 0, 0.072), 1.86, 0.44, WN, u=(1, 0, 0), v=WD
 for sx in (1, -1):
     m.cyl('metal_dark', ws(1.0, 0.7 * sx, 0.07), ws(1.0, 0.45 * sx, 0.07), 0.02, seg=8)                     # visor hinges
 # welded mesh screen over the lower glass
-mesh_screen(m, ws(0.28, 0, 0.05), (1, 0, 0), WD, 1.8, 0.62, pitch=0.08, r=0.005, mat='metal_dark', frame=0.03, frame_mat='armor', obj='body')
+mesh_screen(m, ws(0.28, 0, 0.05), (1, 0, 0), WD, 1.8, 0.62, pitch=0.09, r=0.005, mat='metal_dark', frame=0.03, frame_mat='armor', obj='body')
 for sx in (1, -1):
     m.beam('armor', ws(0.0, 0.7 * sx, 0.0), ws(0.0, 0.7 * sx, 0.07), 0.03, 0.03, up=WD, bevel=0, seg=1)
 
@@ -231,6 +229,7 @@ for x in (-0.3, 0.3):                                                           
     m.beam('armor', tuple(H0 + LD * 0.06 + LN * 0.04 + Vector((x, 0, 0))), tuple(H0 + LD * 0.8 + LN * 0.04 + Vector((x, 0, 0))), 0.04, 0.03, up=tuple(LN), bevel=0.004, seg=1)
 m.tube('metal_dark', [tuple(H0 + LD * 0.55 - LN * 0.025 + Vector((-0.18, 0, 0))), tuple(H0 + LD * 0.55 - LN * 0.08 + Vector((-0.15, 0, 0))),
                       tuple(H0 + LD * 0.55 - LN * 0.08 + Vector((0.15, 0, 0))), tuple(H0 + LD * 0.55 - LN * 0.025 + Vector((0.18, 0, 0)))], 0.012, seg=5)
+skull_decal(m, tuple(H0 + LD * 0.46 + LN * 0.026), tuple(LN), s=0.42, up=tuple(LD))
 m.cyl('metal_dark', (-0.42, ROOF + 0.17, -1.46), (0.42, ROOF + 0.17, -1.46), 0.03, seg=8)
 m.beam('metal_dark', (0.4, ROOF + 0.18, -0.7), tuple(H0 + LD * 0.6 + Vector((0.4, 0, 0))), 0.025, 0.025, bevel=0.004, seg=1)   # lid stay
 # gun shield in front of the hatch: centre plate with a firing notch + two slits, angled wings, braces
@@ -274,10 +273,10 @@ for z in (-1.8, -2.62):
     m.cyl('metal_dark', (-0.9, RY, z), (0.9, RY, z), 0.02, seg=6)
 for z in (-1.95, -2.2, -2.45):
     m.box('metal_dark', (1.76, 0.025, 0.07), at=(0, RT + 0.05, z), bevel=0.004, seg=1)
-tyre_flat(m, (0.05, RT + 0.2, -2.2), R=0.4, W=0.24, tilt=(0, 0, 4), seg=16)
+tyre_flat(m, (0.05, RT + 0.2, -2.2), R=0.4, W=0.24, tilt=(0, 0, 4), seg=14)
 jerrycan2(m, (0.66, RT + 0.3, -1.95), yaw=90, mat='paint')
 jerrycan2(m, (-0.66, RT + 0.3, -1.95), yaw=86, mat='decal_red')
-tarp_roll(m, (-0.72, RT + 0.12, -2.35), (-0.72, RT + 0.12, -2.72), r=0.1)
+tarp_roll(m, (-0.72, RT + 0.12, -2.35), (-0.72, RT + 0.12, -2.72), r=0.1, seg=8)
 crate(m, (0.64, RT + 0.06, -2.5), (0.36, 0.26, 0.38), yaw=12)
 m.tube('decal_yellow', [(0.9, RY, -1.9), (0.3, RT + 0.44, -2.1), (-0.3, RT + 0.44, -2.3), (-0.9, RY, -2.5)], 0.008, seg=3, bend=0.1, bsteps=2)      # ratchet strap
 # antenna with a rag flag
@@ -285,7 +284,7 @@ m.tube('metal_dark', [(-0.93, RY, -2.62), (-0.95, RY + 0.55, -2.66), (-0.94, RY 
 flag(m, (-0.94, RY + 0.98, -2.7), length=0.36, height=0.2, direction=(0, 0, -1))
 # side exhaust stack (right, behind the cab) with a flapper cap and a heat shield on the body
 m.section('exhaust+ladder')
-exhaust_stack(m, (-1.06, 0.62, -0.3), (-1.06, 2.5, -0.3), r=0.07, mat='chrome')
+exhaust_stack2(m, (-1.06, 0.62, -0.3), (-1.06, 2.5, -0.3), r=0.07, mat='chrome', flap=False)
 m.box('armor', (0.1, 0.14, 0.2), at=(-1.04, 0.9, -0.3), bevel=0.01, seg=1)
 for y in (1.4, 1.95):
     m.box('metal_dark', (0.07, 0.05, 0.18), at=(-1.0, y, -0.3), bevel=0.006, seg=1)
@@ -357,7 +356,7 @@ for sx, nm in ((1, 'panel_door_L'), (-1, 'panel_door_R')):
         m.hexbolt('metal_dark', (1.043 * sx, yy, zz), (sx, 0, 0), r=0.013, h=0.01)
     firing_port(m, (1.043 * sx, 1.08, 0.52), (sx, 0, 0), w=0.3, h=0.07, mat='armor', obj=nm)
     # window: welded mesh
-    mesh_screen(m, (1.0 * sx, 1.75, 0.53), (0, 0, 1), (0, 1, 0), 0.66, 0.5, pitch=0.075, r=0.004, frame=0.03, frame_mat='armor', obj=nm)
+    mesh_screen(m, (1.0 * sx, 1.75, 0.53), (0, 0, 1), (0, 1, 0), 0.66, 0.5, pitch=0.085, r=0.004, frame=0.03, frame_mat='armor', obj=nm)
     m.box('chrome', (0.05, 0.03, 0.16), at=(1.05 * sx, 1.47, 0.16), bevel=0.008, seg=1, obj=nm)                      # handle
     for y in (0.85, 1.85):
         m.cyl('metal_dark', (1.0 * sx, y, 1.0), (1.0 * sx, y + 0.14, 1.0), 0.028, seg=8, obj=nm)                     # hinges
@@ -386,12 +385,12 @@ for sx, nm in ((1, 'panel_armor_L'), (-1, 'panel_armor_R')):
             m.hexbolt('metal_dark', (x + 0.016 * sx, yy, zz), (sx, 0, 0), r=0.014, h=0.012, obj=nm)
     m.bead('armor', [(x + 0.02 * sx, 0.8, -1.635), (x + 0.02 * sx, 2.26, -1.635)], r=0.008, obj=nm, n=(sx, 0, 0))
     m.rivet_rect('metal_dark', (x + 0.018 * sx, 1.53, -2.175), 1.09, 1.5, (sx, 0, 0), u=(0, 0, -1), v=(0, 1, 0), step=0.27, r=0.012, inset=0.04, obj=nm)
-    patch_plate(m, (x + 0.02 * sx, 1.25, -1.1), (sx, 0, 0), 0.4, 0.3, mat='armor', t=0.01, obj=nm, bolts=4, rot=7, bead=False)
+    patch_plate(m, (x + 0.02 * sx, 1.0, -1.38), (sx, 0, 0), 0.36, 0.28, mat='armor', t=0.01, obj=nm, bolts=4, rot=7, bead=False)
     firing_port(m, (x + 0.018 * sx, 1.4, -2.2), (sx, 0, 0), w=0.34, h=0.08, mat='armor', obj=nm, open_=0.3)
     m.box('armor', (0.05, 0.04, 2.6), at=(x + 0.02 * sx, 2.3, -1.42), bevel=0.006, seg=1, obj=nm)                   # top cap
     for zz in (-2.55, -2.05, -1.45, -0.95):                                                                        # low welded spikes
         spike2(m, (x + 0.02 * sx, 0.9, zz), (x + 0.2 * sx, 0.84, zz + 0.05), 0.028, mat='spike', obj=nm)
-    m.text('decal_white', 'X', (x + 0.02 * sx, 1.33, -1.05), u=(0, 0, -sx), v=(0, 1, 0), size=0.36, depth=0.004, obj=nm)
+    m.text('decal_white', 'X', (x + 0.02 * sx, 1.38, -0.95), u=(0, 0, -sx), v=(0, 1, 0), size=0.4, depth=0.004, obj=nm)
     if sx > 0:
         chain(m, [(x + 0.03 * sx, 2.18, -2.5), (x + 0.03 * sx, 2.18, -1.85)], link=0.06, wire=0.007, sag=0.2, obj=nm)
     m.use('body')
@@ -423,7 +422,7 @@ for i in range(12):                                                             
 for sx in (1, -1):                                                                                              # V cow-catcher
     for i in range(4):
         xb = sx * (0.18 + i * 0.22)
-        m.beam('armor', (xb, 0.84, 2.9), (xb * 0.94, 0.3, 3.02 + (0.12 - 0.035 * i)), 0.05, 0.04, bevel=0.006, seg=1, obj=nm)
+        m.beam('armor', (xb, 0.84, 2.9), (xb * 0.94, 0.3, 3.02 + (0.12 - 0.035 * i)), 0.05, 0.04, bevel=0, seg=1, obj=nm)
     m.beam('armor', (sx * 0.02, 0.3, 3.15), (sx * 0.92, 0.3, 2.96), 0.07, 0.05, bevel=0.008, seg=1, obj=nm)                     # keel
     spike2(m, (sx * 0.5, 0.32, 3.07), (sx * 0.52, 0.3, 3.26), 0.035, obj=nm)
     spike2(m, (sx * 1.04, 0.62, 2.9), (sx * 1.26, 0.6, 3.04), 0.04, obj=nm)

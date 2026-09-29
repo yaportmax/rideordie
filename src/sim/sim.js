@@ -181,6 +181,15 @@ export class Sim {
     if (other) dmg *= clamp(other.veh.mass / car.veh.mass, 0.5, 2.0) ** 0.5;
     if (car.kind === 'player') dmg *= (this.playerCrashMul ?? 1);
     if (car.kind === 'player' && other && other.kind === 'enemy') dmg *= (this.enemyRamMul ?? 1); // set by the director (grows with level)
+    if (car.kind === 'enemy' && other && other.kind === 'player') {
+      dmg *= other.spec.ramHurt ?? 1;                                         // RAM PLATE: hitting us hurts them more
+      const sp = other.spec.spikes || 0;                                       // SPIKED SKIRTS: side-swipes shred them
+      if (sp > 0 && Math.abs(dir.x * other.veh.left.x + dir.y * other.veh.left.y + dir.z * other.veh.left.z) > 0.5 && this.time - (car.spikeT ?? -9) > 0.35) {
+        car.spikeT = this.time; dmg += 14 * sp;
+        for (let i = 0; i < car.tireHp.length; i++) car.tireHp[i] -= 0.7 * sp;
+        this.emit({ t: 'spikeHit', id: car.id, pos: [car.veh.pos.x, car.veh.pos.y, car.veh.pos.z] });
+      }
+    }
     if (!other) {
       if (this._lastOther === 'ramp') return;          // ramps launch you, they never hurt
       if (Math.abs(dir.y) > 0.8) dmg = Math.max(0, dv - 3) * 0.9; // landings: free unless it is a real slam
@@ -259,11 +268,16 @@ export class Sim {
         this.damageCar(car, dmg * armorMul * 0.5, info);
         if (car.engineHp <= 0 && !car.smoking) { car.smoking = true; this.emit({ t: 'engineDead', id: car.id }); }
         return;
-      case 'fuel':
-        car.fuelHp -= dmg * armorMul;
+      case 'fuel': {
+        const seal = car.spec.fuelSeal || 0;                                   // SELF-SEALING TANK
+        car.fuelHp -= dmg * armorMul / (1 + seal);
         this.damageCar(car, dmg * armorMul * 0.5, info);
-        if (car.fuelHp <= 0 && !car.exploded && car.fuseT < 0) { car.fuseT = 0.4 + Math.random() * 0.6; this.emit({ t: 'fuelLeak', id: car.id }); }
+        if (car.fuelHp <= 0 && !car.exploded && car.fuseT < 0) {
+          if (seal > 0) { car.fuelHp = 60 + car.maxHp * 0.3 * seal; if (car.burning <= 0) { car.burning = 0.001; car.sealBurn = 2.5 + seal; } this.emit({ t: 'fire', id: car.id }); }
+          else { car.fuseT = 0.4 + Math.random() * 0.6; this.emit({ t: 'fuelLeak', id: car.id }); }
+        }
         return;
+      }
       case 'tire': {
         const i = z.index; car.tireHp[i] -= dmg * (car.spec.tireMul ?? 1) / 12;
         if (car.tireHp[i] <= 0 && !car.veh.wheels[i].flat) { const w = car.veh.wheels[i]; w.flat = true; w.grip = 0.55; this.emit({ t: 'tirePop', id: car.id, index: i }); }
@@ -352,6 +366,8 @@ export class Sim {
       const f = car.hp / car.maxHp;
       if (f < 0.34 && !car.smoking) { car.smoking = true; this.emit({ t: 'smoke', id: car.id }); }
       if (f < 0.16 && car.burning <= 0) { car.burning = 0.001; this.emit({ t: 'fire', id: car.id }); }
+      // a self-sealing tank fire burns out on its own (unless the truck is already cooked)
+      if (car.sealBurn && car.burning > car.sealBurn && f >= 0.16) { car.burning = 0; car.sealBurn = 0; }
       if (car.burning > 0) { car.burning += dt; this.damageCar(car, dt * (car.maxHp * 0.03), { cause: 'fire' }); if (car.burning > 9 && !car.exploded) this.explodeCar(car, 'fire', car.lastHitBy); }
       if (car.fuseT >= 0) { car.fuseT -= dt; if (car.fuseT < 0) this.explodeCar(car, car.chainFrom ? 'crash' : 'fuel', car.lastHitBy); }
     }

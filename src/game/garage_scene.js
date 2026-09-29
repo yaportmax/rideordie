@@ -73,7 +73,7 @@ export class GarageScene {
     this.set = buildGarageSet(s);
     this.set.group.traverse((o) => { if ((o.isMesh && !(o.material.transparent && !o.material.depthWrite)) || o === this.set.neon) o.layers.enable(REFL); });
     this._lights();
-    this.sparks = new PuffSystem(120, { tex: 'spark', renderOrder: 9 });
+    this.sparks = new PuffSystem(120, { tex: 'spark', renderOrder: 9, animFrames: false });
     this.sparks.mat.blending = THREE.AdditiveBlending; this.sparks.mat.uniforms.uAmb.value.set(4, 2.2, 0.8); this.sparks.mat.uniforms.uSunCol.value.set(0, 0, 0); this.sparks.mat.uniforms.uGrid.value.set(1, 1);
     s.add(this.sparks.mesh);
     // ---------------------------------------------------------------- truck / crew / bench weapon
@@ -131,8 +131,8 @@ export class GarageScene {
     // low sun through the door: long golden patch across the floor, backlight on the truck
     const sun = this.sun = new THREE.DirectionalLight(0xffb070, 3.6);
     sun.position.copy(SUN_DIR).multiplyScalar(60).add(new THREE.Vector3(3, 0, -4)); sun.target.position.set(3, 0, 2);
-    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04;
-    const c = sun.shadow.camera; c.left = -20; c.right = 20; c.top = 20; c.bottom = -20; c.near = 20; c.far = 110;
+    sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04;
+    const c = sun.shadow.camera; c.left = -13; c.right = 13; c.top = 13; c.bottom = -13; c.near = 20; c.far = 110;
     s.add(sun, sun.target);
     // key: warm top-front spot on the bay (shadowed), cool rim from the back-left, lamp pools
     const key = this.key = new THREE.SpotLight(0xffe2c0, 520, 0, 0.5, 0.6, 2);
@@ -171,6 +171,16 @@ export class GarageScene {
     return g;
   }
 
+  /** Graphics quality 0..3 (settings): LOW/MEDIUM drop MSAA, the floor reflection and bloom radius; HIGH/ULTRA get everything. */
+  setQuality(q = 2) {
+    if (q === this.quality) return;
+    this.quality = q;
+    const rt = this.post.rt, want = q >= 2 ? 4 : 0;
+    if (rt.samples !== want) { rt.samples = want; rt.dispose(); }
+    this.reflOn = q >= 1; this.refl.strength.value = this.reflOn ? 1 : 0;
+    this.post.bloom.radius = q >= 2 ? 0.55 : 0.4;
+  }
+
   // ------------------------------------------------------------------------------------------------ stages
   /** 'garage' | 'title'. Cross-fades through black. */
   setStage(stage) {
@@ -200,6 +210,8 @@ export class GarageScene {
       this._snapCamera();
     }
   }
+  /** A run is starting: free the big menu render targets (re-allocated on the next menu frame; programs stay compiled). */
+  release() { this.post.rt.dispose(); this.refl.rt.dispose(); this.refl.size.set(0, 0); }
   /** Fade in from black (entering the garage after a run). */
   fadeIn() { this.fade = 1; this.fadeTo = 0; }
 
@@ -228,7 +240,7 @@ export class GarageScene {
     for (let i = 0; i < 46; i++) {
       const a = Math.random() * Math.PI * 2, u = Math.random();
       _v2.set(Math.cos(a) * (2 + u * 4), 2 + Math.random() * 5, Math.sin(a) * (2 + u * 4));
-      this.sparks.emit(at, _v2, { size: 0.05 + Math.random() * 0.06, grow: 0.2, life: 0.5 + Math.random() * 0.6, alpha: 1, drag: 0.6, rise: -9, spin: 0, frameRow: 0 });
+      this.sparks.emit(at, _v2, { size: 0.12 + Math.random() * 0.1, grow: 0.2, life: 0.5 + Math.random() * 0.6, alpha: 1, drag: 0.6, rise: -9, spin: 0, frameRow: 0 });
     }
   }
 
@@ -276,11 +288,11 @@ export class GarageScene {
     const box = new THREE.Box3().setFromObject(w.root), size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
     w.root.position.sub(ctr);
     holder.userData.size = Math.max(size.x, size.y, size.z);
-    // small rotating display plinth + two padded rests under the gun
+    // small rotating display plinth under the gun
     const L = Math.max(size.x, size.z);
     const plinth = new THREE.Mesh(new THREE.CylinderGeometry(L * 0.52, L * 0.55, 0.04, 48), this._plinthMat || (this._plinthMat = new THREE.MeshStandardMaterial({ color: 0x18171a, metalness: 0.7, roughness: 0.35 })));
     plinth.position.y = -size.y / 2 - 0.045; plinth.receiveShadow = true; holder.add(plinth);
-    for (const f of [-0.28, 0.22]) { const rest = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.04, 0.1), this._restMat || (this._restMat = new THREE.MeshStandardMaterial({ color: 0x5a1a12, roughness: 0.8 }))); rest.position.set(0, -size.y / 2 - 0.005, f * L); holder.add(rest); }
+    const pr = new THREE.Mesh(new THREE.TorusGeometry(L * 0.535, 0.006, 6, 96).rotateX(Math.PI / 2), this.ringMat); pr.position.y = -size.y / 2 - 0.024; holder.add(pr);
     holder.position.copy(BENCH).add(_v.set(0, size.y / 2 + 0.07, 0));
     holder.userData.base = holder.position.clone();
     this.scene.add(holder);
@@ -402,7 +414,7 @@ export class GarageScene {
       T?.end();
       return;
     }
-    T?.begin('refl'); this.refl.update(this.renderer, this.scene, this.camera); T?.end();
+    T?.begin('refl'); if (this.reflOn !== false) this.refl.update(this.renderer, this.scene, this.camera); T?.end();
     T?.begin('garage'); this.post.render(this.scene, this.camera, this.dt); T?.end();
   }
 }
@@ -414,6 +426,7 @@ class FloorReflection {
     this.rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
     this.cam = new THREE.PerspectiveCamera(); this.cam.layers.set(REFL);
     this.texMatrix = new THREE.Matrix4();
+    this.strength = { value: 1 };
     this.size = new THREE.Vector2();
   }
   update(renderer, scene, camera) {
@@ -458,9 +471,10 @@ function makeFloorMaterial(refl) {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uRefl = { value: refl.rt.texture };
     sh.uniforms.uReflMat = { value: refl.texMatrix };
+    sh.uniforms.uReflK = refl.strength;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform mat4 uReflMat; varying vec4 vReflUv;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvReflUv = uReflMat * (modelMatrix * vec4(transformed, 1.0));');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uRefl; varying vec4 vReflUv;')
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uRefl; uniform float uReflK; varying vec4 vReflUv;')
       .replace('#include <opaque_fragment>', `
       {
         vec2 ruv = vReflUv.xy / vReflUv.w + normal.xz * 0.012;
@@ -468,7 +482,7 @@ function makeFloorMaterial(refl) {
         vec3 rc = textureLod(uRefl, ruv, 1.0 + rough * 3.5).rgb;
         vec3 vdir = normalize(vViewPosition);
         float fres = 0.18 + 0.82 * pow(1.0 - abs(dot(normal, -vdir)), 4.0);
-        float k = (1.0 - smoothstep(0.35, 0.95, rough)) * 0.4 * fres;
+        float k = (1.0 - smoothstep(0.35, 0.95, rough)) * 0.4 * fres * uReflK;
         outgoingLight = outgoingLight * (1.0 - k * 0.35) + rc * k;
       }
       #include <opaque_fragment>`);

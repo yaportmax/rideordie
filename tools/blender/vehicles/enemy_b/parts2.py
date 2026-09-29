@@ -42,7 +42,7 @@ def wheel2(m, meshname, R, W, side, rim_ratio=0.6, lugs=16, tread_h=0.035, style
             for row in (1, -1):
                 a = (i + (0.5 if row < 0 else 0.0)) * pitch
                 ca, sa = math.cos(a), math.sin(a)
-                rc = Rb + tread_h / 2 - 0.006
+                rc = Rb + tread_h / 2 - 0.009
                 L = 2 * PI * Rb / lugs * 0.7
                 # staggered block reaching from the centre groove over the shoulder, slight chevron twist
                 with m.xf((row * hw * 0.5, rc * sa, rc * ca), (90 - a / D2R, 0, 0)):
@@ -58,8 +58,6 @@ def wheel2(m, meshname, R, W, side, rim_ratio=0.6, lugs=16, tread_h=0.035, style
                 (R, -0.08 * hw), (R, -0.37 * hw), (R - g, -0.40 * hw), (R - g, -0.52 * hw), (R, -0.55 * hw), (R, -0.86 * hw),
                 (R - 0.012, -0.95 * hw), (Rr + 0.82 * sw, -1.0 * hw), (Rr + 0.5 * sw, -1.03 * hw), (Rr + 0.18 * sw, -0.97 * hw), (Rr + 0.01, -0.80 * hw)]
         m.revolve('rubber_tire', prof, axis='x', seg=seg, closed=False)
-    # sidewall lettering band (raised ring) on the outer side
-    m.revolve('rubber_tire', [(Rr + 0.56 * sw, 1.04 * hw * s), (Rr + 0.72 * sw, 1.04 * hw * s)], axis='x', seg=seg, closed=False)
     # ---- steel wheel
     sc = R / 0.5
     lip = [(Rr + 0.028 * sc, 0.86 * hw * s), (Rr + 0.028 * sc, 0.97 * hw * s), (Rr - 0.012 * sc, 0.99 * hw * s), (Rr - 0.02 * sc, 0.8 * hw * s),
@@ -86,7 +84,7 @@ def wheel2(m, meshname, R, W, side, rim_ratio=0.6, lugs=16, tread_h=0.035, style
     if beadlock:
         m.revolve(rim_mat, [(Rr + 0.036 * sc, 0.0), (Rr + 0.036 * sc, 0.012 * sc), (Rr - 0.006 * sc, 0.012 * sc)],
                   at=(0.97 * hw * s, 0, 0), axis=(s, 0, 0), seg=seg, closed=False)
-        nb = 8
+        nb = 6
         for i in range(nb):
             a = 2 * PI * (i + 0.25) / nb
             rb = Rr + 0.016 * sc
@@ -109,34 +107,36 @@ def wheel_set2(m, tag, R, W, positions, names, **kw):
 def sandbag(m, c, L=0.5, D=0.3, H=0.16, yaw=0.0, mat='canvas', obj=None, sag=0.02, seed=None):
     """Filled sandbag: flattened pillow with pinched, tied ends.  c = centre of the bottom face."""
     rng = m.rng
-    nu, nv = 6, 7
+    ts = [0.0, 0.06, 0.2, 0.5, 0.8, 0.94, 1.0]
+    nv = 8
     rings = []
     tw = rng.uniform(-0.03, 0.03)
-    for i in range(nu + 1):
-        t = i / nu                              # 0..1 along length
+    for t in ts:
         z = (t - 0.5) * L
-        pinch = math.sin(PI * t) ** 0.35       # ends pinched
-        w = D * 0.5 * (0.35 + 0.65 * pinch)
-        h = H * (0.25 + 0.75 * pinch)
+        e = min(t, 1 - t)
+        pinch = 0.45 + 0.55 * min(1.0, e / 0.16) ** 0.6       # ends pinched, body full
+        w = D * 0.5 * pinch
+        h = H * (0.35 + 0.65 * min(1.0, e / 0.12) ** 0.7)
         bend = sag * math.sin(PI * t)
         ring = []
         for k in range(nv):
-            a = 2 * PI * k / nv
-            x = math.cos(a) * w
-            yy = math.sin(a) * h * 0.5
-            yy = max(yy, -h * 0.5 + 0.004)                     # flat bottom
+            a = 2 * PI * (k + 0.5) / nv
+            ca, sa = math.cos(a), math.sin(a)
+            x = math.copysign(abs(ca) ** 0.6, ca) * w             # squarish section
+            yy = math.copysign(abs(sa) ** 0.75, sa) * h * 0.5
+            yy = max(yy, -h * 0.5 + 0.004)
             yy += h * 0.5 - bend * (1 if yy > 0 else 0.3)
-            x += tw * (t - 0.5) * 2 * (0.5 + 0.5 * math.sin(a))
+            x += tw * (t - 0.5) * 2 * (0.5 + 0.5 * sa)
             ring.append((x, yy, z))
         rings.append(ring)
     M = xform(c, (0, yaw, 0))
     rings = [[tuple(M @ V3(p)) for p in r] for r in rings]
     m.sweep(mat, rings, caps=True, obj=obj)
-    # tied ends (little tufts)
-    for e in (-1, 1):
-        p = M @ Vector((tw * e, H * 0.45, e * L * 0.5))
-        q = M @ Vector((tw * e * 1.5, H * 0.5, e * (L * 0.5 + 0.045)))
-        m.cyl(mat, tuple(p), tuple(q), 0.022, 0.012, seg=4, obj=obj)
+    # tied end (one tuft)
+    e = 1 if rng.random() > 0.5 else -1
+    p = M @ Vector((tw * e, H * 0.3, e * L * 0.5))
+    q = M @ Vector((tw * e * 1.5, H * 0.34, e * (L * 0.5 + 0.05)))
+    m.cyl(mat, tuple(p), tuple(q), 0.026, 0.014, seg=4, obj=obj)
 
 
 def sandbag_ring(m, pts, y0, rows=2, L=0.5, D=0.3, H=0.16, mat='canvas', obj=None, closed=False):
@@ -421,7 +421,7 @@ def bucket_seat2(m, hip, w=0.52, obj='body', cover='leather', frame='metal_dark'
         m.box(cover, (w, back_h, 0.12), at=(0, back_h / 2 + 0.03, 0), bevel=0.035, seg=1, obj=obj)
         for sx in (1, -1):
             m.box(cover, (0.09, back_h * 0.8, 0.16), at=(sx * (w / 2 - 0.04), back_h * 0.45, 0.03), bevel=0.03, seg=1, obj=obj)
-        m.box(cover, (w * 0.55, 0.2, 0.1), at=(0, back_h + 0.13, 0.0), bevel=0.03, seg=1, obj=obj)            # headrest
+        m.box(cover, (w * 0.55, 0.18, 0.1), at=(0, back_h + 0.12, 0.0), bevel=0, seg=1, obj=obj)            # headrest
 
         if torn:
             m.box('canvas', (w * 0.3, 0.14, 0.02), at=(w * 0.1, back_h * 0.55, 0.066), rot=(0, 0, 12), bevel=0.01, seg=1, obj=obj)
@@ -439,7 +439,7 @@ def steering_wheel2(m, at, tilt, r=0.19, mat='leather', obj_name='steering_wheel
     M = xform(at, (tilt, 0, 0))
     m.use(obj_name)
     with m.xf(at, (tilt, 0, 0)):
-        m.revolve(mat, [(r, -0.017), (r + 0.022, 0.0), (r, 0.017), (r - 0.022, 0.0)], axis='z', seg=18)
+        m.revolve(mat, [(r, -0.017), (r + 0.022, 0.0), (r, 0.017), (r - 0.022, 0.0)], axis='z', seg=15)
         m.revolve('metal_dark', [(0.055, -0.03), (0.06, 0.0), (0.045, 0.035), (0.0, 0.045)], axis='z', seg=10, closed=False)
         angs = (90, 210, 330) if spokes == 3 else (0, 90, 180, 270)
         for a in angs:
@@ -495,7 +495,7 @@ def headlight2(m, at, r, n=(0, 0, 1), obj='body', seg=12, housing='metal_dark'):
     m.revolve('light_head', [(r * 0.12, -0.06), (r * 0.1, -0.03), (0.0, -0.025)], at=tuple(P), axis=N, seg=6, obj=obj, closed=False)
 
 
-def spot2(m, at, n=(0, 0, 1), r=0.09, obj='body', seg=10):
+def spot2(m, at, n=(0, 0, 1), r=0.09, obj='body', seg=8):
     """round work lamp on a U bracket (about 170 tris)"""
     P = V3(at); nn = V3(n).normalized()
     N = tuple(nn)
@@ -508,3 +508,39 @@ def spot2(m, at, n=(0, 0, 1), r=0.09, obj='body', seg=10):
                up=tuple(nn), bevel=0, obj=obj)
     m.beam('metal_dark', tuple(P - nn * 0.06 - side * (r * 1.1) - Vector((0, r * 1.3, 0))), tuple(P - nn * 0.06 + side * (r * 1.1) - Vector((0, r * 1.3, 0))),
            0.03, 0.014, up=(0, 1, 0), bevel=0, obj=obj)
+
+
+def skull_decal(m, c, n, s=0.3, mat='decal_white', dark='metal_dark', obj=None, up=(0, 1, 0)):
+    """crude spray-painted gang skull (flat decal plates) centred c, facing n, height ~s"""
+    U, Vv, N = _frame(n, up)
+    C = V3(c) + N * 0.003
+    head = [(0.5 * s * math.cos(2 * PI * k / 12), 0.1 * s + 0.42 * s * math.sin(2 * PI * k / 12)) for k in range(12)]
+    m.plate(mat, head, 0.004, at=tuple(C), u=tuple(U), v=tuple(Vv), bevel=0, obj=obj)
+    m.plate(mat, [(-0.26 * s, -0.42 * s), (0.26 * s, -0.42 * s), (0.3 * s, -0.12 * s), (-0.3 * s, -0.12 * s)], 0.004, at=tuple(C), u=tuple(U), v=tuple(Vv), bevel=0, obj=obj)
+    D2 = C + N * 0.004
+    for sx in (-1, 1):
+        eye = [(sx * 0.2 * s + 0.12 * s * math.cos(2 * PI * k / 7), 0.08 * s + 0.11 * s * math.sin(2 * PI * k / 7)) for k in range(7)]
+        m.plate(dark, eye, 0.004, at=tuple(D2), u=tuple(U), v=tuple(Vv), bevel=0, obj=obj)
+    m.plate(dark, [(0.0, -0.06 * s), (0.06 * s, -0.18 * s), (-0.06 * s, -0.18 * s)], 0.004, at=tuple(D2), u=tuple(U), v=tuple(Vv), bevel=0, obj=obj)
+    for i in range(3):
+        x = (-0.12 + 0.12 * i) * s
+        m.plate(dark, [(x - 0.012 * s, -0.4 * s), (x + 0.012 * s, -0.4 * s), (x + 0.012 * s, -0.26 * s), (x - 0.012 * s, -0.26 * s)], 0.004, at=tuple(D2),
+                u=tuple(U), v=tuple(Vv), bevel=0, obj=obj)
+
+
+def exhaust_stack2(m, base, top, r=0.08, obj=None, mat='chrome', cap='metal_dark', shroud=True, flap=True, seg=8):
+    """vertical stack: pipe, rolled lip, perforated heat shield with clamp bands, rain flap (about 220 tris)"""
+    b, t = V3(base), V3(top)
+    d = (t - b).normalized()
+    m.cyl(mat, tuple(b), tuple(t), r, seg=seg, caps=False, obj=obj)
+    m.revolve(cap, [(r * 0.82, -0.02), (r * 1.12, -0.02), (r * 1.12, 0.004), (r * 0.82, 0.004)], at=tuple(t), axis=tuple(d), seg=seg, obj=obj, closed=False)
+    m.revolve('metal_dark', [(r * 0.82, 0.0), (0.0, -0.03)], at=tuple(t), axis=tuple(d), seg=seg, obj=obj, closed=False)
+    if shroud:
+        c0, c1 = b + (t - b) * 0.12, b + (t - b) * 0.55
+        m.cyl('metal_bare', tuple(c0), tuple(c1), r * 1.35, seg=seg, caps=False, obj=obj)
+        for f in (0.03, 0.97):
+            c = c0 + (c1 - c0) * f
+            m.cyl('metal_dark', tuple(c - d * 0.015), tuple(c + d * 0.015), r * 1.42, seg=seg, caps=False, obj=obj)
+    if flap:
+        side = d.orthogonal().normalized()
+        m.obox(cap, tuple(t + d * 0.03 + side.cross(d) * (r * 0.3)), tuple(side), tuple((d * 0.85 + side.cross(d) * 0.5).normalized()), (r * 2.3, r * 2.3, 0.008), bevel=0, obj=obj)

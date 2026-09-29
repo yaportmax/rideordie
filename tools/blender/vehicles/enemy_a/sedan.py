@@ -370,7 +370,7 @@ def build_plates():
 def build_trunk_junk():
     zt = deck_z(-1.95)
     spare_tyre("jk_tyre", (-0.36, -1.98, zt + 0.115), (0, 0, 1), R=0.34, W=0.22, rim_r=0.2, g="panel_trunk", sides=22)
-    jerry_can("jk_can1", (0.34, -1.64, zt + 0.0), yaw=90, m="armor", g="panel_trunk")                         # standing
+    jerry_can("jk_can1", (0.34, -1.64, zt + 0.0), yaw=90, m="paint2", g="panel_trunk")                         # standing
     jerry_can("jk_can2", (0.40, -1.98, zt - 0.004), yaw=4, m="rust", g="panel_trunk", lie=True)               # lying flat
     crate("jk_crate", (0.42, -2.26, deck_z(-2.26) - 0.004), (0.40, 0.28, 0.22), yaw=-6, g="panel_trunk")
     tarp_roll("jk_roll", (-0.30, -1.55, zt + 0.085), (1, 0, 0), 0.62, 0.085, m="canvas", g="panel_trunk", seed=2)

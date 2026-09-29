@@ -96,12 +96,17 @@ function profile(id, seed, s, a, side, sm) {
       const massH = T.mass * (up ? 1 : 0.35) * (0.5 + ridged2(s / 520 + side * 4, a / 300, 4, seed + 52));
       // buttresses: the foot of the slope moves in and out along the road
       const foot = up ? (fbm1(s / 110 + side * 3, 3, seed + 57) - 0.5) * 36 + (ridged2(s / 34, 0.4, 2, seed + 58) - 0.5) * 16 : 0;
-      const slope = smoothstep(4 + Math.max(0, foot) * 0.4, (up ? 60 : 110) + foot, a);
+      const slope = smoothstep(4 + Math.max(0, foot) * 0.4, (up ? 92 : 110) + foot, a);
       const detail = (fbm2(s / 45, a / 40, 4, seed + 53) * 2 - 1) * T.amp * smoothstep(0, 30, a);
       // crags, ribs and gullies running up the big slopes (far enough from the road that the drivable verge is unchanged)
       const crag = ((ridged2(s / 55, a / 38, 3, seed + 55) - 0.5) * 22 + (ridged2(s / 21, a / 70, 2, seed + 56) - 0.5) * 16
         + (ridged2(s / 28, a / 260, 2, seed + 59) - 0.55) * 34) * smoothstep(22, 80, a) * (up ? 1 : 0.4);
-      h = massH * slope * slope * 0.9 + detail + crag;
+      let mv = massH * slope * slope * 0.9;
+      if (up) {                                          // benches: the face breaks into ledges (forest / snow collect on them)
+        const terr = 16 + 8 * fbm1(s / 240, 2, seed + 60), st = mv / terr, fl = Math.floor(st), fr = st - fl;
+        mv = lerp(mv, (fl + smoothstep(0.1, 0.55, fr)) * terr, 0.65 * smoothstep(10, 40, mv));
+      }
+      h = mv + detail + crag;
       if (!up) h -= 55 * smoothstep(6, 55, a) * (0.6 + 0.4 * fbm1(s / 300, 2, seed + 54)); // valley side drops away
       break;
     }

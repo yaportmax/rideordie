@@ -357,6 +357,7 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
     """Sample `track` at 120 Hz over T s, apply `layer(p, t)`, the overlap `springs`, resolve the weapon grips, then solve
     at 30 fps (T*30+1 frames; loops end on their first frame).  post(p, t) runs on the 30 fps params right before solving.
     ground=True keeps the body on y = 0 (clamp from the start, stick from ground_from)."""
+    unwrap_angle_keys(track)
     n30 = int(round(T * A.FPS))
     step = int(round(HZ / A.FPS))
     nhi = n30 * step
@@ -364,6 +365,7 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
     params = track.sample(times_hi, loop=loop) if len(track.times) > 1 else [copy.deepcopy(track.vals[0]) for _ in times_hi]
     if layer is not None:
         params = [layer(p, float(t)) for p, t in zip(params, times_hi)]
+    params = finger_filter(params, loop)
     if springs:
         if loop:
             params = overlap(rig, params[:-1], springs, loop=True, frames=frames) + [None]
@@ -372,6 +374,7 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
             params = overlap(rig, params, springs, loop=False, settle=settle, frames=frames)
     params30 = params[::step]
     times = np.arange(n30 + 1) / A.FPS
+    rig.reset_state()
     Ls, hips, poses, used = [], [], [], []
     for t, p in zip(times, params30):
         if post is not None:
@@ -412,6 +415,7 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
         hips.append(P[0].copy())
         poses.append((W, P))
         used.append(p)
+    rig.state = None
     Ls = np.array(Ls)
     q = R.from_matrix(Ls.reshape(-1, 3, 3)).as_quat().reshape(len(times), NB, 4)
     for t in range(1, len(q)):
@@ -421,6 +425,50 @@ def bake2(rig, track, T, loop, frames=("chest", "chest"), layer=None, springs=No
         q[-1] = q[0]
         hips[-1] = hips[0]
     return dict(times=times, rot=q, hips_t=np.array(hips), loop=loop, note=note, _poses=poses, _params=used)
+
+
+ANGLE_KEYS = ("fL_yaw", "fL_pitch", "fL_roll", "fR_yaw", "fR_pitch", "fR_roll", "toeL", "toeR")
+
+
+def unwrap_angle_keys(track):
+    """Euler-angle parameters (degrees) of successive keys: take the representative closest to the previous key so the
+    interpolation never goes the long way round (feet of tumbling bodies)."""
+    for k in ANGLE_KEYS:
+        prev = None
+        for v in track.vals:
+            if k not in v:
+                continue
+            x = float(np.asarray(v[k]).ravel()[0])
+            if prev is not None:
+                x = prev + ((x - prev + 180.0) % 360.0 - 180.0)
+                v[k] = np.array([x])
+            prev = x
+
+
+def finger_filter(params, loop, hz=HZ, f=7.0, z=0.9):
+    """Critically-damped low-pass on the finger curls (fgL/fgR): hands open/close over ~0.1 s instead of snapping."""
+    if not params or "fgL" not in params[0]:
+        return params
+    out = [dict(p) for p in params]
+    dt = 1.0 / hz
+    for key in ("fgL", "fgR"):
+        x = np.asarray(params[0][key], float).copy()
+        if loop:
+            x = np.asarray(params[-1][key], float).copy()
+        v = np.zeros_like(x)
+        w0 = 2 * np.pi * f
+        passes = 2 if loop else 1
+        for ps in range(passes):
+            for i, p in enumerate(params):
+                tgt = np.asarray(p[key], float)
+                v += (w0 * w0 * (tgt - x) - 2 * z * w0 * v) * dt
+                x = x + v * dt
+                if ps == passes - 1:
+                    out[i][key] = x.copy()
+    if loop:
+        out[-1] = dict(out[-1])
+        out[-1]["fgL"], out[-1]["fgR"] = out[0]["fgL"], out[0]["fgR"]
+    return out
 
 
 def _relock_left(rig, p, W, P, rel):

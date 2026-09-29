@@ -11,25 +11,35 @@ def mirror_pts(pts):
 
 
 def light_bar(pt, c, w, h=0.075, d=0.06, n=10, facing=1, m_body='metal_dark'):
-    """LED light bar centred at c: housing, chrome reflector strip and emissive lens segments on the +f (facing=1) side."""
+    """LED light bar centred at c: housing, chrome reflector cups with emissive LEDs, dark dividers and a glass cover (+f side if facing=1)."""
     x, f, z = c
     pt.box(m_body, c, (w, d, h), bev=0.01)
     seg = (w - 0.06) / n
     for i in range(n):
         xx = x - w / 2 + 0.03 + seg * (i + 0.5)
-        pt.box('chrome', (xx, f + facing * (d / 2 - 0.004), z), (seg * 0.92, 0.008, h * 0.86), bev=0.0)
-        pt.box('light_head', (xx, f + facing * (d / 2 + 0.002), z), (seg * 0.84, 0.008, h * 0.66), bev=0.0)
+        pt.box('chrome', (xx, f + facing * (d / 2 - 0.004), z), (seg * 0.9, 0.008, h * 0.8), bev=0.003, taper=(0.8, 1.0))
+        for sz in (-0.2, 0.2):
+            pt.cyl('light_head', (xx, f + facing * (d / 2 + 0.001), z + sz * h), seg * 0.2, 0.006, axis='f', n=10)
+        pt.box('metal_dark', (x - w / 2 + 0.03 + seg * i, f + facing * (d / 2 + 0.002), z), (0.004, 0.01, h * 0.84), bev=0.0)
+    pt.box('glass_lens', (x, f + facing * (d / 2 + 0.008), z), (w - 0.04, 0.006, h * 0.86), bev=0.003)
     for sx in (-1, 1):
         pt.box('metal_dark', (x + sx * (w / 2 - 0.01), f - facing * 0.03, z - h * 0.5 - 0.03), (0.04, 0.05, 0.06), bev=0.004)
 
 
 def spotlight(pt, c, r, facing=1, yoke=True):
+    """round off-road spot: bucket, chrome bezel, reflector, emissive core, glass lens and a stone-guard cross"""
     x, f, z = c
-    pt.cyl('metal_dark', (x, f - facing * 0.035, z), r, 0.09, axis='f', n=14, bev=0.004)
-    pt.cyl('chrome', (x, f + facing * 0.012, z), r * 1.02, 0.014, axis='f', n=14)
-    pt.cyl('light_head', (x, f + facing * 0.021, z), r * 0.86, 0.008, axis='f', n=14)
+    pt.cyl('metal_dark', (x, f - facing * 0.035, z), r, 0.09, axis='f', n=18, bev=0.006)
+    pt.torus('chrome', (x, f + facing * 0.014, z), r * 0.94, r * 0.09, axis='f', nR=20, nr=6)
+    pt.cyl('light_head', (x, f + facing * 0.014, z), r * 0.82, 0.004, axis='f', n=18)
+    pt.sph('metal_dark', (x, f + facing * 0.018, z), r * 0.18, n=10, sc=(1, 0.5, 1))
+    pt.sph('glass_lens', (x, f + facing * 0.02, z), r * 0.88, n=16, sc=(1, 0.2, 1))
+    for a in (45, -45):
+        pt.box('metal_dark', (x, f + facing * 0.032, z), (r * 2.0, 0.006, 0.008), bev=0.0, rot=(0, 0, a))
+    pt.torus('metal_dark', (x, f + facing * 0.03, z), r * 0.92, 0.004, axis='f', nR=18, nr=4)
     if yoke:
         pt.box('metal_dark', (x, f - facing * 0.03, z - r - 0.018), (0.06, 0.07, 0.03), bev=0.004)
+        pt.tube('metal_dark', [(x - r - 0.012, f - facing * 0.03, z), (x - r - 0.012, f - facing * 0.03, z - r - 0.01), (x + r + 0.012, f - facing * 0.03, z - r - 0.01), (x + r + 0.012, f - facing * 0.03, z)], 0.006, n=6, rad=0.02, k=2)
 
 
 def spike(pt, base, tip, r=0.02, m='spike', n=6):

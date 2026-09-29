@@ -315,7 +315,7 @@ class InteriorCabMixin:
         """seat cushion as a loft along x: profile (f,z) with a rounded front roll; pleat(x)->dz on top; bolster raises the sides"""
         x0, f0, z0 = c
         rings = []
-        n = max(12, int(w / 0.014))
+        n = max(12, int(w / 0.02))
         for i in range(n + 1):
             t = i / n
             x = x0 - w / 2 + w * t
@@ -336,7 +336,7 @@ class InteriorCabMixin:
         upv = Vector((0, -sa, ca))
         fw = Vector((0, ca, sa))
         rings = []
-        n = max(12, int(w / 0.014))
+        n = max(12, int(w / 0.02))
         for i in range(n + 1):
             t = i / n
             x = x0 - w / 2 + w * t

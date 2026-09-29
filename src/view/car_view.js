@@ -159,6 +159,6 @@ export class CarView {
     if (this.lodMat) { this.lodMat.userData.uPaint.value.setHex(hex); if (hex2 !== undefined) this.lodMat.userData.uPaint2.value.setHex(hex2); }
     this.root.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) { if (m.name === 'paint') m.color.setHex(hex); if (m.name === 'paint2' && hex2 !== undefined) m.color.setHex(hex2); } });
   }
-  dispose() { this.root.removeFromParent(); }
+  dispose() { this.kit?.dispose(); this.glint?.material.dispose(); this.root.removeFromParent(); }
 }
 const _up = new THREE.Vector3(), _fw = new THREE.Vector3(), _qi = new THREE.Quaternion();

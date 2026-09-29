@@ -35,13 +35,13 @@ export class GarageScreen {
     this.el = h(`<div class="screen garage"><div class="safe">
       <div class="g-title stg" style="--i:0"><div class="eyebrow">BETWEEN RUNS</div><h1>GARAGE</h1><div class="g-sub"></div></div>
       <div class="g-loadout stg" style="--i:1"></div>
-      <div class="g-cash plate trans stg" style="--i:1"><span class="cl">CASH</span><span class="cv num"></span><span class="cf"></span></div>
+      <div class="g-cash plate trans stg" style="--i:1"><span class="cl">CASH</span><span class="cv num"></span></div><span class="cf g-cf"></span>
       <div class="g-party stg" style="--i:2"></div>
       <div class="g-left stg" style="--i:2">
         <div class="g-tabs plate trans"><span class="tk">${kq}</span><div class="tabs"></div><span class="tk">${ke}</span></div>
         <div class="g-list plate trans"><div class="lhead"><h2></h2><span class="lcount"></span></div><div class="hazbar"></div><div class="scroll g-rows"></div><div class="more m-up"><i></i></div><div class="more m-down"><i></i><span></span></div></div>
       </div>
-      <div class="g-detail plate trans stg" style="--i:4"><div class="scroll d-scroll"></div><div class="d-foot"></div></div>
+      <div class="g-detail plate trans stg" style="--i:4"><div class="scroll d-scroll"></div><div class="d-foot"></div><span class="d-more">SCROLL &#9660;</span></div>
       <div class="g-ready stg" style="--i:6"></div>
       <div class="hints" data-hints></div>
     </div></div>`);
@@ -50,6 +50,7 @@ export class GarageScreen {
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('navfocus', (e) => this.onNavFocus(e));
     this.q.rows.addEventListener('scroll', () => this.updateMore(), { passive: true });
+    this.q.det.addEventListener('scroll', () => this.updateMore(), { passive: true });
     this.renderAll();
   }
   mounted() { requestAnimationFrame(() => { this.updateMore(); this.notifyView(); }); }
@@ -158,6 +159,7 @@ export class GarageScreen {
   /** Scroll affordances on the item list: fades + "N MORE" when rows are hidden above / below. */
   updateMore() {
     const r = this.q.rows; if (!r.isConnected) return;
+    const d = this.q.det; this.q.detail.classList.toggle('has-below', d.scrollHeight - d.scrollTop - d.clientHeight > 6);
     const below = r.scrollHeight - r.scrollTop - r.clientHeight, above = r.scrollTop;
     this.q.list.classList.toggle('has-below', below > 6); this.q.list.classList.toggle('has-above', above > 6);
     if (below > 6) {
@@ -214,6 +216,7 @@ export class GarageScreen {
     d.innerHTML = body; foot.innerHTML = buy;
     this.q.detail.classList.toggle('nofoot', !buy);
     d.scrollTop = 0;
+    requestAnimationFrame(() => this.updateMore());
   }
   /** Always-visible loadout: truck + tier, the three equipped weapons, armour. */
   renderLoadout() {
@@ -329,7 +332,7 @@ export class GarageScreen {
     const el = e.detail.el;
     if (el.dataset.row != null) { this.select(el.dataset.row); return; }
     // keyboard / pad focus on a tab switches to it (mouse hover only highlights; click switches)
-    if (el.dataset.tab && !e.detail.hover && el.dataset.tab !== this.tab) { this.switchTab(el.dataset.tab, { focusTab: false }); return; }
+    if (el.dataset.tab && !e.detail.hover && el.dataset.tab !== this.tab) { this.switchTab(el.dataset.tab, { focusTab: true }); return; }
     if (el.dataset.trk) { if (this.trackPrev !== el.dataset.trk) { this.trackPrev = el.dataset.trk; this.refreshStatsOnly(); } return; }
     if (this.trackPrev) { this.trackPrev = null; this.refreshStatsOnly(); }
   }
@@ -344,7 +347,7 @@ export class GarageScreen {
   onClick(e) {
     const t = e.target.closest('.f'); if (!t) return;
     const ui = this.ui, cb = this.cb;
-    if (t.dataset.tab) { if (t.dataset.tab !== this.tab) this.switchTab(t.dataset.tab, { focusTab: false }); return; }
+    if (t.dataset.tab) { if (t.dataset.tab !== this.tab) this.switchTab(t.dataset.tab, { focusTab: true }); return; }
     if (t.dataset.row != null) {
       // select (hover already did); on pad/keyboard, confirm moves focus to the action button for a quick repeat-buy
       if (this.tab === 'paint') { this.applyPaint(); return; }

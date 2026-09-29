@@ -342,7 +342,7 @@ def spikes(name, items, g="body", m="spike", sides=6, collar=True):
     for base, d, r, L in items:
         up = (0, 0, 1) if abs(V3(d).normalized().z) < 0.9 else (0, 1, 0)
         spike(K, base, d, r, L, m, sides, collar=collar, up=up)
-    return K.done(smooth=True, sharp=30.0, flat=False)
+    return K.done(smooth=True, sharp=30.0, flat=True)
 
 
 def plate(name, quad, t, m="armor", g="body", out=None, rivets=0.09, rivet_m=None, weld_edges=(), seed=0, bevel=0.004, inset=0.022):
@@ -420,7 +420,7 @@ def grille(name, corners, nu, nv, bar=0.008, frame=0.022, m="metal_dark", g="bod
                 if v1 - v0 < 1e-3:
                     continue
                 bar_k(at(s0 + sgn * a * v0, v0), at(s0 + sgn * a * v1, v1), bar, depth, m)
-    return K.done(smooth=False, flat=False)
+    return K.done(smooth=False, flat=True)
 
 
 # ------------------------------------------------------------------------------------------ junk

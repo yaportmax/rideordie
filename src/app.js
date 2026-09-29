@@ -34,6 +34,7 @@ export class App {
   sound(name) { this.game.audio?.ui(name); }
   applySettings(s) {
     if (s.quality !== undefined && s.quality !== this.game.quality) this.game.setQuality(s.quality);
+    if (s.quality !== undefined) this.game.garage?.setQuality?.(s.quality);
     if (s.resScale !== undefined) this.game.post?.setResolutionScale?.(s.resScale);
     this.game.audio?.setVolumes?.({ master: s.master, sfx: s.sfx, music: s.music });
     this.game.post?.setFeatures?.({ mb: s.motionBlur !== false, ca: s.chromatic !== false, grain: s.grain !== false });
@@ -220,7 +221,13 @@ export class App {
         this.session.sendJSON({ t: 'garageReady', ready: this.readyMine });
         this._garageRefresh(); this._maybeStart();
       },
-      onMenu: () => this.title(),
+      onMenu: async () => {
+        if (this.mode === 'coop') {
+          const r = await this.ui.modal({ title: 'LEAVE THE CONVOY?', text: 'You go back to the title screen and your partner is disconnected.', kind: 'warn', buttons: [{ label: 'STAY', kind: 'primary', cancel: true }, { label: 'LEAVE', id: 'leave', kind: 'danger' }] });
+          if (r !== 'leave') return;
+        }
+        this.title();
+      },
     };
   }
   _maybeStart() {
@@ -235,6 +242,7 @@ export class App {
   async _startRun(cfg) {
     this.ui.hideAll();
     this.screen = 'run';
+    this.game.garage?.release?.();
     this.readyMine = this.readyOther = false;
     if (cfg.profile) this.profile = cfg.profile;
     const run = await this.game.startRun({ ...cfg, net: this.mode === 'coop' ? this.session : null, paint: TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0] });

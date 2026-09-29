@@ -299,32 +299,71 @@ def door_handle(pt, c, side, length=0.13, m='chrome'):
 
 
 def headlamp(pt_body, pt_lamp, c, side, w=0.17, h=0.17, kind='round', bezel='chrome', depth=0.09, out_z=0.0):
-    """Headlamp assembly: bucket + chrome bezel (into pt_body) + reflector bowl + lens (into pt_lamp)."""
+    """Headlamp: bucket + bezel (pt_body); chrome reflector bowl, emissive core, dark bulb shield and a fluted glass lens (pt_lamp)."""
     x, f, z = c
     if kind == 'round':
         r = w / 2
-        pt_body.cyl('metal_dark', (x, f - depth * 0.5, z), r * 1.02, depth, axis='f', n=16)
-        pt_body.cyl(bezel, (x, f + 0.005, z), r * 1.1, 0.02, axis='f', n=20, bev=0.005, r2=r * 1.02)
-        pt_lamp.cyl('chrome', (x, f - 0.005, z), r * 0.92, 0.03, axis='f', n=18, r2=r * 0.5)
-        pt_lamp.sph('light_head', (x, f + 0.0, z), r * 0.82, n=14, sc=(1, 0.28, 1))
-        pt_lamp.sph('light_head', (x, f - 0.005, z), r * 0.28, n=8, sc=(1, 0.5, 1))
+        pt_body.cyl('metal_dark', (x, f - 0.056 - depth * 0.5, z), r * 1.02, depth, axis='f', n=20)
+        pt_body.cyl('metal_dark', (x, f - 0.03, z), r * 1.0, 0.052, axis='f', n=20, caps=False)
+        prof = [(r * 0.95, 0.0), (r * 1.05, 0.01), (r * 1.13, 0.006), (r * 1.12, -0.012), (r * 1.0, -0.016)]
+        _ring_f(pt_body, bezel, (x, f + 0.006, z), prof, 28)
+        # reflector bowl (parabolic, its chrome lip shows around the core) + emissive core + bulb shield in front
+        refl = [(r * 0.95 * (1 - t * 0.62), -0.004 - 0.05 * t * t) for t in [i / 5 for i in range(6)]]
+        _ring_f(pt_lamp, 'chrome', (x, f, z), refl, 24)
+        pt_lamp.cyl('light_head', (x, f - 0.004, z), r * 0.84, 0.004, axis='f', n=24)
+        pt_lamp.sph('metal_dark', (x, f + 0.002, z), r * 0.19, n=12, sc=(1, 0.5, 1))
+        pt_lamp.cyl('chrome', (x, f + 0.001, z), r * 0.21, 0.003, axis='f', n=12)
+        # glass lens: shallow dome + vertical flutes
+        pt_lamp.sph('glass_lens', (x, f + 0.002, z), r * 0.96, n=20, sc=(1, 0.22, 1))
+        for i in range(-3, 4):
+            hh = math.sqrt(max(0.0, (r * 0.9) ** 2 - (i * r * 0.26) ** 2))
+            if hh > 0.01:
+                pt_lamp.box('glass_lens', (x + i * r * 0.26, f + 0.002 + 0.018 * math.sqrt(max(0.0, 1 - (i / 3.6) ** 2)), z), (0.006, 0.006, hh * 1.8), bev=0.002)
     else:
-        pt_body.box('metal_dark', (x, f - depth * 0.5, z), (w * 1.02, depth, h * 1.02), bev=0.008)
-        pt_body.box(bezel, (x, f + 0.005, z), (w * 1.12, 0.02, h * 1.14), bev=0.008, seg=2)
-        pt_lamp.box('chrome', (x, f - 0.01, z), (w * 0.95, 0.035, h * 0.92), bev=0.012, taper=(0.75, 1.0))
-        pt_lamp.box('light_head', (x, f + 0.004, z), (w * 0.9, 0.012, h * 0.84), bev=0.02, seg=2)
-        # lens fluting
-        for i in range(4):
-            pt_lamp.box('light_head', (x + (i - 1.5) * w * 0.2, f + 0.012, z), (0.006, 0.006, h * 0.8), bev=0.0)
+        pt_body.box('metal_dark', (x, f - 0.04 - depth * 0.5, z), (w * 1.02, depth, h * 1.02), bev=0.008)
+        for sz in (-1, 1):
+            pt_body.box(bezel, (x, f + 0.004, z + sz * (h * 0.53)), (w * 1.12, 0.024, h * 0.08), bev=0.006)
+            pt_body.box(bezel, (x + sz * (w * 0.53), f + 0.004, z), (w * 0.08, 0.024, h * 1.14), bev=0.006)
+        # boxed chrome reflector, emissive core, bulb shield, fluted glass lens
+        pt_lamp.box('chrome', (x, f - 0.022, z), (w * 0.94, 0.03, h * 0.9), bev=0.012, taper=(0.7, 1.0))
+        pt_lamp.box('light_head', (x, f - 0.003, z), (w * 0.88, 0.006, h * 0.8), bev=0.01, seg=2)
+        pt_lamp.sph('metal_dark', (x, f + 0.002, z), h * 0.13, n=10, sc=(1, 0.5, 1))
+        pt_lamp.box('glass_lens', (x, f + 0.011, z), (w * 0.95, 0.014, h * 0.9), bev=0.006, seg=2)
+        for i in range(-4, 5):
+            pt_lamp.box('glass_lens', (x + i * w * 0.1, f + 0.019, z), (0.006, 0.005, h * 0.84), bev=0.002)
+
+
+def _ring_f(pt, m, c, prof, n):
+    """lathe a (radius, forward-offset) profile around the f axis through c"""
+    x, f, z = c
+    rings = []
+    for i in range(n):
+        a = 2 * math.pi * i / n
+        rings.append([(x + rr * math.cos(a), f + ff, z + rr * math.sin(a)) for (rr, ff) in prof])
+    grid = [[rings[i][j] for i in range(n)] for j in range(len(prof))]
+    pt.loft_grid(m, grid, cyc_u=True, cap=False)
 
 
 def taillamp(pt_body, pt_lamp, c, side, w=0.09, h=0.24, depth=0.06, kind='vert'):
+    """Tail lamp: housing + chrome bezel (pt_body); ribbed red brake/tail lens, clear reverse lens over chrome, ribbed amber
+    indicator (pt_lamp)."""
     x, f, z = c
     pt_body.box('metal_dark', (x, f + depth * 0.5, z), (w * 1.1, depth, h * 1.08), bev=0.006)
     pt_body.box('chrome', (x, f - 0.001, z), (w * 1.14, 0.014, h * 1.12), bev=0.006, seg=2)
-    pt_lamp.box('light_tail', (x, f - 0.008, z + h * 0.16), (w * 0.9, 0.012, h * 0.58), bev=0.008, seg=2)
-    pt_lamp.box('light_amber', (x, f - 0.008, z - h * 0.30), (w * 0.9, 0.012, h * 0.24), bev=0.006, seg=2)
-
+    ht, hr, ha = h * 0.52, h * 0.16, h * 0.22
+    zt = z + h / 2 - 0.012 - ht / 2
+    zr = zt - ht / 2 - 0.006 - hr / 2
+    za = zr - hr / 2 - 0.006 - ha / 2
+    pt_lamp.box('light_tail', (x, f - 0.008, zt), (w * 0.9, 0.012, ht), bev=0.006, seg=2)
+    for i in range(6):
+        pt_lamp.box('light_tail', (x, f - 0.0145, zt - ht / 2 + ht * (i + 0.5) / 6), (w * 0.84, 0.004, ht / 6 * 0.55), bev=0.0015)
+    pt_lamp.box('chrome', (x, f - 0.003, zr), (w * 0.88, 0.008, hr), bev=0.004)
+    pt_lamp.box('glass_lens', (x, f - 0.011, zr), (w * 0.9, 0.01, hr), bev=0.004)
+    pt_lamp.box('light_amber', (x, f - 0.008, za), (w * 0.9, 0.012, ha), bev=0.006, seg=2)
+    for i in range(3):
+        pt_lamp.box('light_amber', (x - w * 0.3 + i * w * 0.3, f - 0.0145, za), (w * 0.2, 0.004, ha * 0.8), bev=0.0015)
+    for zz in (zt - ht / 2 - 0.003, zr - hr / 2 - 0.003):
+        pt_lamp.box('metal_dark', (x, f - 0.006, zz), (w * 0.92, 0.012, 0.005), bev=0.0)
 
 
 # ------------------------------------------------------------------------------------------------- seats & interior

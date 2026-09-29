@@ -6,6 +6,7 @@
 // Model frame: ground origin, +Z forward, +X left. Everything is parented to the CarView root (visible in the far LOD too).
 import * as THREE from 'three';
 import { MINIBOSSES } from '../data/boss.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 const CONE = new THREE.ConeGeometry(0.5, 1, 8);                 // apex +Y
@@ -33,6 +34,28 @@ function add(parent, geo, mat, p, s, r, shadow = true) {
   m.castShadow = shadow; m.receiveShadow = true;
   parent.add(m); return m;
 }
+/** Merge the static child meshes of `group` that share a material into one mesh per material (draw calls: ~30 -> ~6). */
+function bake(group, keep) {
+  const byMat = new Map();
+  for (const child of [...group.children]) {
+    if (!child.isMesh || (keep && keep.has(child))) continue;
+    child.updateMatrix();
+    const geo = child.geometry.index ? child.geometry.clone() : child.geometry.clone();
+    geo.applyMatrix4(child.matrix);
+    let e = byMat.get(child.material); if (!e) byMat.set(child.material, (e = { geos: [], shadow: false }));
+    e.geos.push(geo); e.shadow = e.shadow || child.castShadow;
+    group.remove(child);
+  }
+  for (const [mat, e] of byMat) {
+    const merged = mergeGeometries(e.geos, false);
+    for (const g of e.geos) g.dispose();
+    if (!merged) continue;
+    const m = new THREE.Mesh(merged, mat); m.castShadow = e.shadow; m.receiveShadow = true; m.userData.baked = true;
+    group.add(m);
+  }
+  return group;
+}
+
 /** A spike pointing along +Z (forward) from its base. */
 const spikeFwd = (g, mat, x, y, z, len = 0.5, rad = 0.13) => add(g, CONE, mat, [x, y, z + len / 2], [rad, len, rad], [Math.PI / 2, 0, 0], false);
 /** A pole with a waving cloth (canvas emblem). Returns the cloth mesh (animated by waveFlags). */
@@ -74,8 +97,15 @@ function frame(spec) {
   return { bb, S, W: bb.max[0] - bb.min[0], front: bb.max[2], rear: bb.min[2], top: bb.max[1], roof: S.roof_top || [0, bb.max[1], 0], hood: S.camera_hood || [0, bb.max[1] * 0.55, bb.max[2] - 1.0] };
 }
 
-/** Spiked ram bar across the nose (rammers, twins, blaze). */
+const RAMBAR = new Map();
+/** Spiked ram bar across the nose (rammers, twins, blaze): built once per vehicle type, merged, shared by every car. */
 export function ramBar(g, spec, big = false) {
+  const key = spec.id + (big ? ':big' : '');
+  let proto = RAMBAR.get(key);
+  if (!proto) { proto = new THREE.Group(); buildRamBar(proto, spec, big); bake(proto); RAMBAR.set(key, proto); }
+  for (const m of proto.children) { const c = new THREE.Mesh(m.geometry, m.material); c.castShadow = m.castShadow; c.receiveShadow = true; c.userData.shared = true; g.add(c); }
+}
+function buildRamBar(g, spec, big) {
   const f = frame(spec), w = f.W * (big ? 1.08 : 1.0), z = f.front + 0.06;
   add(g, BOX, M.steel(), [0, 0.5, z], [w, 0.2, 0.16]);
   add(g, BOX, M.steel(), [0, 0.74, z - 0.08], [w * 0.92, 0.3, 0.07], [-0.4, 0, 0]);
@@ -250,6 +280,7 @@ export function buildEliteKit(view, spec, index, carId) {
   const look = M0.look, build = KITS[look.kit]; if (!build) return null;
   const g = new THREE.Group(); g.name = 'elite_kit'; view.root.add(g);
   const k = build(g, spec, look);
+  bake(g, new Set(g.children.filter((c) => c.userData.horn || c.userData.bell)));
   // the second twin swaps his colours
   const swap = look.kit === 'twins' && carId % 2 === 0;
   view.setTint(swap ? look.paint2 : look.paint, swap ? look.paint : look.paint2);
@@ -258,6 +289,12 @@ export function buildEliteKit(view, spec, index, carId) {
   let hpShown = 1, t = Math.random() * 6;
   return {
     group: g, nameplate: np.sprite,
+    dispose() {
+      np.sprite.material.map.dispose(); np.sprite.material.dispose();
+      g.traverse((o) => { if (o.isMesh && o.userData.baked) o.geometry.dispose(); });
+      for (const c of k.flags) { c.geometry.dispose(); c.material.dispose(); }
+      k.glow?.dispose();
+    },
     update(dt, st) {
       t += dt;
       const dead = st.exploded || st.dead;

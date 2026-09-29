@@ -26,7 +26,6 @@ TIER_TWEAK = {3: dict(paint=dict(spec=0.18), paint2=dict(spec=0.3)), 4: dict(pai
 MERGE_ALL = {'plastic': 'rubber'}
 MERGE_WHEEL = {'chrome': 'rim', 'metal_bare': 'rim', 'rust': 'metal_dark', 'metal_dark': 'rubber_tire'}
 NODE_MERGE = {
-    'lamp_head': {'chrome': 'light_head'},
     'panel_fender': {'rubber': 'metal_dark', 'metal_bare': 'metal_dark'},
     'panel_door': {'rubber': 'metal_dark'},
     'panel_tailgate': {'chrome': 'metal_bare'},

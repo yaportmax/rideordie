@@ -329,7 +329,7 @@ def build_details():
     tube("spare_strap", [(-0.54, -0.50, 1.36), (-0.80, -0.50, 1.36), (-0.80, -0.50, 0.62), (-0.54, -0.50, 0.62)], 0.008, "cloth_dark", g="body")
     tube("spare_brk", [(-0.52, -0.50, 0.99), (-0.66, -0.50, 0.99)], 0.02, "metal_dark", g="body")
     # jerry cans: one on the platform, one in a side rack on the left
-    jerry_can("jerry", (0.30, -0.88, PLAT_Z), yaw=90, m="armor", g="body")
+    jerry_can("jerry", (0.30, -0.88, PLAT_Z), yaw=90, m="paint2", g="body")
     jerry_can("jerry2", (0.64, -0.70, 0.64), yaw=0, m="cloth_red", g="body", s=0.9)
     tube("can_rack", [(0.54, -0.86, 0.64), (0.72, -0.86, 0.64), (0.72, -0.54, 0.64), (0.54, -0.54, 0.64)], 0.01, "metal_dark", g="body")
     strap("can_strap", [(0.55, -0.87, 0.95), (0.735, -0.87, 0.95), (0.735, -0.53, 0.95), (0.55, -0.53, 0.95)], w=0.03, m="cloth_dark", g="body", normal=(0, 0, 1))

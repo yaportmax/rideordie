@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { hash2, smoothstep, fbm1 } from '../../core/util.js';
 import { rngOf, CHUNK_LEN } from './util.js';
 import { MB, frameYaw, frameBasis } from './mbuild.js';
-import { facadeMaterial, neonMaterial, smokeMaterial, flameMaterial, neonRect, ST, NEON_H, NEON_V, NEON_DOT } from './city_mat.js';
+import { facadeMaterial, neonRect, ST, NEON_H, NEON_V, NEON_DOT } from './city_mat.js';
 
 export const CITY_A = 40350, CITY_B = 50250;
 /** 0..1 city density along the road (suburbs ramp in/out) and the downtown core weight. */
@@ -369,14 +369,15 @@ function neonMode(r) { const u = r(); return u < 0.62 ? 0 : u < 0.86 ? 1 : 2; }
 function neonPanel(nb, F, x0, x1, y0, y1, z, kind, idx, rv) {
   const [u0, v0, u1, v1] = neonRect(kind, idx);
   const dead = rv < 0.12;
-  nb.setFac(rv * 7.3 % 1, dead ? 2 : neonMode(() => (rv * 13.7) % 1), dead ? 0.25 : 0.8 + (rv * 3.1 % 1) * 0.5, 0);
+  nb.pushFac().setFac(ST.NEON, rv * 7.3 % 1, dead ? 2 : neonMode(() => (rv * 13.7) % 1), dead ? 0.25 : 0.8 + (rv * 3.1 % 1) * 0.5);
   const P = _P; MB.at(F, x0, y0, z, P[0]); MB.at(F, x1, y0, z, P[1]); MB.at(F, x1, y1, z, P[2]); MB.at(F, x0, y1, z, P[3]);
   nb.quadW(P[0], P[1], P[2], P[3], u0, v0, u1, v0, u1, v1, u0, v1);
+  nb.popFac();
 }
 /** Blade sign: a slab perpendicular to the facade from z0 to z1 at x, readable from both road directions. */
 function neonBlade(nb, F, x, y0, y1, z0, z1, idx, rv) {
   const [u0, v0, u1, v1] = neonRect('v', idx);
-  nb.setFac(rv * 5.1 % 1, neonMode(() => (rv * 17.3) % 1), 0.9 + (rv * 2.3 % 1) * 0.4, 0);
+  nb.pushFac().setFac(ST.NEON, rv * 5.1 % 1, neonMode(() => (rv * 17.3) % 1), 0.9 + (rv * 2.3 % 1) * 0.4);
   const P = _P, t = 0.12;
   // face toward +x (text reads top->bottom, uv mirrored so it reads correctly from that side)
   MB.at(F, x + t, y0, z1, P[0]); MB.at(F, x + t, y0, z0, P[1]); MB.at(F, x + t, y1, z0, P[2]); MB.at(F, x + t, y1, z1, P[3]);
@@ -384,21 +385,23 @@ function neonBlade(nb, F, x, y0, y1, z0, z1, idx, rv) {
   MB.at(F, x - t, y0, z0, P[0]); MB.at(F, x - t, y0, z1, P[1]); MB.at(F, x - t, y1, z1, P[2]); MB.at(F, x - t, y1, z0, P[3]);
   nb.quadW(P[0], P[1], P[2], P[3], u0, v0, u1, v0, u1, v1, u0, v1);
   // outer edge (dark frame)
-  const [a0, b0, a1, b1] = NEON_DOT(0);
-  nb.setFac(0, 0, 0, 0);
+  const [a0, b0, a1, b1] = NEON_DOT(8);
+  nb.setFac(ST.NEON, 0, 0, 0);
   MB.at(F, x - t, y0, z1, P[0]); MB.at(F, x + t, y0, z1, P[1]); MB.at(F, x + t, y1, z1, P[2]); MB.at(F, x - t, y1, z1, P[3]);
   nb.quadW(P[0], P[1], P[2], P[3], a0, b0, a1, b0, a1, b1, a0, b1);
+  nb.popFac();
 }
 /** Small glowing dot (beacon / lamp) as a camera-agnostic cross of two quads. colour index into the dot palette, mode 3 = blink. */
 export function neonDot(nb, F, x, y, z, size, color, mode, rv) {
   const [u0, v0, u1, v1] = NEON_DOT(color);
   const uc = (u0 + u1) / 2, vc = (v0 + v1) / 2;
-  nb.setFac(rv, mode, 1.4, 0);
+  nb.pushFac().setFac(ST.NEON, rv, mode, 1.4);
   const P = _P, h = size / 2;
   MB.at(F, x - h, y - h, z, P[0]); MB.at(F, x + h, y - h, z, P[1]); MB.at(F, x + h, y + h, z, P[2]); MB.at(F, x - h, y + h, z, P[3]);
   nb.quadW(P[0], P[1], P[2], P[3], uc, vc, uc, vc, uc, vc, uc, vc); nb.quadW(P[3], P[2], P[1], P[0], uc, vc, uc, vc, uc, vc, uc, vc);
   MB.at(F, x, y - h, z - h, P[0]); MB.at(F, x, y - h, z + h, P[1]); MB.at(F, x, y + h, z + h, P[2]); MB.at(F, x, y + h, z - h, P[3]);
   nb.quadW(P[0], P[1], P[2], P[3], uc, vc, uc, vc, uc, vc, uc, vc); nb.quadW(P[3], P[2], P[1], P[0], uc, vc, uc, vc, uc, vc, uc, vc);
+  nb.popFac();
 }
 
 // ------------------------------------------------------------------------------------------------ hero: the fallen skyscraper
@@ -554,7 +557,7 @@ function putWreck(ctx, chunk, cols, name, s, d, psi, r) {
   return true;
 }
 
-function emitStreetProps(ctx, chunk, mb, nb, fb, cols, items) {
+function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
   const { road, seed } = ctx, s0 = chunk.s0;
   const r = rngOf(seed, chunk.c, 6161);
   const dens = cityDens(s0 + 48), core = cityCore(s0 + 48);
@@ -585,7 +588,8 @@ function emitStreetProps(ctx, chunk, mb, nb, fb, cols, items) {
     const g = chunk.ground.sample(s, d, _G);
     ctx.pool.register('barrel', { far: 320, shadow: false, lite: true });
     chunk.list('barrel').push(g.x, g.y + 0.1, g.z, r() * 6.28, 1.05, 1.05, 1.05, 0, 1, 0, 0, 0.7, 0.55, 0.42, 0.36);
-    flame(fb, g.x, g.y + 0.1 + 0.86, g.z, 0.95, 1.5, r());
+    ctx.pool.register('fx_flame', { far: 450, shadow: false });
+    chunk.list('fx_flame').push(g.x, g.y + 0.1 + 0.86, g.z, r() * 3, 0.95, 1.5, 0.95, 0, 1, 0, 0, 1.5);
     if (r() < 0.5) { const d2 = d + side * (0.6 + r() * 0.6), s2 = s + (r() - 0.5) * 2.5, g2 = chunk.ground.sample(s2, d2, _G); chunk.list('barrel').push(g2.x, g2.y + 0.1, g2.z, r() * 6.28, 1, 1, 1, 0, 1, 0, 0, 0.7, 0.4, 0.3, 0.26); }
   }
   // ---- traffic lights at the side streets: pole + arm over the shoulder, dead signal heads blinking amber
@@ -616,31 +620,32 @@ function emitStreetProps(ctx, chunk, mb, nb, fb, cols, items) {
   }
 }
 
-/** Two crossed flame quads (additive shader) at (x, y, z) world. */
-function flame(fb, x, y, z, w, h, ph) {
-  fb.setFac(ph, 0, 0, 0);
-  for (const [ax, az] of [[1, 0], [0, 1]]) {
-    const a = { x: x - ax * w / 2, y, z: z - az * w / 2 }, b = { x: x + ax * w / 2, y, z: z + az * w / 2 };
-    const c = { x: b.x, y: y + h, z: b.z }, d = { x: a.x, y: y + h, z: a.z };
-    fb.quadW(a, b, c, d, 0, 0, 1, 0, 1, 1, 0, 1);
-  }
-}
-
 // ------------------------------------------------------------------------------------------------ chunk build
-/** Build the city geometry of one chunk. Returns true when done. */
+/**
+ * Build the city geometry of one chunk, time-sliced: buildings are emitted in batches until the dressing job deadline
+ * (ctx.dress._deadline); the chunk keeps its job and resumes next frame (chunk._more = true). Returns true when done.
+ */
 export function buildCity(ctx, chunk) {
   const s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
   if (s1 < CITY_A || s0 > CITY_B || chunk.done.has('city')) return true;
-  for (const n of [...GLB_RUINS, ...CITY_PROPS]) { const st = ctx.kit.state(n); if (st === 'idle') ctx.kit.request(n); if (st === 'idle' || st === 'loading') return false; }
-  chunk.done.add('city');
   const { road, seed } = ctx;
-  road.extendTo(s1 + 600);
-  const items = cityItems(ctx, s0, s1);
-  if (!items.b.length && !items.streets.length && cityDens(s0 + 48) < 0.3) return true;
-  const anchor = road.sample(s0, {});
-  const mb = new MB(anchor, { uvName: 'aUvF', cap: 8192 }), nb = new MB(anchor, { cap: 1024 });
-  const cols = { pos: [], idx: [] };
-  for (const b of items.b) {
+  let J = chunk.cityJob;
+  if (!J) {
+    for (const n of [...GLB_RUINS, ...CITY_PROPS]) { const st = ctx.kit.state(n); if (st === 'idle') ctx.kit.request(n); if (st === 'idle' || st === 'loading') return false; }
+    road.extendTo(s1 + 600);
+    const items = cityItems(ctx, s0, s1);
+    if (!items.b.length && !items.streets.length && cityDens(s0 + 48) < 0.3) { chunk.done.add('city'); return true; }
+    const anchor = road.sample(s0, {});
+    const mb0 = new MB(anchor, { uvName: 'aUvF', cap: 8192 });
+    J = chunk.cityJob = { items, i: 0, anchor, mb: mb0, nb: mb0, cols: { pos: [], idx: [] }, phase: 0 };   // neon signs share the facade mesh (style NEON)
+  }
+  const deadline = (ctx.dress && ctx.dress._deadline) || Infinity;
+  const { items, mb, nb, cols, anchor } = J;
+  // ---- phase 0: buildings, a few per slice
+  while (J.phase === 0) {
+    if (J.i >= items.b.length) { J.phase = 1; break; }
+    if (J.i > 0 && performance.now() > deadline) { chunk._more = true; return false; }
+    const b = items.b[J.i++];
     if (b.arch) { emitArch(ctx, chunk, mb, nb, cols, b); continue; }
     const r = rngOf(seed, Math.round(b.s * 10), 5501 + (b.side > 0 ? 1 : 0) + b.row.charCodeAt(0));
     const fr = buildingFrame(road, b, _fr);
@@ -650,32 +655,24 @@ export function buildCity(ctx, chunk) {
     const H = emitBuilding(mb, nb, b.dFront < 130 ? cols : null, b, fr, g0, g1, r);
     if (b.smoke) (chunk.citySmoke || (chunk.citySmoke = [])).push({ x: fr.x, y: g0 - 1.2 + H, z: fr.z, w: Math.max(b.W, b.D) * 0.8, s: b.s });
   }
-  emitStreetLevel(mb, chunk, road, items.streets);
-  const fb = new MB(anchor, { cap: 128 });
-  emitStreetProps(ctx, chunk, mb, nb, fb, cols, items);
-  if (fb.count) {
-    const m = new THREE.Mesh(fb.build(), flameMaterial());
-    m.position.set(anchor.x, anchor.y, anchor.z); m.userData.ownGeo = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.renderOrder = 13; m.name = 'city-flames';
-    chunk.addExtra(m);
+  // ---- phase 1: street level + props (one slice), then the meshes (next slice)
+  if (J.phase === 1) {
+    if (performance.now() > deadline) { chunk._more = true; return false; }
+    emitStreetLevel(mb, chunk, road, items.streets);
+    emitStreetProps(ctx, chunk, mb, nb, cols, items);
+    J.phase = 2; chunk._more = true; return false;
   }
+  if (performance.now() > deadline) { chunk._more = true; return false; }
+  chunk.cityJob = null; chunk.done.add('city');
   if (mb.count) {
     const m = new THREE.Mesh(mb.build(), facadeMaterial());
     m.position.set(anchor.x, anchor.y, anchor.z); m.castShadow = true; m.receiveShadow = true; m.userData.ownGeo = true;
     m.matrixAutoUpdate = false; m.updateMatrix(); m.name = 'city';
     chunk.addExtra(m);
   }
-  if (nb.count) {
-    const m = new THREE.Mesh(nb.build(), neonMaterial());
-    m.position.set(anchor.x, anchor.y, anchor.z); m.userData.ownGeo = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.name = 'city-neon';
-    chunk.addExtra(m);
-  }
   if (chunk.citySmoke) {
-    const sb = new MB(anchor, { cap: 256 });
-    for (const q of chunk.citySmoke) smokeColumn(sb, q, rngOf(seed, Math.round(q.s), 77));
-    const g = sb.build(); g.boundingSphere.radius += 260;
-    const m = new THREE.Mesh(g, smokeMaterial());
-    m.position.set(anchor.x, anchor.y, anchor.z); m.userData.ownGeo = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.renderOrder = 12; m.name = 'city-smoke';
-    chunk.addExtra(m);
+    ctx.pool.register('fx_smoke', { far: 3200, shadow: false });
+    for (const q of chunk.citySmoke) { const r = rngOf(seed, Math.round(q.s), 77), H = 150 + r() * 80; chunk.list('fx_smoke').push(q.x, q.y - 2, q.z, 0, q.w, H, q.w, 0, 1, 0, 0, H + 60); }
   }
   if (cols.idx.length) {
     const id = `city:${chunk.c}`; chunk.hooks.push(id);
@@ -685,20 +682,6 @@ export function buildCity(ctx, chunk) {
   return true;
 }
 const _fr = {};
-
-/** Rising smoke column over a burning building: a vertical strip whose width is applied in the (camera-facing) vertex shader. */
-function smokeColumn(sb, q, r) {
-  const N = 10, Hs = 150 + r() * 80, ph = r();
-  const wx = 0.9, wz = 0.42, base = sb.count;
-  for (let i = 0; i <= N; i++) {
-    const t = i / N, y = q.y - 2 + t * Hs, drift = t * t * 70;
-    const hw = q.w * (0.35 + 2.2 * t);
-    sb.setFac(ph, 1.0, hw, 0);
-    const x = q.x + wx * drift, z = q.z + wz * drift;
-    sb.vert(x, y, z, 0, 1, 0, 0, t); sb.vert(x, y, z, 0, 1, 0, 1, t);
-    if (i > 0) { const a = base + (i - 1) * 2; sb.quadIdx(a, a + 1, a + 3, a + 2); }
-  }
-}
 
 const GLB_RUINS = ['ruin_office_a', 'ruin_office_b', 'ruin_office_c', 'ruin_apartment_a', 'ruin_apartment_b'];
 export const CITY_GLB = GLB_RUINS;

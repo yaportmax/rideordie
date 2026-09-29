@@ -248,7 +248,7 @@ def build_cab():
     for sx in (0.42, -0.42):
         lamp("spot", (sx, 0.07, ry + 0.10), 0.07, d=(0, 1, -0.03), depth=0.10, housing="metal_dark", bowl="chrome", g="body", cage=True, sides=14)
         tube("spot_arm", [(sx, 0.02, ry), (sx, 0.01, ry + 0.08)], 0.012, "metal_dark", g="body")
-    jerry_can("rk_can1", (0.50, -0.30, ry + 0.012), yaw=0, m="armor", g="body", lie=True)
+    jerry_can("rk_can1", (0.50, -0.30, ry + 0.012), yaw=0, m="paint2", g="body", lie=True)
     jerry_can("rk_can2", (0.27, -0.30, ry + 0.012), yaw=4, m="cloth_red", g="body", lie=True)
     tarp_roll("rk_roll", (-0.30, -0.14, ry + 0.09), (1, 0, 0), 0.72, 0.09, m="canvas", g="body", seed=5)
     crate("rk_crate", (-0.38, -0.46, ry + 0.008), (0.36, 0.26, 0.20), yaw=5, g="body")
@@ -356,7 +356,7 @@ def build_details():
             pts.append((sd * (0.83 - 0.13 * t), -2.40 - 0.10 * t, 1.13 - 0.05 * math.sin(t * math.pi) - 0.10 * t))
         chain("tg_chain", pts, link=0.06, g="body")
     # bed load: jerry cans in the front corners, ammo crates, oil drum, sandbag walls, wood runners
-    jerry_can("bed_can1", (0.60, -0.84, BED_FLOOR), yaw=0, m="armor", g="body")
+    jerry_can("bed_can1", (0.60, -0.84, BED_FLOOR), yaw=0, m="paint2", g="body")
     jerry_can("bed_can2", (-0.60, -0.84, BED_FLOOR), yaw=0, m="rust", g="body")
     ammo_box("ammo_a", (0.36, -2.14, BED_FLOOR + 0.02), yaw=4, s=(0.36, 0.20, 0.20), g="body")
     ammo_box("ammo_b", (0.30, -2.12, BED_FLOOR + 0.22), yaw=-8, s=(0.30, 0.18, 0.16), g="body")

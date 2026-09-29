@@ -64,7 +64,7 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
   const dkWatch = new Map(); // driver-killed car id -> time
   let crewDmgBy = {};
   const origCar = sim.damageCar.bind(sim);
-  sim.damageCar = (car, dmg, info = {}) => { if (car === P && opt.srclog) { const o = sim.cars.get(info.src); const k = (o ? (o.elite ? 'WARLORD' : o.spec.id) : 'none') + ':' + (info.cause || '?'); (R.srcDmg || (R.srcDmg = {}))[k] = ((R.srcDmg || {})[k] || 0) + dmg; } if (car.elite && opt.elitelog) { const k = car.elite.name.slice(0, 6) + '#' + car.id + ':' + (info.cause || '?'); (R.eliteDmg || (R.eliteDmg = {}))[k] = ((R.eliteDmg || {})[k] || 0) + dmg; } return origCar(car, dmg, info); };
+  sim.damageCar = (car, dmg, info = {}) => { if (car === P && opt.noscenery && (info.cause === 'crash' || info.cause === 'flip') && !(info.src >= 0)) return; if (car === P && opt.srclog) { const o = sim.cars.get(info.src); const k = (o ? (o.elite ? 'WARLORD' : o.spec.id) : 'none') + ':' + (info.cause || '?'); (R.srcDmg || (R.srcDmg = {}))[k] = ((R.srcDmg || {})[k] || 0) + dmg; } if (car.elite && opt.elitelog) { const k = car.elite.name.slice(0, 6) + '#' + car.id + ':' + (info.cause || '?'); (R.eliteDmg || (R.eliteDmg = {}))[k] = ((R.eliteDmg || {})[k] || 0) + dmg; } return origCar(car, dmg, info); };
   const origCrew = sim.damageCrew.bind(sim);
   sim.damageCrew = (car, role, dmg, info = {}) => { const d = origCrew(car, role, dmg, info); if (car === P && d > 0) crewDmgBy[info.cause || '?'] = (crewDmgBy[info.cause || '?'] || 0) + d; return d; };
   globalThis.__crashLog = [];
@@ -130,7 +130,8 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
       if (e.t === 'crash' && dkWatch.has(e.id) && e.other >= 0 && sim.time - dkWatch.get(e.id) < 6) { R.dkCrash++; dkWatch.delete(e.id); }
       if (e.t === 'explode' && e.cause === 'crash') R.chain++;
     }
-    if ((i % 3600) === 0) { if (R.lastS !== undefined && P.s - R.lastS < 40 && sim.time > 40) { R.stuck = (R.stuck || 0) + 1; if (R.stuck >= 2) { R.why = 'stuck'; break; } } else R.stuck = 0; R.lastS = P.s; }
+    // headless has no bridges/tunnel tubes and the AI driver can wedge itself: after 10 s without progress, put the truck back on the road
+    if ((i % 1200) === 0) { if (R.lastS !== undefined && P.s - R.lastS < 15 && sim.time > 20 && sim.state === 'run') { R.resets = (R.resets || 0) + 1; const sm = sim.road.sample(P.s + 25), b = P.veh.body; b.setTranslation({ x: sm.x, y: sim.road.surfaceY(sm, 0) + 1.5, z: sm.z }, true); b.setRotation({ x: 0, y: Math.sin(sm.th / 2), z: 0, w: Math.cos(sm.th / 2) }, true); b.setLinvel({ x: Math.sin(sm.th) * 15, y: 0, z: Math.cos(sm.th) * 15 }, true); b.setAngvel({ x: 0, y: 0, z: 0 }, true); if (R.resets > 12) { R.why = 'stuck'; break; } } R.lastS = P.s; }
     if (sim.state === 'over') { if (R.mbFight) (R.mbLog || (R.mbLog = [])).push(`${R.mbFight.name} KILLED US after ${(sim.time - R.mbFight.t0).toFixed(0)}s (warlord hp ${((sim.director.activeElite?.hp01 ?? 0) * 100) | 0}%)`); break; }
   }
   const dmgNow = (sim.stats.damageTaken || 0) + Object.values(crewDmgBy).reduce((a, x) => a + x, 0);
@@ -174,7 +175,7 @@ if (opt.campaign) {
     const dby = r.dby, raider = (dby.ram || 0) + (dby.bullet || 0) + (dby.blast || 0) + (dby.rocket || 0) + (dby.fire || 0), scen = (dby.crash || 0) + (dby.flip || 0);
     if (!r.won) { if (raider >= scen) deathsRaiders++; else deathsScenery++; }
     if (r.mbLog) console.log('     warlords: ' + r.mbLog.join(' | '));
-    console.log(`run ${String(n).padStart(2)} | ${(r.t / 60).toFixed(1)} min ${(r.dist / 1000).toFixed(1)} km | ${r.truck} ${r.weapon} | kills ${r.kills} (chain ${r.chain}) mb ${r.mbDown || 0}/${r.mbSeen || 0} | +$${r.cash} ${r.won ? 'WON' : r.why} | raiders ${raider | 0} scenery ${scen | 0} crew ${Object.values(r.crewBy).reduce((a, x) => a + x, 0) | 0} | total ${(total / 60).toFixed(0)} min | bought ${b.join(',') || '-'} | bank $${prof.cash}`);
+    console.log(`run ${String(n).padStart(2)} | ${(r.t / 60).toFixed(1)} min ${(r.dist / 1000).toFixed(1)} km${r.resets ? ` (${r.resets} unstuck)` : ''} | ${r.truck} ${r.weapon} | kills ${r.kills} (chain ${r.chain}) mb ${r.mbDown || 0}/${r.mbSeen || 0} | +$${r.cash} ${r.won ? 'WON' : r.why} | raiders ${raider | 0} scenery ${scen | 0} crew ${Object.values(r.crewBy).reduce((a, x) => a + x, 0) | 0} | total ${(total / 60).toFixed(0)} min | bought ${b.join(',') || '-'} | bank $${prof.cash}`);
     if (r.won) { console.log(`LEVIATHAN DOWN after ${(total / 3600).toFixed(2)} h (${n} runs)`); break; }
   }
   console.log(`deaths mostly to raiders: ${deathsRaiders}, mostly to scenery: ${deathsScenery}`);

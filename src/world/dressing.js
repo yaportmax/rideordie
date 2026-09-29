@@ -37,8 +37,11 @@ import { FURNITURE_SPECS } from './dressing/furniture.js';
 import { FEATURE_SPECS } from './dressing/features.js';
 import { BIOMES } from '../data/biomes.js';
 import { buildCity } from './dressing/city.js';
-import { CITY_U } from './dressing/city_mat.js';
+import { CITY_U, registerSetAssets } from './dressing/city_mat.js';
 import { SetPieces } from './dressing/setpieces.js';
+import { buildDamRoad } from './dressing/damroad.js';
+import { buildGalleries } from './dressing/gallery.js';
+import { createSetMaterials, warmSetMaterials } from './dressing/warm.js';
 
 const QUALITY = [
   { far: 0.6, shadow: 0, budget: 2.0 },
@@ -108,6 +111,8 @@ export class Dressing {
   async load(startS = 0) {
     await this.kit.init();
     registerProcedural(this.kit);
+    createSetMaterials();                         // paint the neon / banner canvases now (loading screen), not mid-drive
+    registerSetAssets(this.kit);
     this._fetched = new Set();
     await Promise.all([this.prefetch(startS), this.prefetch(startS + 2500)]);
     this._loaded = true;
@@ -155,7 +160,7 @@ export class Dressing {
       case 1: if (buildFurniture(ctx, ch)) ch.step = 2; break;
       case 2: if (buildFeatures(ctx, ch, this._deadline)) ch.step = 3; break;
       case 3: if (buildLandmarks(ctx, ch)) ch.step = 4; break;
-      case 4: if (buildCity(ctx, ch)) ch.step = 5; break;
+      case 4: if (buildCity(ctx, ch) && buildDamRoad(ctx, ch) && buildGalleries(ctx, ch)) ch.step = 5; break;
       case 5: if (runScatter(ctx, ch, 1, this._deadline)) ch.step = 6; break;
       case 6: if (runScatter(ctx, ch, 2, this._deadline)) ch.step = 7; break;
       case 7: if (runScatter(ctx, ch, 3, this._deadline)) ch.step = 8; break;
@@ -209,6 +214,7 @@ export class Dressing {
     this._jobs(QUALITY[this.quality].budget * (this.chunks.size > 6 && this._warm ? 1 : 3));
     this._warm = true;
     this.sets.update(s, 1.5);
+    if (!this._setsWarm && this.pool.warmer) { this._setsWarm = true; warmSetMaterials(this.pool.warmer); }
     for (const ch of this.chunks.values()) if (ch.dirty) { ch.dirty = false; this._needRebuild = true; }
     // fwd for behind-culling
     let fx = 0, fz = 1, useFwd = false;

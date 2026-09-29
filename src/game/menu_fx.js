@@ -69,6 +69,7 @@ export class PuffSystem {
     this.alpha = new Float32Array(max); this.rot = new Float32Array(max); this.spin = new Float32Array(max); this.drag = new Float32Array(max);
     this.rise = new Float32Array(max); this.frame = new Float32Array(max); this.heat = new Float32Array(max);
     this.wind = new THREE.Vector3();   // air velocity (the title chase: air streams past the "moving" cars)
+    this.animFrames = opts.animFrames !== false;   // step through the 4 cells of a row over the particle's life
   }
   emit(pos, vel, o = {}) {
     let i = this.n;
@@ -104,7 +105,7 @@ export class PuffSystem {
       const a = this.alpha[i] * Math.min(1, t * 8) * (1 - t) * (1 - t);
       P[i * 4] = this.p[i * 3]; P[i * 4 + 1] = this.p[i * 3 + 1]; P[i * 4 + 2] = this.p[i * 3 + 2];
       P[i * 4 + 3] = this.size0[i] * (1 + this.grow[i] * Math.sqrt(t));
-      D[i * 4] = a; D[i * 4 + 1] = this.rot[i]; D[i * 4 + 2] = this.frame[i] + Math.min(3, Math.floor(t * 4)); D[i * 4 + 3] = this.heat[i] * Math.max(0, 1 - t * 3);
+      D[i * 4] = a; D[i * 4 + 1] = this.rot[i]; D[i * 4 + 2] = this.frame[i] + (this.animFrames ? Math.min(3, Math.floor(t * 4)) : 0); D[i * 4 + 3] = this.heat[i] * Math.max(0, 1 - t * 3);
     }
     this.geo.instanceCount = this.n;
     this.aPos.needsUpdate = true; this.aData.needsUpdate = true;

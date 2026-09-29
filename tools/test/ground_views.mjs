@@ -28,6 +28,8 @@ const PRESET = {
   back: [[0, 1.6, 0], [0, 1.2, -40], 72],
   signR: [[-3, 1.4, 0], [-11, 0.9, 22], 40],
   zoomR: [[-3, 1.4, 0], [-11.2, 0.95, 26], 7],
+  zoomR2: [[-3, 1.8, 0], [-11.4, 1.9, 30], 12],
+  zoomL2: [[3, 1.8, 0], [11.4, 1.9, 30], 12],
   signL: [[3, 1.4, 0], [11, 0.9, 22], 40],
 };
 fs.mkdirSync(path.dirname(prefix), { recursive: true });
@@ -42,9 +44,9 @@ for (const b of only) {
   page.on('pageerror', (e) => errs.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 300)); });
   try {
-    await page.goto(`${base}/index.html?solo&as=gunner&s=${s}&seed=${opt.seed || 7}${opt.q ? '&' + opt.q : ''}`, { waitUntil: 'load' });
+    await page.goto(`${base}/index.html?solo&as=${opt.as || (opt.hold ? "driver" : "gunner")}&s=${s}&seed=${opt.seed || 7}${opt.q ? '&' + opt.q : ''}`, { waitUntil: 'load' });
     await page.waitForFunction('window.__ready === true', null, { timeout: 120000 }).then(() => page.evaluate(() => document.getElementById('boot')?.remove())).catch(() => errs.push('__ready not set'));
-    await page.evaluate(({ speed, lat }) => { window.__autodrive = { speed, lat }; }, { speed: +(opt.speed ?? 25), lat: +(opt.lat || 0) });
+    await page.evaluate(({ speed, lat, hold }) => { if (hold) window.__forceInput = { throttle: 0, brake: 1, steer: 0, handbrake: true }; else window.__autodrive = { speed, lat }; }, { speed: +(opt.speed ?? 25), lat: +(opt.lat || 0), hold: !!opt.hold });
     await page.waitForTimeout(+(opt.drive || 6000));
     for (const v of views) {
       const [o, l, fov] = PRESET[v];

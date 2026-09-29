@@ -101,6 +101,7 @@ export class AudioBridge {
       case 'remove': this._removeCar(e.id); break;
       case 'shot': this._shot(e, ctx); break;
       case 'hit': this._impact(e.pos, e.surface, e); if (e.enemy && e.carId === this.playerId && (e.dmg || 0) >= 15) A.concussion(Math.min(0.3, e.dmg / 60)); break;
+      case 'spikeHit': this._play('impacts/car_scrape_hit', { pos: e.pos, gain: 0.9, pitch: 1.1 + A.rand() * 0.15 }); break;
       case 'whizz': this._play('impacts/bullet_whizz', { pos: e.pos, gain: clamp(1.15 - (e.dist || 1) * 0.3, 0.45, 1), pitch: 0.92 + A.rand() * 0.2, refDist: 2.5 }); break;
       case 'crash': this._crash(e, ctx); break;
       case 'explode': this._explode(e, ctx); break;

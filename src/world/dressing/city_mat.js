@@ -10,7 +10,7 @@ import * as THREE from 'three';
 export const CITY_U = { uNight: { value: 0 }, uTime: { value: 0 } };
 
 /** Facade styles (aFac.x). */
-export const ST = { PLAIN: 0, PUNCHED: 1, RIBBON: 2, CURTAIN: 3, BRICK: 4, INDUSTRIAL: 5, PAVING: 6, ASPHALT: 7, CONCRETE: 8, DAM: 9 };
+export const ST = { PLAIN: 0, PUNCHED: 1, RIBBON: 2, CURTAIN: 3, BRICK: 4, INDUSTRIAL: 5, PAVING: 6, ASPHALT: 7, CONCRETE: 8, DAM: 9, NEON: 10 };
 
 const HASH = /* glsl */`
   float cH(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -27,8 +27,10 @@ export function facadeMaterial() {
   if (_facade) return _facade;
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.0, emissive: 0x000000 });
   m.name = 'city_facade';
+  const neonTex = { value: neonTexture() };
+  m.userData.textures = [neonTex.value];                  // Game.warmMeshes uploads material.map & co; this one is custom
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uNight = CITY_U.uNight; sh.uniforms.uTime = CITY_U.uTime;
+    sh.uniforms.uNight = CITY_U.uNight; sh.uniforms.uTime = CITY_U.uTime; sh.uniforms.uNeonTex = neonTex;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         attribute vec2 aUvF; attribute vec4 aFac; attribute vec4 aFac2;
@@ -37,7 +39,7 @@ export function facadeMaterial() {
         vUvF = aUvF; vFac = aFac; vFac2 = aFac2; vWp = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uNight; uniform float uTime;
+        uniform float uNight; uniform float uTime; uniform sampler2D uNeonTex;
         varying vec2 vUvF; varying vec4 vFac; varying vec4 vFac2; varying vec3 vWp;
         ${HASH}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -126,6 +128,15 @@ export function facadeMaterial() {
             diffuseColor.rgb *= 0.75 + 0.4 * n;
             float line = cBox(vec2(abs(f.x), fract(f.y / 6.0)), vec2(-1.0, 0.0), vec2(0.08, 0.5), vec2(fwidth(f.x), 0.02));
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.55, 0.5, 0.35), line * 0.6);
+          } else if (st == 10) {
+            // neon sign / glow dot from the atlas: aUvF = atlas uv, aFac = (10, phase, mode, brightness)
+            vec3 tx = texture2D(uNeonTex, f).rgb;
+            float ph = vFac.y * 37.0, md = vFac.z, k = 1.0;
+            if (md > 0.5 && md < 1.5) k = 0.82 + 0.18 * sin(uTime * 55.0 + ph) * step(0.2, fract(uTime * 0.37 + ph));
+            else if (md > 1.5 && md < 2.5) { float q = fract(uTime * 0.23 + ph); k = step(0.18, q) * (step(q, 0.6) + step(0.72, q) * step(q, 0.78)) * (0.7 + 0.3 * sin(uTime * 80.0)); }
+            else if (md > 2.5) k = 0.08 + 0.92 * step(0.55, fract(uTime * 0.75 + ph));
+            diffuseColor.rgb = tx * 0.35;
+            fEmis = tx * (0.08 + 1.7 * uNight) * vFac.w * k;
           } else if (st == 9) {
             // dam concrete: lift lines (2.4 m), block joints (18 m), calcite + rust streaks, damp dark base (aFac.y = waterline height in v)
             vec2 c2 = vec2(f.x / 18.0, f.y / 2.4); vec2 fw2 = fwidth(c2);
@@ -266,9 +277,14 @@ export function flameMaterial() {
     name: 'city_flame', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: true,
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: CITY_U.uTime }]),
     vertexShader: /* glsl */`
-      attribute vec4 aFac; varying vec2 vUv; varying float vPh;
+      varying vec2 vUv; varying float vPh;
       #include <fog_pars_vertex>
-      void main() { vUv = uv; vPh = aFac.x; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+      void main() {
+        vUv = uv; vec4 p = vec4(position, 1.0); vPh = 0.0;
+        #ifdef USE_INSTANCING
+          p = instanceMatrix * p; vPh = fract(instanceMatrix[3].x * 0.37 + instanceMatrix[3].z * 0.21);
+        #endif
+        vec4 mvPosition = modelViewMatrix * p; gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
       }`,
     fragmentShader: /* glsl */`
@@ -301,11 +317,15 @@ export function smokeMaterial() {
       attribute vec4 aFac; varying vec2 vUv; varying vec2 vF;
       #include <fog_pars_vertex>
       void main() {
-        vUv = uv; vF = aFac.xy;
+        vUv = uv; vec4 c = vec4(position, 1.0); float sx = 1.0, ph = aFac.x;
+        #ifdef USE_INSTANCING
+          c = instanceMatrix * c; sx = length(instanceMatrix[0].xyz); ph = fract(instanceMatrix[3].x * 0.013 + instanceMatrix[3].z * 0.007);
+        #endif
+        vF = vec2(ph, aFac.y);
         // cylindrical billboard: offset along the camera's right vector (projected to the ground plane)
-        vec4 c = modelMatrix * vec4(position, 1.0);
+        c = modelMatrix * c;
         vec3 toCam = cameraPosition - c.xyz; vec3 right = normalize(vec3(toCam.z, 0.0, -toCam.x));
-        c.xyz += right * aFac.z * (uv.x - 0.5) * 2.0;
+        c.xyz += right * aFac.z * sx * (uv.x - 0.5) * 2.0;
         vec4 mvPosition = viewMatrix * c; gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
       }`,
@@ -328,4 +348,35 @@ export function smokeMaterial() {
   m.uniforms.uTime = CITY_U.uTime; m.uniforms.uNight = CITY_U.uNight;
   _smoke = m;
   return m;
+}
+
+/** Instanced effect assets for the dressing pool: 'fx_flame' (crossed unit quads, 1 x 1) and 'fx_smoke' (unit column: height 1,
+ *  half-width factor per row, drifting with the wind). Scale per instance: flame (w, h, w), smoke (width, height, width). */
+export function registerSetAssets(kit) {
+  if (kit.assets.has('fx_flame')) return;
+  const asset = (name, geo, mat) => {
+    geo.computeBoundingBox(); geo.computeBoundingSphere();
+    const box = geo.boundingBox.clone(), size = box.getSize(new THREE.Vector3()), tris = geo.index.count / 3;
+    return { name, kind: 'prop', url: 'procedural', parts: [{ name, geometry: geo, material: mat, role: 'main', tris, ready: true }], sockets: {}, collision: null,
+      box, tris, size, height: box.max.y, radius: Math.max(size.x, size.z) * 0.5, sphere: box.getBoundingSphere(new THREE.Sphere()), hasRoad: false, procedural: true, derived: true };
+  };
+  // flame: two crossed quads, x -0.5..0.5, y 0..1
+  const fp = [], fu = [], fi = [];
+  for (const [ax, az] of [[1, 0], [0, 1]]) {
+    const b = fp.length / 3;
+    fp.push(-ax * 0.5, 0, -az * 0.5, ax * 0.5, 0, az * 0.5, ax * 0.5, 1, az * 0.5, -ax * 0.5, 1, -az * 0.5);
+    fu.push(0, 0, 1, 0, 1, 1, 0, 1); fi.push(b, b + 1, b + 2, b, b + 2, b + 3);
+  }
+  const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setAttribute('uv', new THREE.Float32BufferAttribute(fu, 2)); fg.setIndex(fi);
+  kit.assets.set('fx_flame', asset('fx_flame', fg, flameMaterial()));
+  // smoke: 10 rows, both vertices of a row at the column centre (width comes from aFac.z in the billboard shader)
+  const sp = [], su = [], sf = [], si = [], N = 10;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, drift = t * t * 2.8;
+    for (let k = 0; k < 2; k++) { sp.push(0.9 * drift, t, 0.42 * drift); su.push(k, t); sf.push(0, 1, 0.35 + 2.2 * t, 0); }
+    if (i < N) { const a = i * 2; si.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+  }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(su, 2));
+  sg.setAttribute('aFac', new THREE.Float32BufferAttribute(sf, 4)); sg.setIndex(si);
+  const sa = asset('fx_smoke', sg, smokeMaterial()); sa.sphere.radius = 1.5; kit.assets.set('fx_smoke', sa);
 }

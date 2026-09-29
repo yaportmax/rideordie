@@ -33,6 +33,7 @@ const steps = [
   ['garage_upgrades', `${tab('upgrades')} ${sleep(1800)}`],
   ['garage_weapons', `${tab('weapons')} ${sleep(1800)}`],
   ['garage_weapons_rifle', `${sel('rifle')} ${sleep(1500)}`],
+  ['garage_weapons_smg', `${sel('smg')} ${sleep(1500)}`],
   ['garage_gunner', `${tab('gunner')} ${sleep(1800)}`],
   ['garage_paint', `${tab('paint')} ${sleep(1800)}`],
   ['results_lose', `window.__app.game.mode = 'menu'; window.__app.ui.showResults({ ...${summary(false)}, newBest: { distance: true, kills: true } }, window.__app.profile, { onContinue: () => window.__app.garage() }); ${sleep(6500)}`],

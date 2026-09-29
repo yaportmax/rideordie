@@ -14,6 +14,7 @@ import common
 import gear
 import kit
 import lod
+import menace
 import mh
 import outfit
 import paintcloth as PC
@@ -177,6 +178,11 @@ def add_gear(ctx, fit, pcs):
     lip = kit.patch_on_surface(rc_sh, P[0] + np.array([-0.02, 0.0, 0.0]), n, (0, 0, 1), 0.15, 0.03, standoff=0.05, thick=0.012, bevel=0.003, e=6.0, rings=2, seg=12, dome=0.0, cast_from=0.35)
     common.add_gear(ctx, lip, metal, binder, label="pauldron_door")
     riv += rivets_around(P[0], n, np.array([0.0, 0.0, 1.0]), 0.14, 0.16, 0, count=8, mesh=door)
+    spike_m = common.gear_material(ctx, "spike", "metal_dark", color=(0.70, 0.68, 0.64), rough=0.7, metal=1.0)
+    for k, off in enumerate((-0.09, -0.03, 0.03, 0.09)):
+        base = P[0] + n * 0.05 + np.array([0.0, 0.0, off]) + np.array([0.02, 0.0, 0.0])
+        d = n + np.array([0.25, 0.1, off * 3.0])
+        common.add_gear(ctx, gear.spike(base, d, 0.085 if k in (1, 2) else 0.065, 0.014, seg=7), spike_m, binder, bone="LeftArm", label="spikes")
     armR, foreR = H["RightArm"], H["RightForeArm"]
     axis = (foreR - armR) / np.linalg.norm(foreR - armR)
     prof = [(0.07, -0.045), (0.105, -0.045), (0.112, -0.03), (0.112, 0.03), (0.105, 0.045), (0.07, 0.045)]
@@ -249,6 +255,30 @@ def add_gear(ctx, fit, pcs):
         m = kit.loft(np.array([inner[0], rr[0], rr[1], inner[1]]), closed=True, tile=0.25, angle=60.0)
         m = kit.orient_outward(m, np.array([0, 0.5 * (y0 + y1), zc]), 60.0)
         common.add_gear(ctx, m, strap, binder, bone="Head", label="mask_strap")
+    # --- two rusted exhaust stacks rising behind the shoulders (bolted to the back plate) + a skull on the belt
+    rust = common.gear_material(ctx, "rust", "scrap", color=(0.55, 0.36, 0.22), rough=1.0, metal=0.6)
+    s2 = H["Spine2"]
+    T, hp, hn = rc_t.cast(np.array([[0.0, cy, -0.9]]), np.array([[0.0, 0.0, 1.0]]), tmax=2.0)
+    bz = (hp[0][2] if np.isfinite(T[0]) else s2[2] - 0.15) - 0.05
+    for sx in (1.0, -1.0):
+        p0 = np.array([sx * 0.085, cy - 0.10, bz])
+        p1 = np.array([sx * 0.10, s2[1] + 0.22, bz - 0.015])
+        p2 = p1 + np.array([sx * 0.015, 0.07, -0.05])
+        pipe = kit.sweep(kit.polyline_smooth([p0, 0.5 * (p0 + p1), p1, p2], 10), 0.026, sides=10, caps=True, tile=0.2)
+        common.add_gear(ctx, pipe, rust, binder, bone="Spine2", label="exhaust")
+        d = (p2 - p1) / np.linalg.norm(p2 - p1)
+        common.add_gear(ctx, kit.cylinder(p2 - d * 0.01, p2 + d * 0.012, 0.031, 0.031, seg=10), metal, binder, bone="Spine2", label="exhaust")
+        common.add_gear(ctx, kit.cylinder(p2 + d * 0.012, p2 + d * 0.014, 0.024, 0.024, seg=10), rubber, binder, bone="Spine2", label="exhaust")
+        for y in (cy - 0.02, s2[1] + 0.05):
+            cl = kit.xform(kit.rbox((0.07, 0.022, 0.014), 0.003, 1), t=np.array([sx * 0.09, y, bz + 0.03]))
+            common.add_gear(ctx, cl, strap, binder, bone="Spine2", label="exhaust")
+    bone_m = common.gear_material(ctx, "bone", "plastic", color=(0.78, 0.72, 0.60), rough=0.8)
+    sk_b, sk_d = menace.skull(np.array([0.10, fit.belt_y - 0.07, 0.0]), size=0.055)
+    T, hp, hn = rc_p.cast(np.array([[0.10, fit.belt_y - 0.07, 0.8]]), np.array([[0.0, 0.0, -1.0]]), tmax=2.0)
+    if np.isfinite(T[0]):
+        off = np.array([0.0, 0.0, hp[0][2] + 0.03])
+        common.add_gear(ctx, kit.xform(sk_b, t=off), bone_m, binder, bone="Hips", label="skull")
+        common.add_gear(ctx, kit.xform(sk_d, t=off), rubber, binder, bone="Hips", label="skull")
     ctx.brc, ctx.binder = brc, binder
 
 

@@ -156,6 +156,15 @@ TREAD = {
 }
 
 
+def _flat_from(bm, ranges):
+    """Mark faces with index in [a, b) as 'flat' (one colour cell per material in the atlas instead of their own UV islands)."""
+    fl = bm.faces.layers.int.get("flat") or bm.faces.layers.int.new("flat")
+    bm.faces.ensure_lookup_table()
+    for a, b in ranges:
+        for i in range(a, b):
+            bm.faces[i][fl] = 1
+
+
 def _bm_quad_box(bm, c8, faces_out):
     """8 verts (bottom 4 then top 4, same winding) -> 5 faces (no bottom)."""
     v = [bm.verts.new(p) for p in c8]
@@ -193,7 +202,8 @@ def tire_mesh_v2(name, R, W, rim_r, style="offroad", N=40):
             k = (j + 1) % len(prof)
             fs.append(bm.faces.new((A[j], A[k], Bq[k], Bq[j])))
     bmesh.ops.recalc_face_normals(bm, faces=fs)
-    # ---- lugs
+    n_carcass = len(bm.faces)
+    # ---- lugs (flat-coloured in the atlas: hundreds of tiny islands otherwise)
     B = T["B"]
     pitch = 2 * math.pi / B
     lug_faces = []
@@ -252,6 +262,7 @@ def tire_mesh_v2(name, R, W, rim_r, style="offroad", N=40):
                 if i == len(rows_v) - 2:
                     f = bm.faces.new(rows_v[-1])
                     _out(f, ref)
+    _flat_from(bm, [(n_carcass, len(bm.faces))])
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
@@ -354,8 +365,9 @@ def rim_mesh_v2(name, rim_r, W, style="steel", spokes=6, lugs=5, N=20, rotor=Tru
             wedge(rc - 0.01, rim_r - 0.008, a_c, sec * 0.16, sec * 0.07, face_w + 0.012, Wr - 0.016, 0.022)
         # thin lip ring where the spokes land
         revolve([(Wr - 0.012, rlip), (Wr - 0.002, rlip + 0.004), (Wr - 0.002, rlip - 0.018), (Wr - 0.02, rlip - 0.018)])
-    # raised hub + lug nuts + centre cap
+    # raised hub + lug nuts + centre cap (nuts / cap / bolts flat-coloured in the atlas)
     solid([(face_w + 0.018, 0.0), (face_w + 0.018, hub_r), (face_w + 0.030, hub_r * 0.92), (face_w + 0.030, 0.0)], n=12)
+    flat_ranges = [len(bm.faces)]
     for l in range(lugs):
         a = 2 * math.pi * l / lugs + 0.3
         cy, cz = math.sin(a) * hub_r * 0.66, math.cos(a) * hub_r * 0.66
@@ -366,20 +378,24 @@ def rim_mesh_v2(name, rim_r, W, style="steel", spokes=6, lugs=5, N=20, rotor=Tru
         solid([(face_w + 0.066, 0.0), (face_w + 0.066, 0.028), (face_w + 0.066 + hub_spike * 0.35, 0.022), (face_w + 0.066 + hub_spike, 0.0)], n=8)
     else:
         solid([(face_w + 0.03, 0.030), (face_w + 0.048, 0.026), (face_w + 0.056, 0.012), (face_w + 0.058, 0.0)], n=10)
+    flat_ranges = [(flat_ranges[0], len(bm.faces))]
     if style == "beadlock":
         a, b = 0.905 * hw, 0.975 * hw
         revolve([(a, rim_r - 0.01), (b, rim_r - 0.01), (b, rim_r + 0.058), (a, rim_r + 0.058)], n=26)
         rb = rim_r + 0.031
         nb = 16
+        f0 = len(bm.faces)
         for q in range(nb):
             an = 2 * math.pi * (q + 0.5) / nb
             solid([(b - 0.002, 0.0), (b - 0.002, 0.011), (b + 0.012, 0.010), (b + 0.014, 0.0)], n=6, cx=math.sin(an) * rb, cy=math.cos(an) * rb)
+        flat_ranges.append((f0, len(bm.faces)))
     if rotor:
         rr0, rr1 = 0.30 * rim_r, 0.80 * rim_r
         wr = min(face_w - 0.05, 0.05 * Wr) - 0.02
         revolve([(wr + 0.012, rr0), (wr + 0.012, rr1), (wr - 0.012, rr1), (wr - 0.012, rr0)], n=16)
         # hat
         revolve([(wr + 0.012, rr0 + 0.002), (face_w - 0.010, hub_r * 0.95), (wr + 0.006, rr0 - 0.006)], n=12)
+    _flat_from(bm, flat_ranges)
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()

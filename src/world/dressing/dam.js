@@ -5,7 +5,7 @@
 // behind. Built once (time-sliced generator) when the player approaches; a handful of draw calls (shared city materials).
 import * as THREE from 'three';
 import { MB, frameBasis } from './mbuild.js';
-import { ST, facadeMaterial, neonMaterial, NEON_DOT } from './city_mat.js';
+import { ST, facadeMaterial, NEON_DOT } from './city_mat.js';
 import { flowMaterial, mistMaterial, bannerMaterial, reservoirMaterial } from './setmat.js';
 import { seaLevel } from '../terrain_gen.js';
 import { rng, fbm2, smoothstep } from '../../core/util.js';
@@ -49,7 +49,7 @@ export function* buildDam(ctx, add, getTerrainMat) {
   const road = ctx.road, arc = damArc(road), r = rng(ctx.seed * 31 + 7);
   const { Yc, water, L } = arc;
   const anchor = arc.at(0.5, {}); anchor.y = 0;
-  const mb = new MB(anchor, { uvName: 'aUvF', cap: 16384 }), nb = new MB(anchor, { cap: 1024 });
+  const mb = new MB(anchor, { uvName: 'aUvF', cap: 16384 }), nb = mb;   // lamps / beacons share the facade mesh (style NEON)
   const fb = new MB(anchor, { cap: 4096 }), mist = new MB(anchor, { cap: 512 }), ban = new MB(anchor, { cap: 1024 });
   const C = {}, C2 = {}, P = [{}, {}, {}, {}];
   const pt = (t, o, y, out) => { arc.at(t, C); out.x = C.x + C.nx * o; out.y = y; out.z = C.z + C.nz * o; return out; };
@@ -80,6 +80,19 @@ export function* buildDam(ctx, add, getTerrainMat) {
       if (flip) mb.quadIdx(d, c, b, a); else mb.quadIdx(a, b, c, d);
     }
     yield;
+  }
+  // end caps: the dam's cross-section at both ends (where it meets the abutment rock)
+  for (const t of [0, 1]) {
+    arc.at(t, C);
+    const poly = rows.map((D) => [D < 0 ? 0 : faceO(D), Yc - D]).concat([[-14, base], [-14, Yc + 1.3]]);
+    const hint = t === 0 ? [-C.tx, 0, -C.tz] : [C.tx, 0, C.tz];
+    const c0 = pt(t, poly[poly.length - 1][0], poly[poly.length - 1][1], {});
+    for (let k = 0; k < poly.length - 2; k++) {
+      const a = pt(t, poly[k][0], poly[k][1], {}), b = pt(t, poly[k + 1][0], poly[k + 1][1], {});
+      const ax = a.x - c0.x, ay = a.y - c0.y, az = a.z - c0.z, bx = b.x - c0.x, by = b.y - c0.y, bz = b.z - c0.z;
+      const nx = ay * bz - az * by, nz = ax * by - ay * bx;
+      if (nx * hint[0] + nz * hint[2] >= 0) mb.triW(c0, a, b, 0, 0, 1, 0, 1, 1); else mb.triW(c0, b, a, 0, 0, 1, 0, 1, 1);
+    }
   }
   // ---------------------------------------------------------------- 2. crest: parapets, deck, upstream face
   const crestProf = [[0, Yc + 1.3], [-0.6, Yc + 1.3], [-0.6, Yc], [-13.4, Yc], [-13.4, Yc + 1.3], [-14, Yc + 1.3], [-14, Yc - 60]];
@@ -298,7 +311,6 @@ export function* buildDam(ctx, add, getTerrainMat) {
     add(m); return m;
   };
   mk(mb, facadeMaterial(), 'dam', { cast: true, recv: true });
-  mk(nb, neonMaterial(), 'dam-lights');
   mk(ban, bannerMaterial(), 'dam-banners', { cast: true, recv: true });
   mk(res, reservoirMaterial(), 'dam-reservoir');
   mk(fb, flowMaterial(), 'dam-water', { order: 12 });
@@ -307,7 +319,7 @@ export function* buildDam(ctx, add, getTerrainMat) {
   // ---------------------------------------------------------------- 11. rock abutments (terrain material, so they match the valley walls)
   let tm = getTerrainMat();
   while (!tm) { yield; tm = getTerrainMat(); }
-  for (const end of [0, 1]) { abutment(ctx, add, arc, end, tm); yield; }
+  for (const end of [0, 1]) yield* abutment(ctx, add, arc, end, tm);
 }
 
 /** Returns true if the quad (a,b,c,d) of builder `b` faces away from the hint (i.e. the winding must be flipped). */
@@ -377,21 +389,24 @@ function puff(mist, p, radius, alpha, ph) {
 
 function dot(nb, F, x, y, z, size, color, mode, rv) {
   const [u0, v0, u1, v1] = NEON_DOT(color), uc = (u0 + u1) / 2, vc = (v0 + v1) / 2, h = size / 2, P = [{}, {}, {}, {}];
-  nb.setFac(rv, mode, 1.6, 0);
+  nb.pushFac().setFac(ST.NEON, rv, mode, 1.6);
   for (const [ax, az] of [[1, 0], [0, 1]]) {
     MB.at(F, x - ax * h, y - h, z - az * h, P[0]); MB.at(F, x + ax * h, y - h, z + az * h, P[1]); MB.at(F, x + ax * h, y + h, z + az * h, P[2]); MB.at(F, x - ax * h, y + h, z - az * h, P[3]);
     nb.quadW(P[0], P[1], P[2], P[3], uc, vc, uc, vc, uc, vc, uc, vc); nb.quadW(P[3], P[2], P[1], P[0], uc, vc, uc, vc, uc, vc, uc, vc);
   }
+  nb.popFac();
 }
 
 /** Rock abutment massif at one end of the dam: a grid heightfield in the (along-axis, toward-road) frame of the dam end. */
-function abutment(ctx, add, arc, end, mat) {
+function* abutment(ctx, add, arc, end, mat) {
   const road = ctx.road, seed = ctx.seed, C = {};
   arc.at(end, C);
   const sgn = end ? 1 : -1;                                   // outward along the dam axis
   const ux = C.tx * sgn, uz = C.tz * sgn, vx = C.nx, vz = C.nz;  // u outward, v toward the road
   // distance to the road on the RIGHT (lake) side; anything on or left of the road counts as "at the road" (the rock must not cross it)
-  const roadDist = (x, z) => { const q = road.nearest(x, z, end ? DAM.sB : DAM.sA, 900, _n); return q.d > 0 ? 0 : q.dist; };
+  // the road is nearly straight around the dam ends: project onto its direction for a good hint, then a short exact search
+  const sE = end ? DAM.sB : DAM.sA, rE = road.sample(sE, {});
+  const roadDist = (x, z) => { const hint = sE + (x - rE.x) * rE.fx + (z - rE.z) * rE.fz; const q = road.nearest(x, z, hint, 120, _n); return q.d > 0 ? 0 : q.dist; };
   const us = [], vs = [];
   for (let u = -70; u <= 520; u += 14) us.push(u);
   for (let v = -900; v <= 140; v += 13) vs.push(v);
@@ -399,7 +414,9 @@ function abutment(ctx, add, arc, end, mat) {
   const uMax = us[us.length - 1], vMin = vs[0];
   if (vz * ux - vx * uz < 0) vs.reverse();
   const grid = [];
+  let rowN = 0;
   for (const v of vs) {
+    if (++rowN % 8 === 0) yield;
     const row = [];
     for (const u of us) {
       const x = C.x + ux * u + vx * v, z = C.z + uz * u + vz * v;
@@ -410,9 +427,9 @@ function abutment(ctx, add, arc, end, mat) {
       const out = Math.max(0, u - 30), up = Math.max(0, -v);
       let y = arc.Yc + 22 + 38 * (n1 - 0.5) - 0.0009 * out * out - 0.18 * out * (0.6 + 0.8 * n1) - 0.015 * up;
       y += (n2 - 0.5) * 9;
+      if (u < 12) y = Math.max(y, arc.Yc + 3 + (n2 - 0.5) * 5);                // bury the dam end
       const cliff = smoothstep(95, 42, dRoad);                // keep ~42 m clear of the road: plunge into the lake before it
       y = y * (1 - cliff * cliff) + (arc.water - 26) * cliff * cliff;
-      if (u < 12) y = Math.max(y, arc.Yc + 3 + (n2 - 0.5) * 5);                // bury the dam end
       // the grid's far borders sink into the lake (no cut edges hanging in the air)
       const edge = smoothstep(0, 160, Math.min(uMax - u, v - vMin));
       y = arc.water - 30 + (y - (arc.water - 30)) * edge;

@@ -72,6 +72,8 @@ function views(root) {
     gunD: () => camAt(geye, 0, -38, 75),
     gunB: () => camAt(geye, 180, -30, 75),
     gunL: () => camAt(geye, 70, -25, 75),
+    lampF: () => { const h = find('light_head_L'); const p = h ? h.getWorldPosition(new THREE.Vector3()) : ctr; const c = new THREE.PerspectiveCamera(40, 1, 0.05, 600); c.position.copy(p).add(new THREE.Vector3(0.9, 0.35, 1.9)); c.lookAt(p.clone().add(new THREE.Vector3(-0.35, 0, 0))); return c; },
+    lampR: () => { const h = find('light_tail_L'); const p = h ? h.getWorldPosition(new THREE.Vector3()) : ctr; const c = new THREE.PerspectiveCamera(40, 1, 0.05, 600); c.position.copy(p).add(new THREE.Vector3(0.7, 0.45, -1.8)); c.lookAt(p.clone().add(new THREE.Vector3(-0.35, 0, 0))); return c; },
     ext: () => ext(35, 16, 11), extR: () => ext(145, 16, 11), extS: () => ext(90, 4, 10), extT: () => ext(20, 55, 9),
   };
   return (q.get('views') || 'drv,drvL,drvR,drvU,gun,gunD').split(',').map((k) => [k, V[k] ? V[k]() : V.drv()]);

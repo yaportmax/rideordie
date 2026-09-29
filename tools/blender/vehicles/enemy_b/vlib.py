@@ -446,10 +446,10 @@ class Model:
                 pass
         self._finish_bm(bm, mat, None, 0, 1, 30, obj, recalc=False)
 
-    def text(self, mat, s, at, u=(1, 0, 0), v=(0, 1, 0), size=0.3, depth=0.008, obj=None, wrap=None, spacing=1.0, bold=0.0):
+    def text(self, mat, s, at, u=(1, 0, 0), v=(0, 1, 0), size=0.3, depth=0.008, obj=None, wrap=None, spacing=1.0, bold=0.0, res=3):
         cu = bpy.data.curves.new('tx', 'FONT')
         cu.body = s; cu.size = size; cu.extrude = depth * 0.5; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
-        cu.resolution_u = 3
+        cu.resolution_u = res
         cu.space_character = spacing; cu.offset = bold * size * 0.02 if bold else 0.0
         if bold:
             cu.offset = bold

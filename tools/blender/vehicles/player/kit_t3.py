@@ -94,6 +94,22 @@ def kit(T):
     rivets(pr, [(x, f, T.roof_z(x, f) + 0.062) for x in (-xr + 0.06, xr - 0.06) for f in [f0 + 0.08 + i * (f1 - f0 - 0.16) / 7 for i in range(8)]], 0.011, axis='z')
     for sx in (-0.55, 0.55):
         spotlight(pr, (sx, f1 - 0.02, T.roof_z(sx, f1) + 0.12), 0.055)
+    # weld beads along the stiffeners, escape hatch with hinges/handle/bolts, stencil (the gunner stares at this plate)
+    for sx in (-0.42, 0.0, 0.42):
+        for dx_ in (-0.03, 0.03):
+            weld_seam(pr, (sx + dx_, f0 + 0.1, T.roof_z(sx, f0 + 0.1) + 0.066), (sx + dx_, f1 - 0.1, T.roof_z(sx, f1 - 0.1) + 0.066), r=0.0045)
+    hx_, hf_ = -0.21, f0 + 0.32
+    hz_ = T.roof_z(hx_, hf_) + 0.066
+    pr.box('armor', (hx_, hf_, hz_ + 0.008), (0.36, 0.36, 0.02), bev=0.006)
+    pr.box('metal_dark', (hx_, hf_, hz_ - 0.001), (0.39, 0.39, 0.006), bev=0.002)
+    for sx in (-0.11, 0.11):
+        pr.cyl('metal_dark', (hx_ + sx, hf_ - 0.19, hz_ + 0.01), 0.014, 0.08, axis='x', n=8)
+    pr.tube('metal_bare', [(hx_ - 0.08, hf_ + 0.15, hz_ + 0.018), (hx_ - 0.08, hf_ + 0.15, hz_ + 0.05), (hx_ + 0.08, hf_ + 0.15, hz_ + 0.05), (hx_ + 0.08, hf_ + 0.15, hz_ + 0.018)], 0.008, n=6, rad=0.015, k=2)
+    for i in range(8):
+        a = math.radians(22.5 + 45 * i)
+        pr.cyl('metal_bare', (hx_ + 0.15 * math.copysign(min(1, abs(math.cos(a)) * 1.5), math.cos(a)), hf_ + 0.15 * math.copysign(min(1, abs(math.sin(a)) * 1.5), math.sin(a)), hz_ + 0.02), 0.008, 0.008, axis='z', n=6)
+    pr.sticker('lbl_nostep', (hx_, hf_ + 0.02, hz_ + 0.0185), (0, 0, 1), (0, 1, 0), 0.26, 0.065, lift=0.0)
+    pr.sticker('radiation', (0.25, f0 + 0.3, T.roof_z(0.25, f0 + 0.3) + 0.066), (0, 0, 1), (0, 1, 0), 0.16, 0.16, lift=0.0, rot=-8)
 
     # ================================================================== SPIKED ARMORED GRILLE + headlamp cages (fixed to the body)
     fg = C.f_grille

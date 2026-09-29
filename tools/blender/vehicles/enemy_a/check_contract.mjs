@@ -80,7 +80,11 @@ export function inspect(file) {
 }
 
 const CONTRACT = /^(body|wheel_(FL|FR|RL|RR)|panel_.*|seat_driver|seat_gunner|steering_wheel|gun_mount|gun_mg|light_head_.*|light_tail_.*|exhaust.*|smoke_engine|fuel_cap|nitro_.*|camera_hood|roof_top)$/;
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
+if (isMain) main();
+
+function main() {
 if (save) {
   const out = {};
   for (const id of IDS) {
@@ -106,6 +110,11 @@ for (const id of IDS) {
     const dr = Math.max(...cn.r.map((v, i) => Math.abs(v - bn.r[i])));
     if (dt > 0.002 || dr > 0.002) issues.push(`MOVED ${name}: t ${bn.t} -> ${cn.t}  r ${bn.r} -> ${cn.r}`);
   }
+  const sw = r.table.steering_wheel_mesh;
+  if (sw) {
+    const ident = sw.t.every(v => Math.abs(v) < 1e-3) && Math.abs(sw.r[3]) > 0.9999;
+    console.log(`   steering_wheel_mesh: parent=${sw.parent} local t=${sw.t} r=${sw.r} ${sw.parent === 'steering_wheel' && ident ? 'OK' : 'BAD'}`);
+  }
   const extra = Object.keys(r.table).filter(k => CONTRACT.test(k) && !b.nodes[k]);
   const offPal = r.mats.filter(m => !PAL.includes(m));
   const missMat = b.mats.filter(m => !r.mats.includes(m));
@@ -119,3 +128,4 @@ for (const id of IDS) {
   if (issues.length) { bad++; console.log('   ' + issues.join('\n   ')); } else console.log('   contract nodes: OK (' + Object.keys(b.nodes).length + ' nodes identical)');
 }
 process.exit(bad ? 1 : 0);
+}

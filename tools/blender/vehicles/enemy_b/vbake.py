@@ -495,6 +495,16 @@ def _common(S):
     return S['n'], S['ao'], S['cav'], S['dirt'], S['dust'], S['ew'], S['streak'], S['heat']
 
 
+DUST_COL = (0.56, 0.48, 0.38)
+
+
+def _film(S):
+    """thin warm road-dust film on exterior surfaces (strongest low down and on open faces)"""
+    ext = np.clip(1.0 - S['ao'] * 1.4, 0, 1)
+    low = ss(2.2, 0.3, S['P'][:, 1])
+    return (0.07 + 0.16 * ss(0.3, 0.8, S['n_lo2']) + 0.12 * low) * ext * S['film_on']
+
+
 def r_paint(S, base=0.80):
     n, ao, cav, dirt, dust, ew, streak, heat = _common(S)
     P, N = S['P'], S['N']
@@ -536,6 +546,9 @@ def r_paint(S, base=0.80):
     rough = rough * (1 - dirt) + dirt * 0.9
     g = g * (1 - 0.55 * dust) + 0.9 * 0.55 * dust
     rough = rough * (1 - dust) + dust * 0.95
+    fl = _film(S)
+    g = g * (1 - fl) + 0.92 * fl
+    rough = rough + fl * 0.2
     g *= (1 - 0.72 * ao) * (1 - 0.5 * cav)
     rough = np.clip(rough + 0.25 * cav, 0, 1)
     g = np.clip(g, 0.03, 1)
@@ -583,13 +596,17 @@ def _steel_like(S, base, tint, rust_amt, bare_col=(0.47, 0.47, 0.46), metal0=0.7
     rgb = mix(rgb, col((0.50, 0.44, 0.36), n), dust * 0.6)
     rough = rough * (1 - dust) + dust * 0.95
     metal *= (1 - 0.8 * dust)
+    fl = _film(S)
+    rgb = mix(rgb, col(DUST_COL, n), fl)
+    rough = rough + fl * 0.25
+    metal *= (1 - 0.6 * fl)
     rgb *= ((1 - 0.72 * ao) * (1 - 0.5 * cav))[:, None]
     rough = np.clip(rough + 0.2 * cav, 0, 1)
     return np.clip(rgb, 0, 1), np.clip(rough, 0.05, 1), np.clip(metal, 0, 1)
 
 
 def r_armor(S):
-    return _steel_like(S, 0.20, (1.0, 0.99, 0.97), 1.0, metal0=0.35, rough0=0.66)
+    return _steel_like(S, 0.175, (1.0, 0.965, 0.92), 1.0, metal0=0.35, rough0=0.66, mill=0.26)
 
 
 def r_mdark(S):
@@ -607,10 +624,11 @@ def r_spike(S):
 
 def r_rust(S):
     n, ao, cav, dirt, dust, ew, streak, heat = _common(S)
-    t = np.clip(0.55 * S['n_lo'] + 0.3 * S['n_mid'] + 0.15 * S['n_fine'], 0, 1)
-    rgb = mix(col((0.16, 0.075, 0.04), n), col((0.46, 0.22, 0.08), n), ss(0.2, 0.75, t))
-    rgb = mix(rgb, col((0.58, 0.34, 0.14), n), ss(0.7, 0.95, t) * 0.7)
-    rgb *= (1 - 0.35 * ss(0.6, 0.85, S['n_pit']))[:, None]
+    t = np.clip(0.5 * S['n_mid'] + 0.3 * S['n_rc'] + 0.2 * S['n_fine'], 0, 1)
+    rgb = mix(col((0.11, 0.06, 0.035), n), col((0.30, 0.14, 0.06), n), ss(0.25, 0.7, t))                 # dark scale -> brown
+    rgb = mix(rgb, col((0.50, 0.24, 0.08), n), ss(0.62, 0.9, t + 0.25 * (S['n_lo'] - 0.5)) * 0.8)     # orange bloom
+    rgb = mix(rgb, col((0.26, 0.24, 0.22), n), ss(0.7, 0.85, S['n_lo2']) * 0.35)                      # remains of grey primer
+    rgb *= (1 - 0.4 * ss(0.6, 0.85, S['n_pit']))[:, None]
     rgb = mix(rgb, col((0.20, 0.17, 0.13), n), dirt * 0.6)
     rgb = mix(rgb, col((0.50, 0.44, 0.36), n), dust * 0.5)
     rgb *= ((1 - 0.7 * ao) * (1 - 0.5 * cav))[:, None]
@@ -621,13 +639,16 @@ def r_rust(S):
 def r_chrome(S):
     n, ao, cav, dirt, dust, ew, streak, heat = _common(S)
     fine, mid = S['n_fine'], S['n_mid']
-    g = 0.72 + 0.08 * (mid - 0.5)
-    rgb = col((1.0, 1.0, 1.02), n) * g[:, None]
-    rough = 0.16 + 0.1 * (mid - 0.5) + 0.05 * fine
+    g = 0.6 + 0.08 * (mid - 0.5)
+    rgb = col((1.0, 0.99, 0.97), n) * g[:, None]
+    rough = 0.24 + 0.1 * (mid - 0.5) + 0.06 * fine
     metal = np.ones(n, np.float32)
-    smudge = ss(0.5, 0.85, S['n_lo'] * 0.6 + mid * 0.4)
-    rgb = mix(rgb, col((0.45, 0.43, 0.40), n), smudge * 0.4)
-    rough = rough + smudge * 0.25
+    smudge = ss(0.45, 0.8, S['n_lo'] * 0.6 + mid * 0.4)
+    rgb = mix(rgb, col((0.38, 0.35, 0.31), n), smudge * 0.55)
+    rough = rough + smudge * 0.3
+    fl = _film(S)
+    rgb = mix(rgb, col(DUST_COL, n), fl * 0.8)
+    rough = rough + fl * 0.3
     rs = np.clip(S['rust'] * 0.6, 0, 1)
     rgb = mix(rgb, col((0.36, 0.18, 0.08), n), rs)
     rough = rough * (1 - rs) + rs * 0.85
@@ -641,6 +662,35 @@ def r_chrome(S):
     rough = rough * (1 - dust) + dust * 0.9
     rgb *= ((1 - 0.6 * ao) * (1 - 0.4 * cav))[:, None]
     return np.clip(rgb, 0, 1), np.clip(rough, 0.04, 1), np.clip(metal, 0, 1)
+
+
+def r_alu(S):
+    """weathered aluminium tank skin: brushed grey, oxidised milky patches, grime streaks, dents catch dirt"""
+    n, ao, cav, dirt, dust, ew, streak, heat = _common(S)
+    lo, mid, fine = S['n_lo'], S['n_mid'], S['n_fine']
+    g = 0.56 + 0.06 * (mid - 0.5) + 0.05 * (lo - 0.5)
+    rgb = col((1.0, 0.995, 0.98), n) * g[:, None]
+    rough = 0.44 + 0.12 * (mid - 0.5) + 0.06 * (fine - 0.5)
+    metal = np.full(n, 0.78, np.float32)
+    ox = ss(0.55, 0.8, lo * 0.5 + S['n_rc'] * 0.5)                                        # milky oxidation
+    rgb = mix(rgb, col((0.66, 0.66, 0.63), n), ox * 0.6)
+    rough = rough + ox * 0.3
+    metal = metal - ox * 0.35
+    rgb = mix(rgb, col((0.22, 0.19, 0.15), n), np.clip(streak * 0.9, 0, 1))
+    rough = rough * (1 - streak) + streak * 0.75
+    rgb = mix(rgb, col((0.18, 0.15, 0.12), n), dirt * 0.85)
+    rough = rough * (1 - dirt) + dirt * 0.85
+    metal *= (1 - 0.7 * dirt)
+    rgb = mix(rgb, col((0.55, 0.48, 0.38), n), dust * 0.65)
+    rough = rough * (1 - dust) + dust * 0.92
+    metal *= (1 - 0.7 * dust)
+    sc = S['scratch']
+    rgb = mix(rgb, col((0.8, 0.8, 0.8), n), sc * 0.5)
+    fl = _film(S)
+    rgb = mix(rgb, col(DUST_COL, n), fl)
+    rough = rough + fl * 0.3
+    rgb *= ((1 - 0.72 * ao) * (1 - 0.55 * cav))[:, None]
+    return np.clip(rgb, 0, 1), np.clip(rough, 0.05, 1), np.clip(metal, 0, 1)
 
 
 def r_rim(S):
@@ -681,6 +731,7 @@ def _dielectric(S, c, rough0=0.8, wear_col=None, dirt_amt=0.8, dust_amt=0.6, fin
     rgb = mix(rgb, col((0.25, 0.2, 0.15), n), np.clip(streak * 0.6 + S['rust'] * 0.5, 0, 1))
     rgb = mix(rgb, col((0.2, 0.17, 0.13), n), dirt * dirt_amt)
     rgb = mix(rgb, col((0.52, 0.46, 0.38), n), dust * dust_amt)
+    rgb = mix(rgb, col(DUST_COL, n), _film(S) * 0.8)
     rough = rough * (1 - dirt) + dirt * 0.92
     rgb *= ((1 - 0.72 * ao) * (1 - 0.5 * cav))[:, None]
     rgb *= (1 - 0.7 * heat)[:, None]
@@ -717,7 +768,7 @@ def r_flat(c, rough=0.8, wear=None, chip=None, chip_amt=0.0, dust_amt=0.6, dirt_
 RECIPES = {
     'paint': r_paint, 'paint2': lambda S: r_paint(S, 0.74),
     'armor': r_armor, 'metal_dark': r_mdark, 'metal_bare': r_mbare, 'spike': r_spike, 'rust': r_rust,
-    'chrome': r_chrome, 'rim': r_rim, 'rubber_tire': r_rubber, 'rubber': r_rubber,
+    'chrome': r_chrome, 'rim': r_rim, 'alu': r_alu, 'rubber_tire': r_rubber, 'rubber': r_rubber,
     'canvas': r_canvas, 'wood': r_wood,
     'interior': r_flat((0.10, 0.095, 0.09), 0.85, wear=(0.2, 0.19, 0.17), dust_amt=0.35, dirt_amt=0.3),
     'fabric': r_flat((0.22, 0.17, 0.12), 0.95, wear=(0.3, 0.25, 0.18), dust_amt=0.4, dirt_amt=0.3),
@@ -881,7 +932,7 @@ def finish(m, data, objs):
         yy, xx = np.nonzero(valid)
         S, extra = compose_masks(m, mat, B, baked[mat], yy, xx, opts, edges, welds, data)
         t2 = time.time()
-        fn = RECIPES.get(mat) or r_flat((0.5, 0.5, 0.5))
+        fn = RECIPES.get(opts.get('recipes', {}).get(mat, mat)) or r_flat((0.5, 0.5, 0.5))
         rgb, rough, metal = fn(S)
         rgb = np.array(rgb, np.float32)
         rough = np.array(rough, np.float32); metal = np.array(metal, np.float32)
@@ -1029,9 +1080,9 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
         w = ss(r * 3.0, r * 0.8, dist) * (0.55 + 0.45 * ((zlib.crc32(str(p).encode()) % 100) / 100.0))
         rsrc[idx] = np.maximum(rsrc[idx], w)
     top = (ed < 0.02) & (edy > 0.002) & (eh > 0.5) & (np.abs(Nv[:, 1]) < 0.5)
-    rsrc = np.maximum(rsrc, top * ss(0.35, 0.75, vnoise(Pn, (18.0, 2.0, 18.0), seed + 14)))
+    rsrc = np.maximum(rsrc, top * ss(0.55, 0.85, vnoise(Pn, (14.0, 2.0, 14.0), seed + 14)))
     rsrc = np.maximum(rsrc, ss(0.04, 0.0, heat_d) * 0.8)
-    rsrc = np.maximum(rsrc, ss(0.84, 0.9, fbm(Pn, 9.0, 2, seed + 15)))
+    rsrc = np.maximum(rsrc, ss(0.86, 0.92, fbm(Pn, 7.0, 2, seed + 15)))
     rsrc *= rust_amt
     lap('rsrc')
     Simg = np.zeros((H, W), np.float32)
@@ -1055,7 +1106,7 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
     h = Pv[:, 1]
     hn2 = S['n_lo2']
     dh = opts['dirt_h']
-    dirt = ss(dh, dh * 0.15, h + (fbm(Pn, 3.0, 2, seed + 20) - 0.5) * 0.45 * dh) ** 1.4
+    dirt = ss(dh, dh * 0.1, h + (fbm(Pn, 3.0, 2, seed + 20) - 0.5) * 0.5 * dh) ** 1.2
     for (wx, wy, wz, wr) in opts['wheels']:
         for sx in (1, -1):
             dz = Pv[:, 2] - wz; dyw = Pv[:, 1] - wy
@@ -1071,6 +1122,7 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
     dust = np.where(cshared, 0.0, dust)
     S['dust'] = np.clip(dust, 0, 1).astype(np.float32)
     S['grain_x'] = np.abs(np.array([c.n for c in cl])[cid][:, 0]) < 0.5
+    S['film_on'] = np.where(cshared | (ckind == 'inner'), 0.35, 1.0).astype(np.float32)
     lap('dirt')
     if os.environ.get('BAKE_TIMING'):
         print('      ', mat, ' '.join('%s %.1f' % kv for kv in tm.items()))

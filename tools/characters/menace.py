@@ -104,30 +104,54 @@ def pauldron(ctx, brc, binder, side, mats, layers=3, spikes=3, size=1.0, spike_l
     common.add_gear(ctx, m, mats["strap"], binder, bone=side + "Arm", label="strap")
 
 
-def machete_on_back(ctx, binder, H, mats, side=-1.0, length=0.58, label="machete"):
-    """A machete in a leather sheath slung diagonally across the back (handle over the right shoulder when side=-1)."""
+def machete_on_back(ctx, binder, H, mats, side=-1.0, length=0.58, label="machete", brc=None, standoff=0.045):
+    """A machete in a leather sheath slung diagonally across the back (handle over the right shoulder when side=-1).
+    brc: gear.BodyRC - the sheath follows the back surface of the body, `standoff` behind it (clothes included)."""
     s2 = H["Spine2"]
     back_z = s2[2] - 0.155
-    top = np.array([side * 0.17, s2[1] + 0.17, back_z - 0.012])
-    bot = np.array([-side * 0.17, s2[1] - 0.32, back_z + 0.018])
+    top = np.array([side * 0.12, s2[1] + 0.19, back_z])
+    bot = np.array([-side * 0.13, s2[1] - 0.17, back_z])
     ax = (bot - top) / np.linalg.norm(bot - top)
     n = np.array([0.0, 0.0, -1.0])
     wdir = np.cross(n, ax)
     wdir /= np.linalg.norm(wdir)
-    # sheath: flat tapered sweep, blade tip slightly curved
     L = length
     grip_len = 0.13
+    ts = np.linspace(0, 1, 8)
+    line = [top + (bot - top) * t for t in ts]
+    rc = brc.region("Spine", "Hips", "Shoulder") if brc is not None else None
+
+    def on_back(q, extra=0.0):
+        q = q.copy()
+        if rc is not None:
+            T, hp, hn = rc.cast(np.array([[q[0], q[1], -0.9]]), np.array([[0.0, 0.0, 1.0]]), tmax=1.8)
+            if np.isfinite(T[0]):
+                q[2] = hp[0][2] - standoff - extra
+        return q
+    pts = np.array([on_back(q) for q in line])
+    # smooth the z profile, keep it monotone-ish (a rigid blade: fit a straight line in z)
+    A_ = np.stack([ts, np.ones_like(ts)], axis=1)
+    coef, *_ = np.linalg.lstsq(A_, pts[:, 2], rcond=None)
+    zfit = A_ @ coef
+    zmin = np.minimum(zfit, pts[:, 2])
+    shift = float((zmin - zfit).min())
+    top = np.array([top[0], top[1], coef[1] + shift])
+    bot = np.array([bot[0], bot[1], coef[0] + coef[1] + shift])
+    ax = (bot - top) / np.linalg.norm(bot - top)
+    wdir = np.cross(n, ax)
+    wdir /= np.linalg.norm(wdir)
     s0 = top + ax * grip_len
-    pts = [s0 + ax * L * t + wdir * 0.012 * np.sin(t * np.pi) for t in np.linspace(0, 1, 7)]
+    L = min(L, float(np.linalg.norm(bot - s0)) + 0.06)
+    path = [s0 + ax * L * t + wdir * 0.010 * np.sin(t * np.pi) for t in np.linspace(0, 1, 7)]
     prof = np.array([[-1.0, -0.22], [1.0, -0.28], [1.0, 0.28], [-1.0, 0.22]])
-    sheath = kit.sweep(np.array(pts), np.linspace(0.030, 0.019, 7), profile=prof, sides=4, caps=True, tile=0.2, up=n)
+    sheath = kit.sweep(np.array(path), np.linspace(0.030, 0.019, 7), profile=prof, sides=4, caps=True, tile=0.2, up=n)
     common.add_gear(ctx, sheath, mats["sheath"], binder, bone="Spine2", label=label)
     # handle: wrapped grip + guard + pommel
     common.add_gear(ctx, kit.cylinder(top, s0, 0.015, 0.016, seg=7, tile=0.1), mats["grip"], binder, bone="Spine2", label=label)
     guard = kit.xform(kit.rbox((0.075, 0.012, 0.022), 0.003, 1), R=kit.look_rot(ax, n), t=s0)
     common.add_gear(ctx, guard, mats["metal"], binder, bone="Spine2", label=label)
     common.add_gear(ctx, kit.ellipsoid(top - ax * 0.008, [0.019, 0.019, 0.019], seg=8, rings=5), mats["metal"], binder, bone="Spine2", label=label)
-    # two straps across the back holding it
+    # two straps holding it
     for t in (0.25, 0.70):
         c = s0 + ax * L * t
         strap = kit.xform(kit.rbox((0.022, 0.085, 0.012), 0.002, 1), R=kit.look_rot(n, ax), t=c + n * 0.004)
@@ -260,3 +284,45 @@ def skull(center, size=0.05, seg=10):
     eyes = [kit.ellipsoid(center + np.array([sx * 0.2 * s, -0.02 * s, 0.52 * s]), [0.14 * s, 0.13 * s, 0.08 * s], seg=6, rings=4) for sx in (-1, 1)]
     nose = kit.ellipsoid(center + np.array([0, -0.2 * s, 0.56 * s]), [0.06 * s, 0.08 * s, 0.05 * s], seg=5, rings=3)
     return kit.merge([cran, jaw]), kit.merge(eyes + [nose])
+
+
+# ------------------------------------------------------------------------------------------------
+# painted back emblems (texture: call from a painter's `extra`)
+# ------------------------------------------------------------------------------------------------
+
+def _sd_ellipse(x, y, cx, cy, rx, ry):
+    return np.sqrt(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2) - 1.0
+
+
+def paint_back_emblem(bk, alb, h, center_y, kind="skull", size=0.12, colour=(0.78, 0.74, 0.64), strength=0.85, seed=3, cx=None):
+    """Crude hand-painted emblem on the BACK of a garment (internal space: back = +Z).  kind: skull | cross | tally.
+    Rough, chipped paint (noise-eroded), slightly raised."""
+    import uvbake as U
+    fit = bk.fit
+    x = bk.P[..., 0] - (fit.cx if cx is None else cx)
+    y = bk.P[..., 1] - center_y
+    back = bk.P[..., 2] > fit.pos[:, 2].mean()
+    s = size
+    if kind == "skull":
+        cran = _sd_ellipse(x, y, 0.0, 0.10 * s / 0.12, 0.42 * s, 0.40 * s) < 0
+        jaw = (np.abs(x) < 0.24 * s) & (y < -0.16 * s / 0.12 * 0.12) & (y > -0.42 * s)
+        eyes = (_sd_ellipse(np.abs(x), y, 0.16 * s, 0.02 * s, 0.10 * s, 0.11 * s) < 0)
+        nose = (np.abs(x) < 0.04 * s + (y + 0.12 * s) * 0.2) & (y < -0.06 * s) & (y > -0.16 * s)
+        teeth = (np.abs(x) < 0.22 * s) & (np.abs(y + 0.30 * s) < 0.012) | ((np.abs(y + 0.30 * s) < 0.09 * s) & (np.abs(np.mod(x + 0.5, 0.055 * s / 0.12) - 0.0275 * s / 0.12) < 0.005))
+        bones = ((np.abs((x - y * 1.1)) < 0.05 * s) | (np.abs((x + y * 1.1)) < 0.05 * s)) & (np.abs(y + 0.35 * s) < 0.45 * s) & (np.abs(x) < 0.80 * s) & (y < -0.30 * s)
+        m = (cran | jaw | bones) & ~eyes & ~nose & ~teeth
+    elif kind == "cross":
+        m = ((np.abs(x) < 0.08 * s) & (np.abs(y) < 0.7 * s)) | ((np.abs(y - 0.2 * s) < 0.08 * s) & (np.abs(x) < 0.45 * s))
+    else:
+        m = np.zeros_like(x, bool)
+        for k in range(4):
+            m |= (np.abs(x - (k - 1.5) * 0.14 * s) < 0.03 * s) & (np.abs(y) < 0.5 * s)
+        m |= (np.abs(y - x * 0.9) < 0.035 * s) & (np.abs(x) < 0.4 * s)
+    m = (m & back).astype(np.float32)
+    # dry-brush erosion + drips
+    er = U.fbm(m.shape, 25.0, 3, seed)
+    m = m * U.smoothstep(0.30, 0.55, er + 0.25)
+    m = U.blur(m, 0.6)
+    col = np.asarray(colour, np.float32) * (0.85 + 0.25 * U.fbm(m.shape, 60.0, 2, seed + 1))[..., None]
+    alb = alb * (1 - strength * m[..., None]) + col * strength * m[..., None]
+    return alb, h + m * 0.0002

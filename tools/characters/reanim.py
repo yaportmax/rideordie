@@ -127,6 +127,7 @@ def existing_clips(js, binb, bone_nodes):
                     rot[:, b] = sl(np.clip(times, t[0], t[-1])).as_quat()
             elif path == "translation" and b == 0:
                 hips = np.stack([np.interp(times, t, v[:, k]) for k in range(3)], axis=1)
+        rot /= np.linalg.norm(rot, axis=-1, keepdims=True)
         if hips is None:
             hips = np.tile(np.asarray(js["nodes"][bone_nodes[0]].get("translation", [0, 0, 0]), float), (len(times), 1))
         out[a["name"]] = dict(times=times, rot=rot, hips_t=hips, loop=False, note="(kept)")

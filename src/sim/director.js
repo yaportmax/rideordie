@@ -31,14 +31,19 @@ export class Director {
   update(dt, sim) {
     const P = sim.player;
     if (!P || sim.state !== 'run' || !this.enabled) return;
-    if (!this.r) { this.r = rng(sim.seed * 31 + 5); this.playerVmax = P.spec.engine.vmax; }
+    if (!this.r) {
+      this.r = rng(sim.seed * 31 + 5); this.playerVmax = P.spec.engine.vmax;
+      // the player's fuel tank / engine are hit zones too; with raider fire landing, a 60-HP tank would be a one-burst instant
+      // death on a 1800-HP truck. Scale them with the truck: a tank fire is a threat you see coming, not a coin flip.
+      P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4);
+    }
     const L = this.level = levelAt(P.s, sim.time);
     this._bosses(sim, P, L);
     if (sim.boss && !sim.boss.dead) { this._cleanup(sim, P); return; } // the Leviathan brings its own raiders (ramp)
     // how much the raiders hurt, by level: rounds (x the per-round growth in ai.shoot), rams, blasts next to you
-    sim.enemyDamageMul = 0.55 + 0.6 * L;
-    sim.enemyRamMul = 0.4 + 0.55 * Math.min(L, 1);
-    sim.playerBlastMul = 0.18 + 0.32 * Math.min(L, 1);
+    sim.enemyDamageMul = 0.55 + 0.4 * L;
+    sim.enemyRamMul = 0.38 + 0.3 * Math.min(L, 1);
+    sim.playerBlastMul = 0.18 + 0.17 * Math.min(L, 1);
     // accumulate budget with a slow pulse (waves and lulls)
     this.pulse += dt * (0.45 + 0.2 * L);
     const wave = 0.55 + 0.75 * (0.5 + 0.5 * Math.sin(this.pulse));
@@ -52,7 +57,7 @@ export class Director {
       if (!c.driverless && Math.abs(c.s - P.s) < 55) engaged = true;
     }
     if (engaged) this.lastEngaged = sim.time;
-    const cap = Math.round(3 + 9.5 * Math.pow(L, 0.8)) + (this.opts.capBonus || 0) - (this.activeElite ? 3 : 0);
+    const cap = Math.round(3 + 8 * Math.pow(L, 0.8)) + (this.opts.capBonus || 0) - (this.activeElite ? 3 : 0);
     this._cleanup(sim, P);
     // pressure: if nobody has been in your face for a while, the next squad comes now (early game: every run is eventful)
     const idle = sim.time - this.lastEngaged;
@@ -170,7 +175,7 @@ export class Director {
       if (c.kind !== 'enemy') continue;
       const behind = P.s - c.s;
       if (c.elite && !c.exploded && behind < 700) continue; // bosses stay while the fight is on
-      if ((c.exploded && c.wreckT > 14 && behind > 30) || behind > 380 || c.s - P.s > 640 || (c.veh.pos.y < -80)) sim.removeCar(c, 'cleanup');
+      if ((c.exploded && c.wreckT > 14 && behind > 30) || behind > 300 || c.s - P.s > 640 || (c.veh.pos.y < -80)) sim.removeCar(c, 'cleanup');
     }
   }
 
@@ -210,8 +215,8 @@ export class Director {
     // a raider that MEANT to hit you (ram / swipe / crush) hits harder than the physics alone says: upgraded trucks still feel it
     if (car.kind === 'player' && other.kind === 'enemy' && other.ai?.atk && other.ai.atk.kind !== 'brake' && other.ai.atk.phase !== 'line' && dv > 1.2 && sim.time - (other.ramHitT ?? -9) > 0.6) {
       other.ramHitT = sim.time;
-      const k = other.elite ? 0.02 : 0.005 + 0.008 * Math.min(this.level, 1);
-      sim.damageCar(car, car.maxHp * Math.min(k * dv, other.elite ? 0.075 : 0.04), { cause: 'ram', src: other.id });
+      const k = other.elite ? 0.016 : 0.004 + 0.004 * Math.min(this.level, 1);
+      sim.damageCar(car, car.maxHp * Math.min(k * dv, other.elite ? 0.06 : 0.03), { cause: 'ram', src: other.id });
       return;
     }
     if (car.kind !== 'enemy' || car.exploded) return;
@@ -311,7 +316,7 @@ export class Director {
     // ... and they corner like the player's truck does (tyre upgrades included), or a fast truck simply leaves them in the ditch
     const pg = P.spec.grip, gm = (x, y) => Math.max(x, y) * 1.04;
     const grip = { ...base.grip, front: gm(base.grip.front, pg.front), rear: gm(base.grip.rear, pg.rear) };
-    const spec = { ...base, grip, engine: { ...base.engine, vmax: base.engine.vmax * k, accel0: base.engine.accel0 * Math.pow(k, 0.85) * 1.12 }, susp: base.susp, nitro: { capacity: behavior === 'rammer' || o.elite ? 3 : 0, regen: 0.35, mul: 1.6 } };
+    const spec = { ...base, grip, engine: { ...base.engine, vmax: base.engine.vmax * k, accel0: base.engine.accel0 * Math.pow(k, 0.85) * 1.12 }, susp: base.susp, nitro: { capacity: behavior === 'rammer' || o.elite ? 3 : 1.5, regen: 0.35, mul: 1.6 } };
     if (o.elite) spec.mass = base.mass * (o.elite.massMul ?? 1.5); // warlords are armour-plated: they shove you around
     const car = sim.spawnCar(def.spec, { spec, s, d: lane, speed: o.at ? o.at.speed : ahead ? pv * 0.7 : pv * 0.95 + 5, kind: 'enemy' });
     const hpMul = 1 + 1.9 * L;

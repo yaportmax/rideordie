@@ -252,7 +252,7 @@ def _nrm_armor(n, rng):
     pit = sstep(0.7, 0.8, fbm(n, 120, 3, rng))
     grind = fbm(n, 220, 2, rng, ax=0.03, ay=1.0)
     mill = fbm(n, 30, 3, rng)
-    return 0.5 + 0.16 * (ham - .5) + 0.10 * (mill - .5) - 0.3 * pit + 0.06 * (grind - .5), 1.5
+    return 0.5 + 0.07 * (ham - .5) + 0.08 * (mill - .5) - 0.28 * pit + 0.07 * (grind - .5), 1.3
 
 
 def _nrm_metal(n, rng):

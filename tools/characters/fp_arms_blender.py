@@ -702,7 +702,7 @@ def stage2(src, out, args):
     # consistent outward winding: parametric bands/strips face away from the forearm axis; closed hard parts recalculated
     for ob, reg, meth, rigid in parts:
         side = "Left" if ob.name.endswith("Left") else "Right"
-        orient_outward(ob, limbs[side], closed=(meth == "SMART"))
+        orient_outward(ob, limbs[side], closed=(meth == "SMART" or reg == "cord"))
     for ob, reg, meth, rigid in parts:
         K.transfer_weights(ob, skin, names, rigid=rigid)
     K.cull_skin(skin, flags, sk, limbs)
@@ -787,7 +787,7 @@ def orient_outward(ob, lb, closed=False):
     rad = cen - lb.centre(s)
     score = float(np.mean(np.sum(rad / np.maximum(np.linalg.norm(rad, axis=1, keepdims=True), 1e-9) * nrm, axis=1)))
     flipped = False
-    if score < 0 and not closed:
+    if (score < 0 and not closed) or score < -0.5:
         bmesh.ops.reverse_faces(bm, faces=bm.faces)
         flipped = True
     bm.to_mesh(ob.data)

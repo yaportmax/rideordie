@@ -13,6 +13,7 @@ import common
 import gear
 import kit
 import lod
+import menace
 import mh
 import outfit
 import paintcloth as PC
@@ -198,6 +199,19 @@ def add_gear(ctx, fit, pcs):
     lens_m = common.plain_material(ctx, "glass_lens", (0.10, 0.08, 0.05), rough=0.04, alpha=0.88, double_sided=True)
     chain_m = common.gear_material(ctx, "metal_chain", "metal_dark", color=(0.75, 0.62, 0.35), rough=0.7, metal=1.0)
     knit = common.gear_material(ctx, "leather_collar", "leather", color=JACKET, rough=0.75, metal=0.0)
+    # --- silhouette upgrades: spiked scrap pauldron on the LEFT (door side, visible through the window), goggles on the cap
+    armor = common.gear_material(ctx, "armor", "scrap", color=(0.58, 0.54, 0.50), rough=1.0, metal=1.0)
+    spike_m = common.gear_material(ctx, "spike", "metal_dark", color=(0.70, 0.68, 0.64), rough=0.8, metal=1.0)
+    strap_m = common.gear_material(ctx, "webbing_black", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
+    menace.pauldron(ctx, brc, binder, "Left", dict(plate=armor, rivet=gold, strap=strap_m, spike=spike_m), layers=2, spikes=3, size=0.95)
+    gg = gear.goggles(ctx, brc, up=0.085, hair=0.018, lens_r=0.024, spacing=0.034, tilt=18.0, seg=10, ring_n=18)
+    for f in gg["frames"]:
+        common.add_gear(ctx, f, rubber, binder, bone="Head", label="goggle_frame")
+    for f in gg["rims"]:
+        common.add_gear(ctx, f, gold, binder, bone="Head", label="goggle_rim")
+    for f in gg["lenses"]:
+        common.add_gear(ctx, f, lens_m, binder, bone="Head", label="goggle_lens")
+    common.add_gear(ctx, gg["strap"], strap_m, binder, bone="Head", label="goggle_strap")
     fr, le = aviators(ctx, brc, hi)
     common.add_gear(ctx, fr, gold, binder, bone="Head", label="aviator_frame")
     common.add_gear(ctx, le, lens_m, binder, bone="Head", label="aviator_lens")

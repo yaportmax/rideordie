@@ -73,7 +73,7 @@ class InteriorDashMixin:
             b.box('metal_bare', (x0 + 0.01, f0 + 0.13, z0 + 0.068), (0.08, 0.02, 0.012), bev=0.003, rot=(-24, 8, 0))
             cp = (0.1, lf + 0.19, self.pad_top(0.1, lf + 0.19) + 0.03)
             b.box('metal_dark', (cp[0], cp[1], cp[2] - 0.02), (0.06, 0.06, 0.016), bev=0.004)
-            b.sph('glass', cp, 0.028, n=12)
+            b.sph('glass_lens', cp, 0.028, n=12)
             b.swatch('white')
             b.cyl('decal', (cp[0], cp[1], cp[2] - 0.006), 0.02, 0.004, axis='z', n=12)
             b.swatch(None)

@@ -14,6 +14,7 @@ import common
 import gear
 import kit
 import lod
+import menace
 import mh
 import outfit
 import paintcloth as PC
@@ -159,6 +160,16 @@ def add_gear(ctx, fit, pcs):
             e = P[sel][np.argmax(np.abs(P[sel][:, 0]))]
             for dy in (0.0, 0.012):
                 common.add_gear(ctx, kit.ellipsoid(e + np.array([sgn * 0.002, dy, 0]), [0.003, 0.003, 0.003], seg=4, rings=3), spike_m, binder, bone="Head", label="piercing")
+    # --- silhouette upgrades: spiked collar, spiked knee guards
+    menace.spiked_collar(ctx, brc, binder, dict(leather=leather, spike=spike_m), spikes=9)
+    rc_j = outfit.rc_from_pieces([pcs["jeans"]])
+    menace.knee_pads(ctx, brc, binder, rc_j, dict(pad=leather, strap=leather), size=0.9)
+    for side in ("Left", "Right"):
+        kn = H[side + "Leg"]
+        T, hp, hn = rc_j.cast((kn + np.array([0.0, 0.01, 0.35]))[None], np.array([[0.0, 0.0, -1.0]]), tmax=0.7)
+        if np.isfinite(T[0]):
+            base = hp[0] + hn[0] * 0.028
+            common.add_gear(ctx, gear.spike(base, hn[0] + np.array([0, 0.25, 0]), 0.055, 0.011, seg=7), spike_m, binder, bone=side + "Leg", label="spikes")
     ctx.brc, ctx.binder = brc, binder
 
 
@@ -178,7 +189,9 @@ def build():
     common.add_skin(ctx, tris, skin_texture(ctx, fit))
     common.add_eyes_lite(ctx, iris=(0.16, 0.10, 0.05))
     common.add_brows(ctx, (0.05, 0.04, 0.035), lashes=False)
-    common.cloth_group(ctx, "cloth_vest", [pc_v], outfit.leather_painter(VEST, scuff_col=(0.22, 0.2, 0.18), dust=0.45, seed=51, wear=0.7), rough=0.6)
+    emblem = lambda bk, alb, h: menace.paint_back_emblem(bk, alb, h, fit.belt_y + 0.28, "tally", 0.16, colour=(0.62, 0.08, 0.05), seed=5)
+    common.cloth_group(ctx, "cloth_vest", [pc_v], outfit.leather_painter(VEST, scuff_col=(0.22, 0.2, 0.18), dust=0.45, seed=51, wear=0.7, extra=emblem),
+                       rough=0.6)
     common.cloth_group(ctx, "cloth_jeans", [pc_j], outfit.fabric_painter(JEANS, dust=0.6, seed=61, legs=True, folds_scale=0.7, extra=jeans_extra))
     pcs = dict(vest=pc_v, jeans=pc_j, g_vest=vest, g_jeans=jeans)
     add_gear(ctx, fit, pcs)

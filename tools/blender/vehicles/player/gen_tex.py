@@ -116,7 +116,7 @@ def gen_weave(s=512):
     save_rgb('n_weave.png', height_to_normal(blur(h, 0.5), 1.2))
 
 
-def gen_metal(s=1024):
+def gen_metal(s=512):
     rng = np.random.default_rng(13)
     peel = blur(fft_noise(rng, s, 1.0), 2.2) * 0.25                     # orange peel
     dings = blur(fft_noise(rng, s, 2.6), 10) * 0.9                        # soft dents / waviness
@@ -141,10 +141,10 @@ def gen_ribbed(s=512):
     save_rgb('n_stipple.png', height_to_normal(blur(h, 0.5), 1.0))
 
 
-def gen_carbon(s=1024):
+def gen_carbon(s=512):
     """2x2 twill: tows alternate over two / under two, shifted one per row."""
     yy, xx = np.mgrid[0:s, 0:s].astype(float)
-    p = 32.0                                               # tow width in px (32 tows per tile)
+    p = s / 32.0                                           # tow width in px (32 tows per tile)
     iu, iv = np.floor(xx / p), np.floor(yy / p)
     fu, fv = xx / p - iu, yy / p - iv
     over = ((iu + iv) % 4) < 2                             # warp on top

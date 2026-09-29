@@ -14,6 +14,7 @@ import common
 import gear
 import kit
 import lod
+import menace
 import mh
 import outfit
 import paintcloth as PC
@@ -154,6 +155,37 @@ def add_gear(ctx, fit, pcs):
     # rolled rim around the hood's face opening
     for tube in cloth.bindings(pcs["g_hood"], radius=0.009, min_len=0.2, sides=4, spacing=0.03):
         common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), ctx.mats["cloth_hoodie"], binder, bone="Head", label="hood_rim")
+    # --- silhouette upgrades: respirator with twin filters + round goggles (face fully masked), molotov satchel, backpack
+    olive = common.gear_material(ctx, "rubber_mask", "rubber", color=(0.14, 0.15, 0.12), rough=0.8, metal=0.0)
+    can_m = common.gear_material(ctx, "metal_canister", "metal_dark", color=(0.30, 0.33, 0.24), rough=0.9, metal=0.7)
+    menace.respirator(ctx, brc, binder, dict(rubber=olive, metal=metal, dark=rubber, canister=can_m, strap=webbing), scale=1.0)
+    gg = gear.goggles(ctx, brc, up=0.0, hair=0.008, lens_r=0.026, spacing=0.034, tilt=-4.0, seg=10, ring_n=18)
+    lens_m = common.plain_material(ctx, "glass_lens", (0.35, 0.22, 0.05), rough=0.05, alpha=0.9, double_sided=True)
+    for f in gg["frames"]:
+        common.add_gear(ctx, f, rubber, binder, bone="Head", label="goggle_frame")
+    for f in gg["rims"]:
+        common.add_gear(ctx, f, metal, binder, bone="Head", label="goggle_rim")
+    for f in gg["lenses"]:
+        common.add_gear(ctx, f, lens_m, binder, bone="Head", label="goggle_lens")
+    canvas = common.gear_material(ctx, "cloth_canvas", "canvas", color=(0.22, 0.20, 0.13), rough=0.95)
+    rc_p = outfit.rc_from_pieces([pcs["pants"]])
+    hp_, hn_ = menace.satchel(ctx, binder, H, rc_p, "Left", dict(canvas=canvas), y_off=-0.05)
+    glass = common.gear_material(ctx, "glass_bottle", "plastic", color=(0.18, 0.30, 0.16), rough=0.2)
+    rag = common.gear_material(ctx, "cloth_rag", "canvas", color=(0.55, 0.45, 0.30), rough=0.95)
+    if hp_ is not None:
+        for k, dz in enumerate((-0.05, 0.035)):
+            base = hp_ + hn_ * 0.05 + np.array([0.0, 0.02, dz])
+            menace.molotov(ctx, binder, "Hips", base, np.array([0.12 * (k - 0.5), 1.0, 0.05]), dict(bottle=glass, rag=rag), scale=0.85)
+    # backpack: canvas pack high on the back with two bundles of dynamite strapped to it
+    T, hp, hn = rc_j.cast(np.array([[0.0, cy - 0.02, -0.9]]), np.array([[0.0, 0.0, 1.0]]), tmax=2.0)
+    if np.isfinite(T[0]):
+        pk = gear.pouch((0.26, 0.30, 0.13), flap=0.35, radius=0.02)
+        common.add_gear(ctx, gear.place(pk, hp[0] + np.array([0, 0, -0.01]), np.array([0.0, 0.08, -1.0])), canvas, binder, bone="Spine2", label="backpack")
+        for sx in (-0.07, 0.07):
+            c = hp[0] + np.array([sx, -0.02, -0.15])
+            st = [kit.cylinder(c + np.array([dx, -0.075, 0]), c + np.array([dx, 0.075, 0]), 0.0145, seg=8, tile=0.1) for dx in (-0.029, 0.0, 0.029)]
+            common.add_gear(ctx, kit.merge(st), dyn, binder, bone="Spine2", label="dynamite")
+            common.add_gear(ctx, kit.xform(kit.rbox((0.098, 0.022, 0.038), 0.0, 0), t=c), tape, binder, bone="Spine2", label="tape")
     ctx.brc, ctx.binder = brc, binder
 
 
