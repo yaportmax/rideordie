@@ -82,6 +82,7 @@ export class WorldView {
       const far = camPos ? st.pos.distanceTo(camPos) > (st.kind === 'player' ? 1e9 : 130) : false;
       const off = frustum && st.kind !== 'player' ? !frustum.intersectsSphere(_sph.set(st.pos, 5)) : false;
       const hideCrew = far || off;
+      if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 52 : dd > 62); }
       for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) crew.root.visible = !hideCrew;
       if (hideCrew) { if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); } this._damageVisuals(rec, st); continue; }
       for (const [role, crew] of Object.entries(rec.crew)) {

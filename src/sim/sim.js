@@ -183,7 +183,10 @@ export class Sim {
       else if (this.hazards.roadblockNear(car.veh.pos)) dmg *= 0.5; // wreck lines are meant to be survivable
     }
     if (dmg <= 0) return;
-    this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src: other ? other.id : -1, point: car.veh.pos });
+    // blame: a car the player crippled (dead driver, recent hits) that plows into others earns the player a crash kill
+    const blame = (c) => c && c.kind === 'enemy' && (c.driverless || (c.lastHitBy === 1 && this.time - c.lastHitT < 8));
+    const src = other ? (car.kind === 'enemy' && blame(other) ? 1 : other.id) : (car.kind === 'enemy' && blame(car) ? 1 : -1);
+    this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src, point: car.veh.pos });
     if (car.crashCooldown <= 0 && dv > 1.2) {
       car.crashCooldown = 0.25;
       _a.set(dir.x, dir.y, dir.z);
@@ -197,7 +200,7 @@ export class Sim {
   damageCar(car, dmg, info = {}) {
     if (car.dead && car.exploded) return;
     car.hp -= dmg; car.hitFlash = 0.12;
-    if (car.kind === 'player') this.stats.damageTaken += dmg;
+    if (car.kind === 'player') { this.stats.damageTaken += dmg; const k = info.cause || '?'; (this.stats.damageBy || (this.stats.damageBy = {}))[k] = ((this.stats.damageBy[k]) || 0) + dmg; }
     if (info.src !== undefined && info.src >= 0) { car.lastHitBy = info.src; car.lastHitT = this.time; }
     if (car.hp <= 0 && !car.exploded) this.explodeCar(car, info.cause || 'damage', info.src ?? -1);
   }
@@ -287,6 +290,8 @@ export class Sim {
     for (const car of this.cars.values()) {
       if (car === sourceCar) continue;
       if (src === 1 && car.kind === 'player') continue; // no friendly fire from the player's own weapons
+      // chain explosions of a car the player wrecked are credited to the player (for enemies only)
+      const credit = car.kind === 'enemy' && sourceCar && sourceCar.kind === 'enemy' && sourceCar.lastHitBy === 1 && this.time - sourceCar.lastHitT < 12 ? 1 : src;
       const d = car.veh.pos.distanceTo(pos);
       if (d > radius + 3) continue;
       const f = 1 - clamp((d - 2) / radius, 0, 1);
@@ -298,8 +303,8 @@ export class Sim {
       car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * tq, y: (Math.random() - 0.5) * tq, z: (Math.random() - 0.5) * tq }, true);
       if (!car.exploded) {
         const pm = car.kind === 'player' ? (this.playerBlastMul ?? 0.6) : 1;
-        this.damageCar(car, damage * f * pm, { cause: 'blast', src });
-        for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src });
+        this.damageCar(car, damage * f * pm, { cause: credit !== src ? 'crash' : 'blast', src: credit });
+        for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src: credit });
       }
     }
   }

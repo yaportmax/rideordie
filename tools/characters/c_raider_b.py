@@ -100,7 +100,7 @@ def add_gear(ctx, fit, pcs):
     # boots
     boot_m = common.gear_material(ctx, "leather_boot", "leather", color=(0.05, 0.045, 0.045), rough=0.7, metal=0.0)
     for side in ("Left", "Right"):
-        b = gear.boots(ctx, brc, side, upper_off=0.010, shaft_len=0.26, detail=0.55)
+        b = gear.boots(ctx, brc, side, upper_off=0.010, shaft_len=0.26, detail=0.45)
         common.add_gear(ctx, b["upper"], boot_m, binder, label="boot_upper")
         common.add_gear(ctx, b["shaft"], boot_m, binder, label="boot_shaft")
         ank = H[side + "Foot"][2]
@@ -111,7 +111,7 @@ def add_gear(ctx, fit, pcs):
     common.add_gear(ctx, kit.xform(kit.rbox((0.07, 0.05, 0.012), 0.003, 1), t=front + np.array([0, 0, 0.005])), spike_m, binder, bone="Hips", label="buckle")
     # studs along the vest edges
     pv = pcs["vest"]
-    pts, nrms = RG.edge_points(pcs["g_vest"], mh.to_final(pv["pos"]), mh.to_final(pv["nrm"]), spacing=0.05)
+    pts, nrms = RG.edge_points(pcs["g_vest"], mh.to_final(pv["pos"]), mh.to_final(pv["nrm"]), spacing=0.068)
     st = RG.studs(pts - nrms * 0.001, nrms, r=0.0065, h=0.007, seg=4)
     if st is not None:
         common.add_gear(ctx, st, spike_m, binder, label="studs")
@@ -141,7 +141,7 @@ def add_gear(ctx, fit, pcs):
         common.add_gear(ctx, band, leather, binder, bone=side + "ForeArm", label="bracer")
         common.add_gear(ctx, spk, spike_m, binder, bone=side + "ForeArm", label="bracer_spikes")
     # chains: hanging from the belt at the right hip and a loop across the vest front
-    ch1 = RG.chain([front + np.array([-0.06, -0.01, 0.01]), front + np.array([-0.10, -0.10, 0.03]), front + np.array([-0.17, -0.02, -0.02])], link_len=0.026)
+    ch1 = RG.chain([front + np.array([-0.06, -0.01, 0.01]), front + np.array([-0.10, -0.10, 0.03]), front + np.array([-0.17, -0.02, -0.02])], link_len=0.034)
     common.add_gear(ctx, ch1, metal, binder, bone="Hips", label="chain")
     # piercings: nose ring + ear studs
     P = brc.P
@@ -166,7 +166,7 @@ def build():
     t0 = time.time()
     ctx = charbuild.Ctx(NAME, SPEC)
     ch = ctx.ch
-    lod.decimate(ch, 0.24)
+    lod.decimate(ch, 0.17)
     fit = cloth.CFit(ch)
     ctx.fit = fit
     vest = cloth.torso_top(fit, "tank", off=0.016, bridge=0.02, hem=-0.01, open_front=0.11, open_y=fit.belt_y - 0.02, strap=0.15,

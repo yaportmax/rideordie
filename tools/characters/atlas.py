@@ -170,6 +170,59 @@ def gather(entries, prio_fn):
 
 
 def shelf_pack(sizes, S):
+    """Skyline bottom-left packing (tighter than shelves); rects sorted by height then width."""
+    order = sorted(range(len(sizes)), key=lambda i: (-sizes[i][1], -sizes[i][0]))
+    sky = [[0, 0, S]]                      # segments: x, y, width
+    offs = [None] * len(sizes)
+    for i in order:
+        w, h = sizes[i]
+        if w > S or h > S:
+            return None
+        best = None
+        for si in range(len(sky)):
+            x = sky[si][0]
+            if x + w > S:
+                break
+            # the rect spans segments si.. while their total width < w: y = max of their heights
+            y, width, sj = 0, 0, si
+            while width < w and sj < len(sky):
+                y = max(y, sky[sj][1])
+                width += sky[sj][2]
+                sj += 1
+            if width < w or y + h > S:
+                continue
+            if best is None or y < best[1] or (y == best[1] and x < best[0]):
+                best = (x, y, si)
+        if best is None:
+            return None
+        x, y, si = best
+        offs[i] = (x, y)
+        # update the skyline: replace covered part by the new top
+        new = [x, y + h, w]
+        out = []
+        for seg in sky:
+            sx, sy, sw_ = seg
+            ex = sx + sw_
+            if ex <= x or sx >= x + w:
+                out.append(seg)
+                continue
+            if sx < x:
+                out.append([sx, sy, x - sx])
+            if ex > x + w:
+                out.append([x + w, sy, ex - (x + w)])
+        out.append(new)
+        out.sort(key=lambda s_: s_[0])
+        merged = []
+        for seg in out:
+            if merged and merged[-1][1] == seg[1] and merged[-1][0] + merged[-1][2] == seg[0]:
+                merged[-1][2] += seg[2]
+            else:
+                merged.append(seg)
+        sky = merged
+    return offs
+
+
+def _shelf_pack_old(sizes, S):
     order = sorted(range(len(sizes)), key=lambda i: (-sizes[i][1], -sizes[i][0]))
     x = y = shelf = 0
     offs = [None] * len(sizes)

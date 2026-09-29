@@ -153,7 +153,7 @@ def boots(ctx, brc, side, shaft_len=0.22, upper_off=0.011, sole_h=0.032, sole_of
     dd = poly - cen
     L = np.linalg.norm(dd, axis=1, keepdims=True)
     poly = cen + dd * (1 + (sole_off + upper_off * 0.6) / np.maximum(L, 1e-6))
-    for _ in range(1 if detail >= 0.7 else 0):
+    for _ in range(1 if detail >= 0.9 else 0):
         nxt = np.roll(poly, -1, axis=0)
         poly = np.concatenate([0.75 * poly + 0.25 * nxt, 0.25 * poly + 0.75 * nxt])
         order = np.argsort(np.arctan2(poly[:, 1] - cen[1], poly[:, 0] - cen[0]))
@@ -269,7 +269,7 @@ def goggles(ctx, brc, up=0.052, hair=0.012, lens_r=0.0255, spacing=0.034, tilt=6
         out["rims"].append(rim)
         out["lenses"].append(lens)
     # nose bridge between the cups
-    br = kit.rbox((0.030, 0.012, 0.012), 0.004, 2)
+    br = kit.rbox((0.030, 0.012, 0.012), 0.004, 1)
     pc = 0.5 * (out["frames"][0]["pos"].mean(axis=0) + out["frames"][1]["pos"].mean(axis=0))
     out["bridge"] = kit.xform(br, t=pc + np.array([0, 0.0, 0.004]))
     return out
@@ -345,11 +345,11 @@ def grenade(scale=1.0, tile=0.25):
     """Frag grenade (origin at its base centre, +Y up): body, neck, spoon lever and pull ring; returns (body, metal) meshes."""
     s = scale
     body = kit.lathe([(0.0, 0.0), (0.016 * s, 0.002 * s), (0.026 * s, 0.018 * s), (0.028 * s, 0.038 * s), (0.024 * s, 0.056 * s),
-                      (0.014 * s, 0.066 * s), (0.0, 0.066 * s)], [0, 0, 0], axis=(0, 1, 0), seg=16, tile=tile)
-    neck = kit.cylinder([0, 0.064 * s, 0], [0, 0.078 * s, 0], 0.011 * s, 0.011 * s, seg=12, tile=tile)
+                      (0.014 * s, 0.066 * s), (0.0, 0.066 * s)], [0, 0, 0], axis=(0, 1, 0), seg=10, tile=tile)
+    neck = kit.cylinder([0, 0.064 * s, 0], [0, 0.078 * s, 0], 0.011 * s, 0.011 * s, seg=8, tile=tile)
     lever = kit.rbox((0.012 * s, 0.070 * s, 0.004 * s), 0.0015, 1, tile)
     lever = kit.xform(lever, t=[0.023 * s, 0.040 * s, 0.0])
-    ring = kit.sweep(kit.polyline_smooth([[0.0, 0.08 * s, 0.0], [0.012 * s, 0.086 * s, 0.0], [0.02 * s, 0.078 * s, 0.0], [0.012 * s, 0.072 * s, 0.0]], 12), 0.0012 * s, sides=6, caps=True, tile=tile)
+    ring = kit.sweep(kit.polyline_smooth([[0.0, 0.08 * s, 0.0], [0.012 * s, 0.086 * s, 0.0], [0.02 * s, 0.078 * s, 0.0], [0.012 * s, 0.072 * s, 0.0]], 8), 0.0012 * s, sides=3, caps=True, tile=tile)
     return body, kit.merge([neck, lever, ring])
 
 

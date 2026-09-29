@@ -75,7 +75,8 @@ async function playRun() {
   if (sim.won) cash += ECONOMY.bossBounty;
   total += sim.time + 45; // + ~45 s in the garage per run
   creditRun(prof, { cash, distance: dist, time: sim.time, kills: sim.stats.kills, won: sim.won });
-  return { time: sim.time, dist, cash, won: sim.won, why: sim.result?.why, kills: sim.stats.kills, weapon: W.id, dps: W.dps.toFixed(0), truck: spec.id };
+  const dby = Object.entries(sim.stats.damageBy || {}).map(([k, v]) => `${k}:${v | 0}`).join(' ');
+  return { dby, time: sim.time, dist, cash, won: sim.won, why: sim.result?.why, kills: sim.stats.kills, weapon: W.id, dps: W.dps.toFixed(0), truck: spec.id };
 }
 
 // greedy shopping list, repeated until nothing affordable
@@ -106,7 +107,7 @@ const t0 = performance.now();
 while (total < CAP) {
   const r = await playRun();
   const b = shop();
-  console.log(`run ${String(runNo).padStart(2)} | ${(r.time / 60).toFixed(1)} min ${(r.dist / 1000).toFixed(1)} km | ${r.truck} ${r.weapon}(${r.dps} dps) kills ${r.kills} | +$${r.cash} ${r.won ? 'WON' : r.why} | total ${(total / 60).toFixed(0)} min | bought ${b.join(',') || '-'} | bank $${prof.cash}`);
+  console.log(`run ${String(runNo).padStart(2)} | ${(r.time / 60).toFixed(1)} min ${(r.dist / 1000).toFixed(1)} km | ${r.truck} ${r.weapon}(${r.dps} dps) kills ${r.kills} | +$${r.cash} ${r.won ? 'WON' : r.why} | total ${(total / 60).toFixed(0)} min | bought ${b.join(',') || '-'} | bank $${prof.cash} | dmg ${r.dby}`);
   if (r.won) { console.log(`BOSS BEATEN after ${(total / 3600).toFixed(2)} h of play (${runNo} runs)`); break; }
 }
 console.log('wall', ((performance.now() - t0) / 60000).toFixed(1), 'min');

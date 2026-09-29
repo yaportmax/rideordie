@@ -135,7 +135,7 @@ def add_gear(ctx, fit, pc_top, pc_pants):
     steel = common.gear_material(ctx, "metal_dark", "metal_dark", color=(0.55, 0.55, 0.53), seed=4)
     # boots
     for side in ("Left", "Right"):
-        b = gear.boots(ctx, brc, side)
+        b = gear.boots(ctx, brc, side, detail=0.7, laces=False)
         common.add_gear(ctx, b["upper"], leather, binder, label="boot_upper")
         common.add_gear(ctx, b["shaft"], leather, binder, label="boot_shaft")
         for lm in b["laces"]:
@@ -143,7 +143,7 @@ def add_gear(ctx, fit, pc_top, pc_pants):
         ank = H[side + "Foot"][2]
         common.add_gear(ctx, b["sole"], rubber, binder, blend=(side + "Foot", side + "ToeBase", lambda P, a=ank: np.clip((P[:, 2] - a) / 0.15, 0, 1)), label="boot_sole")
     # belt, buckle, pouches
-    bm, front, c, rings = gear.belt(ctx, brc, ctx.fit.belt_y - 0.005)
+    bm, front, c, rings = gear.belt(ctx, brc, ctx.fit.belt_y - 0.005, detail=0.6)
     common.add_gear(ctx, bm, black, binder, label="belt")
     buckle = kit.xform(kit.rbox((0.058, 0.044, 0.012), 0.003, 1), t=front + np.array([0, 0, 0.005]))
     common.add_gear(ctx, buckle, steel, binder, bone="Hips", label="buckle")
@@ -153,7 +153,7 @@ def add_gear(ctx, fit, pc_top, pc_pants):
         o = np.array([np.sin(th) * 0.5, y_belt - 0.04, c[2] + np.cos(th) * 0.5])
         T, hp, hn = rc_cloth.cast(o[None], -np.array([[np.sin(th), 0.0, np.cos(th)]]), tmax=0.8)
         if np.isfinite(T[0]):
-            pm = gear.place(gear.pouch(size), hp[0] + hn[0] * 0.004, hn[0])
+            pm = gear.place(gear.pouch(size, detail=0.5), hp[0] + hn[0] * 0.004, hn[0])
             common.add_gear(ctx, pm, canvas, binder, bone="Hips", label="pouch")
     # cargo pockets + knee pads
     for sgn in (1.0, -1.0):
@@ -177,11 +177,11 @@ def add_gear(ctx, fit, pc_top, pc_pants):
         rc_arm = brc.region(side + "ForeArm")
         el, wr = H[side + "ForeArm"], H[side + "Hand"]
         u = (wr - el) / np.linalg.norm(wr - el)
-        wrap = gear.spiral_wrap(rc_arm, el + u * 0.06, wr - u * 0.03, turns=5.5, width=0.026, offset=0.003, thick=0.003,
+        wrap = gear.spiral_wrap(rc_arm, el + u * 0.06, wr - u * 0.03, turns=5.5, width=0.026, offset=0.003, thick=0.003, n=32,
                                 phase=0.6 if side == "Left" else 2.4)
         common.add_gear(ctx, wrap, tape, binder, label="forearm_wrap")
     # goggles on the forehead
-    gg = gear.goggles(ctx, brc)
+    gg = gear.goggles(ctx, brc, seg=16, ring_n=32)
     strap_m = common.gear_material(ctx, "webbing_strap", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
     frame_m = common.gear_material(ctx, "rubber_frame", "rubber", color=(0.08, 0.08, 0.08), rough=1.0)
     rim_m = common.gear_material(ctx, "metal_rim", "metal_dark", color=(0.55, 0.42, 0.22), seed=6)
@@ -198,7 +198,7 @@ def add_gear(ctx, fit, pc_top, pc_pants):
     trim_top = common.gear_material(ctx, "cloth_trim_top", "knit", color=tuple(TEAL * 0.9), rough=0.95)
     trim_pants = common.gear_material(ctx, "cloth_trim_pants", "canvas", color=tuple(KHAKI * 0.95), rough=0.95)
     for g_, nm in ctx.trims:
-        for tube in cloth.bindings(g_, radius=0.0055 if nm == "top" else 0.0065, min_len=0.14):
+        for tube in cloth.bindings(g_, radius=0.0055 if nm == "top" else 0.0065, min_len=0.14, sides=3, spacing=0.03):
             common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), trim_top if nm == "top" else trim_pants, binder, label="trim_" + nm)
     # gloves
     glove_mat = common.gear_material(ctx, "leather_glove", "leather", color=(0.10, 0.08, 0.07), rough=0.7, metal=0.0, seed=3)
@@ -215,7 +215,7 @@ def build(lod_ratio=None):
     ch = ctx.ch
     import lod
     # hero: head/torso/limbs untouched, hands moderately reduced (gloves), feet (inside boots) collapsed
-    lod.decimate(ch, lod_ratio or 0.70, lod.importance(ch, head=1.0, hands=0.55, torso=1.0, limbs=1.0, feet=0.0))
+    lod.decimate(ch, lod_ratio or 0.40, lod.importance(ch, head=0.9, hands=0.45, torso=0.55, limbs=0.55, feet=0.0))
     fit = cloth.CFit(ch)
     ctx.fit = fit
     tank = cloth.torso_top(fit, "tank", off=0.013, bridge=0.025, hem=-0.02, drape=False, belt_blouse=0.006)
@@ -234,6 +234,7 @@ def build(lod_ratio=None):
     common.cloth_group(ctx, "cloth_pants", [pc_pants], paint_pants)
     add_gear(ctx, fit, pc_top, pc_pants)
     ctx.pcs = dict(top=pc_top, pants=pc_pants)
+    ctx.report(group="main")
     print("base tris", ctx.tri_count(), "time %.1f" % (time.time() - t0))
     return ctx
 
@@ -245,6 +246,7 @@ def build_full():
         t0 = time.time()
         fn(ctx)
         print(fn.__name__, "tris", ctx.tri_count(ctx.tier_group), "%.1fs" % (time.time() - t0))
+        ctx.report(group=ctx.tier_group)
     return ctx
 
 

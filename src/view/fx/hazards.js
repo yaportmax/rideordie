@@ -37,23 +37,22 @@ void main() {
   vec2 p = vUv;
   float n = on(p * 2.2 + vSeed * 7.0) * 0.6 + on(p * 5.0 - vSeed * 3.0) * 0.4;
   float d = length(p) + (n - 0.5) * 0.55;
-  float body = 1.0 - smoothstep(0.62, 0.72, d);
-  float drops = smoothstep(0.78, 0.86, on(p * 6.5 + vSeed * 11.0)) * (1.0 - smoothstep(0.7, 1.0, length(p)));   // satellite splashes
+  float body = 1.0 - smoothstep(0.645, 0.675, d);
+  float drops = smoothstep(0.80, 0.83, on(p * 6.5 + vSeed * 11.0)) * (1.0 - smoothstep(0.7, 1.0, length(p)));   // satellite splashes
   float m = max(body, drops);
-  float a = m * vA;
+  float a = m * vA * mix(0.8, 0.97, smoothstep(0.0, 0.25, 0.66 - d));        // thinner film right at the rim
   if (a < 0.004) discard;
   vec3 V = normalize(cameraPosition - vWPos);
-  vec3 N = normalize(vec3((on(p * 9.0 + 3.0) - 0.5) * 0.08, 1.0, (on(p * 9.0 - 5.0) - 0.5) * 0.08));
-  float fres = 0.04 + 0.96 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
-  vec3 base = vec3(0.012, 0.010, 0.008);
-  vec3 sky = uFogCol * min(uLight, vec3(1.0)) * 1.1;
-  // thin-film rainbow sheen, strongest where the film is thin (toward the edge)
+  vec3 N = normalize(vec3((on(p * 9.0 + 3.0) - 0.5) * 0.06, 1.0, (on(p * 9.0 - 5.0) - 0.5) * 0.06));
+  float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+  vec3 L = min(uLight, vec3(1.0));
+  vec3 refl = mix(vec3(dot(uFogCol, vec3(0.3, 0.59, 0.11))), uFogCol, 0.35) * L * 0.8;      // desaturated horizon/sky
   float h = fract(n * 1.7 + d * 2.3 + V.x * 0.35 + V.z * 0.2);
   vec3 film = 0.5 + 0.5 * cos(6.2832 * (h + vec3(0.0, 0.33, 0.67)));
-  vec3 col = base + film * 0.07 * smoothstep(0.2, 0.7, d) * min(uLight, vec3(1.0));
-  col = mix(col, sky, fres * 0.85);
+  vec3 col = vec3(0.010, 0.008, 0.006) + film * 0.025 * smoothstep(0.45, 0.66, d) * L;           // faint rainbow sheen near the edge
+  col = mix(col, refl, fres * 0.55);
   vec3 Rv = reflect(-V, N);
-  col += uLight * pow(max(dot(Rv, normalize(uSunDir)), 0.0), 180.0) * 5.0;       // sun glint (HDR, blooms)
+  col += uLight * pow(max(dot(Rv, normalize(uSunDir)), 0.0), 220.0) * 4.0;       // sun glint (HDR, blooms)
   col = mix(col, uFogCol, vFog * 0.85);
   gl_FragColor = vec4(col, a);
   #include <tonemapping_fragment>

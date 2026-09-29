@@ -210,11 +210,11 @@ def add_gear(ctx, fit, pcs):
     if np.isfinite(T[0]):
         low = hp[0] + hn[0] * 0.008
         pts = [np.array([0.06, nk[1] + 0.02, nk[2] + 0.02]), np.array([0.045, nk[1] - 0.03, low[2] - 0.01]), low, np.array([-0.045, nk[1] - 0.03, low[2] - 0.01]), np.array([-0.06, nk[1] + 0.02, nk[2] + 0.02])]
-        common.add_gear(ctx, RG.chain(pts, link_len=0.02, link_w=0.011, wire=0.0018), chain_m, binder, label="necklace")
+        common.add_gear(ctx, RG.chain(pts, link_len=0.026, link_w=0.013, wire=0.002), chain_m, binder, label="necklace")
     # boots
     boot_m = common.gear_material(ctx, "leather_boot", "leather", color=(0.12, 0.08, 0.05), rough=0.85, metal=0.0)
     for side in ("Left", "Right"):
-        b = gear.boots(ctx, brc, side, upper_off=0.011, detail=0.55)
+        b = gear.boots(ctx, brc, side, upper_off=0.011, detail=0.45)
         common.add_gear(ctx, b["upper"], boot_m, binder, label="boot_upper")
         common.add_gear(ctx, b["shaft"], boot_m, binder, label="boot_shaft")
         ank = H[side + "Foot"][2]
@@ -227,7 +227,7 @@ def add_gear(ctx, fit, pcs):
         cf = outfit.cuff(pcs["jacket"], H, side, grow=0.005, seg=12, width=0.04)
         if cf is not None:
             common.add_gear(ctx, cf, knit, binder, label="cuff")
-    for tube in cloth.bindings(pcs["g_cap"], radius=0.0045, min_len=0.2, sides=4, spacing=0.02):
+    for tube in cloth.bindings(pcs["g_cap"], radius=0.0045, min_len=0.2, sides=3, spacing=0.03):
         common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), ctx.mats["paint"], binder, bone="Head", label="cap_band")
     ctx.brc, ctx.binder = brc, binder
 
@@ -236,7 +236,7 @@ def build():
     t0 = time.time()
     ctx = charbuild.Ctx(NAME, SPEC)
     ch = ctx.ch
-    lod.decimate(ch, 0.25)
+    lod.decimate(ch, 0.18)
     fit = cloth.CFit(ch)
     ctx.fit = fit
     tee = cloth.torso_top(fit, "sleeved", sleeve_len=0.12, off=0.012, bridge=0.02, hem=-0.06, neck=(0.0, -0.02), drape=False)

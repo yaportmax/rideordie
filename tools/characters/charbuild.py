@@ -153,10 +153,12 @@ def _save_final(self, path=None, hidden_groups=(), split_by_label=False, extras=
 Ctx.save_final = _save_final
 
 
-def _report(self, top=30):
+def _report(self, top=30, group=None):
     from collections import defaultdict
     d = defaultdict(int)
     for g, prims in self.groups.items():
+        if group is not None and g != group:
+            continue
         for p in prims:
             d[p.get("_label") or "?"] += len(p["idx"]) // 3
     print("  tri breakdown:", ", ".join("%s %d" % (k, v) for k, v in sorted(d.items(), key=lambda kv: -kv[1])[:top]), "| total", sum(d.values()))

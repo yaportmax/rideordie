@@ -66,7 +66,7 @@ def skin_texture(ctx, fit):
     base = sb.fill_gutters(base)
     alb = SP.tone(base, mul=(0.86, 0.73, 0.60), gamma=1.0, sat=1.05)
     alb = SP.blend(alb, (0.38, 0.28, 0.20), SP.dirt(sb, 5, 0.22))
-    alb = SP.freckles(alb, sb, ch, seed=3, amount=0.5)
+    alb = SP.freckles(alb, sb, ch, seed=3, amount=0.28)
     e = SP.face_box(ch)[0]
     # small scar on the chin and a thin neck tattoo (three short strokes below the ear)
     tat0 = np.array([e[0] + 0.05, e[1] - 0.13, e[2] + 0.05])
@@ -96,7 +96,7 @@ def add_gear(ctx, fit, pcs):
     orange_patch = common.gear_material(ctx, "cloth_patch", "canvas", color=(0.7, 0.55, 0.2), rough=0.95)
     # boots (black)
     for side in ("Left", "Right"):
-        b = gear.boots(ctx, brc, side, upper_off=0.010)
+        b = gear.boots(ctx, brc, side, upper_off=0.010, detail=0.7, laces=False)
         boot_m = common.gear_material(ctx, "leather_boot", "leather", color=(0.055, 0.05, 0.05), rough=0.75, metal=0.0)
         common.add_gear(ctx, b["upper"], boot_m, binder, label="boot_upper")
         common.add_gear(ctx, b["shaft"], boot_m, binder, label="boot_shaft")
@@ -109,13 +109,13 @@ def add_gear(ctx, fit, pcs):
     col = outfit.collar(ctx, brc, height=0.05, gap_deg=26.0, thick=0.010, out=0.02, flare=0.018)
     common.add_gear(ctx, col, knit, binder, label="collar")
     hem_y = fit.belt_y - 0.075
-    hm = cloth.loop_band(pcs["g_jacket"], "lowest", height=0.055, thick=0.008, grow=0.006)
+    hm = cloth.loop_band(pcs["g_jacket"], "lowest", height=0.055, thick=0.008, grow=0.006, n_max=48)
     if hm is not None:
         common.add_gear(ctx, kit.xform(hm, R=np.diag([-1.0, 1.0, -1.0])), knit, binder, label="hem_rib")
     for side in ("Left", "Right"):
         wr, el = H[side + "Hand"], H[side + "ForeArm"]
         u = (wr - el) / np.linalg.norm(wr - el)
-        cf = outfit.cuff(pcs["jacket"], H, side)
+        cf = outfit.cuff(pcs["jacket"], H, side, seg=16)
         if cf is not None:
             common.add_gear(ctx, cf, knit, binder, label="cuff")
     z = outfit.zipper(rc_j, fit.belt_y + 0.20, hem_y + 0.03, z_hint=0.9, width=0.012, thick=0.004)
@@ -135,7 +135,7 @@ def add_gear(ctx, fit, pcs):
             ep = kit.patch_on_surface(rc_j, hp[0], hn[0], (0, 0, 1), 0.02, 0.055, standoff=0.003, thick=0.006, bevel=0.002, e=4.0, rings=2, seg=16)
             common.add_gear(ctx, ep, common.gear_material(ctx, "leather_jacket", "leather", color=ORANGE, rough=0.7, metal=0.0), binder, label="epaulette")
     # pilot goggles pushed up over the hairline: brass rims, brown leather strap
-    gg = gear.goggles(ctx, brc, up=0.062, lens_r=0.027, spacing=0.036, tilt=14.0)
+    gg = gear.goggles(ctx, brc, up=0.062, lens_r=0.027, spacing=0.036, tilt=14.0, seg=16, ring_n=32)
     strap_m = common.gear_material(ctx, "leather_strap", "leather", color=(0.20, 0.12, 0.07), rough=0.8, metal=0.0)
     rim_m = common.gear_material(ctx, "metal_rim", "metal_dark", color=(0.70, 0.52, 0.22), rough=1.0, metal=1.0)
     lens_m = common.plain_material(ctx, "glass_lens", (0.10, 0.28, 0.30), rough=0.05, alpha=0.7, double_sided=True)
@@ -155,8 +155,8 @@ def add_gear(ctx, fit, pcs):
         if g.pos:
             common.add_tiled_piece(ctx, cloth.finish(g, fit), glove_m, label="glove")
     # trims
-    for g_, m_, r_ in ((pcs["g_tank"], knit, 0.004), (pcs["g_pants"], canvas, 0.006), (pcs["g_jacket"], leather_br, 0.0045)):
-        for tube in cloth.bindings(g_, radius=r_, min_len=0.14):
+    for g_, m_, r_ in ((pcs["g_pants"], canvas, 0.006),):
+        for tube in cloth.bindings(g_, radius=r_, min_len=0.14, sides=3, spacing=0.03):
             common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), m_, binder, label="trim")
     ctx.brc, ctx.binder = brc, binder
 
@@ -168,7 +168,7 @@ def build():
     ctx.seat = dict(wheel_up=0.37, wheel_fwd=0.66)
     ch = ctx.ch
     import lod
-    lod.decimate(ch, 0.70, lod.importance(ch, head=1.0, hands=0.6, torso=1.0, limbs=1.0, feet=0.0))
+    lod.decimate(ch, 0.40, lod.importance(ch, head=0.9, hands=0.45, torso=0.55, limbs=0.55, feet=0.0))
     fit = cloth.CFit(ch)
     ctx.fit = fit
     tank = cloth.torso_top(fit, "tank", off=0.012, bridge=0.02, hem=-0.03, neck=(-0.02, -0.02), drape=False, belt_blouse=0.0)
@@ -200,6 +200,7 @@ def build():
     common.cloth_group(ctx, "cloth_jacket", [pc_j], jacket_painter(), rough=0.7)
     pcs = dict(jacket=pc_j, pants=pc_p, tank=pc_tank, g_tank=tank, g_pants=pants, g_jacket=jacket)
     add_gear(ctx, fit, pcs)
+    ctx.report()
     print("tris", ctx.tri_count(), "time %.1f" % (time.time() - t0))
     return ctx
 

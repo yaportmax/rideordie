@@ -1,8 +1,8 @@
 {
  "raider_a": {
-  "tris_total": 12853,
-  "tris_body": 12853,
-  "bytes": 1329620,
+  "tris_total": 9881,
+  "tris_body": 9881,
+  "bytes": 1235568,
   "groups": {},
   "materials": [
    "cloth_canvas",
@@ -28,12 +28,12 @@
    "webbing_strap"
   ],
   "height": 1.7799999713897705,
-  "seconds": 24.4
+  "seconds": 19.1
  },
  "raider_b": {
-  "tris_total": 12713,
-  "tris_body": 12713,
-  "bytes": 3186684,
+  "tris_total": 10187,
+  "tris_body": 10187,
+  "bytes": 1261672,
   "groups": {},
   "materials": [
    "cloth_jeans",
@@ -50,12 +50,12 @@
    "spike"
   ],
   "height": 1.7999999523162842,
-  "seconds": 31.6
+  "seconds": 18.9
  },
  "raider_c": {
-  "tris_total": 14040,
-  "tris_body": 14040,
-  "bytes": 3415052,
+  "tris_total": 11153,
+  "tris_body": 11153,
+  "bytes": 1211636,
   "groups": {},
   "materials": [
    "armor",
@@ -73,12 +73,12 @@
    "webbing_black"
   ],
   "height": 1.9199999570846558,
-  "seconds": 40.2
+  "seconds": 18.4
  },
  "raider_d": {
-  "tris_total": 13494,
-  "tris_body": 13494,
-  "bytes": 3538108,
+  "tris_total": 10393,
+  "tris_body": 10393,
+  "bytes": 1229668,
   "groups": {},
   "materials": [
    "cloth_hoodie",
@@ -99,12 +99,12 @@
    "webbing_black"
   ],
   "height": 1.75,
-  "seconds": 35.1
+  "seconds": 21.1
  },
  "raider_driver": {
-  "tris_total": 12932,
-  "tris_body": 12932,
-  "bytes": 3269100,
+  "tris_total": 10060,
+  "tris_body": 10060,
+  "bytes": 1152512,
   "groups": {},
   "materials": [
    "cloth_jacket",
@@ -123,16 +123,16 @@
    "skin"
   ],
   "height": 1.7799999713897705,
-  "seconds": 35.7
+  "seconds": 21.0
  },
  "hero_gunner": {
-  "tris_total": 62161,
-  "tris_body": 34884,
-  "bytes": 7450984,
+  "tris_total": 35859,
+  "tris_body": 20069,
+  "bytes": 3856524,
   "groups": {
-   "armor_t1": 6619,
-   "armor_t2": 10198,
-   "armor_t3": 10460
+   "armor_t1": 3327,
+   "armor_t2": 5946,
+   "armor_t3": 6517
   },
   "materials": [
    "armor",
@@ -167,12 +167,12 @@
    "webbing_strap"
   ],
   "height": 1.8300000429153442,
-  "seconds": 68.0
+  "seconds": 46.2
  },
  "hero_driver": {
-  "tris_total": 41817,
-  "tris_body": 41817,
-  "bytes": 6208332,
+  "tris_total": 25343,
+  "tris_body": 25343,
+  "bytes": 3826292,
   "groups": {},
   "materials": [
    "cloth_canvas",
@@ -199,6 +199,6 @@
    "webbing_lace"
   ],
   "height": 1.7000000476837158,
-  "seconds": 52.6
+  "seconds": 30.3
  }
 }

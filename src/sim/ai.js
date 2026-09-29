@@ -36,7 +36,18 @@ export class EnemyBrain {
     const car = this.car, sim = this.sim, veh = car.veh, P = sim.player;
     this.t += dt;
     if (car.exploded) return;
-    if (car.driverless || !car.crew.driver.alive) { veh.input.throttle = 0; veh.input.brake = 0; veh.input.steer *= 0.99; this.gunnery(dt); return; }
+    if (car.driverless || !car.crew.driver.alive) {
+      // the dead driver slumps onto the wheel: foot jammed on the gas for a moment, the wheel yanked to one side
+      if (this.deadT === undefined) { this.deadT = 0; this.deadSteer = (this.r() < 0.5 ? -1 : 1) * this.r.range(0.45, 1.0); this.deadSpin = this.r() < 0.25; }
+      this.deadT += dt;
+      veh.input.throttle = this.deadT < 1.6 ? 0.7 : 0;
+      veh.input.brake = 0;
+      veh.input.steer = this.deadSteer * Math.min(1, this.deadT * 2.5);
+      veh.input.handbrake = this.deadSpin && this.deadT > 0.4 && this.deadT < 1.2;
+      veh.driverAlive = true; // let the jammed controls act on the car
+      if (this.deadT > 2.5) { veh.driverAlive = false; veh.input.handbrake = false; }
+      this.gunnery(dt); return;
+    }
     if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; return; }
     const road = sim.road;
     const pv = P.veh.vf, gap = P.s - car.s;      // gap > 0: we are behind the player

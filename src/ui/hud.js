@@ -23,6 +23,9 @@ const CSS = `
 #hud .top{left:50%;top:14px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px}
 #hud .top b{font-size:28px;font-weight:800;letter-spacing:1px}
 #hud .cross{left:50%;top:50%;width:0;height:0}
+#hud .scope{inset:0;display:none;background:radial-gradient(circle at center,rgba(0,0,0,0) 0,rgba(0,0,0,0) 33vh,rgba(0,0,0,.97) 33.4vh)}
+#hud .scope:before{content:'';position:absolute;left:50%;top:17vh;bottom:17vh;width:1px;background:rgba(0,0,0,.85)}
+#hud .scope:after{content:'';position:absolute;top:50%;left:calc(50% - 33vh);width:66vh;height:1px;background:rgba(0,0,0,.85)}
 #hud .cross i{position:absolute;background:#fff;box-shadow:0 0 3px #000}
 #hud .cross .h{width:9px;height:2px;top:-1px}
 #hud .cross .v{width:2px;height:9px;left:-1px}
@@ -58,7 +61,7 @@ export class Hud {
       <div class="abs top"><b class="dist">0.0 km</b><br><span class="biome"></span> · <span class="time">0:00</span></div>
       <div class="abs prog"><span class="progt">TO THE DAM</span><div class="bar"><i class="progbar" style="transform:scaleX(0)"></i></div></div>
       <div class="abs boss"><div class="bossname">BOSS</div><div class="bar"><i class="bossbar"></i></div></div>
-      <div class="abs cross"><i class="h" style="left:-16px"></i><i class="h" style="left:7px"></i><i class="v" style="top:-16px"></i><i class="v" style="top:7px"></i><i class="dot"></i></div>
+      <div class="abs scope"></div><div class="abs cross"><i class="h" style="left:-16px"></i><i class="h" style="left:7px"></i><i class="v" style="top:-16px"></i><i class="v" style="top:7px"></i><i class="dot"></i></div>
       <div class="abs hitm"></div>
       <div class="abs msg"></div>
       <div class="abs kf"></div>
@@ -74,7 +77,7 @@ export class Hud {
     document.body.appendChild(el);
     const $ = (s) => el.querySelector(s);
     this.q = { spd: $('.spd'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), hp: $('.hpbar'), dhp: $('.dhpbar'), ghp: $('.ghpbar'), dist: $('.dist'), time: $('.time'), biome: $('.biome'),
-      vig: $('.vig'), msg: $('.msg'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), progbar: $('.progbar'), boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
+      vig: $('.vig'), msg: $('.msg'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], progbar: $('.progbar'), boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
     this.arrowPool = []; this.msgT = 0; this.vigT = 0; this.hitT = 0;
     this.show({ driver: true, gunner: true });
   }
@@ -105,6 +108,11 @@ export class Hud {
     q.hp.style.transform = `scaleX(${clamp(d.hp01, 0, 1)})`; q.dhp.style.transform = `scaleX(${clamp(d.dhp01, 0, 1)})`; q.ghp.style.transform = `scaleX(${clamp(d.ghp01, 0, 1)})`;
     q.dist.textContent = (d.dist / 1000).toFixed(2) + ' km'; q.time.textContent = fmtTime(d.time); q.biome.textContent = d.biome || '';
     q.progbar.style.transform = `scaleX(${clamp(d.prog01 ?? 0, 0, 1)})`;
+    if (d.spreadPx !== undefined) {
+      const g = Math.max(4, Math.min(80, d.spreadPx));
+      q.crossH[0].style.left = (-g - 9) + 'px'; q.crossH[1].style.left = g + 'px'; q.crossV[0].style.top = (-g - 9) + 'px'; q.crossV[1].style.top = g + 'px';
+      q.scope.style.display = d.scoped ? 'block' : 'none'; q.cross.style.opacity = d.scoped ? 0 : 1;
+    }
     if (d.weapon !== undefined) { q.wname.textContent = d.weapon; q.mag.textContent = d.reloading ? 'RELOAD' : d.mag; q.mag.style.fontSize = d.reloading ? '34px' : ''; }
     q.progbar.parentElement.parentElement.style.display = d.boss ? 'none' : ''; if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
     if (this.vigT > 0) { this.vigT = Math.max(0, this.vigT - dt * 1.4); }

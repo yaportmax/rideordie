@@ -1,6 +1,7 @@
 // Renders a vehicle: GLB model (per ASSET_SPEC) or a procedural placeholder; wheels/suspension/steer, lights, paint tint, panels.
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
+import { buildCarLod, makeLodMaterial } from './car_lod.js';
 
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
@@ -22,6 +23,19 @@ export class CarView {
     const model = Assets.clone(url);
     if (model) this._adoptModel(model, opts); else this._placeholder(opts);
     this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    // far LOD (enemies): one vertex-coloured body + one mesh per wheel
+    this.lod = null; this.lodOn = false;
+    if (model && opts.lod !== false) {
+      const L = buildCarLod(url, Assets.template(url));
+      if (L && L.body) {
+        const mat = makeLodMaterial(opts.paint, opts.paint2 ?? 0x30302e);
+        const g = new THREE.Group(); g.name = 'lod'; g.visible = false;
+        const body = new THREE.Mesh(L.body, mat); body.castShadow = true; body.receiveShadow = true; g.add(body);
+        this.lodWheels = [];
+        for (const [name, geo] of L.wheels) { const w = new THREE.Mesh(geo, mat); w.castShadow = true; w.rotation.order = 'YXZ'; g.add(w); this.lodWheels.push([name, w]); }
+        this.root.add(g); this.lod = g; this.lodMat = mat;
+      }
+    }
     this.usesModel = !!model;
     this.smoke = 0;
   }
@@ -91,13 +105,24 @@ export class CarView {
       node.position.set(w.x, ri.mountY - st.L[i] + ri.restComHeight, w.z);
       node.rotation.set(st.spin[i], steer, 0, 'YXZ');
     }
+    this._syncLodWheels();
   }
 
+  /** Switch between the full model and the far LOD. */
+  setLod(far) {
+    if (!this.lod || far === this.lodOn) return;
+    this.lodOn = far; this.lod.visible = far; if (this.model) this.model.visible = !far;
+  }
+  _syncLodWheels() {
+    if (!this.lodOn || !this.lodWheels) return;
+    for (const [name, w] of this.lodWheels) { const n = this.wheelNodes.get(name); if (n) { w.position.copy(n.position); w.quaternion.copy(n.quaternion); w.visible = !n.userData.gone; } }
+  }
   setLights(braking, night) {
     for (const m of this.taillights) m.emissiveIntensity = braking ? 5 : (night ? 1.4 : 0.6);
     for (const m of this.headlights) m.emissiveIntensity = night ? 4 : 1.2;
   }
   setTint(hex, hex2) {
+    if (this.lodMat) { this.lodMat.userData.uPaint.value.setHex(hex); if (hex2 !== undefined) this.lodMat.userData.uPaint2.value.setHex(hex2); }
     this.root.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) { if (m.name === 'paint') m.color.setHex(hex); if (m.name === 'paint2' && hex2 !== undefined) m.color.setHex(hex2); } });
   }
   dispose() { this.root.removeFromParent(); }

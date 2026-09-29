@@ -86,7 +86,7 @@ def vest_shell(ctx, name, color, off=0.026, hem=-0.035, strap=0.14, neck_half=0.
 
 
 def _trim(ctx, g, pc_mat, radius=0.0055, min_len=0.14):
-    for tube in cloth.bindings(g, radius=radius, min_len=min_len):
+    for tube in cloth.bindings(g, radius=radius, min_len=min_len, sides=3, spacing=0.035):
         common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), pc_mat, ctx.binder, group=ctx.tier_group, label="trim")
 
 
@@ -129,16 +129,16 @@ def build_t1(ctx):
     for sx in (-1.0, 1.0):
         P, n = _place_on(rc, [sx * 0.07, cy - 0.02, 0.8], [0, 0, -1])
         if P is not None:
-            pm = gear.place(gear.pouch((0.075, 0.105, 0.045), flap=0.42), P + n * 0.003, n)
+            pm = gear.place(gear.pouch(detail=0.5, size=(0.075, 0.105, 0.045), flap=0.42), P + n * 0.003, n)
             _put(ctx, pm, M["olive"], label="pouch")
     # radio pouch on the left side
     P, n = _place_on(rc, [0.7, cy - 0.10, 0.02], [-1, 0, 0])
     if P is not None:
-        _put(ctx, gear.place(gear.pouch((0.06, 0.13, 0.05), flap=0.35), P + n * 0.003, n), M["olive"], label="pouch")
+        _put(ctx, gear.place(gear.pouch(detail=0.5, size=(0.06, 0.13, 0.05), flap=0.35), P + n * 0.003, n), M["olive"], label="pouch")
     # utility pouch on the back + drag handle
     P, n = _place_on(rc, [0.0, cy - 0.06, -0.8], [0, 0, 1])
     if P is not None:
-        _put(ctx, gear.place(gear.pouch((0.14, 0.10, 0.05), flap=0.4), P + n * 0.003, n), M["olive"], label="pouch")
+        _put(ctx, gear.place(gear.pouch(detail=0.5, size=(0.14, 0.10, 0.05), flap=0.4), P + n * 0.003, n), M["olive"], label="pouch")
     P, n = _place_on(rc, [0.0, ctx.fit.sh_y - 0.045, -0.8], [0, 0, 1])
     if P is not None:
         loop = kit.sweep(kit.polyline_smooth([P + [-0.045, 0, 0], P + [-0.05, 0.03, 0.03], P + [0.0, 0.045, 0.045], P + [0.05, 0.03, 0.03], P + [0.045, 0, 0]], 16) + n * 0.004, 0.005, sides=5, tile=0.25)
@@ -222,19 +222,19 @@ def build_t2(ctx):
     P, n = _place_on(rc, [0.0, cy - 0.245, 0.9], [0, 0, -1])
     if P is not None:
         for dx in (-0.075, 0.0, 0.075):
-            pm = gear.place(gear.pouch((0.066, 0.11, 0.05), flap=0.4), P + np.array([dx, 0, 0]) + n * 0.003, n)
+            pm = gear.place(gear.pouch(detail=0.5, size=(0.066, 0.11, 0.05), flap=0.4), P + np.array([dx, 0, 0]) + n * 0.003, n)
             _put(ctx, pm, M["olive"], label="pouch")
     # admin pouch upper chest, drag handle and hydration pack on the back
     P, n = _place_on(rc, [0.0, cy + 0.20, 0.9], [0, 0, -1])
     if P is not None:
-        _put(ctx, gear.place(gear.pouch((0.15, 0.07, 0.03), flap=0.6), P + n * 0.003, n), M["black"], label="pouch")
+        _put(ctx, gear.place(gear.pouch(detail=0.5, size=(0.15, 0.07, 0.03), flap=0.6), P + n * 0.003, n), M["black"], label="pouch")
     P, n = _place_on(rc, [0.0, cy + 0.22, -0.9], [0, 0, 1])
     if P is not None:
         loop = kit.sweep(kit.polyline_smooth([P + [-0.05, 0, 0], P + [-0.055, 0.035, 0.03], P + [0.0, 0.055, 0.045], P + [0.055, 0.035, 0.03], P + [0.05, 0, 0]], 16) + n * 0.006, 0.006, sides=5, tile=0.25)
         _put(ctx, loop, M["web"], label="drag_handle")
     P, n = _place_on(rc, [0.0, cy - 0.20, -0.9], [0, 0, 1])
     if P is not None:
-        _put(ctx, gear.place(gear.pouch((0.20, 0.16, 0.06), flap=0.35), P + n * 0.003, n), M["olive"], label="pouch")
+        _put(ctx, gear.place(gear.pouch(detail=0.5, size=(0.20, 0.16, 0.06), flap=0.35), P + n * 0.003, n), M["olive"], label="pouch")
     # cummerbund side plates
     for sx in (-1.0, 1.0):
         P, n = _place_on(rc, [sx * 0.7, fit.belt_y + 0.10, 0.02], [-sx, 0, 0])
@@ -256,7 +256,7 @@ def pauldron(ctx, side, H):
     axis = (fore - arm) / np.linalg.norm(fore - arm)
     out = []
     # cap: upper half of an ellipsoid over the shoulder joint, tilted along the arm
-    ell = kit.ellipsoid([0, 0, 0], [0.098, 0.062, 0.098], seg=20, rings=10)
+    ell = kit.ellipsoid([0, 0, 0], [0.098, 0.062, 0.098], seg=16, rings=8)
     keep = ell["pos"][:, 1] > -0.006
     tri_keep = np.all(keep[ell["idx"]], axis=1)
     ell = dict(ell, idx=ell["idx"][tri_keep])
@@ -268,7 +268,7 @@ def pauldron(ctx, side, H):
     x, y, z = kit.frame_from_axis(axis, (0, 1, 0))
     for k, (s, r0, hgt, mk) in enumerate(((0.050, 0.068, 0.034, "steel_lt"), (0.092, 0.060, 0.034, "steel"))):
         prof = [(r0, -hgt), (r0 + 0.005, -hgt), (r0 + 0.012, -hgt * 0.4), (r0 + 0.012, hgt * 0.4), (r0 + 0.005, hgt), (r0, hgt)]
-        band = kit.lathe(prof, arm + axis * s, axis=axis, seg=26, up=(0, 1, 0), angle=(np.pi / 2 - np.radians(125) , np.pi / 2 + np.radians(125)))
+        band = kit.lathe(prof, arm + axis * s, axis=axis, seg=16, up=(0, 1, 0), angle=(np.pi / 2 - np.radians(125) , np.pi / 2 + np.radians(125)))
         out.append((band, mk))
     # spikes on the cap
     top = arm + np.array([sg * 0.075, 0.10, 0.0])
@@ -301,7 +301,7 @@ def build_t3(ctx):
     for k in range(3):
         q, qn = _place_on(rc, [0.0, fit.belt_y + 0.075 - 0.05 * k, 0.9], [0, 0, -1])
         if q is not None:
-            lame = kit.patch_on_surface(rc, q, qn, (0, 1, 0), 0.115 - 0.008 * k, 0.03, standoff=0.006 + 0.004 * k, thick=0.014, bevel=0.005, e=3.2, rings=3, seg=28, dome=0.004, cast_from=0.3)
+            lame = kit.patch_on_surface(rc, q, qn, (0, 1, 0), 0.115 - 0.008 * k, 0.03, standoff=0.006 + 0.004 * k, thick=0.014, bevel=0.005, e=3.2, rings=2, seg=20, dome=0.004, cast_from=0.3)
             _put(ctx, lame, M["steel"], label="lame")
     # back plate + spine plates
     P, n = _place_on(rc, [0.0, cy + 0.02, -0.9], [0, 0, 1])
@@ -310,7 +310,7 @@ def build_t3(ctx):
     for k in range(4):
         q, qn = _place_on(rc, [0.0, cy + 0.14 - 0.075 * k, -0.9], [0, 0, 1])
         if q is not None:
-            v = kit.rbox((0.16, 0.022, 0.014), 0.005, 1)
+            v = kit.rbox((0.16, 0.022, 0.014), 0.0, 0)
             _put(ctx, gear.place(v, q + qn * 0.032, qn), M["dark"], label="vent_bar")
     # pauldrons: a domed cap + two lames (partial bands around the upper arm) + spikes
     for side in ("Left", "Right"):
@@ -330,14 +330,14 @@ def build_t3(ctx):
     for sx in (-1.0, 1.0):
         P, n = _place_on(rc_p, [sx * 0.6, fit.belt_y - 0.10, 0.06], [-sx, 0, 0])
         if P is not None:
-            ta = kit.patch_on_surface(rc_p, P, n, (0, 1, 0), 0.075, 0.105, standoff=0.010, thick=0.02, bevel=0.006, e=3.4, rings=5, seg=28, dome=0.012, cast_from=0.3)
+            ta = kit.patch_on_surface(rc_p, P, n, (0, 1, 0), 0.075, 0.105, standoff=0.010, thick=0.02, bevel=0.006, e=3.4, rings=4, seg=20, dome=0.012, cast_from=0.3)
             _put(ctx, ta, M["steel"], label="tasset")
     # big knee cups
     for sx in (-1.0, 1.0):
         kn = H["LeftLeg" if sx > 0 else "RightLeg"]
         P, n = _place_on(rc_p, [kn[0], kn[1] + 0.01, 0.6], [0, 0, -1])
         if P is not None:
-            cup = kit.patch_on_surface(rc_p, P, n, (0, 1, 0), 0.075, 0.09, standoff=0.012, thick=0.026, bevel=0.007, e=2.8, rings=5, seg=28, dome=0.02, cast_from=0.3)
+            cup = kit.patch_on_surface(rc_p, P, n, (0, 1, 0), 0.075, 0.09, standoff=0.012, thick=0.026, bevel=0.007, e=2.8, rings=4, seg=20, dome=0.02, cast_from=0.3)
             _put(ctx, cup, M["steel"], label="knee_cup")
             ridge2 = kit.rbox((0.014, 0.12, 0.012), 0.004, 1)
             _put(ctx, gear.place(ridge2, P + n * (0.012 + 0.048), n), M["dark"], label="knee_ridge")

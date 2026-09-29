@@ -156,12 +156,12 @@ def add_gear(ctx, fit, pcs):
             continue
         pm = plate(rc_t, hp[0], hn[0], up, hu, hv, so, dome=dome)
         common.add_gear(ctx, pm, mat, binder, label="chest_plate")
-        riv += rivets_around(hp[0], hn[0], up, hu, hv, 0, count=6, mesh=pm)
+        riv += rivets_around(hp[0], hn[0], up, hu, hv, 0, count=4, mesh=pm)
     T, hp, hn = rc_t.cast(np.array([[0.0, cy, -0.9]]), np.array([[0.0, 0.0, 1.0]]), tmax=2.0)
     if np.isfinite(T[0]):
         pm = plate(rc_t, hp[0], hn[0], up, 0.17, 0.2, 0.012, dome=0.02, rings=4, seg=20)
         common.add_gear(ctx, pm, armor, binder, label="back_plate")
-        riv += rivets_around(hp[0], hn[0], up, 0.17, 0.2, 0, count=8, mesh=pm)
+        riv += rivets_around(hp[0], hn[0], up, 0.17, 0.2, 0, count=6, mesh=pm)
     # shoulder straps holding the plates
     for sx in (1.0, -1.0):
         sm, _, _ = gear.ribbon(rc_t, [[sx * 0.12, cy + 0.12, 0.2], [sx * 0.13, H["Neck"][1] - 0.01, 0.0], [sx * 0.12, cy + 0.12, -0.2]], 0.04,
@@ -203,7 +203,7 @@ def add_gear(ctx, fit, pcs):
         # taped hands
         rc_h = brc.region(side + "Hand")
         mid = H[side + "HandMiddle1"]
-        wrap = gear.spiral_wrap(rc_h, wr - u * 0.02, mid + (mid - wr) * 0.1, turns=3.5, width=0.03, offset=0.004, thick=0.003, n=28, r_out=0.2)
+        wrap = gear.spiral_wrap(rc_h, wr - u * 0.02, mid + (mid - wr) * 0.1, turns=3.0, width=0.034, offset=0.004, thick=0.003, n=20, r_out=0.2)
         common.add_gear(ctx, wrap, tape, binder, label="hand_wrap")
     # thigh + shin guards, knee cups
     for sx, name in ((1.0, "Left"), (-1.0, "Right")):
@@ -214,13 +214,12 @@ def add_gear(ctx, fit, pcs):
             if np.isfinite(T[0]):
                 pm = plate(rc_p, hp[0], hn[0], up, hu, hv, so, dome=0.014 if mat is metal else 0.008)
                 common.add_gear(ctx, pm, mat, binder, label="leg_guard")
-                riv += rivets_around(hp[0], hn[0], up, hu, hv, 0, count=4, mesh=pm)
     # chain belt + padlock + tyre apron
     bm, front, c, rings = gear.belt(ctx, brc, fit.belt_y - 0.01, detail=0.5)
     common.add_gear(ctx, bm, leather, binder, label="belt")
     ring = rings[2] + (rings[2] - np.array([0.0, rings[2][:, 1].mean(), c[2]])) * np.array([0.04, 0, 0.04])
     ch_pts = np.vstack([ring[::3], ring[:1]])
-    ch_m = RG.chain(ch_pts[:len(ch_pts) // 2 + 2], link_len=0.038, link_w=0.02, wire=0.0035)
+    ch_m = RG.chain(ch_pts[:len(ch_pts) // 2 + 2], link_len=0.065, link_w=0.03, wire=0.0045)
     common.add_gear(ctx, ch_m, metal, binder, bone="Hips", label="chain")
     lock = kit.rbox((0.04, 0.05, 0.018), 0.004, 1)
     common.add_gear(ctx, kit.xform(lock, t=front + np.array([0.03, -0.045, 0.02])), metal, binder, bone="Hips", label="padlock")
@@ -235,7 +234,7 @@ def add_gear(ctx, fit, pcs):
     # heavy boots
     boot_m = common.gear_material(ctx, "leather_boot", "leather", color=(0.07, 0.055, 0.045), rough=0.85, metal=0.0)
     for side in ("Left", "Right"):
-        b = gear.boots(ctx, brc, side, upper_off=0.014, shaft_len=0.26, detail=0.55)
+        b = gear.boots(ctx, brc, side, upper_off=0.014, shaft_len=0.26, detail=0.45)
         common.add_gear(ctx, b["upper"], boot_m, binder, label="boot_upper")
         common.add_gear(ctx, b["shaft"], boot_m, binder, label="boot_shaft")
         ank = H[side + "Foot"][2]
@@ -270,7 +269,7 @@ def build():
     ctx = charbuild.Ctx(NAME, SPEC)
     ctx.bulk = 1.25
     ch = ctx.ch
-    lod.decimate(ch, 0.22)
+    lod.decimate(ch, 0.16)
     fit = cloth.CFit(ch)
     ctx.fit = fit
     under = cloth.torso_top(fit, "tank", off=0.014, bridge=0.03, hem=-0.03, strap=0.15, neck_half=0.07, drape=False)

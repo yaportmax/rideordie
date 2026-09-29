@@ -75,7 +75,7 @@ def add_gear(ctx, fit, pcs):
     # boots
     boot_m = common.gear_material(ctx, "leather_boot", "leather", color=(0.10, 0.08, 0.06), rough=0.85, metal=0.0)
     for side in ("Left", "Right"):
-        b = gear.boots(ctx, brc, side, upper_off=0.011, detail=0.55)
+        b = gear.boots(ctx, brc, side, upper_off=0.011, detail=0.45)
         common.add_gear(ctx, b["upper"], boot_m, binder, label="boot_upper")
         common.add_gear(ctx, b["shaft"], boot_m, binder, label="boot_shaft")
         ank = H[side + "Foot"][2]
@@ -117,7 +117,7 @@ def add_gear(ctx, fit, pcs):
     # wires from the detonator to every bundle (alternating red / black)
     for k, tp in enumerate(tops):
         mid = 0.5 * (det + tp) + hn[0] * 0.03
-        w = kit.sweep(kit.polyline_smooth([det + hn[0] * 0.01, mid, tp], 10), 0.0025, sides=4)
+        w = kit.sweep(kit.polyline_smooth([det + hn[0] * 0.01, mid, tp], 7), 0.0025, sides=3)
         w["col"] = np.tile([0.55, 0.05, 0.03] if k % 2 == 0 else [0.05, 0.05, 0.05], (len(w["pos"]), 1))
         common.add_gear(ctx, w, wire_m, binder, label="wire")
     # vest straps around the torso holding the charges
@@ -132,7 +132,7 @@ def add_gear(ctx, fit, pcs):
     wrR, elR, shR = H["RightHand"], H["RightForeArm"], H["RightArm"]
     ctrl = [det + np.array([-0.03, -0.02, 0.01]), np.array([-0.16, cy - 0.12, 0.08]), shR + (elR - shR) * 0.6 + np.array([0.0, -0.035, 0.03]),
             elR + (wrR - elR) * 0.5 + np.array([0.0, -0.035, 0.03]), wrR + np.array([0.0, -0.02, 0.02])]
-    w = kit.sweep(kit.polyline_smooth(ctrl, 30), 0.0025, sides=4)
+    w = kit.sweep(kit.polyline_smooth(ctrl, 20), 0.0025, sides=3)
     w["col"] = np.tile([0.55, 0.05, 0.03], (len(w["pos"]), 1))
     common.add_gear(ctx, w, wire_m, binder, label="wire")
     # trigger (dead-man switch) in the right palm
@@ -152,7 +152,7 @@ def add_gear(ctx, fit, pcs):
         if cf is not None:
             common.add_gear(ctx, cf, knit, binder, label="cuff")
     # rolled rim around the hood's face opening
-    for tube in cloth.bindings(pcs["g_hood"], radius=0.009, min_len=0.2, sides=5, spacing=0.02):
+    for tube in cloth.bindings(pcs["g_hood"], radius=0.009, min_len=0.2, sides=4, spacing=0.03):
         common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), ctx.mats["cloth_hoodie"], binder, bone="Head", label="hood_rim")
     ctx.brc, ctx.binder = brc, binder
 
@@ -170,7 +170,7 @@ def build():
     t0 = time.time()
     ctx = charbuild.Ctx(NAME, SPEC)
     ch = ctx.ch
-    lod.decimate(ch, 0.24, lod.importance(ch, head=0.45, hands=0.6, torso=0.35, limbs=0.3, feet=0.0))
+    lod.decimate(ch, 0.17, lod.importance(ch, head=0.45, hands=0.6, torso=0.35, limbs=0.3, feet=0.0))
     fit = cloth.CFit(ch)
     ctx.fit = fit
     hoodie = cloth.torso_top(fit, "sleeved", sleeve_len=fit.limb_len("L_arm", 2) - 0.03, off=0.016, bridge=0.02, hem=-0.08, neck=(-0.035, -0.03),

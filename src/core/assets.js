@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { mergeRigid, unifyAtlasMaterials } from './merge.js';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -32,9 +33,14 @@ export function cloneLoaded(url) {
 }
 
 const loaded = new Map();
+export const mergeStats = [];
 export async function preload(urls, onProgress) {
   let n = 0;
-  await Promise.all(urls.map(async (u) => { const g = await loadGLB(u); loaded.set(u, g); n++; if (onProgress) onProgress(n, urls.length, u); }));
+  await Promise.all(urls.map(async (u) => {
+    const g = await loadGLB(u);
+    if (g && /\/models\/(vehicles|weapons)\//.test(u) && !g.__merged) { g.__merged = true; if (/weapons/.test(u)) unifyAtlasMaterials(g.scene); const r = mergeRigid(g.scene); mergeStats.push([u.split('/').pop(), r.before, r.after]); }
+    loaded.set(u, g); n++; if (onProgress) onProgress(n, urls.length, u);
+  }));
 }
 /** Sync clone; returns null when not preloaded / missing. */
 export function clone(url) {
@@ -44,6 +50,8 @@ export function clone(url) {
   root.animations = g.animations;
   return root;
 }
+/** The (shared, merged) template scene of a preloaded asset. Do not modify. */
+export function template(url) { return loaded.get(url)?.scene || null; }
 export function getAnimations(url) { return loaded.get(url)?.animations || []; }
 export function has(url) { return !!loaded.get(url); }
 

@@ -102,7 +102,7 @@ def add_gear(ctx, fit, pcs, gl):
     # boots
     boot_m = common.gear_material(ctx, "leather_boot", "leather", color=(0.11, 0.075, 0.05), rough=0.85, metal=0.0)
     for side in ("Left", "Right"):
-        b = gear.boots(ctx, brc, side, upper_off=0.011, detail=0.55)
+        b = gear.boots(ctx, brc, side, upper_off=0.011, detail=0.45)
         common.add_gear(ctx, b["upper"], boot_m, binder, label="boot_upper")
         common.add_gear(ctx, b["shaft"], boot_m, binder, label="boot_shaft")
         ank = H[side + "Foot"][2]
@@ -135,7 +135,7 @@ def add_gear(ctx, fit, pcs, gl):
     for g_ in gl:
         common.add_tiled_piece(ctx, cloth.finish(g_, fit), glove_m, label="glove")
     # goggles over the eyes (round dark lenses)
-    gg = gear.goggles(ctx, brc, up=0.0, hair=0.004, lens_r=0.027, spacing=0.0335, tilt=-4.0, seg=12, ring_n=22)
+    gg = gear.goggles(ctx, brc, up=0.0, hair=0.004, lens_r=0.027, spacing=0.0335, tilt=-4.0, seg=10, ring_n=18)
     strap_m = common.gear_material(ctx, "webbing_strap", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
     lens_m = common.plain_material(ctx, "glass_lens", (0.03, 0.045, 0.05), rough=0.06, alpha=0.86, double_sided=True)
     rim_m = common.gear_material(ctx, "metal_rim", "metal_dark", color=(0.42, 0.40, 0.36), rough=1.0, metal=1.0)
@@ -156,7 +156,7 @@ def add_gear(ctx, fit, pcs, gl):
         common.add_gear(ctx, m, bmat, binder, bone="Head", label="bandana_tail")
     # rolled trims
     for g_, m_, r_ in ((pcs["g_vest"], leather_dk, 0.0045),):
-        for tube in cloth.bindings(g_, radius=r_, min_len=0.14, sides=4, spacing=0.03):
+        for tube in cloth.bindings(g_, radius=r_, min_len=0.14, sides=3, spacing=0.045):
             common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), m_, binder, label="trim")
     ctx.brc, ctx.binder = brc, binder
 
@@ -165,7 +165,7 @@ def build():
     t0 = time.time()
     ctx = charbuild.Ctx(NAME, SPEC)
     ch = ctx.ch
-    lod.decimate(ch, 0.27)
+    lod.decimate(ch, 0.19)
     fit = cloth.CFit(ch)
     ctx.fit = fit
     vest = cloth.torso_top(fit, "tank", off=0.020, bridge=0.03, hem=-0.03, open_front=0.085, strap=0.145, neck_half=0.07, neck=(-0.02, -0.03))
