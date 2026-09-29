@@ -105,7 +105,7 @@ export function flame(fx, x, y, z, vx, vy, vz, w, h, life, heat = 1, bend = 3, f
   p.spr = SPR.FIRE; p.mode = MODE.FIRE; p.f0 = r.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = r.range(24, 34);
   p.size(w * 0.72, w * grow); p.aspect = h / w; p.sCurve = 0.55;
   const k = heat * r.range(0.85, 1.15);
-  p.col0(1.9 * k, 1.45 * k, 1.05 * k, 1).col1(1.4 * k, 0.8 * k, 0.5 * k, 0.9); p.cCurve = 0.8;
+  p.col0(1.55 * k, 1.25 * k, 0.8 * k, 1).col1(1.3 * k, 0.8 * k, 0.45 * k, 0.9); p.cCurve = 0.8;
   p.add0 = 0.82; p.add1 = 1; p.fin = 0.14; p.fout = 0.5;
   p.drag = drag; p.grav = -2.2; p.bend = bend; p.soft = 0.12 + 0.2 * w; p.wind = 1;
   p.flags = flags | (r.next() < 0.5 ? PF.FLIPU : 0);
@@ -117,10 +117,24 @@ export function fireBlob(fx, x, y, z, vx, vy, vz, s0, s1, life, heat = 1, add1 =
   const r = fx.rng, p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life; p.delay = delay;
   p.spr = SPR.FIREBALL; p.f0 = 0; p.nPlay = FRAMES.FIREBALL; p.size(s0, s1); p.sCurve = 0.35;
   p.rot = r.next() * PI2; p.rotV = r.sym(0.35); p.drag = 2.0; p.grav = -2.4; p.turb = 0.3; p.wind = 0.4;
-  p.col0(3.4 * heat, 2.7 * heat, 2.2 * heat, 1).col1(1.0, 0.9, 0.82, 0.9); p.cCurve = 0.45;
-  p.add0 = 0.9; p.add1 = add1; p.fin = 0.02; p.fout = 0.35; p.ground = gy;
+  p.col0(2.9 * heat, 2.75 * heat, 2.2 * heat, 1).col1(1.0, 0.92, 0.84, 0.9); p.cCurve = 0.45;
+  p.add0 = 0.6; p.add1 = add1; p.fin = 0.02; p.fout = 0.35; p.ground = gy;
   p.soft = 0.25 * s1; p.flags = r.next() < 0.5 ? PF.FLIPU : 0;
   fx.pa.emit(p);
+}
+
+/**
+ * Rolling fire body: the hot half of the fireball sheet (white-yellow -> orange, no soot) as a rising, turbulent mass;
+ * the bulk of a big fire that the flame tongues lick out of.
+ */
+export function fireBody(fx, x, y, z, vx, vy, vz, s0, s1, life, heat = 1, flags = 0) {
+  const r = fx.rng, p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life;
+  p.spr = SPR.FIREBALL; p.f0 = 4 + r.int(6); p.nPlay = 22; p.size(s0, s1); p.sCurve = 0.5;
+  p.rot = r.next() * PI2; p.rotV = r.sym(0.8); p.drag = 1.2; p.grav = -3.0; p.turb = 0.35; p.wind = 1;
+  const k = heat * r.range(0.8, 1.1);
+  p.col0(1.45 * k, 1.2 * k, 0.8 * k, 0.85).col1(1.1 * k, 0.65 * k, 0.35 * k, 0.6); p.cCurve = 0.7;
+  p.add0 = 0.92; p.add1 = 0.75; p.fin = 0.15; p.fout = 0.55; p.soft = 0.3 * s1; p.flags = flags | (r.next() < 0.5 ? PF.FLIPU : 0);
+  fx.pf.emit(p);
 }
 
 // ------------------------------------------------------------------------------------------------ explosions
@@ -138,12 +152,12 @@ export function explosion(fx, x, y, z, S, o) {
   glow(fx, x, y + 0.6, z, R * 1.9, 0.14, 12, 9, 5.5, true, 2.1);
   glow(fx, x, y + 0.8, z, R * 3.2, 0.32, 2.6, 1.0, 0.25, true, 1.5);
   // 2. fireball: flipbook blobs, hot core first, outer ones a hair later (the ball keeps growing for ~0.2 s)
-  const nb = Math.max(4, Math.round((6 + 3 * S) * qd));
+  const nb = Math.max(5, Math.round((8 + 4 * S) * qd));
   for (let i = 0; i < nb; i++) {
     let rx = r.sym(1), ry = r.range(-0.1, 1), rz = r.sym(1); const rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
-    const d = R * 0.28 * Math.sqrt(r.next()), sp = r.range(2.5, 7) * sS, core = i < nb * 0.35;
-    fireBlob(fx, x + rx * d, Math.max(gy + R * 0.2, y + 0.3 + ry * d * 0.8), z + rz * d, rx * sp, ry * sp * 0.6 + r.range(1.5, 5) * sS, rz * sp,
-      R * r.range(0.45, 0.62), R * r.range(1.05, 1.45) * (core ? 0.85 : 1), r.range(1.5, 2.3) * (0.85 + 0.15 * S), core ? 1.25 : 0.95, r.range(0.12, 0.3), core ? 0 : r.range(0.02, 0.12), gy);
+    const d = R * 0.36 * Math.sqrt(r.next()), sp = r.range(2.5, 7) * sS, core = i < nb * 0.35;
+    fireBlob(fx, x + rx * d, Math.max(gy + R * 0.25, y + 0.4 + ry * d * 0.8), z + rz * d, rx * sp, ry * sp * 0.6 + r.range(1.5, 5) * sS, rz * sp,
+      R * r.range(0.7, 0.9), R * r.range(1.55, 2.0) * (core ? 0.85 : 1), r.range(1.6, 2.4) * (0.85 + 0.15 * S), core ? 1.2 : 0.95, r.range(0.12, 0.3), core ? 0 : r.range(0.02, 0.12), gy);
   }
   // hot inner flames licking up from the base (short, they die with the fireball)
   const nf = Math.round((5 + 3 * S) * qd);
@@ -184,7 +198,7 @@ export function explosion(fx, x, y, z, S, o) {
   for (let i = 0; i < nk; i++) {
     const a = r.next() * PI2, d = R * 0.35 * Math.sqrt(r.next()), up = r.range(0.2, 1.0);
     const q = fx.p.reset(); q.pos(x + Math.cos(a) * d, y + R * 0.25 * up + 0.5, z + Math.sin(a) * d).vel(Math.cos(a) * r.range(1, 4), r.range(3, 7) * sS, Math.sin(a) * r.range(1, 4));
-    q.delay = r.range(0.35, 0.9); q.life = r.range(4.5, 7) * (0.8 + 0.2 * S);
+    q.delay = r.range(0.55, 1.1); q.life = r.range(4.5, 7) * (0.8 + 0.2 * S);
     q.spr = SPR.SMOKE; q.f0 = r.int(4) * 4; q.nPlay = 4; q.size(R * r.range(0.55, 0.8), R * r.range(1.5, 2.1)); q.sCurve = 0.45;
     q.rot = r.sym(0.8); q.rotV = r.sym(0.15); q.drag = 1.1; q.grav = -1.1; q.turb = 0.8; q.wind = 0.9; q.lit = 1;
     const c = r.range(0.055, 0.085); q.col(c, c * 0.95, c * 0.9, 0.92); q.fin = 0.12; q.fout = 0.55; q.ground = gy;

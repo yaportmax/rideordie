@@ -164,18 +164,82 @@ function featureDip(road, s, a, list) {
 const _sm = {}, _smC = {};
 /** Layer shown on cut faces (chunk end caps, outer curtains). */
 function capRock(bio) { const id = bio.w > 0.5 ? bio.b : bio.a; return id === 'desert' || id === 'canyon' ? L.rock_red : id === 'mountain' || id === 'city' ? L.rock_grey : L.cliff; }
-const FOLD_U0 = 0.45, FOLD_MAX = 0.85;
+const FOLD_MAX = 0.85, SQUEEZE_U0 = 0.62;
+// ------------------------------------------------------------------------------------------------ lateral limits
+// Each road section owns the ground up to the Voronoi boundary with any OTHER section of the road (a bend, a hairpin, the road coming back
+// round a hill), and never beyond its own curvature radius (rows of constant s would fold over). Without this the 900 m terrain strips of
+// different sections overlap in plan and show floating slabs / cliffs over the void from any raised camera. Up to 62 % of the limit
+// nothing changes (the road side is untouched); beyond it the columns are squeezed smoothly into the limit, and near a Voronoi boundary the
+// height blends into the average of both sections' terrain, so the two strips meet in one continuous surface.
+const LIM_WIN = 3000, LIM_STEP = 4;                               // search +-3 km of road, every 4th sample (12 m)
+const LIM_D = [30, 45, 62, 82, 106, 135, 170, 212, 262, 322, 395, 480, 580, 700, 830, 915];
+const _lim = new Map();
+let _limRoad = null;
+function otherMin(road, i0, px, pz) {
+  // squared distance from (px, pz) to the nearest road sample other than this row's own foot (|s' - s| > 24 m). A point D out along the
+  // row's normal belongs to the row while nothing is closer than D: that is the Voronoi boundary with other sections of the road AND the
+  // curvature limit on the inside of a bend (beyond the radius the neighbouring rows of the arc are closer).
+  const excl = Math.ceil(24 / DS), lo = Math.max(0, i0 - LIM_WIN / DS), hi = Math.min(road.n - 1, i0 + LIM_WIN / DS);
+  let best = 1e18, bj = -1;
+  for (let j = lo; j <= hi; j += LIM_STEP) {
+    if (j > i0 - excl && j < i0 + excl) { j = i0 + excl - LIM_STEP; continue; }
+    const dx = road.x[j] - px, dz = road.z[j] - pz, q = dx * dx + dz * dz;
+    if (q < best) { best = q; bj = j; }
+  }
+  return [best, bj];
+}
+/** {dmax (lateral distance from the centreline where this row's ground ends), jB (road sample index of the other section, -1 = none)} */
+function rowLimit(road, s, side) {
+  if (_limRoad !== road) { _limRoad = road; _lim.clear(); }
+  const key = Math.round(s * 4) * 2 + (side > 0 ? 1 : 0);
+  let L = _lim.get(key);
+  if (L) return L;
+  road.extendTo(s + LIM_WIN + 100);
+  const sm = road.sample(s, _smL), i0 = Math.round(s / DS);
+  const nx = sm.nx * side, nz = sm.nz * side;
+  L = { dmax: 1e9, jB: -1 };
+  let prev = EDGE + 2;
+  for (const D of LIM_D) {
+    const [q, j] = otherMin(road, i0, sm.x + nx * D, sm.z + nz * D);
+    if (q < D * D) {                                              // another part of the road is closer than this row: boundary in (prev, D)
+      let lo = prev, hi = D, jb = j;
+      for (let it = 0; it < 7; it++) {
+        const mid = (lo + hi) / 2, [qm, jm] = otherMin(road, i0, sm.x + nx * mid, sm.z + nz * mid);
+        if (qm < mid * mid) { hi = mid; jb = jm; } else lo = mid;
+      }
+      L.dmax = Math.max(EDGE + 12, (lo + hi) / 2); L.jB = jb;
+      break;
+    }
+    prev = D;
+  }
+  if (_lim.size > 40000) _lim.clear();
+  _lim.set(key, L);
+  return L;
+}
+const _smL = {}, _nB = {}, _smB = {};
+
+/** Terrain height of the section at (s, d) without lateral limits (used for the other side of a Voronoi seam). */
+function rawHeight(road, seed, s, d) {
+  const sm = road.sample(s, _smB), side = d >= 0 ? 1 : -1, a = Math.max(0, Math.abs(d) - EDGE);
+  const yPlane = road.surfaceY(sm, side * EDGE) - side * a * Math.tan(sm.bank) * (1 - smoothstep(0, 30, a));
+  return yPlane + biomeProfile(seed, s, a, side, sm, biomeAt(s));
+}
+
 /** World position of terrain at (s, d). Writes into out {x,y,z}. d beyond +-EDGE. */
 export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   const sm = road.sample(s, _sm);
   const side = d >= 0 ? 1 : -1;
-  // inside of a curve the rows of constant s converge and would cross (fold) beyond the curvature radius: squeeze the lateral offset so
-  // k*d stays below FOLD_MAX (identity up to FOLD_U0 = 45 % of the radius, so the road side is untouched). The profile is evaluated at the
-  // squeezed distance, so the squeezed band is ordinary terrain (the ground further inside the bend comes from the rows before/after it).
-  let dd = d;
-  const kd = sm.k * d;
-  if (kd > FOLD_U0) dd = (FOLD_U0 + (FOLD_MAX - FOLD_U0) * (1 - Math.exp(-(kd - FOLD_U0) / (FOLD_MAX - FOLD_U0)))) / sm.k;
-  const a = Math.abs(dd) - EDGE;
+  const ad0 = Math.abs(d);
+  // lateral limit: own curvature radius (inside of a bend) and the Voronoi boundary with other sections of the road
+  const L = ad0 > EDGE + 20 ? rowLimit(road, s, side) : null;
+  const kin = sm.k * side;                                        // > 0: this side is the inside of the bend
+  const dFold = kin > 1e-5 ? FOLD_MAX / kin : 1e9;
+  const dLim = Math.min(dFold, L ? L.dmax : 1e9);
+  let ad = ad0;
+  const u0 = EDGE + (dLim - EDGE) * SQUEEZE_U0;
+  if (ad0 > u0) ad = u0 + (dLim - u0) * (1 - Math.exp(-(ad0 - u0) / (dLim - u0)));
+  const dd = side * ad;
+  const a = ad - EDGE;
   const bio = biomeAt(s);
   // road-plane height at the seam, banked plane fading outward
   const yEdge = road.surfaceY(sm, side * EDGE);
@@ -185,6 +249,14 @@ export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   off -= featureDip(road, s, a, bridges);
   off += tunnelRaise(road, s, a, tunnels);
   out.x = sm.x + sm.nx * dd; out.z = sm.z + sm.nz * dd; out.y = yPlane + off;
+  // Voronoi seam: blend into the mean of both sections' terrain (both sides compute the same mean at the boundary)
+  if (L && L.jB >= 0 && L.dmax <= dFold) {
+    const w = smoothstep(EDGE + (L.dmax - EDGE) * 0.45, L.dmax, ad);
+    if (w > 0) {
+      const nb = road.nearest(out.x, out.z, L.jB * DS, 160, _nB);
+      if (Math.abs(nb.d) > EDGE + 1) { const yB = rawHeight(road, seed, nb.s, nb.d); out.y += w * 0.5 * (yB - out.y); off = out.y - yPlane; }
+    }
+  }
   out.s = s; out.a = a; out.side = side; out.off = off; out.bio = bio;
   return out;
 }

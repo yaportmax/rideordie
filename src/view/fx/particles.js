@@ -189,8 +189,8 @@ void main() {
   float ft = loopAnim ? age * aSp.w : t * (nf - 1.0);
   float i0 = floor(ft); float fr = ft - i0;
   float c0, c1;
-  if (loopAnim) { c0 = mod(i0, nf); c1 = mod(i0 + 1.0, nf); } else { c0 = min(i0, nf - 1.0); c1 = min(i0 + 1.0, nf - 1.0); }
-  c0 += aSp.y; c1 += aSp.y;
+  if (loopAnim) { c0 = mod(i0 + aSp.y, nf); c1 = mod(i0 + 1.0 + aSp.y, nf); }          // looping: f0 is a phase within the loop
+  else { c0 = min(i0, nf - 1.0) + aSp.y; c1 = min(i0 + 1.0, nf - 1.0) + aSp.y; }      // one-shot: f0 picks the family
   int sid = int(aSp.x + 0.5);
   vec4 R = uRect[sid]; vec4 G = uGrid[sid];
   vec2 cs = vec2(R.z / G.x, R.w / G.y) ;
@@ -228,11 +228,27 @@ void main() {
     rgt = vec3(cq, 0.0, sq); up = vec3(-sq, 0.0, cq);
   } else if (mode == 7) {
     // flame tongue: base at the particle, the tip leans into the relative air flow; the strip curves base -> tip
-    vec3 rel = attached ? airW : airW - wvel; rel.y = 0.0;              // attached: the source is fixed in the truck frame
     float B = max(aX.z, 0.3);
-    float rl = length(rel); if (rl > 2.4 * B) rel *= 2.4 * B / rl;
-    vec3 a1 = normalize(vec3(rel.x, B, rel.z));
-    vec3 a0 = normalize(vec3(rel.x * 0.3, B, rel.z * 0.3));
+    vec3 a0, a1;
+    if (attached) {
+      // the source is fixed in the truck frame: lean into the frame's air flow; tongues that would lick through the
+      // windshield are bent up along the glass instead (the cabin clip would cut them with a hard line)
+      vec3 relL = uFrameAir - upL * dot(uFrameAir, upL);
+      float rl = length(relL); if (rl > 3.0 * B) relL *= 3.0 * B / rl;
+      vec3 t1 = normalize(relL + upL * B), t0 = normalize(relL * 0.3 + upL * B);
+      if ((flags & 4) != 0 && uCabMin.w > 0.5) {
+        vec3 n = uCabPlane.xyz; float dp = dot(n, pos) - uCabPlane.w;
+        float kk = 1.0 - smoothstep(0.25 * h, 1.1 * h, dp);
+        t1 = normalize(t1 - n * min(dot(t1, n), 0.0) * kk * 1.15);
+        t0 = normalize(t0 - n * min(dot(t0, n), 0.0) * kk);
+      }
+      a1 = normalize(mat3(uFrame) * t1); a0 = normalize(mat3(uFrame) * t0);
+    } else {
+      vec3 rel = airW - wvel; rel.y = 0.0;
+      float rl = length(rel); if (rl > 2.4 * B) rel *= 2.4 * B / rl;
+      a1 = normalize(vec3(rel.x, B, rel.z));
+      a0 = normalize(vec3(rel.x * 0.3, B, rel.z * 0.3));
+    }
     float vv = q.y + 0.5;
     vec3 ax = normalize(mix(a0, a1, vv));
     vec3 side = cross(ax, tcN); float sl = length(side); side = sl > 1e-4 ? side / sl : vec3(1.0, 0.0, 0.0);
@@ -302,7 +318,7 @@ void main() {
   if (dot(fwdS, tcN) < 0.0) fwdS = -fwdS;
   vLs = vec3(dot(uKeyDir, rgt), dot(uKeyDir, up), dot(uKeyDir, fwdS));
   vUs = vec3(rgt.y, up.y, fwdS.y);
-  float gl = (1.0 - t) * (1.0 - t); vLitP = vec4(lit, litSheet, aX.y * gl * gl, aX.x);
+  float gl = (1.0 - t) * (1.0 - t); gl *= gl; vLitP = vec4(lit, litSheet, aX.y * gl * gl, aX.x);
   vCab = (uCabInv * vec4(world, 1.0)).xyz;
   vClip = (uCabMin.w > 0.5 && (flags & 8) == 0) ? 1.0 : 0.0;
   vCol = vec4(col.rgb, col.a * env);
@@ -331,7 +347,7 @@ void main() {
     vec3 p = vCab;
     vec3 a = p - uCabMin.xyz, b = uCabMax.xyz - p;
     float inside = min(min(min(a.x, b.x), min(a.y, b.y)), min(min(a.z, b.z), uCabPlane.w - dot(uCabPlane.xyz, p)));
-    k = 1.0 - smoothstep(-0.05, 0.02, inside);
+    k = 1.0 - smoothstep(-0.2, 0.02, inside);
     if (k <= 0.002) discard;
   }
   // soft particles against last frame's scene depth
@@ -407,7 +423,7 @@ export function makeParticleUniforms(atlas) {
     uInset: { value: new THREE.Vector2(0.5 / atlas.size[0], 0.5 / atlas.size[1]) }, uFrameBlend: { value: 1 },
     // lighting (key light direction is the shared SkyRig uniform; colours are set by Fx._syncLighting)
     uKeyDir: KEY.uKeyDir, uKeyCol: { value: new THREE.Vector3(1, 0.95, 0.85) },
-    uSkyCol: { value: new THREE.Vector3(0.3, 0.34, 0.4) }, uGndCol: { value: new THREE.Vector3(0.2, 0.17, 0.14) }, uGlowCol: { value: new THREE.Vector3(1.25, 0.42, 0.1) },
+    uSkyCol: { value: new THREE.Vector3(0.3, 0.34, 0.4) }, uGndCol: { value: new THREE.Vector3(0.2, 0.17, 0.14) }, uGlowCol: { value: new THREE.Vector3(1.1, 0.36, 0.08) },
     // atmosphere (shared objects, written by SkyRig)
     ...ATMO,
     // attached frame + cabin clip (Fx.update / onBeforeRender)

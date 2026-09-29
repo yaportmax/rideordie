@@ -17,6 +17,7 @@ import { Fx } from './view/fx.js';
 import { BossView, BOSS_URL } from './view/boss_view.js';
 import { BOSS_ID, PART_NAMES } from './data/boss.js';
 import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
+import { Post } from './view/post.js';
 
 const Q = new URLSearchParams(location.search);
 const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
@@ -52,8 +53,11 @@ const roadMat = makeRoadMaterial({ albedo: tex('/textures/asphalt/albedo.jpg', t
 }
 
 // ---------------------------------------------------------------------------------------------- post (HDR bloom preview like the game's Post)
-let composer = null;
-if (useBloom) {
+let composer = null, post = null;
+if (useBloom && Q.get('post') !== 'lite') {                 // the game's real pipeline (AgX grade, bloom, soft-particle depth)
+  post = new Post(renderer, scene, camera, { quality: num('pq', 2) });
+  post.setSize(innerWidth, innerHeight);
+} else if (useBloom) {
   renderer.toneMapping = THREE.NoToneMapping;
   composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 4 });
   composer.addPass(new RenderPass(scene, camera));
@@ -66,6 +70,7 @@ if (useBloom) {
 const fx = new Fx(scene, camera, { quality });
 const urls = ['e_sedan', 'e_heavy', 'e_van', 'e_tanker'].map((n) => `/models/vehicles/${n}.glb`);
 await Promise.all([Assets.preload(urls), fx.load()]);
+if (post) fx.setDepthSource(post);
 
 if (Q.has('prewarm')) {                                  // same as the game: compile against a HalfFloat target (post input) and the canvas
   const done = fx.prewarm(), rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
@@ -318,6 +323,13 @@ const DEMOS = {
     const c = new DemoCar('e_sedan', 0, 42, { paint: 0x8a3b2a }); at(0.15, () => explodeCar(c, 1));
     at(0.05, () => shootFrom('lmg', [-3, 1.5, 28], [0, 0, 90]));
   },
+  firelab() {
+    setCam(-9, 2.6, 18, 1, 1.6, 34, 55);
+    const c = new DemoCar('e_sedan', -2.5, 34, { paint: 0x8a3b2a }); at(0.05, () => explodeCar(c, 1));
+    at(0.05, () => { fire({ t: 'mineDrop', pos: [3.5, 0.15, 30], enemy: true }); fire({ t: 'oil', pos: [1.5, 0.6, 40], r: 4.5, dir: [0.2, 1] }); });
+    at(0.3, () => fire({ t: 'boom', pos: [1.5, 0.3, 40], radius: 6, kind: 'grenade' }));
+    const b = new DemoCar('e_van', 5.5, 10, { paint: 0x4a5a3a }); b.f.drive = true; b.f.speed = 14; b.f.burn = true;
+  },
   perf() {
     setCam(-14, 4, 10, 0, 2, 50, 58);
     for (let i = 0; i < 10; i++) { const c = new DemoCar(i % 3 === 0 ? 'e_van' : 'e_sedan', -5 + (i % 3) * 5, 10 + i * 9, { paint: 0x8a3b2a }); c.f.drive = true; c.f.speed = 22 + i; c.f.smoke = true; c.f.drift = i % 2 === 0; c.f.boost = i % 4 === 1; }
@@ -408,7 +420,7 @@ function frame(now) {
   if (shakeAcc > 0.01) { const a = shakeAcc * shakeAcc * 0.5; camera.position.x += Math.sin(now * 0.07) * a; camera.position.y += Math.sin(now * 0.09 + 2) * a; camera.lookAt(orbit.target); }
   sky.update(dt, camera, orbit.target);
   const tr = performance.now();
-  if (composer) composer.render(dt); else renderer.render(scene, camera);
+  if (post) { post.setLook(look, sky.sunDir); post.setParams({ night01: look.night || 0 }); post.render(dt); } else if (composer) composer.render(dt); else renderer.render(scene, camera);
   if (Q.has('gpu')) renderer.getContext().finish();
   perf.frameMs = perf.frameMs * 0.9 + (performance.now() - tr) * 0.1;
   frames++;
@@ -421,6 +433,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (composer) composer.setSize(innerWidth, innerHeight); });
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (composer) composer.setSize(innerWidth, innerHeight); if (post) post.setSize(innerWidth, innerHeight); });
 addEventListener('keydown', (e) => { if (e.key === ' ') paused = !paused; if (e.key === 'e') explodeCar(freshCar('e_sedan'), 1); });
 window.__fx = { fx, scene, camera, renderer, cars, perf, sim: () => simT, explodeNew: (spec = 'e_van') => explodeCar(freshCar(spec), 1) };

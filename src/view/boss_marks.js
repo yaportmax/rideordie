@@ -33,7 +33,9 @@ export class BossMarks {
       const bg = new THREE.Sprite(spriteMat({ color: 0x000000, opacity: 0.6 })); bg.center.set(0.5, 0.5); bg.scale.set(w + 0.003, h + 0.003, 1); bg.renderOrder = 990;
       const fill = new THREE.Sprite(spriteMat({ color: col })); fill.center.set(0, 0.5); fill.scale.set(w, h, 1); fill.position.x = 0; fill.renderOrder = 991;
       const label = new THREE.Sprite(spriteMat({ map: labelTex(def.label || n) })); label.center.set(0.5, 0); label.scale.set(big ? 0.06 : 0.045, big ? 0.0113 : 0.0084, 1); label.renderOrder = 991;
-      g.add(bg, fill, label);
+      // the three rear plates sit side by side: one label for the group, bars only on the others
+      const dupe = /^panel_armor_rear_[23]$/.test(n);
+      g.add(bg, fill); if (!dupe) g.add(label);
       this.group.add(g);
       // lift the marker above the part's box
       this.marks.push({ n, def, g, bg, fill, label, w, h, local: new THREE.Vector3(z.c[0], z.c[1] + z.h[1] + (big ? 1.4 : 0.9), z.c[2]) });

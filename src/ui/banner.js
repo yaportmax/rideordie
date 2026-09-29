@@ -14,7 +14,7 @@ const CSS = `
 #bnr .bn-boss .w{margin-top:8px;font-size:15px;letter-spacing:3px;color:#ffe08a}
 #bnr .bn-boss .w b{color:var(--ac);font-weight:800}
 #bnr .bn-boss .tip{font-size:13px;letter-spacing:2px;opacity:.75;margin-top:3px}
-#bnr .bn-obj{position:absolute;left:50%;top:128px;transform:translateX(-50%);display:none;padding:4px 14px;background:rgba(0,0,0,.55);border-left:3px solid #ff5a2a;
+#bnr .bn-obj{position:absolute;left:50%;top:150px;transform:translateX(-50%);display:none;padding:4px 14px;background:rgba(0,0,0,.55);border-left:3px solid #ff5a2a;
   font-size:14px;letter-spacing:2px;font-weight:700;white-space:nowrap;text-shadow:0 1px 3px #000}
 #bnr .bn-obj b{color:#ffb21a;font-weight:800;margin-right:8px}
 #bnr .bn-obj i{font-style:normal;color:#ffe08a;margin-left:8px}

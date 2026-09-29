@@ -226,8 +226,9 @@ export class HazardFx {
       let a = sl.a0 + (10 + 5 * sl.r) * k * Math.max(0.5, fx.qd) * dt, n = 0;
       while (a >= 1 && n < 5) {
         a -= 1; n++;
-        const ang = rng.next() * PI2, d = sl.r * Math.sqrt(rng.next()) * 0.85, w = rng.range(0.8, 1.5) * (0.6 + 0.4 * k);
-        R.flame(fx, sl.x + Math.cos(ang) * d, sl.y + 0.03, sl.z + Math.sin(ang) * d, rng.sym(0.3), rng.range(0.4, 1.2), rng.sym(0.3), w, w * rng.range(1.3, 2.1), rng.range(0.5, 0.85), 1.05, 2.6, 0, 1.0, 1.3);
+        const ang = rng.next() * PI2, d = sl.r * Math.sqrt(rng.next()) * 0.85, w = rng.range(0.6, 1.6) * (0.6 + 0.4 * k);
+        if (rng.next() < 0.3) R.fireBody(fx, sl.x + Math.cos(ang) * d, sl.y + 0.3, sl.z + Math.sin(ang) * d, rng.sym(0.3), rng.range(0.6, 1.4), rng.sym(0.3), w * 0.7, w * 1.6, rng.range(0.6, 0.9), 0.9);
+        else R.flame(fx, sl.x + Math.cos(ang) * d, sl.y + 0.03, sl.z + Math.sin(ang) * d, rng.sym(0.3), rng.range(0.4, 1.2), rng.sym(0.3), w, w * rng.range(1.1, 2.2), rng.range(0.5, 0.9), 1.0, 2.6, 0, 1.0, 1.3);
       }
       sl.a0 = a;
       let b = sl.a1 + 4 * k * Math.max(0.5, fx.qd) * dt;

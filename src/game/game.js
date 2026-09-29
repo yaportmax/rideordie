@@ -62,7 +62,7 @@ export class Game {
     const tl = new THREE.TextureLoader();
     const tex = (n, srgb) => { const t = tl.load(`/textures/asphalt/${n}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8; return t; };
     const urls = [...Object.keys(VEHICLES).map((k) => `/models/vehicles/${k}.glb`), '/models/vehicles/boss_warrig.glb', ...['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'].map((w) => `/models/weapons/${w}.glb`),
-      ...['hero_gunner', 'hero_driver', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_driver'].map((c) => `/models/characters/${c}.glb`)];
+      ...['hero_gunner', 'hero_driver', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_driver', 'fp_arms'].map((c) => `/models/characters/${c}.glb`)];   // fp_arms: first-person gunner + driver arms
     await Assets.preload(urls, onProgress);
     const arrays = await loadGroundArrays();
     this.terrainMat = makeTerrainMaterial(arrays);
@@ -138,6 +138,11 @@ export class Game {
       const fxDone = this.fx?.prewarm?.(); this._fxPrewarmDone = typeof fxDone === 'function' ? fxDone : () => this.fx?.prewarmDone?.();
       if (this.post) { this.renderer.setRenderTarget(rt); await this.renderer.compileAsync(this.scene, this.camera); this.renderer.setRenderTarget(null); }
       await this.renderer.compileAsync(this.scene, this.camera);
+      // upload pass: compileAsync builds programs but uploads no textures / vertex buffers, so the first raider of a run still cost
+      // an 80-120 ms frame (+10 geometries, +14 textures). Draw the warm-up group once (culling off) into the tiny target.
+      const culled = []; g.traverse((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
+      this.renderer.setRenderTarget(rt); this.renderer.render(this.scene, this.camera); this.renderer.setRenderTarget(null);
+      for (const o of culled) o.frustumCulled = true;
     } catch (e) { console.warn('prewarm', e); }
     this.renderer.setRenderTarget(null); rt.dispose(); this._fxPrewarmDone?.();
     this.post?.warm?.();

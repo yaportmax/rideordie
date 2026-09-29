@@ -17,6 +17,7 @@ import * as Assets from '../core/assets.js';
 import { WeaponView } from './weapon_view.js';
 import { ViewModel, inCinematic } from './viewmodel.js';
 import { setCutaway, prepareCutaway } from './fp_cutaway.js';
+import { DriverArms } from './driver_arms.js';
 import { clamp } from '../core/util.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
@@ -282,7 +283,11 @@ export class CrewView {
     const useVm = fp && this.role !== 'driver' && this.hero && !!(s.local.camera && s.local.gunner);
     if (useVm && !this.vm) { this.vm = new ViewModel(); s.local.gunner.vm = this.vm; }
     this.useVm = useVm;
-    this._setShadowOnly(useVm);
+    // local first-person driver in the cockpit: fp arms on the wheel; this body only casts its shadow (its skeleton still drives
+    // the cockpit eye through the Head bone)
+    const useArms = fp && this.role === 'driver' && this.hero && !!(s.local && s.local.cockpit && s.local.cockpit.active) && DriverArms.available();
+    this.useArms = useArms;
+    this._setShadowOnly(useVm || useArms);
     if (this.role !== 'driver' && s.local) {   // clear sight lines: cut truck parts in the gunner's eye line (split on the first frame)
       if (!this._cutPrepared) { this._cutPrepared = true; prepareCutaway(this.car); }
       setCutaway(this.car, useVm);
@@ -492,7 +497,7 @@ export class CrewView {
     if (this._shadowOnlyOn === on) return;
     this._shadowOnlyOn = on;
     this.root.traverse((o) => {
-      if (!o.isMesh) return;
+      if (!o.isMesh || o.userData.fpArms) return;
       if (!o.userData.mat0) o.userData.mat0 = o.material;
       o.material = on ? (Array.isArray(o.userData.mat0) ? o.userData.mat0.map(shadowOnly) : shadowOnly(o.userData.mat0)) : o.userData.mat0;
     });
@@ -605,6 +610,8 @@ export class CrewView {
     if (this.hitRT > 0) { this.hitRT -= dt; const t = 0.25 - this.hitRT; wR = 1 - smooth01(0.0, 0.05, t) * (1 - smooth01(0.12, 0.25, t)); }
     if (!s.far || this.driverShift === undefined) this._wheelIK(wL, wR, -wheelA);
     else if (this.wheelMesh) this.wheelMesh.rotation.z = -wheelA;
+    if (this.useArms) { if (!this.drvArms) this.drvArms = new DriverArms(this); this.drvArms.update(dt, s, this.steer, s.local.gear ?? 1); }
+    else if (this.drvArms) this.drvArms.setVisible(false);
     if (this.flinchT > 0) { this.flinchT -= dt; }
   }
 
@@ -713,6 +720,7 @@ export class CrewView {
     if (this.deadT >= 0) return;
     this.alive = false; this.deadT = 0;
     if (this.vm) { this.vm.setVisible(false); this._setShadowOnly(false); this.useVm = false; }
+    if (this.drvArms) { this.drvArms.setVisible(false); this._setShadowOnly(false); this.useArms = false; }
     this.body.visible = true;
     if (this.bones) { this.bones.Head?.scale.setScalar(1); this.bones.Neck?.scale.setScalar(1); }     // the death camera sees us
     if (this.nade) this.nade.visible = false;
@@ -872,5 +880,5 @@ export class CrewView {
 
   headWorld(out) { if (!this.head) return false; this.head.getWorldPosition(out); return true; }
   muzzleWorld(out) { if (this.vm && this.useVm) return this.vm.muzzleWorld(out); return this.weapon ? this.weapon.muzzleWorld(out) : false; }
-  dispose() { this.root.removeFromParent(); this.mixer?.stopAllAction(); if (this.vm) this.vm.dispose(); }
+  dispose() { this.root.removeFromParent(); this.mixer?.stopAllAction(); if (this.vm) this.vm.dispose(); if (this.drvArms) this.drvArms.dispose(); }
 }

@@ -41,7 +41,7 @@ const QUALITY = [
 const MAXQ = QUALITY[3];
 
 const J = { NONE: 0, SMOKE: 1, POP: 2, WRECK: 3, ROCKET: 4 };
-class Job { constructor() { this.type = 0; this.t = 0; this.dur = 0; this.x = 0; this.y = 0; this.z = 0; this.a = 0; this.b = 0; this.c = 0; this.acc = 0; this.acc2 = 0; this.acc3 = 0; this.cv = null; this.st = null; this.rec = null; this.vx = 0; this.vy = 0; this.vz = 0; } }
+class Job { constructor() { this.type = 0; this.t = 0; this.dur = 0; this.x = 0; this.y = 0; this.z = 0; this.a = 0; this.b = 0; this.c = 0; this.acc = 0; this.acc2 = 0; this.acc3 = 0; this.acc4 = 0; this.cv = null; this.st = null; this.rec = null; this.vx = 0; this.vy = 0; this.vz = 0; } }
 
 const _o3 = [0, 0, 0];
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _pv = new THREE.Matrix4(), _pv2 = new THREE.Matrix4(), _sph = new THREE.Sphere();
@@ -98,7 +98,7 @@ export class Fx {
     this.chunks.onBounce = (pool, i, x, y, z, imp) => this._chunkBounce(pool, i, x, y, z, imp);
     this.plates.onBounce = this.chunks.onBounce;
     this.chunks.onTrail = (pool, i, x, y, z, k) => this._chunkTrail(x, y, z, k, pool.age[i]); this.plates.onTrail = this.chunks.onTrail;
-    this.chunks.trailEvery = this.plates.trailEvery = 0.04;
+    this.chunks.trailEvery = this.plates.trailEvery = 0.022;
     this.grenades.onBounce = (pool, i, x, y, z, imp) => this._grenadeBounce(x, y, z, imp);
     for (const m of [this.chunks, this.plates, this.casings, this.grenades]) m.groundFn = null;
     // pooled point lights (always in the scene at intensity 0 so materials never recompile)
@@ -163,7 +163,7 @@ export class Fx {
   }
 
   // ------------------------------------------------------------------------------------------------ jobs
-  _job(type) { for (const j of this.jobs) if (j.type === 0) { j.type = type; j.t = 0; j.acc = j.acc2 = j.acc3 = 0; j.cv = j.st = j.rec = null; return j; } return null; }
+  _job(type) { for (const j of this.jobs) if (j.type === 0) { j.type = type; j.t = 0; j.acc = j.acc2 = j.acc3 = j.acc4 = 0; j.cv = j.st = j.rec = null; return j; } return null; }
   startSmokeColumn(x, y, z, S, gy) { const j = this._job(J.SMOKE); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = 3.5 + 2.5 * S; j.c = (16 + 12 * S) * Math.max(0.5, this.qd); }
   startPop(x, y, z, S, gy, delay) { const j = this._job(J.POP); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = delay; }
 
@@ -231,12 +231,19 @@ export class Fx {
     const lod = (1 - smooth(this.lodNear, this.farDist * 1.3, d)) * this.qd;
     const vel = st.vel, W = spec.width, L = spec.length, H = spec.height, sW = Math.sqrt(W / 1.9);
     // flame tongues licking out of the whole body (engine bay, cab, fuel tank) - they lean with the wind / the wreck's slide
-    const nf = this._acc(j, 'acc', 30 * lod * burn, dt);
+    const nf = this._acc(j, 'acc', 24 * lod * burn, dt);
     for (let k = 0; k < nf; k++) {
       const zone = rng.next(), zz = zone < 0.45 ? rng.range(0.1, 0.42) : zone < 0.75 ? rng.range(-0.15, 0.15) : rng.range(-0.42, -0.1);
       _v.set(rng.sym(W * 0.3), H * rng.range(0.45, 0.8), zz * L).applyQuaternion(q).add(P);
-      const w = rng.range(0.75, 1.35) * sW * (0.6 + 0.4 * burn);
-      R.flame(this, _v.x, _v.y, _v.z, vel.x * 0.6 + rng.sym(0.4), vel.y * 0.3 + rng.range(0.4, 1.4), vel.z * 0.6 + rng.sym(0.4), w, w * rng.range(1.6, 2.5), rng.range(0.55, 0.95), rng.range(0.95, 1.25), 3.2, 0, 1.0, 1.3);
+      const w = rng.range(0.55, 1.5) * sW * (0.6 + 0.4 * burn);
+      R.flame(this, _v.x, _v.y, _v.z, vel.x * 0.6 + rng.sym(0.4), vel.y * 0.3 + rng.range(0.4, 1.4), vel.z * 0.6 + rng.sym(0.4), w, w * rng.range(1.3, 2.6), rng.range(0.5, 1.0), rng.range(0.85, 1.2), 3.2, 0, 1.0, 1.3);
+    }
+    // rolling fire bodies: the hot mass the tongues lick out of
+    const nb = this._acc(j, 'acc4', 8 * lod * burn, dt);
+    for (let k = 0; k < nb; k++) {
+      _v.set(rng.sym(W * 0.25), H * rng.range(0.45, 0.75), rng.sym(L * 0.33)).applyQuaternion(q).add(P);
+      const s = rng.range(1.0, 1.6) * sW * (0.6 + 0.4 * burn);
+      R.fireBody(this, _v.x, _v.y, _v.z, vel.x * 0.6 + rng.sym(0.4), vel.y * 0.3 + rng.range(0.8, 2.0), vel.z * 0.6 + rng.sym(0.4), s * 0.6, s * 1.5, rng.range(0.6, 1.0), 1.0);
     }
     // heat bloom at the seat of the fire (keeps the core reading hot between tongues)
     if (rng.next() < dt * 10 * burn) { _v.set(rng.sym(W * 0.2), H * 0.6, rng.sym(L * 0.25)).applyQuaternion(q).add(P); R.glow(this, _v.x, _v.y, _v.z, L * 0.45, 0.22, 1.1, 0.45, 0.12, true, 1.1); }
@@ -274,16 +281,17 @@ export class Fx {
     const r = this.rng, sS = Math.sqrt(S);
     const n = Math.round((18 * S + 8) * this.qd);
     const cols = [paint, paint, 0x171614, 0x171614, 0x231f1b, 0x231f1b, 0x2a1a12, 0x4a2410, 0x3c3e40, 0x302c28];
+    let trails = Math.round((3 + 2 * S) * Math.max(0.5, this.qd));
     for (let i = 0; i < n; i++) {
       const az = r.next() * PI2, sp = r.range(5, 24) * sS, vy = r.range(6, 22) * sS;
-      const plate = r.next() < 0.34;
-      const size = r.range(0.07, 0.3) * sS;
+      const plate = r.next() < 0.6;
+      const size = r.range(0.06, 0.22) * sS;
       const pool = plate ? this.plates : this.chunks;
       const hex = cols[r.int(cols.length)];
-      const trail = r.next() < 0.3;
+      const trail = trails > 0 && size > 0.1 * sS; if (trail) trails--;          // a few bigger burning pieces trail fire + smoke
       const slot = plate
-        ? pool.spawn(x + r.sym(0.8), y + 0.4, z + r.sym(0.8), Math.cos(az) * sp, vy, Math.sin(az) * sp, size * r.range(1.4, 2.8), size * 0.1, size * r.range(1.0, 2.0), r.sym(16), r.sym(16), r.sym(16), r.range(4.5, 7), hex, trail)
-        : pool.spawn(x + r.sym(0.8), y + 0.4, z + r.sym(0.8), Math.cos(az) * sp, vy, Math.sin(az) * sp, size * r.range(0.7, 1.4), size * r.range(0.5, 1.1), size * r.range(0.7, 1.4), r.sym(14), r.sym(14), r.sym(14), r.range(4.5, 7), hex, trail);
+        ? pool.spawn(x + r.sym(0.8), y + 0.4, z + r.sym(0.8), Math.cos(az) * sp, vy, Math.sin(az) * sp, size * r.range(1.6, 3.2), size * 0.08, size * r.range(1.0, 2.2), r.sym(16), r.sym(16), r.sym(16), r.range(4.5, 7), hex, trail)
+        : pool.spawn(x + r.sym(0.8), y + 0.4, z + r.sym(0.8), Math.cos(az) * sp, vy, Math.sin(az) * sp, size * r.range(0.6, 1.2), size * r.range(0.4, 0.9), size * r.range(0.6, 1.2), r.sym(14), r.sym(14), r.sym(14), r.range(4.5, 7), hex, trail);
       pool.gy[slot] = gy;
     }
   }
@@ -296,10 +304,10 @@ export class Fx {
   _chunkTrail(x, y, z, k, age) {
     if (!this.near(x, y, z, 160)) return;
     const r = this.rng, hot = age < 2.2 ? 1 - age / 2.2 : 0;
-    R.puff(this, x, y, z, r.sym(0.3), r.range(0.2, 0.7), r.sym(0.3), 0.18, r.range(0.8, 1.2), r.range(0.9, 1.5), 0.07, 0.066, 0.063, 0.55 * k, 0.5, 0.25, -1e4, 0.8 * hot);
+    R.puff(this, x, y, z, r.sym(0.3), r.range(0.2, 0.7), r.sym(0.3), 0.4, r.range(0.9, 1.4), r.range(0.9, 1.4), 0.07, 0.066, 0.063, 0.3 * k, 0.5, 0.25, -1e4, 0.8 * hot);
     if (hot > 0) {
-      if (r.next() < 0.7) R.flame(this, x, y - 0.05, z, r.sym(0.3), r.range(0.3, 1), r.sym(0.3), 0.22 + 0.2 * hot, (0.22 + 0.2 * hot) * 2.2, 0.22, 1.2, 2.5, 0, 1.5, 1.2);
-      R.glow(this, x, y, z, 0.45 + 0.3 * hot, 0.1, 2.6, 1.1, 0.25, false, 0.8);
+      if (r.next() < 0.25) R.flame(this, x, y - 0.05, z, r.sym(0.3), r.range(0.3, 1), r.sym(0.3), 0.25 + 0.2 * hot, (0.25 + 0.2 * hot) * 2.2, 0.25, 1.2, 2.5, 0, 1.5, 1.2);
+      R.glow(this, x, y, z, 0.55 + 0.35 * hot, 0.09, 2.2, 0.95, 0.22, false, 1.0);
     }
   }
   _grenadeBounce(x, y, z, imp) {

@@ -24,6 +24,8 @@ spine aim + two-bone IK to weapon grips / steering wheel, deaths), `view/weapon_
 First-person gunner: `view/viewmodel.js` (FP arms + weapon rig: own projection/depth band, sway/bob/recoil springs, ADS, reload choreography,
 FP muzzle flash; arms from `models/characters/fp_arms.glb` or cut from hero_gunner), `ui/gunner_hud.js` (crosshair, hit/kill markers, damage arcs,
 ammo, scope overlays). Capture harness for gun feel: `shots/gunfeel/cap.mjs <plan>` (plans in `shots/gunfeel/plans.mjs`).
+`view/fp_cutaway.js` (cuts truck parts out of the local FP gunner's eye line: T2 roll hoop/light bar/roof cargo, T4 turret + stacks;
+shadow-only twins keep the shadow), `view/driver_arms.js` (cockpit driver: fp_arms leather sleeves, IK onto the wheel rim, hand-over-hand, shifter reach).
 
 First-person driver: `view/cockpit.js` (live rear-view + door mirrors from ONE shared rear render every other frame — glass placed on the
 truck's `mirror_C/L/R` sockets or measured housings; gauge cluster with needles/nitro/lamps; windshield dust + bullet-hole/crash cracks; clear

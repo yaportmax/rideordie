@@ -20,6 +20,9 @@ import { WeaponView } from './weapon_view.js';
 import { splitIslands } from './fp_cutaway.js';
 
 export const FP_ARMS_URL = '/models/characters/fp_arms.glb';
+/** Set by driver_arms.js (avoids a circular import): builds the driver arms' warm-up object. */
+let DriverArmsWarm = null;
+export function registerDriverArmsWarm(fn) { DriverArmsWarm = fn; }
 /** True while a scripted camera owns the view (run.cinematic, intro fly-by, finale orbit, death cam): no viewmodel, no gunner HUD. */
 export function inCinematic() {
   const R = typeof window !== 'undefined' ? window.__run : null;
@@ -175,7 +178,7 @@ class Spring {
   kick(i, d) { this.v[i] += d * this.w * 1.45; }
 }
 
-function aimBone(bone, from, to) {
+export function aimBone(bone, from, to) {
   bone.getWorldPosition(_p);
   _d.copy(from).sub(_p).normalize(); _t.copy(to).sub(_p).normalize();
   if (_d.lengthSq() < 1e-8 || _t.lengthSq() < 1e-8) return;
@@ -186,7 +189,7 @@ function aimBone(bone, from, to) {
   bone.updateMatrixWorld(true);
 }
 const _ia = new THREE.Vector3(), _ib = new THREE.Vector3(), _ic = new THREE.Vector3(), _it = new THREE.Vector3(), _ie = new THREE.Vector3(), _iu = new THREE.Vector3(), _ip = new THREE.Vector3(), _iw = new THREE.Vector3();
-function twoBoneIK(upper, lower, end, target, pole, la, lb) {
+export function twoBoneIK(upper, lower, end, target, pole, la, lb) {
   upper.getWorldPosition(_ia);
   _it.copy(target).sub(_ia); let d = _it.length();
   d = Math.min(Math.max(d, Math.abs(la - lb) + 1e-3), la + lb - 1e-3);
@@ -400,8 +403,9 @@ export class ViewModel {
     this.k = 1; this.fov = 56;
     this.reloadPrev = false; this.pumpAfter = 0; this.shellCycle = 0; this._fired = new Set(); this._relOn = false; this._dry = false;
     this.magDrop = null;
-    fpArmsLoad();
-    if (FP_GLB && this._fpFrom(FP_GLB)) { /* dedicated arms */ } else { this._buildArms(); this._tryFpArms(); }
+    // dedicated first-person arms (preloaded at boot) -> else the arms cut from hero_gunner, swapped when fp_arms arrives
+    if (Assets.has(FP_ARMS_URL)) this._buildArms(Assets.clone(FP_ARMS_URL), Assets.getAnimations(FP_ARMS_URL));
+    else { fpArmsLoad(); if (FP_GLB && this._fpFrom(FP_GLB)) { /* dedicated arms */ } else { this._buildArms(); this._tryFpArms(); } }
     // muzzle flash quads
     const quad = new THREE.PlaneGeometry(1, 1);
     this.flashStar = new THREE.Mesh(quad, flashMaterial(false)); this.flashCone = new THREE.Mesh(quad, flashMaterial(true));
@@ -528,6 +532,7 @@ export class ViewModel {
     vm.shell.visible = true; vm.root.add(vm.shell);
     // the thrown grenade / fired rocket meshes (WorldView: plain MeshStandardMaterial, default shadow flags) share this program
     vm.root.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0x33402a, roughness: 0.6 })));
+    vm.root.add(DriverArmsWarm ? DriverArmsWarm() : new THREE.Group());   // the cockpit driver's leather-sleeve arms program
     vm.root.visible = true; vm.root.position.set(0, -5000, 0);
     return vm.root;
   }

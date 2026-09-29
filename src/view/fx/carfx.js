@@ -86,7 +86,7 @@ function ownSmoke(fx, rng, hood, dark, a, glowK, big = 1) {
 function ownFlame(fx, rng, hood, heat = 1, big = 1) {
   hoodSeam(rng, hood, 1);
   const w = rng.range(0.3, 0.55) * big;
-  flame(fx, _r.x, _r.y - 0.04, _r.z, rng.sym(0.25), rng.range(0.6, 1.6), rng.sym(0.25), w, w * rng.range(1.9, 2.8), rng.range(0.3, 0.55), heat, 2.0, ATT, 2.4, 1.35);
+  flame(fx, _r.x, _r.y - 0.04, _r.z, rng.sym(0.25), rng.range(0.6, 1.6), rng.sym(0.25), w, w * rng.range(1.9, 2.8), rng.range(0.3, 0.55), heat, 3.5, ATT, 2.4, 1.35);
 }
 
 /** Damage on the local player's truck (called per frame from updateCarFx). */

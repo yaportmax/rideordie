@@ -22,17 +22,21 @@ const res = await page.evaluate((secs) => new Promise((resolve) => {
   const emit = sim.emit.bind(sim);
   sim.emit = (e) => { if (/enemySpawn|encounter|minibossSpawn|setPiece|explode/.test(e.t)) evs.push(e.t + (e.spec ? ':' + e.spec : e.key ? ':' + e.key : '')); return emit(e); };
   let last = performance.now(); const t0 = last, log = [], frames = [];
+  const opt_all = false;
   const f = () => {
     // (the game's rAF callback runs before ours each frame: the ensure() work recorded so far belongs to the frame just measured)
     const n = performance.now(), dt = n - last; last = n; frames.push({ dt, b: built });
-    if (dt > 40 || built) log.push({ t: +((n - t0) / 1000).toFixed(2), dt: Math.round(dt), buildMs: Math.round(buildMs), built, evs: evs.join(' ') });
+    if (built || (dt > 40 && opt_all)) log.push({ t: +((n - t0) / 1000).toFixed(2), dt: Math.round(dt), buildMs: Math.round(buildMs), built, evs: evs.join(' ') });
     buildMs = 0; built = 0; evs = [];
     if (n - t0 < secs * 1000) requestAnimationFrame(f);
     else {
       const long = frames.filter((x) => x.dt > 50), withB = frames.filter((x) => x.b > 0);
+      // a view's GPU upload lands in the frame after it was built: count long frames within 2 frames of a build
+      let near = 0; frames.forEach((x, i) => { if (x.dt > 50 && [0, 1, 2].some((k) => frames[i - k] && frames[i - k].b > 0)) near++; });
+      window.__near = near;
       window.__sh = { withBuild: withB.length, withBuildLong: withB.filter((x) => x.dt > 50).length, rate: (long.length / frames.length).toFixed(3) };
       const ds = frames.map((x) => x.dt).sort((a, b) => a - b);
-      resolve({ log, n: frames.length, long: long.length, longWithBuild: long.filter((x) => x.b > 0).length, p99: ds[Math.floor(ds.length * 0.99)].toFixed(1), max: ds[ds.length - 1].toFixed(0), cars: sim.director.spawned, sh: window.__sh, simT: +sim.time.toFixed(1), s: Math.round(run.player.s), views: wv.cars.size, st: sim.state });
+      resolve({ log, n: frames.length, long: long.length, longWithBuild: long.filter((x) => x.b > 0).length, p99: ds[Math.floor(ds.length * 0.99)].toFixed(1), max: ds[ds.length - 1].toFixed(0), cars: sim.director.spawned, sh: { ...window.__sh, longNearBuild: window.__near }, simT: +sim.time.toFixed(1), s: Math.round(run.player.s), views: wv.cars.size, st: sim.state });
     }
   };
   requestAnimationFrame(f);

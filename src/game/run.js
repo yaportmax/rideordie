@@ -286,7 +286,7 @@ export class Run {
     if (this.bossState || this.bossMarks) { const Bs = this.sim?.boss; (this.bossMarks || (this.bossMarks = new BossMarks(g.scene))).update(dt, this.bossState, (n) => Bs ? Bs.hp[n] / BOSS_PARTS[n].hp : this.bossState?.hp?.[n] ?? 1, g.camera); }
     if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
     g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
-    const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside } : null;
+    const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside, cockpit: this.cockpit, gear: this.player ? this.player.veh.gear : 1 } : null;   // cockpit + gear: first-person driver arms
     this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
     this.allEvents = evs;
     // first-person cockpit (local human driver): mirrors, gauges, windshield damage
