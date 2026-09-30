@@ -169,7 +169,7 @@ export class EnemyBrain {
     // (the closing speed shrinks with the pace: at 200 km/h a +24 m/s lunge ends in the desert)
     vDes = pv + clamp((gap - slotGap) * 0.45, -12, lerp(26, 15, clamp(pv / 60, 0, 1)));
     if (this.mode === 'overtake') {
-      if (gap > -10 && gap < 28) { vDes = pv + (this.passV || (this.passV = this.r.range(10.5, 15))); nitro = true; }   // the pass itself: ~40-55 km/h faster
+      if (gap > -10 && gap < 28) { vDes = Math.max(vDes, pv + (this.passV || (this.passV = this.r.range(10.5, 15)))); nitro = true; }   // the pass itself: ~40-55 km/h faster, no braking into it
       else if (this.cutT) vDes = pv + 5;
     }
     if (dropBack) vDes = Math.max(vDes, pv - (Math.abs(car.d - P.d) > 3 ? 8 : 2));

@@ -1,8 +1,8 @@
 {
  "raider_a": {
-  "tris_total": 11862,
-  "tris_body": 11862,
-  "bytes": 1786716,
+  "tris_total": 12132,
+  "tris_body": 12132,
+  "bytes": 2050432,
   "groups": {},
   "materials": [
    "armor",
@@ -31,12 +31,12 @@
    "webbing_strap"
   ],
   "height": 1.7799999713897705,
-  "seconds": 152.3
+  "seconds": 393.8
  },
  "raider_b": {
   "tris_total": 11319,
   "tris_body": 11319,
-  "bytes": 1711772,
+  "bytes": 1973280,
   "groups": {},
   "materials": [
    "cloth_jeans",
@@ -53,12 +53,12 @@
    "spike"
   ],
   "height": 1.7999999523162842,
-  "seconds": 153.1
+  "seconds": 392.5
  },
  "raider_c": {
   "tris_total": 12549,
   "tris_body": 12549,
-  "bytes": 1670444,
+  "bytes": 1972924,
   "groups": {},
   "materials": [
    "armor",
@@ -79,12 +79,12 @@
    "webbing_black"
   ],
   "height": 1.9199999570846558,
-  "seconds": 152.8
+  "seconds": 386.0
  },
  "raider_d": {
   "tris_total": 13235,
   "tris_body": 13235,
-  "bytes": 1840880,
+  "bytes": 2086316,
   "groups": {},
   "materials": [
    "cloth_canvas",
@@ -111,12 +111,12 @@
    "webbing_black"
   ],
   "height": 1.75,
-  "seconds": 153.0
+  "seconds": 393.1
  },
  "raider_driver": {
-  "tris_total": 11179,
-  "tris_body": 11179,
-  "bytes": 1164172,
+  "tris_total": 11359,
+  "tris_body": 11359,
+  "bytes": 1410424,
   "groups": {},
   "materials": [
    "armor",
@@ -138,12 +138,12 @@
    "webbing_black"
   ],
   "height": 1.7799999713897705,
-  "seconds": 75.6
+  "seconds": 125.6
  },
  "hero_gunner": {
-  "tris_total": 35859,
-  "tris_body": 20069,
-  "bytes": 4231000,
+  "tris_total": 37803,
+  "tris_body": 22013,
+  "bytes": 9667692,
   "groups": {
    "armor_t1": 3327,
    "armor_t2": 5946,
@@ -157,6 +157,7 @@
    "cloth_gear_coyote",
    "cloth_gear_olive",
    "cloth_pants",
+   "cloth_shemagh",
    "cloth_tape",
    "cloth_top",
    "cloth_trim_pants",
@@ -173,6 +174,7 @@
    "leather_glove",
    "metal_dark",
    "metal_rim",
+   "metal_tag",
    "paint_grenade",
    "rubber",
    "rubber_frame",
@@ -182,12 +184,12 @@
    "webbing_strap"
   ],
   "height": 1.8300000429153442,
-  "seconds": 175.4
+  "seconds": 538.9
  },
  "hero_driver": {
   "tris_total": 25343,
   "tris_body": 25343,
-  "bytes": 3746672,
+  "bytes": 5595604,
   "groups": {},
   "materials": [
    "cloth_canvas",
@@ -214,6 +216,146 @@
    "webbing_lace"
   ],
   "height": 1.7000000476837158,
-  "seconds": 115.2
+  "seconds": 190.6
+ },
+ "raider_driver2": {
+  "tris_total": 11004,
+  "tris_body": 11004,
+  "bytes": 1380384,
+  "groups": {},
+  "materials": [
+   "armor",
+   "cloth_jacket",
+   "cloth_pants",
+   "cloth_tee",
+   "eye",
+   "glass_lens",
+   "hair_face",
+   "leather_boot",
+   "leather_collar",
+   "leather_glove",
+   "metal_chain",
+   "metal_rim",
+   "rubber",
+   "skin",
+   "spike",
+   "webbing_black"
+  ],
+  "height": 1.7999999523162842,
+  "seconds": 122.2
+ },
+ "raider_d2": {
+  "tris_total": 13328,
+  "tris_body": 13328,
+  "bytes": 2094756,
+  "groups": {},
+  "materials": [
+   "cloth_canvas",
+   "cloth_hoodie",
+   "cloth_jacket",
+   "cloth_pants",
+   "cloth_rag",
+   "cloth_rib",
+   "cloth_tape",
+   "eye",
+   "glass_bottle",
+   "glass_lens",
+   "hair_face",
+   "leather_boot",
+   "leather_glove",
+   "light_tail",
+   "metal_canister",
+   "metal_dark",
+   "plastic",
+   "rubber",
+   "rubber_mask",
+   "rubber_wire",
+   "skin",
+   "webbing_black"
+  ],
+  "height": 1.840000033378601,
+  "seconds": 253.3
+ },
+ "raider_c2": {
+  "tris_total": 12605,
+  "tris_body": 12605,
+  "bytes": 1955668,
+  "groups": {},
+  "materials": [
+   "armor",
+   "bone",
+   "cloth_tape",
+   "cloth_trousers",
+   "cloth_under",
+   "eye",
+   "leather",
+   "leather_boot",
+   "metal_dark",
+   "paint",
+   "plastic",
+   "rubber",
+   "rust",
+   "skin",
+   "spike",
+   "webbing_black"
+  ],
+  "height": 1.899999976158142,
+  "seconds": 288.5
+ },
+ "raider_b2": {
+  "tris_total": 11223,
+  "tris_body": 11223,
+  "bytes": 1999272,
+  "groups": {},
+  "materials": [
+   "cloth_jeans",
+   "cloth_vest",
+   "eye",
+   "hair",
+   "hair_face",
+   "leather",
+   "leather_boot",
+   "leather_brown",
+   "metal_dark",
+   "rubber",
+   "skin",
+   "spike"
+  ],
+  "height": 1.7599999904632568,
+  "seconds": 288.8
+ },
+ "raider_a2": {
+  "tris_total": 12178,
+  "tris_body": 12178,
+  "bytes": 2016700,
+  "groups": {},
+  "materials": [
+   "armor",
+   "cloth_canvas",
+   "cloth_pants",
+   "cloth_tape",
+   "cloth_vest",
+   "eye",
+   "glass_lens",
+   "hair_face",
+   "leather",
+   "leather_boot",
+   "leather_dark",
+   "leather_glove",
+   "metal_dark",
+   "metal_rim",
+   "paint",
+   "plastic_pad",
+   "plastic_shell",
+   "rubber",
+   "rubber_frame",
+   "skin",
+   "spike",
+   "webbing_black",
+   "webbing_lace",
+   "webbing_strap"
+  ],
+  "height": 1.7999999523162842,
+  "seconds": 293.1
  }
 }

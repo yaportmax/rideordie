@@ -39,8 +39,10 @@ export function vegFactor(seed, chunk, s, d, g, open = 0.08) {
   const v = (open + 1.25 * smoothstep(0.44, 0.64, P)) * (0.55 + 0.9 * smoothstep(-0.15, 0.7, H)) + 1.6 * A;
   return v > VEG_MAX ? VEG_MAX : v;
 }
-/** Rock-outcrop factor 0..~1.3 for group centres: its own patch field, favouring crests and slopes over hollows. */
+/** Rock-outcrop factor 0..~1.3 for group centres: its own patch field, favouring crests (outcrops) and the feet of walls (talus) over
+ *  shallow hollows and open flats. */
 export function rockFactor(seed, chunk, s, d, g) {
   const P = patch(seed, g.x, g.z, 57), H = hollow(chunk, s, d, g.y);
-  return (0.15 + 1.0 * smoothstep(0.34, 0.56, P)) * (0.75 + 0.55 * smoothstep(0.1, -0.7, H));
+  const f = (0.15 + 1.0 * smoothstep(0.34, 0.56, P)) * (0.7 + 0.5 * smoothstep(0.1, -0.7, H)) + 1.1 * smoothstep(0.5, 3, H);
+  return f > 1.3 ? 1.3 : f;
 }

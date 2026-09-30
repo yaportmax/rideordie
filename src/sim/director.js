@@ -173,7 +173,7 @@ export class Director {
         const crest = this._crestAhead(sim, P, 70, 240);
         const ds = crest ? crest - P.s + 12 + ai++ * 14 : baseAhead + ai++ * 16;
         rel = { ds, d: c.role === 'flanker' ? side * 4.2 : r.pick([-1.7, 1.7]), vMul: crest ? 0.9 : 0.72, vAdd: 0 };
-      } else if (c.at === 'burst') rel = { ds: r.range(75, 105) + ai++ * 24, d: side * (HALF_ROAD + r.range(9, 13)), vMul: 0.85, vAdd: 0, burst: side };   // charges in from off-road
+      } else if (c.at === 'burst') rel = { ds: r.range(58, 80) + ai++ * 22, d: side * (HALF_ROAD + r.range(11, 15)), vMul: 0.8, vAdd: 0, burst: side };   // charges in from off-road
       else if (pv > 40 && r() < Math.min(1, (pv - 40) / 14)) {
         // a fast truck outruns anything spawned behind it: at speed the squad comes from up the road instead (and adapts:
         // rammers / chasers drop back through the next lane, flankers ease onto your flanks)

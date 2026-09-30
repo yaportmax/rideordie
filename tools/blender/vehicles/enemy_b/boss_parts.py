@@ -62,8 +62,8 @@ def chain(m, p0, p1, sag=0.5, link=0.2, r=0.035, mat='metal_dark', obj=None, seg
         y = z.cross(x).normalized()
         M = Matrix(((x.x, y.x, z.x, 0), (x.y, y.y, z.y, 0), (x.z, y.z, z.z, 0), (0, 0, 0, 1)))
         R0 = link * 0.55
-        prof = [(R0 + r * math.cos(k * math.pi / 3), r * math.sin(k * math.pi / 3)) for k in range(6)]
-        m.revolve(mat, prof, at=tuple(c), axis=M, seg=8, obj=obj, sx=1.0, sy=0.55)
+        prof = [(R0 + r * 1.2 * math.cos(k * math.pi / 2 + math.pi / 4), r * 1.2 * math.sin(k * math.pi / 2 + math.pi / 4)) for k in range(4)]
+        m.revolve(mat, prof, at=tuple(c), axis=M, seg=6, obj=obj, sx=1.0, sy=0.55, phase=math.pi / 6)
 
 
 def catwalk(m, p0, p1, width=1.0, mat='armor', obj=None, rail=True, rail_h=1.05, post_step=1.2, grate=True):

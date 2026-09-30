@@ -9,17 +9,43 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from boss_parts import *  # noqa
 
+import boss_rear as BR  # noqa: E402  (rear tower, plates, ramp, nozzles, thrusters, flanks)
+
 STAGE = int(os.environ.get('STAGE', '99'))
-m = Model('boss_warrig', seed=41)
-m.tile_scale = 2.6
-m.dirt_h = 3.4
-m.noise_f = 0.3
+m = Model('boss_warrig', seed=41, bake=True)
+m.tile_scale = 1.8            # detail-normal tiling (UV0) for this huge rig
+# material folding: aliased materials keep their own baked look inside the target atlas (rust / spikes / bare steel on armor, chrome
+# on metal_dark (the game darkens a material named chrome), hazard yellow on the bone atlas, red cloth on the charcoal atlas)
 m.alias.update({'metal_bare': 'armor', 'interior': 'metal_dark', 'fabric': 'metal_dark', 'leather': 'metal_dark', 'brass': 'metal_dark',
                 'gun_metal': 'armor', 'gun_black': 'metal_dark', 'decal_red': 'paint2', 'decal_yellow': 'plastic', 'spike': 'armor',
-                'rust': 'armor', 'cloth_red': 'paint2'})
+                'rust': 'armor', 'cloth_red': 'paint2', 'chrome': 'metal_dark'})
 PI = math.pi
 R_W, W_W, HUBY, HX = 1.35, 0.95, 1.35, 2.95
 AX = dict(F=12.6, M=7.4, R=5.0, R2=-2.4, T1=-5.2, T2=-13.6)
+
+
+def _dens(c, n):
+    """texel density weighting: the players chase the rear for the whole fight"""
+    z = c[2]
+    k = 0.8 if z > 3.0 else (1.0 if z > -9.5 else 1.45)
+    if z < -16.3 and n[2] < -0.5:
+        k = 2.1                                   # rear faces of trailer #2 (plates, ramp, tower, bumper)
+    return k
+
+
+m.bake_opts = dict(
+    dens=90.0, dens_max=1.1, dens_floor=0.9, margin=2, scale=2.2, shelf_window=14,
+    max_size={'armor': (2048, 2048), 'paint': (2048, 1024), 'metal_dark': (2048, 1024), 'paint2': (1024, 1024), 'plastic': (1024, 1024),
+              'canvas': (1024, 512), 'rubber_tire': (1024, 512), 'rim': (512, 512), 'wood': (512, 512)},
+    max_default=(512, 512),
+    mat_dens={'rubber_tire': 0.7, 'wood': 0.7, 'canvas': 0.8},
+    ao_dist=3.0, cav_dist=0.1, dirt_h=3.4, rust=1.15, wear=1.1, seed=41,
+    wheels=[(x, y, z, R_W) for (x, y, z) in [(sx * HX, HUBY, zc) for zc in AX.values() for sx in (1, -1)]],
+    heat_spots=BR.HEAT_SPOTS + [(2.4, 8.95, 6.15, 0.8), (-2.4, 8.95, 6.15, 0.8)],
+    dens_fn=_dens,
+    recipes={'paint': 'boss_paint', 'paint2': 'boss_paint2', 'rim': 'boss_rim'},
+    look_recipes={'paint': 'boss_paint', 'paint2': 'boss_paint2'},
+)
 WN = []
 WP = []
 for k, nm in (('F', 'F'), ('M', 'M'), ('R', 'R'), ('R2', 'R2'), ('T1', 'T1'), ('T2', 'T2')):
@@ -296,7 +322,7 @@ def cab():
 def stacks():
     for sx, nm in ((1, 'L'), (-1, 'R')):
         pn = 'part_stack_' + nm
-        m.panel(pn, (2.4 * sx, 3.0, 6.15), metal_dark='chrome', metal_bare='chrome', armor='chrome', rust='chrome', spike='chrome')
+        m.panel(pn, (2.4 * sx, 3.0, 6.15), chrome='metal_dark', metal_bare='metal_dark', armor='metal_dark', rust='metal_dark', spike='metal_dark')
         exhaust_stack(m, (2.4 * sx, 2.9, 6.15), (2.4 * sx, 8.9, 6.15), r=0.36, mat='chrome', obj=pn)
         for y in (3.6, 5.2, 6.8):
             m.box('chrome', (0.3, 0.16, 0.5), at=(2.4 * sx, y, 6.55), bevel=0.02, seg=1, obj=pn)
@@ -436,25 +462,12 @@ def trailer1():
     # ladders on the flanks
     for sx in (1, -1):
         ladder(m, (3.55 * sx, 0.9, -6.2), (3.55 * sx, 4.7, -6.2), width=0.8, rung=0.4, side=(0, 0, 1))
+    BR.trailer1_rear(m)
 
 
 # ================================================================================ 5. TRAILER #2  (cannon turret, fuel tanks, flame ports, ramp, reactor tower)
 Z2F, Z2R = -9.7, -17.0
 CANNON_Z = -12.8
-
-
-def flame_port(sx, at, name):
-    rot = (0, 180 - 15 * sx, 0)
-    with m.xf(at, rot=rot):
-        m.cyl('metal_dark', (0, 0, -0.9), (0, 0, 0.1), 0.34, seg=10)
-        m.cyl('armor', (0, 0, 0.1), (0, 0, 1.1), 0.17, seg=10)
-        m.cyl('armor', (0, 0, 1.1), (0, 0, 1.5), 0.17, 0.3, seg=10)
-        m.revolve('metal_dark', [(0.31, 1.46), (0.34, 1.48), (0.34, 1.56), (0.28, 1.56)], axis='z', seg=10)
-        m.revolve('light_amber', [(0.2, 1.5), (0.22, 1.52), (0.22, 1.54), (0.0, 1.54), (0.0, 1.5)], axis='z', seg=10)
-        for k in range(3):
-            m.revolve('metal_dark', [(0.18, 0.3 + k * 0.28), (0.24, 0.32 + k * 0.28), (0.24, 0.38 + k * 0.28), (0.18, 0.4 + k * 0.28)], axis='z', seg=10)
-        m.tube('metal_dark', [(0.0, 0.34, -0.3), (0.0, 0.7, -0.5), (0.0, 0.9, -1.3)], 0.07, seg=6, bend=0.2)
-    m.sock(name, at, rot=rot, size=0.4)
 
 
 def trailer2():
@@ -493,80 +506,15 @@ def trailer2():
     # fuel tanks on the flanks
     fuel_tank(m, 'tank_L', (3.05, 4.1, -13.7), r=0.8, L=5.2, fuel_socket=True)
     fuel_tank(m, 'tank_R', (-3.05, 4.1, -13.7), r=0.8, L=5.2)
-    # ---- reactor tower (rear)
-    for sx in (1, -1):
-        m.box('paint', (0.5, 5.4, 1.9), at=(2.1 * sx, 5.7, -16.05), bevel=0.05, seg=1)
-        nm = 'panel_tower_%s' % ('L' if sx > 0 else 'R')
-        apanel(nm, (2.4 * sx, 5.7, -16.05))
-        wall(m, 'armor', (2.36 * sx, 5.7, -16.05), (0, 0, -sx), (0, 1, 0), 1.9, 5.2, 1, 3, t=0.08, gap=0.08, rr=0.04, bevel=0.03, obj=nm)
-        m.use('body')
-        m.box('armor', (0.4, 0.3, 1.9), at=(1.9 * sx, 3.1, -16.05), bevel=0.02, seg=1)
-    m.box('paint2', (5.0, 0.3, 2.1), at=(0, 8.55, -16.1), bevel=0.06, seg=2)
-    m.box('armor', (3.6, 0.2, 0.3), at=(0, 5.45, -15.2), bevel=0.02, seg=1)
-    m.plate('armor', [(-2.05, 5.45), (2.05, 5.45), (2.05, 8.4), (-2.05, 8.4)], 0.22, at=(0, 0, -15.1), u=(1, 0, 0), v=(0, 1, 0), bevel=0.03, seg=1)
-    m.rivet_rect('armor', (0, 6.9, -15.0), 4.1, 2.9, (0, 0, 1), u=(1, 0, 0), v=(0, 1, 0), step=0.34, r=0.045, inset=0.12)
-    for k in range(4):
-        m.obox('paint2', (-1.5 + k * 1.0, 6.9, -14.98), (1, 0.7, 0), (0, 1, 0), (0.3, 1.6, 0.03), bevel=0, seg=1)
-    reactor(m, (0, 6.75, -16.05), s=1.0)
-    m.use('body')
-    for k in range(9):
-        a = 2 * PI * k / 9
-        m.spike('armor', (0.0 + 2.2 * math.cos(a) * 1.0, 8.7, -16.1 + 0.9 * math.sin(a)), (2.35 * math.cos(a), 9.5, -16.1 + 0.95 * math.sin(a)), 0.09, seg=6) if abs(math.cos(a)) > 0.3 else None
-    for k in range(3):
-        spotlight(m, (-1.5 + k * 1.5, 8.95, -17.15), n=(0, -0.12, -1), r=0.34)
-    # rear lights on the pillars
-    for sx in (1, -1):
-        light_rect(m, (2.15 * sx, 4.6, -17.03), (0.8, 0.5), 'light_tail', n=(0, 0, -1), depth=0.3)
-        light_rect(m, (2.15 * sx, 3.9, -17.03), (0.8, 0.3), 'light_amber', n=(0, 0, -1), depth=0.3)
-    flame_port(1, (2.55, 4.1, -17.05), 'flame_L')
-    flame_port(-1, (-2.55, 4.1, -17.05), 'flame_R')
-    for sx in (1, -1):
-        m.tube('metal_dark', [(3.05 * sx, 3.5, -16.9), (2.9 * sx, 3.3, -17.0), (2.65 * sx, 3.7, -17.0)], 0.07, seg=6, bend=0.2)
-    m.sock('nitro_L', (1.9, 2.2, -17.25))
-    m.sock('nitro_R', (-1.9, 2.2, -17.25))
-    m.sock('light_tail_L', (2.15, 4.6, -17.35))
-    m.sock('light_tail_R', (-2.15, 4.6, -17.35))
-    # ladder up the tower + catwalk along the wall tops
-    for sx in (1, -1):
-        ladder(m, (2.75 * sx, 3.0, -16.4), (2.75 * sx, 8.4, -16.4), width=0.8, rung=0.4, side=(0, 0, 1)) if sx > 0 else None
-    # hanging chains + skulls on the tower
-    for sx in (1, -1):
-        chain(m, (1.6 * sx, 5.5, -17.15), (2.3 * sx, 8.3, -17.15), sag=0.8, link=0.3, r=0.055)
-        skull(m, (2.35 * sx, 8.85, -15.6), s=1.6, n=(0, 0.1, -1), horns=True, mat='plastic', eyes='light_amber')
+    # ---- reactor tower, flame nozzles, thrusters, bumper (boss_rear.py) + flank stands
+    BR.rear(m)
+    BR.flanks2(m)
 
 
 def trailer2_panels():
-    # ---- ramp (hinged at the deck edge)
-    m.panel('ramp_rear', (0, 3.02, -17.0), metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', rust='armor', spike='armor', plastic='armor')
-    o = 'ramp_rear'
-    m.box('armor', (3.9, 2.5, 0.3), at=(0, 4.27, -17.1), bevel=0.05, seg=1, obj=o)
-    for k in range(9):
-        m.box('armor', (3.7, 0.12, 0.08), at=(0, 3.3 + k * 0.26, -17.28), bevel=0.02, seg=1, obj=o)          # grip ribs
-    m.rivet_rect('armor', (0, 4.27, -17.26), 3.9, 2.5, (0, 0, -1), u=(-1, 0, 0), v=(0, 1, 0), step=0.36, r=0.05, inset=0.12, obj=o)
-    for sx in (1, -1):
-        m.box('armor', (0.24, 2.5, 0.42), at=(1.95 * sx, 4.27, -17.15), bevel=0.03, seg=1, obj=o)
-        m.beam('armor', (1.8 * sx, 3.1, -17.32), (1.8 * sx, 5.4, -17.32), 0.26, 0.1, bevel=0.02, seg=1, obj=o)
-    for k in range(6):
-        m.obox('paint2', (-1.5 + k * 0.6, 5.2, -17.29), (1, 0.8, 0), (0, 1, 0), (0.22, 0.6, 0.03), bevel=0, seg=1, obj=o)
-    m.cyl('metal_dark', (-1.9, 3.02, -17.0), (1.9, 3.02, -17.0), 0.14, seg=8, obj=o)
-    m.text('paint2', 'WARLORD', (0, 4.75, -17.3), u=(-1, 0, 0), v=(0, 1, 0), size=0.55, depth=0.04, obj=o)
-    m.text('paint2', 'LEVIATHAN', (0, 4.05, -17.3), u=(-1, 0, 0), v=(0, 1, 0), size=0.3, depth=0.04, obj=o)
-    for sx in (1, -1):
-        m.tube('armor', [(2.1 * sx, 3.5, -17.1), (2.6 * sx, 3.3, -17.3), (2.6 * sx, 3.0, -17.3)], 0.09, seg=6, bend=0.1, obj=o)
-    m.use('body')
-    # ---- bolt-on plates over the reactor
-    for i, (x0, x1) in enumerate(((-0.6, 0.6), (0.65, 2.05), (-2.05, -0.65)), start=1):
-        if os.environ.get('NOPLATES'):
-            continue
-        nm = 'panel_armor_rear_%d' % i
-        m.panel(nm, ((x0 + x1) / 2, 6.75, -17.05), metal_dark='armor', chrome='armor', metal_bare='armor', paint='armor', rust='armor', spike='armor')
-        w = x1 - x0
-        m.box('armor', (w, 2.7, 0.22), at=((x0 + x1) / 2, 6.75, -17.05), bevel=0.04, seg=1, obj=nm)
-        m.rivet_rect('armor', ((x0 + x1) / 2, 6.75, -17.17), w, 2.7, (0, 0, -1), u=(-1, 0, 0), v=(0, 1, 0), step=0.3, r=0.045, inset=0.1, obj=nm)
-        for k in range(3):
-            m.obox('paint2', ((x0 + x1) / 2, 5.6 + k * 0.9, -17.19), (1, 0.6, 0), (0, 1, 0), (w * 0.9, 0.22, 0.03), bevel=0, seg=1, obj=nm)
-        m.weld('armor', (x0 + 0.1, 8.05, -17.2), (x1 - 0.1, 8.05, -17.2), r=0.04, obj=nm)
-        m.use('body')
+    # ---- drop ramp (hinged at the deck edge) + the three bolt-on plates over the reactor (boss_rear.py)
+    BR.ramp(m)
+    BR.rear_plates(m)
 
 
 # ================================================================================ 6. TRACTOR REAR DECK (between cab and trailer): spares, toolboxes, gladhand hoses

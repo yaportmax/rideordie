@@ -331,38 +331,50 @@ export function rockExclusions(ctx, sA, sB) {
 }
 
 // ------------------------------------------------------------------------------------------------ chunk build
+/** Build the rock formations anchored in this chunk, time-sliced (one formation / one mesh build per slice after the first). */
 export function buildRocks(ctx, chunk) {
   if (chunk.done.has('rocks')) return true;
   const mat = chunk.rec && chunk.rec.mesh && chunk.rec.mesh.material;
   if (!mat) return false;
-  chunk.done.add('rocks');
   const s0 = chunk.s0, s1 = s0 + CHUNK_LEN, { road, seed } = ctx;
-  const list = rocksIn(ctx, s0, s1);
-  const arches = archesIn(ctx, s0, s1);
-  if (!list.length && !arches.length) return true;
-  const a = road.sample(s0, {}), rm = new RockMesh(a.x, a.y, a.z);
-  const bio = biomeAt(s0 + 48);
-  rm.desert = (bio.a === 'desert' || bio.a === 'canyon' ? 1 - bio.w : 0) + (bio.b === 'desert' || bio.b === 'canyon' ? bio.w : 0);
-  if (bio.a === 'coast' || bio.b === 'coast') rm.seaY = seaLevel(road, 'coast');
+  let J = chunk.rockJob;
+  if (!J) {
+    const items = [...rocksIn(ctx, s0, s1).map((f) => ({ f })), ...archesIn(ctx, s0, s1).map((q) => ({ q }))];
+    if (!items.length) { chunk.done.add('rocks'); return true; }
+    const a = road.sample(s0, {}), bio = biomeAt(s0 + 48);
+    J = chunk.rockJob = { items, i: 0, a, rm: null, pending: [], n: 0,
+      desert: (bio.a === 'desert' || bio.a === 'canyon' ? 1 - bio.w : 0) + (bio.b === 'desert' || bio.b === 'canyon' ? bio.w : 0),
+      seaY: bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : undefined };
+  }
+  const newRM = () => { const rm = new RockMesh(J.a.x, J.a.y, J.a.z); rm.desert = J.desert; if (J.seaY !== undefined) rm.seaY = J.seaY; return rm; };
+  const deadline = (ctx.dress && ctx.dress._deadline) || Infinity;
+  let worked = false;
   const P = {};
-  for (const f of list) {
+  while (J.i < J.items.length) {
+    if (worked && performance.now() > deadline) { chunk._more = true; return false; }
+    const it = J.items[J.i++]; worked = true;
+    if (it.q) { const q = it.q; J.rm = J.rm || newRM(); arch(J.rm, road, seed, q.s, { span: q.span, H: q.H, T: q.T, R: q.R, splat: redRock(seed + 77) }); continue; }
+    const f = it.f;
     road.pointAt(f.s, f.d, P);
-    // ground: lowest terrain under the footprint
+    // ground: lowest terrain under the footprint (big mesas: the average of a ring, the talus buries the rest)
     let gy = 1e9; for (const [ds, dd] of [[0, 0], [f.R, 0], [-f.R, 0], [0, f.R], [0, -f.R]]) gy = Math.min(gy, groundAt(road, seed, f.s + ds, f.d + dd, _G).y);
-    if (f.mesa) { let sum = 0; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; sum += groundAt(road, seed, f.s + Math.cos(a) * f.R * 0.8, f.d + Math.sin(a) * f.R * 0.8, _G).y; } gy = Math.min(gy + 6, sum / 8 - 2); }
+    if (f.mesa) { let sum = 0; for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4; sum += groundAt(road, seed, f.s + Math.cos(an) * f.R * 0.8, f.d + Math.sin(an) * f.R * 0.8, _G).y; } gy = Math.min(gy + 6, sum / 8 - 2); }
     const fseed = (seed * 31 + Math.round(f.s * 7) + Math.round(f.d * 13)) & 0xffff;
     const near = Math.abs(f.d) - f.R < 70;
-    if (f.kind === 'stack') {
-      column(rm, { ...f, x: P.x, z: P.z, y: f.y, seed: fseed, splat: greyRock(fseed, f.grass), collide: near, M: 40, N: 28 });
-    } else {
-      column(rm, { ...f, x: P.x, z: P.z, y: gy, seed: fseed, splat: redRock(fseed), capSplat: capRock(fseed), collide: near });
-    }
+    const rm = f.mesa ? newRM() : (J.rm = J.rm || newRM());
+    if (f.kind === 'stack') column(rm, { ...f, x: P.x, z: P.z, y: f.y, seed: fseed, splat: greyRock(fseed, f.grass), collide: near, M: 40, N: 28 });
+    else column(rm, { ...f, x: P.x, z: P.z, y: gy, seed: fseed, splat: redRock(fseed), capSplat: capRock(fseed), collide: near });
+    if (f.mesa) J.pending.push(rm);
   }
-  for (const q of arches) arch(rm, road, seed, q.s, { span: q.span, H: q.H, T: q.T, R: q.R, splat: redRock(seed + 77) });
-  if (!rm.I.length) return true;
-  chunk.addExtra(rm.build(mat));
-  if (rm.C.idx.length) { const id = `rocks:${chunk.c}`; chunk.hooks.push(id); ctx.hook({ type: 'static', id, asset: 'rocks', collision: { pos: new Float32Array(rm.C.pos), idx: new Uint32Array(rm.C.idx) } }); }
-  chunk.dirty = true;
+  if (J.rm) { J.pending.push(J.rm); J.rm = null; }
+  while (J.pending.length) {
+    if (worked && performance.now() > deadline) { chunk._more = true; return false; }
+    const rm = J.pending.pop(); worked = true;
+    if (!rm.I.length) continue;
+    chunk.addExtra(rm.build(mat));
+    if (rm.C.idx.length) { const id = `rocks:${chunk.c}:${J.n++}`; chunk.hooks.push(id); ctx.hook({ type: 'static', id, asset: 'rocks', collision: { pos: new Float32Array(rm.C.pos), idx: new Uint32Array(rm.C.idx) } }); }
+  }
+  chunk.rockJob = null; chunk.done.add('rocks'); chunk.dirty = true;
   return true;
 }
 
