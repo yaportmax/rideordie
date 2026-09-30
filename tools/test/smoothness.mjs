@@ -57,6 +57,7 @@ try {
       const cacheBefore = { ...g.sky.shadowCache.stats }, shotBefore = r.shots;
       const bossBefore = r.sim?.boss ? { phase: r.sim.boss.phase, dead: r.sim.boss.dead, exploded: r.sim.boss.exploded } : null;
       const f = [], slow = []; let last = performance.now(), start = last;
+      const scaleStart = p.resolutionScale;
       await new Promise(resolve => {
         const tick = now => {
           const elapsed = now - last; f.push(elapsed); last = now;
@@ -68,10 +69,11 @@ try {
       const gl = g.renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
       return { gpu: ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL), p50:q(.5), p95:q(.95), p99:q(.99), max:q(1),
         averageFps: +(f.length*1000/f.reduce((a,b)=>a+b,0)).toFixed(2), activeSeconds:+((last-start)/1000).toFixed(2), frames:f.length, over25:slow.length, over33:f.filter(x=>x>33.4).length,
-        scale:p.resolutionScale, internal:p._internal.toArray(), quality:g.quality, gpuProfiling:p._profiling, gpuMs:Object.fromEntries(p.timer?.ms || []),
+        recordingStartMs:start, scaleStart, scale:p.resolutionScale, internal:p._internal.toArray(), quality:g.quality, gpuProfiling:p._profiling, gpuMs:Object.fromEntries(p.timer?.ms || []),
         cacheEnabled:g.sky.shadowCache.enabled, cacheBefore, cacheAfter:{...g.sky.shadowCache.stats}, calls:g.perf.calls,
         shots:r.shots-shotBefore, cars:r.states.size, over:r.over, playerS:r.playerS, bossBefore, bossAfter:r.sim?.boss ? { phase:r.sim.boss.phase, dead:r.sim.boss.dead, exploded:r.sim.boss.exploded } : null,
-        pitch:r.gunner?.pitch, glError:gl.getError(), slow, hitches:window.__hitches || [], initialPrograms:window.__initialPrograms, programs:window.__programAdditions, resizes:window.__resolutionChanges };
+        pitch:r.gunner?.pitch, glError:gl.getError(), slow, hitches:window.__hitches || [], initialPrograms:window.__initialPrograms, programs:window.__programAdditions,
+        resizes:window.__resolutionChanges.map(change => ({ ...change, atSinceRecordingMs: +(change.at-start).toFixed(2) })) };
     }, secs);
     await page.screenshot({ path:`${out}/${role}-${s}.png` });
     const row = { role, s, ...result, errors, warnings:[...new Set(warnings)] }; results.push(row);

@@ -29,18 +29,54 @@ test('sustained load lowers one step only after two seconds of pressure', () => 
 test('repeated 30 fps samples lower resolution, while sparse misses do not', () => {
   assert.deepEqual(feed(new AdaptiveResolutionController(), 1000 / 30, 90).changes, [0.9]);
   const controller = new AdaptiveResolutionController();
-  for (let i = 0; i < 1000; i++) assert.equal(controller.update(i % 31 === 0 ? 33.3 : 1000 / 60, 1, 1), null);
+  for (let i = 0; i < 1000; i++) assert.equal(controller.update(i % 151 === 0 ? 33.3 : 1000 / 60, 1, 1), null);
 });
 
-test('borderline sustained 17.9 ms qualifies, but 17.7 ms does not', () => {
+test('sustained actual misses qualify, but 17.7 ms timing jitter does not', () => {
   assert.deepEqual(feed(new AdaptiveResolutionController(), 17.7, 1000).changes, []);
   const result = feed(new AdaptiveResolutionController(), 17.9, 150);
   assert.deepEqual(result.changes, [0.9]);
 });
 
-test('isolated large misses cannot pass the meaningful miss ratio gate', () => {
+test('isolated large misses cannot lower resolution despite raising the window mean', () => {
   const controller = new AdaptiveResolutionController();
-  for (let i = 0; i < 1000; i++) assert.equal(controller.update(i % 31 === 0 ? 100 : 1000 / 60, 1, 1), null);
+  for (let i = 0; i < 1000; i++) assert.equal(controller.update(i % 181 === 0 ? 100 : 1000 / 60, 1, 1), null);
+});
+
+test('two percent missed refreshes at approximately 58.9 fps lower city scale after two seconds', () => {
+  const controller = new AdaptiveResolutionController(0.8);
+  let current = 0.8, elapsed = 0, firstChangeAt = null;
+  const changes = [];
+  // 16.65 ms healthy frames with one missed refresh per 50 frames average
+  // 16.984 ms, closely matching the recorded 58.9 fps city-gunner load.
+  for (let i = 0; i < 180; i++) {
+    const frameMs = i % 50 === 49 ? 33.33 : 16.65;
+    elapsed += frameMs;
+    const next = controller.update(frameMs, current, 0.8);
+    if (next !== null) {
+      changes.push(next); current = next; firstChangeAt ??= elapsed;
+    }
+  }
+  assert.deepEqual(changes, [0.7]);
+  assert.ok(firstChangeAt >= 2000 && firstChangeAt <= 2100, String(firstChangeAt));
+});
+
+test('repeated small timing overruns with a healthy mean do not lower resolution', () => {
+  const controller = new AdaptiveResolutionController();
+  // Two samples above the miss classifier each two seconds still average
+  // below the pressure threshold; the miss ratio alone is insufficient.
+  for (let i = 0; i < 1000; i++) assert.equal(controller.update(i % 50 === 49 ? 18 : 1000 / 60, 1, 1), null);
+});
+
+test('misses below the old five percent tolerance now reduce persistent frame pressure', () => {
+  const controller = new AdaptiveResolutionController();
+  let current = 1;
+  const changes = [];
+  for (let i = 0; i < 180; i++) {
+    const next = controller.update(i % 31 === 0 ? 33.3 : 1000 / 60, current, 1);
+    if (next !== null) { changes.push(next); current = next; }
+  }
+  assert.deepEqual(changes, [0.9]);
 });
 
 test('about seven percent missed refreshes at city load lowers resolution', () => {

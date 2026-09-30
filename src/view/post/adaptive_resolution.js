@@ -47,11 +47,11 @@ export class AdaptiveResolutionController {
 
     const floor = Math.min(0.65, ceiling);
     const frames = this.samples.length - this.sampleHead;
-    // The window mean captures 55-60 fps refresh patterns whose EWMA briefly
-    // dips between misses. Require actual repeated misses as well, so one
-    // unusually expensive frame cannot trigger a resize.
-    const sustained = this.windowMs / frames > 17.8;
-    if (current > floor && this.observedMs >= 2000 && frames >= 20 && sustained && this.windowMisses / frames >= 0.05) {
+    // Catch persistent missed refreshes near 60 fps before they accumulate
+    // into obvious stutter. Keep the 17.8 ms miss classifier above, and require
+    // at least two actual misses, so normal jitter or one stall cannot resize.
+    const sustained = this.windowMs / frames > 16.9;
+    if (current > floor && this.observedMs >= 2000 && frames >= 20 && sustained && this.windowMisses >= 2 && this.windowMisses / frames >= 0.015) {
       return this._change(Math.max(floor, roundScale(current - 0.1)));
     }
     if (current < ceiling && this.fastMs >= 20000) {
