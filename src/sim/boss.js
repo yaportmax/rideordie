@@ -135,7 +135,7 @@ export class Leviathan {
     if (this.phase === 2 && !this.engineExposed() && this.t - this.phaseT > BOSS.phase2Max && this.overheatT === undefined) this._overheat();
     if (this.phase < 3 && this.engineExposed()) this._setPhase(3);
     this._beats(dt);
-    const rate = this.phase === 3 ? 1.05 : this.phase === 2 ? 0.88 : 1;   // (phases 2-3 last longer now that the fight is paced: a touch calmer)
+    const rate = this.phase === 3 ? 0.9 : this.phase === 2 ? 0.8 : 1;   // (phases 2-3 last longer now that the fight is paced: a touch calmer)
     // ---- attacks
     for (const tu of this.turrets) this._turret(tu, dt * rate, P);
     this._pods(dt * rate, P);
@@ -152,6 +152,13 @@ export class Leviathan {
     if (p === 2) { this.cd.cannon = 3; this.cd.ramp = 9; }
     // an escort wave comes down the ramp as each phase opens (staggered: one car at a time)
     (BOSS.waves[p] || []).forEach((k, i) => this.dropQ.push({ k, t: this.t + 1.5 + i * 1.4 }));
+    // reactor exposed: the blast that tore its plates off showers the road with scrap — a last patch-up before the kill
+    const P = this.sim.player;
+    if (p === 3 && P && !P.exploded) {
+      const before = P.hp; P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.2);
+      for (const c of Object.values(P.crew)) if (c && c.alive) c.hp = Math.min(c.max, c.hp + c.max * 0.4);
+      if (P.hp - before > 0.5) this.sim.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: true });
+    }
     this.sim.emit({ t: 'bossPhase', phase: p });
   }
 
@@ -332,7 +339,7 @@ export class Leviathan {
     if (P && !P.exploded) {
       const before = P.hp; P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.06);
       for (const c of Object.values(P.crew)) if (c && c.alive) c.hp = Math.min(c.max, c.hp + c.max * 0.3);
-      this.sim.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: true });
+      if (P.hp - before > 0.5) this.sim.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: true });
     }
     if (def.explodes) {
       this.sim.emit({ t: 'boom', pos: p.toArray(), radius: BOSS.tankBlast.radius, kind: 'tank' });

@@ -249,6 +249,7 @@ void main() {
       vec3 t1 = normalize(relL + upL * B), t0 = normalize(relL * 0.3 + upL * B);
       if ((flags & 4) != 0 && uCabMin.w > 0.5) {
         vec3 n = uCabPlane.xyz; float dp = dot(n, pos) - uCabPlane.w;
+        h *= mix(0.5, 1.0, smoothstep(0.1, 0.9 * h, dp));        // tongues that hit the glass are short (they spread, not climb)
         float kk = 1.0 - smoothstep(0.25 * h, 1.1 * h, dp);
         t1 = normalize(t1 - n * min(dot(t1, n), 0.0) * kk * 1.15);
         t0 = normalize(t0 - n * min(dot(t0, n), 0.0) * kk);
@@ -261,9 +262,13 @@ void main() {
       a0 = normalize(vec3(rel.x * 0.3, B, rel.z * 0.3));
     }
     float vv = q.y + 0.5;
+    // the tip flickers and sways (two incommensurate wobbles, per-particle phase): living tongues, not pillars
+    vec3 sd0 = cross(a1, tcN); float sdl = length(sd0); sd0 = sdl > 1e-4 ? sd0 / sdl : vec3(1.0, 0.0, 0.0);
+    float ph = hash11(aP0.x * 3.1 + aP0.z * 7.7 + aP0.w * 13.3) * 6.2831;
+    a1 = normalize(a1 + sd0 * (0.22 * sin(age * 6.3 + ph) + 0.1 * sin(age * 15.1 + ph * 2.7)));
     vec3 ax = normalize(mix(a0, a1, vv));
     vec3 side = cross(ax, tcN); float sl = length(side); side = sl > 1e-4 ? side / sl : vec3(1.0, 0.0, 0.0);
-    world = wpos + h * (a0 * vv + (a1 - a0) * (0.5 * vv * vv)) + side * (q.x * w);
+    world = wpos + h * (a0 * vv + (a1 - a0) * (0.5 * vv * vv)) + side * (q.x * w * (1.0 + 0.15 * sin(age * 9.0 + ph * 1.3) * vv));
     rgt = side; up = ax;
   } else {
     vec3 ax = wvel;
@@ -295,7 +300,8 @@ void main() {
   if (mode == 0 || mode == 4 || mode == 7) {
     float frac = sz * max(1.0, aMd.z) / max(dist * uFovK, 1e-3);                // fraction of the screen height
     float big = 1.0 - smoothstep(1.1, 2.6, frac);
-    float nearF = clamp((dist - 0.25) / (0.3 + 0.45 * sz), 0.0, 1.0);
+    float nearF = attached ? clamp((dist - 0.8) / 0.9, 0.0, 1.0)            // own-truck fire / smoke: never plastered over the glass in your face
+                           : clamp((dist - 0.25) / (0.3 + 0.45 * sz), 0.0, 1.0);
     env *= big * nearF;
     if (env * col.a <= 0.002) { hideP(); return; }
   }
@@ -434,7 +440,7 @@ export function makeParticleUniforms(atlas) {
     uInset: { value: new THREE.Vector2(0.5 / atlas.size[0], 0.5 / atlas.size[1]) }, uFrameBlend: { value: 1 },
     // lighting (key light direction is the shared SkyRig uniform; colours are set by Fx._syncLighting)
     uKeyDir: KEY.uKeyDir, uKeyCol: { value: new THREE.Vector3(1, 0.95, 0.85) },
-    uSkyCol: { value: new THREE.Vector3(0.3, 0.34, 0.4) }, uGndCol: { value: new THREE.Vector3(0.2, 0.17, 0.14) }, uGlowCol: { value: new THREE.Vector3(1.1, 0.36, 0.08) },
+    uSkyCol: { value: new THREE.Vector3(0.3, 0.34, 0.4) }, uGndCol: { value: new THREE.Vector3(0.2, 0.17, 0.14) }, uGlowCol: { value: new THREE.Vector3(0.3, 0.1, 0.022) },
     // atmosphere (shared objects, written by SkyRig)
     ...ATMO,
     // attached frame + cabin clip (Fx.update / onBeforeRender)

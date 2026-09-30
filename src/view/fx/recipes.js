@@ -105,7 +105,7 @@ export function flame(fx, x, y, z, vx, vy, vz, w, h, life, heat = 1, bend = 3, f
   p.spr = SPR.FIRE; p.mode = MODE.FIRE; p.f0 = r.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = r.range(24, 34);
   p.size(w * 0.72, w * grow); p.aspect = h / w; p.sCurve = 0.55;
   const k = heat * r.range(0.85, 1.15);
-  p.col0(1.55 * k, 1.25 * k, 0.8 * k, 1).col1(1.3 * k, 0.8 * k, 0.45 * k, 0.9); p.cCurve = 0.8;
+  p.col0(1.5 * k, 1.3 * k, 0.78 * k, 1).col1(1.3 * k, 0.85 * k, 0.45 * k, 0.9); p.cCurve = 0.8;
   p.add0 = 0.82; p.add1 = 1; p.fin = 0.14; p.fout = 0.5;
   p.drag = drag; p.grav = -2.2; p.bend = bend; p.soft = 0.12 + 0.2 * w; p.wind = wind;
   p.flags = flags | (r.next() < 0.5 ? PF.FLIPU : 0);
@@ -194,14 +194,14 @@ export function explosion(fx, x, y, z, S, o) {
       r.range(1.2, 2.2) * sS, r.range(4.5, 7.5) * sS, r.range(2.4, 3.8), dc[0], dc[1], dc[2], 0.62, gy, 1.4, 0.15);
   }
   // 7. the fireball chars into a dark billowing cloud: fire-lit from inside at first, then it rises and drifts
-  const nk = Math.round((7 + 4 * S) * qd);
+  const nk = Math.round((9 + 5 * S) * qd);
   for (let i = 0; i < nk; i++) {
-    const a = r.next() * PI2, d = R * 0.35 * Math.sqrt(r.next()), up = r.range(0.2, 1.0);
-    const q = fx.p.reset(); q.pos(x + Math.cos(a) * d, y + R * 0.25 * up + 0.5, z + Math.sin(a) * d).vel(Math.cos(a) * r.range(1, 4), r.range(3, 7) * sS, Math.sin(a) * r.range(1, 4));
-    q.delay = r.range(0.55, 1.1); q.life = r.range(4.5, 7) * (0.8 + 0.2 * S);
-    q.spr = SPR.SMOKE; q.f0 = r.int(4) * 4; q.nPlay = 4; q.size(R * r.range(0.55, 0.8), R * r.range(1.5, 2.1)); q.sCurve = 0.45;
-    q.rot = r.sym(0.8); q.rotV = r.sym(0.15); q.drag = 1.1; q.grav = -1.1; q.turb = 0.8; q.wind = 0.9; q.lit = 1;
-    const c = r.range(0.055, 0.085); q.col(c, c * 0.95, c * 0.9, 0.92); q.fin = 0.12; q.fout = 0.55; q.ground = gy;
+    const a = r.next() * PI2, d = R * 0.4 * Math.sqrt(r.next()), up = r.range(0.2, 1.0);
+    const q = fx.p.reset(); q.pos(x + Math.cos(a) * d, y + R * 0.25 * up + 0.5, z + Math.sin(a) * d).vel(Math.cos(a) * r.range(1, 3.5), r.range(0.8, 2.4) * sS, Math.sin(a) * r.range(1, 3.5));
+    q.delay = r.range(0.5, 1.0); q.life = r.range(5, 7.5) * (0.8 + 0.2 * S);
+    q.spr = SPR.SMOKE; q.f0 = r.int(4) * 4; q.nPlay = 4; q.size(R * r.range(0.5, 0.7), R * r.range(1.3, 1.8)); q.sCurve = 0.45;
+    q.rot = r.sym(0.8); q.rotV = r.sym(0.15); q.drag = 0.8; q.grav = -0.4; q.turb = 0.9; q.wind = 0.9; q.lit = 1;
+    const c = r.range(0.055, 0.085); q.col(c, c * 0.95, c * 0.9, 0.9); q.fin = 0.12; q.fout = 0.55; q.ground = gy;
     q.glow = 1.0; q.soft = R * 0.3; q.flags = r.next() < 0.5 ? PF.FLIPU : 0;
     fx.pa.emit(q);
   }

@@ -7,10 +7,10 @@ const [secs = 240, s0 = 58600, seed = 7] = args.map(Number);
 const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--use-angle=d3d11', '--force_high_performance_gpu', '--disable-background-timer-throttling'] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
-await page.goto(`${opt.base || 'http://localhost:5180'}/index.html?solo&as=${opt.as || 'gunner'}&s=${s0}&seed=${seed}&maxed=1`);
+await page.goto(`${opt.base || 'http://localhost:5180'}/index.html?solo&as=${opt.as || 'gunner'}&s=${s0}&seed=${seed}&maxed=1${opt.noaim ? '&noaim' : ''}`);
 await page.waitForFunction('window.__ready === true', null, { timeout: 120000 });
 await page.evaluate(() => {
-  document.getElementById('boot')?.remove(); window.__aimbot = true;
+  document.getElementById('boot')?.remove(); window.__aimbot = !/[?&]noaim/.test(location.search) && !window.__noAimbot; if (/as=driver/.test(location.search)) window.__autodrive = { speed: 30 };
   const sim = window.__run.sim, emit = sim.emit.bind(sim); window.__bl = [];
   sim.emit = (e) => { if (/bossPhase|bossPart|bossDown|bossSpawn|playerDown|bossBeat/.test(e.t)) window.__bl.push(`${sim.boss ? sim.boss.t.toFixed(0) : '-'}s ${e.t} ${e.part || e.phase || e.why || e.kind || ''}`); return emit(e); };
 });

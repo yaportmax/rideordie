@@ -7,15 +7,17 @@
 // windshield and roll over the roof - always outside the glass (the shader clips anything inside the cab). It also gets
 // wind-borne dust streaks near the road at speed.
 import * as THREE from 'three';
-import { SPR } from './atlas.js';
+import { SPR, FRAMES } from './atlas.js';
 import { MODE, PF } from './particles.js';
 import { spark, puff, dust, chip, ember, glow, flame, dustColor } from './recipes.js';
 import { surfOf, clamp01, smooth } from './util.js';
+import { ATMO } from '../../world/atmosphere.js';
 import { makeWreckUniforms, patchPaint } from './wreck.js';
 
 const PI2 = Math.PI * 2;
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _f = new THREE.Vector3(), _u = new THREE.Vector3(), _inv = new THREE.Matrix4(), _r = new THREE.Vector3();
 const ATT = PF.ATTACH | PF.DEFLECT;
+const _dc2 = [0, 0, 0];
 
 export class CarRec {
   constructor(state, cv) {
@@ -67,7 +69,7 @@ const rate = (fx, acc, k, r, dt, cap = 3) => {
 /** A point on the hood seams (truck-local, into _r): rear edge by the windshield, the sides, the grille. */
 function hoodSeam(rng, hood, bias = 0) {
   const u = rng.next();
-  if (u < 0.28 - bias * 0.1) return _r.set(rng.range(hood.min.x * 0.85, hood.max.x * 0.85), hood.max.y - 0.03, hood.min.z + rng.range(0.02, 0.18));
+  if (u < 0.28 - bias * 0.2) return _r.set(rng.range(hood.min.x * 0.85, hood.max.x * 0.85), hood.max.y - 0.03, hood.min.z + rng.range(0.02, 0.18));
   if (u < 0.8) { const s = rng.next() < 0.5 ? -1 : 1; return _r.set(s > 0 ? hood.max.x - rng.range(0.0, 0.1) : hood.min.x + rng.range(0.0, 0.1), hood.max.y - rng.range(0.04, 0.12), rng.range(hood.min.z + 0.1, hood.max.z - 0.05)); }
   return _r.set(rng.range(hood.min.x * 0.7, hood.max.x * 0.7), hood.max.y - rng.range(0.05, 0.2), hood.max.z - rng.range(0.0, 0.1));
 }
@@ -85,8 +87,8 @@ function ownSmoke(fx, rng, hood, dark, a, glowK, big = 1) {
 
 function ownFlame(fx, rng, hood, heat = 1, big = 1) {
   hoodSeam(rng, hood, 1);
-  const w = rng.range(0.3, 0.55) * big;
-  flame(fx, _r.x, _r.y - 0.04, _r.z, rng.sym(0.25), rng.range(0.4, 1.0), rng.sym(0.25), w, w * rng.range(1.5, 2.4), rng.range(0.3, 0.55), heat, 3.5, ATT, 2.4, 1.35, 0.12);
+  const w = rng.range(0.25, 0.6) * big;
+  flame(fx, _r.x, _r.y - 0.04, _r.z, rng.sym(0.25), rng.range(0.4, 1.0), rng.sym(0.25), w, w * rng.range(1.2, 2.0), rng.range(0.3, 0.55), heat, 3.5, ATT, 2.4, 1.35, 0.12);
 }
 
 /** Damage on the local player's truck (called per frame from updateCarFx). */
@@ -104,14 +106,14 @@ function ownDamage(fx, rec, state, dt) {
   // the trail: once the smoke is over the cab it leaves the truck's frame and streams off behind it in the world (seen in the
   // mirrors, by the gunner, by everyone else) - thick and black when burning
   if (burning || dark > 0.35) {
-    const nt = rate(fx, acc, o + 3, (burning ? 16 : 7 * dark) * q, dt, 2), v = state.vel;
+    const nt = rate(fx, acc, o + 3, (burning ? 30 : 12 * dark) * q, dt, 3), v = state.vel;
     for (let k = 0; k < nt; k++) {
       const side = rng.next() < 0.5 ? -1 : 1, cab = rec.cab;
       if (rng.next() < 0.6) _v.set(rng.sym((cab.max.x - cab.min.x) * 0.35), cab.max.y + 0.2, cab.min.z + rng.range(-0.2, 0.4));
       else _v.set(side * ((cab.max.x - cab.min.x) * 0.5 + 0.25), rng.range(hood.max.y, cab.max.y), cab.min.z + rng.range(0, 0.6));
       rec.toWorld(_v, _w);
       const c = burning ? rng.range(0.045, 0.07) : 0.3 - 0.22 * dark;
-      puff(fx, _w.x, _w.y, _w.z, v.x * 0.8 + rng.sym(0.8), v.y * 0.5 + rng.range(0.6, 1.8), v.z * 0.8 + rng.sym(0.8), 0.9, rng.range(3.2, 5.0) * (burning ? 1 : 0.8), rng.range(2.2, 3.2), c, c * 0.96, c * 0.93, burning ? 0.8 : 0.5, 0.7, 0.7, -1e4, burning ? 0.7 : 0);
+      puff(fx, _w.x, _w.y, _w.z, v.x * 0.9 + rng.sym(0.8), v.y * 0.5 + rng.range(0.6, 1.8), v.z * 0.9 + rng.sym(0.8), 1.3, rng.range(3.4, 5.2) * (burning ? 1 : 0.8), rng.range(2.2, 3.2), c, c * 0.96, c * 0.93, burning ? 0.65 : 0.42, 0.7, 1.0, -1e4, burning ? 0.7 : 0);
     }
   }
   if (!burning) {
@@ -119,12 +121,13 @@ function ownDamage(fx, rec, state, dt) {
     return;
   }
   // fire: tongues licking out of the seams and the grille, bent back by the air flow toward the glass
-  const nf = rate(fx, acc, o + 1, 30 * q, dt, 4);
-  for (let k = 0; k < nf; k++) ownFlame(fx, rng, hood, rng.range(1.0, 1.3));
+  const night = 1 - (ATMO.uAtmSun.value.w || 0), heat = 1 - 0.35 * night;   // night exposure is ~2.4x: keep the hood fire from blowing out
+  const nf = rate(fx, acc, o + 1, 20 * q, dt, 4);
+  for (let k = 0; k < nf; k++) ownFlame(fx, rng, hood, rng.range(0.9, 1.2) * heat);
   const nc = rate(fx, acc, o + 4, 7 * q, dt, 2);
   for (let k = 0; k < nc; k++) {                         // big tongues out of the rear hood corners, up beside the A-pillars
-    const side = rng.next() < 0.5 ? -1 : 1, w = rng.range(0.45, 0.75);
-    flame(fx, side > 0 ? hood.max.x - 0.05 : hood.min.x + 0.05, hood.max.y - 0.05, hood.min.z + rng.range(0.05, 0.35), side * rng.range(0.2, 0.6), rng.range(0.6, 1.4), 0, w, w * rng.range(2.2, 3.2), rng.range(0.35, 0.6), 1.15, 3.0, ATT, 2.0, 1.3, 0.12);
+    const side = rng.next() < 0.5 ? -1 : 1, w = rng.range(0.4, 0.7);
+    flame(fx, side > 0 ? hood.max.x - 0.05 : hood.min.x + 0.05, hood.max.y - 0.05, hood.min.z + rng.range(0.05, 0.35), side * rng.range(0.2, 0.6), rng.range(0.6, 1.4), 0, w, w * rng.range(1.7, 2.6), rng.range(0.35, 0.6), 1.1 * heat, 3.0, ATT, 2.0, 1.3, 0.12);
   }
   if (rng.next() < dt * 14) { hoodSeam(rng, hood, 1); glow(fx, _r.x, _r.y + 0.05, _r.z, rng.range(0.5, 0.9), 0.12, 1.4, 0.55, 0.14, true, 1.2, ATT); }
   const ne = rate(fx, acc, o + 2, 7 * q, dt, 2);
@@ -157,15 +160,16 @@ function speedStreaks(fx, rec, state, dt, surf, P, speed) {
   const rng = fx.rng, n = rate(fx, rec.acc, rec.nW * 4 + 14, 22 * k * Math.max(0.5, fx.qd), dt, 3);
   if (!n) return;
   const vx = state.vel.x / speed, vz = state.vel.z / speed;
-  const dc = dustColor(surf.hard ? 'gravel' : 'sand');
+  const dc = dustColor(surf.hard ? 'gravel' : 'sand', _dc2);
   for (let i = 0; i < n; i++) {
-    const ahead = rng.range(6, 26), side = (rng.next() < 0.5 ? -1 : 1) * rng.range(2.2, 7.5);
+    const ahead = rng.range(0.35, 0.9) * speed, side = (rng.next() < 0.5 ? -1 : 1) * rng.range(1.8, 6.5);   // 0.35-0.9 s ahead: they fly past the cab
     const x = P.x + vx * ahead - vz * side, z = P.z + vz * ahead + vx * side;
     const gy = fx.groundAt(x, z, P.y - 0.6);
-    const p = fx.p.reset(); p.pos(x, gy + rng.range(0.12, 1.4), z).vel(-vx * speed * 0.18 + rng.sym(0.6), rng.range(-0.2, 0.3), -vz * speed * 0.18 + rng.sym(0.6));
-    p.life = rng.range(0.5, 0.8); p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.size(0.035, 0.02); p.len = 0.25; p.lenSpd = 0.12;
-    p.col(dc[0] * 1.3, dc[1] * 1.3, dc[2] * 1.3, 0.3); p.lit = 1; p.fin = 0.2; p.fout = 0.4; p.drag = 0.3;
+    const p = fx.p.reset(); p.pos(x, gy + rng.range(0.1, 1.8), z).vel(-vx * speed * 0.3 + rng.sym(0.6), rng.range(-0.2, 0.3), -vz * speed * 0.3 + rng.sym(0.6));
+    p.life = rng.range(0.45, 0.8); p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.size(0.055, 0.035); p.len = 1.0; p.lenSpd = 0.2;
+    p.col(0.55 + dc[0], 0.55 + dc[1], 0.55 + dc[2], 0.5); p.lit = 1; p.fin = 0.2; p.fout = 0.4; p.drag = 0.3;
     fx.pa.emit(p);
+    if (rng.next() < 0.12) dust(fx, x, gy + 0.3, z, -vx * speed * 0.1 + rng.sym(1), rng.range(0.1, 0.6), -vz * speed * 0.1 + rng.sym(1), 0.4, rng.range(1.6, 2.6), rng.range(0.8, 1.3), dc[0], dc[1], dc[2], 0.22, gy, 1.2, 0.1);
   }
 }
 
@@ -288,11 +292,11 @@ export function updateCarFx(fx, rec, state, cv, dt, surfaceKind) {
         const back = rng.range(24, 36);
         const p = fx.p.reset();
         p.pos(_w.x + rng.sym(0.04), _w.y + rng.sym(0.04), _w.z + rng.sym(0.04)).vel(vel.x - _f.x * back + rng.sym(0.3), vel.y - _f.y * back + rng.sym(0.3), vel.z - _f.z * back + rng.sym(0.3));
-        p.life = rng.range(0.07, 0.13); p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = rng.int(32); p.nPlay = 32; p.fps = 40; p.len = rng.range(3.4, 5.0); p.size(rng.range(0.5, 0.7), 0.3); p.mono = 1;
+        p.life = rng.range(0.07, 0.13); p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = rng.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = 40; p.len = rng.range(3.4, 5.0); p.size(rng.range(0.5, 0.7), 0.3); p.mono = 1;
         p.col0(1.2, 2.6, 7.5, 1).col1(0.7, 0.9, 3.4, 1); p.add0 = p.add1 = 1; p.fin = 0.03; p.fout = 0.5; fx.pf.emit(p);
         if ((k & 1) === 0) {                               // orange outer fringe
           p.reset(); p.pos(_w.x, _w.y, _w.z).vel(vel.x - _f.x * back * 0.7, vel.y - _f.y * back * 0.7, vel.z - _f.z * back * 0.7); p.life = rng.range(0.1, 0.17);
-          p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = rng.int(32); p.nPlay = 32; p.fps = 30; p.len = rng.range(2.0, 3.0); p.size(0.85, 0.4); p.col(1.3, 0.55, 0.16, 0.5); p.add0 = p.add1 = 1; p.fin = 0.03; p.fout = 0.6; fx.pf.emit(p);
+          p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = rng.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = 30; p.len = rng.range(2.0, 3.0); p.size(0.85, 0.4); p.col(1.3, 0.55, 0.16, 0.5); p.add0 = p.add1 = 1; p.fin = 0.03; p.fout = 0.6; fx.pf.emit(p);
         }
       }
       // white-hot core at the nozzle (+ a few bright streak sparks)
@@ -309,9 +313,9 @@ export function updateCarFx(fx, rec, state, cv, dt, surfaceKind) {
   if ((state.smoking || state.burning) && !exploded && !state.dead && !rec.local) {
     rec.toWorld(rec.sock.engine, _w);
     const dark = state.burning ? 1 : 1 - clamp01((state.engineHp01 ?? 0.3) * 1.6);
-    const n = rate(fx, acc, nW * 4 + 6, (state.burning ? 16 : 11) * lodQ, dt, 3);
+    const n = rate(fx, acc, nW * 4 + 6, (state.burning ? 28 : 18) * lodQ * (0.6 + 0.4 * clamp01(speed / 20)), dt, 3);
     const g = 0.42 - 0.36 * dark;
-    for (let k = 0; k < n; k++) puff(fx, _w.x + rng.sym(0.3), _w.y + 0.25, _w.z + rng.sym(0.3), vel.x * 0.8 - _f.x * 0.8 + rng.sym(0.5), rng.range(1.6, 3.2) + dark, vel.z * 0.8 - _f.z * 0.8 + rng.sym(0.5), 0.5, rng.range(2.6, 4.0) + dark * 1.4, rng.range(1.6, 2.8), g, g * 0.97, g * 0.94, 0.72, 0.9, 0.5, -1e4, state.burning ? 1.2 : 0);
+    for (let k = 0; k < n; k++) puff(fx, _w.x + rng.sym(0.3), _w.y + 0.25, _w.z + rng.sym(0.3), vel.x * 0.85 - _f.x * 0.8 + rng.sym(0.5), rng.range(1.6, 3.2) + dark, vel.z * 0.85 - _f.z * 0.8 + rng.sym(0.5), 0.9, rng.range(2.8, 4.2) + dark * 1.4, rng.range(1.6, 2.8), g, g * 0.97, g * 0.94, 0.6, 0.9, 0.9, -1e4, state.burning ? 1.2 : 0);
     if (state.burning) {
       const nf = rate(fx, acc, nW * 4 + 7, 22 * lodQ, dt, 3);
       const W = rec.spec.width;

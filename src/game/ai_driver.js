@@ -22,7 +22,7 @@ export class AIDriver {
     this.laneT -= dt;
     let want = this.lane;
     const B = sim.boss;
-    if (B && !B.dead) want = Math.sin(sim.time * 0.12) > 0 ? 4.2 : -4.2;               // flank the war-train, out of its wake
+    if (B && !B.dead) want = (Math.sin(sim.time * 0.12) > 0 ? 3.6 : -3.6) + Math.sin(sim.time * 2.1) * 2.2; // flank the war-train and weave (its gunners lead a steady target)
     else if (this.laneT <= 0) { this.laneT = 4 + Math.random() * 4; want = this.lane = [-3.5, 0, 3.5][(Math.random() * 3) | 0]; }
     // roadblocks: commit to the gap early (it is only 4.4 m wide) and let nothing else pull us off that line
     const rb = road.featuresIn(P.s - 2, P.s + 260, 'roadblock')[0];
@@ -69,7 +69,7 @@ export class AIDriver {
     // jump ramps span the road: hitting one at 250 km/h throws the truck into whatever is beside the road on landing
     const ramp = road.featuresIn(P.s, P.s + 170, 'ramp')[0];
     if (ramp) target = Math.min(target, clamp(30 + (ramp.s0 - P.s - 40) * 0.12, 28, 40));
-    if (B && !B.dead) target = B.v + clamp((B.s - P.s - 32) * 0.4, -10, 10);            // hold station behind the boss
+    if (B && !B.dead) target = B.v + clamp((B.s - P.s - 38 - 8 * Math.sin(sim.time * 0.7)) * 0.4, -10, 10); // hold station behind the boss, surging in and out
     const vf = v.vf;
     c.throttle = vf < target ? clamp((target - vf) * 0.3 + 0.4, 0, 1) : 0;
     c.brake = vf > target + 4 ? clamp((vf - target) * 0.08, 0, 1) : 0;

@@ -120,10 +120,10 @@ def fire_col(T):
 
 
 # ------------------------------------------------------------------------------------------------ flame tongues
-def flame_sheet(N=32, W=128, H=256, cols=8):
+def flame_sheet(N=16, W=256, H=512, cols=4):
     SS = 2
     w, h = W * SS, H * SS
-    P = 256                                                    # noise tile (texels); the flame scrolls whole tiles per loop
+    P = 512                                                    # noise tile (texels); the flame scrolls whole tiles per loop
     nA = noise2(P, beta=2.4, seed=11)                          # big licks
     nB = noise2(P, beta=1.8, seed=12)                          # detail
     nW = noise2(P, beta=2.8, seed=13)                          # domain warp
@@ -148,7 +148,7 @@ def flame_sheet(N=32, W=128, H=256, cols=8):
         heat = (0.46 + 0.54 * (1 - y) ** 1.8) * (0.78 + 0.22 * (1 - sstep(np.abs(xr) / np.maximum(hw, 0.05), 0, 0.8)))
         T = np.clip(q, 0, 1) ** 0.9 * heat
         rgb = fire_col(np.clip(T * 0.98, 0, 1))
-        a = sstep(q, 0.02, 0.5)
+        a = sstep(q, 0.02, 0.4)
         img = to_img(rgb, a)
         frames.append(np.clip(down2(img.astype(np.float32)), 0, 255).astype(np.uint8))
     return tile(frames, cols)
@@ -234,6 +234,7 @@ def lit_puffs(fam=4, life=4, S=256, steps=56, dust=False, seed=31):
             if dust: v[1] *= 0.5
             blobs.append((bx + v[0] * br * 0.8, by + v[1] * br * 0.8, bz + v[2] * br * 0.8, br * rng.uniform(0.34, 0.6)))
         off = rng.uniform(0, 64, 3)
+        fb = [0.0]                                             # per-family field bias: every family reaches the same coverage
 
         def F(X, Y, Z, t):
             acc = np.zeros_like(X)
@@ -244,7 +245,24 @@ def lit_puffs(fam=4, life=4, S=256, steps=56, dust=False, seed=31):
             nx, ny, nz = X * 3.5 + off[0], Y * 3.5 + off[1] + t * 1.5, Z * 3.5 + off[2]
             n1 = samp3(vol, nx, ny, nz)
             n2 = samp3(vol2, nx * 2.6, ny * 2.6, nz * 2.6)
-            return field + 0.085 * n1 + 0.05 * n2 - 0.09 * t * (0.6 + 0.4 * n2), n2
+            return field + fb[0] + (0.11 if dust else 0.085) * n1 + 0.05 * n2 - (0.05 if dust else 0.09) * t * (0.6 + 0.4 * n2), n2
+
+        cy, cx = np.mgrid[0:48, 0:48].astype(np.float32)
+        qx = (cx + 0.5) / 48 * 2 - 1; qy = 1 - (cy + 0.5) / 48 * 2
+
+        def coverage():
+            Tq = np.ones_like(qx)
+            for z in np.linspace(-1, 1, 24, dtype=np.float32):
+                d = sstep(F(qx, qy, np.full_like(qx, z), 0.0)[0], -0.07, 0.24)
+                Tq *= np.exp(-d * (2 / 23) * (3.4 if not dust else 3.6))
+            return float(((1 - Tq) > 0.1).mean())
+
+        lo, hi = -0.12, 0.3
+        for _ in range(9):
+            fb[0] = 0.5 * (lo + hi)
+            if coverage() < (0.34 if dust else 0.3): lo = fb[0]
+            else: hi = fb[0]
+        print("  family", f, "bias", round(fb[0], 3), flush=True)
 
         for L in range(life):
             t = L / (life - 1)
@@ -256,10 +274,10 @@ def lit_puffs(fam=4, life=4, S=256, steps=56, dust=False, seed=31):
             for z in zs:
                 X, Y, Z = px / grow, py / grow, np.full_like(px, z) / grow
                 f3, n2 = F(X, Y, Z, t)
-                dens = sstep(f3, -0.07, 0.24) * (1.0 - (0.35 if dust else 0.25) * t)
+                dens = sstep(f3, -0.07, 0.24) * (1.0 - (0.2 if dust else 0.25) * t)
                 if not (dens > 1e-3).any():
                     continue
-                sig = dens * dz * (3.4 if not dust else 2.4)
+                sig = dens * dz * (3.4 if not dust else 3.6)
                 w = T * (1 - np.exp(-sig))
                 if (w > 1e-3).any():
                     gx = F(X + e, Y, Z, t)[0] - F(X - e, Y, Z, t)[0]

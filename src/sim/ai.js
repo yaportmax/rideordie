@@ -88,6 +88,7 @@ export class EnemyBrain {
     if (car.exploded) return;
     if (car.driverless || !car.crew.driver.alive) { this._deadDriver(dt); this.gunnery(dt); return; }
     if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
+    if (sim.boss?.dead) { veh.input.throttle = 0; veh.input.brake = 0.6; veh.input.nitro = false; this.gunnery(dt); return; }   // scatter
     const road = sim.road;
     const pv = Math.max(0, P.veh.vf), gap = P.s - car.s;      // gap > 0: we are behind the player
     const speed = veh.vf;
@@ -365,7 +366,8 @@ export class EnemyBrain {
 
   gunnery(dt) {
     const car = this.car, sim = this.sim, P = sim.player;
-    if (!P || P.exploded) { for (const role of Object.keys(this.guns)) { const c = car.crew[role]; if (c) { c.fire = false; c.ads = false; } } return; }
+    // (no target; or the Leviathan is going down: its escort loses heart, the finale is yours)
+    if (!P || P.exploded || sim.boss?.dead) { for (const role of Object.keys(this.guns)) { const c = car.crew[role]; if (c) { c.fire = false; c.ads = false; } } return; }
     for (const role of Object.keys(this.guns)) {
       const crew = car.crew[role]; const st = this.state[role]; const gun = this.guns[role];
       if (!crew || !crew.alive) { if (crew) { crew.fire = false; crew.ads = false; } continue; }

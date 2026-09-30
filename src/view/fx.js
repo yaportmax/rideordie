@@ -5,13 +5,21 @@
 //               for each car:  fx.updateCar(state, carView, dt, surfaceKind);
 //               fx.update(dt);                                              // once, before rendering
 //   optional:   fx.setGround((x, z) => groundY)   fx.setQuality(q)   fx.updateProjectiles([{k:1|2,x,y,z}], dt)   fx.wreck(state, carView)
+//               fx.setDepthSource(post)   // soft particles against Post's (last frame's) scene depth
 //
-// Files: fx/particles.js (GPU pool + shader), fx/atlas.js (sprite atlas), fx/recipes.js (explosion, muzzle, tracer, impact),
-//        fx/carfx.js (per-car tyre smoke / dust / nitro / smoke / sparks), fx/skid.js (SkidMarks), fx/decals.js, fx/meshpool.js, fx/wreck.js,
-//        fx/boss.js (THE LEVIATHAN: flamers, cannon, part fires, death + mushroom cloud), fx/hazards.js (mines, burning barrels, oil, boost pads).
+// Files: fx/particles.js (GPU pool + shader: lit smoke, sheared flame tongues, atmosphere fog, soft particles, cabin clip,
+//        particles attached to the local truck), fx/atlas.js (sprite atlas), fx/recipes.js (explosion, fire, smoke, muzzle, tracer,
+//        impact), fx/carfx.js (per-car tyre smoke / dust / nitro / engine smoke + fire; the local truck's hood fire / smoke /
+//        speed streaks), fx/cabin.js (the local cab as a clip volume + hood area), fx/skid.js (SkidMarks), fx/decals.js,
+//        fx/meshpool.js, fx/wreck.js, fx/boss.js (THE LEVIATHAN: flamers, cannon, part fires, death + mushroom cloud),
+//        fx/hazards.js (mines, burning barrels, oil slicks + oil fires, boost pads). Sheets: tools/env/build_fx_sheets.py.
+//
+// First person: nothing is ever drawn inside the local player's cab (fx/cabin.js + the shader's cabin clip), and the local
+// truck's own damage fire / smoke is simulated in the truck's frame, so it pours off the hood and around the cab OUTSIDE the
+// glass at any speed. Sandbox: fx.html?demo=ownburn|firelab|explosion|land|scrape|... (uses the game's Post pipeline).
 import * as THREE from 'three';
-import { buildAtlas, loadDecalTextures, SPR } from './fx/atlas.js';
-import { ParticleSystem, PDesc, MODE, PF, makeParticleUniforms } from './fx/particles.js';
+import { buildAtlas, loadDecalTextures, SPR, FRAMES } from './fx/atlas.js';
+import { ParticleSystem, PDesc, MODE, makeParticleUniforms } from './fx/particles.js';
 import { SkidMarks } from './fx/skid.js';
 import { DecalPool } from './fx/decals.js';
 import { MeshPool } from './fx/meshpool.js';
@@ -28,6 +36,7 @@ import { HazardFx } from './fx/hazards.js';
 import { BOSS_ID } from '../data/boss.js';
 import { ATMO, KEY } from '../world/atmosphere.js';
 import { measureCabin } from './fx/cabin.js';
+import { DebrisSystem } from './debris.js';
 
 export { SkidMarks } from './fx/skid.js';
 
@@ -45,7 +54,7 @@ class Job { constructor() { this.type = 0; this.t = 0; this.dur = 0; this.x = 0;
 
 const _o3 = [0, 0, 0];
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _pv = new THREE.Matrix4(), _pv2 = new THREE.Matrix4(), _sph = new THREE.Sphere();
-const _qi = new THREE.Quaternion(), _rv = new THREE.Vector3(), _c1 = new THREE.Color(), _c2 = new THREE.Color();
+const _qi = new THREE.Quaternion(), _c1 = new THREE.Color(), _c2 = new THREE.Color();
 
 export class Fx {
   constructor(scene, camera, opts = { quality: 2 }) {
@@ -113,6 +122,7 @@ export class Fx {
     this.setQuality(this.q);
     this._syncLighting(true);
     this.loaded = true;
+    DebrisSystem.fx = this;                            // detached car parts (debris.js) smoulder / spark through us
     return this;
   }
 
@@ -164,7 +174,7 @@ export class Fx {
 
   // ------------------------------------------------------------------------------------------------ jobs
   _job(type) { for (const j of this.jobs) if (j.type === 0) { j.type = type; j.t = 0; j.acc = j.acc2 = j.acc3 = j.acc4 = 0; j.cv = j.st = j.rec = null; return j; } return null; }
-  startSmokeColumn(x, y, z, S, gy) { const j = this._job(J.SMOKE); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = 3.5 + 2.5 * S; j.c = (16 + 12 * S) * Math.max(0.5, this.qd); }
+  startSmokeColumn(x, y, z, S, gy) { const j = this._job(J.SMOKE); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = 4 + 3 * S; j.c = (34 + 22 * S) * Math.max(0.5, this.qd); }
   startPop(x, y, z, S, gy, delay) { const j = this._job(J.POP); if (!j) return; j.x = x; j.y = y; j.z = z; j.a = S; j.b = gy; j.dur = delay; }
 
   _runJobs(dt) {
@@ -184,8 +194,8 @@ export class Fx {
             j.acc -= 1; n++;
             if (!this.near(j.x, j.y, j.z, this.farDist * 1.6)) continue;
             const c = rng.range(0.05, 0.08);
-            R.puff(this, j.x + rng.sym(0.8 * S), j.y + rng.range(0.5, 2.0) * sS, j.z + rng.sym(0.8 * S), rng.sym(1.0), rng.range(4, 8) * sS * (1 - 0.4 * k), rng.sym(1.0),
-              1.8 * sS, rng.range(6.5, 10) * sS, rng.range(6, 9.5), c, c * 0.96, c * 0.92, 0.9, 1.0, 0.9, j.b, 1.4 * (1 - smooth(0.5, 3.5, j.t)));
+            R.puff(this, j.x + rng.sym(0.8 * S), j.y + rng.range(0.2, 1.5) * sS, j.z + rng.sym(0.8 * S), rng.sym(1.0), rng.range(2.5, 6) * sS * (1 - 0.4 * k), rng.sym(1.0),
+              1.8 * sS, rng.range(5.5, 8.5) * sS, rng.range(6, 9.5), c, c * 0.96, c * 0.92, 0.85, 0.9, 0.9, j.b, 1.0 * (1 - smooth(0.5, 3.5, j.t)));
           }
           if (j.t >= j.dur) j.type = 0;
           break;
@@ -236,10 +246,10 @@ export class Fx {
       const zone = rng.next(), zz = zone < 0.45 ? rng.range(0.1, 0.42) : zone < 0.75 ? rng.range(-0.15, 0.15) : rng.range(-0.42, -0.1);
       _v.set(rng.sym(W * 0.3), H * rng.range(0.45, 0.8), zz * L).applyQuaternion(q).add(P);
       const w = rng.range(0.55, 1.5) * sW * (0.6 + 0.4 * burn);
-      R.flame(this, _v.x, _v.y, _v.z, vel.x * 0.6 + rng.sym(0.4), vel.y * 0.3 + rng.range(0.4, 1.4), vel.z * 0.6 + rng.sym(0.4), w, w * rng.range(1.3, 2.6), rng.range(0.5, 1.0), rng.range(0.85, 1.2), 3.2, 0, 1.0, 1.3);
+      R.flame(this, _v.x, _v.y, _v.z, vel.x * 0.6 + rng.sym(0.4), vel.y * 0.3 + rng.range(0.4, 1.4), vel.z * 0.6 + rng.sym(0.4), w, w * rng.range(1.1, 2.1), rng.range(0.5, 1.0), rng.range(0.85, 1.2), 3.2, 0, 1.0, 1.3);
     }
     // rolling fire bodies: the hot mass the tongues lick out of
-    const nb = this._acc(j, 'acc4', 8 * lod * burn, dt);
+    const nb = this._acc(j, 'acc4', 11 * lod * burn, dt);
     for (let k = 0; k < nb; k++) {
       _v.set(rng.sym(W * 0.25), H * rng.range(0.45, 0.75), rng.sym(L * 0.33)).applyQuaternion(q).add(P);
       const s = rng.range(1.0, 1.6) * sW * (0.6 + 0.4 * burn);
@@ -305,10 +315,22 @@ export class Fx {
     if (!this.near(x, y, z, 160)) return;
     const r = this.rng, hot = age < 2.2 ? 1 - age / 2.2 : 0;
     R.puff(this, x, y, z, r.sym(0.3), r.range(0.2, 0.7), r.sym(0.3), 0.4, r.range(0.9, 1.4), r.range(0.9, 1.4), 0.07, 0.066, 0.063, 0.3 * k, 0.5, 0.25, -1e4, 0.8 * hot);
-    if (hot > 0) {
-      if (r.next() < 0.25) R.flame(this, x, y - 0.05, z, r.sym(0.3), r.range(0.3, 1), r.sym(0.3), 0.25 + 0.2 * hot, (0.25 + 0.2 * hot) * 2.2, 0.25, 1.2, 2.5, 0, 1.5, 1.2);
-      R.glow(this, x, y, z, 0.55 + 0.35 * hot, 0.09, 2.2, 0.95, 0.22, false, 1.0);
-    }
+    if (hot > 0) R.glow(this, x, y, z, 0.55 + 0.35 * hot, 0.09, 2.2, 0.95, 0.22, false, 1.0);
+  }
+  /** A detached car part (hood, door, wheel) slammed into the ground. */
+  debrisImpact(x, gy, z, imp, vx, vz, size) {
+    if (!this.near(x, gy, z, 140)) return;
+    const r = this.rng, n = Math.round((4 + Math.min(10, imp)) * this.qd), dc = R.dustColor('dirt');
+    for (let k = 0; k < n; k++) R.spark(this, x + r.sym(size), gy + 0.05, z + r.sym(size), vx * 0.6 + r.sym(5), r.range(1, 4 + imp * 0.3), vz * 0.6 + r.sym(5), r.range(0.2, 0.55), gy, 0.9, 0.035);
+    for (let k = 0; k < 2; k++) R.dust(this, x + r.sym(size), gy + 0.15, z + r.sym(size), vx * 0.2 + r.sym(1.5), r.range(0.4, 1.4), vz * 0.2 + r.sym(1.5), 0.5, r.range(1.8, 2.8) * (0.6 + size), r.range(1.0, 1.6), dc[0], dc[1], dc[2], 0.5, gy);
+  }
+  /** A blast-thrown part still burning: smoke trail + licks of fire (k: 1 fresh .. 0 out). */
+  debrisSmoulder(x, y, z, k, size) {
+    if (!this.near(x, y, z, 160)) return;
+    const r = this.rng;
+    R.puff(this, x, y, z, r.sym(0.4), r.range(0.5, 1.2), r.sym(0.4), 0.4 + size, r.range(1.4, 2.2) + size * 2, r.range(1.0, 1.6), 0.06, 0.057, 0.055, 0.45 * (0.3 + 0.7 * k), 0.7, 0.3, -1e4, 0.9 * k);
+    if (r.next() < 0.25 * k) R.fireBody(this, x + r.sym(size), y, z + r.sym(size), r.sym(0.3), r.range(0.3, 0.9), r.sym(0.3), 0.3 + 0.4 * size, 0.7 + 0.9 * size, 0.35, 0.9);
+    else if (k > 0.2) R.glow(this, x, y, z, 0.5 + size, 0.08, 1.8, 0.8, 0.2, false, 1.0);
   }
   _grenadeBounce(x, y, z, imp) {
     const r = this.rng;
@@ -338,7 +360,7 @@ export class Fx {
     const hI = hemi ? hemi.intensity / Math.PI : 0.1;
     const sc = hemi ? hemi.color : _c1.setRGB(0.6, 0.65, 0.75), gc = hemi ? hemi.groundColor : _c2.setRGB(0.4, 0.35, 0.3);
     const night = 1 - (ATMO.uAtmSun.value.w || 0);
-    const fl = [0.07 * night, 0.085 * night, 0.13 * night];
+    const fl = [0.1 * night, 0.115 * night, 0.16 * night];
     const sky = this.U.uSkyCol.value, gnd = this.U.uGndCol.value;
     sky.set(sc.r * hI + envI * (0.35 * zen.x + 0.45 * hor.x), sc.g * hI + envI * (0.35 * zen.y + 0.45 * hor.y), sc.b * hI + envI * (0.35 * zen.z + 0.45 * hor.z)).multiplyScalar(this.ambGain);
     gnd.set(gc.r * hI + envI * 0.25 * hor.x, gc.g * hI + envI * 0.25 * hor.y, gc.b * hI + envI * 0.25 * hor.z).multiplyScalar(this.ambGain);
@@ -661,7 +683,7 @@ export class Fx {
       const f = i / n, x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f, z = z0 + (z1 - z0) * f;
       R.puff(this, x, y, z, r.sym(0.5), r.range(0.1, 0.6), r.sym(0.5), 0.35, r.range(2.0, 3.0), r.range(1.6, 2.4), 0.82, 0.8, 0.77, 0.55, 0.15, 0.5);
       if (i === n) {
-        const p = this.p.reset(); p.pos(x, y, z).vel(dx * 6, dy * 6, dz * 6); p.mode = MODE.FLAME; p.spr = SPR.FIRE; p.f0 = r.int(32); p.nPlay = 32; p.fps = 40; p.len = 2.6; p.size(0.55, 0.3);
+        const p = this.p.reset(); p.pos(x, y, z).vel(dx * 6, dy * 6, dz * 6); p.mode = MODE.FLAME; p.spr = SPR.FIRE; p.f0 = r.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = 40; p.len = 2.6; p.size(0.55, 0.3);
         p.life = 0.06; p.col(2.6, 1.7, 0.9, 1); p.add0 = p.add1 = 1; p.fin = 0.05; p.fout = 0.5; this.pf.emit(p);
         const gk = Math.min(1, this.dist(x, y, z) / 10);           // right after launch the glow is next to the shooter's eye: keep it small
         R.glow(this, x, y, z, 1.4 * (0.25 + 0.75 * gk), 0.05, 6 * gk + 1.5, 3.2 * gk + 0.8, 1.2 * gk + 0.3, false, 1.2);

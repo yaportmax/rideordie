@@ -9,22 +9,22 @@ import * as THREE from 'three';
 export const SPR = { SMOKE: 0, FIRE: 1, DUST: 2, MUZZLE: 3, DEBRIS: 4, SHOCK: 5, FLASH: 6, SPARK: 7, STREAK: 8, FIREBALL: 9, SMOKE_FLAT: 10 };
 export const NSPR = 12;
 /** Frame counts of the animated sheets (for callers picking frames / loops). */
-export const FRAMES = { FIRE: 32, FIREBALL: 64 };
+export const FRAMES = { FIRE: 16, FIREBALL: 64 };
 
 const W = 4096, H = 2048;
 // x,y,w,h in atlas pixels (y from the top); cols x rows = frames in the sheet
 const LAYOUT = [
   { id: SPR.SMOKE, file: 'smoke_lit.png', x: 0, y: 0, w: 1024, h: 1024, cols: 4, rows: 4, lit: 1 },
   { id: SPR.DUST, file: 'dust_lit.png', x: 1024, y: 0, w: 1024, h: 1024, cols: 4, rows: 4, lit: 1 },
-  { id: SPR.FIRE, file: 'flame_sheet.png', x: 2048, y: 0, w: 1024, h: 1024, cols: 8, rows: 4 },
-  { id: SPR.FIREBALL, file: 'fireball_sheet.png', x: 3072, y: 0, w: 1024, h: 1024, cols: 8, rows: 8 },
-  { id: SPR.SMOKE_FLAT, file: 'smoke_sheet.png', x: 0, y: 1024, w: 1024, h: 1024, cols: 4, rows: 4 },
-  { id: SPR.MUZZLE, file: 'muzzle_flash_sheet.png', x: 1024, y: 1024, w: 1024, h: 512, cols: 4, rows: 2 },
-  { id: SPR.DEBRIS, file: 'debris_sheet.png', x: 1024, y: 1536, w: 512, h: 512, cols: 4, rows: 4 },
-  { id: SPR.SHOCK, file: 'shockwave.png', x: 1536, y: 1536, w: 512, h: 512, cols: 1, rows: 1 },
-  { id: SPR.FLASH, file: 'blast_flash.png', x: 2048, y: 1024, w: 512, h: 512, cols: 1, rows: 1 },
-  { id: SPR.SPARK, file: 'spark.png', x: 2560, y: 1024, w: 256, h: 256, cols: 1, rows: 1 },
-  { id: SPR.STREAK, file: 'spark_streak.png', x: 2560, y: 1280, w: 256, h: 64, cols: 1, rows: 1 },
+  { id: SPR.FIREBALL, file: 'fireball_sheet.png', x: 2048, y: 0, w: 1024, h: 1024, cols: 8, rows: 8 },
+  { id: SPR.FIRE, file: 'flame_sheet.png', x: 3072, y: 0, w: 1024, h: 2048, cols: 4, rows: 4 },
+  { id: SPR.MUZZLE, file: 'muzzle_flash_sheet.png', x: 0, y: 1024, w: 1024, h: 512, cols: 4, rows: 2 },
+  { id: SPR.DEBRIS, file: 'debris_sheet.png', x: 0, y: 1536, w: 512, h: 512, cols: 4, rows: 4 },
+  { id: SPR.SHOCK, file: 'shockwave.png', x: 512, y: 1536, w: 512, h: 512, cols: 1, rows: 1 },
+  { id: SPR.FLASH, file: 'blast_flash.png', x: 1024, y: 1024, w: 512, h: 512, cols: 1, rows: 1 },
+  { id: SPR.SPARK, file: 'spark.png', x: 1536, y: 1024, w: 256, h: 256, cols: 1, rows: 1 },
+  { id: SPR.STREAK, file: 'spark_streak.png', x: 1536, y: 1280, w: 256, h: 64, cols: 1, rows: 1 },
+  { id: SPR.SMOKE_FLAT, file: 'smoke_sheet.png', x: 2048, y: 1024, w: 1024, h: 1024, cols: 4, rows: 4 },
 ];
 
 function loadImage(url) {

@@ -21,7 +21,7 @@ export const BOSS_PARTS = {
   panel_armor_rear_1: { hp: 5000, core: true, label: 'REAR ARMOR', phase: 2 },
   panel_armor_rear_2: { hp: 5000, core: true, label: 'REAR ARMOR', phase: 2 },
   panel_armor_rear_3: { hp: 5000, core: true, label: 'REAR ARMOR', phase: 2 },
-  part_engine: { hp: 13000, core: true, label: 'REACTOR', weak: true, phase: 3, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_tank_L', 'part_tank_R'] },   // tanks cool it, plates cover it
+  part_engine: { hp: 10500, core: true, label: 'REACTOR', weak: true, phase: 3, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_tank_L', 'part_tank_R'] },   // tanks cool it, plates cover it
   part_plow: { hp: 2500, label: 'PLOW' },
   part_stack_L: { hp: 700, label: 'STACK' },
   part_stack_R: { hp: 700, label: 'STACK' },
@@ -59,7 +59,7 @@ export const BOSS = {
   tankBlast: { radius: 16, dmg: 160, coreDmg: 0.06 },
   // pacing (3-4 min fight with beats): phase 1 (guns) ends when <= 1 gun is left or after phase1Max s; phase 2 (cannon, flamers,
   // tanks, rear armour) ends when the rear armour is gone or after phase2Max s (the overheating reactor blows its own plates off)
-  phase1Max: 50, phase2Max: 95,
+  phase1Max: 58, phase2Max: 95,
   blockadeAt: 16,           // s into the fight: the train smashes through a wall of wrecks up the road
   waves: { 2: ['e_buggy', 'e_sedan', 'e_muscle'], 3: ['e_buggy', 'e_buggy'] },   // escort drops when a phase starts
   bounty: 50000,

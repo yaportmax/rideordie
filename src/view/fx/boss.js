@@ -3,7 +3,7 @@
 // Everything attached to the boss is stored in the boss model frame and re-projected every frame from the view root
 // (ctx.carViews.get(BOSS_ID).root); particles inherit the boss velocity so fire/smoke streams back as it drives.
 import * as THREE from 'three';
-import { SPR } from './atlas.js';
+import { SPR, FRAMES } from './atlas.js';
 import { MODE } from './particles.js';
 import * as R from './recipes.js';
 import { clamp01, smooth } from './util.js';
@@ -239,10 +239,10 @@ export class BossFx {
     for (let s = 0; s < 2; s++) {
       if (this.stackGone[s] || !this.local(s ? 'smoke_stack_R' : 'smoke_stack_L', _l)) continue;
       this.toWorld(_l, _w);
-      let a = this.acc[s] + (rage ? 22 : 5) * lod * dt, n = 0; while (a >= 1 && n < 4) { a -= 1; n++; } this.acc[s] = Math.min(a, 1);
+      let a = this.acc[s] + (rage ? 34 : 9) * lod * dt, n = 0; while (a >= 1 && n < 4) { a -= 1; n++; } this.acc[s] = Math.min(a, 1);
       for (let i = 0; i < n; i++) {
-        if (rage) R.puff(fx, _w.x + r.sym(0.2), _w.y + 0.3, _w.z + r.sym(0.2), V.x * 0.85 + r.sym(0.8), V.y + r.range(6, 10), V.z * 0.85 + r.sym(0.8), 1.2, r.range(7, 10), r.range(4, 6), 0.06, 0.055, 0.052, 0.92, 1.1, 0.5);
-        else R.puff(fx, _w.x, _w.y + 0.3, _w.z, V.x * 0.85 + r.sym(0.5), V.y + r.range(3, 5), V.z * 0.85 + r.sym(0.5), 0.5, r.range(2.5, 3.5), r.range(2, 3), 0.35, 0.34, 0.33, 0.28, 0.8, 0.4);
+        if (rage) R.puff(fx, _w.x + r.sym(0.2), _w.y + 0.3, _w.z + r.sym(0.2), V.x * 0.9 + r.sym(0.8), V.y + r.range(4, 7), V.z * 0.9 + r.sym(0.8), 2.0, r.range(7, 10), r.range(4, 6), 0.06, 0.055, 0.052, 0.85, 1.0, 0.9, -1e4, 0.5);
+        else R.puff(fx, _w.x, _w.y + 0.3, _w.z, V.x * 0.9 + r.sym(0.5), V.y + r.range(2.5, 4), V.z * 0.9 + r.sym(0.5), 0.8, r.range(2.8, 3.8), r.range(2, 3), 0.35, 0.34, 0.33, 0.26, 0.8, 0.7);
       }
       if (rage) {
         let b = this.acc[2 + s] + 7 * lod * dt; while (b >= 1) { b -= 1; R.spark(fx, _w.x, _w.y + 0.2, _w.z, V.x * 0.9 + r.sym(3), r.range(5, 13), V.z * 0.9 + r.sym(3), r.range(0.5, 1.1), _w.y - 9, 1, 0.04); } this.acc[2 + s] = b;
@@ -270,7 +270,7 @@ export class BossFx {
     for (let i = 0; i < n; i++) {
       const D = R.coneDir(r, Dx, Dy, Dz, 0.12), sp = r.range(32, 42), o = r.range(0, 0.6);
       const p = fx.p.reset(); p.pos(_w.x + D.x * o, _w.y + D.y * o, _w.z + D.z * o).vel(V.x + D.x * sp, V.y + D.y * sp, V.z + D.z * sp);
-      p.spr = SPR.FIRE; p.f0 = r.int(32); p.nPlay = 32; p.fps = 30; p.rot = r.next() * PI2; p.rotV = r.sym(2.5); p.aspect = 1.6;
+      p.spr = SPR.FIRE; p.f0 = r.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = 30; p.rot = r.next() * PI2; p.rotV = r.sym(2.5); p.aspect = 1.6;
       p.size(r.range(0.6, 0.9), r.range(4, 5.5)); p.sCurve = 0.7; p.drag = 1.6; p.grav = -2.5; p.life = r.range(0.62, 0.85); p.ground = gy;
       p.col0(2.6, 1.7, 0.9, 1).col1(1.4, 0.38, 0.08, 0.9); p.cCurve = 0.8; p.add0 = p.add1 = 1; p.fin = 0.02; p.fout = 0.45;
       fx.pf.emit(p);
@@ -285,7 +285,7 @@ export class BossFx {
     n = this._rate(j, 'a2', 34 * q, dt, 4);
     for (let i = 0; i < n; i++) {
       const D = R.coneDir(r, Dx, Dy, Dz, 0.05), sp = r.range(30, 38);
-      const p = fx.p.reset(); p.pos(_w.x, _w.y, _w.z).vel(V.x + D.x * sp, V.y + D.y * sp, V.z + D.z * sp); p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = r.int(32); p.nPlay = 32; p.fps = 40;
+      const p = fx.p.reset(); p.pos(_w.x, _w.y, _w.z).vel(V.x + D.x * sp, V.y + D.y * sp, V.z + D.z * sp); p.spr = SPR.FIRE; p.mode = MODE.FLAME; p.f0 = r.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = 40;
       p.len = 1.2; p.lenSpd = 0.1; p.size(0.4, 1.3); p.drag = 2; p.life = r.range(0.16, 0.24); p.col(3.4, 2.5, 1.4, 1); p.add0 = p.add1 = 1; p.fin = 0.02; p.fout = 0.5;
       fx.pf.emit(p);
     }

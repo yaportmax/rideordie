@@ -4,14 +4,14 @@
 import * as THREE from 'three';
 import { clamp, wrapAngle, lerp } from '../core/util.js';
 import { carPoint } from '../sim/ai.js';
+import { bossAimPoint } from '../sim/boss.js';
 
 const _p = new THREE.Vector3(), _d = new THREE.Vector3();
-const BOSS_ORDER = ['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R', 'part_turret_main', 'part_tank_L', 'part_tank_R', 'panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_engine'];
 
 export class AIGunner {
   constructor(run, skill = 0.75) {
     this.run = run; this.skill = skill;
-    this.target = null; this.aimErr = new THREE.Vector2(); this.retargetT = 0; this.burstT = 0; this.pauseT = 0; this.nadeCd = 6; this.swapCd = 0;
+    this.target = null; this.aimErr = new THREE.Vector2(); this.retargetT = 0; this.burstT = 0; this.pauseT = 0; this.nadeCd = 6; this.swapCd = 0; this.rpgCd = 0;
     this.cmd = { dYaw: 0, dPitch: 0, fire: false, firePressed: false, ads: false, reload: false, grenade: false, swap: 0, slot: -1, crouch: false, moveX: 0, moveZ: 0, lean: 0, medkit: false, viewToggle: false };
   }
 
@@ -36,9 +36,9 @@ export class AIGunner {
     }
     const B = sim.boss;
     if (B && !B.dead && B.pos.distanceTo(P.veh.pos) < 180) {
-      const n = BOSS_ORDER.find((k) => B.alive[k]);
-      const z = n && B.zones.find((q) => q.kind === n);
-      if (z) out.push({ p: B.local(z.c), boss: true, score: 3, kind: 'boss' });
+      // the best part we can see AND damage right now (phases seal later parts)
+      const p = bossAimPoint(B, eye);
+      if (p) out.push({ p, boss: true, score: 3, kind: 'boss' });
     }
     // only what we can see from the bed (not through our own cab too much)
     return out.filter((t) => { _d.copy(t.p).sub(eye); return _d.length() > 3; });
@@ -48,7 +48,7 @@ export class AIGunner {
     const run = this.run, sim = run.sim, P = run.player, c = this.cmd;
     c.fire = c.firePressed = c.reload = c.grenade = c.medkit = false; c.slot = -1; c.swap = 0; c.dYaw = 0; c.dPitch = 0; c.ads = false;
     if (sim.state !== 'run' || !P.crew.gunner || !P.crew.gunner.alive) return c;
-    this.retargetT -= dt; this.swapCd -= dt; this.nadeCd -= dt;
+    this.retargetT -= dt; this.swapCd -= dt; this.nadeCd -= dt; this.rpgCd -= dt;
     // ---------------- choose a target (reaction time)
     if (this.retargetT <= 0 || !this.target || (this.target.car && this.target.car.exploded)) {
       const ts = this._targets(eye);
@@ -70,12 +70,18 @@ export class AIGunner {
       const slots = gunner.slots;
       const has = (id) => slots.indexOf(id);
       let want = gunner.cur;
-      const heavy = t.boss || t.kind === 'weak' || (t.car && (t.car.spec.mass > 2500 || t.car.elite));
-      if (has('rpg') >= 0 && heavy && dist > 18 && dist < 140) want = has('rpg');
+      const heavy = t.kind === 'weak' || (t.car && (t.car.spec.mass > 2500 || t.car.elite));
+      const auto = ['lmg', 'rifle', 'smg', 'revolver', 'pistol'].find((id) => has(id) >= 0);
+      if (t.boss) {
+        // the war-train: sustained fire wins; the RPG only when it is already loaded (never sit through its reload)
+        const rpgReady = has('rpg') >= 0 && gunner.mag[has('rpg')] > 0 && !(gunner.cur === has('rpg') && gunner.reloading);
+        want = rpgReady && dist > 18 && dist < 140 && this.rpgCd <= 0 ? has('rpg') : (auto ? has(auto) : want);
+        if (want === has('rpg')) this.rpgCd = 6;
+      } else if (has('rpg') >= 0 && heavy && dist > 18 && dist < 140) want = has('rpg');
       else if (has('shotgun') >= 0 && dist < 14) want = has('shotgun');
-      else if (has('sniper') >= 0 && dist > 90) want = has('sniper');
-      else { const auto = ['lmg', 'rifle', 'smg', 'revolver', 'pistol'].find((id) => has(id) >= 0); if (auto) want = has(auto); }
-      if (want !== gunner.cur) { c.slot = want; this.swapCd = 2.5; }
+      else if (!t.boss && has('sniper') >= 0 && dist > 90) want = has('sniper');
+      else if (!t.boss && auto) want = has(auto);
+      if (want !== gunner.cur) { c.slot = want; this.swapCd = t.boss ? 1.2 : 2.5; }
     }
     // ---------------- aim: turn-rate limited toward target + settling error
     _d.copy(t.p).sub(eye).normalize();
@@ -96,12 +102,16 @@ export class AIGunner {
       if (w.mode === 'auto') {
         this.burstT += dt;
         c.fire = true;
-        if (this.burstT > lerp(0.5, 1.1, this.skill)) { this.burstT = 0; this.pauseT = 0.18; c.fire = false; } // let the recoil settle
+        if (this.burstT > lerp(0.5, 1.1, this.skill) * (t.boss ? 2.2 : 1)) { this.burstT = 0; this.pauseT = t.boss ? 0.1 : 0.18; c.fire = false; } // let the recoil settle
       } else { c.fire = true; c.firePressed = !this._pressed; }
     }
     this._pressed = c.fire;
+    if (t.boss && w.mode !== 'auto' && gunner.magNow === 0 && this.swapCd > 0.3) this.swapCd = 0.3;   // fired the rocket: swap back, don't reload
     // ---------------- reload in lulls / when dry
-    if (!gunner.reloading && (gunner.magNow === 0 || (gunner.magNow < w.mag * 0.25 && (!onTarget || dist > 80)))) c.reload = true;
+    const rocketDry = t.boss && w.mode !== 'auto' && gunner.magNow === 0;   // swap to the gun instead (it reloads another time)
+    if (!gunner.reloading && !rocketDry && (gunner.magNow === 0 || (gunner.magNow < w.mag * 0.25 && (!onTarget || dist > 80)))) c.reload = true;
+    // reload the rocket in a lull, away from the fight
+    if (!t.boss && gunner.weaponId === 'rpg' && gunner.magNow === 0 && !gunner.reloading) c.reload = true;
     // ---------------- grenades at bunched cars close behind
     if (this.nadeCd <= 0 && gunner.grenades > 0 && t.car && dist > 12 && dist < 38) {
       let bunch = 0; for (const car of sim.cars.values()) if (car.kind === 'enemy' && !car.exploded && car.veh.pos.distanceTo(t.car.veh.pos) < 9) bunch++;

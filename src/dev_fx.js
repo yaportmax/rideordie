@@ -1,6 +1,8 @@
 // FX test page:  /fx.html?demo=explosion&t=0.6&ui=0
 //   demo=all|explosion|explosion2|explosion3|tanker|weapons|muzzle|impacts|drift|nitro|burn|smoke|rocket|grenade|crash|skid|offroad|perf|night
-//        boss|bosscannon|bosspart|bossramp|bossmg|bossdeath|hazards
+//        boss|bosscannon|bosspart|bossramp|bossmg|bossdeath|hazards|firelab (wreck + barrel + oil fire)|ownburn (the local truck on fire:
+//        attached hood fire, &truck=<id>&v=<m/s>&smoke=1)|land (hard landing sparks)|scrape (contact sparks on the local truck)
+//   post=lite: the old bloom+ACES preview instead of the game's Post pipeline (AgX grade, bloom, soft-particle depth)
 //   t=<seconds>   pre-step the demo to that time (fixed 60 Hz), then freeze (deterministic screenshots)
 //   q=0..3 quality   bloom=0 disables the HDR bloom preview   ui=0 hides buttons/HUD   s=<road s> time-of-day (look)   cam=x,y,z,tx,ty,tz   fov=55   surf=gravel|sand|...
 //   Mouse: drag = orbit, wheel = zoom.  Keys: see buttons.
@@ -322,6 +324,14 @@ const DEMOS = {
     setCam(-10, 2.4, 22, 0, 2.4, 42, 56);
     const c = new DemoCar('e_sedan', 0, 42, { paint: 0x8a3b2a }); at(0.15, () => explodeCar(c, 1));
     at(0.05, () => shootFrom('lmg', [-3, 1.5, 28], [0, 0, 90]));
+  },
+  land() {                                              // a jump landing hard on asphalt: undercarriage sparks + dust
+    const c = new DemoCar('e_sedan', 0, 10, { paint: 0x3d4a5f }); at(0.1, () => c.launch(7, 0, 0, 0, 22)); follow(c, 2.3, 0.12, 9, 0.8, 0);
+  },
+  scrape() {                                            // the local truck grinding along a rail: contact sparks on the hull side
+    const p = new DemoCar('e_van', 0, 20, { paint: 0x8f6a3d, kind: 'player', id: 1 }); p.f.drive = true; p.f.speed = 24;
+    hooks.push((dt, t) => { if (((t * 8) | 0) !== ((t - dt) * 8 | 0)) fire({ t: 'crash', id: 1, other: -1, dv: 3 + Math.random() * 3, speed: 24, pos: [p.state.pos.x, p.state.pos.y, p.state.pos.z] }); });
+    follow(p, num('az', 2.2), 0.15, 9, 1.0, 0);
   },
   ownburn() {                                           // the local player's truck on fire (attached hood fire / smoke + cabin clip)
     const p = new DemoCar(Q.get('truck') || 'truck_t4', 0, 20, { paint: 0x8f6a3d, kind: 'player', id: 1 }); p.f.drive = true; p.f.speed = num('v', 25); p.f.burn = !Q.has('smoke'); p.f.smoke = true;

@@ -27,12 +27,13 @@ export class BossMarks {
     for (const n of PART_NAMES) {
       const def = BOSS_PARTS[n]; if (!def.core && !def.marker) continue;
       const z = zones.get(n); if (!z) continue;
-      const big = !!def.weak, w = big ? 0.085 : 0.05, h = big ? 0.009 : 0.0065;
+      // (sizeAttenuation off: 1 scale unit ~ 640 px at the gunner's fov) -> bars ~70 x 7 px, reactor ~130 x 12 px
+      const big = !!def.weak, w = big ? 0.2 : 0.11, h = big ? 0.019 : 0.011;
       const col = n.startsWith('panel_armor_rear') ? ARMOR : COLORS[def.phase || 2];
       const g = new THREE.Group();
       const bg = new THREE.Sprite(spriteMat({ color: 0x000000, opacity: 0.6 })); bg.center.set(0.5, 0.5); bg.scale.set(w + 0.003, h + 0.003, 1); bg.renderOrder = 990;
       const fill = new THREE.Sprite(spriteMat({ color: col })); fill.center.set(0, 0.5); fill.scale.set(w, h, 1); fill.position.x = 0; fill.renderOrder = 991;
-      const label = new THREE.Sprite(spriteMat({ map: labelTex(def.label || n) })); label.center.set(0.5, 0); label.scale.set(big ? 0.06 : 0.045, big ? 0.0113 : 0.0084, 1); label.renderOrder = 991;
+      const label = new THREE.Sprite(spriteMat({ map: labelTex(def.label || n) })); label.center.set(0.5, 0); label.scale.set(big ? 0.24 : 0.175, big ? 0.045 : 0.033, 1); label.renderOrder = 991;
       // the three rear plates sit side by side: one label for the group, bars only on the others
       const dupe = /^panel_armor_rear_[23]$/.test(n);
       g.add(bg, fill); if (!dupe) g.add(label);
@@ -66,11 +67,11 @@ export class BossMarks {
         m.fill.position.copy(this._r.set(1, 0, 0).applyQuaternion(cam.quaternion)).multiplyScalar(-m.w * 0.5 * d);   // bar grows from its left end
         m.label.position.copy(this._r.set(0, 1, 0).applyQuaternion(cam.quaternion)).multiplyScalar(m.h * 0.9 * d);   // label just above the bar
       }
-      m.fill.scale.x = Math.max(0.0005, m.w * hp);
+      m.fill.scale.x = Math.max(0.001, m.w * hp);
       const focus = (m.def.phase || 2) <= bs.phase || m.def.weak;
       const pulse = m.def.weak ? 0.75 + 0.25 * Math.sin(this.t * 8) : 1;
       const a = (focus ? 1 : 0.45) * pulse;
-      m.fill.material.opacity = a; m.bg.material.opacity = 0.6 * (focus ? 1 : 0.6); m.label.material.opacity = focus ? 1 : 0.4;
+      m.fill.material.opacity = a; m.bg.material.opacity = 0.6 * (focus ? 1 : 0.6); m.label.visible = focus;   // (off-phase parts: bar only, no label clutter)
     }
   }
 
