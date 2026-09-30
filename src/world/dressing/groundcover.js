@@ -22,12 +22,12 @@ const A0 = -2.2, A1 = 36;                         // lateral band, metres beyond
 const KINDS = ['grass', 'scrub', 'flower', 'pebble', 'tyre', 'debris', 'tumble'];
 // density per m2 at the road side (before clumping / falloff); dry = share of dry grass cards; tints are linear multipliers [a, b]
 const COVER = {
-  desert:   { tyre: 0.007, debris: 0.011, tumble: 1 / 70, grass: 0.3, scrub: 0.05, flower: 0.0, pebble: 0.42, dry: 1.0, g: [[1.08, 1.0, 0.86], [0.92, 0.82, 0.66]], s: [[1.95, 1.8, 1.35], [1.7, 1.52, 1.18]], f: [0xe8d27a, 0xd9a05a], p: [0xb89878, 0x8a6048] },
-  canyon:   { tyre: 0.005, debris: 0.008, tumble: 1 / 130, grass: 0.22, scrub: 0.06, flower: 0.0, pebble: 0.85, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.62, 1.25], [1.7, 1.42, 1.1]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
-  coast:    { tyre: 0.004, debris: 0.007, tumble: 0, grass: 1.3, scrub: 0.05, flower: 0.14, pebble: 0.14, dry: 0.22, g: [[1.12, 1.12, 0.78], [1.22, 1.12, 0.72]], s: [[1.5, 1.65, 1.2], [1.68, 1.62, 1.22]], f: [0xf2efe4, 0xf0cc48], p: [0x9a978f, 0x75726c] },
-  mountain: { tyre: 0.0035, debris: 0.006, tumble: 0, grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.4, 1.55, 1.15], [1.6, 1.5, 1.15]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
-  city:     { tyre: 0.015, debris: 0.035, tumble: 1 / 260, grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.45, 1.45, 1.15], [1.55, 1.45, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },
-  dam:      { tyre: 0.006, debris: 0.009, tumble: 1 / 200, grass: 0.6, scrub: 0.05, flower: 0.03, pebble: 0.3, dry: 0.65, g: [[0.98, 0.96, 0.82], [1.05, 0.96, 0.78]], s: [[1.55, 1.55, 1.2], [1.65, 1.55, 1.2]], f: [0xf2efe4, 0xf0cc48], p: [0x97948e, 0x72706a] },
+  desert:   { tyre: 0.0021, debris: 0.016, tumble: 1 / 70, grass: 0.3, scrub: 0.05, flower: 0.0, pebble: 0.42, dry: 1.0, g: [[1.08, 1.0, 0.86], [0.92, 0.82, 0.66]], s: [[1.95, 1.8, 1.35], [1.7, 1.52, 1.18]], f: [0xe8d27a, 0xd9a05a], p: [0xb89878, 0x8a6048] },
+  canyon:   { tyre: 0.0015, debris: 0.013, tumble: 1 / 130, grass: 0.22, scrub: 0.06, flower: 0.0, pebble: 0.85, dry: 1.0, g: [[1.02, 0.86, 0.7], [0.88, 0.7, 0.56]], s: [[1.9, 1.62, 1.25], [1.7, 1.42, 1.1]], f: [0xe0b060, 0xd08050], p: [0xa8603f, 0x7a4432] },
+  coast:    { tyre: 0.0012, debris: 0.013, tumble: 0, grass: 1.3, scrub: 0.05, flower: 0.14, pebble: 0.14, dry: 0.22, g: [[1.12, 1.12, 0.78], [1.22, 1.12, 0.72]], s: [[1.5, 1.65, 1.2], [1.68, 1.62, 1.22]], f: [0xf2efe4, 0xf0cc48], p: [0x9a978f, 0x75726c] },
+  mountain: { tyre: 0.001, debris: 0.011, tumble: 0, grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.4, 1.55, 1.15], [1.6, 1.5, 1.15]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
+  city:     { tyre: 0.0045, debris: 0.042, tumble: 1 / 260, grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.45, 1.45, 1.15], [1.55, 1.45, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },
+  dam:      { tyre: 0.0018, debris: 0.013, tumble: 1 / 200, grass: 0.6, scrub: 0.05, flower: 0.03, pebble: 0.3, dry: 0.65, g: [[0.98, 0.96, 0.82], [1.05, 0.96, 0.78]], s: [[1.55, 1.55, 1.2], [1.65, 1.55, 1.2]], f: [0xf2efe4, 0xf0cc48], p: [0x97948e, 0x72706a] },
 };
 const HEX = (h) => new THREE.Color().setHex(h);
 const LIN = {};
@@ -39,8 +39,19 @@ const SWAY = { grass: 0.11, scrub: 0.04, flower: 0.12, pebble: 0, tyre: 0, debri
 // variants baked into one geometry per kind, selected per instance: weight, colour palette (instance tint; null = neutral)
 const VARIANTS = {
   tyre: [[0.6, null], [0.4, null]],                                                  // lying flat, leaning
-  debris: [[0.28, null], [0.17, null], [0.17, null],                                 // tread strip, plank, scrap sheet
-    [0.14, [0xb03a2a, 0x3a5a8a, 0xc89a2a, 0x6a7a4a]], [0.12, null], [0.12, [0x5a6a3a, 0xa03a2a, 0x3a3a3a]]],   // bucket, hubcap, jerrycan
+  // litter: 0 tread strip, 1 plank, 2 scrap sheet, 3 bucket, 4 hubcap, 5 jerrycan, 6 bones, 7 cow skull, 8 crate, 9 driftwood,
+  // 10 buoy, 11 rock chunk, 12 snow pole. Weights are per biome (LITTER_W); the second entry is the instance tint palette (null = neutral).
+  debris: [[0, null], [0, null], [0, null], [0, [0xb03a2a, 0x3a5a8a, 0xc89a2a, 0x6a7a4a]], [0, null], [0, [0x5a6a3a, 0xa03a2a, 0x3a3a3a]],
+    [0, null], [0, null], [0, [0x8a7458, 0x6e5a44, 0x9a8a6a]], [0, null], [0, [0xd8401c, 0xe8c020, 0xe8e4dc]], [0, null], [0, null]],
+};
+//                 tread plank scrap bucket hubcap jerry bones skull crate drift buoy rock  pole
+const LITTER_W = {
+  desert:   [0.22, 0.1, 0.1, 0.04, 0.07, 0.07, 0.16, 0.12, 0.05, 0.02, 0, 0.05, 0],
+  canyon:   [0.18, 0.08, 0.08, 0.03, 0.06, 0.06, 0.13, 0.1, 0.03, 0.02, 0, 0.23, 0],
+  coast:    [0.08, 0.14, 0.06, 0.08, 0.04, 0.05, 0.02, 0, 0.07, 0.3, 0.16, 0, 0],
+  mountain: [0.1, 0.1, 0.06, 0.02, 0.04, 0.06, 0.02, 0, 0.03, 0.08, 0, 0.3, 0.19],
+  city:     [0.12, 0.12, 0.16, 0.12, 0.1, 0.08, 0.02, 0, 0.24, 0, 0, 0.04, 0],
+  dam:      [0.16, 0.14, 0.14, 0.06, 0.08, 0.08, 0.02, 0, 0.1, 0.06, 0.04, 0.12, 0],
 };
 const TUMBLE_L = 36;                               // metres a tumbleweed rolls (centred on the road) before it loops
 const CELL = { dry: 0, green: 1, stalks: 2, bush: 3 };
@@ -112,6 +123,29 @@ function debrisGeo(kind) {
   add(new THREE.CylinderGeometry(0.15, 0.13, 0.34, 9).rotateZ(Math.PI / 2).translate(0, 0.14, 0), 3, [0.8, 0.8, 0.8], 0.2);
   add(new THREE.CylinderGeometry(0.19, 0.19, 0.03, 12).rotateX(0.12).translate(0, 0.03, 0), 4, [0.34, 0.35, 0.36], 0.25);
   add(new THREE.BoxGeometry(0.35, 0.44, 0.16).rotateZ(1.35).translate(0, 0.1, 0), 5, [0.8, 0.8, 0.8], 0.15);
+  const BONE = [0.86, 0.82, 0.72];
+  {                                                                                  // scattered long bones + a few ribs
+    const b = [];
+    for (const [x, z, yaw, l] of [[0, 0, 0.3, 0.55], [0.25, 0.2, 1.4, 0.4], [-0.2, 0.25, 2.3, 0.35]]) b.push(new THREE.CylinderGeometry(0.025, 0.03, l, 5).rotateZ(Math.PI / 2).rotateY(yaw).translate(x, 0.03, z));
+    for (let k = 0; k < 4; k++) b.push(new THREE.TorusGeometry(0.16, 0.014, 3, 6, Math.PI * 0.9).rotateX(Math.PI / 2 - 0.5).translate(-0.05 + k * 0.08, 0.05, -0.25));
+    add(mergeGeometries(b.map((q) => q.toNonIndexed())), 6, BONE, 0.2);
+  }
+  {                                                                                  // bleached cow skull with horns
+    const sk = [new THREE.BoxGeometry(0.2, 0.12, 0.34).translate(0, 0.07, 0), new THREE.BoxGeometry(0.13, 0.09, 0.14).translate(0, 0.05, 0.22),
+      new THREE.CylinderGeometry(0.012, 0.035, 0.3, 5).rotateZ(1.2).translate(0.2, 0.14, -0.1), new THREE.CylinderGeometry(0.012, 0.035, 0.3, 5).rotateZ(-1.2).translate(-0.2, 0.14, -0.1)];
+    add(mergeGeometries(sk.map((q) => q.toNonIndexed())), 7, BONE, 0.15);
+  }
+  add(new THREE.BoxGeometry(0.62, 0.45, 0.48).rotateY(0.2).translate(0, 0.21, 0), 8, [0.75, 0.75, 0.75], 0.25);          // crate
+  add(new THREE.CylinderGeometry(0.07, 0.1, 1.7, 6).rotateZ(Math.PI / 2 - 0.08).rotateY(0.4).translate(0, 0.07, 0), 9, [0.62, 0.58, 0.52], 0.3);   // driftwood
+  add(new THREE.SphereGeometry(0.28, 8, 5).scale(1, 0.9, 1).translate(0, 0.2, 0), 10, [0.9, 0.9, 0.9], 0.1);             // buoy
+  { const r = new THREE.IcosahedronGeometry(0.32, 0), pp = r.attributes.position, R = rngOf(77, 1, 1);                     // rock chunk
+    for (let i = 0; i < pp.count; i++) pp.setXYZ(i, pp.getX(i) * (0.8 + 0.4 * R()), pp.getY(i) * (0.5 + 0.2 * R()), pp.getZ(i) * (0.8 + 0.3 * R()));
+    add(r.translate(0, 0.08, 0), 11, [0.5, 0.49, 0.47], 0.25); }
+  {                                                                                  // snow pole: 1.9 m, orange with black bands, leaning
+    const segs = [];
+    for (let k = 0; k < 5; k++) segs.push({ g: new THREE.CylinderGeometry(0.025, 0.025, 0.38, 6).translate(0, 0.19 + k * 0.38, 0), c: k % 2 ? [0.04, 0.04, 0.04] : [0.95, 0.38, 0.06] });
+    for (const q of segs) { q.g.rotateZ(0.12); add(q.g, 12, q.c, 0.05); }
+  }
   const g = mergeGeometries(parts, false);
   g.computeBoundingSphere();
   return g;
@@ -367,7 +401,7 @@ function buildCover2(ctx, chunk, deadline) {
       else { const g = chunk.ground.sample(s, d, _g); gx = g.x; gy = g.y; gz = g.z; nx = g.nx; nz = g.nz; if (1 - g.ny > (kind === 'pebble' ? 0.55 : 0.42)) continue; }
       // clumps: grass / flowers grow in patches, scrub is sparse and even, pebbles gather in washes
       const cn = vnoise2(gx / 7.5, gz / 7.5, seed + 71) * 0.65 + vnoise2(gx / 23, gz / 23, seed + 72) * 0.35;
-      const cl = kind === 'grass' ? smoothstep(0.28, 0.6, cn) : kind === 'flower' ? smoothstep(0.55, 0.7, cn) : kind === 'pebble' ? 0.35 + 0.65 * smoothstep(0.62, 0.35, cn) : VARIANTS[kind] ? 0.3 + 0.7 * smoothstep(0.35, 0.55, cn) : 1;
+      const cl = kind === 'grass' ? smoothstep(0.28, 0.6, cn) : kind === 'flower' ? smoothstep(0.55, 0.7, cn) : kind === 'pebble' ? 0.35 + 0.65 * smoothstep(0.62, 0.35, cn) : kind === 'tyre' ? smoothstep(0.5, 0.64, cn) : VARIANTS[kind] ? 0.3 + 0.7 * smoothstep(0.35, 0.55, cn) : 1;
       if (uCl > cl) continue;
       if (gy < chunk.seaY + 0.6) continue;
       const roadY = road.sample(s, _rs).y;
@@ -383,7 +417,11 @@ function buildCover2(ctx, chunk, deadline) {
       if (kind === 'grass') { const dry = uV < C.dry; cell = dry ? (uV < C.dry * 0.14 ? CELL.stalks : CELL.dry) : CELL.green; }
       else if (kind === 'scrub') cell = CELL.bush;
       else if (kind === 'flower') cell = CELL.green;
-      else if (VARIANTS[kind]) { const V = VARIANTS[kind]; let t = uV; cell = V.length - 1; for (let k = 0; k < V.length; k++) { t -= V[k][0]; if (t <= 0) { cell = k; break; } } }
+      else if (VARIANTS[kind]) {
+        const V = VARIANTS[kind], W = kind === 'debris' ? LITTER_W[bid] : null;
+        let t = uV; cell = V.length - 1;
+        for (let k = 0; k < V.length; k++) { t -= W ? W[k] : V[k][0]; if (t <= 0) { cell = k; break; } }
+      }
       let scl = (sc0 + (sc1 - sc0) * uSc * uSc) * (kind === 'grass' && a < 0 ? 0.65 : 1);
       if (cell === CELL.stalks) scl *= 1.25;
       const L = LIN[bid][ck];

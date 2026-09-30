@@ -101,6 +101,19 @@ function ownDamage(fx, rec, state, dt) {
   const q = Math.max(0.6, fx.qd);
   const ns = rate(fx, acc, o, (burning ? 20 : 9 + 9 * dark) * q, dt, 3);
   for (let k = 0; k < ns; k++) ownSmoke(fx, rng, hood, dark, burning ? 0.62 : 0.4 + 0.2 * dark, burning ? 1.2 : 0);
+  // the trail: once the smoke is over the cab it leaves the truck's frame and streams off behind it in the world (seen in the
+  // mirrors, by the gunner, by everyone else) - thick and black when burning
+  if (burning || dark > 0.35) {
+    const nt = rate(fx, acc, o + 3, (burning ? 16 : 7 * dark) * q, dt, 2), v = state.vel;
+    for (let k = 0; k < nt; k++) {
+      const side = rng.next() < 0.5 ? -1 : 1, cab = rec.cab;
+      if (rng.next() < 0.6) _v.set(rng.sym((cab.max.x - cab.min.x) * 0.35), cab.max.y + 0.2, cab.min.z + rng.range(-0.2, 0.4));
+      else _v.set(side * ((cab.max.x - cab.min.x) * 0.5 + 0.25), rng.range(hood.max.y, cab.max.y), cab.min.z + rng.range(0, 0.6));
+      rec.toWorld(_v, _w);
+      const c = burning ? rng.range(0.045, 0.07) : 0.3 - 0.22 * dark;
+      puff(fx, _w.x, _w.y, _w.z, v.x * 0.8 + rng.sym(0.8), v.y * 0.5 + rng.range(0.6, 1.8), v.z * 0.8 + rng.sym(0.8), 0.9, rng.range(3.2, 5.0) * (burning ? 1 : 0.8), rng.range(2.2, 3.2), c, c * 0.96, c * 0.93, burning ? 0.8 : 0.5, 0.7, 0.7, -1e4, burning ? 0.7 : 0);
+    }
+  }
   if (!burning) {
     if (dark > 0.5 && rng.next() < dt * 3) { hoodSeam(rng, hood); spark(fx, _r.x, _r.y, _r.z, rng.sym(2), rng.range(1, 3), rng.range(-1, 1), rng.range(0.15, 0.35), -1e4, 0.8, 0.03, 0.8, ATT); }
     return;
@@ -108,6 +121,11 @@ function ownDamage(fx, rec, state, dt) {
   // fire: tongues licking out of the seams and the grille, bent back by the air flow toward the glass
   const nf = rate(fx, acc, o + 1, 30 * q, dt, 4);
   for (let k = 0; k < nf; k++) ownFlame(fx, rng, hood, rng.range(1.0, 1.3));
+  const nc = rate(fx, acc, o + 4, 7 * q, dt, 2);
+  for (let k = 0; k < nc; k++) {                         // big tongues out of the rear hood corners, up beside the A-pillars
+    const side = rng.next() < 0.5 ? -1 : 1, w = rng.range(0.45, 0.75);
+    flame(fx, side > 0 ? hood.max.x - 0.05 : hood.min.x + 0.05, hood.max.y - 0.05, hood.min.z + rng.range(0.05, 0.35), side * rng.range(0.2, 0.6), rng.range(0.6, 1.4), 0, w, w * rng.range(2.2, 3.2), rng.range(0.35, 0.6), 1.15, 3.0, ATT, 2.0, 1.3, 0.12);
+  }
   if (rng.next() < dt * 14) { hoodSeam(rng, hood, 1); glow(fx, _r.x, _r.y + 0.05, _r.z, rng.range(0.5, 0.9), 0.12, 1.4, 0.55, 0.14, true, 1.2, ATT); }
   const ne = rate(fx, acc, o + 2, 7 * q, dt, 2);
   for (let k = 0; k < ne; k++) { hoodSeam(rng, hood); ember(fx, _r.x, _r.y, _r.z, rng.sym(1.2), rng.range(1.5, 4), rng.sym(1.2), rng.range(0.5, 1.1), 0.12, 1, PF.ATTACH); }
