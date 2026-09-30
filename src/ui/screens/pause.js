@@ -8,7 +8,7 @@ export class PauseScreen {
     this.el = h('<div class="screen pause"><div class="safe"></div></div>');
     const btn = (act, label, sub, i, cls = '') => `<div class="f btn stack stg ${cls}" style="--i:${i}" role="button" data-act="${act}" data-k="${act}"><span><b>${label}</b><small>${sub}</small></span></div>`;
     this.el.firstElementChild.innerHTML = `
-      <div class="ps-title stg" style="--i:0"><div class="eyebrow">THE ROAD CAN WAIT</div><h1>PAUSED</h1></div>
+      <div class="ps-title stg" style="--i:0"><div class="eyebrow">${cb.coop ? 'CO-OP KEEPS RUNNING' : 'THE ROAD CAN WAIT'}</div><h1>${cb.coop ? 'MENU' : 'PAUSED'}</h1></div>
       <nav class="menu ps-menu">
         ${btn('resume', 'RESUME', 'BACK TO THE ROAD', 1, 'primary')}
         ${btn('settings', 'SETTINGS', 'VIDEO &middot; AUDIO &middot; INPUT &middot; KEY BINDINGS', 2)}

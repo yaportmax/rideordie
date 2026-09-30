@@ -84,12 +84,18 @@ export function encodeSnapshot(sim, tick, hud, buf) {
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 export function decodeSnapshot(ab) {
-  const dv = new DataView(ab);
+  const dv = ab instanceof ArrayBuffer ? new DataView(ab) : ArrayBuffer.isView(ab) ? new DataView(ab.buffer, ab.byteOffset, ab.byteLength) : null;
+  if (!dv || dv.byteLength < 37) return null;
+  try { return readSnapshot(dv); } catch (e) { if (e instanceof RangeError) return null; throw e; }
+}
+
+function readSnapshot(dv) {
   let o = 0;
   if (dv.getUint8(o) !== 1) return null; o += 1;
   const s = { cars: [], proj: [] };
   s.tick = dv.getUint32(o, true); o += 4; s.time = dv.getFloat32(o, true); o += 4; s.dist = dv.getFloat32(o, true); o += 4;
   s.state = ['countdown', 'run', 'dying', 'over'][dv.getUint8(o)]; o += 1;
+  if (!s.state || !Number.isFinite(s.time) || !Number.isFinite(s.dist)) return null;
   s.hp01 = dv.getUint8(o) / 255; s.dhp01 = dv.getUint8(o + 1) / 255; s.ghp01 = dv.getUint8(o + 2) / 255; s.nitro01 = dv.getUint8(o + 3) / 255; o += 4;
   s.cash = dv.getUint32(o, true); o += 4; s.kills = dv.getUint16(o, true); o += 2; s.streak = dv.getUint8(o); o += 1;
   s.level = dv.getFloat32(o, true); o += 4; s.bossHp01 = dv.getUint8(o) / 255; o += 1; s.bossId = dv.getUint16(o, true); o += 2; s.medkits = dv.getUint8(o); o += 1;
@@ -97,8 +103,10 @@ export function decodeSnapshot(ab) {
   for (let i = 0; i < n; i++) {
     const c = {};
     c.id = dv.getUint16(o, true); o += 2; c.spec = SPEC_IDS[dv.getUint8(o)]; c.kind = dv.getUint8(o + 1) === 0 ? 'player' : 'enemy'; o += 2;
+    if (!c.spec) return null;
     c.fl = dv.getUint16(o, true); o += 2;
     c.x = dv.getFloat32(o, true); c.y = dv.getFloat32(o + 4, true); c.z = dv.getFloat32(o + 8, true); o += 12;
+    if (![c.x, c.y, c.z].every(Number.isFinite)) return null;
     c.qx = dv.getInt16(o, true) / QN; c.qy = dv.getInt16(o + 2, true) / QN; c.qz = dv.getInt16(o + 4, true) / QN; c.qw = dv.getInt16(o + 6, true) / QN; o += 8;
     c.vx = dv.getInt16(o, true) / 64; c.vy = dv.getInt16(o + 2, true) / 64; c.vz = dv.getInt16(o + 4, true) / 64; o += 6;
     c.wx = dv.getInt16(o, true) / 400; c.wy = dv.getInt16(o + 2, true) / 400; c.wz = dv.getInt16(o + 4, true) / 400; o += 6;
@@ -108,58 +116,69 @@ export function decodeSnapshot(ab) {
     c.gx = dv.getInt8(o) / 100; c.gz = dv.getInt8(o + 1) / 100; o += 2;
     c.g2yaw = dv.getInt16(o, true) / 5000; c.g2pitch = dv.getInt16(o + 2, true) / 10000; o += 4; c.g2fire = !!dv.getUint8(o); o += 1;
     { const tb = dv.getUint8(o); c.tagIdx = tb & 7; c.elite = (tb >> 3) & 7; c.intent = INTENTS[tb >> 6]; } o += 1;
-    const nw = dv.getUint8(o); o += 1; c.L = new Float32Array(nw); c.slip = new Float32Array(nw); c.gr = new Uint8Array(nw);
+    const nw = dv.getUint8(o); o += 1;
+    if (nw < 1 || nw > 12) return null;
+    c.L = new Float32Array(nw); c.slip = new Float32Array(nw); c.gr = new Uint8Array(nw);
     for (let w = 0; w < nw; w++) { c.L[w] = 0.1 + dv.getUint8(o) / 255 * 0.6; const sg = dv.getUint8(o + 1); c.slip[w] = (sg & 127) / 127; c.gr[w] = sg >> 7; o += 2; }
     s.cars.push(c);
   }
   const np = dv.getUint16(o, true); o += 2;
-  for (let i = 0; i < np; i++) { s.proj.push({ k: dv.getUint8(o), x: dv.getFloat32(o + 1, true), y: dv.getFloat32(o + 5, true), z: dv.getFloat32(o + 9, true) }); o += 14; }
-  if (o < ab.byteLength && dv.getUint8(o)) {
-    o += 1;
+  for (let i = 0; i < np; i++) {
+    const p = { k: dv.getUint8(o), x: dv.getFloat32(o + 1, true), y: dv.getFloat32(o + 5, true), z: dv.getFloat32(o + 9, true) }; o += 14;
+    if ((p.k !== 1 && p.k !== 2) || ![p.x, p.y, p.z].every(Number.isFinite)) return null;
+    s.proj.push(p);
+  }
+  const hasBoss = dv.getUint8(o++);
+  if (hasBoss > 1) return null;
+  if (hasBoss) {
     const b = { x: dv.getFloat32(o, true), y: dv.getFloat32(o + 4, true), z: dv.getFloat32(o + 8, true) }; o += 12;
     b.qx = dv.getInt16(o, true) / QN; b.qy = dv.getInt16(o + 2, true) / QN; b.qz = dv.getInt16(o + 4, true) / QN; b.qw = dv.getInt16(o + 6, true) / QN; o += 8;
     b.v = dv.getFloat32(o, true); o += 4; b.mask = dv.getUint32(o, true); o += 4;
     const f = dv.getUint8(o); o += 1; b.phase = f & 7; b.dead = !!(f & 8); b.exploded = !!(f & 16);
+    if (![b.x, b.y, b.z, b.v].every(Number.isFinite)) return null;
     s.boss = b;
   }
-  return s;
+  return o === dv.byteLength ? s : null;
 }
 
 /** Client-side buffer: interpolates CarStates ~100 ms behind the newest snapshot. */
 export class SnapshotBuffer {
   constructor() { this.snaps = []; this.states = new Map(); this.delay = 0.1; this.clockOffset = null; this.latest = null; this._q1 = new THREE.Quaternion(); this._q2 = new THREE.Quaternion(); this.jitter = 0; this.lastArrival = 0; }
   push(snap, now) {
+    // The unordered channel can deliver an older frame after a newer one. Never rewind its clock or state.
+    if (!snap || !Number.isFinite(now) || !Number.isFinite(snap.time)) return false;
+    if (this.latest) { const delta = (snap.tick - this.latest.tick) >>> 0; if (delta === 0 || delta > 0x7fffffff || snap.time < this.latest.time) return false; }
     snap.arrival = now;
     if (this.latest) { const dt = now - this.lastArrival, expect = snap.time - this.latest.time; this.jitter = this.jitter * 0.95 + Math.abs(dt - expect) * 0.05; }
     this.lastArrival = now; this.latest = snap;
     if (this.clockOffset === null) this.clockOffset = now - snap.time; // simTime -> local clock
-    else this.clockOffset = Math.min(this.clockOffset, now - snap.time) * 0.02 + this.clockOffset * 0.98; // slowly track the fastest path
+    else this.clockOffset = (now - snap.time) * 0.1 + this.clockOffset * 0.9; // track slow-motion as well as network clock drift
     this.snaps.push(snap); if (this.snaps.length > 12) this.snaps.shift();
     this.delay = 0.075 + Math.min(0.12, this.jitter * 2.5);
+    return true;
   }
   /** Fill states (Map id -> CarState) for local time `now`. Returns the snapshot bracket info. */
   sample(now) {
     const snaps = this.snaps; if (!snaps.length) return null;
     const rt = now - this.clockOffset - this.delay;  // render time in sim time
-    let a = snaps[0], b = snaps[snaps.length - 1];
-    for (let i = snaps.length - 1; i >= 0; i--) { if (snaps[i].time <= rt) { a = snaps[i]; b = snaps[Math.min(i + 1, snaps.length - 1)]; break; } a = snaps[i]; }
+    let a = snaps[0], b = a;
+    for (let i = 1; i < snaps.length; i++) { if (snaps[i].time > rt) { b = snaps[i]; break; } a = b = snaps[i]; }
     let t = b.time > a.time ? (rt - a.time) / (b.time - a.time) : 1;
-    const extrap = t > 1 ? Math.min(t - 1, 0.35 / Math.max(0.001, b.time - a.time)) : 0;
+    const dtE = Math.min(0.1, Math.max(0, rt - b.time));
     t = Math.max(0, Math.min(1, t));
     const seen = new Set();
     const bm = new Map(b.cars.map((c) => [c.id, c]));
-    for (const ca of a.cars) {
+    for (const ca of (t >= 1 ? b.cars : a.cars)) {
       const cb = bm.get(ca.id) || ca;
       let st = this.states.get(ca.id);
       if (!st || st.specId !== ca.spec) { st = makeCarState(ca.id, ca.spec, ca.kind); this.states.set(ca.id, st); }
       seen.add(ca.id);
-      const dtE = extrap * (b.time - a.time);
       st.pos.set(ca.x + (cb.x - ca.x) * t + cb.vx * dtE, ca.y + (cb.y - ca.y) * t + cb.vy * dtE, ca.z + (cb.z - ca.z) * t + cb.vz * dtE);
       this._q1.set(ca.qx, ca.qy, ca.qz, ca.qw).normalize(); this._q2.set(cb.qx, cb.qy, cb.qz, cb.qw).normalize();
       st.quat.slerpQuaternions(this._q1, this._q2, t);
       st.vel.set(ca.vx + (cb.vx - ca.vx) * t, ca.vy + (cb.vy - ca.vy) * t, ca.vz + (cb.vz - ca.vz) * t);
       st.steer = ca.steer + (cb.steer - ca.steer) * t;
-      for (let w = 0; w < st.nWheels && w < ca.L.length; w++) { st.L[w] = ca.L[w] + (cb.L[w] - ca.L[w]) * t; st.slip[w] = ca.slip[w]; st.grounded[w] = ca.gr[w]; }
+      for (let w = 0; w < st.nWheels && w < ca.L.length && w < cb.L.length; w++) { st.L[w] = ca.L[w] + (cb.L[w] - ca.L[w]) * t; st.slip[w] = ca.slip[w]; st.grounded[w] = ca.gr[w]; }
       const fl = t > 0.5 ? cb.fl : ca.fl;
       st.dead = !!(fl & F.dead); st.exploded = !!(fl & F.exploded); st.burning = !!(fl & F.burning); st.smoking = !!(fl & F.smoking);
       st.driverAlive = !!(fl & F.driverAlive); st.gunnerAlive = !!(fl & F.gunnerAlive); st.gunner2Alive = !!(fl & F.gunner2Alive);
@@ -176,6 +195,7 @@ export class SnapshotBuffer {
       st.pos.set(ba.x + (bb.x - ba.x) * t, ba.y + (bb.y - ba.y) * t, ba.z + (bb.z - ba.z) * t);
       this._q1.set(ba.qx, ba.qy, ba.qz, ba.qw).normalize(); this._q2.set(bb.qx, bb.qy, bb.qz, bb.qw).normalize(); st.quat.slerpQuaternions(this._q1, this._q2, t);
       st.v = bb.v; st.vel.set(0, 0, bb.v).applyQuaternion(st.quat); st.phase = bb.phase; st.dead = bb.dead; st.exploded = bb.exploded;
+      st.pos.addScaledVector(st.vel, dtE);
       PART_NAMES.forEach((n, i) => { st.alive[n] = !!(bb.mask & (1 << i)); });
     } else this.boss = null;
     return { a, b, t, hud: b };

@@ -38,6 +38,8 @@ export class Run {
    */
   constructor(g, cfg) {
     this.g = g; this.cfg = cfg; this.role = cfg.role; this.seed = cfg.seed; this.net = cfg.net || null;
+    this.id = cfg.runId || globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    this.partnerReady = !this.net;
     // single player with an AI partner: cfg.ai = 'gunner' (you drive) | 'driver' (you shoot); the sim then runs locally
     this.ai = cfg.ai || null;
     this.simPeer = this.role === 'solo' || this.role === 'driver' || !this.net;
@@ -160,7 +162,8 @@ export class Run {
           const dr = this.dressing, ready = !dr || (dr.idle && !dr.pool.warming);
           if (ready || this.startWaitT > 6) { this.groundOk = true; g.fade(0, 0.8); }
         }
-        if (this.groundOk) {
+        if (this.groundOk && !this.partnerReady) g.hud.message('WAITING FOR PARTNER', 500, '#ffc21a');
+        if (this.groundOk && this.partnerReady) {
           this.countdown -= dt;
           if (this.countdown <= 0) { this.sim.releaseCar(P); this.sim.start(); this.started = true; g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); if (this.net) this.net.sendJSON({ t: 'go' }); }
           else g.hud.message(String(Math.ceil(this.countdown - 0.2)) || 'GO', 500, '#fff');
@@ -177,7 +180,7 @@ export class Run {
       if (this.aiDriver) cmds.driver = this.aiDriver.update(dt);
       if (this.sim.state === 'countdown') Object.assign(cmds.driver, { throttle: 0, brake: 0, steer: 0, handbrake: true, nitro: false }); // no false starts
       if (this.driverLocal) { P.veh.setInput(cmds.driver); this._driverActions(dt, cmds.driver); }
-      if (cmds.gunner.medkit) this._medkit();
+      if (this.humanGunner && cmds.gunner.medkit && !cmds.driver.medkit) this._medkit();
       else if (this.remoteDriverInput) P.veh.setInput(this.remoteDriverInput);
       // gunner state onto the sim car (from the local controller or from the remote gunner)
       const gs = P.crew.gunner;
@@ -218,6 +221,8 @@ export class Run {
         if (!this.fadedIn) { this.fadedIn = true; g.fade(0, 0.8); }
         this.states = this.buf.states; this.hud = info.hud; this.playerS = info.hud.dist; this.proj = info.hud.proj;
         this.simState = info.hud.state;
+        this.medkits = info.hud.medkits;
+        if (this.simState !== 'countdown') { this.goSeen = true; this.started = true; }
         this.bossState = this.buf.boss;
         if (this.bossState) { const gb = this.ghostBoss || (this.ghostBoss = new GhostBoss()); gb.pos.copy(this.bossState.pos); gb.quat.copy(this.bossState.quat); gb.alive = this.bossState.alive; gb.exploded = this.bossState.exploded; } else this.ghostBoss = null;
       }
@@ -229,6 +234,7 @@ export class Run {
       if (this.simState === 'over' && !this.over) { this.over = true; }
     }
     const pst = this.states.get(this.playerId);
+    if (!this.sim && cmds.gunner.medkit) this._medkit();
     if (this.streamer) this.streamer.update(this.playerS || 0);
     if (pst) this._gunnerEye(pst, this.eye || (this.eye = new THREE.Vector3()));
     if (cmds.gunner.viewToggle && this.humanGunner) this.gcam.toggle();
@@ -255,7 +261,7 @@ export class Run {
     if (this.gunner && pst) {
       const carYaw = Math.atan2(_f.set(0, 0, 1).applyQuaternion(pst.quat).x, _f.z);
       this.gunner.crewAlive = pst.gunnerAlive;
-      if (!pst.gunnerAlive || (this.sim && this.sim.state !== 'run')) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
+      if (!pst.gunnerAlive || (this.sim ? this.sim.state : this.simState) !== 'run') { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
       this.wv.muzzlePos(pst, this.gunner.muzzle);
       if (this.humanGunner && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
         const pts = this._assistPts || (this._assistPts = []); pts.length = 0;
@@ -372,7 +378,7 @@ export class Run {
     this.sim.emit({ t: 'unflip', id: P.id });
   }
   _medkit() {
-    if (this.medkits <= 0) return;
+    if (this.medkits <= 0 || (this.sim ? this.sim.state : this.simState) !== 'run') return;
     if (!this.sim) { this.net.sendJSON({ t: 'medkit' }); return; }
     if (this.sim.useMedkit()) { this.medkits--; this.g.hud.message('MEDKIT', 900, '#7fdc7f'); }
   }
@@ -572,7 +578,7 @@ export class Run {
   buildSummary(won = false) {
     const sim = this.sim, st = sim.stats, E = ECONOMY;
     const L = sim.director.level;
-    const dist = st.distance - (this.cfg.startS ?? 40);
+    const dist = Math.max(0, st.distance - (this.cfg.startS ?? 40));
     const lines = [];
     lines.push({ label: 'RAIDERS WRECKED', amount: this.cash });
     const distCash = Math.round(Math.max(0, dist) * E.perMeter * (1 + E.perMeterLevel * L) * this.effects.cashMul);
@@ -584,7 +590,7 @@ export class Run {
     const total = lines.reduce((a, l) => a + l.amount, 0);
     const why = sim.result?.why;
     return {
-      won, cash: total, breakdown: lines, distance: Math.max(0, dist), time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
+      id: this.id, won, cash: total, breakdown: lines, distance: dist, time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
       bestStreak: this.bestMulti || 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
       biome: BIOMES[biomeAt(st.distance).a].name, minibosses: this.minibossesKilled || [],
     };
@@ -613,6 +619,8 @@ export class Run {
   }
   /** Called by Game when a network message arrives during a run. */
   onNet(m) {
+    if (!m || this.disposed) return;
+    if (m.t === 'runReady') { this.partnerReady = true; return; }
     if (m.t === 'events') { (this.netEvents || (this.netEvents = [])).push(...m.e); return; }
     if (m.t === 'feed') { this.g.hud.feed(m.text, m.crash ? '#ffc21a' : '#fff'); if (this.gunner) this.g.hud.hitMarker(true); return; }
     if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; return; }
@@ -641,6 +649,8 @@ export class Run {
   }
 
   dispose() {
+    if (this.disposed) return; this.disposed = true;
+    if (this.streamer) { this.streamer.onChunk = null; this.streamer.onChunkDrop = null; }
     this.cockpit?.dispose(); this.cockpit = null; this.threatHud?.dispose(); this.threatHud = null;
     this.banner?.dispose(); this.banner = null; this.hazMarks?.dispose(); this.hazMarks = null;
     this.g.fx?.clear();
@@ -649,6 +659,7 @@ export class Run {
     this.abridge?.reset();
     this.wv?.dispose();
     this.streamer?.dispose();
+    this.sim?.dispose(); this.qworld?.free(); this.qworld = null;
   }
 }
 

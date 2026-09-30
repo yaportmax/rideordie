@@ -5,6 +5,7 @@ import { clamp, damp } from './util.js';
 const DEADZONE = 0.14;
 const applyDead = (v, dz = DEADZONE) => { const a = Math.abs(v); if (a < dz) return 0; return Math.sign(v) * (a - dz) / (1 - dz); };
 const curve = (v, p = 1.6) => Math.sign(v) * Math.pow(Math.abs(v), p);
+const editing = (e) => (e.composedPath?.() || [e.target]).some((t) => t?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t?.tagName || ''));
 
 export const DEFAULT_BINDINGS = {
   // driver
@@ -31,12 +32,12 @@ export class Input {
     this.lastDevice = 'kbm';
     this.steerSmooth = 0;
     addEventListener('keydown', (e) => {
-      if (e.repeat) return;
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
+      if (e.repeat || editing(e)) return;
+      if (this.locked && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       this.keys.add(e.code); this.pressed.add(e.code); this.lastDevice = 'kbm';
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
-    addEventListener('blur', () => { this.keys.clear(); this.mouse.left = this.mouse.right = false; });
+    addEventListener('blur', () => this.reset());
     canvas.addEventListener('mousedown', (e) => {
       this.lastDevice = 'kbm';
       if (e.button === 0) { this.mouse.left = true; this.mousePressed.left = true; } if (e.button === 2) { this.mouse.right = true; this.mousePressed.right = true; }
@@ -45,28 +46,42 @@ export class Input {
     addEventListener('mouseup', (e) => { if (e.button === 0) this.mouse.left = false; if (e.button === 2) this.mouse.right = false; if (e.button === 1) this.mouse.middle = false; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('mousemove', (e) => { if (this.locked) { this.mouseDX += e.movementX; this.mouseDY += e.movementY; } });
-    addEventListener('wheel', (e) => { this.wheel += Math.sign(e.deltaY); }, { passive: true });
-    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; });
+    addEventListener('wheel', (e) => { if (this.locked) this.wheel += Math.sign(e.deltaY); }, { passive: true });
+    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; if (!this.locked) this.reset(); });
     addEventListener('gamepadconnected', (e) => { this.padConnected = true; this.padName = e.gamepad.id; });
-    addEventListener('gamepaddisconnected', () => { this.padConnected = false; });
+    addEventListener('gamepaddisconnected', () => this._clearPad());
+  }
+
+  /** Clear held buttons as well as frame edges when focus, capture, or a run changes. */
+  reset() {
+    this.keys.clear(); this.endFrame();
+    this.mouse.left = this.mouse.right = this.mouse.middle = false;
+    this.steerSmooth = 0; this.mlook = null; this._triggerPrev = false;
+    this.padEdge.fill(false);
+  }
+  _clearPad() {
+    this.pad = null; this.padConnected = false; this.padName = '';
+    this.padPrev.fill(false); this.padEdge.fill(false); this._triggerPrev = false;
   }
 
   requestLock() { if (!this.locked) { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* ignore */ } } }
   releaseLock() { if (document.pointerLockElement) document.exitPointerLock(); }
 
-  down(action) { return this.bindings[action].some((c) => this.keys.has(c)); }
-  hit(action) { return this.bindings[action].some((c) => this.pressed.has(c)); }
+  down(action) { return (this.bindings[action] || []).some((c) => this.keys.has(c)); }
+  hit(action) { return (this.bindings[action] || []).some((c) => this.pressed.has(c)); }
 
   /** Poll the gamepad; call once per frame before reading commands. */
   poll() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     let pad = null;
     for (const p of pads) if (p && p.connected) { pad = p; break; }
+    if (!pad) { this._clearPad(); return; }
+    if (this.pad && this.pad.index !== pad.index) this._clearPad();
     this.pad = pad;
     if (pad) {
       this.padConnected = true; this.padName = pad.id;
-      for (let i = 0; i < pad.buttons.length && i < 20; i++) {
-        const d = pad.buttons[i].pressed || pad.buttons[i].value > 0.5;
+      for (let i = 0; i < 20; i++) {
+        const d = !!(pad.buttons[i]?.pressed || pad.buttons[i]?.value > 0.5);
         this.padEdge[i] = d && !this.padPrev[i]; this.padPrev[i] = d;
       }
       const act = pad.buttons.some((b) => b.pressed) || pad.axes.some((a) => Math.abs(a) > 0.4);
@@ -88,7 +103,7 @@ export class Input {
     // mouse free-look (pointer locked): drifts back to straight ahead when the mouse rests
     const ml = this.mlook || (this.mlook = { yaw: 0, pitch: 0, idle: 0 });
     if (this.locked && (this.mouseDX || this.mouseDY)) {
-      ml.yaw = clamp(ml.yaw - this.mouseDX * 0.0024, -2.3, 2.3); ml.pitch = clamp(ml.pitch - this.mouseDY * 0.0024 * (this.invertY ? -1 : 1), -0.55, 0.45); ml.idle = 0;
+      ml.yaw = clamp(ml.yaw - this.mouseDX * this.sens.mouse, -2.3, 2.3); ml.pitch = clamp(ml.pitch - this.mouseDY * this.sens.mouse * (this.invertY ? -1 : 1), -0.55, 0.45); ml.idle = 0;
     } else { ml.idle += dt; if (ml.idle > 0.8) { ml.yaw = damp(ml.yaw, 0, 3.5, dt); ml.pitch = damp(ml.pitch, 0, 3.5, dt); } }
     c.mouseYaw = ml.yaw; c.mousePitch = ml.pitch;
     // keyboard
@@ -147,11 +162,19 @@ export class Input {
   solo(dt) {
     const d = this.driver(dt);
     const g = this.gunner(dt);
-    g.moveX = 0; g.moveZ = 0; g.crouch = false; g.reload = this.hit('reload') && false;
+    g.moveX = 0; g.moveZ = 0; g.crouch = false;
     // solo bindings that would clash: R = reload (reset needs hold: use T), G = grenade
     d.reset = this.keys.has('KeyT') || (this.pad && this.btn(3));
-    g.reload = this.pressed.has('KeyR') || (this.pad && this.edge(2));
-    if (this.pad) { g.fire = this.mouse.left || this.btn(5) || this.btnV(7) > 0.35 && false; g.ads = this.mouse.right || this.btnV(6) > 0.3 && false; d.throttle = Math.max(this.down('throttle') ? 1 : 0, this.btnV(7)); d.brake = Math.max(this.down('brake') ? 1 : 0, this.btnV(6)); d.nitro = this.down('nitro') || this.btn(4); g.grenade = this.hit('grenade') || this.edge(1); }
+    g.reload = this.hit('reload') || this.edge(2);
+    if (this.pad) {
+      // Solo separates the shared seat buttons: driving triggers, RB fire, LB boost, X reload, B grenade, Y flip.
+      g.fire = this.mouse.left || this.btn(5); g.firePressed = this.mousePressed.left || this.edge(5); g.ads = this.mouse.right;
+      d.nitro = this.down('nitro') || this.btn(4); g.grenade = this.hit('grenade') || this.edge(1);
+      d.special1 = this.hit('special1') || this.edge(14); d.special2 = this.hit('special2') || this.edge(15);
+      g.swap = -this.wheel + (this.edge(11) ? 1 : 0); g.slot = -1;
+      for (let i = 1; i <= 6; i++) if (this.hit('slot' + i)) g.slot = i - 1;
+      g.medkit = this.hit('medkit') || this.edge(13);
+    }
     return { driver: d, gunner: g };
   }
 

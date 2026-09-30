@@ -7,7 +7,9 @@
     "build": "vite build",
     "preview": "vite preview --host --port 4173",
     "lint": "eslint src tools --quiet",
-    "shot": "node tools/test/shot.mjs"
+    "shot": "node tools/test/shot.mjs",
+    "test": "node --test --test-isolation=none tests/*.test.mjs",
+    "test:browser": "node tools/test/quality_browser.mjs"
   },
   "type": "module",
   "dependencies": {

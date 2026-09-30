@@ -21,8 +21,17 @@ export const DEFAULT_SETTINGS = {
 export const BASE_SENS = { mouse: 0.0022, padYaw: 3.1, padPitch: 2.3 };
 
 export function loadSettings() {
-  try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch { /* blocked */ }
+  try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return normalizeSettings(JSON.parse(raw)); } catch { /* blocked */ }
   return { ...DEFAULT_SETTINGS };
+}
+export function normalizeSettings(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_SETTINGS };
+  const s = { ...DEFAULT_SETTINGS, ...value };
+  const limits = { quality: [0, 3], resScale: [0.5, 1.5], fov: [60, 100], shake: [0, 1], mouseSens: [0.1, 5], padSens: [0.1, 5], master: [0, 1], sfx: [0, 1], music: [0, 1] };
+  for (const [k, [lo, hi]] of Object.entries(limits)) s[k] = Number.isFinite(s[k]) ? Math.min(hi, Math.max(lo, s[k])) : DEFAULT_SETTINGS[k];
+  s.quality = Math.round(s.quality);
+  for (const k of ['invertY', 'aimAssist', 'vibration', 'motionBlur', 'chromatic', 'grain']) if (typeof s[k] !== 'boolean') s[k] = DEFAULT_SETTINGS[k];
+  return s;
 }
 export function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* blocked */ } }
 

@@ -16,6 +16,7 @@ export class App {
     this.ui = new Ui(root, { input: this.input, backdrop: false, sound: (n) => this.sound(n), onSettingsChange: (s, k) => this.applySettings(s, k) });
     root.style.pointerEvents = '';
     this.profile = loadProfile();
+    this.personalProfile = this.profile;
     this.session = null; this.mode = 'title'; // title | solo | coop
     this.screen = 'title';                    // title | lobby | garage | run | results
     this.readyMine = false; this.readyOther = false;
@@ -29,6 +30,9 @@ export class App {
       if (!document.pointerLockElement && g.mode === 'run' && this.screen === 'run' && g.run && !g.run.over && !g.paused && !this._releasing && this.input.lastDevice !== 'pad') this._pause();
       this._releasing = false;
     });
+    const focusLost = () => { if (this.screen === 'run' && this.game.run && !this.game.run.over) this._pause(); };
+    addEventListener('blur', focusLost);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) focusLost(); });
   }
 
   sound(name) { this.game.audio?.ui(name); }
@@ -67,7 +71,8 @@ export class App {
   // ------------------------------------------------------------------------------------------ title
   title() {
     this.mode = 'title'; this.screen = 'title';
-    if (this.session) { this.session.leave(); this.session = null; }
+    if (this.session) { const guest = !this.session.isHost; this.session.leave(); this.session = null; if (guest) this.profile = this.personalProfile; }
+    this._pendingRunMsgs = []; this._pendingFast = null;
     this._stage('title');
     this.game.audio?.music?.setState?.('title');
     if (!this._booted) { this._booted = true; this._bootScreen().then(() => { if (this.screen === 'title') this._showTitle(); }); return; }
@@ -94,6 +99,7 @@ export class App {
 
   // ------------------------------------------------------------------------------------------ lobby
   _newSession() {
+    this.session?.leave();
     const s = this.session = new Session();
     s.me.name = this.ui.settings.name || (s.isHost ? 'Host' : 'Player');
     s.on({
@@ -102,7 +108,7 @@ export class App {
       buyDenied: () => { this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); },
       start: (cfg) => this._startRun(cfg),
       run: (m) => this._onRunMsg(m),
-      fast: (b) => this.game.run && this.game.run.onFast(b),
+      fast: (b) => { if (this.session !== s) return; if (this.game.run) this.game.run.onFast(b); else if (this.screen === 'run') this._pendingFast = b; },
       disconnect: () => this._lost(),
       error: (e) => console.warn('net', e),
     });
@@ -112,7 +118,8 @@ export class App {
     this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Host';
     this.ui.showLobby(this._lobbyState('connecting'), this._lobbyCb());
-    try { await s.host(this.profile); } catch (e) { this.ui.toast('Could not create room: ' + (e.message || e.type), 'bad'); return this.title(); }
+    try { await s.host(this.profile); } catch (e) { if (this.session !== s) return; this.ui.toast('Could not create room: ' + (e.message || e.type), 'bad'); return this.title(); }
+    if (this.session !== s || this.screen !== 'lobby') return;
     s.setRole('driver');
     this._lobbyRefresh();
   }
@@ -120,7 +127,8 @@ export class App {
     this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Player 2';
     this.ui.showLobby({ ...this._lobbyState('connecting'), code }, this._lobbyCb());
-    try { await s.join(code, this.profile); } catch (e) { this.ui.toast(e.message || 'Could not join', 'bad'); return this.title(); }
+    try { await s.join(code, this.profile); } catch (e) { if (this.session !== s) return; this.ui.toast(e.message || 'Could not join', 'bad'); return this.title(); }
+    if (this.session !== s || this.screen !== 'lobby') return;
     s.setRole('gunner');
     this._lobbyRefresh();
   }
@@ -140,14 +148,17 @@ export class App {
       onReady: (r) => this.session?.setReady(r),
       onStart: () => { const s = this.session; if (!s?.canStart()) return; s.sendJSON({ t: 'toGarage' }); s.broadcastProfile(); this.garage(); },
       onLeave: () => this.title(),
-      onCopy: () => { try { navigator.clipboard.writeText(this.session?.code || ''); this.ui.toast('ROOM CODE COPIED', 'good'); } catch { /* */ } },
     };
   }
   _lost() { if (this.mode !== 'coop') return; this.game.endRun(); this.ui.connectionLost('Your partner disconnected.').then(() => this.title()); }
 
   _onRunMsg(m) {
-    if (!APP_MSGS.has(m.t)) { this.game.run?.onNet(m); return; }
-    if (m.t === 'toGarage') { this.garage(); }
+    if (!APP_MSGS.has(m.t)) {
+      if (this.game.run) this.game.run.onNet(m);
+      else if (this.screen === 'run') { const q = this._pendingRunMsgs || (this._pendingRunMsgs = []); q.push(m); if (q.length > 256) q.shift(); }
+      return;
+    }
+    if (m.t === 'toGarage' && !this.session?.isHost) { this.garage(); }
     else if (m.t === 'garageReady') { this.readyOther = !!m.ready; this._garageRefresh(); this._maybeStart(); }
     else if (m.t === 'abort') { this.game.endRun(); this.garage(); this.ui.toast('Run abandoned', 'warn'); }
   }
@@ -158,6 +169,7 @@ export class App {
     const fromRun = !!this.game.run || this.screen === 'results';
     this.screen = 'garage';
     this.readyMine = false; this.readyOther = false;
+    this._pendingRunMsgs = []; this._pendingFast = null;
     this._stage('garage');
     const G = this.game.garage;
     if (fromRun) G.fadeIn();
@@ -198,7 +210,7 @@ export class App {
       else if (kind === 'weapon') r = buyWeapon(p, id);
       else if (kind === 'weaponTrack' || kind === 'track') r = buyWeaponTrack(p, id, extra);
       else if (kind === 'equip') r = equipWeapon(p, id, extra);
-      else if (kind === 'color') { p.truckColor = id; r = { ok: true }; }
+      else if (kind === 'color' && Number.isInteger(id) && id >= 0 && id < TRUCK_COLORS.length) { p.truckColor = id; r = { ok: true }; }
       if (r && r.ok) {
         saveProfile(p); this.session?.broadcastProfile();
         if (/truck|upgrade|weapon/.test(kind)) { this.sound('buy'); this.game.garage?.celebrate(/weapon/.test(kind) ? 'weapon' : kind === 'upgrade' && UPGRADE_BY_ID[id]?.role !== 'driver' ? 'gunner' : 'truck'); }
@@ -232,20 +244,33 @@ export class App {
   }
   _maybeStart() {
     const s = this.session;
-    if (!s || !s.isHost || !this.readyMine || !this.readyOther) return;
+    if (!s || !s.isHost || !s.connected || !s.other || !this.readyMine || !this.readyOther || !s.me.role || !s.other.role || s.me.role === s.other.role) return;
     s.me.ready = s.other.ready = true;
     const cfg = s.startRun({ seed: (Math.random() * 1e9) | 0 });
-    this._startRun(cfg);
+    if (cfg) this._startRun(cfg);
   }
 
   // ------------------------------------------------------------------------------------------ run
   async _startRun(cfg) {
     this.ui.hideAll();
     this.screen = 'run';
+    this._pendingRunMsgs = []; this._pendingFast = null;
+    this.input.reset();
     this.game.garage?.release?.();
     this.readyMine = this.readyOther = false;
     if (cfg.profile) this.profile = cfg.profile;
-    const run = await this.game.startRun({ ...cfg, net: this.mode === 'coop' ? this.session : null, paint: TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0] });
+    let run;
+    try { run = await this.game.startRun({ ...cfg, net: this.mode === 'coop' ? this.session : null, paint: TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0] }); }
+    catch (e) {
+      if (this.screen !== 'run') return;
+      this.session?.sendJSON({ t: 'abort' }); this.garage(); this.game.fade(0);
+      this.ui.toast('Could not start the run. Please try again.', 'bad'); console.warn('run startup', e); return;
+    }
+    if (!run || this.screen !== 'run') return;
+    for (const m of this._pendingRunMsgs) run.onNet(m);
+    if (this._pendingFast) run.onFast(this._pendingFast);
+    this._pendingRunMsgs = []; this._pendingFast = null;
+    this.session?.sendJSON({ t: 'runReady' });
     this.game.audio?.music?.setState?.('run');
     window.__run = run;
     this.game.onRunEnd = (r) => this._results(r);
@@ -280,9 +305,10 @@ export class App {
   _pause() {
     const g = this.game;
     if (g.paused) return;
-    g.paused = true; this._releasing = true; this.input.releaseLock();
+    g.paused = true; this._releasing = true; this.input.releaseLock(); this.input.reset();
     this.ui.showPause({
-      onResume: () => { g.paused = false; this.ui.hideAll(); this.input.requestLock(); },
+      coop: this.mode === 'coop',
+      onResume: () => { g.paused = false; this.input.reset(); this.ui.hideAll(); this.input.requestLock(); },
       onQuit: () => {
         g.paused = false;
         if (this.mode === 'coop') this.session?.sendJSON({ t: 'abort' });
@@ -293,6 +319,7 @@ export class App {
     });
   }
   _results(run) {
+    if (this.screen === 'results') return;
     const sm = run.summary || run.remoteSummary;
     this.game.paused = false; this._releasing = true; this.input.releaseLock();
     if (!sm) { this.garage(); return; }

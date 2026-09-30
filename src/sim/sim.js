@@ -67,6 +67,14 @@ export class Sim {
   }
 
   setGround(g) { this.ground = g; }
+  /** The WASM world and event queue are owned by one life, not by the renderer. */
+  dispose() {
+    if (this.world) this.world.forEachCollider((c) => COLLIDER_LABELS.delete(c.handle));
+    this.eventQueue?.free(); this.eventQueue = null;
+    this.world?.free(); this.world = null;
+    this.cars.clear(); this.colMap.clear(); this.events.length = 0;
+    this.ground = null; this.player = null; this.boss = null;
+  }
   use(sys) { this.systems.push(sys); return sys; }
   emit(e) { e.time = this.time; this.events.push(e); }
   drainEvents() { const e = this.events; this.events = []; return e; }
@@ -116,14 +124,15 @@ export class Sim {
   // ------------------------------------------------------------------------------------------ main step
   step(dt = DT) {
     if (this.hitStop > 0) { this.hitStop -= dt; dt *= 0.1; }
-    this.time += dt; this.tick++; this.stateT += dt;
+    if (this.state !== 'countdown') this.time += dt;
+    this.tick++; this.stateT += dt;
     const P = this.player;
     // ground colliders near the action
     if (this.ground) {
       let maxS = P ? P.s : 0;
       for (const c of this.cars.values()) maxS = Math.max(maxS, c.s);
       if (this.tick % 12 === 0) this.ground.update(P ? P.s : 0);
-      if (this.state === 'countdown' && P && P.held && this.ground.groundReady && this.ground.groundReady(P.s)) { this.releaseCar(P); }
+      if (this.state === 'run' && P && P.held && this.ground.groundReady && this.ground.groundReady(P.s)) { this.releaseCar(P); }
     }
     for (const sys of this.systems) sys.update(dt, this);
     if ((this.tick & 1) === 0 && this.state === 'run') for (const car of this.cars.values()) if (car.ai) car.ai.update(dt * 2);
