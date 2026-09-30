@@ -516,6 +516,21 @@ export class CrewView {
   _setShadowOnly(on) {
     if (this._shadowOnlyOn === on) return;
     this._shadowOnlyOn = on;
+    if (!this._shadowDetails) {
+      this._shadowDetails = [];
+      this.model?.traverse((o) => {
+        if (o.isMesh && !o.castShadow && !o.userData.fpArms && /^(eyes|hair)/.test(o.name)) this._shadowDetails.push({ mesh: o, hidden: false, visible: o.visible });
+      });
+    }
+    // These details neither write colour/depth nor cast a shadow in this mode.
+    // Keep the visibility snapshot separate from _shadowOnlyOn: weapon swaps
+    // invalidate material state while the character can remain shadow-only.
+    for (const detail of this._shadowDetails) {
+      if (on) {
+        if (!detail.hidden) { detail.visible = detail.mesh.visible; detail.hidden = true; }
+        detail.mesh.visible = false;
+      } else if (detail.hidden) { detail.mesh.visible = detail.visible; detail.hidden = false; }
+    }
     this.root.traverse((o) => {
       if (!o.isMesh || o.userData.fpArms) return;
       if (!o.userData.mat0) o.userData.mat0 = o.material;
@@ -739,8 +754,9 @@ export class CrewView {
   die(e = {}) {
     if (this.deadT >= 0) return;
     this.alive = false; this.deadT = 0;
-    if (this.vm) { this.vm.setVisible(false); this._setShadowOnly(false); this.useVm = false; }
-    if (this.drvArms) { this.drvArms.setVisible(false); this._setShadowOnly(false); this.useArms = false; }
+    this._setShadowOnly(false); // restore body detail even before first-person helpers exist
+    if (this.vm) { this.vm.setVisible(false); this.useVm = false; }
+    if (this.drvArms) { this.drvArms.setVisible(false); this.useArms = false; }
     if (this.car) setCutaway(this.car, false, this.role === 'driver' ? 'driver' : 'gunner');   // the death camera sees the whole truck
     this.body.visible = true;
     if (this.bones) { this.bones.Head?.scale.setScalar(1); this.bones.Neck?.scale.setScalar(1); }     // the death camera sees us
