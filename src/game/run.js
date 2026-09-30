@@ -234,7 +234,7 @@ export class Run {
       this._simEventsToRun();
       const Bs = this.sim.boss;
       if (Bs) { const B = Bs; const bs = this.bossState || (this.bossState = { pos: B.pos, quat: B.quat, vel: B.vel, v: 0, alive: B.alive, phase: 1, dead: false, exploded: false }); bs.v = B.v; bs.phase = B.phase; bs.dead = B.dead; bs.exploded = B.exploded; } else this.bossState = null;
-      this.proj = [...this.sim.projectiles.rockets.map((r) => ({ k: 1, x: r.x, y: r.y, z: r.z })), ...this.sim.projectiles.grenades.map((q) => { const t = q.body.translation(); return { k: 2, x: t.x, y: t.y, z: t.z }; })];
+      this._projectileViews();
     } else {
       // viewer peer: interpolate snapshots
       const info = this.buf.sample(now);
@@ -283,17 +283,7 @@ export class Run {
       if (!pst.gunnerAlive || (this.sim ? this.sim.state : this.simState) !== 'run') { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
       this.wv.muzzlePos(pst, this.gunner.muzzle);
       if (this.humanGunner && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
-        const pts = this._assistPts || (this._assistPts = []); pts.length = 0;
-        for (const st of this.states.values()) {
-          if (st.kind !== 'enemy' || st.exploded) continue;
-          const up = st.ride.restComHeight;
-          if (st.gunnerAlive && st.spec.seats.gunner) { const sg = st.spec.seats.gunner; pts.push({ p: new THREE.Vector3(sg[0], sg[1] + 1.2 - up, sg[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel }); }
-          if (st.driverAlive) { const sd = st.spec.seats.driver; pts.push({ p: new THREE.Vector3(sd[0], sd[1] + 0.5 - up, sd[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel }); }
-          pts.push({ p: st.pos, v: st.vel });
-          const wc = this.sim?.cars.get(st.id); if (wc && wc.elite && wc.weakPoint) pts.push({ p: new THREE.Vector3(wc.weakPoint.c[0], wc.weakPoint.c[1] - up, wc.weakPoint.c[2]).applyQuaternion(st.quat).add(st.pos), v: st.vel });
-        }
-        const bs = this.bossState; if (bs && !bs.dead) pts.push({ p: new THREE.Vector3(0, 5, -8).applyQuaternion(bs.quat).add(bs.pos), v: bs.vel });
-        this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, pts, pst.vel);
+        this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, this._assistTargets(), pst.vel);
       }
       // the AI gunner aims from its own eye along its own aim; a human aims through the camera
       const aimCam = this.aiGunner ? { position: this.eye, dir: _aiDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch)) } : { position: g.camera.position, dir: this.camDir };
@@ -301,7 +291,7 @@ export class Run {
     }
     // world view
     const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5 && !this.introOutside, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
-    const evs = this.events.concat(this.localEvents.filter(() => !this.sim)); // in solo the local events already went through sim.emit
+    const evs = this.sim || !this.localEvents.length ? this.events : this.events.concat(this.localEvents); // local sim events already went through sim.emit
     this.localEvents.length = 0;
     { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) (window.__spikes || (window.__spikes = [])).push({ what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
     this.wv.updateBoss(this.bossState, dt);
@@ -310,8 +300,7 @@ export class Run {
     (this.banner || (this.banner = new Banner(g.hud.el))).update(dt, this.playerS || 0, this.bossState);
     // Leviathan per-part health markers (sim peer reads the boss directly, the gunner peer the snapshot's per-part hp)
     if (this.bossState || this.bossMarks) { const Bs = this.sim?.boss; (this.bossMarks || (this.bossMarks = new BossMarks(g.scene))).update(dt, this.bossState, (n) => Bs ? Bs.hp[n] / BOSS_PARTS[n].hp : this.bossState?.hp?.[n] ?? 1, g.camera, { suppressLabel: !!g.hud.gh && (g.hud.gh.partLabelOn ?? g.hud.gh.bpT > 0) }); }   // one part name on screen: the gunner HUD's readout wins
-    if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
-    g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
+    this._updateFrustum();
     const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside, cockpit: this.cockpit, gear: this.player ? this.player.veh.gear : 1 } : null;   // cockpit + gear: first-person driver arms
     this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
     this.allEvents = evs;
@@ -382,6 +371,52 @@ export class Run {
     this.hud2 = this._hudData(pst);
     if (this.role === 'gunner' && this.net) this._sendGunner(dt);
     this._outcome(dt);
+  }
+
+  /** View/FX consumers read these coordinates during this frame only. */
+  _projectileViews() {
+    const list = this.proj, pool = this._projectilePool || (this._projectilePool = []);
+    let count = 0;
+    for (const r of this.sim.projectiles.rockets) {
+      const p = pool[count] || (pool[count] = {}); p.k = 1; p.x = r.x; p.y = r.y; p.z = r.z; list[count++] = p;
+    }
+    for (const q of this.sim.projectiles.grenades) {
+      const t = q.body.translation(), p = pool[count] || (pool[count] = {});
+      p.k = 2; p.x = t.x; p.y = t.y; p.z = t.z; list[count++] = p;
+    }
+    list.length = count;
+    return list;
+  }
+
+  _assistPoint(st, x, y, z) {
+    const pts = this._assistPts, pool = this._assistPool, i = pts.length;
+    const point = pool[i] || (pool[i] = { p: new THREE.Vector3(), v: null });
+    if (x === undefined) point.p.copy(st.pos);
+    else point.p.set(x, y, z).applyQuaternion(st.quat).add(st.pos);
+    point.v = st.vel; pts.push(point);
+  }
+
+  _assistTargets() {
+    const pts = this._assistPts || (this._assistPts = []); pts.length = 0;
+    this._assistPool ||= [];
+    for (const st of this.states.values()) {
+      if (st.kind !== 'enemy' || st.exploded) continue;
+      const up = st.ride.restComHeight, seats = st.spec.seats;
+      if (st.gunnerAlive && seats.gunner) { const s = seats.gunner; this._assistPoint(st, s[0], s[1] + 1.2 - up, s[2]); }
+      if (st.driverAlive) { const s = seats.driver; this._assistPoint(st, s[0], s[1] + 0.5 - up, s[2]); }
+      this._assistPoint(st);
+      const wc = this.sim?.cars.get(st.id);
+      if (wc && wc.elite && wc.weakPoint) { const c = wc.weakPoint.c; this._assistPoint(st, c[0], c[1] - up, c[2]); }
+    }
+    const boss = this.bossState; if (boss && !boss.dead) this._assistPoint(boss, 0, 5, -8);
+    return pts;
+  }
+
+  _updateFrustum() {
+    if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
+    // Only the camera matrices are needed for culling; ScenePass updates its attached arms/weapon later.
+    const camera = this.g.camera; camera.updateWorldMatrix(true, false);
+    this._pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
   }
 
   _driverActions(dt, d) {

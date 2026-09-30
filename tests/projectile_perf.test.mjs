@@ -52,7 +52,7 @@ test('enemy bullet broad phase keeps exact damage, world collisions and whizzes 
   const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
   const simFor = (player) => ({
     player, enemyDamageMul: 1, cars: new Map(), boss: null, events: [], hits: [],
-    world: { castRayAndGetNormal: (ray) => ray.origin.z > -25 ? { timeOfImpact: .7 } : null },
+    world: { castRay: (ray) => ray.origin.z > -25 ? { timeOfImpact: .7 } : null },
     emit(e) { this.events.push(e); },
     damageZone(car, hit, dmg, info) { this.hits.push({ zone: hit.zone.kind, throughBody: hit.throughBody, dmg, cause: info.cause, point: hit.point.toArray() }); },
   });

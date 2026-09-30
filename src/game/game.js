@@ -234,7 +234,7 @@ export class Game {
     if (this.mode === 'run' && this.run?.started && !this.paused && !this.run.over) this.post?.adaptResolution(frameMs);
     const input = this.input;
     input.poll();
-    if (this.mode === 'run' && this.run) this._runFrame(dt, now);
+    if (this.mode === 'run' && this.run) this._runFrame(dt, now, frameMs);
     else if (this.mode === 'garage') { this.garage.update(dt, input); this.garage.render(); }
     this._pumpTextures();
     this.audio?.setGameplayPaused?.(this.mode === 'run' && this.paused && !this.run?.net && !this.run?.over);
@@ -243,7 +243,7 @@ export class Game {
     this.frames++;
   }
 
-  _runFrame(dt, now) {
+  _runFrame(dt, now, frameMs = dt * 1000) {
     const run = this.run, input = this.input;
     // pause: Esc / Start
     if ((input.hit('pause') || input.edge(9)) && this.onPause && !run.over) this.onPause();
@@ -295,8 +295,8 @@ export class Game {
     if (!this._lockEl) { const e = this._lockEl = document.createElement('div'); e.textContent = 'CLICK TO AIM'; e.style.cssText = 'position:fixed;left:50%;top:58%;transform:translateX(-50%);padding:10px 22px;background:rgba(0,0,0,.55);color:#ffc21a;font:600 16px Bahnschrift,Segoe UI,sans-serif;letter-spacing:4px;border-left:3px solid #ffc21a;pointer-events:none;z-index:4;display:none'; document.body.appendChild(e); }
     this._lockEl.style.display = needLock ? 'block' : 'none';
     if (t3 - t0 > 80) (window.__hitches || (window.__hitches = [])).push({ at: +(performance.now() / 1000).toFixed(1), sim: +(t1 - t0).toFixed(0), look: +(t2 - t1).toFixed(0), render: +(t3 - t2).toFixed(0), chunks: run.streamer?.stats?.built, cars: run.states.size, progs: this.renderer.info.programs?.length, ev: (run.allEvents || []).map((e) => e.t).join(',').slice(0, 120) });
-    const P = this.perf; P.sim = P.sim * 0.95 + (t1 - t0) * 0.05; P.render = P.render * 0.95 + (t3 - t2) * 0.05; P.frame = P.frame * 0.95 + dt * 1000 * 0.05; P.fps = 1000 / P.frame;
-    const st = this.post?.stats; P.calls = st ? st.calls : this.renderer.info.render.calls; P.tris = st ? st.triangles : this.renderer.info.render.triangles; P.worst = Math.max(P.worst * 0.99, dt * 1000);
+    const P = this.perf; P.sim = P.sim * 0.95 + (t1 - t0) * 0.05; P.render = P.render * 0.95 + (t3 - t2) * 0.05; P.frame = P.frame * 0.95 + frameMs * 0.05; P.fps = 1000 / P.frame;
+    const st = this.post?.stats; P.calls = st ? st.calls : this.renderer.info.render.calls; P.tris = st ? st.triangles : this.renderer.info.render.triangles; P.worst = Math.max(P.worst * 0.99, frameMs);
     this.fx?.update?.(dt);
     // particles / decals light themselves from the sun + hemi lights; at night the scene is lit mostly by exposure,
     // moon, lamps and emissives, so give them a cool moonlit floor (otherwise smoke turns into black blobs)

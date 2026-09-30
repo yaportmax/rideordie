@@ -5,6 +5,7 @@ import * as THREE from 'three';
 
 const _d = new THREE.Vector3(), _r = new THREE.Vector3(), _f = new THREE.Vector3(), _u = new THREE.Vector3(), _p = new THREE.Vector3();
 const RANGE = 110;
+const COLORS = { ram: 'rgb(255,140,20)', boss: 'rgb(255,194,26)', shoot: 'rgb(255,58,44)', idle: 'rgb(235,150,90)' };
 
 export class ThreatHUD {
   constructor() {
@@ -12,6 +13,11 @@ export class ThreatHUD {
     c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3';
     document.body.appendChild(c);
     this.ctx = c.getContext('2d'); this.t = 0; this.visible = true; this.blips = new Map();
+    this._hasInk = false; this._seen = new Set(); this._best = new Map(); this._keep = new Set();
+    // atan2 / 0.42 rounds to sectors -7..7. Reuse their records instead of
+    // allocating for each closest-enemy replacement on every frame.
+    this._sectorRecords = Array.from({ length: 15 }, () => ({ id: 0, d: 0 }));
+    this._invalidSector = { id: 0, d: 0 };
   }
   setVisible(v) { this.visible = v; this.canvas.style.display = v ? 'block' : 'none'; }
 
@@ -20,24 +26,31 @@ export class ThreatHUD {
     if (!this.visible) return;
     const c = this.canvas, dpr = Math.min(2, devicePixelRatio || 1);
     const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
-    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
-    const x = this.ctx; x.clearRect(0, 0, W, H);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; this._hasInk = false; }
+    const x = this.ctx;
+    // Resizing already clears the canvas. Once a drawn frame has been cleared,
+    // leave an empty overlay alone until a chevron actually draws again.
+    if (this._hasInk) { x.clearRect(0, 0, W, H); this._hasInk = false; }
     if (!player || player.exploded) return;
     this.t += dt;
     camera.getWorldDirection(_f); _r.set(1, 0, 0).applyQuaternion(camera.quaternion); _u.set(0, 1, 0).applyQuaternion(camera.quaternion);
     // ellipse kept inside the HUD corners (health bars bottom-left, speed/ammo bottom-right)
     // ring at windshield height, clear of the HUD corners (cockpit: flatter, so 'behind' sits above the dash, not on the gauges)
     const cx = W / 2, cy = H * (layout?.cy ?? 0.42), rx = W * (layout?.rx ?? 0.40), ry = H * (layout?.ry ?? 0.30);
-    const seen = new Set();
+    const seen = this._seen; seen.clear();
     // one chevron per bearing sector: the closest raider in each ~24 degree slice speaks for the group (no 3-4 deep stacks)
-    const best = this._best || (this._best = new Map()); best.clear();
+    const best = this._best; best.clear();
     for (const st of states.values()) {
       if (st.kind !== 'enemy' || st.exploded) continue;
       _d.copy(st.pos).sub(camera.position); const dist = _d.length(); if (dist > RANGE) continue;
       const sector = Math.round(Math.atan2(_d.dot(_r), _d.dot(_f)) / 0.42);
-      const cur = best.get(sector); if (!cur || cur.d > dist) best.set(sector, { id: st.id, d: dist });
+      const cur = best.get(sector);
+      if (!cur || cur.d > dist) {
+        const record = cur || this._sectorRecords[sector + 7] || this._invalidSector;
+        record.id = st.id; record.d = dist; if (!cur) best.set(sector, record);
+      }
     }
-    const keep = this._keep || (this._keep = new Set()); keep.clear(); for (const v of best.values()) keep.add(v.id);
+    const keep = this._keep; keep.clear(); for (const v of best.values()) keep.add(v.id);
     x.textAlign = 'center'; x.textBaseline = 'middle';
     for (const st of states.values()) {
       if (st.kind !== 'enemy' || st.exploded || !keep.has(st.id)) continue;
@@ -57,14 +70,15 @@ export class ThreatHUD {
       const intent = st.intent || null;
       const ram = intent === 'ram' || (closing > 7 && dist < 35 && !st.gunnerAlive);
       const block = intent === 'block';
-      const col = ram ? [255, 140, 20] : boss ? [255, 194, 26] : (intent === 'shoot' || st.gunnerAlive) ? [255, 58, 44] : [235, 150, 90];
+      const col = ram ? COLORS.ram : boss ? COLORS.boss : (intent === 'shoot' || st.gunnerAlive) ? COLORS.shoot : COLORS.idle;
       const pulse = ram || block ? 0.6 + 0.4 * Math.sin(this.t * 20) : 1;
       const alpha = b.k * (0.45 + 0.55 * near) * pulse;
       const size = (boss ? 34 : 22 + near * 24) * (ram ? 1.35 : 1) * dpr;
       const px = cx + Math.sin(ang) * rx, py = cy - Math.cos(ang) * ry;
+      this._hasInk = true;
       x.save(); x.translate(px, py); x.rotate(ang);
       x.globalAlpha = alpha;
-      x.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; x.strokeStyle = 'rgba(0,0,0,0.6)'; x.lineWidth = 2.5 * dpr;
+      x.fillStyle = col; x.strokeStyle = 'rgba(0,0,0,0.6)'; x.lineWidth = 2.5 * dpr;
       // chevron pointing outward (up in the rotated frame); a second one stacked when close
       x.beginPath(); x.moveTo(0, -size); x.lineTo(size * 0.78, size * 0.22); x.lineTo(0, -size * 0.26); x.lineTo(-size * 0.78, size * 0.22); x.closePath();
       x.stroke(); x.fill();

@@ -9,6 +9,23 @@ export const GLOW = { lamp_lens: [0xffb060, 9], light_amber: [0xff8a1a, 3], sign
 
 export const DEFAULT_SPEC = { far: 700, shadow: false, sway: 0, lite: false, behind: false, fade: false };
 
+function copyChanged(target, targetWords, offset, source, sourceWords, count, dirty) {
+  // Compare Float32 bit patterns so signed zero and NaN do not cause either
+  // missed changes or endless uploads. Source lists remain the source of truth.
+  if (!dirty) for (let i = 0; i < count; i++) if (targetWords[offset + i] !== sourceWords[i]) { dirty = true; break; }
+  if (dirty) target.set(source.subarray(0, count), offset);
+  return dirty;
+}
+
+function markChanged(attribute, count) {
+  // A hidden/warming set may not have reached WebGL yet. Retain the largest
+  // pending prefix until Three consumes it, even if the next selection shrinks.
+  const ranges = attribute.updateRanges;
+  if (ranges.length === 1 && ranges[0].start === 0) ranges[0].count = Math.max(ranges[0].count, count);
+  else attribute.addUpdateRange(0, count);
+  attribute.needsUpdate = true;
+}
+
 export class InstancePool {
   constructor(scene, kit) {
     this.scene = scene; this.kit = kit;
@@ -18,6 +35,7 @@ export class InstancePool {
     this.group.matrixAutoUpdate = false;
     this.specs = new Map();     // primary asset name -> spec
     this.entries = new Map();   // asset name -> entry
+    this.wordViews = new WeakMap(); // Float32 source arrays -> cached bit views
     this.qf = 1;                // far-distance quality factor
     this.stats = { instances: 0, drawn: 0, shadowInstances: 0 };
     this.glow = [];             // materials that light up at night: {m, base, prop}
@@ -63,6 +81,8 @@ export class InstancePool {
   _alloc(set) {
     const cap = set.cap;
     set.mat = new Float32Array(cap * 16); set.col = new Float32Array(cap * 3);
+    set.matWords = new Uint32Array(set.mat.buffer); set.colWords = new Uint32Array(set.col.buffer);
+    set.matDirty = true; set.colDirty = true;
     set.attr = new THREE.InstancedBufferAttribute(set.mat, 16); set.attr.setUsage(THREE.DynamicDrawUsage);
     set.colAttr = new THREE.InstancedBufferAttribute(set.col, 3); set.colAttr.setUsage(THREE.DynamicDrawUsage);
     set.asset.parts.forEach((p, i) => {
@@ -86,12 +106,18 @@ export class InstancePool {
     set.mat.set(oldMat.subarray(0, n * 16)); set.col.set(oldCol.subarray(0, n * 3));
   }
 
+  _words(array) {
+    let words = this.wordViews.get(array);
+    if (!words) { words = new Uint32Array(array.buffer, array.byteOffset, array.length); this.wordViews.set(array, words); }
+    return words;
+  }
+
   /**
    * chunks: iterable of {lists: Map<string, InstList>}. cam = {x,y,z}; fwd = {x,z} unit (0,0 = no behind-culling).
    * sh = { on, fx,fy,fz (shadow focus), lx,ly,lz (unit vector TOWARD the sun), rad (lateral half-extent of the shadow box), depth (half length along the light) }.
    */
   rebuild(chunks, cam, fwd, sh) {
-    for (const e of this.entries.values()) for (const set of e.sets) { set.n = 0; set.min.set(1e18, 1e18, 1e18); set.max.set(-1e18, -1e18, -1e18); set.rad = 0; }
+    for (const e of this.entries.values()) for (const set of e.sets) { set.n = 0; set.matDirty = false; set.colDirty = false; set.min.set(1e18, 1e18, 1e18); set.max.set(-1e18, -1e18, -1e18); set.rad = 0; }
     const cx = cam.x, cy = cam.y, cz = cam.z, fx = fwd.x, fz = fwd.z;
     let missing = 0, total = 0, shTotal = 0;
     const shOn = !!(sh && sh.on);
@@ -117,6 +143,7 @@ export class InstancePool {
         }
         const lodSq = spec._lodSq;
         const nl = lods.length, m = list.m, col = list.col, behind = spec.behind, canShadow = spec.shadow && shOn;
+        const mWords = this._words(m), colWords = this._words(col);
         const rr = list.rad;
         // ---- fast path: whole list in the last LOD, inside the far range, in front of the camera and outside the shadow box -> one memcpy
         if (ents[nl - 1]) {
@@ -133,7 +160,8 @@ export class InstancePool {
           if (front && noShadow && (nl === 1 || dmin2 > lodSq[nl - 2]) && dmax2 < farSq) {
             const set = ents[nl - 1].sets[0], n = list.n;
             if (set.n + n > set.cap) this._regrow(set, set.n + n);
-            set.mat.set(m.subarray(0, n * 16), set.n * 16); set.col.set(col.subarray(0, n * 3), set.n * 3);
+            set.matDirty = copyChanged(set.mat, set.matWords, set.n * 16, m, mWords, n * 16, set.matDirty);
+            set.colDirty = copyChanged(set.col, set.colWords, set.n * 3, col, colWords, n * 3, set.colDirty);
             set.n += n; total += n;
             if (list.minx < set.min.x) set.min.x = list.minx; if (list.maxx > set.max.x) set.max.x = list.maxx;
             if (list.miny < set.min.y) set.min.y = list.miny; if (list.maxy > set.max.y) set.max.y = list.maxy;
@@ -166,8 +194,11 @@ export class InstancePool {
           // No temporary typed-array view for every visible prop. Mixed lists
           // still need per-instance culling/LOD/shadow selection.
           const mo = set.n * 16;
-          for (let k = 0; k < 16; k++) set.mat[mo + k] = m[o + k];
-          const c = set.n * 3, ci = i * 3; set.col[c] = col[ci]; set.col[c + 1] = col[ci + 1]; set.col[c + 2] = col[ci + 2];
+          if (!set.matDirty) for (let k = 0; k < 16; k++) if (set.matWords[mo + k] !== mWords[o + k]) { set.matDirty = true; break; }
+          if (set.matDirty) for (let k = 0; k < 16; k++) set.matWords[mo + k] = mWords[o + k];
+          const c = set.n * 3, ci = i * 3;
+          if (!set.colDirty && (set.colWords[c] !== colWords[ci] || set.colWords[c + 1] !== colWords[ci + 1] || set.colWords[c + 2] !== colWords[ci + 2])) set.colDirty = true;
+          if (set.colDirty) { set.colWords[c] = colWords[ci]; set.colWords[c + 1] = colWords[ci + 1]; set.colWords[c + 2] = colWords[ci + 2]; }
           set.n++; total += 1; shTotal += toShadow;
           if (px < set.min.x) set.min.x = px; if (px > set.max.x) set.max.x = px;
           if (py < set.min.y) set.min.y = py; if (py > set.max.y) set.max.y = py;
@@ -190,8 +221,8 @@ export class InstancePool {
           if (mesh.visible) drawn++;
         }
         if (on) {
-          set.attr.clearUpdateRanges(); set.attr.addUpdateRange(0, set.n * 16); set.attr.needsUpdate = true;
-          set.colAttr.clearUpdateRanges(); set.colAttr.addUpdateRange(0, set.n * 3); set.colAttr.needsUpdate = true;
+          if (set.matDirty) markChanged(set.attr, set.n * 16);
+          if (set.colDirty) markChanged(set.colAttr, set.n * 3);
         }
       }
     }

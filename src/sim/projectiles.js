@@ -35,7 +35,8 @@ export class Projectiles {
       let worldT = step + 1;
       if (b.life < b.maxLife - 0.03) {
         this.ray.origin.x = _o.x; this.ray.origin.y = _o.y; this.ray.origin.z = _o.z; this.ray.dir.x = _d.x; this.ray.dir.y = _d.y; this.ray.dir.z = _d.z;
-        const wh = sim.world.castRayAndGetNormal(this.ray, step, true, undefined, RAY_SHOT);
+        // Projectile impact handling consumes TOI only; suspension queries still need normals.
+        const wh = sim.world.castRay(this.ray, step, true, undefined, RAY_SHOT);
         if (wh) worldT = wh.timeOfImpact;
       }
       if (hit && hit.t <= worldT) {
@@ -79,7 +80,7 @@ export class Projectiles {
         if (h && (!best || h.t < best.t)) best = { t: h.t, car: null, point: h.point, bossZone: h.zone.kind };
       }
       this.ray.origin.x = _o.x; this.ray.origin.y = _o.y; this.ray.origin.z = _o.z; this.ray.dir.x = _d.x; this.ray.dir.y = _d.y; this.ray.dir.z = _d.z;
-      const wh = sim.world.castRayAndGetNormal(this.ray, step + 0.2, true, undefined, RAY_SHOT);
+      const wh = sim.world.castRay(this.ray, step + 0.2, true, undefined, RAY_SHOT);
       let boom = null;
       if (best && (!wh || best.t <= wh.timeOfImpact)) boom = best.point; else if (wh) boom = new THREE.Vector3(_o.x + _d.x * wh.timeOfImpact, _o.y + _d.y * wh.timeOfImpact, _o.z + _d.z * wh.timeOfImpact);
       if (boom || r.life <= 0) {
