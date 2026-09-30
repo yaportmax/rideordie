@@ -105,6 +105,7 @@ function column(rm, o) {
     let ledge = hard ? 0.06 * smoothstep(0.0, 0.2, fr) * (1 - smoothstep(0.75, 1.0, fr)) : -0.07 * Math.sin(fr * Math.PI);
     if (o.kind === 'butte') ledge *= 1.8;
     if (o.kind === 'stack') ledge *= 0.3;
+    if (o.mesa) ledge *= Math.min(1, 16 / R);                       // ledges of a few metres, whatever the size
     let cap = 0;
     if (h > capAt) { const k = (h - capAt) / o.cap; cap = o.capFlare * Math.sin(Math.min(1, k * 1.6) * Math.PI * 0.5) - (k > 0.7 ? (k - 0.7) * 1.8 : 0); ledge = 0; }
     const top = o.kind === 'hoodoo' || o.kind === 'spire' ? 0 : smoothstep(H - 3, H, h) * 0.12;
@@ -113,7 +114,7 @@ function column(rm, o) {
       const a = (i / N) * TAU, ca = Math.cos(a), sa = Math.sin(a);
       const st = o.kind === 'stack';
       const n1 = fbm2(ca * (st ? 0.9 : 1.3) + seed * 0.01, h / (st ? 16 : 9) + sa * (st ? 0.9 : 1.3), 3, seed), n2 = fbm2(ca * 3 + 7, h / 3.2 + sa * 3, 2, seed + 5);
-      let r = R * (prof + ledge + cap - top) * (st ? 0.55 + 0.9 * n1 + 0.1 * (n2 - 0.5) : 0.78 + 0.42 * n1 + 0.12 * (n2 - 0.5));
+      let r = R * (prof + ledge + cap - top) * (st ? 0.55 + 0.9 * n1 + 0.1 * (n2 - 0.5) : 0.78 + 0.42 * n1 + (o.mesa ? 0.04 : 0.12) * (n2 - 0.5));
       if (o.flat) r *= o.flat + (1 - o.flat) * ca * ca;             // fins: squashed across one axis
       r = Math.max(0.3, r);
       let px = ca * r, pz = sa * r;
@@ -259,9 +260,32 @@ function planSlot(ctx, id, k) {
   return out;
 }
 
+// far mesas / buttes on the horizon (replace the old low-poly GLB mesas): 90-220 m wide, 55-140 m tall, banded cliffs, talus skirt
+const MESA = { desert: { pitch: 620, chance: 0.62, v: [330, 760], R: [45, 90], H: [55, 100] }, canyon: { pitch: 520, chance: 0.7, v: [400, 780], R: [55, 105], H: [80, 140] } };
+function planMesa(ctx, id, k) {
+  const key = `ms:${id}:${k}`, cache = ctx.rockCache || (ctx.rockCache = new Map());
+  if (cache.has(key)) return cache.get(key);
+  const T = MESA[id], { road, seed } = ctx, out = [];
+  cache.set(key, out);
+  const sc = k * T.pitch + (hash2(k, 431, seed) - 0.5) * T.pitch * 0.6;
+  if (bid(sc) !== id) return out;
+  const r = rngOf(seed, k, 4300 + id.length);
+  if (r() > T.chance) return out;
+  road.extendTo(sc + 1200);
+  const side = r() < 0.5 ? 1 : -1, v = T.v[0] + r() * (T.v[1] - T.v[0]), R = T.R[0] + r() * (T.R[1] - T.R[0]), H = T.H[0] + r() * (T.H[1] - T.H[0]);
+  const s = sc + (r() - 0.5) * 80;
+  if (road.featuresIn(s - R - 60, s + R + 60).some((f) => (f.type === 'tunnel' || f.type === 'bridge'))) return out;
+  out.push({ kind: 'butte', mesa: true, s, d: side * (v + R), R, H, cap: 6 + r() * 4, capFlare: 0.05, dome: 0.3, strata: 4.2 + r() * 2.5, N: 64, M: Math.min(72, Math.ceil(H / 2.1)), flat: r() < 0.5 ? 0.55 + r() * 0.3 : 0, rot: r() * 3.14 });
+  return out;
+}
+
 /** All planned formations with anchor s in [sA, sB). */
 export function rocksIn(ctx, sA, sB) {
   const out = [];
+  for (const id of Object.keys(MESA)) {
+    const T = MESA[id];
+    for (let k = Math.floor(sA / T.pitch) - 1; k <= Math.ceil(sB / T.pitch) + 1; k++) for (const f of planMesa(ctx, id, k)) if (f.s >= sA && f.s < sB) out.push(f);
+  }
   for (const id of Object.keys(PLAN)) {
     const T = PLAN[id];
     for (let k = Math.floor(sA / T.pitch) - 1; k <= Math.ceil(sB / T.pitch) + 1; k++) for (const f of planSlot(ctx, id, k)) if (!f.skip && f.s >= sA && f.s < sB) out.push(f);
@@ -325,6 +349,7 @@ export function buildRocks(ctx, chunk) {
     road.pointAt(f.s, f.d, P);
     // ground: lowest terrain under the footprint
     let gy = 1e9; for (const [ds, dd] of [[0, 0], [f.R, 0], [-f.R, 0], [0, f.R], [0, -f.R]]) gy = Math.min(gy, groundAt(road, seed, f.s + ds, f.d + dd, _G).y);
+    if (f.mesa) { let sum = 0; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; sum += groundAt(road, seed, f.s + Math.cos(a) * f.R * 0.8, f.d + Math.sin(a) * f.R * 0.8, _G).y; } gy = Math.min(gy + 6, sum / 8 - 2); }
     const fseed = (seed * 31 + Math.round(f.s * 7) + Math.round(f.d * 13)) & 0xffff;
     const near = Math.abs(f.d) - f.R < 70;
     if (f.kind === 'stack') {

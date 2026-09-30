@@ -127,6 +127,7 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
       }
       if (e.t === 'shot' && e.src !== 'player' && !e.fromGunner) { R.eshots = (R.eshots || 0) + (e.rays ? e.rays.length : 1); }
       if (e.t === 'enemyTell' && e.kind === 'burst') R.bursts = (R.bursts || 0) + 1;
+      if (e.t === 'crash' && e.id !== 1 && e.other > 1 && e.dv > 4) { const a2 = sim.cars.get(e.id), b2 = sim.cars.get(e.other); if (a2 && b2 && !a2.driverless && !b2.driverless && !a2.exploded && !b2.exploded) { const k = (a2.ai?.mode === 'overtake' || b2.ai?.mode === 'overtake') ? 'overtake' : (a2.ai?.atk?.kind || b2.ai?.atk?.kind || 'other'); (R.rr || (R.rr = {}))[k] = ((R.rr || {})[k] || 0) + 1; } }
       if (e.t === 'kill') { R.kills++; if (e.crash) R.crashKills++; cash += Math.round((KILL_CASH[e.spec] || 60) * (1 + sim.director.level * ECONOMY.killLevel) * (e.crash ? ECONOMY.crashMul : 1) * effects.cashMul); }
       if (e.t === 'minibossDown') { cash += Math.round(ECONOMY.minibossBounty[e.index] * effects.cashMul); R.mbDown = (R.mbDown || 0) + 1; }
       if (e.t === 'minibossSpawn') { R.mbSeen = (R.mbSeen || 0) + 1; R.mbFight = { name: e.name, t0: sim.time, hp0: P.hp, crew0: P.crew.driver.hp + P.crew.gunner.hp }; }
@@ -234,4 +235,6 @@ console.log(`per min: enemy rounds ${(sum((r) => r.eshots || 0) / (T / 60)).toFi
 const passes = all.flatMap((r) => r.passes || []).sort((a, b) => a - b), op = all.flatMap((r) => r.opasses || []).sort((a, b) => a - b);
 console.log(`overtakes: ${(op.length / (T / 60)).toFixed(2)}/min, pass speed median ${op.length ? op[op.length >> 1].toFixed(0) : '-'} km/h (p25 ${op.length ? op[Math.floor(op.length * 0.25)].toFixed(0) : '-'}, p75 ${op.length ? op[Math.floor(op.length * 0.75)].toFixed(0) : '-'})`);
 console.log(`raider passes: ${(passes.length / (T / 60)).toFixed(2)}/min, relative speed median ${passes.length ? passes[passes.length >> 1].toFixed(0) : '-'} km/h (p75 ${passes.length ? passes[Math.floor(passes.length * 0.75)].toFixed(0) : '-'})  near misses ${((ev.nearMiss || 0) / (T / 60)).toFixed(2)}/min  off-road bursts ${ev.enemyTell ? all.reduce((a, r) => a + (r.bursts || 0), 0) : 0}`);
+const rr = {}; for (const r of all) for (const [k2, v] of Object.entries(r.rr || {})) rr[k2] = (rr[k2] || 0) + v;
+console.log('raider-vs-raider hard crashes (both drivers alive) by cause:', JSON.stringify(rr));
 console.log(`kills/min ${(sum((r) => r.kills) / (T / 60)).toFixed(2)}  crash kills ${sum((r) => r.crashKills)}  chain explosions ${sum((r) => r.chain)}  driver kills ${sum((r) => r.driverKills)} -> hit another car ${sum((r) => r.dkCrash)}`);

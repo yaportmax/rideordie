@@ -146,6 +146,7 @@ export class Sim {
       if (car.crashCooldown > 0) car.crashCooldown -= dt;
       if (car.hitFlash > 0) car.hitFlash -= dt;
     }
+    if (P && !P.exploded) this._rampKick(P);
     if (P && !P.exploded && P.veh.grounded === 0 && P.veh.airTime > 0.12) this._airSteer(P, dt);
     if (P) {
       this.stats.distance = Math.max(this.stats.distance, P.s);
@@ -193,6 +194,7 @@ export class Sim {
     }
     if (!other) {
       if (this._lastOther === 'ramp') return;          // ramps launch you, they never hurt
+      if (Math.abs(dir.y) > 0.6 && car.kind === 'player' && (this.time - (car.rampJumpT ?? -9) < 4 || this.time - (car.rampLandT ?? -9) < 0.6)) return; // ramp jumps land for free
       if (Math.abs(dir.y) > 0.8) dmg = Math.max(0, dv - 3) * 0.9; // landings: free unless it is a real slam
       else if (Math.abs(dir.y) > 0.6) dmg *= 0.3;
       else if (this.hazards.roadblockNear(car.veh.pos)) dmg *= 0.5; // wreck lines are meant to be survivable
@@ -216,6 +218,22 @@ export class Sim {
       const c = car.crew.driver; if (dv > 4 && car.kind === 'enemy' && c.alive) this.damageCrew(car, 'driver', dv * 3, { cause: 'crash' });
       if (car.crew.gunner && car.crew.gunner.alive && dv > 5 && car.kind === 'enemy') this.damageCrew(car, 'gunner', dv * 2.5, { cause: 'crash' });
     }
+  }
+
+  /** Arcade ramp launch: leaving a ramp lip at speed adds lift, so a jump is a real jump (big ramp ~4 m peak, ~1.3 s of air). */
+  _rampKick(car) {
+    const v = car.veh, g = v.grounded;
+    if (car._prevGrounded > 0 && g === 0 && v.vf > 14) {
+      const f = this.road.featuresIn(car.s - 8, car.s + 1, 'ramp').find((q) => car.s > q.s0 + 6);
+      if (f && this.time - (car.rampJumpT ?? -9) > 2) {
+        car.rampJumpT = this.time;
+        const lin = v.body.linvel(), k = clamp(v.vf / 34, 0.55, 1.15), add = (f.big ? 3.6 : 2.2) * k;
+        v.body.setLinvel({ x: lin.x, y: Math.max(lin.y, 0) + add, z: lin.z }, true);
+        this.emit({ t: 'rampJump', id: car.id, big: !!f.big });
+      }
+    }
+    if (g > 0 && car._prevGrounded === 0 && car.rampJumpT !== undefined && this.time - car.rampJumpT < 4) { this.emit({ t: 'rampLand', id: car.id, v: Math.abs(v.vel.y) }); car.rampJumpT = -9; car.rampLandT = this.time; }
+    car._prevGrounded = g;
   }
 
   /** Arcade air steer: a flying truck's path bends gently back along the road (and away from the verge), so a ramp taken

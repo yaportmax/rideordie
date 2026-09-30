@@ -20,9 +20,11 @@ def _quick(heads, **kw):
 
 anim.build_clips = _quick
 os.makedirs(OUT, exist_ok=True)
+import build_all  # noqa: E402
 for cid in sys.argv[1:]:
-    mod = importlib.import_module("c_" + cid)
-    ctx = mod.build_full() if cid == "hero_gunner" else mod.build()
+    base, variant = build_all.split_id(cid)
+    mod = importlib.import_module("c_" + base)
+    ctx = mod.build_full() if cid == "hero_gunner" else (mod.build(variant) if variant != 1 else mod.build())
     hero = cid.startswith("hero")
     sizes = dict(body=2048, hair=1024, eye=256) if hero else dict(body=1024, hair=512, eye=128)
     if cid == "hero_gunner":

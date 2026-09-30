@@ -10,7 +10,7 @@
 // patchCrewMaterials(root) is idempotent per material (materials are shared between clones of one GLB).
 import * as THREE from 'three';
 
-const N = 256, LAYERS = 6;
+const N = 128, LAYERS = 6;
 // tile size (m) per class: detail features ~1.5-4 mm so they read at 0.5-4 m
 const TILE = [1, 0.05, 0.028, 0.07, 0.22, 0.05];
 const STRENGTH = [0, 0.55, 0.7, 0.75, 0.45, 0.4];
@@ -69,21 +69,25 @@ function heightLayer(k, h, r) {
       hv = 0.25 * fbm(u, v, 16, 3, 81);
       const pit = worley(u, v, 30, 91)[0];
       hv -= 0.6 * Math.exp(-(pit * pit) / 0.01) * (hash2(Math.floor(u * 30), Math.floor(v * 30), 93) > 0.7 ? 1 : 0);
-      for (const [lx, ly, ang, len] of lines) {
-        const dx = Math.cos(ang), dy = Math.sin(ang);
-        for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {   // wrap
-          const px = u - lx + ox, py = v - ly + oy, t = px * dx + py * dy;
-          if (t < 0 || t > len) continue;
-          const d = Math.abs(-px * dy + py * dx);
-          if (d < 0.004) { hv -= (1 - d / 0.004) * 0.7; rv = Math.max(rv, 0.8); }
-        }
-      }
       rv += 0.15 * (fbm(u, v, 6, 2, 97) - 0.5);
     } else if (k === 5) {     // rubber / plastic: fine stipple
       hv = fbm(u, v, 32, 2, 101) * 0.9 + 0.3 * fbm(u, v, 8, 2, 103);
       rv = 0.5 + 0.2 * (fbm(u, v, 16, 2, 107) - 0.5);
     }
     h[o] = hv; r[o] = rv;
+  }
+  // metal scratches: rasterised along each line (wrapping), ~1 px wide grooves, rougher
+  if (k === 4) for (const [lx, ly, ang, len] of lines) {
+    const dx = Math.cos(ang), dy = Math.sin(ang), steps = Math.ceil(len * N * 2);
+    for (let i = 0; i <= steps; i++) {
+      const cx = (lx + dx * len * i / steps) * N, cy = (ly + dy * len * i / steps) * N;
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+        const px = Math.floor(cx) + ox, py = Math.floor(cy) + oy, d = Math.abs(-(px + 0.5 - cx) * dy + (py + 0.5 - cy) * dx);
+        if (d > 1.0) continue;
+        const o = (((py % N) + N) % N) * N + (((px % N) + N) % N);
+        h[o] = Math.min(h[o], -0.7 * (1 - d) + 0.25 * 0.5); r[o] = Math.max(r[o], 0.8);
+      }
+    }
   }
 }
 

@@ -85,6 +85,13 @@ ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
   this.lookPitch = damp(this.lookPitch, back ? 0 : (opts.lookY || 0) * -0.5 + (opts.mousePitch || 0), 16, dt);
   this.shake.update(dt);
   const so = this.shake.offset(_v2, 0.18);
+  // speed: a road buzz through the seat that grows with speed, and a punch when the nitro lights
+  const spdB = smoothstep(15, 60, Math.hypot(vel.x, vel.z));
+  this.buzzT = (this.buzzT || 0) + dt;
+  const bz = (0.0012 + 0.0045 * spdB * spdB) * (opts.boosting ? 1.8 : 1);
+  so.x += Math.sin(this.buzzT * 71) * bz; so.y += Math.sin(this.buzzT * 53 + 1.3) * bz * 1.4;
+  if (opts.boosting && !this.wasBoost) { this.shake.add(0.22); this.fov += 6; }
+  this.wasBoost = !!opts.boosting;
   if (back) {
     // look back: a camera over the tailgate facing backwards (instant cut, like every racing game)
     cam.position.copy(opts.lookBackEye).add(so);
@@ -95,7 +102,7 @@ ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
     cam.quaternion.setFromEuler(_e.set(-this.cockPitch + this.lookPitch - 0.035, _e.y + Math.PI + this.lookYaw, -this.cockRoll + so.x * 0.02, 'YXZ'));
   }
   const speed = Math.hypot(vel.x, vel.z), spd01 = smoothstep(5, 62, speed);
-  const targetFov = back ? 78 : (opts.fovBase ?? 80) + spd01 * 12 + (opts.boosting ? 8 : 0);
+  const targetFov = back ? 78 : (opts.fovBase ?? 80) + spd01 * 12 + (opts.boosting ? 11 : 0);
   this.fov = damp(this.fov, targetFov, back ? 30 : 4, dt);
   if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
   if (cam.near !== 0.05) { cam.near = 0.05; cam.updateProjectionMatrix(); }

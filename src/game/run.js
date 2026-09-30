@@ -395,9 +395,10 @@ export class Run {
       if (e.t === 'runOver' && !this.over) { this.over = true; this.overWhy = e.why; }
       if (e.t === 'playerDown') this.g.hud.message(e.why === 'car' ? 'TRUCK DESTROYED' : e.why === 'driver' ? 'DRIVER DOWN' : 'GUNNER DOWN', 2400, '#ff4433');
       if (e.t === 'crash' && e.id === 1) { this.chase.shake.add(clamp(e.dv * 0.05, 0, 0.7)); this.gcam.shake.add(clamp(e.dv * 0.05, 0, 0.7)); if (e.dv > 2.5) { this.g.hud.damageFlash(clamp(e.dv * 0.08, 0.2, 0.6)); this.g.input.rumble(0.8, 0.6, 200); } }
+      if (e.t === 'rampLand' && e.id === 1) { const k = clamp(e.v / 14, 0.3, 1); this.chase.shake.add(0.35 * k); this.gcam.shake.add(0.4 * k); this.g.input.rumble(0.7 * k, 0.5, 220); }
       if (e.t === 'crewHit' && e.id === 1) { this.g.hud.damageFlash(0.45); this.chase.shake.add(0.12); this.gcam.shake.add(0.15); this.g.input.rumble(0.3, 0.7, 90); }
-      // near miss: a raider scraping past within ~1.5 m, or a car blowing up within 8 m -> a short 0.6x heartbeat (max one per 5 s)
-      if ((e.t === 'nearMiss' || (e.t === 'explode' && e.id !== 1 && this.states.get(1) && this.states.get(1).pos.distanceTo(_v.fromArray(e.pos)) < 8)) && !(this.lastPulse > this.time - 5)) { this.pulseT = 0.25; this.pulseK = 0.6; this.lastPulse = this.time; if (e.t === 'nearMiss') this.g.audio?.ui('whoosh_transition'); }
+      // near miss: a raider scraping past within ~1.5 m, or a car blowing up within 8 m -> a short 0.6x heartbeat (max one per 8 s)
+      if ((e.t === 'nearMiss' || (e.t === 'explode' && e.id !== 1 && this.states.get(1) && this.states.get(1).pos.distanceTo(_v.fromArray(e.pos)) < 8)) && !(this.lastPulse > this.time - 8)) { this.pulseT = 0.25; this.pulseK = 0.6; this.lastPulse = this.time; if (e.t === 'nearMiss') this.g.audio?.ui('whoosh_transition'); }
       if (e.t === 'explode' && e.size >= 1.8 && this.states.get(1) && this.states.get(1).pos.distanceTo(_v.fromArray(e.pos)) < 70 && !(this.lastPulse > this.time - 6)) { this.pulseT = 0.35; this.lastPulse = this.time; }
       if (e.t === 'explode') { const p = this.states.get(1); const d = p ? p.pos.distanceTo(_v.fromArray(e.pos)) : 999; const k = clamp(1 - d / 90, 0, 1) * e.size; this.chase.shake.add(k * 0.8); this.gcam.shake.add(k * 0.8); if (k > 0.3) this.g.input.rumble(0.6, 0.4, 250); }
     }
@@ -459,7 +460,11 @@ export class Run {
       const ck = this.cockpit, lookBackEye = ck && cmds.driver.lookBack && this.chase.mode === 0 ? ck.lookBackWorld(_t3) : null;
       this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, fovBase: g.fovBase, lookBack: !!lookBackEye, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
       if (cmds.driver.cameraToggle) this.chase.toggle();
-      if (ck) { ck.setActive(this.chase.mode === 0 && !lookBackEye && !this.introOutside); ck.update(dt, this.hud2, g.look?.night ?? 0); }
+      if (ck) {
+        ck.setActive(this.chase.mode === 0 && !lookBackEye && !this.introOutside); ck.update(dt, this.hud2, g.look?.night ?? 0);
+        let behind = false; for (const st of this.states.values()) if (st.kind === 'enemy' && !st.exploded) { _v.copy(st.pos).sub(pst.pos); if (_v.lengthSq() < 170 * 170 && _v.dot(_f.set(0, 0, 1).applyQuaternion(pst.quat)) < 5) { behind = true; break; } }
+        ck.threatBehind = behind;
+      }
       g.audio?.setCabin?.(ck && ck.active ? 1 : 0);
       const cl = g.cabinLight;
       if (cl) {

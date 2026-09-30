@@ -43,6 +43,7 @@ DEFAULTS = dict(
     dens_fn=None,        # f(centre, normal) -> texel density multiplier per chart (hero faces)
     shelf_window=0,      # >0: first-fit only over the last N shelves (fast packing for tens of thousands of charts)
     recipes={},          # material -> recipe name override
+    look_recipes={},     # look (material asked for before aliasing) -> recipe name override
 )
 SMALL = 0.085            # primitives smaller than this (m) get a single chart
 
@@ -784,6 +785,62 @@ def r_wood(S):
     return rgb * base, r, mt
 
 
+def r_paint_col(S, pc, sun_col, chip_col=(0.20, 0.19, 0.18), primer=(0.50, 0.48, 0.44), bare=(0.50, 0.50, 0.49), rust_col=(0.30, 0.12, 0.05),
+                rough0=0.62):
+    """painted steel in a baked colour (untinted models, e.g. the boss): hue variation, sun fade, repaint patches, chips to dark primer,
+    worn primer edges with bare steel cores, scratches, rust bleed + streaks, burnt paint at welds, grime / dust / film, AO"""
+    n, ao, cav, dirt, dust, ew, streak, heat = _common(S)
+    N = S['N']
+    lo, mid, fine = S['n_lo'], S['n_mid'], S['n_fine']
+    k = 1 + 0.16 * (lo - 0.5) + 0.10 * (mid - 0.5) + 0.05 * (fine - 0.5)
+    rgb = col(pc, n) * k[:, None]
+    fade = np.clip(0.55 * ss(0.35, 0.95, N[:, 1]) * S['sky'] + 0.35 * ss(0.45, 0.9, S['n_lo2']), 0, 1)       # sun-faded tops + blotches
+    rgb = mix(rgb, col(sun_col, n) * k[:, None], fade)
+    patch = S['patch']
+    rgb = mix(rgb, col(pc, n) * 0.72, patch * 0.8)                                                              # darker repaint patches
+    rough = rough0 + 0.12 * (mid - 0.5) + 0.06 * (fine - 0.5) + 0.12 * fade
+    metal = np.full(n, 0.04, np.float32)
+    chip = S['chip']
+    rgb = mix(rgb, col(chip_col, n) * (0.85 + 0.3 * fine)[:, None], chip)
+    rough = rough * (1 - chip) + chip * 0.5
+    metal = metal * (1 - chip) + chip * 0.5
+    rgb = mix(rgb, col(primer, n) * (0.9 + 0.2 * fine)[:, None], ew * 0.85)
+    rough = rough * (1 - ew) + ew * 0.6
+    b = S['ew_core']
+    rgb = mix(rgb, col(bare, n), b)
+    metal = metal * (1 - b) + b * 0.9
+    rough = rough * (1 - b) + b * 0.34
+    sc = S['scratch']
+    rgb = mix(rgb, col(primer, n), sc * 0.55)
+    rs = np.clip(S['rust'], 0, 1)
+    rc = mix(col(rust_col, n), col((0.14, 0.07, 0.04), n), ss(0.55, 0.9, S['n_pit']))
+    rgb = mix(rgb, rc, rs * 0.85)
+    rough = rough * (1 - rs) + rs * 0.9
+    metal *= (1 - rs)
+    st = np.clip(streak * 0.9, 0, 1)
+    rgb = mix(rgb, col((0.22, 0.10, 0.045), n) * (0.8 + 0.3 * fine)[:, None], st * 0.7)
+    rough = rough * (1 - 0.6 * st) + 0.85 * 0.6 * st
+    rgb *= (1 - 0.75 * heat)[:, None]
+    rough = rough * (1 - heat) + heat * 0.8
+    rgb = mix(rgb, col((0.20, 0.17, 0.13), n), dirt * 0.75)
+    rough = rough * (1 - dirt) + dirt * 0.9
+    rgb = mix(rgb, col((0.52, 0.46, 0.38), n), dust * 0.55)
+    rough = rough * (1 - dust) + dust * 0.95
+    fl = _film(S)
+    rgb = mix(rgb, col(DUST_COL, n), fl * 0.85)
+    rough = rough + fl * 0.2
+    rgb *= ((1 - 0.72 * ao) * (1 - 0.5 * cav))[:, None]
+    rough = np.clip(rough + 0.25 * cav, 0, 1)
+    return np.clip(rgb, 0.02, 1), np.clip(rough, 0.05, 1), np.clip(metal, 0, 1)
+
+
+def r_boss_rim(S):
+    rgb, r, mt = r_paint_col(S, (0.30, 0.085, 0.06), (0.40, 0.16, 0.11), rough0=0.6)
+    bd = np.clip(S['ao'] * 1.5 + 0.2 * S['n_mid'], 0, 1)                          # brake dust in the dish
+    rgb = mix(rgb, col((0.13, 0.09, 0.06), S['n']), bd * 0.6)
+    return rgb, r, mt
+
+
 def r_flat(c, rough=0.8, wear=None, chip=None, chip_amt=0.0, dust_amt=0.6, dirt_amt=0.8):
     return lambda S: _dielectric(S, c, rough, wear, dirt_amt=dirt_amt, dust_amt=dust_amt, chip_col=chip, chip_amt=chip_amt)
 
@@ -803,6 +860,10 @@ RECIPES = {
     'cloth_red': r_flat((0.50, 0.07, 0.05), 0.95, dust_amt=0.5),
     'brass': lambda S: _steel_like(S, 0.55, (1.0, 0.78, 0.42), 0.3, bare_col=(0.85, 0.7, 0.4), metal0=1.0, rough0=0.35, heat_col=False),
     'gun_metal': lambda S: _steel_like(S, 0.16, (1.0, 1.0, 1.02), 0.2, metal0=0.85, rough0=0.45, heat_col=False),
+    # the Leviathan (untinted): oxblood war paint, charcoal trim, oxblood wheels
+    'boss_paint': lambda S: r_paint_col(S, (0.36, 0.085, 0.055), (0.46, 0.17, 0.11)),
+    'boss_paint2': lambda S: r_paint_col(S, (0.075, 0.072, 0.068), (0.17, 0.16, 0.145), chip_col=(0.30, 0.29, 0.28), rough0=0.7),
+    'boss_rim': r_boss_rim,
 }
 
 
@@ -963,12 +1024,13 @@ def finish(m, data, objs):
         rough = np.array(rough, np.float32); metal = np.array(metal, np.float32)
         clook = extra['clook']
         for lk in set(clook.tolist()) - {''}:
-            if lk not in RECIPES:
+            rk = opts.get('look_recipes', {}).get(lk, lk)
+            if rk not in RECIPES:
                 continue
             idx = np.flatnonzero(clook == lk)
             Ssub = {k: (v[idx] if isinstance(v, np.ndarray) and v.shape[:1] == (S['n'],) else v) for k, v in S.items()}
             Ssub['n'] = len(idx)
-            r2, ro2, me2 = RECIPES[lk](Ssub)
+            r2, ro2, me2 = RECIPES[rk](Ssub)
             rgb[idx] = r2; rough[idx] = ro2; metal[idx] = me2
         if 'soot' in S and S['soot'].any():                   # soot bloom + heat-tinted steel around thrusters / nozzles / stack tops
             so, ho = S['soot'], S['hot']

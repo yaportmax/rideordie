@@ -62,7 +62,7 @@ export class Game {
     const tl = new THREE.TextureLoader();
     const tex = (n, srgb) => { const t = tl.load(`/textures/asphalt/${n}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8; return t; };
     const urls = [...Object.keys(VEHICLES).map((k) => `/models/vehicles/${k}.glb`), '/models/vehicles/boss_warrig.glb', ...['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'].map((w) => `/models/weapons/${w}.glb`),
-      ...['hero_gunner', 'hero_driver', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_driver', 'fp_arms'].map((c) => `/models/characters/${c}.glb`)];   // fp_arms: first-person gunner + driver arms
+      ...['hero_gunner', 'hero_driver', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_driver', 'raider_a2', 'raider_b2', 'raider_c2', 'raider_d2', 'raider_driver2', 'fp_arms'].map((c) => `/models/characters/${c}.glb`)];   // fp_arms: first-person gunner + driver arms
     await Assets.preload(urls, onProgress);
     const arrays = await loadGroundArrays();
     this.terrainMat = makeTerrainMaterial(arrays);
@@ -125,8 +125,8 @@ export class Game {
     for (const r of warmRaiderViews()) g.add(r); g.add(HazardMarks.warmGroup()); g.add(BossMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
     g.add(new BossView(null).root);
     for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);
-    for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);
-    for (const c of ['hero_driver', 'raider_driver']) g.add(new CrewView(c, { role: 'driver' }).root);
+    for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_a2', 'raider_b2', 'raider_c2', 'raider_d2']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);
+    for (const c of ['hero_driver', 'raider_driver', 'raider_driver2']) g.add(new CrewView(c, { role: 'driver' }).root);
     g.add(ViewModel.warmObject());   // first-person viewmodel programs (patched projection) + its flash / reticle
     for (const m of Water.prewarmMeshes()) g.add(m);   // sea / lake + shoreline programs (first shown at 19 km)
     for (const m of groundPrewarmMeshes(this.terrainMat, this.roadMat)) g.add(m);   // terrain / road / ground-cover programs

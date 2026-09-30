@@ -253,6 +253,37 @@ export function emitBuilding(mb, nb, cols, b, fr, g0, g1, r) {
     jagged(mb, F, -hw, hw, H - cut, H, -hd, hd, vBase, uo, r, b);
     roofY = H - cut;
   } else mb.box(F, -hw, hw, 0, H, -hd, hd, { vBase, uo });
+  // ---- facade relief (street face): cornice, belt courses, the storefront fascia, window AC units
+  if (b.row !== 'C') {
+    const cc = b.col.map((c) => c * 1.06);
+    mb.col(cc[0], cc[1], cc[2]).setFac(ST.PLAIN, 1, 1, b.seed).setFac2(0, 0, 0, 0);
+    const podium = b.setback && b.floors >= 10;
+    if (!b.top || podium) {                                                   // cornice: a moulded band proud of every face
+      const yC = podium ? vBase + b.gh + Math.max(3, Math.floor(b.floors * 0.3)) * b.flh : roofY;
+      if (!podium) { mb.box(F, -hw - 0.38, hw + 0.38, yC - 0.28, yC + 0.05, -hd - 0.38, hd + 0.38); mb.box(F, -hw - 0.2, hw + 0.2, yC - 0.62, yC - 0.28, -hd - 0.2, hd + 0.2, { skip: 't' }); }
+    }
+    if (b.gh > 0) {                                                           // storefront fascia (sign band) over the shops
+      const y = vBase + b.gh;
+      mb.col(b.col[0] * 0.8, b.col[1] * 0.8, b.col[2] * 0.8);
+      mb.box(F, -hw - 0.05, hw + 0.05, y - 0.5, y + 0.12, hd, hd + 0.22);
+      mb.box(F, -hw - 0.05, hw + 0.05, 0, vBase + 0.35, hd, hd + 0.12, { skip: 't' });     // plinth
+    }
+    if (b.style === ST.PUNCHED || b.style === ST.BRICK) {
+      mb.col(cc[0], cc[1], cc[2]);
+      const top = b.top ? b.floors - 3 : b.floors;
+      for (let j = 3; j < top; j += 3) { const y = vBase + b.gh + j * b.flh; mb.box(F, -hw - 0.02, hw + 0.02, y - 0.2, y + 0.06, hd, hd + 0.12, { skip: 'd' }); }
+      // window air-conditioners hanging under the sills
+      const lo = b.style === ST.BRICK ? 0.2 : 0.3, nB = Math.floor(W / b.bay), fl0 = b.gh > 0 ? 0 : 1;
+      for (let j = fl0; j < top; j++) for (let k = 0; k < nB; k++) {
+        if (r() > 0.1) continue;
+        const x = -hw + (k + 0.5) * b.bay, y = vBase + b.gh + (j + lo) * b.flh + 0.02;
+        if (x > hw - 0.6 || x < -hw + 0.6) continue;
+        mb.col(0.52, 0.5, 0.46); mb.box(F, x - 0.34, x + 0.34, y, y + 0.44, hd - 0.05, hd + 0.5);
+        mb.col(0.2, 0.2, 0.2); mb.box(F, x - 0.26, x + 0.26, y + 0.06, y + 0.38, hd + 0.5, hd + 0.52, { skip: 'd' });   // grille
+        mb.col(0.2, 0.2, 0.22); mb.box(F, x + 0.2, x + 0.24, y - 1.2, y, hd + 0.02, hd + 0.06, { skip: 't' });           // drip pipe
+      }
+    }
+  }
   // facade relief on the street face: balconies (residential concrete) / iron fire escapes (brick)
   if (b.row !== 'C' && !b.setback && b.floors >= 3) {
     const nB = Math.floor(W / b.bay), fl0 = b.gh > 0 ? 0 : 1, top = b.top ? b.floors - 3 : b.floors;
@@ -267,9 +298,10 @@ export function emitBuilding(mb, nb, cols, b, fr, g0, g1, r) {
           if (x1 > hw - 0.3) continue;
           mb.box(F, x0, x1, y - 0.16, y + 0.02, hd, hd + 1.2);
           mb.box(F, x0, x1, y + 0.02, y + 0.95, hd + 1.1, hd + 1.2, { skip: 'd' });
+          mb.box(F, x0, x0 + 0.1, y + 0.02, y + 0.95, hd + 0.1, hd + 1.1, { skip: 'd' }); mb.box(F, x1 - 0.1, x1, y + 0.02, y + 0.95, hd + 0.1, hd + 1.1, { skip: 'd' });
         }
       }
-    } else if (b.style === ST.BRICK && W > 3 * b.bay && r() < 0.6) {
+    } else if ((b.style === ST.BRICK || b.style === ST.PUNCHED) && W > 3 * b.bay && r() < 0.7) {
       mb.col(0.13, 0.12, 0.12).setFac(ST.PLAIN, 1, 1, b.seed);
       const k0 = Math.floor(r() * Math.max(1, nB - 3)), x0 = -hw + k0 * b.bay + 0.2, x1 = x0 + 3 * b.bay - 0.4;
       for (let j = fl0; j < top; j++) {
@@ -298,7 +330,13 @@ export function emitBuilding(mb, nb, cols, b, fr, g0, g1, r) {
     // stair / lift housing + AC units
     const sx = rx0 + (rx1 - rx0) * (0.2 + r() * 0.6), sz = rz0 + (rz1 - rz0) * (0.25 + r() * 0.5);
     mb.box(F, sx - 2.2, sx + 2.2, roofY, roofY + 3.2, sz - 1.8, sz + 1.8);
-    if (b.row !== 'C') for (let i = 0; i < 2; i++) { const ax = rx0 + (rx1 - rx0) * r(), az = rz0 + (rz1 - rz0) * r(); mb.box(F, ax - 0.9, ax + 0.9, roofY, roofY + 1.2, az - 0.7, az + 0.7); }
+    if (b.row !== 'C') for (let i = 0; i < 2; i++) { const ax = rx0 + (rx1 - rx0) * r(), az = rz0 + (rz1 - rz0) * r(); mb.box(F, ax - 0.9, ax + 0.9, roofY, roofY + 1.2, az - 0.7, az + 0.7); mb.box(F, ax - 0.7, ax + 0.7, roofY + 1.2, roofY + 1.3, az - 0.5, az + 0.5); }
+    if (b.row !== 'C') {
+      mb.col(0.3, 0.3, 0.31);
+      for (let i = 0; i < 3; i++) { const vx = rx0 + 1 + (rx1 - rx0 - 2) * r(), vzz = rz0 + 1 + (rz1 - rz0 - 2) * r(); mb.cyl(F, vx, vzz, roofY, roofY + 0.9 + r() * 0.8, 0.22, 0.22, 6, true); }
+      const pz = rz0 + 0.9; mb.box(F, rx0 + 0.6, rx1 - 0.6, roofY + 0.4, roofY + 0.62, pz - 0.11, pz + 0.11);                // pipe run along the back parapet
+      mb.col(rc[0], rc[1], rc[2]);
+    }
     if (b.tank) {
       const tx = rx0 + (rx1 - rx0) * (0.15 + r() * 0.7), tz = rz0 + (rz1 - rz0) * (0.2 + r() * 0.6), tr = 1.5 + r() * 0.7;
       mb.col(0.32, 0.22, 0.14);

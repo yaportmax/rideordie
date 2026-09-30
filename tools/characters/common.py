@@ -52,7 +52,14 @@ def add_skin(ctx, tris, albedo, rough=0.78, normal=None, relief=True):
         a = np.asarray(albedo, np.float32)
         if a.max() > 1.5:
             a = a / 255.0
-        albedo = np.clip(a * (1.0 - 0.28 * crease[..., None]), 0, 1)
+        lips = getattr(SPT.skin_relief, "last_lips", None)
+        a = a * (1.0 - 0.10 * crease[..., None])
+        if lips is not None:                           # lips: a little darker and redder than the skin around them
+            a = a * (1.0 - lips[..., None] * (1.0 - np.array([0.86, 0.70, 0.70], np.float32)))
+        mouth = getattr(SPT.skin_relief, "last_mouth", None)
+        if mouth is not None:                          # the line where the lips meet: dark (no pale inner-lip texels)
+            a = a * (1.0 - 0.72 * mouth[..., None])
+        albedo = np.clip(a, 0, 1)
         mr = np.zeros(hgt.shape + (3,), np.float32)
         mr[..., 1] = rgh
         mr_tex = ctx.glb.texture_array("skin_mr", mr, "jpg", 90)

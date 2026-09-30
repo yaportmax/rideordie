@@ -21,10 +21,13 @@ import raidergear as RG
 import skinpaint as SP
 import uvbake as U
 
+VARIANT = 1
 NAME = "raider_driver"
 SPEC = dict(macro=dict(gender=1.0, age=0.62, muscle=0.45, weight=0.72, height=0.5, race="caucasian"),
             extra=[("stomach/stomach-pregnant-incr", 0.35), ("neck/neck-scale-horiz-incr", 0.5), ("head/head-fat-incr", 0.3)],
             height=1.78, skin="middleage_caucasian_male")
+SPEC2 = dict(macro=dict(gender=1.0, age=0.52, muscle=0.55, weight=0.62, height=0.5, race={"african": 0.6, "caucasian": 0.4}),
+             height=1.80, skin="middleage_african_male")
 
 JACKET = (0.36, 0.18, 0.09)
 PANTS = (0.32, 0.30, 0.22)
@@ -37,6 +40,18 @@ def skin_texture(ctx, fit):
     base = B.skin_image(ch.spec["skin"], 1024).astype(np.float32) / 255.0
     sb = SP.SkinBake(ch, fit, 1024)
     base = sb.fill_gutters(base)
+    if VARIANT == 2:
+        alb = SP.tone(base, mul=(0.92, 0.86, 0.80), gamma=1.0)
+        alb = SP.blend(alb, (0.22, 0.17, 0.12), SP.dirt(sb, 12, 0.5))
+        alb = SP.stubble(alb, sb, ch, seed=6, amount=1.9, colour=(0.03, 0.028, 0.026), cheeks=1.0)
+        c, half = SP._face_frame(ch)
+        scalp = (sb.G["Head"] > 0.5) & ((sb.P[..., 1] > c[1] + 0.035) | ((sb.N[..., 2] > 0.2) & (sb.P[..., 1] > c[1] - 0.05)))
+        n = U.fbm(sb.mask.shape, 1.6, 2, 12, wrap=False)
+        alb = SP.blend(alb, (0.05, 0.045, 0.04), np.clip(U.blur(scalp.astype(np.float32), 3.0) * (0.3 + 0.2 * n), 0, 0.5))
+        for k in range(2):
+            p = c + np.array([0.02 - 0.05 * k, 0.11, 0.03 + 0.03 * k])
+            alb = SP.scar(alb, sb.P, np.array([p, p + [0.02, 0.02, 0.02], p + [0.045, 0.025, 0.05]]), width=0.003, colour=(0.40, 0.29, 0.25), strength=0.8)
+        return np.clip(alb * 255 + 0.5, 0, 255).astype(np.uint8)
     alb = SP.tone(base, mul=(0.84, 0.68, 0.56), gamma=1.05)
     alb = SP.sunburn(alb, sb, ch, amount=0.6)
     alb = SP.blend(alb, (0.26, 0.2, 0.14), SP.dirt(sb, 12, 0.5))
@@ -211,7 +226,8 @@ def add_gear(ctx, fit, pcs):
     spike_m = common.gear_material(ctx, "spike", "metal_dark", color=(0.70, 0.68, 0.64), rough=0.8, metal=1.0)
     strap_m = common.gear_material(ctx, "webbing_black", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
     menace.pauldron(ctx, brc, binder, "Left", dict(plate=armor, rivet=gold, strap=strap_m, spike=spike_m), layers=2, spikes=3, size=0.95)
-    gg = gear.goggles(ctx, brc, up=0.085, hair=0.018, lens_r=0.024, spacing=0.034, tilt=18.0, seg=10, ring_n=18)
+    gg = gear.goggles(ctx, brc, up=0.085 if VARIANT == 1 else 0.058, hair=0.018 if VARIANT == 1 else 0.004, lens_r=0.024, spacing=0.034,
+                      tilt=18.0 if VARIANT == 1 else 8.0, seg=10, ring_n=18)
     for f in gg["frames"]:
         common.add_gear(ctx, f, rubber, binder, bone="Head", label="goggle_frame")
     for f in gg["rims"]:
@@ -248,14 +264,16 @@ def add_gear(ctx, fit, pcs):
         cf = outfit.cuff(pcs["jacket"], H, side, grow=0.005, seg=12, width=0.04)
         if cf is not None:
             common.add_gear(ctx, cf, knit, binder, label="cuff")
-    for tube in cloth.bindings(pcs["g_cap"], radius=0.0045, min_len=0.2, sides=3, spacing=0.03):
+    for tube in (cloth.bindings(pcs["g_cap"], radius=0.0045, min_len=0.2, sides=3, spacing=0.03) if pcs["g_cap"] is not None else []):
         common.add_gear(ctx, kit.xform(tube, R=np.diag([-1.0, 1.0, -1.0])), ctx.mats["paint"], binder, bone="Head", label="cap_band")
     ctx.brc, ctx.binder = brc, binder
 
 
-def build():
+def build(variant=1):
+    global VARIANT
+    VARIANT = variant
     t0 = time.time()
-    ctx = charbuild.Ctx(NAME, SPEC)
+    ctx = charbuild.Ctx(NAME + ("2" if variant == 2 else ""), SPEC2 if variant == 2 else SPEC)
     ch = ctx.ch
     lod.decimate(ch, 0.18)
     fit = cloth.CFit(ch)
@@ -272,27 +290,30 @@ def build():
     def cap_keep(cent, nrm, hf):
         t = np.clip((cent[:, 2] - hf["front"]) / max(hf["back"] - hf["front"], 1e-6), 0, 1)
         return cent[:, 1] > hf["eye"][1] + 0.034 - 0.045 * t ** 1.5
-    cap = cloth.head_shell(fit, cap_keep, off=0.014, bridge=0.012, iters=30)
-    # crown slightly higher (a cap stands off the head)
-    hf = cloth.head_frame(fit)
-    P = np.array(cap.pos)
-    P[:, 1] += 0.012 * np.clip((P[:, 1] - (hf["eye"][1] + 0.06)) / 0.06, 0, 1)
-    for k, p in enumerate(P):
-        cap.pos[k] = p
+    cap = cloth.head_shell(fit, cap_keep, off=0.014, bridge=0.012, iters=30) if VARIANT == 1 else None
+    if cap is not None:
+        # crown slightly higher (a cap stands off the head)
+        hf = cloth.head_frame(fit)
+        P = np.array(cap.pos)
+        P[:, 1] += 0.012 * np.clip((P[:, 1] - (hf["eye"][1] + 0.06)) / 0.06, 0, 1)
+        for k, p in enumerate(P):
+            cap.pos[k] = p
 
     pc_j = cloth.finish(jacket, fit)
     pc_p = cloth.finish(pants, fit)
-    pc_cap = cloth.finish(cap, fit)
-    pc_brim = brim_piece(fit, cap)
-    tris = common.cull_tris(ch, [tee.cover, pants.cover, cap.cover] + [g.cover for g in gloves],
+    pc_cap = cloth.finish(cap, fit) if cap is not None else None
+    pc_brim = brim_piece(fit, cap) if cap is not None else None
+    tris = common.cull_tris(ch, [tee.cover, pants.cover] + ([cap.cover] if cap is not None else []) + [g.cover for g in gloves],
                             hide_bones=("LeftFoot", "RightFoot", "LeftToeBase", "RightToeBase"))
     common.add_skin(ctx, tris, skin_texture(ctx, fit))
     common.add_eyes_lite(ctx, iris=(0.25, 0.30, 0.32))
     common.add_brows(ctx, (0.12, 0.10, 0.08), lashes=False)
     common.cloth_group(ctx, "cloth_tee", [pc_tee], outfit.fabric_painter(TEE, dust=0.5, seed=101, sweat=0.3))
-    common.cloth_group(ctx, "cloth_jacket", [pc_j], outfit.leather_painter(JACKET, scuff_col=(0.36, 0.22, 0.12), dust=0.45, seed=103, wear=0.8), rough=0.7)
+    common.cloth_group(ctx, "cloth_jacket", [pc_j], outfit.leather_painter(JACKET if VARIANT == 1 else (0.07, 0.065, 0.06), scuff_col=(0.36, 0.22, 0.12),
+                                                                          dust=0.45, seed=103, wear=0.8), rough=0.7)
     common.cloth_group(ctx, "cloth_pants", [pc_p], outfit.fabric_painter(PANTS, dust=0.7, seed=107, legs=True))
-    common.cloth_group(ctx, "paint", [pc_cap, pc_brim], cap_painter(), color=(0.82, 0.10, 0.06, 1.0), rough=0.9, ppm=500)
+    if cap is not None:
+        common.cloth_group(ctx, "paint", [pc_cap, pc_brim], cap_painter(), color=(0.82, 0.10, 0.06, 1.0), rough=0.9, ppm=500)
     pcs = dict(jacket=pc_j, gloves=gloves, g_cap=cap)
     add_gear(ctx, fit, pcs)
     ctx.report()

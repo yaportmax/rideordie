@@ -23,11 +23,14 @@ import mh  # noqa: E402
 from glb import Glb  # noqa: E402
 
 OUT_DIR = "C:/Dev/rideordie/public/models/characters"
-IDS = ["hero_gunner", "hero_driver", "raider_a", "raider_b", "raider_c", "raider_d", "raider_driver"]
+IDS = ["hero_gunner", "hero_driver", "raider_a", "raider_b", "raider_c", "raider_d", "raider_driver",
+       "raider_a2", "raider_b2", "raider_c2", "raider_d2", "raider_driver2"]
 # per-character clip parameters (keep in sync with the c_<id>.py builds: ctx.bulk / ctx.seat)
 ANIM_PARAMS = {"raider_c": dict(bulk=1.25, role="gunner"), "hero_driver": dict(seat=dict(wheel_up=0.37, wheel_fwd=0.66), role="driver"),
                "raider_driver": dict(role="driver"), "hero_gunner": dict(role="gunner"), "raider_a": dict(role="gunner"),
-               "raider_b": dict(role="gunner"), "raider_d": dict(role="gunner")}
+               "raider_b": dict(role="gunner"), "raider_d": dict(role="gunner"),
+               "raider_a2": dict(role="gunner"), "raider_b2": dict(role="gunner"), "raider_c2": dict(bulk=1.25, role="gunner"),
+               "raider_d2": dict(role="gunner"), "raider_driver2": dict(role="driver")}
 
 _NP = {5126: np.float32, 5123: np.uint16, 5125: np.uint32, 5121: np.uint8, 5120: np.int8, 5122: np.int16}
 _NC = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}

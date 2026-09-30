@@ -408,7 +408,7 @@ function buildCover2(ctx, chunk, deadline) {
       let cl;
       if (kind === 'grass' || kind === 'scrub' || kind === 'flower') {
         // verge weeds come in runs along the shoulder (with long gaps), not as an even line
-        cl = a < 1.5 ? 0.6 * smoothstep(0.45, 0.62, vnoise2(s / 38, side * 3.1, seed + 73)) : vegFactor(seed, chunk, s, d, _eg.set(gx, gy, gz), kind === 'grass' ? 0.03 : 0.02) / VEG_MAX;
+        cl = a < 1.5 ? 0.6 * smoothstep(0.45, 0.62, vnoise2(s / 38, side * 3.1, seed + 73)) : vegFactor(seed, chunk, s, d, _eg.set(gx, gy, gz), kind === 'grass' ? 0.05 : 0.03) / VEG_MAX;
         if (kind === 'grass') cl *= 0.55 + 0.45 * smoothstep(0.25, 0.55, cn);           // tufts still clump inside a grove
       } else if (kind === 'pebble') cl = a < 0 ? 1 : 0.25 + 0.75 * smoothstep(-0.1, 0.5, hollow(chunk, s, d, gy));
       else cl = kind === 'tyre' ? smoothstep(0.5, 0.64, cn) : VARIANTS[kind] ? 0.3 + 0.7 * smoothstep(0.35, 0.55, cn) : 1;

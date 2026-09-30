@@ -51,9 +51,11 @@ export class WorldView {
     // crew figures
     const s = st.spec;
     const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunName, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
-    if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver', s.seats.driver);
-    if (s.seats.gunner && (st.kind === 'player' || (s.gunners ?? 0) >= 1)) rec.crew.gunner = mk('gunner', st.kind === 'player' ? 'hero_gunner' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][st.id % 4], s.seats.gunner);
-    if (s.seats.gunner2 && (s.gunners ?? 0) >= 2) rec.crew.gunner2 = mk('gunner2', 'raider_b', s.seats.gunner2);
+    // raider faces: 4 gunner types x 2 variants (+ 2 driver variants), picked deterministically from the car id
+    const v2 = (n) => (((st.id * 2654435761) >>> (n + 3)) & 1 ? '2' : '');
+    if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver' + v2(0), s.seats.driver);
+    if (s.seats.gunner && (st.kind === 'player' || (s.gunners ?? 0) >= 1)) rec.crew.gunner = mk('gunner', st.kind === 'player' ? 'hero_gunner' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][st.id % 4] + v2(1), s.seats.gunner);
+    if (s.seats.gunner2 && (s.gunners ?? 0) >= 2) rec.crew.gunner2 = mk('gunner2', 'raider_b' + v2(2), s.seats.gunner2);
     this.cars.set(st.id, rec); this.viewMap.set(st.id, view);
     return rec;
   }
@@ -87,7 +89,7 @@ export class WorldView {
       const off = frustum && st.kind !== 'player' ? !frustum.intersectsSphere(_sph.set(st.pos, 5)) && !(ctx.frustum2 && ctx.frustum2.intersectsSphere(_sph)) : false;
       const hideCrew = far || off;
       let farCrew = false;
-      if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 52 : dd > 62); farCrew = dd > 40; }
+      if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 40 : dd > 46); farCrew = dd > 40; } // (LOD: 5 draws instead of 35-60 past ~45 m)
       for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) { crew.root.visible = !hideCrew; crew.root.matrixWorldAutoUpdate = !hideCrew; } // hidden crews: skip 52-bone matrix updates
       if (hideCrew) {
         // bodies thrown off the vehicle live in world space: keep them falling even when their car is off-screen

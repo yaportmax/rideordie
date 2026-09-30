@@ -527,8 +527,8 @@ def merge(ctx, out, sizes=None, pad=None, head_boost=2.0, hand_boost=1.4, jpg_q=
             mat = out.material("hair", base_tex=tb, rough=0.7, alpha_mode="MASK", alpha_cutoff=0.42, double_sided=True, srgb=False,
                                spec=0.2)
         elif cls == "eye":
-            tb = out.texture_array("eye_albedo", imgs["albedo"], "jpg", 92)
-            mat = out.material("eye", base_tex=tb, rough=0.25, srgb=False)
+            tb = out.texture_array("eye_albedo", np.clip(imgs["albedo"].astype(np.float32) * 0.88, 0, 255).astype(np.uint8), "jpg", 92)
+            mat = out.material("eye", base_tex=tb, rough=0.12, srgb=False)
         else:
             tb = out.texture_array(cls + "_albedo", imgs["albedo"], "jpg", jpg_q)
             tn = out.texture_array(cls + "_normal", imgs["normal"], "jpg", 92)

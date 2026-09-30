@@ -119,7 +119,8 @@ export class CrewView {
     this.enemyRate = this.ai ? ENEMY_GUNS[opts.enemyGun]?.rate ?? null : null;
     this.root = new THREE.Group(); this.root.name = 'crew_' + kind;
     this.body = new THREE.Group(); this.root.add(this.body);             // yawed toward the aim
-    const url = `/models/characters/${kind}.glb`;
+    let url = `/models/characters/${kind}.glb`;
+    if (!Assets.has(url) && /\d$/.test(kind)) { kind = kind.slice(0, -1); this.kind = kind; url = `/models/characters/${kind}.glb`; }   // variant not loaded -> base
     const model = Assets.clone(url);
     this.rigged = !!model;
     this.clips = Assets.getAnimations(url).length ? Assets.getAnimations(url) : Assets.getAnimations('/models/characters/hero_gunner.glb');

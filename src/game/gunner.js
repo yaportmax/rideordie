@@ -148,7 +148,7 @@ export class GunnerController {
   /** Computes the crosshair target point using the camera ray against cars + world. */
   aimAt(cam) {
     const t = this._raycastAll(cam.position, cam.dir, 400, null);
-    if (t) { this.aimPoint.copy(t.point); this.aimHit = true; this.aimCar = t.car || null; } else { this.aimPoint.copy(cam.position).addScaledVector(cam.dir, 300); this.aimHit = false; this.aimCar = null; }
+    if (t) { this.aimPoint.copy(t.point); this.aimHit = true; this.aimCar = t.car || null; this.aimZone = t.zone ? t.zone.kind : null; } else { this.aimPoint.copy(cam.position).addScaledVector(cam.dir, 300); this.aimHit = false; this.aimCar = null; this.aimZone = null; }
     return this.aimPoint;
   }
 

@@ -80,8 +80,8 @@ const KINDS = {
 
 // far backdrops: rock formations that make the horizon interesting
 const BACKDROPS = {
-  desert: { pitch: 620, chance: 0.6, items: [{ w: 3, a: ['mesa_a', 'mesa_b'], v: [320, 780], sc: [1.0, 1.7], flatTol: 30 }] },
-  canyon: { pitch: 520, chance: 0.7, items: [{ w: 1.5, a: ['mesa_a', 'mesa_b'], v: [380, 800], sc: [1.3, 2.2], flatTol: 60 }] },
+  desert: { pitch: 620, chance: 0.0, items: [] },                     // far mesas are procedural now (rocks.js)
+  canyon: { pitch: 520, chance: 0.0, items: [] },
   coast: { pitch: 420, chance: 0.0, items: [] },
   mountain: { pitch: 900, chance: 0.0, items: [] },
   city: { pitch: 900, chance: 0.0, items: [] },

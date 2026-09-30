@@ -34,13 +34,13 @@ export function facadeMaterial() {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         attribute vec2 aUvF; attribute vec4 aFac; attribute vec4 aFac2;
-        varying vec2 vUvF; varying vec4 vFac; varying vec4 vFac2; varying vec3 vWp;`)
+        varying vec2 vUvF; varying vec4 vFac; varying vec4 vFac2; varying vec3 vWp; varying vec3 vWN;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vUvF = aUvF; vFac = aFac; vFac2 = aFac2; vWp = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+        vUvF = aUvF; vFac = aFac; vFac2 = aFac2; vWp = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal);`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uNight; uniform float uTime; uniform sampler2D uNeonTex;
-        varying vec2 vUvF; varying vec4 vFac; varying vec4 vFac2; varying vec3 vWp;
+        varying vec2 vUvF; varying vec4 vFac; varying vec4 vFac2; varying vec3 vWp; varying vec3 vWN;
         ${HASH}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
         vec3 fEmis = vec3(0.0); float fGlass = 0.0;
@@ -62,51 +62,93 @@ export function facadeMaterial() {
             else if (st == 4) { lo = vec2(0.33, 0.2); hi = vec2(0.67, 0.84); }
             else if (st == 5) { lo = vec2(0.08, 0.64); hi = vec2(0.92, 0.88); }
             vec2 w = max(fw * 0.8, vec2(0.004));
-            float win = cBox(lc, lo, hi, w);
+            float cw = shop ? bay * 1.7 : bay, chh = shop ? gh : flh;               // cell size (m)
+            // ---- view ray in the wall's tangent frame (walls are vertical: u runs along cross(up, N), v up)
+            vec3 Nw = normalize(vWN);
+            vec3 Tw = normalize(cross(vec3(0.0, 1.0, 0.0), Nw) + vec3(1e-5, 0.0, 1e-5));
+            vec3 Vw = normalize(vWp - cameraPosition);
+            vec3 vt = vec3(dot(Vw, Tw), Vw.y, -dot(Vw, Nw));                        // z > 0 = into the building
+            float vz = max(vt.z, 0.06);
+            float par = (1.0 - far) * (1.0 - step(0.5, abs(Nw.y)));
+            float rec = shop ? 0.34 : (st == 2 || st == 3 ? 0.1 : 0.26);            // window recess (m)
+            vec2 lcg = lc + vec2(vt.x / cw, vt.y / chh) * (rec / vz) * par;          // where the ray meets the glass plane
+            float win = cBox(lc, lo, hi, w);                                          // opening in the facade
+            float winG = cBox(lcg, lo, hi, w);                                        // glass seen through the opening
             float frame = cBox(lc, lo - vec2(0.045, 0.04), hi + vec2(0.045, 0.04), w) - win;
             float cover = (hi.x - lo.x) * (hi.y - lo.y);
-            win = mix(win, cover, far); frame *= 1.0 - far;
+            win = mix(win, cover, far); winG = mix(winG, 1.0, far); frame *= 1.0 - far;
             float r = cH(id + vec2(bseed, bseed * 0.37));
             float rFloor = cH(vec2(id.y * 1.13 + bseed * 0.71, bseed));
             float broken = step(1.0 - dmg * 0.85, cH(id * 1.31 + bseed + 7.7));
             if (shop) broken *= 0.5;
-            float lit = step(r, litF * (0.25 + 1.5 * rFloor * rFloor)) * (1.0 - broken);
+            float lit = step(r, shop ? 0.25 + litF : litF * (0.25 + 1.5 * rFloor * rFloor)) * (1.0 - broken);
             // wall: grime streaks, darker base, floor slab lines
             float streak = cN(vec2(f.x * 0.8 + bseed, f.y * 0.055 + bseed)) * 0.7 + cN(vec2(f.x * 3.1, f.y * 0.2 + bseed)) * 0.3;
             float grime = 0.7 + 0.45 * streak;
             grime *= 0.72 + 0.28 * smoothstep(0.0, 4.0, f.y);
             grime *= 0.9 + 0.2 * cH(vec2(id.y + bseed, 3.0));                                   // floor-to-floor patching
-            // dirty run-off streaks under every window
             float under = cBox(lc, vec2(lo.x + 0.04, lo.y - 0.42), vec2(hi.x - 0.04, lo.y), w) * cN(vec2(f.x * 7.0, f.y * 0.9 + bseed)) * (1.0 - far);
             grime *= 1.0 - 0.32 * under;
             float slab = shop ? 1.0 : 1.0 - 0.22 * (1.0 - smoothstep(0.0, 0.06 + fw.y, lc.y)) * (1.0 - far);
             vec3 wall = diffuseColor.rgb * grime * slab * (1.0 - 0.45 * frame);
-            // burnt scorch above broken / burning windows
             float scorch = broken * smoothstep(hi.y, hi.y + 0.25, lc.y) * (1.0 - smoothstep(hi.y + 0.25, 1.0, lc.y));
             wall *= 1.0 - 0.55 * scorch * (1.0 - far);
-            // glass: dark, a little sky reflection toward the top of the pane, some panes boarded up with plywood
-            vec2 wl = (lc - lo) / max(hi - lo, vec2(1e-3));
+            // reveal (window jamb) visible between the facade opening and the recessed glass: shadowed; the sill face catches sky light
+            float sillFace = step(lcg.y, lo.y);
+            vec3 jamb = wall * mix(0.42, 0.85, sillFace);
+            // ---- the pane: glass + mullions (punched / brick: a centre post + a transom)
+            vec2 wl = (lcg - lo) / max(hi - lo, vec2(1e-3));
+            float mull = 0.0;
+            if ((st == 1 || st == 4) && !shop) mull = max(cBox(wl, vec2(0.47, -1.0), vec2(0.53, 2.0), w * 3.0), cBox(wl, vec2(-1.0, 0.6), vec2(2.0, 0.65), w * 3.0));
+            else if (shop) mull = cBox(wl, vec2(0.495, -1.0), vec2(0.505, 2.0), w * 3.0) + cBox(wl, vec2(-1.0, 0.8), vec2(2.0, 0.82), w * 3.0);
+            else if (st == 3 || st == 2) mull = cBox(fract(wl * vec2(2.0, 1.0)), vec2(-1.0, -1.0), vec2(0.02, 2.0), w * 6.0);
+            mull *= (1.0 - far) * (1.0 - broken);
             vec3 glass = mix(vec3(0.035, 0.045, 0.06), vec3(0.08, 0.1, 0.115), r) * (0.75 + 0.5 * smoothstep(0.2, 1.0, wl.y + 0.3 * wl.x));
             if (st == 3 && !shop) glass = mix(vec3(0.05, 0.075, 0.095), vec3(0.1, 0.13, 0.15), r) * (0.8 + 0.4 * wl.y);
             glass = mix(glass, vec3(0.012, 0.01, 0.01), broken);
             float board = (1.0 - broken) * (1.0 - lit) * step(0.9, cH(id * 2.7 + bseed + 1.3)) * (shop ? 0.0 : 1.0) * (st == 3 ? 0.0 : 1.0);
             glass = mix(glass, vec3(0.3, 0.22, 0.14) * (0.75 + 0.35 * step(0.5, fract(wl.x * 4.0 + r))), board);
-            if (shop) glass = mix(glass, vec3(0.16, 0.15, 0.14) * (0.6 + 0.4 * step(0.5, fract(lc.y * 14.0))), step(0.55, cH(id + bseed + 2.0)) * (1.0 - lit));  // rolled-down shutters
-            // sill under punched windows
+            float shutter = shop ? step(0.55, cH(id + bseed + 2.0)) * (1.0 - lit) : 0.0;
+            glass = mix(glass, vec3(0.16, 0.15, 0.14) * (0.6 + 0.4 * step(0.5, fract(lcg.y * 14.0))), shutter);  // rolled-down shutters
+            glass = mix(glass, wall * 0.5, mull);
+            // ---- interior mapping: the room behind the pane (box in metres, origin = pane's lower-left corner on the glass plane)
+            vec2 wsz = (hi - lo) * vec2(cw, chh);
+            vec3 ro = vec3(wl * wsz, 0.0);
+            vec3 rmin = vec3(-0.9, -0.95, 0.0), rmax = vec3(wsz.x + 0.9, wsz.y + 0.45, shop ? 5.5 : 3.6);
+            vec3 rd = vec3(vt.x, vt.y, vz); rd.x = abs(rd.x) < 1e-4 ? 1e-4 : rd.x; rd.y = abs(rd.y) < 1e-4 ? 1e-4 : rd.y;
+            vec3 tA = (rmin - ro) / rd, tB = (rmax - ro) / rd, tX = max(tA, tB);
+            float tt = min(min(tX.x, tX.y), tX.z);
+            vec3 hp = ro + rd * tt;
+            float isBack = step(tX.z, tt + 1e-4), isSide = step(tX.x, tt + 1e-4) * (1.0 - isBack);
+            float isFloor = (1.0 - isBack - isSide) * step(rd.y, 0.0), isCeil = max(0.0, 1.0 - isBack - isSide - isFloor);
+            float depthK = 1.0 - 0.35 * clamp(hp.z / rmax.z, 0.0, 1.0);
+            float room = isBack * 1.0 + isSide * 0.7 * depthK + isFloor * 0.45 * depthK + isCeil * 0.9 * depthK;
+            // a lamp on the ceiling, furniture silhouettes against the back wall, shop shelves + fluorescent strips
+            room += isCeil * 0.9 * (1.0 - smoothstep(0.1, 0.9, length(hp.xz - vec2(wsz.x * 0.5, rmax.z * 0.45))));
+            float furn = cH(id + bseed + 8.2);
+            if (!shop && furn > 0.35) { float fx0 = wsz.x * (furn - 0.35) * 1.2 - 0.6; room *= 1.0 - 0.65 * isBack * step(fx0, hp.x) * step(hp.x, fx0 + 1.4 + furn) * step(hp.y, -0.95 + 0.9 + furn * 0.9); }
+            if (shop) { room *= 1.0 - 0.55 * (isBack + isSide) * step(0.72, fract(hp.y * 1.6 + 0.3)) * step(hp.y, rmax.y - 1.0);
+                        room += isCeil * 0.7 * step(0.8, fract(hp.x * 0.35)); }
+            vec3 roomTint = mix(vec3(1.0, 0.9, 0.72), vec3(0.8, 0.9, 1.0), cH(id + bseed + 5.1));
+            room = mix(room, 0.8, far);
+            // unlit rooms still read: a trace of street light inside + the night sky / street reflected at grazing angles
+            float fres = pow(1.0 - clamp(vz, 0.0, 1.0), 3.0);
+            glass += (roomTint * room * 0.02 * (1.0 - lit) * (1.0 - board) * (1.0 - shutter) + vec3(0.05, 0.06, 0.09) * fres) * (1.0 - broken) * (1.0 - mull);
+            diffuseColor.rgb = mix(wall, jamb, win * (1.0 - winG));
+            diffuseColor.rgb = mix(diffuseColor.rgb, glass, win * winG);
             float sill = (st == 1 || st == 4) && !shop ? cBox(lc, vec2(lo.x - 0.04, lo.y - 0.07), vec2(hi.x + 0.04, lo.y - 0.01), w) * (1.0 - far) : 0.0;
-            wall = mix(wall, wall * 1.35 + 0.02, sill);
-            diffuseColor.rgb = mix(wall, glass, win);
-            fGlass = win * (1.0 - broken) * (1.0 - board);
-            // lit windows: mostly warm (fires, lamps, generators), some neutral, a few fluorescent / TV blue; room gradient + curtains
+            diffuseColor.rgb = mix(diffuseColor.rgb, wall * 1.35 + 0.02, sill);
+            fGlass = win * winG * (1.0 - broken) * (1.0 - board) * (1.0 - mull);
+            // lit windows: mostly warm (fires, lamps, generators), some neutral, a few fluorescent / TV blue; curtains in front
             float hu = cH(id * 0.77 + bseed + 3.1);
             vec3 lcol = hu < 0.55 ? vec3(1.0, 0.46, 0.16) : hu < 0.82 ? vec3(1.0, 0.7, 0.4) : hu < 0.94 ? vec3(0.6, 0.78, 1.0) : vec3(0.3, 0.45, 1.0);
-            float inten = 0.22 + 0.55 * cH(id + 9.1);
-            float inner = mix(0.35, 1.0, smoothstep(0.0, 0.75, wl.y)) * (0.8 + 0.2 * sin(wl.x * 3.14159));
-            float curt = step(0.55, cH(id + 4.4));
+            if (shop) lcol = mix(vec3(0.85, 0.95, 1.0), vec3(1.0, 0.75, 0.45), step(0.5, hu));
+            float inten = 0.2 + 0.5 * cH(id + 9.1);
+            float curt = shop ? 0.0 : step(0.55, cH(id + 4.4));
             float curtain = mix(1.0, mix(0.25, 1.0, smoothstep(0.18, 0.3, abs(wl.x - 0.5))) * (0.8 + 0.2 * cN(vec2(wl.x * 14.0 + r * 20.0, 1.0))), curt);
             float tv = hu > 0.94 ? 0.6 + 0.4 * sin(uTime * 7.0 + r * 50.0) * sin(uTime * 2.3 + r * 13.0) : 1.0;
-            vec3 e = lcol * inten * inner * curtain * tv * lit * win;
-            if (shop) e *= 1.6;
+            vec3 e = lcol * roomTint * inten * room * curtain * tv * lit * win * winG * (1.0 - mull) * (1.0 - shutter);
+            if (shop) e *= 0.85;
             fEmis = e * uNight * (1.0 - 0.3 * far);
             // burning floors (from floor index 'fire' upward): flickering orange, scorched wall, glows day and night
             if (fire > 0.0 && !shop && id.y >= fire - 1.0) {
@@ -164,7 +206,7 @@ export function facadeMaterial() {
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += fEmis;`);
   };
-  m.customProgramCacheKey = () => 'city_facade_v1';
+  m.customProgramCacheKey = () => 'city_facade_v2';
   _facade = m;
   return m;
 }

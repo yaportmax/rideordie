@@ -13,7 +13,7 @@ class GunnerDressMixin:
     def gunner_dress(self):
         C = self.C
         getattr(self, 'gdress_t%d' % C.tier)()
-        self.casings({1: 26, 2: 40, 3: 36, 4: 28}[C.tier])
+        self.casings({1: 26, 2: 40, 3: 36, 4: 22}[C.tier])
 
     # ------------------------------------------------------------------------------------------- common pieces
     def casings(self, n):

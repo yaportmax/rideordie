@@ -261,7 +261,7 @@ def kit(T):
             b.cyl('metal_dark', (x, fs, hgt + 0.035), rr * 0.86, 0.006, axis='z', n=14)
             if j == 0:
                 for zc_ in (1.0, 1.7, 2.3):
-                    b.box('metal_dark', (sg * (C.bed_hw + 0.0), fs, zc_), (0.20, 0.07, 0.06), bev=0.0)
+                    b.box('metal_dark', (sg * (C.bed_hw + 0.035), fs, zc_), (0.13, 0.07, 0.06), bev=0.0)   # inside the runtime FP stack cut box (x >= 1.05)
                 tips.append((x, fs, hgt + 0.04))
     T.exh_tip = tips[1]
 

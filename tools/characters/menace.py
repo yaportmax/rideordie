@@ -55,7 +55,7 @@ def pauldron(ctx, brc, binder, side, mats, layers=3, spikes=3, size=1.0, spike_l
     H = brc.landmarks()
     sg = 1.0 if side == "Left" else -1.0
     arm, fore = H[side + "Arm"], H[side + "ForeArm"]
-    rc = brc.region(side + "Arm", side + "Shoulder", "Spine2")
+    rc = brc.region(side + "Arm", side + "Shoulder")
     out_dir = np.array([sg * 0.62, 0.78, 0.0])
     out_dir /= np.linalg.norm(out_dir)
     rivs = []
@@ -65,7 +65,7 @@ def pauldron(ctx, brc, binder, side, mats, layers=3, spikes=3, size=1.0, spike_l
         n = out_dir * (1 - t) + np.array([sg, 0.15, 0.0]) * t
         n /= np.linalg.norm(n)
         P, hn = gear.surface_pts(rc, c0[None])
-        hu, hv = (0.105 - 0.018 * t) * size, (0.080 - 0.022 * t) * size
+        hu, hv = (0.100 - 0.018 * t) * size, (0.070 - 0.020 * t) * size
         so = 0.022 + 0.022 * (layers - 1 - i)
         try:
             pm = kit.patch_on_surface(rc, P[0], n, (0, 0, 1), hu, hv, standoff=so, thick=0.007, bevel=0.003, e=5.0, rings=4, seg=24,

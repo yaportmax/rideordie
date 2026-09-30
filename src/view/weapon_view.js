@@ -99,7 +99,7 @@ export class WeaponView {
     if (M.mag && N.mag) { this._apply('mag', M.mag, P.mag || 0); N.mag.visible = P.magVisible !== false; }
     if (M.cover && N.feed_cover) this._apply('feed_cover', M.cover, P.cover || 0);
     if (M.crane && N.crane) this._apply('crane', M.crane, P.crane || 0);
-    if (M.rocket && N.rocket) { this._apply('rocket', M.rocket, P.rocket || 0); N.rocket.visible = P.rocketVisible !== false; }
+    if (M.rocket && N.rocket) { N.rocket.quaternion.copy(this.rest.rocket.q); this._apply('rocket', M.rocket, P.rocket || 0); N.rocket.visible = P.rocketVisible !== false; }   // (the viewmodel may have carried it in the hand)
     if (M.rack && (P.rack || 0) > 0) for (const [n, sp] of Object.entries(M.rack)) this._apply(n, sp, P.rack);
   }
 

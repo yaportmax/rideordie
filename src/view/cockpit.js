@@ -17,7 +17,7 @@ export class Cockpit {
     this.rt = new THREE.WebGLRenderTarget(RT_W, RT_H, { type: THREE.HalfFloatType, generateMipmaps: false, depthBuffer: true });
     this.rt.texture.minFilter = THREE.LinearFilter; this.rt.texture.magFilter = THREE.LinearFilter;
     const vfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(REAR_HFOV / 2)) / (RT_W / RT_H));
-    this.rearCam = new THREE.PerspectiveCamera(THREE.MathUtils.radToDeg(vfov), RT_W / RT_H, 0.3, 320);
+    this.rearCam = new THREE.PerspectiveCamera(THREE.MathUtils.radToDeg(vfov), RT_W / RT_H, 0.3, 170);
     this.frustum = new THREE.Frustum();
     this.dark = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.55, metalness: 0.2 });
     this.glassMat = new THREE.MeshBasicMaterial({ map: this.rt.texture, color: 0xcfcfcf, fog: false });
@@ -355,7 +355,9 @@ export class Cockpit {
   /** Render the shared rear view (every other frame). playerRoot is hidden for the pass. */
   renderMirrors(renderer, scene, playerRoot) {
     if (!this.active) return;
-    if ((this.frame++ & 1) === 1) return;
+    // ~20 Hz, ~10 Hz when nobody is behind us (a mirror of an empty road can idle)
+    const every = this.threatBehind === false ? 6 : 3;
+    if ((this.frame++ % every) !== 0) return;
     const cam = this.rearCam;
     this.model.updateMatrixWorld();
     cam.position.copy(this.rearLocal); this.model.localToWorld(cam.position);

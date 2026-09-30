@@ -18,10 +18,10 @@ the vehicle centre) and are a visible upgrade path T1 < T2 < T3 < T4.
 
 | file | name | tris | bbox x*y*z (m, incl. mirrors/kit) | mesh nodes / primitives | wheel Ø x width | wheelbase | file size |
 |---|---|---|---|---|---|---|---|
-| truck_t1.glb | Rustbucket | 82 494 | 2.05 x 1.78 x 4.95 (body 1.78 wide) | 18 / 87 | 0.67 x 0.185 | 2.75 | 4.66 MB |
-| truck_t2.glb | Hauler | 99 384 | 2.45 x 2.55 x 5.70 (body 2.02 wide) | 18 / 83 | 0.84 x 0.265 | 3.35 | 5.63 MB |
-| truck_t3.glb | Bruiser | 99 646 | 2.61 x 2.42 x 5.99 (body 2.06 wide) | 22 / 100 | 0.88 x 0.285 | 3.40 | 5.86 MB |
-| truck_t4.glb | Juggernaut | 104 418 | 2.90 x 2.70 x 6.64 (body 2.30 wide, plow 2.44) | 20 / 94 | 1.00 x 0.32 | 3.60 | 5.97 MB |
+| truck_t1.glb | Rustbucket | 82 494 | 2.05 x 1.78 x 4.95 (body 1.78 wide) | 18 / 87 | 0.67 x 0.185 | 2.75 | 4.65 MB |
+| truck_t2.glb | Hauler | 99 192 | 2.45 x 2.55 x 5.70 (body 2.02 wide) | 18 / 83 | 0.84 x 0.265 | 3.35 | 5.61 MB |
+| truck_t3.glb | Bruiser | 99 542 | 2.61 x 2.42 x 5.99 (body 2.06 wide) | 22 / 100 | 0.88 x 0.285 | 3.40 | 5.84 MB |
+| truck_t4.glb | Juggernaut | 103 722 | 2.90 x 2.70 x 6.64 (body 2.30 wide, plow 2.44) | 20 / 94 | 1.00 x 0.32 | 3.60 | 5.99 MB |
 
 Hub centres (glTF x, y, z): FL/FR = (+-track, R, front axle), RL/RR = (+-track, R, rear axle):
 T1 (0.735, 0.335, +1.54 / -1.21) - T2 (0.825, 0.42, +1.80 / -1.55) - T3 (0.84, 0.44, +1.82 / -1.58) - T4 (0.94, 0.50, +2.00 / -1.60).
@@ -77,6 +77,12 @@ seats (lofted cushions/backs with pleats and piping), belts. Per tier:
   panel with flip covers, internal roll cage with pads, racing buckets with harnesses.
 
 ## Gunner's view
+* T4 nest (review round 3): side and rear plates lowered to 0.84 m above the bed floor (was 1.02) and the front shield to 1.14 m (was 1.30), shield
+  wings shortened, so the gunner sees over the sides; inside faces are now textured `armor` (lighter gunmetal with cast/pitted normal) with a hazard band
+  along the top edge, rivet rows, weld seam, stiffeners, grab handles, bare-steel scuffs, stencils. The exhaust-stack brackets sit inside the runtime
+  FP stack cut box (`src/view/fp_cutaway.js`) so they vanish together with the stacks instead of floating.
+* T4 overhead NOS panel: light-grey painted panel on a bracket plate bolted to the headliner (it was dark metallic and read as switches poking through the
+  roof); the exterior roof kit (turret ring posts, gussets, base plates, light bar, spots) starts above the roof skin.
 Light-bar backs with cooling fins + loom, spotlight backs, rear-window guards (T2 expanded-metal mesh, T3 welded rebar), friction-taped rails, first-aid box,
 diamond-plate standing pads (T3/T4), shield/nest inner faces with stiffeners, grab bars, labels and an extinguisher (T4), T3 roof-plate hatch + weld beads
 + stencils, roof markings (T1 kill tally, T4 "RIDE OR DIE"), spent brass on the bed floor, khaki `canvas` sandbags.

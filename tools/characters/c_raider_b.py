@@ -22,10 +22,13 @@ import raidergear as RG
 import skinpaint as SP
 import uvbake as U
 
+VARIANT = 1
 NAME = "raider_b"
 SPEC = dict(macro=dict(gender=1.0, age=0.40, muscle=0.58, weight=0.12, height=0.5, race={"caucasian": 0.6, "asian": 0.4}),
             extra=[("neck/neck-scale-horiz-decr", 0.3), ("cheek/l-cheek-bones-incr", 0.6), ("cheek/r-cheek-bones-incr", 0.6)],
             height=1.80, skin="young_asian_male")
+SPEC2 = dict(macro=dict(gender=1.0, age=0.34, muscle=0.55, weight=0.22, height=0.5, race={"asian": 0.7, "caucasian": 0.3}),
+             extra=[("neck/neck-scale-horiz-incr", 0.3)], height=1.76, skin="young_asian_male")
 
 VEST = (0.035, 0.032, 0.03)
 JEANS = (0.22, 0.30, 0.42)
@@ -65,6 +68,16 @@ def skin_texture(ctx, fit):
     alb = SP.blend(alb, (0.06, 0.05, 0.045), np.clip(m, 0, 0.8))
     alb = SP.stubble(alb, sb, ch, seed=4, amount=0.45, colour=(0.07, 0.055, 0.045), cheeks=0.3)
 
+    if VARIANT == 2:
+        def paint(x, y, front):
+            # black war band across the eyes (temple to temple) + three black stripes down the chin
+            band = (np.abs(y - 0.003) < 0.017 + 0.003 * np.cos(x * 50)) & (np.abs(x) < 0.078)
+            yield band.astype(np.float32), (0.015, 0.015, 0.018), 0.97
+            for k in (-1, 0, 1):
+                st = (np.abs(x - k * 0.011) < 0.0032) & (y < -0.086) & (y > -0.13)
+                yield st.astype(np.float32), (0.02, 0.02, 0.02), 0.95
+        alb = SP.face_bands(alb, sb, ch, paint)
+        return np.clip(alb * 255 + 0.5, 0, 255).astype(np.uint8)
     def paint(x, y, front):
         # full skull face: bone-white base over the whole face, big black sockets, black nose, stitched teeth
         face = (y < 0.075) & (y > -0.13) & (np.abs(x) < 0.074 - 0.02 * np.clip(-y - 0.06, 0, 1) / 0.07)
@@ -99,7 +112,7 @@ def add_gear(ctx, fit, pcs):
     spike_m = common.gear_material(ctx, "spike", "metal_dark", color=(0.75, 0.74, 0.70), rough=0.6, metal=1.0)
     metal = common.gear_material(ctx, "metal_dark", "metal_dark", color=(0.45, 0.45, 0.43), rough=1.0, metal=1.0)
     # mohawk
-    tex = RG.strand_texture((0.30, 0.05, 0.02), (1.0, 0.42, 0.06))
+    tex = RG.strand_texture((0.30, 0.05, 0.02), (1.0, 0.42, 0.06)) if VARIANT == 1 else RG.strand_texture((0.02, 0.06, 0.25), (0.25, 0.85, 1.0))
     hair_m = ctx.material("hair", base_tex=ctx.glb.texture_array("hair_mohawk", tex, "jpg", 88), rough=0.7, spec=0.4)
     mo = RG.mohawk(brc.head(), hi, count=12, height=(0.08, 0.17), base_len=0.058, base_w=0.026, up_bias=0.55)
     common.add_gear(ctx, mo, hair_m, binder, bone="Head", label="hair")
@@ -178,9 +191,11 @@ def add_gear(ctx, fit, pcs):
     ctx.brc, ctx.binder = brc, binder
 
 
-def build():
+def build(variant=1):
+    global VARIANT
+    VARIANT = variant
     t0 = time.time()
-    ctx = charbuild.Ctx(NAME, SPEC)
+    ctx = charbuild.Ctx(NAME + ("2" if variant == 2 else ""), SPEC2 if variant == 2 else SPEC)
     ch = ctx.ch
     lod.decimate(ch, 0.17)
     fit = cloth.CFit(ch)

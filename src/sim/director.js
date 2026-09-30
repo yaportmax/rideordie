@@ -96,7 +96,7 @@ export class Director {
       this.budget -= enc.cost;
       this.encounters++; this.lastEnc = enc.key; this.history.push(enc.key); if (this.history.length > 4) this.history.shift();
       // gap before the next squad: long lulls early, short late; waves compress it further
-      this.cooldown = lerp(9, 3.2, clamp(L * 1.25, 0, 1)) * (0.75 + 0.5 * this.r()) * (1.25 - 0.4 * wave) + n * 0.8;
+      this.cooldown = lerp(6.5, 3.2, clamp(L * 1.25, 0, 1)) * (0.75 + 0.5 * this.r()) * (1.25 - 0.4 * wave) + n * 0.8;
       this.lastEngaged = Math.max(this.lastEngaged, sim.time - 2); // give the squad time to arrive
     }
   }
@@ -104,7 +104,7 @@ export class Director {
   /** Attack tokens: how many raider gunners may wind up / fire at the same time (warlords always may). */
   fireToken(car, role) {
     if (car.elite) return true;
-    const sim = car.sim, max = Math.floor(1.6 + 2.6 * this.level);
+    const sim = car.sim, max = Math.floor(2 + 2.2 * this.level);
     if (sim.time < (this.nextFireT || 0)) return false;
     let busy = 0;
     for (const c of sim.cars.values()) {
@@ -227,9 +227,9 @@ export class Director {
       if (_v.lengthSq() > 144) continue;
       const lon = _v.dot(pv.fwd), lat = Math.abs(_v.dot(pv.left));
       const clear = lat - hwP - c.spec.width / 2;
-      if (Math.abs(lon) > hlP + c.spec.length / 2 - 0.5 || clear > 1.5 || clear < 0.15) continue;
+      if (Math.abs(lon) > hlP + c.spec.length / 2 - 0.5 || clear > 1.4 || clear < 0.15) continue;
       const rel = Math.abs(c.veh.vf - pv.vf);
-      if (rel < 5 && !c.driverless) continue;
+      if (rel < 7 && !c.driverless) continue;
       c.nearMissT = sim.time;
       sim.emit({ t: 'nearMiss', id: c.id, clear: +clear.toFixed(2), rel: +rel.toFixed(1) });
       return;

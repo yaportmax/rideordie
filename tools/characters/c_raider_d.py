@@ -22,9 +22,12 @@ import raidergear as RG
 import skinpaint as SP
 import uvbake as U
 
+VARIANT = 1
 NAME = "raider_d"
 SPEC = dict(macro=dict(gender=1.0, age=0.40, muscle=0.42, weight=0.18, height=0.5, race={"african": 0.7, "asian": 0.3}),
             extra=[("neck/neck-scale-horiz-decr", 0.4)], height=1.75, skin="young_african_male")
+SPEC2 = dict(macro=dict(gender=1.0, age=0.45, muscle=0.45, weight=0.10, height=0.5, race={"caucasian": 0.6, "asian": 0.4}),
+             extra=[("neck/neck-scale-horiz-decr", 0.4)], height=1.84, skin="young_asian_male")
 
 HOODIE = (0.72, 0.55, 0.12)
 JACKET = (0.12, 0.11, 0.10)
@@ -160,7 +163,8 @@ def add_gear(ctx, fit, pcs):
     can_m = common.gear_material(ctx, "metal_canister", "metal_dark", color=(0.30, 0.33, 0.24), rough=0.9, metal=0.7)
     menace.respirator(ctx, brc, binder, dict(rubber=olive, metal=metal, dark=rubber, canister=can_m, strap=webbing), scale=1.0)
     gg = gear.goggles(ctx, brc, up=0.0, hair=0.008, lens_r=0.026, spacing=0.034, tilt=-4.0, seg=10, ring_n=18)
-    lens_m = common.plain_material(ctx, "glass_lens", (0.95, 0.55, 0.08), rough=0.08, alpha=0.9, double_sided=True, emissive=(0.4, 0.18, 0.0))
+    lens_m = common.plain_material(ctx, "glass_lens", (0.95, 0.55, 0.08) if VARIANT == 1 else (0.30, 0.95, 0.35), rough=0.08, alpha=0.9,
+                                   double_sided=True, emissive=(0.4, 0.18, 0.0) if VARIANT == 1 else (0.08, 0.35, 0.1))
     for f in gg["frames"]:
         common.add_gear(ctx, f, rubber, binder, bone="Head", label="goggle_frame")
     for f in gg["rims"]:
@@ -198,9 +202,11 @@ def _dyn_tex(size=128):
     return (np.clip(np.stack([g, g, g], -1), 0, 1) * 255).astype(np.uint8)
 
 
-def build():
+def build(variant=1):
+    global VARIANT
+    VARIANT = variant
     t0 = time.time()
-    ctx = charbuild.Ctx(NAME, SPEC)
+    ctx = charbuild.Ctx(NAME + ("2" if variant == 2 else ""), SPEC2 if variant == 2 else SPEC)
     ch = ctx.ch
     lod.decimate(ch, 0.17, lod.importance(ch, head=0.45, hands=0.6, torso=0.35, limbs=0.3, feet=0.0))
     fit = cloth.CFit(ch)
@@ -247,7 +253,7 @@ def build():
     common.add_skin(ctx, tris, skin_texture(ctx, fit))
     common.add_eyes_lite(ctx, iris=(0.14, 0.08, 0.04))
     common.add_brows(ctx, (0.03, 0.025, 0.02), lashes=False)
-    common.cloth_group(ctx, "cloth_hoodie", [pc_h, pc_hd], outfit.fabric_painter(HOODIE, dust=0.6, seed=91, arms=True, folds_scale=1.2))
+    common.cloth_group(ctx, "cloth_hoodie", [pc_h, pc_hd], outfit.fabric_painter(HOODIE if VARIANT == 1 else (0.80, 0.30, 0.07), dust=0.6, seed=91, arms=True, folds_scale=1.2))
     common.cloth_group(ctx, "cloth_jacket", [pc_j], outfit.leather_painter(JACKET, scuff_col=(0.2, 0.18, 0.15), dust=0.5, seed=95, wear=0.6), rough=0.7)
     common.cloth_group(ctx, "cloth_pants", [pc_p, pc_s], outfit.fabric_painter(PANTS, dust=0.7, seed=97, legs=True))
     pcs = dict(hoodie=pc_h, jacket=pc_j, g_jacket=jacket, pants=pc_p, gloves=gloves, g_hood=hood)

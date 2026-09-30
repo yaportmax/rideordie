@@ -21,10 +21,13 @@ import raidergear as RG
 import skinpaint as SP
 import uvbake as U
 
+VARIANT = 1
 NAME = "raider_a"
 SPEC = dict(macro=dict(gender=1.0, age=0.46, muscle=0.6, weight=0.6, height=0.5, race="caucasian"),
             extra=[("torso/torso-vshape-incr", 0.25), ("neck/neck-scale-horiz-incr", 0.5)],
             height=1.78, skin="middleage_caucasian_male")
+SPEC2 = dict(macro=dict(gender=1.0, age=0.60, muscle=0.55, weight=0.72, height=0.5, race={"african": 0.8, "caucasian": 0.2}),
+             extra=[("torso/torso-vshape-incr", 0.15), ("neck/neck-scale-horiz-incr", 0.5)], height=1.80, skin="middleage_african_male")
 
 VEST = (0.34, 0.19, 0.10)
 PANTS = (0.42, 0.36, 0.24)
@@ -34,10 +37,10 @@ BANDANA_TINT = (0.62, 0.10, 0.07)
 def bandana_painter():
     def extra(bk, alb, h):
         P = bk.P
-        k = 2 * np.pi / 0.020
-        dots = (np.sin(P[..., 0] * k) * np.sin(P[..., 1] * k) * np.sin(P[..., 2] * k + 1.0) > 0.35).astype(np.float32)
-        dots = U.blur(dots, 0.7)
-        alb = alb * (1 - 0.5 * dots[..., None])
+        k = 2 * np.pi / 0.013
+        dots = (np.sin(P[..., 0] * k) * np.sin(P[..., 1] * k) * np.sin(P[..., 2] * k + 1.0) > 0.55).astype(np.float32)
+        dots = U.blur(dots, 0.6)
+        alb = alb * (1 - 0.18 * dots[..., None]) + 0.55 * dots[..., None] * np.array([0.9, 0.85, 0.8], np.float32) * 0.35
         return alb, h
     return outfit.fabric_painter((0.9, 0.9, 0.9), dust=0.6, dust_col=(0.55, 0.5, 0.42), seed=13, drape=0.0009, extra=extra, sweat=0.3)
 
@@ -67,10 +70,19 @@ def skin_texture(ctx, fit):
     base = B.skin_image(ch.spec["skin"], 1024).astype(np.float32) / 255.0
     sb = SP.SkinBake(ch, fit, 1024)
     base = sb.fill_gutters(base)
-    alb = SP.tone(base, mul=(0.86, 0.72, 0.60), gamma=1.05)
-    alb = SP.sunburn(alb, sb, ch, amount=0.55)
-    alb = SP.blend(alb, (0.25, 0.19, 0.13), SP.dirt(sb, 6, 0.7))
-    alb = SP.stubble(alb, sb, ch, seed=4, amount=0.85, colour=(0.09, 0.07, 0.055), cheeks=0.7)
+    if VARIANT == 2:
+        alb = SP.tone(base, mul=(0.92, 0.86, 0.80), gamma=1.0)
+        alb = SP.blend(alb, (0.22, 0.17, 0.12), SP.dirt(sb, 6, 0.6))
+        alb = SP.stubble(alb, sb, ch, seed=5, amount=1.7, colour=(0.035, 0.03, 0.028), cheeks=1.0)      # full short beard
+        alb = SP.stubble(alb, sb, ch, seed=8, amount=0.5, colour=(0.45, 0.43, 0.40), cheeks=0.6, lip=0.3)  # grey in it
+        e = mh.to_game(ch.body.mh_bone("eye.R")[0]) + ch.lift
+        pts = np.array([e + [-0.012, 0.035, -0.02], e + [0.004, 0.0, -0.03], e + [0.02, -0.045, -0.025]])
+        alb = SP.scar(alb, sb.P, pts, width=0.0026, colour=(0.42, 0.30, 0.26), strength=0.85)
+    else:
+        alb = SP.tone(base, mul=(0.86, 0.72, 0.60), gamma=1.05)
+        alb = SP.sunburn(alb, sb, ch, amount=0.55)
+        alb = SP.blend(alb, (0.25, 0.19, 0.13), SP.dirt(sb, 6, 0.7))
+        alb = SP.stubble(alb, sb, ch, seed=4, amount=0.85, colour=(0.09, 0.07, 0.055), cheeks=0.7)
     # tattoos: tribal band right upper arm, blackwork sleeve left forearm/upper arm
     rsel = sb.bone_mask("RightArm") > 0.5
     a, s, r = SP.limb_uv(sb, "R_arm", (1.0, 0.0, 0.0), sel=rsel)
@@ -140,7 +152,10 @@ def add_gear(ctx, fit, pcs, gl):
     for g_ in gl:
         common.add_tiled_piece(ctx, cloth.finish(g_, fit), glove_m, label="glove")
     # goggles over the eyes (round dark lenses)
-    gg = gear.goggles(ctx, brc, up=0.0, hair=0.004, lens_r=0.027, spacing=0.0335, tilt=-4.0, seg=10, ring_n=18)
+    if VARIANT == 2:      # pushed up on the bandana: the face shows
+        gg = gear.goggles(ctx, brc, up=0.055, hair=0.012, lens_r=0.027, spacing=0.0335, tilt=10.0, seg=10, ring_n=18)
+    else:
+        gg = gear.goggles(ctx, brc, up=0.0, hair=0.004, lens_r=0.027, spacing=0.0335, tilt=-4.0, seg=10, ring_n=18)
     strap_m = common.gear_material(ctx, "webbing_strap", "webbing", color=(0.05, 0.05, 0.05), rough=0.9)
     lens_m = common.plain_material(ctx, "glass_lens", (0.95, 0.52, 0.06), rough=0.08, alpha=0.9, double_sided=True, emissive=(0.35, 0.16, 0.0))
     rim_m = common.gear_material(ctx, "metal_rim", "metal_dark", color=(0.42, 0.40, 0.36), rough=1.0, metal=1.0)
@@ -174,9 +189,11 @@ def add_gear(ctx, fit, pcs, gl):
     ctx.brc, ctx.binder = brc, binder
 
 
-def build():
+def build(variant=1):
+    global VARIANT
+    VARIANT = variant
     t0 = time.time()
-    ctx = charbuild.Ctx(NAME, SPEC)
+    ctx = charbuild.Ctx(NAME + ("2" if variant == 2 else ""), SPEC2 if variant == 2 else SPEC)
     ch = ctx.ch
     lod.decimate(ch, 0.19)
     fit = cloth.CFit(ch)
@@ -190,12 +207,12 @@ def build():
         cut_y = hf["eye"][1] + 0.052 - 0.10 * (t * t * (3 - 2 * t)) ** 1.2
         return cent[:, 1] > cut_y
     band = cloth.head_shell(fit, bandana_keep, off=0.006, bridge=0.003)
-    scarf = menace.face_scarf_garment(fit, top=-0.028, off=0.011, point=0.075)
-    pc_scarf = cloth.finish(scarf, fit)
+    scarf = menace.face_scarf_garment(fit, top=-0.028, off=0.011, point=0.075) if VARIANT == 1 else None
+    pc_scarf = cloth.finish(scarf, fit) if scarf is not None else None
     pc_vest = cloth.finish(vest, fit)
     pc_pants = cloth.finish(pants, fit)
     pc_band = cloth.finish(band, fit)
-    tris = common.cull_tris(ch, [vest.cover, pants.cover, band.cover, scarf.cover] + [g.cover for g in gl],
+    tris = common.cull_tris(ch, [vest.cover, pants.cover, band.cover] + ([scarf.cover] if scarf is not None else []) + [g.cover for g in gl],
                             hide_bones=("LeftFoot", "RightFoot", "LeftToeBase", "RightToeBase"))
     common.add_skin(ctx, tris, skin_texture(ctx, fit))
     common.add_eyes_lite(ctx, iris=(0.20, 0.32, 0.36))
@@ -204,7 +221,7 @@ def build():
     common.cloth_group(ctx, "cloth_vest", [pc_vest], outfit.leather_painter(VEST, scuff_col=(0.32, 0.2, 0.12), dust=0.5, seed=21, wear=0.8, extra=emblem),
                        rough=0.75)
     common.cloth_group(ctx, "cloth_pants", [pc_pants], outfit.fabric_painter(PANTS, dust=0.7, seed=31, legs=True, folds_scale=0.8, extra=pants_extra))
-    common.cloth_group(ctx, "paint", [pc_band, pc_scarf], bandana_painter(), color=BANDANA_TINT + (1.0,), rough=0.9, ppm=420)
+    common.cloth_group(ctx, "paint", [pc_band] + ([pc_scarf] if pc_scarf is not None else []), bandana_painter(), color=BANDANA_TINT + (1.0,), rough=0.9, ppm=420)
     pcs = dict(vest=pc_vest, pants=pc_pants, g_vest=vest, g_pants=pants)
     add_gear(ctx, fit, pcs, gl)
     ctx.report()

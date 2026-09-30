@@ -213,7 +213,7 @@ def add_gear(ctx, fit, pc_top, pc_pants):
             common.add_tiled_piece(ctx, cloth.finish(g, ctx.fit), glove_mat, label="glove")
     # --- extra silhouette gear for the base look: rolled shemagh around the neck, rifle sling across the chest, thigh
     # holster on the right leg, dog tags
-    shem = common.gear_material(ctx, "cloth_shemagh", "canvas", color=(0.62, 0.55, 0.40), rough=0.95, seed=5)
+    shem = common.gear_material(ctx, "cloth_shemagh", "canvas", color=(0.46, 0.36, 0.24), rough=0.95, seed=5)
     nk, s2 = H["Neck"], H["Spine2"]
     rc_nk = brc.region("Neck", "Spine2", "Shoulder")
     ring = []
@@ -224,7 +224,8 @@ def add_gear(ctx, fit, pc_top, pc_pants):
         r = (0.3 - T[0]) if np.isfinite(T[0]) else 0.075
         ring.append(np.array([0.0, nk[1] - 0.012 + 0.02 * np.cos(a), nk[2]]) + d * (r + 0.018))
     ring = np.array(ring)
-    common.add_gear(ctx, kit.sweep(ring, 0.024 + 0.006 * np.cos(np.linspace(0, 6 * np.pi, 25)), sides=8, caps=False, tile=0.12),
+    common.add_gear(ctx, kit.sweep(ring, 0.019 + 0.006 * np.cos(np.linspace(0, 6 * np.pi, 25)) + 0.003 * np.sin(np.linspace(0, 17, 25)), sides=12,
+                                   caps=False, tile=0.12),
                     shem, binder, label="shemagh")
     knot = ring[0] + np.array([0.012, -0.008, 0.012])
     common.add_gear(ctx, kit.ellipsoid(knot, [0.034, 0.028, 0.022], seg=10, rings=6), shem, binder, bone="Spine2", label="shemagh")

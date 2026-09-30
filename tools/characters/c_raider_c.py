@@ -22,11 +22,16 @@ import raidergear as RG
 import skinpaint as SP
 import uvbake as U
 
+VARIANT = 1
 NAME = "raider_c"
 SPEC = dict(macro=dict(gender=1.0, age=0.55, muscle=1.0, weight=0.85, height=0.5, race={"caucasian": 0.7, "african": 0.3}),
             extra=[("torso/torso-vshape-incr", 0.6), ("neck/neck-scale-horiz-incr", 1.0), ("neck/neck-scale-vert-decr", 0.6),
                    ("armslegs/l-hand-scale-incr", 0.5), ("armslegs/r-hand-scale-incr", 0.5), ("head/head-scale-horiz-decr", 0.2)],
             height=1.92, skin="middleage_caucasian_male", sole=0.035)
+SPEC2 = dict(macro=dict(gender=1.0, age=0.62, muscle=1.0, weight=0.9, height=0.5, race={"african": 0.85, "caucasian": 0.15}),
+             extra=[("torso/torso-vshape-incr", 0.5), ("neck/neck-scale-horiz-incr", 1.0), ("neck/neck-scale-vert-decr", 0.6),
+                    ("armslegs/l-hand-scale-incr", 0.5), ("armslegs/r-hand-scale-incr", 0.5)],
+             height=1.90, skin="old_african_male", sole=0.035)
 
 TROUSERS = (0.28, 0.25, 0.20)
 UNDER = (0.30, 0.28, 0.24)
@@ -37,7 +42,7 @@ def mask_painter():
     def paint(bk):
         fit = bk.fit
         shape = bk.mask.shape
-        alb = np.ones(shape + (3,), np.float32) * np.array([0.78, 0.74, 0.62], np.float32)
+        alb = np.ones(shape + (3,), np.float32) * np.array([0.78, 0.74, 0.62] if VARIANT == 1 else [0.07, 0.07, 0.075], np.float32)
         n = U.fbm(shape, 60.0, 3, 5)
         alb *= (0.85 + 0.2 * n)[..., None]
         hf = cloth.head_frame(fit)
@@ -62,7 +67,8 @@ def mask_painter():
             v_ = -(x - x0) * 0.6 + (y - 0.02) * 0.8
             sl = np.maximum(sl, ((np.abs(u_) < 0.0065 * (1 - np.abs(v_) / 0.055)) & (np.abs(v_) < 0.05)).astype(np.float32))
         sl = U.blur(sl, 0.8)
-        alb = alb * (1 - 0.9 * sl[..., None]) + np.array([0.45, 0.03, 0.02], np.float32) * 0.9 * sl[..., None]
+        slc = np.array([0.45, 0.03, 0.02] if VARIANT == 1 else [0.85, 0.83, 0.78], np.float32)
+        alb = alb * (1 - 0.9 * sl[..., None]) + slc * 0.9 * sl[..., None]
         # cracks + grime toward the edges
         cr = PC.aniso(shape, 9, 0.6, 6)
         crack = (np.abs(cr) < 0.03).astype(np.float32) * U.smoothstep(0.6, 0.8, U.fbm(shape, 40.0, 2, 3))
@@ -140,7 +146,7 @@ def add_gear(ctx, fit, pcs):
     rc_t = outfit.rc_from_pieces([pcs["under"]])
     rc_p = outfit.rc_from_pieces([pcs["trousers"]])
     armor = common.gear_material(ctx, "armor", "scrap", color=(0.62, 0.58, 0.54), rough=1.0, metal=1.0)
-    paint = ctx.material("paint", base_tex=ctx.glb.texture_array("paint_tex", _paint_tex(), "jpg", 88), color=(0.66, 0.15, 0.08, 1.0), rough=0.7, metallic=0.25)
+    paint = ctx.material("paint", base_tex=ctx.glb.texture_array("paint_tex", _paint_tex(), "jpg", 88), color=(0.66, 0.15, 0.08, 1.0) if VARIANT == 1 else (0.20, 0.30, 0.34, 1.0), rough=0.7, metallic=0.25)
     metal = common.gear_material(ctx, "metal_dark", "metal_dark", color=(0.42, 0.42, 0.40), rough=1.0, metal=1.0)
     rubber = common.gear_material(ctx, "rubber", "rubber", color=(0.08, 0.08, 0.08), rough=1.0, metal=0.0)
     leather = common.gear_material(ctx, "leather", "leather", color=(0.13, 0.08, 0.05), rough=0.85, metal=0.0)
@@ -294,9 +300,11 @@ def _paint_tex(size=256):
     return (np.clip(np.stack([g, g, g], -1), 0, 1) * 255).astype(np.uint8)
 
 
-def build():
+def build(variant=1):
+    global VARIANT
+    VARIANT = variant
     t0 = time.time()
-    ctx = charbuild.Ctx(NAME, SPEC)
+    ctx = charbuild.Ctx(NAME + ("2" if variant == 2 else ""), SPEC2 if variant == 2 else SPEC)
     ctx.bulk = 1.25
     ch = ctx.ch
     lod.decimate(ch, 0.16)

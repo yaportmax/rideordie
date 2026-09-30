@@ -35,6 +35,7 @@ let FP_GLB = null, FP_TRIED = false;
 function fpArmsLoad() { if (!FP_TRIED) { FP_TRIED = true; Assets.loadGLB(FP_ARMS_URL).then((g) => { FP_GLB = g || null; }).catch(() => {}); } return Assets.loadGLB(FP_ARMS_URL); }
 
 const DEG = Math.PI / 180;
+const RLOAD = 0.55;                              // RPG reload: the rocket is lined up this fraction of its 420 mm travel out of the mouth
 export const BAND = 0.008;                       // viewmodel window depth range [0, BAND]
 const VM_NEAR = 0.012, VM_FAR = 6;
 /** Shared uniforms of every viewmodel material. */
@@ -144,7 +145,7 @@ export const ANCH = {
   port: { off: [0.0, -0.03, 0.0], rot: [0, 0, 60] },
   cyl: { off: [0.03, 0.0, -0.02], rot: [0, 0, 90] },
   rocket: { off: [0.0, 0.0, -0.12], rot: [0, 0, 0] },       // hand round the motor section, 12 cm behind the rocket's origin
-  rocketLoad: { off: [0.0, 0.09, 0.625 + 0.42 - 0.12], rot: [0, 0, 0] },   // the same grip with the rocket lined up 42 cm out of the mouth
+  rocketLoad: { off: [0.0, 0.09, 0.625 + 0.42 * 0.55 - 0.12], rot: [0, 0, 0] },   // the same grip, rocket lined up ~23 cm out of the mouth
   pocket: { off: [0.10, -0.42, -0.05], rot: [40, 0, 40] },
   bolt: { off: [0.0, 0.0, 0.0], rot: [0, 0, 0] },
   grenade: { off: [0, 0, 0], rot: [0, 0, 0] },
@@ -162,7 +163,7 @@ const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t 
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _p = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4();
-const _s = new THREE.Vector3(1, 1, 1), _sc = new THREE.Vector3(), _mi = new THREE.Matrix4();
+const _s = new THREE.Vector3(1, 1, 1), _sc = new THREE.Vector3(), _mi = new THREE.Matrix4(), _mr = new THREE.Matrix4();
 const Q_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);   // gun +Z forward -> camera -Z
 
 /** Damped spring on N channels (semi-implicit Euler, sub-stepped). freq Hz, zeta damping ratio. */
@@ -824,10 +825,12 @@ export class ViewModel {
         break;
       }
       case 'rpg': {
-        const low = seg(0.0, 0.14) * (1 - seg(0.86, 1.0));
-        R.r[0] = low * 16; R.r[2] = -low * 12; R.p[0] = -low * 0.02; R.p[1] = -low * 0.03; R.p[2] = low * 0.12;
+        // the loader tips the mouth down and back toward himself so the left hand can reach it
+        const low = backOut(seg(0.0, 0.12)) * (1 - seg(0.84, 0.96));
+        const RP = T.relPose || [-0.04, 0.07, 0.08, -6, 18, -8];
+        R.p[0] = low * RP[0]; R.p[1] = low * RP[1]; R.p[2] = low * RP[2]; R.r[0] = low * RP[3]; R.r[1] = low * RP[4]; R.r[2] = low * RP[5];
         // fresh rocket from the pack (it rides in the closed left hand), lined up at the mouth, pushed home, hand back on the grip
-        P.rocket = r < 0.5 ? 1 : 1 - seg(0.52, 0.78); P.rocketVisible = r > 0.26;
+        P.rocket = (r < 0.5 ? 1 : 1 - seg(0.52, 0.78)) * RLOAD; P.rocketVisible = r > 0.26;
         R.rocketHand = r > 0.26 && r < 0.5;
         tween(lh, 0.04, 0.18, 'grip', 'pocket', 0.02);
         if (r > 0.26) tween(lh, 0.28, 0.48, 'pocket', 'rocketLoad', 0.05);
@@ -933,10 +936,10 @@ export class ViewModel {
   _rocketInHand(gun) {
     const n = gun.nodes.rocket, so = this.B.socket_hand_L; if (!so || !n.parent) return;
     so.updateWorldMatrix(true, false);
-    _m.makeTranslation(0, 0, -ANCH.rocket.off[2]).premultiply(so.matrixWorld);
+    _mr.makeTranslation(0, 0, -ANCH.rocket.off[2]).premultiply(so.matrixWorld);
     n.parent.updateWorldMatrix(true, false);
-    _m.premultiply(_mi.copy(n.parent.matrixWorld).invert());
-    _m.decompose(n.position, n.quaternion, _sc);
+    _mr.premultiply(_mi.copy(n.parent.matrixWorld).invert());
+    _mr.decompose(n.position, n.quaternion, _sc);
     n.updateMatrixWorld(true);
   }
 

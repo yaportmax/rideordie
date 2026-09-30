@@ -36,7 +36,7 @@ const CSS = `
 #ghud .kr{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;border:3px solid rgba(255,60,40,.85);border-radius:50%;opacity:0}
 #ghud .kt{position:absolute;left:50%;top:calc(50% + 46px);transform:translateX(-50%);font:800 italic 17px 'Bahnschrift','Segoe UI Semibold',sans-serif;letter-spacing:3px;color:#ff4a30;text-shadow:0 1px 3px #000,0 0 10px rgba(255,40,20,.6);opacity:0;white-space:nowrap}
 #ghud .dm{position:absolute;left:50%;top:50%;width:0;height:0}
-#ghud .dm div{position:absolute;left:-150px;top:-150px;width:300px;height:300px;border-radius:50%;border:5px solid transparent;border-top-color:rgba(255,34,18,.95);opacity:0;filter:drop-shadow(0 0 5px rgba(255,0,0,.6))}
+#ghud .dm div{position:absolute;left:-44vh;top:-44vh;width:88vh;height:88vh;border-radius:50%;border:6px solid transparent;border-top-color:rgba(255,34,18,.95);opacity:0;filter:drop-shadow(0 0 6px rgba(255,0,0,.6));-webkit-mask:linear-gradient(90deg,transparent 30%,#000 44%,#000 56%,transparent 70%);mask:linear-gradient(90deg,transparent 30%,#000 44%,#000 56%,transparent 70%)}
 #ghud .am{position:absolute;right:34px;bottom:26px;text-align:right;font-family:'Bahnschrift','Segoe UI Semibold','Arial Narrow',sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.85)}
 #ghud .am .wn{display:block;font-size:14px;letter-spacing:3px;opacity:.9}
 #ghud .am b{font-size:56px;font-weight:800;font-style:italic;line-height:.95}
@@ -126,17 +126,24 @@ export class GunnerHud {
       this.seq = G.hitSeq;
       if (G.hitKind === 'weak' || G.hitKind === 'deflect') this.hit(false, false, G.hitKind);
     }
+    // what to name: the boss part under the crosshair right now, else the one just hit (lingers briefly)
     const B = G.bossHit;
-    if (B && B.n !== this.bossSeq) {
-      this.bossSeq = B.n; this.bpT = B.kind === 'deflect' ? 0.7 : 1.6;
-      if (B.part !== this.bpPart || B.kind !== this.bpKind) {
-        this.bpPart = B.part; this.bpKind = B.kind;
-        const def = BOSS_PARTS[B.part];
-        q.bpn.textContent = B.kind === 'deflect' ? (def && def.needs ? 'SHIELDED - BREAK THE REAR ARMOR' : 'ARMORED - HIT THE WEAPONS') : (def && def.label) || B.part;
-        q.bp.className = 'bp' + (B.kind === 'deflect' ? ' df' : '');
-        this.bpLag = this.bpShown = this._partHp(B.part);
-      }
+    let part = null, kind = null;
+    if (G.aimCar && G.aimCar.isBoss && G.aimZone) {
+      const def = BOSS_PARTS[G.aimZone], car = G.aimCar;
+      const locked = !def || G.aimZone === 'body' || def.invulnerable || !!(def.needs && def.needs.some((k) => car.alive && car.alive[k]));
+      part = G.aimZone; kind = locked ? 'deflect' : def.weak ? 'weak' : 'part';
+      this.bpT = Math.max(this.bpT, 0.35);
     }
+    if (B && B.n !== this.bossSeq) { this.bossSeq = B.n; this.bpT = B.kind === 'deflect' ? 0.5 : 0.9; if (!part) { part = B.part; kind = B.kind; } }
+    if (part && (part !== this.bpPart || kind !== this.bpKind)) {
+      this.bpPart = part; this.bpKind = kind;
+      const def = BOSS_PARTS[part];
+      q.bpn.textContent = kind === 'deflect' ? (def && def.needs ? 'SHIELDED - BREAK THE REAR ARMOR' : 'ARMORED - HIT THE WEAPONS') : (def && def.label) || part;
+      q.bp.className = 'bp' + (kind === 'deflect' ? ' df' : '');
+      this.bpLag = this.bpShown = this._partHp(part);
+    }
+    this.partLabelOn = this.bpT > 0;                 // read by run.js: the world-space boss labels stay hidden while this names a part
     if (this.bpT <= 0) { if (q.bp.style.opacity !== '0') q.bp.style.opacity = 0; return; }
     this.bpT -= dt;
     const hp = this._partHp(this.bpPart);

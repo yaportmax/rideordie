@@ -13,19 +13,28 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import charbuild
 
-IDS = ["hero_gunner", "hero_driver", "raider_a", "raider_b", "raider_c", "raider_d", "raider_driver"]
+IDS = ["hero_gunner", "hero_driver", "raider_a", "raider_b", "raider_c", "raider_d", "raider_driver",
+       "raider_a2", "raider_b2", "raider_c2", "raider_d2", "raider_driver2"]
+
+
+def split_id(cid):
+    """'raider_a2' -> ('raider_a', 2); 'raider_a' -> ('raider_a', 1)."""
+    if cid[-1].isdigit() and cid.startswith("raider"):
+        return cid[:-1], int(cid[-1])
+    return cid, 1
 
 
 def main(ids):
     stats = {}
     for cid in ids:
         t0 = time.time()
-        mod = importlib.import_module("c_" + cid)
+        base, variant = split_id(cid)
+        mod = importlib.import_module("c_" + base)
         if cid == "hero_gunner":
             ctx = mod.build_full()
             hidden = ("armor_t1", "armor_t2", "armor_t3")
         else:
-            ctx = mod.build()
+            ctx = mod.build(variant) if variant != 1 else mod.build()
             hidden = ()
         path = charbuild.OUT_DIR + "/%s.glb" % cid
         hero = cid.startswith("hero")

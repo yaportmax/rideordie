@@ -353,7 +353,7 @@ def skin_relief(sb, ch, age=0.5, muscle=0.5, seed=1):
         groove((np.abs(y - wav) < 0.0014) & (np.abs(x) < 0.050 - 0.006 * k) & brk & front, 0.00035 * ak)
     # frown lines between the brows
     for sx in (-1, 1):
-        groove((np.abs(x - sx * (0.007 + 0.12 * (y - 0.03))) < 0.0011) & (y > 0.022) & (y < 0.046) & front, 0.0004 * ak)
+        groove((np.abs(x - sx * (0.007 + 0.12 * (y - 0.03))) < 0.0009) & (y > 0.026) & (y < 0.042) & front, 0.0003 * ak)
     # crow's feet
     for sx in (-1, 1):
         for a in (-0.35, 0.0, 0.35):
@@ -363,13 +363,13 @@ def skin_relief(sb, ch, age=0.5, muscle=0.5, seed=1):
             groove((dist < 0.0010) & (t > 0) & (t < 0.014) & front, 0.0003 * ak)
     # under-eye crease (arc)
     for sx in (-1, 1):
-        r = np.hypot((x - sx * 0.032) / 1.35, y + 0.004)
-        groove((np.abs(r - 0.020) < 0.0012) & (y < -0.008) & front, 0.0003 * ak, 0.8)
+        r = np.hypot((x - sx * 0.032) / 1.3, y + 0.002)
+        groove((np.abs(r - 0.0135) < 0.0009) & (y < -0.009) & (np.abs(x - sx * 0.032) < 0.011) & front, 0.00025 * ak, 0.8)
     # nasolabial folds: nose wing -> mouth corner (deep, soft)
     for sx in (-1, 1):
-        t = np.clip((0.036 - y) / 0.052, 0, 1)
-        cx = sx * (0.021 + 0.017 * t + 0.004 * np.sin(t * np.pi))
-        groove((np.abs(x - cx) < 0.0022) & (y < 0.018) & (y > -0.092) & front, 0.0008 * (0.6 + 0.4 * ak), 1.4)
+        t = np.clip((-0.022 - y) / 0.062, 0, 1)
+        cx = sx * (0.019 + 0.012 * t + 0.006 * np.sin(t * np.pi))
+        groove((np.abs(x - cx) < 0.0018) & (y < -0.020) & (y > -0.086) & front, 0.0007 * (0.6 + 0.4 * ak), 1.2)
     # mouth: lip crease, corners, philtrum, vertical lip lines
     groove((np.abs(y + 0.0775 + 0.004 * (x / 0.03) ** 2) < 0.0012) & (np.abs(x) < 0.027) & front, 0.0007, 0.7)
     for sx in (-1, 1):
@@ -415,9 +415,14 @@ def skin_relief(sb, ch, age=0.5, muscle=0.5, seed=1):
     rough = np.full(shape, 0.66, np.float32)
     tz = front & (((np.abs(x) < 0.018) & (y > -0.06) & (y < 0.02)) | ((y > 0.035) & (np.abs(x) < 0.045)))
     rough -= U.blur(tz.astype(np.float32), 3.0) * 0.14
-    rough -= U.blur(lipz.astype(np.float32), 1.5) * 0.22
+    rough -= U.blur(lipz.astype(np.float32), 1.5) * 0.10
     rough += 0.06 * (U.fbm(shape, 30.0, 2, seed + 9, wrap=False) - 0.5)
     rough += acc["c"] * 0.08
+    acc["lips"] = U.blur(lipz.astype(np.float32), 1.5)
+    skin_relief.last_lips = acc["lips"]
+    mouth = (np.abs(y + 0.0775 + 0.004 * (x / 0.03) ** 2) < 0.0024) & (np.abs(x) < 0.026) & front
+    skin_relief.last_mouth = U.blur(mouth.astype(np.float32), 0.8)
+    rough = np.maximum(rough, skin_relief.last_mouth * 0.85)
     return acc["h"], acc["c"], np.clip(rough, 0.3, 0.9)
 
 
