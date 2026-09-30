@@ -336,7 +336,12 @@ export class CrewView {
     if (fp) this.bodyYaw = yawL - 0.15; // first person: the body sits under the camera (slightly bladed)
     this.body.rotation.y = this.bodyYaw;
     if (this.bones) {
-      this.body.updateMatrixWorld(true);
+      // Spine/reaction edits below use local poses only; the model pass then
+      // updates the rig once. Keep the existing parent-world state, including
+      // callers that have not refreshed the car yet. A fallback hand mount
+      // lives beside the model and still needs the original descendant pass.
+      if (clipMode && this.mountAt === 'gun') this.body.updateMatrixWorld(true);
+      else this.body.updateWorldMatrix(false, false, true);
       diff = Math.atan2(Math.sin(yawL - this.bodyYaw), Math.cos(yawL - this.bodyYaw));
       const pitch = s.aimPitch;
       const n = this.spine.length || 1;
@@ -654,6 +659,13 @@ export class CrewView {
   _wheelIK(wL, wR, rot = -this.steer * 2.6) {
     const wheel = this.car?.sockets?.steering_wheel;
     if (this.bones && wheel && this.arm.Right && this.arm.Left) {
+      // Once both hands have released, only the wheel turns. Preserve the
+      // first-call reach adjustment and wheel lookup even with zero weights;
+      // normal render/world queries refresh the now-unneeded rig matrices.
+      if (wL <= 0.001 && wR <= 0.001 && this.driverShift !== undefined && this.wheelMesh !== undefined) {
+        if (this.wheelMesh) this.wheelMesh.rotation.z = rot;
+        return;
+      }
       this.model.updateMatrixWorld(true);
       wheel.updateWorldMatrix(true, false);
       // slide forward on the seat until the hands can reach the rim (trucks put the wheel at different distances)
