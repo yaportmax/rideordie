@@ -302,7 +302,7 @@ export class Run {
       else if (e.t === 'bossSpawn') { g.hud.message('THE LEVIATHAN', 3500, '#ff3a1a'); this.abridge?.bossIntro(); }
       else if (e.t === 'bossPhase' || e.t === 'bossBeat') { this.banner.bossBeat(e); if (e.phase === 3 && !(this.lastPulse > this.time - 2)) { this.pulseT = 1.1; this.lastPulse = this.time; } }   // reactor exposed: a beat of slow-mo
       else if (e.t === 'bossPart' && e.label) g.hud.feed(`${e.label} DESTROYED`, '#ffc21a');
-      else if (e.t === 'repair' && e.supply) g.hud.feed('SUPPLY CACHE: TRUCK PATCHED, CREW HEALED', '#7fdc7f');
+      else if (e.t === 'repair' && e.supply) g.hud.feed('SUPPLY CACHE: TRUCK REPAIRED, CREW HEALED', '#7fdc7f');
       else if (e.t === 'repair' && e.big) g.hud.feed(`SALVAGE  +${Math.round(e.amount)} HP`, '#7fdc7f');
       else if (e.t === 'bossDown') { g.hud.message('THE LEVIATHAN IS DOWN!', 5000, '#ffc21a'); this.abridge?.victory(); }
       else if (e.t === 'bossDying') { g.hud.message('REACTOR CRITICAL', 2000, '#ff5a2a'); }

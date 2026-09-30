@@ -200,7 +200,7 @@ export class Director {
       const behind = P.s - c.s;
       if (c.elite && !c.exploded && behind < 700) continue; // bosses stay while the fight is on
       // stragglers that can't keep up just clog the cap: cull them (the next squad will come)
-      const straggler = !c.exploded && behind > 170 && c.veh.vf < P.veh.vf - 3 && P.veh.vf > 30;
+      const straggler = !c.exploded && ((behind > 170 && c.veh.vf < P.veh.vf - 3 && P.veh.vf > 30) || (c.bossClear && behind > 90));
       if ((c.exploded && c.wreckT > 14 && behind > 30) || behind > 300 || straggler || c.s - P.s > 640 || (c.veh.pos.y < -80)) sim.removeCar(c, 'cleanup');
     }
   }
@@ -292,8 +292,9 @@ export class Director {
       this.bossSpawned = true;
       sim.boss = new Leviathan(sim, P.s + 320, 0);
       sim.emit({ t: 'bossSpawn', id: sim.boss.id });
+      for (const c of sim.cars.values()) if (c.kind === 'enemy' && !c.exploded && !c.elite) c.bossClear = true;
       // the last supply cache before the war-train: the fight starts fair however battered the truck arrived
-      const before = P.hp; P.hp = Math.max(P.hp, P.maxHp * 0.75);
+      const before = P.hp; P.hp = P.maxHp;
       for (const c of Object.values(P.crew)) if (c && c.alive) c.hp = c.max;
       P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4); P.veh.engineDamage = 0;
       sim.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: true, supply: true });

@@ -89,6 +89,13 @@ export class EnemyBrain {
     if (car.driverless || !car.crew.driver.alive) { this._deadDriver(dt); this.gunnery(dt); return; }
     if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
     if (sim.boss?.dead) { veh.input.throttle = 0; veh.input.brake = 0.6; veh.input.nitro = false; this.gunnery(dt); return; }   // scatter
+    if (car.bossClear) {   // the war-train is here: the road pack peels off and drops back (the Leviathan brings its own escort)
+      const side = car.d >= 0 ? 1 : -1, want = side * 6.2;
+      const tp = sim.road.pointAt(car.s + 20 + veh.speed * 0.4, want, this._rp || (this._rp = {}));
+      const err = Math.atan2(tp.x - veh.pos.x, tp.z - veh.pos.z) - Math.atan2(veh.fwd.x, veh.fwd.z);
+      veh.input.steer = Math.max(-1, Math.min(1, Math.atan2(Math.sin(err), Math.cos(err)) * 2)); veh.input.throttle = 0; veh.input.brake = 0.35; veh.input.nitro = false;
+      return;
+    }
     const road = sim.road;
     const pv = Math.max(0, P.veh.vf), gap = P.s - car.s;      // gap > 0: we are behind the player
     const speed = veh.vf;
