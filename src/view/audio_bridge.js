@@ -47,9 +47,12 @@ export const EXPECTED_NAMES = [
   'music/run', 'music/boss', 'music/garage', 'music/title', 'music/victory',
 ];
 
-function qRot(q, x, y, z) { // rotate (x,y,z) by quaternion q {x,y,z,w}
+function qRot(q, x, y, z, out = [0, 0, 0]) { // rotate (x,y,z) by quaternion q {x,y,z,w}
   const ix = q.w * x + q.y * z - q.z * y, iy = q.w * y + q.z * x - q.x * z, iz = q.w * z + q.x * y - q.y * x, iw = -q.x * x - q.y * y - q.z * z;
-  return [ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y, iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z, iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x];
+  out[0] = ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y;
+  out[1] = iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z;
+  out[2] = iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x;
+  return out;
 }
 const arr3 = (p) => (Array.isArray(p) ? p : [p.x, p.y, p.z]);
 
@@ -383,8 +386,9 @@ export class AudioBridge {
     const ex = c.ex || (c.ex = {});
     ex.pos = st.pos; ex.vel = st.vel; ex.slip = slip; ex.surface = extra.surface; ex.grounded = grounded; ex.braking = st.braking;
     ex.engineHp01 = st.engineHp01; ex.airborne = st.airborne;
-    const L = (st.spec?.length || 5) * 0.5, r = qRot(st.quat, 0.25, 0.3, -L);
-    ex.exhaustPos = [st.pos.x + r[0], st.pos.y + r[1], st.pos.z + r[2]];
+    const L = (st.spec?.length || 5) * 0.5, exhaust = ex.exhaustPos || (ex.exhaustPos = [0, 0, 0]);
+    qRot(st.quat, 0.25, 0.3, -L, exhaust);
+    exhaust[0] = st.pos.x + exhaust[0]; exhaust[1] = st.pos.y + exhaust[1]; exhaust[2] = st.pos.z + exhaust[2];
     en.update(st.rpm01, load, st.boosting ? 1 : 0, dist, st.speed, ex);
     // landing thump
     if (st.airborne) { c.airT += dt; c.wasAir = true; } else { if (c.wasAir && c.airT > 0.3) this._land(st.id, c.pos, clamp(c.airT - 0.2, 0.2, 1.6), null); c.wasAir = false; c.airT = 0; }

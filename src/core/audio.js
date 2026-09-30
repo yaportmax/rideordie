@@ -279,14 +279,21 @@ export class Listener {
     this.A = A;
     this.pos = { x: 0, y: 0, z: 0 }; this.vel = { x: 0, y: 0, z: 0 };
     this.fwd = { x: 0, y: 0, z: 1 }; this.up = { x: 0, y: 1, z: 0 };
+    this._matrixPos = { x: 0, y: 0, z: 0 }; this._matrixFwd = { x: 0, y: 0, z: 1 }; this._matrixUp = { x: 0, y: 1, z: 0 };
     this._init = false;
   }
   /** camera: THREE.Camera (uses matrixWorld); vel: THREE.Vector3 | [x,y,z] | undefined (then derived from motion). */
   update(camera, vel) {
     if (!camera) return this;
-    if (camera.updateMatrixWorld) camera.updateMatrixWorld();
+    // Audio needs the camera and its ancestors, not the attached weapon rig.
+    if (camera.updateWorldMatrix) camera.updateWorldMatrix(true, false);
+    else if (camera.updateMatrixWorld) camera.updateMatrixWorld();
     const e = camera.matrixWorld.elements;
-    this.setRaw({ x: e[12], y: e[13], z: e[14] }, { x: -e[8], y: -e[9], z: -e[10] }, { x: e[4], y: e[5], z: e[6] }, vel);
+    const p = this._matrixPos, f = this._matrixFwd, u = this._matrixUp;
+    p.x = e[12]; p.y = e[13]; p.z = e[14];
+    f.x = -e[8]; f.y = -e[9]; f.z = -e[10];
+    u.x = e[4]; u.y = e[5]; u.z = e[6];
+    this.setRaw(p, f, u, vel);
     return this;
   }
   setRaw(pos, fwd, up, vel) {

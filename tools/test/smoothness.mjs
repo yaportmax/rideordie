@@ -4,6 +4,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const base = process.env.GAME_URL || 'http://127.0.0.1:5194';
 const secs = Number(process.env.BENCH_SECONDS || 20);
 const gpuProfile = process.env.BENCH_GPU_PROFILE === '1';
+const audioEnabled = process.env.BENCH_AUDIO === '1';
+const expectedBundle = process.env.BENCH_EXPECT_BUNDLE || '';
 const shadowCache = process.env.BENCH_SHADOW_CACHE === undefined ? null : process.env.BENCH_SHADOW_CACHE !== '0';
 const spots = (process.env.BENCH_SPOTS || '3000,14000,44000').split(',').map(Number);
 const roles = (process.env.BENCH_ROLES || 'driver,gunner').split(',');
@@ -11,16 +13,22 @@ const cases = process.env.BENCH_CASES ? process.env.BENCH_CASES.split(',').map(c
 const out = process.env.BENCH_OUTPUT || 'shots/smoothness';
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true,
-  args: ['--use-angle=d3d11', '--force_high_performance_gpu', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
+  args: ['--use-angle=d3d11', '--force_high_performance_gpu', '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
+    ...(audioEnabled ? ['--autoplay-policy=no-user-gesture-required'] : [])] });
 const results = [];
 try {
   for (const {role,s} of cases) {
     const page = await browser.newPage({ viewport: { width: 2560, height: 1440 } });
-    const errors = [], warnings = [];
+    const errors = [], warnings = [], bundles = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'warning' || m.type() === 'error') warnings.push(m.text()); });
+    page.on('response', response => {
+      const match = /\/assets\/(index-[^/?]+\.js)(?:\?|$)/.exec(response.url());
+      if (match && !bundles.includes(match[1])) bundles.push(match[1]);
+    });
     await page.goto(`${base}/?solo&as=${role}&s=${s}&seed=7&weapons=smg`);
     await page.waitForFunction(() => window.__ready && window.__run?.started, null, { timeout: 180000 });
+    if (expectedBundle && !bundles.includes(expectedBundle)) throw new Error(`Expected ${expectedBundle}, loaded ${bundles.join(', ')}`);
     await page.evaluate(({ profile, shadowCache }) => {
       window.__autodrive = { speed: 30 }; window.__game.post.profile(profile);
       if (shadowCache !== null) window.__game.sky.shadowCache.enabled = shadowCache;
@@ -58,6 +66,7 @@ try {
       const bossBefore = r.sim?.boss ? { phase: r.sim.boss.phase, dead: r.sim.boss.dead, exploded: r.sim.boss.exploded } : null;
       const f = [], slow = []; let last = performance.now(), start = last;
       const scaleStart = p.resolutionScale;
+      const audioStart = g.audio?.graphStats();
       await new Promise(resolve => {
         const tick = now => {
           const elapsed = now - last; f.push(elapsed); last = now;
@@ -70,13 +79,14 @@ try {
       return { gpu: ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL), p50:q(.5), p95:q(.95), p99:q(.99), max:q(1),
         averageFps: +(f.length*1000/f.reduce((a,b)=>a+b,0)).toFixed(2), activeSeconds:+((last-start)/1000).toFixed(2), frames:f.length, over25:slow.length, over33:f.filter(x=>x>33.4).length,
         recordingStartMs:start, scaleStart, scale:p.resolutionScale, internal:p._internal.toArray(), quality:g.quality, gpuProfiling:p._profiling, gpuMs:Object.fromEntries(p.timer?.ms || []),
+        audioStart, audioEnd:g.audio?.graphStats(),
         cacheEnabled:g.sky.shadowCache.enabled, cacheBefore, cacheAfter:{...g.sky.shadowCache.stats}, calls:g.perf.calls,
         shots:r.shots-shotBefore, cars:r.states.size, over:r.over, playerS:r.playerS, bossBefore, bossAfter:r.sim?.boss ? { phase:r.sim.boss.phase, dead:r.sim.boss.dead, exploded:r.sim.boss.exploded } : null,
         pitch:r.gunner?.pitch, glError:gl.getError(), slow, hitches:window.__hitches || [], initialPrograms:window.__initialPrograms, programs:window.__programAdditions,
         resizes:window.__resolutionChanges.map(change => ({ ...change, atSinceRecordingMs: +(change.at-start).toFixed(2) })) };
     }, secs);
     await page.screenshot({ path:`${out}/${role}-${s}.png` });
-    const row = { role, s, ...result, errors, warnings:[...new Set(warnings)] }; results.push(row);
+    const row = { role, s, ...result, audioAutoplay:audioEnabled, bundles, errors, warnings:[...new Set(warnings)] }; results.push(row);
     await writeFile(`${out}/results.json`, JSON.stringify(results,null,2));
     console.log(JSON.stringify({...row,initialPrograms:undefined,programs:row.programs?.map(p=>({at:p.at,id:p.id,name:p.name})),slow:row.slow.slice(0,12)}));
     await page.close();

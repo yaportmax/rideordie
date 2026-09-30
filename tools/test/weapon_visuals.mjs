@@ -11,7 +11,7 @@ const label = process.argv[2] || 'candidate';
 const output = `shots/weapon-visuals/${label}`;
 const width = +(process.env.WIDTH || 2560), height = +(process.env.HEIGHT || 1440);
 await mkdir(output, { recursive: true });
-const report = { base, label, viewport: { width, height }, checks: [], snapshots: [], errors: [], network: [] };
+const report = { base, label, viewport: { width, height }, checks: [], snapshots: [], errors: [], network: [], bundleAssets: [] };
 let browser, page, cutoff, activeStarted;
 const until = (fn, arg, timeout = 6000) => page.waitForFunction(fn, arg, { timeout, polling: 'raf' });
 const state = () => page.evaluate(() => {
@@ -88,13 +88,17 @@ try {
   });
   page = await browser.newPage({ viewport: { width, height } });
   page.on('pageerror', e => report.errors.push(e.stack || e.message));
-  page.on('response', r => { if (r.status() >= 400 && !r.url().endsWith('/favicon.ico')) report.network.push({ url: r.url(), status: r.status() }); });
+  page.on('response', r => {
+    if (r.status() >= 400 && !r.url().endsWith('/favicon.ico')) report.network.push({ url: r.url(), status: r.status() });
+    if (/\/assets\/index-[^/?]+\.js(?:\?|$)/.test(r.url()) && !report.bundleAssets.includes(r.url())) report.bundleAssets.push(r.url());
+  });
   await page.addInitScript(() => localStorage.setItem('rideordie.settings.v1', JSON.stringify({ quality: 2, master: 0 })));
   await page.goto(`${base}/?solo&as=gunner&s=3000&seed=7&weapons=smg,shotgun`);
   await until(() => window.__run?.started && window.__run.gunner?.vm?.dedicatedArms && !window.__game.paused, null, 180000);
+  if (process.env.QA_EXPECTED_BUNDLE) assert.ok(report.bundleAssets.some(url => url.endsWith('/' + process.env.QA_EXPECTED_BUNDLE)), 'weapon fixture must use the exact candidate bundle');
   report.initialPrograms = await page.evaluate(() => window.__game.renderer.info.programs.map(p => ({ id: p.id, name: p.name, cacheKey: p.cacheKey })));
   activeStarted = Date.now();
-  cutoff = setTimeout(() => { report.cutoff = '110 second active-gameplay safety cutoff'; void browser.close(); }, 110000);
+  cutoff = setTimeout(() => { report.cutoff = '110 second automated-fixture timeout'; void browser.close(); }, 110000);
   await page.evaluate(() => {
     window.__weaponCapture = { target: null, frozen: false, actual: null };
     const g = window.__run.gunner, original = g.update;
@@ -174,6 +178,9 @@ try {
 } finally {
   clearTimeout(cutoff);
   report.activeWallMs = activeStarted ? Date.now() - activeStarted : 0;
+  try { await browser?.close(); } catch (error) { report.cleanupError = String(error?.stack || error); }
+  report.browserClosed = !browser || !browser.isConnected(); report.pagesClosed = !page || page.isClosed();
+  report.passed = !!report.passed && report.browserClosed && report.pagesClosed && !report.cleanupError;
   await writeFile(`${output}/report.json`, JSON.stringify(report, null, 2));
-  await browser?.close();
+  assert.ok(report.browserClosed && report.pagesClosed && !report.cleanupError, 'fixture browser and page must close');
 }

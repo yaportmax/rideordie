@@ -23,6 +23,7 @@ import { WEAPONS } from '../data/weapons.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
 import { patchCrewMaterials } from './crew_material.js';
 import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
+import { ownClonedSkeletons, disposeOwnedSkeletons } from './owned_skeletons.js';
 
 // first person: the local gunner's own body only casts its shadow (the viewmodel draws the arms + gun)
 const shadowMats = new Map();
@@ -133,7 +134,7 @@ export class CrewView {
     this.body = new THREE.Group(); this.root.add(this.body);             // yawed toward the aim
     let url = `/models/characters/${kind}.glb`;
     if (!Assets.has(url) && /\d$/.test(kind)) { kind = kind.slice(0, -1); this.kind = kind; url = `/models/characters/${kind}.glb`; }   // variant not loaded -> base
-    const model = Assets.clone(url);
+    const model = ownClonedSkeletons(Assets.clone(url));
     this.rigged = !!model;
     this.clips = Assets.getAnimations(url).length ? Assets.getAnimations(url) : Assets.getAnimations('/models/characters/hero_gunner.glb');
     this.acts = new Map();
@@ -230,8 +231,9 @@ export class CrewView {
   setWeapon(id) {
     if (!id || id === this.weaponId || this.role === 'driver') return;
     this.weaponId = id;
-    if (this.weapon) this.weapon.dispose();
+    if (this.weapon) { disposeOwnedSkeletons(this.weapon.model); this.weapon.dispose(); }
     this.weapon = new WeaponView(id);
+    ownClonedSkeletons(this.weapon.model);
     this._shadowOnlyOn = undefined;   // re-apply to the new weapon's meshes
     if (!this.gun.parent) this.body.add(this.gun);
     const st = this.weapon.sockets.stock; this.stockZ = st ? st.position.z : null;
@@ -929,5 +931,10 @@ export class CrewView {
 
   headWorld(out) { if (!this.head) return false; this.head.getWorldPosition(out); return true; }
   muzzleWorld(out) { if (this.vm && this.useVm) return this.vm.muzzleWorld(out); return this.weapon ? this.weapon.muzzleWorld(out) : false; }
-  dispose() { this.root.removeFromParent(); this.mixer?.stopAllAction(); if (this.vm) this.vm.dispose(); if (this.drvArms) this.drvArms.dispose(); }
+  dispose() {
+    if (this.disposed) return; this.disposed = true;
+    this.root.removeFromParent(); this.mixer?.stopAllAction();
+    this.vm?.dispose(); this.drvArms?.dispose();
+    disposeOwnedSkeletons(this.model); disposeOwnedSkeletons(this.weapon?.model);
+  }
 }

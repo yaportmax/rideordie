@@ -22,6 +22,7 @@ import { BossView } from '../view/boss_view.js';
 import { WeaponView } from '../view/weapon_view.js';
 import { CrewView } from '../view/crew_view.js';
 import { ViewModel } from '../view/viewmodel.js';
+import { disposeOwnedSkeletonsIn } from '../view/owned_skeletons.js';
 import { clamp } from '../core/util.js';
 
 export class Game {
@@ -124,6 +125,8 @@ export class Game {
     if (!this._warmPromise) {
       this._warmPromise = this._prewarmAssets().catch((error) => {
         this._warmPromise = null;
+        for (const material of this._warmMaterials || []) material.dispose();
+        this._warmMaterials?.clear();
         throw error;
       });
     }
@@ -132,20 +135,26 @@ export class Game {
 
   async _prewarmAssets() {
     const g = new THREE.Group(); g.position.set(0, -5000, 0);
-    // build the real view objects (same shadow/transparency flags => same shader programs as in play)
-    for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333, shadowProxy: true }); g.add(v.root); }
-    for (const r of warmRaiderViews()) g.add(r); g.add(HazardMarks.warmGroup()); g.add(BossMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
-    g.add(new BossView(null).root);
-    for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);
-    for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_a2', 'raider_b2', 'raider_c2', 'raider_d2']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);
-    for (const c of ['hero_driver', 'raider_driver', 'raider_driver2']) g.add(new CrewView(c, { role: 'driver' }).root);
-    g.add(ViewModel.warmObject());   // first-person viewmodel programs (patched projection) + its flash / reticle
-    for (const m of Water.prewarmMeshes()) g.add(m);   // sea / lake + shoreline programs (first shown at 19 km)
-    for (const m of groundPrewarmMeshes(this.terrainMat, this.roadMat)) g.add(m);   // terrain / road / ground-cover programs
-    await this._warmScene(g);
+    const cleanup = [];
+    // Bounded boot owners keep warmed WebGLProgram references alive. Runtime
+    // viewmodels use independent uniform/material instances and can dispose them.
+    const warmMaterials = this._warmMaterials ??= new Set();
+    try {
+      // build the real view objects (same shadow/transparency flags => same shader programs as in play)
+      for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333, shadowProxy: true }); g.add(v.root); }
+      for (const r of warmRaiderViews()) g.add(r); g.add(HazardMarks.warmGroup()); g.add(BossMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
+      g.add(new BossView(null).root);
+      for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);
+      for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_a2', 'raider_b2', 'raider_c2', 'raider_d2']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);
+      for (const c of ['hero_driver', 'raider_driver', 'raider_driver2']) g.add(new CrewView(c, { role: 'driver' }).root);
+      g.add(ViewModel.warmObject(dispose => cleanup.push(dispose), warmMaterials));   // first-person viewmodel programs (patched projection) + its flash / reticle
+      for (const m of Water.prewarmMeshes()) g.add(m);   // sea / lake + shoreline programs (first shown at 19 km)
+      for (const m of groundPrewarmMeshes(this.terrainMat, this.roadMat)) g.add(m);   // terrain / road / ground-cover programs
+      await this._warmScene(g, cleanup);
+    } finally { for (const dispose of cleanup.splice(0)) dispose(); disposeOwnedSkeletonsIn(g); }
   }
 
-  async _warmScene(g) {
+  async _warmScene(g, cleanup = []) {
     const r = this.renderer, previous = r.getRenderTarget(), face = r.getActiveCubeFace(), mip = r.getActiveMipmapLevel();
     const restoreTarget = () => r.setRenderTarget(previous, face, mip);
     const culled = [];
@@ -176,7 +185,11 @@ export class Game {
       }
       try { await this.post?.warm?.(); }
       catch (e) { console.warn('post prewarm', e); }
-    } finally { this.scene.remove(g); }
+    } finally {
+      this.scene.remove(g);
+      for (const dispose of cleanup.splice(0)) dispose();
+      disposeOwnedSkeletonsIn(g);
+    }
   }
 
   _createRun(cfg) { return new Run(this, cfg); }

@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { FP_ARMS_URL, aimBone, twoBoneIK, registerDriverArmsWarm } from './viewmodel.js';
+import { ownClonedSkeletons, disposeOwnedSkeletons } from './owned_skeletons.js';
 
 const R_RIM = 0.19;                                    // rim radius (all tiers)
 const HOME = { Left: 0.84, Right: 2.3 };               // grip angles on the rim (socket XY, from +X = truck left toward +Y up)
@@ -80,16 +81,16 @@ export class DriverArms {
   static available() { return Assets.has(FP_ARMS_URL); }
   /** Warm-up object for Game.prewarm (the leather program). */
   static warmObject() {
-    const m = Assets.clone(FP_ARMS_URL); if (!m) return new THREE.Group();
+    const m = ownClonedSkeletons(Assets.clone(FP_ARMS_URL)); if (!m) return new THREE.Group();
     m.traverse((o) => { if (o.isSkinnedMesh) { sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; } });
     return m;
   }
 
   constructor(crew) {
     this.crew = crew;
-    const model = Assets.clone(FP_ARMS_URL);
+    const model = ownClonedSkeletons(Assets.clone(FP_ARMS_URL));
     this.ok = !!(model && crew.bones && crew.bones.Spine2);
-    if (!this.ok) return;
+    if (!this.ok) { disposeOwnedSkeletons(model); return; }
     this.model = model;
     model.traverse((o) => { if (o.isMesh) o.userData.fpArms = true; if (o.isSkinnedMesh) { sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; o.castShadow = false; o.receiveShadow = true; } });
     const B = this.B = {}; model.traverse((o) => { if (o.isBone || /^socket_/.test(o.name)) B[o.name] = o; });
@@ -121,7 +122,12 @@ export class DriverArms {
   }
 
   setVisible(v) { if (this.ok && this.visible !== v) { this.visible = v; this.model.visible = v; } }
-  dispose() { if (this.ok) this.model.removeFromParent(); }
+  dispose() {
+    if (this.disposed) return; this.disposed = true;
+    this.mixer?.stopAllAction();
+    if (this.ok) this.model.removeFromParent();
+    disposeOwnedSkeletons(this.model);
+  }
 
   /** s: crew state (steer...), steer: the crew's smoothed steer, gear: the truck's gear (shift reach). */
   update(dt, s, steer, gear) {

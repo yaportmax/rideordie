@@ -1,5 +1,4 @@
 // GLB loading + caching. Models are cloned per use; skinned models via SkeletonUtils.
-import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
@@ -8,6 +7,21 @@ import { mergeRigid, unifyAtlasMaterials } from './merge.js';
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map();
+const skinnedTemplates = new WeakMap();
+
+function cloneScene(g) {
+  // Templates remain immutable after preparation. Rigid vehicles/weapons need
+  // only Object3D cloning; skeleton remapping adds two graph walks and Maps.
+  let skinned = skinnedTemplates.get(g.scene);
+  if (skinned === undefined) {
+    skinned = false;
+    g.scene.traverse((o) => { if (o.isSkinnedMesh) skinned = true; });
+    skinnedTemplates.set(g.scene, skinned);
+  }
+  const root = skinned ? SkeletonUtils.clone(g.scene) : g.scene.clone(true);
+  root.animations = g.animations;
+  return root;
+}
 
 export function loadGLB(url) {
   if (!cache.has(url)) {
@@ -22,9 +36,7 @@ export function loadGLB(url) {
 export async function instantiate(url) {
   const g = await loadGLB(url);
   if (!g) return null;
-  const root = SkeletonUtils.clone(g.scene);
-  root.animations = g.animations;
-  return root;
+  return cloneScene(g);
 }
 
 /** Synchronous clone from an already-loaded asset. */
@@ -58,9 +70,7 @@ export async function preload(urls, onProgress) {
 export function clone(url) {
   const g = loaded.get(url);
   if (!g) return null;
-  const root = SkeletonUtils.clone(g.scene);
-  root.animations = g.animations;
-  return root;
+  return cloneScene(g);
 }
 /** The (shared, merged) template scene of a preloaded asset. Do not modify. */
 export function template(url) { return loaded.get(url)?.scene || null; }

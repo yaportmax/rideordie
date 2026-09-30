@@ -18,6 +18,7 @@ import * as Assets from '../core/assets.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { WeaponView } from './weapon_view.js';
 import { splitIslands } from './fp_cutaway.js';
+import { ownClonedSkeletons, disposeOwnedSkeletons, disposeOwnedSkeletonsIn } from './owned_skeletons.js';
 
 export const FP_ARMS_URL = '/models/characters/fp_arms.glb';
 /** Set by driver_arms.js (avoids a circular import): builds the driver arms' warm-up object. */
@@ -392,6 +393,9 @@ function reticleMaterial() {
 export class ViewModel {
   constructor() {
     this.root = new THREE.Group(); this.root.name = 'viewmodel';
+    // Only these per-instance allocations are released with this VM. Asset,
+    // projection-material and cut/sleeve geometry caches outlive individual VMs.
+    this._ownedGeometries = new Set(); this._ownedMaterials = new Set();
     this.guns = new Map(); this.gun = null; this.id = null; this.shownId = null;
     this.t = 0; this.visible = false;
     this.pos = new THREE.Vector3(); this.quat = new THREE.Quaternion();           // final gun transform (camera space)
@@ -412,16 +416,18 @@ export class ViewModel {
     else { fpArmsLoad(); if (FP_GLB && this._fpFrom(FP_GLB)) { /* dedicated arms */ } else { this._buildArms(); this._tryFpArms(); } }
     // muzzle flash quads
     const quad = new THREE.PlaneGeometry(1, 1);
+    this._ownedGeometries.add(quad);
     this.flashStar = new THREE.Mesh(quad, flashMaterial(false)); this.flashCone = new THREE.Mesh(quad, flashMaterial(true));
     this.flashStar2 = new THREE.Mesh(quad, flashMaterial(false));
     for (const f of [this.flashStar, this.flashCone, this.flashStar2]) { f.frustumCulled = false; f.renderOrder = 998; f.visible = false; }
     this.reticle = new THREE.Mesh(quad, reticleMaterial()); this.reticle.frustumCulled = false; this.reticle.renderOrder = 999; this.reticle.visible = false;
+    for (const mesh of [this.flashStar, this.flashCone, this.flashStar2, this.reticle]) this._ownedMaterials.add(mesh.material);
     // 12 ga shell held in the left hand while loading the shotgun (red hull + brass head), axis along the hand socket's +Z
     this.shell = new THREE.Group(); this.shell.visible = false;
     const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.0106, 0.0106, 0.058, 14).rotateX(Math.PI / 2), vmMaterial(SHELL_HULL));
     const head = new THREE.Mesh(new THREE.CylinderGeometry(0.0112, 0.0112, 0.014, 14).rotateX(Math.PI / 2), vmMaterial(SHELL_BRASS));
     hull.position.z = 0.012; head.position.z = -0.024;
-    for (const m of [hull, head]) { m.frustumCulled = false; m.castShadow = false; m.receiveShadow = true; this.shell.add(m); }
+    for (const m of [hull, head]) { this._ownedGeometries.add(m.geometry); m.frustumCulled = false; m.castShadow = false; m.receiveShadow = true; this.shell.add(m); }
     this.root.visible = false;
   }
 
@@ -429,17 +435,17 @@ export class ViewModel {
    *  characters), otherwise the arms cut out of hero_gunner.glb. */
   _buildArms(fpModel = null, fpClips = null) {
     const url = '/models/characters/hero_gunner.glb';
-    const model = fpModel || Assets.clone(url);
+    const model = ownClonedSkeletons(fpModel || Assets.clone(url));
     this.rigged = !!model;
     if (!model) return;
-    if (this.bodyG) { this.bodyG.removeFromParent(); this.mixer?.stopAllAction(); }
+    if (this.bodyG) { this.bodyG.removeFromParent(); this.mixer?.stopAllAction(); disposeOwnedSkeletons(this.model); }
     let arms = null, body = null;
     if (fpModel) {
       model.traverse((o) => { if (o.isMesh) { o.material = vmMaterial(o.material); o.frustumCulled = false; o.castShadow = false; o.receiveShadow = true; if (o.isSkinnedMesh && !arms) arms = o; } });
-      if (!arms) { this.rigged = false; return; }
+      if (!arms) { this.rigged = false; disposeOwnedSkeletons(model); return; }
     } else {
       model.traverse((o) => { if (o.isSkinnedMesh && o.name === 'body') body = o; });
-      if (!body) { this.rigged = false; return; }
+      if (!body) { this.rigged = false; disposeOwnedSkeletons(model); return; }
       arms = new THREE.SkinnedMesh(armsGeometry(body), armsMaterial(body.material));
       arms.name = 'vm_arms'; arms.frustumCulled = false; arms.castShadow = false; arms.receiveShadow = true;
       body.parent.add(arms); arms.bind(body.skeleton, body.bindMatrix);
@@ -495,9 +501,9 @@ export class ViewModel {
   /** Swap in the dedicated first-person arms asset once it has loaded (no-op when the file does not exist). */
   _tryFpArms() { fpArmsLoad().then((g) => { if (g && !this.disposed) this._fpFrom(g); }).catch(() => {}); }
   _fpFrom(g) {
-    const m = SkeletonUtils.clone(g.scene);
+    const m = ownClonedSkeletons(SkeletonUtils.clone(g.scene));
     const need = ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand', 'socket_hand_R', 'socket_hand_L'];
-    if (need.some((n) => !m.getObjectByName(n))) { console.warn('fp_arms.glb: missing bones/sockets, keeping the cut arms'); return false; }
+    if (need.some((n) => !m.getObjectByName(n))) { console.warn('fp_arms.glb: missing bones/sockets, keeping the cut arms'); disposeOwnedSkeletons(m); return false; }
     this._buildArms(m, g.animations);
     return true;
   }
@@ -507,6 +513,7 @@ export class ViewModel {
     let g = this.guns.get(id);
     if (g) return g;
     const w = new WeaponView(id);
+    ownClonedSkeletons(w.model);
     w.lenses = [];
     w.root.traverse((o) => {
       if (!o.isMesh) return;
@@ -545,20 +552,35 @@ export class ViewModel {
   }
 
   /** Warm-up object: every viewmodel program (arms, gun atlas + glass, flash, reticle) at y = -5000 for Game.prewarm. */
-  static warmObject() {
+  static warmObject(registerCleanup, retainMaterials) {
     const vm = new ViewModel();
+    registerCleanup?.(() => {
+      // Disposing the last warm material would release its compiled programs.
+      // Transfer only these exact allocations to Game's bounded boot owner.
+      if (retainMaterials) { for (const material of vm._ownedMaterials) retainMaterials.add(material); vm._ownedMaterials.clear(); }
+      vm.dispose(); disposeOwnedSkeletonsIn(vm.root);
+    });
     for (const id of Object.keys(TUNE)) { const g = vm._gunFor(id); g.root.visible = true; }
     for (const f of [vm.flashStar, vm.flashCone, vm.reticle]) { f.visible = true; vm.root.add(f); }
     vm.shell.visible = true; vm.root.add(vm.shell);
     // the thrown grenade / fired rocket meshes (WorldView: plain MeshStandardMaterial, default shadow flags) share this program
-    vm.root.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0x33402a, roughness: 0.6 })));
+    const grenade = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0x33402a, roughness: 0.6 }));
+    vm._ownedGeometries.add(grenade.geometry); vm._ownedMaterials.add(grenade.material); vm.root.add(grenade);
     vm.root.add(DriverArmsWarm ? DriverArmsWarm() : new THREE.Group());   // the cockpit driver's leather-sleeve arms program
     vm.root.visible = true; vm.root.position.set(0, -5000, 0);
     return vm.root;
   }
 
   setVisible(v) { this.visible = v; this.root.visible = v; }
-  dispose() { this.disposed = true; this.root.removeFromParent(); }
+  dispose() {
+    if (this.disposed) return; this.disposed = true;
+    this.root.removeFromParent(); this.mixer?.stopAllAction();
+    disposeOwnedSkeletons(this.model);
+    for (const gun of this.guns.values()) disposeOwnedSkeletons(gun.model);
+    for (const geometry of this._ownedGeometries) geometry.dispose();
+    for (const material of this._ownedMaterials) material.dispose();
+    this._ownedGeometries.clear(); this._ownedMaterials.clear();
+  }
 
   /**
    * s: CrewView state (aimYaw, quat, vel, local{camera, gunner, adsK, eye, scoped, crouch, ...}); show: draw this frame.
