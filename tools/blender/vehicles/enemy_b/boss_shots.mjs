@@ -1,6 +1,6 @@
 // In-game stills of the Leviathan from the chase positions (behind / behind-sides, 10-60 m), optionally with a test GLB swapped in.
 //   node tools/blender/vehicles/enemy_b/boss_shots.mjs <outPrefix> [--glb=shots/enemy_b/test/boss_warrig.glb] [--s=59320] [--seed=7]
-//        [--views=rear12,rear30,rear60,rqL,rqR,sideL,gunner,top] [--base=http://localhost:5180] [--hud]
+//        [--views=rear12,rear30,rear60,rqL,rqR,sideL,gunner,top] [--base=http://localhost:5180] [--hud] [--kill=part,part,...]
 // Camera points are given in the BOSS frame (+Z forward, +X left, origin on the ground at mid-train) and converted every frame into the
 // player-truck frame used by window.__camOverride.  The live fight keeps running; HUD / part markers are hidden unless --hud.
 import { chromium } from 'playwright-core';
@@ -47,6 +47,13 @@ for (;;) {
   if (r && r.d < 75 && r.t > 6) { console.log('boss in range', JSON.stringify(r)); break; }
   if (Date.now() - t0 > 150000) { console.log('boss never came in range', JSON.stringify(r)); break; }
   await page.waitForTimeout(1000);
+}
+if (opt.probe) {                                   // --probe: print what the BossView found (detachable part nodes) after load-time merging
+  console.log(await page.evaluate(() => { const V = window.__run.wv.boss; if (!V) return 'no boss view'; return JSON.stringify({ parts: [...V.parts.keys()], top: V.root.children.map((c) => c.name + (c.isMesh ? '[M]' : '')) }); }));
+}
+if (opt.kill) {                                    // --kill=panel_armor_rear_1,panel_armor_rear_2,... : destroy parts first (detach check)
+  await page.evaluate((names) => { const B = window.__run.sim.boss; for (const n of names) if (B.alive[n]) B._destroyPart(n); }, String(opt.kill).split(','));
+  await page.waitForTimeout(+(opt.killwait || 6000));
 }
 for (const v of views) {
   const V = VIEWS[v]; if (!V) continue;

@@ -45,6 +45,9 @@ export class AIDriver {
       if (ahead > 3 && ahead < lookCar && Math.abs(car.d - want) < wide) want = car.d > P.d ? car.d - (wide + 1.1) : car.d + (wide + 1.1);
     }
     want = clamp(want, -HALF_ROAD + 1.4, HALF_ROAD - 1.4);
+    // tunnels, bridges and overpass approaches: hold the middle (walls/rails close in, no lane games at 200+ km/h)
+    const narrow = road.featuresIn(P.s - 30, P.s + 90).some((f) => f.type === 'tunnel' || f.type === 'bridge');
+    if (narrow) want = clamp(want, -2.4, 2.4);
     // guard rails: keep a wider berth on a railed side (scraping one at 200 km/h shreds the truck)
     const gr = road.featuresIn(P.s - 10, P.s + 120, 'guard')[0];
     if (gr) { const L = gr.side === 'L' || gr.side === 'both', R = gr.side === 'R' || gr.side === 'both'; want = clamp(want, R ? -HALF_ROAD + 2.6 : -HALF_ROAD + 1.4, L ? HALF_ROAD - 2.6 : HALF_ROAD - 1.4); }
