@@ -152,6 +152,9 @@ export class SkyRig {
     this._shadowAnchor = new THREE.Vector3(); this._shadowDir = new THREE.Vector3();
     this._haveShadowAnchor = false;
     this.shadowCache = opts.staticShadows === false ? null : new StaticShadowCache(renderer, scene, this.sun);
+    // Batched scenery is cheaper through ordinary shadows on the measured
+    // target hardware. Keep the cache available for explicit A/B diagnostics.
+    if (this.shadowCache) this.shadowCache.enabled &&= opts.cacheStaticShadows === true;
     ATMO.uAtmFog.value.w = 1;
   }
 
@@ -242,18 +245,16 @@ export class SkyRig {
     const F = this.shadowFocus.copy(f).addScaledVector(_f, this.shadowExtent * this.shadowAhead);
     // snap to texels in light space (basis as Matrix4.lookAt(eye, target, up) builds it)
     let L = this.keyDir;
-    // A world-stable box keeps fixed terrain/building depth reusable while
-    // driving or turning the view. Recenter before the useful near field can
-    // approach its edge, and refresh for moving sunlight (including moon swap).
-    // Dynamic cars/crew still cast into the combined map every render.
-    if (this.shadowCache?.enabled) {
-      if (!this._haveShadowAnchor || F.distanceToSquared(this._shadowAnchor) > 36 ||
-        this._shadowDir.dot(L) < 0.99999945 || this.shadowSize !== this.sun.shadow.mapSize.x) {
-        this._shadowAnchor.copy(F); this._shadowDir.copy(L); this._haveShadowAnchor = true;
-        this.shadowCache.invalidate();
-      }
-      F.copy(this._shadowAnchor); L = this._shadowDir;
+    // Keep the same world-stable box with either ordinary or cached shadows.
+    // Recenter before the useful near field approaches its edge, and refresh
+    // for moving sunlight (including moon swap). Cache toggles affect the
+    // rendering work, never the light projection or caster selection.
+    if (!this._haveShadowAnchor || F.distanceToSquared(this._shadowAnchor) > 36 ||
+      this._shadowDir.dot(L) < 0.99999945 || this.shadowSize !== this.sun.shadow.mapSize.x) {
+      this._shadowAnchor.copy(F); this._shadowDir.copy(L); this._haveShadowAnchor = true;
+      this.shadowCache?.invalidate();
     }
+    F.copy(this._shadowAnchor); L = this._shadowDir;
     _x.crossVectors(_up, L); if (_x.lengthSq() < 1e-6) _x.set(1, 0, 0); _x.normalize();
     _y.crossVectors(L, _x);
     const texel = (this.shadowExtent * 2) / this.sun.shadow.mapSize.x;

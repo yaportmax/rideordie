@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const base = process.env.GAME_URL || 'http://127.0.0.1:5194';
 const secs = Number(process.env.BENCH_SECONDS || 20);
 const gpuProfile = process.env.BENCH_GPU_PROFILE === '1';
+const shadowCache = process.env.BENCH_SHADOW_CACHE === undefined ? null : process.env.BENCH_SHADOW_CACHE !== '0';
 const spots = (process.env.BENCH_SPOTS || '3000,14000,44000').split(',').map(Number);
 const roles = (process.env.BENCH_ROLES || 'driver,gunner').split(',');
 const cases = process.env.BENCH_CASES ? process.env.BENCH_CASES.split(',').map(c => { const [role,s] = c.split(':'); return {role,s:Number(s)}; }) : roles.flatMap(role => spots.map(s => ({role,s})));
@@ -20,8 +21,9 @@ try {
     page.on('console', m => { if (m.type() === 'warning' || m.type() === 'error') warnings.push(m.text()); });
     await page.goto(`${base}/?solo&as=${role}&s=${s}&seed=7&weapons=smg`);
     await page.waitForFunction(() => window.__ready && window.__run?.started, null, { timeout: 180000 });
-    await page.evaluate(profile => {
+    await page.evaluate(({ profile, shadowCache }) => {
       window.__autodrive = { speed: 30 }; window.__game.post.profile(profile);
+      if (shadowCache !== null) window.__game.sky.shadowCache.enabled = shadowCache;
       const g = window.__game, gl = g.renderer.getContext(), seen = new Set(g.renderer.info.programs.map(p=>p.id)), frame = g.frame;
       window.__initialPrograms = g.renderer.info.programs.map(p=>({id:p.id,name:p.name,cacheKey:p.cacheKey}));
       window.__programAdditions = []; window.__resolutionChanges = [];
@@ -37,7 +39,7 @@ try {
         resize.call(this,w,h);
         window.__resolutionChanges.push({at:start,old,next:this._internal.toArray(),cpuMs:performance.now()-start});
       };
-    }, gpuProfile);
+    }, { profile: gpuProfile, shadowCache });
     await page.waitForTimeout(10000);
     if (role === 'gunner') await page.evaluate(() => {
       window.__forceGunner = { slot: 1, fire: true };

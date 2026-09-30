@@ -9,6 +9,7 @@ const output = resolve(process.env.SHADOW_OUTPUT || 'shots/optimization/shadow-v
 const secs = Number(process.env.SHADOW_SECONDS || 6);
 const distance = Number(process.env.SHADOW_DISTANCE || 44000);
 const budgetMs = Number(process.env.SHADOW_BUDGET_MS || 60000);
+const sequence = (process.env.SHADOW_SEQUENCE || '1,0').split(',').map(value => value !== '0');
 await mkdir(output, { recursive: true });
 const errors = [], warnings = [];
 let browser;
@@ -40,7 +41,8 @@ try {
   result.setup = await page.evaluate(() => {
     const g = window.__game, run = window.__run, p = g.post, renderer = g.renderer;
     const cache = g.sky.shadowCache, gl = renderer.getContext();
-    if (!p || !cache?.enabled) throw new Error('Post pipeline or shadow cache unavailable');
+    if (!p || !cache) throw new Error('Post pipeline or shadow cache unavailable');
+    cache.enabled = true; // The production default can use the ordinary path.
     const gpuExt = gl.getExtension('WEBGL_debug_renderer_info');
     const gpu = gpuExt ? gl.getParameter(gpuExt.UNMASKED_RENDERER_WEBGL) : '';
     if (!/NVIDIA|RTX/i.test(gpu)) throw new Error(`RTX renderer required; got ${gpu || 'unidentified renderer'}`);
@@ -73,7 +75,7 @@ try {
     // Freezing only sim.step would still animate their actual rendered scene.
     p._updateState = () => {};
     p._updateUniforms = () => {};
-    const state = window.__shadowCompare = { collect: false, gpu: {}, calls: [], scanMs: [], projectionChanges: 0 };
+    const state = window.__shadowCompare = { collect: false, gpu: {}, calls: [], scanMs: [], wallMs: [], projectionChanges: 0 };
     const originalScan = cache._scan;
     cache._scan = function (...args) {
       const start = performance.now();
@@ -93,6 +95,7 @@ try {
     };
     renderer.info.autoReset = false;
     g.frame = () => {
+      const wallStart = performance.now();
       renderer.info.reset();
       // Keep the mirror texture and cadence deterministic; measure it outside
       // the main scene query. PMREM is frozen with the sky and never rebuilt.
@@ -105,6 +108,7 @@ try {
       }
       const mirrorCalls = renderer.info.render.calls;
       p.render(1 / 60);
+      if (state.collect) state.wallMs.push(performance.now() - wallStart);
       if (state.collect) state.calls.push({ scene: p.stats.calls - mirrorCalls, mirrors: mirrorCalls, total: renderer.info.render.calls });
     };
     renderer.domElement.dataset.shadowProbe = 'true';
@@ -127,7 +131,8 @@ try {
       samples: p.scenePass.samples, shadowSize: g.sky.sun.shadow.mapSize.toArray(), mirrorActive: !!run.cockpit?.active,
       frozen: ['run', 'sky', 'fx', 'camera', 'post uniforms', 'PMREM'], dynamicEffects: false };
   });
-  for (const enabled of [true, false]) {
+  result.phases = [];
+  for (const enabled of sequence) {
     const label = enabled ? 'cached' : 'ordinary';
     result[label] = await page.evaluate(async ({ enabled, seconds }) => {
       const g = window.__game, state = window.__shadowCompare, p = g.post, cache = g.sky.shadowCache;
@@ -138,7 +143,7 @@ try {
       if (enabled && (!cache.enabled || !cache.valid || !cache.copyValidated)) throw new Error('Shadow cache did not validate its depth copy');
       if (state.signature() !== state.baseline) throw new Error('Rendered scene or projection changed while settling');
       const before = { ...cache.stats };
-      state.gpu = {}; state.calls = []; state.scanMs = []; state.projectionChanges = 0;
+      state.gpu = {}; state.calls = []; state.scanMs = []; state.wallMs = []; state.projectionChanges = 0;
       p.timer.reset(); state.collect = true;
       const frames = [], start = performance.now(); let last = start;
       await new Promise(done => {
@@ -158,11 +163,12 @@ try {
       if (glError !== 0 || !unchanged || state.projectionChanges || (enabled && (!cache.enabled || reuses === 0 || refreshes !== 0))) {
         throw new Error(JSON.stringify({ label: enabled ? 'cached' : 'ordinary', glError, unchanged, reuses, refreshes, projectionChanges: state.projectionChanges, cacheEnabled: cache.enabled }));
       }
-      return { frameMs: summary(frames), gpuMs: Object.fromEntries(Object.entries(state.gpu).map(([key, values]) => [key, summary(values)])),
+      return { frameMs: summary(frames), synchronousRenderMs: summary(state.wallMs), gpuMs: Object.fromEntries(Object.entries(state.gpu).map(([key, values]) => [key, summary(values)])),
         sceneCalls: summary(state.calls.map(row => row.scene)), mirrorCalls: summary(state.calls.map(row => row.mirrors)),
         frameCalls: summary(state.calls.map(row => row.total)), scanCpuMs: summary(state.scanMs), cacheStats: { ...cache.stats },
         reuses, refreshes, projectionChanges: state.projectionChanges, glError, unchanged };
     }, { enabled, seconds: secs });
+    result.phases.push({ mode: label, ...result[label] });
     await page.locator('canvas[data-shadow-probe="true"]').screenshot({ path: `${output}/${label}.png` });
   }
   result.sceneGpuReductionPercent = 100 * (1 - result.cached.gpuMs.scene.mean / result.ordinary.gpuMs.scene.mean);
