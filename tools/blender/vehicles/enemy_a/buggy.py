@@ -256,7 +256,19 @@ def build_body():
             if sd < 0:
                 ring = ring[::-1]
             stations.append((f, ring))
-        loft_f("fender", stations, "paint", cap=True, bevel=0.005, seg=1, g="panel_fender_L" if sd > 0 else "panel_fender_R")
+        grp = "panel_fender_L" if sd > 0 else "panel_fender_R"
+        loft_f("fender", stations, "paint", cap=True, bevel=0.005, seg=1, g=grp)
+        # rubber mud flap hanging off the rear edge + mounting bolts along the inner top edge (second material: the panel must export
+        # >= 2 primitives, src/core/merge.js folds single-primitive panel meshes into the body)
+        bx("flap", (sd * 0.80, 0.672, 0.235), (0.24, 0.012, 0.17), "rubber", bevel=0.003, seg=1, g=grp, pitch=-6)
+        bx("flap_bar", (sd * 0.80, 0.676, 0.315), (0.25, 0.018, 0.022), "metal_dark", g=grp)
+        items = []
+        for f in (0.92, 1.06, 1.20, 1.34, 1.48):
+            dfz = f - AX_F
+            h = R_F + math.sqrt(max(0.47 ** 2 - dfz ** 2, 0.0)) if abs(dfz) < 0.47 else R_F
+            h = max(h, R_F + 0.03)
+            items.append(((sd * 0.62, f, h + 0.026), (0, 0, 1)))
+        bolts("fender_bolts", items, 0.011, 0.008, "metal_bare", g=grp, cap_dome=True)
     # side pods (paint2) wrapped around the seat sides
     for sd in (1, -1):
         stn = []

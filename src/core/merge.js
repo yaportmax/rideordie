@@ -19,6 +19,7 @@ export function mergeRigid(root) {
     const meshes = [];
     g.traverse((o) => {
       if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh || Array.isArray(o.material)) return;
+      if (o !== g && groupSet.has(o)) return;   // a mesh that IS a group node (single-material panel/part): keep it detachable
       let p = o.parent; while (p && !groupSet.has(p)) p = p.parent;
       if (p === g || (o === g)) meshes.push(o);
     });

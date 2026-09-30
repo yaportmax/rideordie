@@ -32,6 +32,8 @@ for i in ids:
         top = {n['path'].split('/').pop(): n['pos'] for n in d['nodes'] if '/' not in n['path'] or n['path'].count('/') == 0}
         moved = []
         for k, p in r['sockets'].items():
+            if k.endswith('_mesh'):          # child mesh nodes (steering_wheel_mesh) sit at their parent socket; checked via the socket
+                continue
             q = top.get(k)
             if q is None:
                 moved.append('%s MISSING' % k)

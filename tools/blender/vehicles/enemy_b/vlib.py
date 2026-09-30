@@ -13,6 +13,7 @@ import sys
 import time
 import zlib
 import random
+import re
 import numpy as np
 from mathutils import Vector, Matrix, Euler
 from mathutils.bvhtree import BVHTree
@@ -900,7 +901,15 @@ def build_scene(m, ao_rays=10, ao_dist=1.1):
             me.from_pydata(Vb.tolist(), [], [tuple(int(i) for i in f) for f in d['F']])
             for mt in d['mats']:
                 me.materials.append(vmat.get(mt))
-            me.polygons.foreach_set('material_index', d['MI'].astype(np.int32))
+            MIx = d['MI'].astype(np.int32)
+            ss_re = getattr(m, 'split_single', None)
+            if ss_re and len(d['mats']) == 1 and not d['shared'] and len(MIx) > 1 and re.match(ss_re, src.name):
+                # a detachable node that is ONE glTF primitive loads as a bare Mesh, and the game's load-time mergeRigid() then folds it
+                # into the body (it can no longer fly off / hide).  Two primitives with the same material load as a Group (merged back
+                # into one draw call inside that group), so the node survives.
+                me.materials.append(vmat.get(d['mats'][0]))
+                MIx = MIx.copy(); MIx[len(MIx) // 2:] = 1
+            me.polygons.foreach_set('material_index', MIx)
             me.polygons.foreach_set('use_smooth', np.ones(len(d['F']), dtype=bool))
             cnb = (cnl @ G2B_np.T)
             try:

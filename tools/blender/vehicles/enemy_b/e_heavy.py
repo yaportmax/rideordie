@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from parts2 import *  # noqa
 
 m = Model('e_heavy', seed=21, bake=True)
+m.split_single = r'^(panel_|part_|ramp_|weak_)'   # single-material detachables -> 2 same-material primitives, so the game's mergeRigid keeps them as nodes
 PI = math.pi
 R_W, W_W, HUBY = 0.66, 0.44, 0.66
 HX = 1.02

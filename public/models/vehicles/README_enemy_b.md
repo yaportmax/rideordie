@@ -42,7 +42,17 @@ Sockets are empties with identity rotation (+Z forward, +Y up) unless a rotation
 | `e_van.glb` | 34 986 | 14 / 16 | 39 | 2.71 x 3.68 x 6.50 m | 3.4 MB | ~53 MB |
 | `e_heavy.glb` | 44 772 | 14 / 18 | 43 | 3.24 x 4.75 x 9.00 m | 3.9 MB | ~63 MB |
 | `e_tanker.glb` | 43 240 | 15 / 21 | 47 | 3.13 x 4.85 x 10.20 m | 3.5 MB | ~64 MB |
-| `boss_warrig.glb` | 162k | 32 / 42 | 89 (69 unique) | 9.3 x 10.2 x 36.1 m | 9.8 MB | ~59 MB |
+| `boss_warrig.glb` | 173k (134k unique) | 32 / 42 | 102 (every detachable its own node, see below) | 9.3 x 10.2 x 36.1 m | 8.7 MB | ~78 MB |
+
+Boss round 3 (rear/sides rebuild + bake): before 162k tris, 9.8 MB, ~59 MB textures; node names, origins, every socket, hubs, part boxes and bbox unchanged
+(`src/data/model_info.json` boss entry byte-identical).
+**Detachable nodes and the load-time merge**: `src/core/merge.js mergeRigid()` folds a detachable node that is a *single-primitive* mesh (it loads as a bare
+`Mesh`, not a `Group`) into the body, so it can no longer fly off or hide. The boss build therefore exports every single-material `panel_*` / `part_*` /
+`ramp_*` node as two primitives with the same material (`m.split_single`; merged back to one draw call inside its group) - before this, 16 boss parts
+(turrets, cannon, stacks, hood, fenders, cab/roof/chin armour, tower plates ...) never detached/hid in game. The three raiders use the same switch since
+round 3 (their bumpers, heavy tailgate, tanker cab armour + stacks were affected). Check what survives with
+`node tools/blender/vehicles/enemy_b/panel_probe.mjs e_van e_heavy e_tanker [--dir=shots/enemy_b/test]`. enemy_a models still have single-primitive panels;
+the proper fix is one line in `mergeRigid` (skip meshes that are themselves group roots).
 
 v2 rebuild (the three raiders): before 34.1k / 42.8k / 56.6k tris and 3.1 / 3.2 / 3.4 MB. Wheel hubs, every socket position/rotation and the overall bbox are unchanged
 (within 1 cm; spikes/mirrors were placed to keep the collider-relevant width/length identical); extracted wheel radius within ±1 mm.

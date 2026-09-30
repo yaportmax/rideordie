@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from parts2 import *  # noqa
 
 m = Model('e_van', seed=11, bake=True)
+m.split_single = r'^(panel_|part_|ramp_|weak_)'   # single-material detachables -> 2 same-material primitives, so the game's mergeRigid keeps them as nodes
 HUBY = 0.43
 ZF, ZR = 1.65, -1.55          # axle positions
 m.bake_opts = dict(dirt_h=0.95, dens=205.0, wheels=[(0.85, HUBY, ZF, 0.43), (0.85, HUBY, ZR, 0.43)], rust=1.0, wear=1.0)

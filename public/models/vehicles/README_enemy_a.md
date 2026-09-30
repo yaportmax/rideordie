@@ -44,13 +44,16 @@ shown in the game's `30302e`; a `_n` suffix renders the view at night). Contract
   flat per-material colour cell, so the painted panels get the texel density (paint islands are weighted x1.4). `glass` (alpha 0.40, double-sided) and the
   emissive lights (`light_head`, `light_tail`, `light_amber`) are untextured. No vertex colours.
 * Tiny single-use materials inside one mesh are folded into a close palette neighbour before baking (fewer draw calls).
+* **Every `panel_*` node exports with at least 2 primitives** (materials): `src/core/merge.js` `mergeRigid()` folds a single-primitive
+  panel mesh into the body so it would never detach. Check with `node tools/blender/vehicles/enemy_a/panels_check.mjs` (loads the GLBs through
+  the game's `Assets.preload` + `CarView` and lists the panels it finds).
 * Wheels on the same axle side share mesh data.
 
 | file | tris (before -> now) | primitives | bbox x * y * z (m) | GLB (before -> now) |
 |---|---|---|---|---|
 | `e_sedan.glb` | 24,452 -> 35,244 | 76 | 2.18 * 2.00 * 5.39 (flag tip 2.00; x/z within 1 cm of the original) | 1.3 -> 3.1 MB |
-| `e_muscle.glb` | 24,758 -> 32,886 | 53 | 2.07 * 1.62 * 5.18 (incl. ram plate) | 2.0 -> 3.3 MB |
-| `e_buggy.glb` | 29,060 -> 32,692 | 40 | 2.02 * 2.55 * 3.78 (whip antennas 2.55; cage top ~1.72) | 2.2 -> 3.8 MB |
+| `e_muscle.glb` | 24,758 -> 32,962 | 54 | 2.07 * 1.62 * 5.18 (incl. ram plate) | 2.0 -> 3.3 MB |
+| `e_buggy.glb` | 29,060 -> 32,964 | 46 | 2.02 * 2.55 * 3.78 (whip antennas 2.55; cage top ~1.72) | 2.2 -> 3.8 MB |
 | `e_technical.glb` | 25,668 -> 35,612 | 67 | 2.30 * 2.60 * 5.32 (banner tip 2.60, MG shield 2.39) | 1.8 -> 3.3 MB |
 
 Length and width are kept within ~1 cm of the shipped models on purpose: `src/data/vehicles.js` scales the physics colliders from the model bbox

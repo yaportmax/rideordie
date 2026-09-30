@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from parts2 import *  # noqa
 
 m = Model('e_tanker', seed=31, bake=True)
+m.split_single = r'^(panel_|part_|ramp_|weak_)'   # single-material detachables -> 2 same-material primitives, so the game's mergeRigid keeps them as nodes
 PI = math.pi
 R_W, W_W, HUBY, HX = 0.58, 0.38, 0.58, 1.02
 AXLES = dict(F=3.5, M=0.1, R=-1.25, R2=-3.2)

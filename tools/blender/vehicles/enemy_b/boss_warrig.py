@@ -14,6 +14,7 @@ import boss_rear as BR  # noqa: E402  (rear tower, plates, ramp, nozzles, thrust
 STAGE = int(os.environ.get('STAGE', '99'))
 m = Model('boss_warrig', seed=41, bake=True)
 m.tile_scale = 1.8            # detail-normal tiling (UV0) for this huge rig
+m.split_single = r'^(panel_|part_|ramp_|weak_)'   # keep single-material detachables as their own nodes in game (see vlib.build_scene)
 # material folding: aliased materials keep their own baked look inside the target atlas (rust / spikes / bare steel on armor, chrome
 # on metal_dark (the game darkens a material named chrome), hazard yellow on the bone atlas, red cloth on the charcoal atlas)
 m.alias.update({'metal_bare': 'armor', 'interior': 'metal_dark', 'fabric': 'metal_dark', 'leather': 'metal_dark', 'brass': 'metal_dark',

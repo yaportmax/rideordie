@@ -66,7 +66,7 @@ export class CarView {
     model.traverse((o) => {
       const n = o.name;
       if (/^wheel_/.test(n)) this.wheelNodes.set(n.slice(6), o);
-      else if (/^panel_/.test(n)) this.panels.set(n.slice(6), o);
+      else if (/^panel_/.test(n) && !/^panel_/.test(o.parent?.name || '')) this.panels.set(n.slice(6), o); // (not the per-material sub-meshes)
       else if (/^(seat_|steering_wheel|gun_mount|light_head_|light_tail_|exhaust|smoke_engine|fuel_cap|nitro_|camera_hood|roof_top|turret|rocket_pod|flame_|muzzle|floodlight|smoke_stack)/.test(n)) this.sockets[n] = o;
       if (o.isMesh) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
