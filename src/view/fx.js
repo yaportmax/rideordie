@@ -252,7 +252,7 @@ export class Fx {
     for (let k = 0; k < ns; k++) {
       _v.set(rng.sym(W * 0.28), H * rng.range(0.75, 1.05), rng.sym(L * 0.3)).applyQuaternion(q).add(P);
       const c = rng.range(0.045, 0.075);
-      R.puff(this, _v.x, _v.y, _v.z, vel.x * 0.55 + rng.sym(0.8), rng.range(3.5, 6.5), vel.z * 0.55 + rng.sym(0.8), 1.2 * j.a, rng.range(6, 9) * j.a, rng.range(5.5, 8.5), c, c * 0.95, c * 0.9, 0.92, 1.1, 0.9, -1e4, 1.6 * burn);
+      R.puff(this, _v.x, _v.y, _v.z, vel.x * 0.55 + rng.sym(0.8), rng.range(3.5, 6.5), vel.z * 0.55 + rng.sym(0.8), 1.2 * j.a, rng.range(6, 9) * j.a, rng.range(5.5, 8.5), c, c * 0.95, c * 0.9, 0.92, 1.1, 0.9, -1e4, 1.1 * burn);
     }
     const ne = this._acc(j, 'acc3', 6 * lod * burn, dt);
     for (let k = 0; k < ne; k++) { _v.set(rng.sym(W * 0.3), H * 0.7, rng.sym(L * 0.3)).applyQuaternion(q).add(P); R.ember(this, _v.x, _v.y, _v.z, vel.x * 0.5 + rng.sym(2), rng.range(3, 8), vel.z * 0.5 + rng.sym(2), rng.range(1.2, 2.6), 0.18, 0.9); }

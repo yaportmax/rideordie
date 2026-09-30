@@ -42,13 +42,13 @@ export function bossAimPoint(b, eye, out = new V3()) {
   for (const z of b.zones) {
     if (z.kind === 'body') continue;
     const def = BOSS_PARTS[z.kind];
-    if (!def || !def.core || !b.alive[z.kind] || (def.needs && def.needs.some((k) => b.alive[k])) || (def.phase || 1) > (b.phase || 1)) continue;
+    if (!def || !(def.core || def.marker) || !b.alive[z.kind] || (def.needs && def.needs.some((k) => b.alive[k])) || (def.phase || 1) > (b.phase || 1)) continue;
     for (const dy of [0, 0.7]) {             // the centre, else the top of the part
       _ap.set(z.c[0], z.c[1] + z.h[1] * dy, z.c[2]).applyQuaternion(b.quat).add(b.pos);
       _ad.copy(_ap).sub(eye); const len = _ad.length(); if (len < 1) continue; _ad.multiplyScalar(1 / len);
       const h = raycastBoss(b, eye, _ad, len + 3);
       if (!h || h.zone.kind !== z.kind) continue;
-      const score = (def.weak ? 50 : 0) + ((def.phase || 2) <= (b.phase || 1) ? 20 : 0) - len * 0.05 - (def.phase || 2);
+      const score = (def.weak ? 50 : 0) + ((def.phase || 2) <= (b.phase || 1) ? 20 : 0) - (def.core ? 0 : 12) - len * 0.05 - (def.phase || 2);   // (optional parts last)
       if (score > best) { best = score; out.copy(_ap); found = true; }
       break;
     }
@@ -97,7 +97,14 @@ export class Leviathan {
     if (dt > 0) this.vel.copy(this.pos).sub(prev).multiplyScalar(1 / dt);
   }
 
-  coreHp01() { let h = 0; for (const n of PART_NAMES) if (BOSS_PARTS[n].core) h += Math.max(0, this.hp[n]); return h / this.maxCore; }
+  /** Health bar = progress through the fight: guns (30%) -> tanks + rear armour (35%) -> reactor (35%); a passed phase counts 0. */
+  coreHp01() {
+    if (this.dead) return 0;
+    const frac = (names) => { let h = 0, m = 0; for (const n of names) { m += BOSS_PARTS[n].hp; h += Math.max(0, this.hp[n]); } return m ? h / m : 0; };
+    const g = this.phase > 1 ? 0 : frac(['part_turret_1', 'part_turret_2', 'part_pod_L', 'part_pod_R']);
+    const a = this.phase > 2 ? 0 : frac(BOSS_PARTS.part_engine.needs);
+    return 0.3 * g + 0.35 * a + 0.35 * frac(['part_engine']);
+  }
 
   update(dt) {
     const sim = this.sim, P = sim.player;
@@ -139,6 +146,9 @@ export class Leviathan {
 
   _setPhase(p) {
     this.phase = p; this.phaseT = this.t;
+    // breather: the train's guns reload while it shifts gear (the banner beat), everything else keeps coming
+    for (const tu of this.turrets) { tu.mode = 'idle'; tu.t = Math.max(tu.t, 3.5); }
+    this.cd.pods = Math.max(this.cd.pods, 4); this.cd.cannon = Math.max(this.cd.cannon, 4);
     if (p === 2) { this.cd.cannon = 3; this.cd.ramp = 9; }
     // an escort wave comes down the ramp as each phase opens (staggered: one car at a time)
     (BOSS.waves[p] || []).forEach((k, i) => this.dropQ.push({ k, t: this.t + 1.5 + i * 1.4 }));

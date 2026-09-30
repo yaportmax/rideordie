@@ -172,23 +172,14 @@ const FOLD_MAX = 0.85, SQUEEZE_U0 = 0.62;
 // nothing changes (the road side is untouched); beyond it the columns are squeezed smoothly into the limit, and near a Voronoi boundary the
 // height blends into the average of both sections' terrain, so the two strips meet in one continuous surface.
 const LIM_WIN = 3000, LIM_STEP = 4;                               // search +-3 km of road, every 4th sample (12 m)
-const LIM_D = [30, 45, 62, 82, 106, 135, 170, 212, 262, 322, 395, 480, 580, 700, 830, 915];
 const _lim = new Map();
 let _limRoad = null;
-function otherMin(road, i0, px, pz) {
-  // squared distance from (px, pz) to the nearest road sample other than this row's own foot (|s' - s| > 24 m). A point D out along the
-  // row's normal belongs to the row while nothing is closer than D: that is the Voronoi boundary with other sections of the road AND the
-  // curvature limit on the inside of a bend (beyond the radius the neighbouring rows of the arc are closer).
-  const excl = Math.ceil(24 / DS), lo = Math.max(0, i0 - LIM_WIN / DS), hi = Math.min(road.n - 1, i0 + LIM_WIN / DS);
-  let best = 1e18, bj = -1;
-  for (let j = lo; j <= hi; j += LIM_STEP) {
-    if (j > i0 - excl && j < i0 + excl) { j = i0 + excl - LIM_STEP; continue; }
-    const dx = road.x[j] - px, dz = road.z[j] - pz, q = dx * dx + dz * dz;
-    if (q < best) { best = q; bj = j; }
-  }
-  return [best, bj];
-}
-/** {dmax (lateral distance from the centreline where this row's ground ends), jB (road sample index of the other section, -1 = none)} */
+/**
+ * {dmax (lateral distance from the centreline where this row's ground ends), jB (road sample index of the section on the other side, -1 =
+ * none)}. A point o + n*D on the row's normal stays closer to o than to a road sample q (|s' - s| > 24 m) while D < |q-o|^2 / (2 n.(q-o)):
+ * the minimum over all samples is the Voronoi boundary with other sections of the road, and on the inside of a bend it equals the
+ * curvature radius (the neighbouring rows of the arc), i.e. where rows of constant s would start to fold over.
+ */
 function rowLimit(road, s, side) {
   if (_limRoad !== road) { _limRoad = road; _lim.clear(); }
   const key = Math.round(s * 4) * 2 + (side > 0 ? 1 : 0);
@@ -196,22 +187,17 @@ function rowLimit(road, s, side) {
   if (L) return L;
   road.extendTo(s + LIM_WIN + 100);
   const sm = road.sample(s, _smL), i0 = Math.round(s / DS);
-  const nx = sm.nx * side, nz = sm.nz * side;
-  L = { dmax: 1e9, jB: -1 };
-  let prev = EDGE + 2;
-  for (const D of LIM_D) {
-    const [q, j] = otherMin(road, i0, sm.x + nx * D, sm.z + nz * D);
-    if (q < D * D) {                                              // another part of the road is closer than this row: boundary in (prev, D)
-      let lo = prev, hi = D, jb = j;
-      for (let it = 0; it < 7; it++) {
-        const mid = (lo + hi) / 2, [qm, jm] = otherMin(road, i0, sm.x + nx * mid, sm.z + nz * mid);
-        if (qm < mid * mid) { hi = mid; jb = jm; } else lo = mid;
-      }
-      L.dmax = Math.max(EDGE + 12, (lo + hi) / 2); L.jB = jb;
-      break;
-    }
-    prev = D;
+  const ox = sm.x, oz = sm.z, nx = sm.nx * side, nz = sm.nz * side;
+  const excl = Math.ceil(24 / DS), lo = Math.max(0, i0 - LIM_WIN / DS), hi = Math.min(road.n - 1, i0 + LIM_WIN / DS);
+  let best = 1e9, bj = -1;
+  for (let j = lo; j <= hi; j += LIM_STEP) {
+    if (j > i0 - excl && j < i0 + excl) { j = i0 + excl - LIM_STEP; continue; }
+    const qx = road.x[j] - ox, qz = road.z[j] - oz, dn = qx * nx + qz * nz;
+    if (dn <= 0) continue;
+    const D = (qx * qx + qz * qz) / (2 * dn);
+    if (D < best) { best = D; bj = j; }
   }
+  L = best < EDGE + 920 ? { dmax: Math.max(EDGE + 12, best), jB: bj } : { dmax: 1e9, jB: -1 };
   if (_lim.size > 40000) _lim.clear();
   _lim.set(key, L);
   return L;

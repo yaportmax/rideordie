@@ -76,8 +76,8 @@ function ownSmoke(fx, rng, hood, dark, a, glowK, big = 1) {
   hoodSeam(rng, hood);
   const c = 0.42 - 0.36 * dark;
   const p = fx.p.reset(); p.pos(_r.x, _r.y, _r.z).vel(rng.sym(0.35), rng.range(1.0, 2.2), rng.sym(0.35)); p.life = rng.range(1.3, 2.1) * big;
-  p.spr = SPR.SMOKE; p.f0 = rng.int(4) * 4; p.nPlay = 4; p.size(0.3 * big, rng.range(1.7, 2.6) * big); p.sCurve = 0.5;
-  p.rot = rng.sym(0.8); p.rotV = rng.sym(0.4); p.drag = 2.4; p.grav = -0.7; p.turb = 0.35; p.wind = 1; p.lit = 1;
+  p.spr = SPR.SMOKE; p.f0 = rng.int(4) * 4; p.nPlay = 4; p.size(0.35 * big, rng.range(1.9, 2.8) * big); p.sCurve = 0.5;
+  p.rot = rng.sym(0.8); p.rotV = rng.sym(0.4); p.drag = 1.7; p.grav = -0.8; p.turb = 0.35; p.wind = 0.6; p.lit = 1;
   p.col(c, c * 0.97, c * 0.94, a).col1(c * 1.15, c * 1.12, c * 1.08, a); p.fin = 0.06; p.fout = 0.6; p.soft = 0.25; p.glow = glowK;
   p.flags = ATT | (rng.next() < 0.5 ? PF.FLIPU : 0);
   fx.pa.emit(p);
@@ -86,7 +86,7 @@ function ownSmoke(fx, rng, hood, dark, a, glowK, big = 1) {
 function ownFlame(fx, rng, hood, heat = 1, big = 1) {
   hoodSeam(rng, hood, 1);
   const w = rng.range(0.3, 0.55) * big;
-  flame(fx, _r.x, _r.y - 0.04, _r.z, rng.sym(0.25), rng.range(0.6, 1.6), rng.sym(0.25), w, w * rng.range(1.9, 2.8), rng.range(0.3, 0.55), heat, 3.5, ATT, 2.4, 1.35);
+  flame(fx, _r.x, _r.y - 0.04, _r.z, rng.sym(0.25), rng.range(0.4, 1.0), rng.sym(0.25), w, w * rng.range(1.5, 2.4), rng.range(0.3, 0.55), heat, 3.5, ATT, 2.4, 1.35, 0.12);
 }
 
 /** Damage on the local player's truck (called per frame from updateCarFx). */

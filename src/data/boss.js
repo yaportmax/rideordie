@@ -15,13 +15,13 @@ export const BOSS_PARTS = {
   part_turret_2: { hp: 2300, core: true, label: 'REAR TURRET', phase: 1 },
   part_pod_L: { hp: 1800, core: true, label: 'ROCKET POD', phase: 1 },
   part_pod_R: { hp: 1800, core: true, label: 'ROCKET POD', phase: 1 },
-  part_turret_main: { hp: 9000, core: true, label: 'CANNON', phase: 2 },
+  part_turret_main: { hp: 4500, label: 'CANNON', phase: 2, marker: true },   // optional: silences the cannon, not needed to win
   part_tank_L: { hp: 5000, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
   part_tank_R: { hp: 5000, core: true, label: 'FUEL TANK', explodes: true, phase: 2 },
   panel_armor_rear_1: { hp: 5000, core: true, label: 'REAR ARMOR', phase: 2 },
   panel_armor_rear_2: { hp: 5000, core: true, label: 'REAR ARMOR', phase: 2 },
   panel_armor_rear_3: { hp: 5000, core: true, label: 'REAR ARMOR', phase: 2 },
-  part_engine: { hp: 9000, core: true, label: 'REACTOR', weak: true, phase: 3, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_tank_L', 'part_tank_R'] },   // tanks cool it, plates cover it
+  part_engine: { hp: 13000, core: true, label: 'REACTOR', weak: true, phase: 3, needs: ['panel_armor_rear_1', 'panel_armor_rear_2', 'panel_armor_rear_3', 'part_tank_L', 'part_tank_R'] },   // tanks cool it, plates cover it
   part_plow: { hp: 2500, label: 'PLOW' },
   part_stack_L: { hp: 700, label: 'STACK' },
   part_stack_R: { hp: 700, label: 'STACK' },

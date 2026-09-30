@@ -78,7 +78,7 @@ export class TerrainStreamer {
     this.cover.update(this.chunks, s);   // near-road ground cover: one draw per kind for the chunks around the player
     if (this.road) {
       const r = this.road, a = r.sample(s, _fs);
-      const y = Math.min(a.y, r.sample(Math.max(0, s - FLOOR_R), _fs2).y, r.sample(s + FLOOR_R, _fs2).y) - 85;
+      const y = Math.min(a.y, r.sample(Math.max(0, s - FLOOR_R), _fs2).y, r.sample(s + FLOOR_R, _fs2).y) - 100;
       this.floor.position.set(a.x, y, a.z); this.floor.updateMatrix(); this.floor.visible = true;
     }
   }

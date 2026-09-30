@@ -323,6 +323,10 @@ const DEMOS = {
     const c = new DemoCar('e_sedan', 0, 42, { paint: 0x8a3b2a }); at(0.15, () => explodeCar(c, 1));
     at(0.05, () => shootFrom('lmg', [-3, 1.5, 28], [0, 0, 90]));
   },
+  ownburn() {                                           // the local player's truck on fire (attached hood fire / smoke + cabin clip)
+    const p = new DemoCar(Q.get('truck') || 'truck_t4', 0, 20, { paint: 0x8f6a3d, kind: 'player', id: 1 }); p.f.drive = true; p.f.speed = num('v', 25); p.f.burn = !Q.has('smoke'); p.f.smoke = true;
+    follow(p, num('az', 2.4), num('el', 0.25), num('dist', 11), 1.4, 0);
+  },
   firelab() {
     setCam(-9, 2.6, 18, 1, 1.6, 34, 55);
     const c = new DemoCar('e_sedan', -2.5, 34, { paint: 0x8a3b2a }); at(0.05, () => explodeCar(c, 1));

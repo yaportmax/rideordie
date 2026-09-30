@@ -123,11 +123,11 @@ void main() {
   vec3 upL = attached ? uFrameUp : vec3(0.0, 1.0, 0.0);
   vec3 acc = attached ? (-g * upL + uFrameAir * (max(k, 0.3) * aLt.y)) : (vec3(0.0, -g, 0.0) + uWind * aLt.y);
   vec3 disp, vel;
-  if (k > 0.001) {
+  if (k > 0.001) {                                     // dv/dt = acc - k v  ->  v -> acc / k (terminal velocity)
     float e = exp(-k * age);
-    vec3 vt = v0 + acc / k;
-    disp = vt * ((1.0 - e) / k) - acc * (age / k);
-    vel = vt * e - acc / k;
+    vec3 vt = v0 - acc / k;
+    disp = vt * ((1.0 - e) / k) + acc * (age / k);
+    vel = vt * e + acc / k;
   } else {
     disp = v0 * age + 0.5 * acc * age * age;
     vel = v0 + acc * age;
@@ -163,19 +163,30 @@ void main() {
   vec4 col = mix(aC0, aC1, pow(t, aEn.w));
   float env = smoothstep(0.0, max(aEn.x, 1e-4), t) * (1.0 - smoothstep(1.0 - max(aEn.y, 1e-4), 1.0, t));
 
-  // attached particles: slide up the windshield and roll over the roof instead of entering the cab
+  // attached particles: the flow parts around the cab instead of entering it - up the glass and over the roof from the
+  // middle of the hood, around the A-pillars and past the doors from the sides; it reattaches ~3 m behind the cab
   if (attached && (flags & 4) != 0 && uCabMin.w > 0.5) {
     vec3 n = uCabPlane.xyz;
     float m = 0.12 + 0.3 * sz;
+    float cx = 0.5 * (uCabMin.x + uCabMax.x), hx = 0.5 * (uCabMax.x - uCabMin.x);
     float pen = uCabPlane.w + m - dot(n, pos);
-    if (pen > 0.0 && abs(pos.x - 0.5 * (uCabMin.x + uCabMax.x)) < 0.5 * (uCabMax.x - uCabMin.x) + m && pos.z > uCabMin.z - m && pos.y > uCabMin.y) {
-      vec3 cp = pos + n * pen;                          // on the (offset) glass
-      vec3 gl = normalize(vec3(0.0, 1.0, 0.0) - n * n.y); // up along the glass (the glass leans back)
-      float yTop = uCabMax.y + m;
-      float along = pen * 1.1;                          // path the flow would have taken past the glass
-      float lg = max(0.0, (yTop - cp.y) / max(gl.y, 0.2));
-      pos = along <= lg ? cp + gl * along : cp + gl * lg + vec3(0.0, 0.0, -1.0) * (along - lg) + vec3(0.0, 0.08, 0.0) * (along - lg);
-      if (along > lg) pos.y = max(pos.y, yTop);
+    float dx = pos.x - cx;
+    if (pen > 0.0 && abs(dx) < hx + m && pos.y > uCabMin.y - 0.3) {
+      vec3 cp = pos + n * pen;
+      float along = pen * 1.1;
+      vec3 outp;
+      if (abs(dx) > 0.55 * hx) {
+        float sgn = dx < 0.0 ? -1.0 : 1.0;
+        float lat = max(0.0, hx + m - abs(dx));
+        outp = along <= lat ? cp + vec3(sgn * along, 0.0, 0.0) : vec3(cx + sgn * (hx + m), cp.y + 0.1 * (along - lat), cp.z - (along - lat) * 0.9);
+      } else {
+        vec3 gl = normalize(vec3(0.0, 1.0, 0.0) - n * n.y);   // up along the glass (it leans back)
+        float yTop = uCabMax.y + m;
+        float lg = max(0.0, (yTop - cp.y) / max(gl.y, 0.2));
+        outp = along <= lg ? cp + gl * along : cp + gl * lg + vec3(0.0, 0.06, -1.0) * (along - lg);
+        if (along > lg) outp.y = max(outp.y, yTop);
+      }
+      pos = mix(pos, outp, smoothstep(uCabMin.z - m - 3.0, uCabMin.z - m, pos.z));
     }
   }
 

@@ -25,7 +25,7 @@ export class BossMarks {
     const zones = new Map(bossZones().filter((z) => z.kind !== 'body').map((z) => [z.kind, z]));
     this.marks = [];
     for (const n of PART_NAMES) {
-      const def = BOSS_PARTS[n]; if (!def.core) continue;
+      const def = BOSS_PARTS[n]; if (!def.core && !def.marker) continue;
       const z = zones.get(n); if (!z) continue;
       const big = !!def.weak, w = big ? 0.085 : 0.05, h = big ? 0.009 : 0.0065;
       const col = n.startsWith('panel_armor_rear') ? ARMOR : COLORS[def.phase || 2];

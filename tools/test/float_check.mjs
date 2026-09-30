@@ -12,7 +12,7 @@ await page.waitForTimeout(6000);
 console.log(await page.evaluate(() => {
   const run = window.__run, cov = run.streamer.cover.meshes, out = {};
   const p = run.states.get(1).pos;
-  for (const k of ['debris', 'pebble', 'grass', 'tumble']) {
+  for (const k of ['tyre', 'debris', 'pebble', 'grass', 'tumble']) {
     const m = cov[k], a = m.geometry.attributes.aInst.data.array, n = m.geometry.instanceCount;
     let bad = 0, worst = 0, checked = 0;
     for (let i = 0; i < n; i++) {

@@ -100,14 +100,14 @@ export function glow(fx, x, y, z, size, life, r, g, b, big = false, grow = 1.5, 
  * velocity vs the wind), so fire on a moving car streams backwards and a wreck's flames lean with the wind.
  * w,h: tongue width / height (m); heat: HDR intensity (1 = normal); bend: rise strength (bigger = stiffer, more upright).
  */
-export function flame(fx, x, y, z, vx, vy, vz, w, h, life, heat = 1, bend = 3, flags = 0, drag = 1.0, grow = 1.25) {
+export function flame(fx, x, y, z, vx, vy, vz, w, h, life, heat = 1, bend = 3, flags = 0, drag = 1.0, grow = 1.25, wind = 1) {
   const r = fx.rng, p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life;
   p.spr = SPR.FIRE; p.mode = MODE.FIRE; p.f0 = r.int(FRAMES.FIRE); p.nPlay = FRAMES.FIRE; p.fps = r.range(24, 34);
   p.size(w * 0.72, w * grow); p.aspect = h / w; p.sCurve = 0.55;
   const k = heat * r.range(0.85, 1.15);
   p.col0(1.55 * k, 1.25 * k, 0.8 * k, 1).col1(1.3 * k, 0.8 * k, 0.45 * k, 0.9); p.cCurve = 0.8;
   p.add0 = 0.82; p.add1 = 1; p.fin = 0.14; p.fout = 0.5;
-  p.drag = drag; p.grav = -2.2; p.bend = bend; p.soft = 0.12 + 0.2 * w; p.wind = 1;
+  p.drag = drag; p.grav = -2.2; p.bend = bend; p.soft = 0.12 + 0.2 * w; p.wind = wind;
   p.flags = flags | (r.next() < 0.5 ? PF.FLIPU : 0);
   fx.pf.emit(p);
 }
@@ -117,7 +117,7 @@ export function fireBlob(fx, x, y, z, vx, vy, vz, s0, s1, life, heat = 1, add1 =
   const r = fx.rng, p = fx.p.reset(); p.pos(x, y, z).vel(vx, vy, vz); p.life = life; p.delay = delay;
   p.spr = SPR.FIREBALL; p.f0 = 0; p.nPlay = FRAMES.FIREBALL; p.size(s0, s1); p.sCurve = 0.35;
   p.rot = r.next() * PI2; p.rotV = r.sym(0.35); p.drag = 2.0; p.grav = -2.4; p.turb = 0.3; p.wind = 0.4;
-  p.col0(2.9 * heat, 2.75 * heat, 2.2 * heat, 1).col1(1.0, 0.92, 0.84, 0.9); p.cCurve = 0.45;
+  p.col0(2.9 * heat, 2.75 * heat, 2.2 * heat, 1).col1(0.75, 0.68, 0.62, 0.9); p.cCurve = 0.45;
   p.add0 = 0.6; p.add1 = add1; p.fin = 0.02; p.fout = 0.35; p.ground = gy;
   p.soft = 0.25 * s1; p.flags = r.next() < 0.5 ? PF.FLIPU : 0;
   fx.pa.emit(p);
@@ -202,7 +202,7 @@ export function explosion(fx, x, y, z, S, o) {
     q.spr = SPR.SMOKE; q.f0 = r.int(4) * 4; q.nPlay = 4; q.size(R * r.range(0.55, 0.8), R * r.range(1.5, 2.1)); q.sCurve = 0.45;
     q.rot = r.sym(0.8); q.rotV = r.sym(0.15); q.drag = 1.1; q.grav = -1.1; q.turb = 0.8; q.wind = 0.9; q.lit = 1;
     const c = r.range(0.055, 0.085); q.col(c, c * 0.95, c * 0.9, 0.92); q.fin = 0.12; q.fout = 0.55; q.ground = gy;
-    q.glow = 1.6; q.soft = R * 0.3; q.flags = r.next() < 0.5 ? PF.FLIPU : 0;
+    q.glow = 1.0; q.soft = R * 0.3; q.flags = r.next() < 0.5 ? PF.FLIPU : 0;
     fx.pa.emit(q);
   }
   // 8. lingering smoke column (job) + secondary pops
