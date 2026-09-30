@@ -119,7 +119,7 @@ export class HazardMarks {
     }
     // ---- flare funnel: from both road edges to the gap edges over the last 60 m
     const flareMat = mat('flare', () => new THREE.MeshStandardMaterial({ color: 0x551010, emissive: 0xff2a10, emissiveIntensity: 4 }));
-    const fm = () => new THREE.SpriteMaterial({ map: glowTex(), color: 0xff3a18, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    const fm = () => new THREE.SpriteMaterial({ map: glowTex(), color: 0xff5a2a, opacity: 0.85, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
     for (const sd of [-1, 1]) {
       const from = sd * (HALF_ROAD - 0.3), to = gapD + sd * (RB_GAP_W / 2 + 0.5);
       if (sd * (to - from) > -0.5) continue; // the gap is on this edge: no funnel needed
@@ -127,7 +127,7 @@ export class HazardMarks {
         const t = k / 6, s = f.s0 - 62 + 56 * t, d = from + (to - from) * t;
         road.pointAt(s, d, P);
         const fl = new THREE.Mesh(FLARE, flareMat); fl.position.set(P.x, P.y + 0.06, P.z); fl.rotation.z = Math.PI / 2; fl.rotation.y = k; g.add(fl);
-        const sp = new THREE.Sprite(fm()); sp.userData.base = 1.3; sp.scale.setScalar(1.3); sp.position.set(P.x, P.y + 0.35, P.z); g.add(sp); site.flares.push(sp);
+        const sp = new THREE.Sprite(fm()); sp.userData.base = 0.72; sp.scale.setScalar(0.72); sp.position.set(P.x, P.y + 0.3, P.z); g.add(sp); site.flares.push(sp); // (small hot glow: at night + bloom a big sprite read as a red blob)
       }
     }
     // ---- breakable barricades in the soft strips (sawhorses + striped boards + a lamp)
