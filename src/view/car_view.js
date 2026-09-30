@@ -37,6 +37,19 @@ export class CarView {
         this.lodWheels = [];
         for (const [name, geo] of L.wheels) { const w = new THREE.Mesh(geo, mat); w.castShadow = true; w.rotation.order = 'YXZ'; g.add(w); this.lodWheels.push([name, w]); }
         this.root.add(g); this.lod = g; this.lodMat = mat;
+        // shadow proxy (raiders): the merged body casts the car's shadow in ONE draw instead of one per material
+        // (the full model stops casting); in the main pass it is a zero-alpha blend (no colour, no depth)
+        if (opts.shadowProxy) {
+          // (a colorWrite:false material silently stops it casting -- a zero-alpha transparent one works and blends nothing)
+          const pm = CarView._proxyMat || (CarView._proxyMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false }));
+          const px = new THREE.Mesh(L.body, pm); px.name = 'shadow_proxy'; px.castShadow = true; px.receiveShadow = false; px.frustumCulled = true;
+          this.root.add(px); this.shadowProxy = px;
+          this.model.traverse((o) => {
+            if (!o.isMesh) return;
+            let wheel = false; for (let p = o; p && p !== this.model; p = p.parent) if (/^wheel_/.test(p.name)) { wheel = true; break; }
+            if (!wheel) o.castShadow = false;           // wheels spin/steer: they keep casting their own shadows
+          });
+        }
       }
     }
     this.usesModel = !!model;
@@ -145,7 +158,9 @@ export class CarView {
   /** Switch between the full model and the far LOD. */
   setLod(far) {
     if (!this.lod || far === this.lodOn) return;
-    this.lodOn = far; this.lod.visible = far; if (this.model) this.model.visible = !far;
+    this.lodOn = far; this.lod.visible = far; if (this.model) { this.model.visible = !far; this.model.matrixWorldAutoUpdate = !far; } // hidden full model: skip its matrix updates
+    if (this.shadowProxy) this.shadowProxy.visible = !far; // (the far LOD body casts its own shadow)
+    this.lod.matrixWorldAutoUpdate = far;
   }
   _syncLodWheels() {
     if (!this.lodOn || !this.lodWheels) return;

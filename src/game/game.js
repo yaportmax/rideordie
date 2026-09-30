@@ -121,7 +121,7 @@ export class Game {
     if (this._warm) return; this._warm = true;
     const g = new THREE.Group(); g.position.set(0, -5000, 0);
     // build the real view objects (same shadow/transparency flags => same shader programs as in play)
-    for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333 }); g.add(v.root); }
+    for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333, shadowProxy: true }); g.add(v.root); }
     for (const r of warmRaiderViews()) g.add(r); g.add(HazardMarks.warmGroup()); g.add(BossMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
     g.add(new BossView(null).root);
     for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);

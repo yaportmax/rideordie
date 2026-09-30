@@ -368,7 +368,10 @@ export class Cockpit {
     const auto = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
     const prev = renderer.getRenderTarget();
     // the post pipeline turns autoClear off: clear colour+depth ourselves or every frame smears into the last (ghost trails)
+    // world matrices are one frame old here (updated by last frame's main render): fine for a 30 Hz mirror, saves a full scene-graph walk
+    const mau = scene.matrixWorldAutoUpdate; scene.matrixWorldAutoUpdate = false;
     renderer.setRenderTarget(this.rt); renderer.clear(true, true, true); renderer.render(scene, cam); renderer.setRenderTarget(prev);
+    scene.matrixWorldAutoUpdate = mau;
     renderer.shadowMap.autoUpdate = auto; playerRoot.visible = vis; this.glassMat.visible = true;
   }
   /** World position of the look-back camera. */

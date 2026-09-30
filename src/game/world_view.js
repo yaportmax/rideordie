@@ -44,7 +44,7 @@ export class WorldView {
     let rec = this.cars.get(st.id);
     if (rec && rec.specId !== st.specId) { this.remove(st.id); rec = null; }
     if (rec) return rec;
-    const view = new CarView(st.spec, { paint: this.paintFor(st), paint2: 0x30302e });
+    const view = new CarView(st.spec, { paint: this.paintFor(st), paint2: 0x30302e, shadowProxy: true });
     view.root.userData.carId = st.id;
     this.group.add(view.root);
     rec = { view, specId: st.specId, crew: {}, state: st, wreck: false, id: st.id };
@@ -88,7 +88,7 @@ export class WorldView {
       const hideCrew = far || off;
       let farCrew = false;
       if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 52 : dd > 62); farCrew = dd > 40; }
-      for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) crew.root.visible = !hideCrew;
+      for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) { crew.root.visible = !hideCrew; crew.root.matrixWorldAutoUpdate = !hideCrew; } // hidden crews: skip 52-bone matrix updates
       if (hideCrew) {
         // bodies thrown off the vehicle live in world space: keep them falling even when their car is off-screen
         for (const role in rec.crew) { const c = rec.crew[role]; if (c.detached && c.deadT >= 0 && c.deadT < 9.5) c.update(dt, DEAD); }
