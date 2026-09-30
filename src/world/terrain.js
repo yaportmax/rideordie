@@ -52,6 +52,7 @@ export class TerrainStreamer {
 
   /** Ask for the chunks around road distance s. Cheap to call every frame. */
   update(s) {
+    if (this.disposed) return;
     this._sLast = s;
     setRoadNight(this.roadMat, lookAt(s, _look).night);
     const c0 = Math.floor((s - BEHIND) / CHUNK_LEN), c1 = Math.floor((s + AHEAD) / CHUNK_LEN);
@@ -107,10 +108,12 @@ export class TerrainStreamer {
   }
 
   _onMsg(w, m) {
+    if (this.disposed) return;
     const _t0 = performance.now();
     try { this._onMsg2(w, m); } finally { const ms = performance.now() - _t0; if (ms > 12) (window.__spikes || (window.__spikes = [])).push({ what: 'terrainMsg', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
   }
   _onMsg2(w, m) {
+    if (this.disposed) return;
     if (m.type === 'ready') { this.ready++; return; }
     if (m.type !== 'chunk') return;
     w.busy = Math.max(0, w.busy - 1); this.pending.delete(m.key); this._scheduleDirty = true;
@@ -202,5 +205,11 @@ export class TerrainStreamer {
     }
     return true;
   }
-  dispose() { for (const w of this.workers) w.terminate(); for (const [c, r] of this.chunks) this._dispose(c, r); this.cover.dispose(); this.floor.geometry.dispose(); this.scene.remove(this.group); }
+  dispose() {
+    if (this.disposed) return; this.disposed = true;
+    for (const w of this.workers) { w.onmessage = null; w.onerror = null; w.terminate(); }
+    this.workers.length = 0; this.pending.clear(); this._want.length = 0; this._wantPool.length = 0;
+    for (const [c, r] of this.chunks) this._dispose(c, r);
+    this.cover.dispose(); this.floor.geometry.dispose(); this.scene.remove(this.group);
+  }
 }

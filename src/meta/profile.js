@@ -26,7 +26,7 @@ export function normalizeProfile(value) {
     ...d, ...p, v: 1,
     campaignId: typeof p.campaignId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) ? p.campaignId : d.campaignId,
     revision: natural(p.revision), cash: natural(p.cash), totalCash: natural(p.totalCash), runs: natural(p.runs), wins: natural(p.wins),
-    best: { distance: positive(best.distance), time: positive(best.time), kills: natural(best.kills) },
+    best: { distance: positive(best.distance), furthestS: Math.max(positive(best.furthestS), positive(best.distance)), time: positive(best.time), kills: natural(best.kills) },
     trucks, truck: trucks.includes(p.truck) ? p.truck : 'truck_t1', upgrades, weapons, loadout: loadout.length ? loadout : ['pistol'],
     truckColor: natural(p.truckColor, TRUCK_COLORS.length - 1),
     minibosses: Object.fromEntries(Object.entries(record(p.minibosses)).filter(([id, done]) => /^[0-4]$/.test(id) && done === true)),
@@ -108,6 +108,9 @@ export function creditRun(p, run) {
   if (!run || (run.id && p.lastRunId === run.id)) return p;
   const cash = natural(run.cash);
   p.cash = natural(p.cash + cash); p.totalCash = natural(p.totalCash + cash); p.runs++;
+  // Route progress is an absolute road coordinate; checkpoint payouts and the
+  // distance record continue to count only metres travelled during that life.
+  p.best.furthestS = Math.max(positive(p.best.furthestS), positive(p.best.distance), positive(run.furthestS), positive(run.distance));
   p.best.distance = Math.max(p.best.distance, positive(run.distance)); p.best.time = Math.max(p.best.time, positive(run.time)); p.best.kills = Math.max(p.best.kills, natural(run.kills));
   if (run.won) { p.wins++; p.bossKilled = true; }
   for (const id of Array.isArray(run.minibosses) ? run.minibosses : []) if (/^[0-4]$/.test(String(id))) p.minibosses[id] = true;

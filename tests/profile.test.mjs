@@ -17,11 +17,24 @@ test('old or damaged saves recover a playable owned truck, weapon and finite sta
 test('save/load roundtrip retains progression and blocked storage never breaks purchases', () => {
   const data = new Map();
   globalThis.localStorage = { getItem: (k) => data.get(k), setItem: (k, v) => data.set(k, v) };
-  const p = DEFAULT_PROFILE(); p.cash = 1234; saveProfile(p);
+  const p = DEFAULT_PROFILE(); p.cash = 1234; p.best.distance = 7500; p.best.furthestS = 60000; saveProfile(p);
   assert.equal(loadProfile().cash, 1234); assert.equal(loadProfile(p.campaignId).campaignId, p.campaignId);
+  assert.equal(loadProfile().best.furthestS, 60000); assert.equal(loadProfile().best.distance, 7500);
   data.set('rideordie.profile.v1', '{bad'); assert.equal(loadProfile().truck, 'truck_t1');
   globalThis.localStorage = { getItem: () => { throw Error('blocked'); }, setItem: () => { throw Error('blocked'); } };
   assert.doesNotThrow(() => saveProfile(p)); assert.equal(loadProfile().loadout[0], 'pistol');
+});
+
+test('old saves migrate route progress while damaged absolute coordinates retain a finite fallback', () => {
+  const legacy = normalizeProfile({ best: { distance: 20000, time: 90, kills: 4 } });
+  assert.equal(legacy.best.furthestS, 20000);
+  for (const furthestS of [undefined, NaN, Infinity, -10, '60000', {}, 0]) {
+    const p = normalizeProfile({ best: { distance: 7500, furthestS } });
+    assert.equal(p.best.furthestS, 7500);
+    assert.equal(p.best.distance, 7500);
+  }
+  assert.equal(normalizeProfile({ best: { distance: NaN, furthestS: Infinity } }).best.furthestS, 0);
+  assert.equal(normalizeProfile({ best: { distance: 7500, furthestS: 60000 } }).best.furthestS, 60000);
 });
 
 test('every truck and upgrade charges its catalog price exactly and stops at its maximum', () => {
@@ -58,6 +71,33 @@ test('a repeated result pays once and malformed rewards cannot poison the save',
   assert.equal(p.cash, 200); assert.equal(p.runs, 1); assert.equal(p.best.kills, 4); assert.equal(p.minibosses[0], true);
   creditRun(p, { id: 'another-life', cash: NaN, distance: NaN, time: -1, kills: Infinity });
   assert.equal(p.cash, 200); assert.equal(p.best.time, 90); assert.equal(p.runs, 2);
+});
+
+test('checkpoint route records persist without changing distance rewards or paying a repeated result twice', () => {
+  const p = normalizeProfile({ best: { distance: 20000 }, cash: 100, totalCash: 100 });
+  const run = { id: 'dam-retry', cash: 975, distance: 7500, startS: 52500, furthestS: 60000, time: 30, kills: 2 };
+  creditRun(p, run);
+  assert.equal(p.best.distance, 20000);
+  assert.equal(p.best.furthestS, 60000);
+  assert.equal(p.cash, 1075); assert.equal(p.totalCash, 1075); assert.equal(p.runs, 1);
+  const credited = structuredClone(p);
+  creditRun(p, run);
+  assert.deepEqual(p, credited);
+  assert.equal(normalizeProfile(JSON.parse(JSON.stringify(p))).best.furthestS, 60000);
+  creditRun(p, { id: 'shorter-life', cash: 0, distance: 25000, furthestS: 25040 });
+  assert.equal(p.best.distance, 25000); assert.equal(p.best.furthestS, 60000);
+});
+
+test('legacy and malformed result coordinates cannot poison or erase the absolute route record', () => {
+  const p = DEFAULT_PROFILE();
+  creditRun(p, { id: 'legacy-life', cash: 0, distance: 15000 });
+  assert.equal(p.best.furthestS, 15000);
+  for (const [i, furthestS] of [NaN, Infinity, -1, '60000'].entries()) {
+    creditRun(p, { id: `damaged-${i}`, cash: NaN, distance: 1000, furthestS });
+    assert.equal(p.best.furthestS, 15000);
+    assert.equal(p.best.distance, 15000);
+    assert.equal(p.cash, 0);
+  }
 });
 
 test('unaffordable purchases do not spend cash or grant ownership', () => {

@@ -66,17 +66,18 @@ export class ResultsScreen {
     this.q = { total: this.safe.querySelector('[data-total]'), cont: this.safe.querySelector('.cont'), fill: this.safe.querySelector('.rt-fill') };
   }
   routeHtml() {
-    const r = this.run, total = BOSS_S, best = Math.max((this.profile && this.profile.best && this.profile.best.distance) || 0, r.distance || 0);
+    const r = this.run, total = BOSS_S, reached = r.furthestS ?? r.distance ?? 0;
+    const record = this.profile?.best, best = Math.max(record?.furthestS ?? record?.distance ?? 0, reached);
     let acc = 0;
-    const segs = BIOME_PLAN.map((b) => { const len = b.id === 'dam' ? 0 : b.len; const s = acc; acc += len; return { id: b.id, s, len }; }).filter((s) => s.len > 0);
-    const mini = MINIBOSS_S.map((m) => `<i class="rt-mini ${(r.distance || 0) >= m ? 'past' : ''}" style="left:${(m / total) * 100}%"></i>`).join('');
+    const segs = BIOME_PLAN.map((b) => { const len = Math.max(0, Math.min(b.len, total - acc)); const s = acc; acc += len; return { id: b.id, s, len }; }).filter((s) => s.len > 0);
+    const mini = MINIBOSS_S.map((m) => `<i class="rt-mini ${reached >= m ? 'past' : ''}" style="left:${(m / total) * 100}%"></i>`).join('');
     const seg = segs.map((s) => `<span class="rt-seg" style="width:${(s.len / total) * 100}%;--bc:${BIOME_COL[s.id]}"><b>${BIOME_SHORT[s.id]}</b></span>`).join('');
-    const pct = Math.min(100, (Math.max(0, r.distance || 0) / total) * 100);
+    const pct = Math.min(100, (Math.max(0, reached) / total) * 100);
     const bestPct = Math.min(100, (best / total) * 100);
     this.routePct = pct;
-    const left = Math.max(0, (total - (r.distance || 0)) / 1000);
+    const left = Math.max(0, (total - reached) / 1000);
     return `<div class="rt-head"><span>ROUTE TO THE LEVIATHAN</span><em>${this.win ? 'CONVOY BROKEN' : `<b>${left.toFixed(1)} KM</b> TO GO`}</em></div>
-      <div class="rt-bar"><div class="rt-segs">${seg}</div><div class="rt-fill" style="width:0"></div>${mini}${best > (r.distance || 0) + 50 ? `<i class="rt-best" style="left:${bestPct}%"><span>BEST</span></i>` : ''}<i class="rt-boss">${icon('skull')}</i><i class="rt-you" style="left:0"></i></div>`;
+      <div class="rt-bar"><div class="rt-segs">${seg}</div><div class="rt-fill" style="width:0"></div>${mini}${best > reached + 50 ? `<i class="rt-best" style="left:${bestPct}%"><span>BEST</span></i>` : ''}<i class="rt-boss">${icon('skull')}</i><i class="rt-you" style="left:0"></i></div>`;
   }
   nextHtml() {
     const p = this.profile; if (!p) return '';

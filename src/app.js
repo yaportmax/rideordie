@@ -257,7 +257,7 @@ export class App {
   }
   /** Once the crew has reached the Leviathan, a run can roll out from the dam road (past the warlords) for another shot at it. */
   async _pickStart() {
-    const reached = (this.profile.best?.distance || 0) >= DAM_CHECKPOINT_UNLOCK;
+    const reached = (this.profile.best?.furthestS ?? this.profile.best?.distance ?? 0) >= DAM_CHECKPOINT_UNLOCK;
     if (!reached) return 40;
     const r = await this.ui.modal({ title: 'ROLL OUT FROM', text: 'You have reached the Leviathan. Start at the dam road for another shot at it (distance pays from where you start), or run the whole highway.', buttons: [
       { label: 'THE DAM ROAD', id: 'dam', kind: 'primary' }, { label: 'THE START', id: 'start' }, { label: 'BACK', id: null, cancel: true }] });

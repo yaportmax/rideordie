@@ -67,3 +67,18 @@ test('collision boundaries and floor, cover and night still update every frame i
   t.update(1337.99); assert.equal(removed, 0);
   t.update(1338); assert.equal(removed, 2);
 });
+
+test('terrain teardown is idempotent and queued responses cannot recreate meshes or colliders', () => {
+  const { t, worker } = mock(); let terminated = 0, freed = 0;
+  worker.terminate = () => { terminated++; }; worker.onmessage = () => {}; worker.onerror = () => {};
+  t.cover.dispose = () => { freed++; }; t.floor.geometry = { dispose() { freed++; } };
+  t.scene = { remove() { freed++; } };
+  t.update(500); t.dispose();
+  assert.equal(worker.onmessage, null); assert.equal(worker.onerror, null);
+  assert.equal(t.workers.length, 0); assert.equal(t.pending.size, 0); assert.equal(t._want.length, 0); assert.equal(t._wantPool.length, 0);
+  // Without the disposed guard, even a stale response can enter chunk creation.
+  assert.doesNotThrow(() => t._onMsg2(worker, { type: 'chunk', key: '5:0', chunk: 5, lod: 0 }));
+  assert.equal(t.chunks.size, 0); const floorCalls = t.floor.calls;
+  t.update(501); assert.equal(t.floor.calls, floorCalls); t.dispose();
+  assert.equal(terminated, 1); assert.equal(freed, 3);
+});

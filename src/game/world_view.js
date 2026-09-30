@@ -208,5 +208,14 @@ export class WorldView {
     if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
     return false;
   }
-  dispose() { if (this.boss) { this.boss.dispose(); this.boss = null; } for (const id of this.cars.keys()) this.remove(id, true); for (const c of this.loose) c.dispose(); this.loose.length = 0; this.debris.clear(); this.scene.remove(this.group); }
+  dispose() {
+    if (this.disposed) return; this.disposed = true;
+    if (this.boss) { this.boss.dispose(); this.boss = null; }
+    for (const id of this.cars.keys()) this.remove(id, true);
+    for (const c of this.loose) c.dispose(); this.loose.length = 0;
+    for (const mesh of this.projMeshes.values()) this.scene.remove(mesh);
+    this.projMeshes.clear(); this._projectileSeen.clear(); this.viewMap.clear();
+    this.rocketGeo.dispose(); this.rocketMat.dispose(); this.grenadeGeo.dispose(); this.grenadeMat.dispose();
+    this.debris.clear(); this.scene.remove(this.group);
+  }
 }

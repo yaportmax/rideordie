@@ -31,6 +31,7 @@ export class GunnerController {
     this.pos = new THREE.Vector3(); // offset inside the bed (x,z), y unused
     this.muzzle = new THREE.Vector3(); this.aimPoint = new THREE.Vector3(); this.aimHit = false;
     this.lastCarYaw = null; this.trigger = false; this.hitMarker = 0;
+    this._autoFireContinuous = false;
     this.shellQueue = [];
     this.dryClickT = 0;
     this.throwing = 0;
@@ -42,6 +43,7 @@ export class GunnerController {
 
   swapTo(i) {
     if (i < 0 || i >= this.slots.length || i === this.cur) return;
+    this._autoFireContinuous = false;
     this.cur = i; this.reloading = false; this.reloadT = 0; this.swapT = 0.42; this.fireT = Math.max(this.fireT, 0.2); this.pumpT = 0; this.boltT = 0;
     this.ctx.emit({ t: 'weaponSwap', weapon: this.slots[i] });
   }
@@ -49,6 +51,7 @@ export class GunnerController {
   startReload() {
     const w = this.weapon;
     if (this.reloading || this.mag[this.cur] >= w.mag || this.swapT > 0 || this.throwing > 0) return;
+    this._autoFireContinuous = false;
     this.reloading = true; this.reloadT = 0; this.reloadBegan = w.reloadPerShell ? 0.35 : w.reload;
     this.ctx.emit({ t: 'reloadStart', weapon: w.id, time: w.reloadPerShell ? (w.mag - this.mag[this.cur]) * w.reload + 0.4 : w.reload });
   }
@@ -80,7 +83,8 @@ export class GunnerController {
     const bx = this.pos.x + cmd.moveX * dt * 2.2, bz = this.pos.z + cmd.moveZ * dt * 2.0;
     this.pos.x = clamp(bx, -0.55, 0.55); this.pos.z = clamp(bz, -0.45, 0.45);
     // ---- timers
-    this.fireT = Math.max(0, this.fireT - dt); this.swapT = Math.max(0, this.swapT - dt); this.grenadeCd = Math.max(0, this.grenadeCd - dt);
+    const fireRemaining = this.fireT - dt;
+    this.fireT = Math.max(0, fireRemaining); this.swapT = Math.max(0, this.swapT - dt); this.grenadeCd = Math.max(0, this.grenadeCd - dt);
     this.bloom = Math.max(0, this.bloom - w.spread.recover * dt * 0.6); this.recoilAnim = damp(this.recoilAnim, 0, 14, dt);
     this.hitMarker = Math.max(0, this.hitMarker - dt); this.dryClickT = Math.max(0, this.dryClickT - dt); this.throwing = Math.max(0, this.throwing - dt);
     if (this.pumpT > 0) this.pumpT -= dt; if (this.boltT > 0) this.boltT -= dt;
@@ -108,10 +112,21 @@ export class GunnerController {
     if (w.mode === 'semi' && cmd.fire && !this.trigger) want = true;
     if (w.mode === 'pump' || w.mode === 'bolt' || w.mode === 'launcher') want = cmd.fire && !this.trigger;
     this.trigger = cmd.fire;
+    const autoReady = w.mode === 'auto' && want && dt > 0 && dt < 0.05 && !this.reloading && this.swapT <= 0 && this.pumpT <= 0 && this.boltT <= 0 && this.throwing <= 0 && this.magNow > 0;
+    let fired = false;
     if (want && canFire) {
-      if (this.mag[this.cur] > 0) this.fire(cam, extra);
+      if (this.mag[this.cur] > 0) {
+        // Keep fractional frame time only inside an uninterrupted automatic burst.
+        // One shot per update and at most one frame of carry avoid pause/reload catch-up.
+        const carry = autoReady && this._autoFireContinuous ? Math.max(-Math.min(dt, 60 / w.rpm), Math.min(0, fireRemaining)) : 0;
+        this.fire(cam, extra);
+        this.fireT = Math.max(0, this.fireT + carry);
+        fired = true;
+      }
       else { if (this.dryClickT <= 0) { this.ctx.emit({ t: 'dryClick', weapon: w.id }); this.dryClickT = 0.3; } this.startReload(); }
     }
+    if (!autoReady || this.reloading || this.magNow <= 0) this._autoFireContinuous = false;
+    else if (fired) this._autoFireContinuous = true;
     return this;
   }
 
@@ -260,6 +275,7 @@ export class GunnerController {
   }
 
   throwGrenade(cam, carVel) {
+    this._autoFireContinuous = false;
     this.grenades--; this.grenadeCd = GRENADE.cooldown * (1 - 0.06 * this.grenadeLv); this.throwing = 0.62;
     const aim = this.aimAt(cam);
     const M = this.muzzle.lengthSq() ? this.muzzle : cam.position;

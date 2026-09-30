@@ -65,11 +65,13 @@ export class Run {
   async init() {
     const g = this.g, cfg = this.cfg;
     await initPhysics();
+    if (this.disposed) return this;
     const { spec, effects } = buildPlayerSpec(cfg.profile);
     this.spec = spec; this.effects = effects; this.medkits = effects.medkits;
     if (this.simPeer) {
       this.sim = new Sim({ seed: this.seed });
       await this.sim.init();
+      if (this.disposed) { this.sim.dispose(); return this; }
       this.streamer = new TerrainStreamer({ scene: g.scene, world: this.sim.world, seed: this.seed, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
       this.sim.setGround(this.streamer);
       const startS = cfg.startS ?? 40;
@@ -87,11 +89,9 @@ export class Run {
     if (this.sim) this.sim.structures = this.structures;
     try {
       this.dressing = new Dressing(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed))), this.seed, { quality: g.quality, physicsHook: (r) => this.structures.hook(r) });
-      await this.dressing.load(cfg.startS ?? 40);
-      this.dressing.pool.warmer = (meshes) => g.warmMeshes(meshes);
-      this.streamer.onChunk = (c, rec) => this.dressing.onChunk(c, rec);
-      this.streamer.onChunkDrop = (c) => this.dressing.onChunkDrop(c);
+      await this._loadDressing(cfg.startS ?? 40);
     } catch (e) { console.warn('dressing disabled', e); this.dressing = null; }
+    if (this.disposed) return this;
     this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
@@ -100,6 +100,25 @@ export class Run {
     if (g.audio) { this.abridge = new AudioBridge(g.audio, { playerId: 1, localRole: this.role }); this.abridge.preload({ weapons: effects.weapons, truck: spec.id }); }
     if (g.fx) { g.fx.clear(); g.fx.setGround((x, z) => { const p = this.states.get(1); return this._groundY(x, (p ? p.pos.y : 0) + 30, z) ?? (p ? p.pos.y - 0.6 : 0); }); }
     return this;
+  }
+
+  async _loadDressing(startS) {
+    const dressing = this.dressing;
+    let ready = false;
+    try {
+      await dressing.load(startS);
+      if (this.disposed) return;
+      dressing.pool.warmer = (meshes) => this.g.warmMeshes(meshes);
+      this.streamer.onChunk = (c, rec) => dressing.onChunk(c, rec);
+      this.streamer.onChunkDrop = (c) => dressing.onChunkDrop(c);
+      ready = true;
+    } catch (e) { console.warn('dressing disabled', e); }
+    finally {
+      if (!ready) {
+        if (this.dressing === dressing) this.dressing = null;
+        dressing.dispose();
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------------------------- gunner plumbing
@@ -593,7 +612,8 @@ export class Run {
     if (this.over && !this.finished) {
       this.overT = (this.overT || 0) + dt;
       if (this.sim && !this.summary && this.overT > 0.3) { this.summary = this.buildSummary(this.sim.won); if (this.net) this.net.sendJSON({ t: 'summary', s: this.summary }); }
-      if (this.overT > 2.2 && (this.summary || this.remoteSummary)) this.finished = true;
+      const summary = this.summary || this.remoteSummary;
+      if (summary && this.overT > (summary.won ? 4.5 : 2.2)) this.finished = true;
     }
   }
 
@@ -613,7 +633,7 @@ export class Run {
     const total = lines.reduce((a, l) => a + l.amount, 0);
     const why = sim.result?.why;
     return {
-      id: this.id, won, cash: total, breakdown: lines, distance: dist, time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
+      id: this.id, won, cash: total, breakdown: lines, distance: dist, startS: this.cfg.startS ?? 40, furthestS: st.distance, time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
       bestStreak: this.bestMulti || 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
       biome: BIOMES[biomeAt(st.distance).a].name, minibosses: this.minibossesKilled || [],
     };

@@ -120,8 +120,17 @@ export class Game {
   showGarage(truckId, paint, loadout) { this.mode = 'garage'; this.garage.setTruck(truckId, paint, loadout); this.hud.setVisible(false); if (this.post) this.post.enabled = false; }
 
   /** Compile every material the run can show (all vehicles, weapons, boss, fx) so the first explosion or new enemy never hitches. */
-  async prewarm() {
-    if (this._warm) return; this._warm = true;
+  prewarm() {
+    if (!this._warmPromise) {
+      this._warmPromise = this._prewarmAssets().catch((error) => {
+        this._warmPromise = null;
+        throw error;
+      });
+    }
+    return this._warmPromise;
+  }
+
+  async _prewarmAssets() {
     const g = new THREE.Group(); g.position.set(0, -5000, 0);
     // build the real view objects (same shadow/transparency flags => same shader programs as in play)
     for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333, shadowProxy: true }); g.add(v.root); }
@@ -133,34 +142,74 @@ export class Game {
     g.add(ViewModel.warmObject());   // first-person viewmodel programs (patched projection) + its flash / reticle
     for (const m of Water.prewarmMeshes()) g.add(m);   // sea / lake + shoreline programs (first shown at 19 km)
     for (const m of groundPrewarmMeshes(this.terrainMat, this.roadMat)) g.add(m);   // terrain / road / ground-cover programs
-    this.scene.add(g);
-    this.sky.setLook(lookAt(0), true); // environment map + fog must exist, they are part of every program's key
-    // compile against an HDR target like the post pipeline's scene pass (linear output => different program keys than the canvas)
-    const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
-    try {
-      const fxDone = this.fx?.prewarm?.(); this._fxPrewarmDone = typeof fxDone === 'function' ? fxDone : () => this.fx?.prewarmDone?.();
-      if (this.post) { this.renderer.setRenderTarget(rt); await this.renderer.compileAsync(this.scene, this.camera); this.renderer.setRenderTarget(null); }
-      await this.renderer.compileAsync(this.scene, this.camera);
-      // upload pass: compileAsync builds programs but uploads no textures / vertex buffers, so the first raider of a run still cost
-      // an 80-120 ms frame (+10 geometries, +14 textures). Draw the warm-up group once (culling off) into the tiny target.
-      const culled = []; g.traverse((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
-      this.renderer.setRenderTarget(rt); this.renderer.render(this.scene, this.camera); this.renderer.setRenderTarget(null);
-      for (const o of culled) o.frustumCulled = true;
-    } catch (e) { console.warn('prewarm', e); }
-    this.renderer.setRenderTarget(null); rt.dispose(); this._fxPrewarmDone?.();
-    try { await this.post?.warm?.(); }
-    catch (e) { console.warn('post prewarm', e); }
-    finally { this.scene.remove(g); }
+    await this._warmScene(g);
   }
+
+  async _warmScene(g) {
+    const r = this.renderer, previous = r.getRenderTarget(), face = r.getActiveCubeFace(), mip = r.getActiveMipmapLevel();
+    const restoreTarget = () => r.setRenderTarget(previous, face, mip);
+    const culled = [];
+    let rt, finishFx;
+    this.scene.add(g);
+    try {
+      this.sky.setLook(lookAt(0), true); // environment map + fog are part of every program's key
+      rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
+      const compile = async (target) => {
+        let pending;
+        try { r.setRenderTarget(target); pending = r.compileAsync(this.scene, this.camera); }
+        finally { restoreTarget(); } // Garage/menu frames can render while the driver compiles asynchronously.
+        await pending;
+      };
+      try {
+        const fxDone = this.fx?.prewarm?.(); finishFx = typeof fxDone === 'function' ? fxDone : () => this.fx?.prewarmDone?.();
+        // HDR and canvas output have different program keys.
+        if (this.post) await compile(rt);
+        await compile(null);
+        // compileAsync uploads no textures/vertex buffers. Draw once into the tiny target before gameplay.
+        g.traverse((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
+        r.setRenderTarget(rt); r.render(this.scene, this.camera);
+      } catch (e) { console.warn('prewarm', e); }
+      finally {
+        restoreTarget();
+        for (const o of culled) o.frustumCulled = true;
+        rt.dispose(); finishFx?.();
+      }
+      try { await this.post?.warm?.(); }
+      catch (e) { console.warn('post prewarm', e); }
+    } finally { this.scene.remove(g); }
+  }
+
+  _createRun(cfg) { return new Run(this, cfg); }
 
   async startRun(cfg) {
     this.endRun();
     const generation = this._runGeneration;
     this.fade(1, 0);
-    await this.prewarm();
+    // A cancelled initializer still owns its scene objects and shared FX until
+    // it has finished and disposed them. Do not let a new life start underneath
+    // that cleanup, or stale ground callbacks/particles can affect the new run.
+    const previous = this._pendingStart;
+    const pending = this._startRun(cfg, generation, previous);
+    this._pendingStart = pending;
+    try { return await pending; }
+    finally { if (this._pendingStart === pending) this._pendingStart = null; }
+  }
+
+  async _startRun(cfg, generation, previous) {
+    if (previous) { try { await previous; } catch { /* A failed life has already been cleaned up. */ } }
     if (generation !== this._runGeneration) return null;
-    const run = new Run(this, cfg);
-    try { await run.init(); } catch (e) { run.dispose(); this.fade(0); throw e; }
+    try { await this.prewarm(); }
+    catch (error) {
+      if (generation !== this._runGeneration) return null;
+      this.fade(0); throw error;
+    }
+    if (generation !== this._runGeneration) return null;
+    const run = this._createRun(cfg);
+    try { await run.init(); } catch (e) {
+      run.dispose();
+      if (generation !== this._runGeneration) return null;
+      this.fade(0); throw e;
+    }
     if (generation !== this._runGeneration) { run.dispose(); return null; }
     this.run = run; this.mode = 'run'; this.paused = false;
     if (this.post) { this.post.enabled = true; this.post.cut?.(); }
@@ -168,7 +217,7 @@ export class Game {
     const pad = this.input.lastDevice === 'pad';
     const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>LB</b> LOOK BACK &nbsp; <b>Y</b> FLIP &nbsp; <b>R3</b> VIEW' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>B</b> LOOK BACK &nbsp; <b>R</b> FLIP &nbsp; <b>C</b> VIEW',
       gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>B</b> DUCK &nbsp; <b>BACK</b> VIEW' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>CTRL</b> DUCK &nbsp; <b>V</b> VIEW',
-      solo: '<b>WASD</b> DRIVE &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>T</b> FLIP &nbsp;|&nbsp; <b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>X</b> MEDKIT' };
+      solo: pad ? '<b>LS</b> STEER &nbsp; <b>RT/LT</b> GAS/BRAKE &nbsp; <b>A</b> DRIFT &nbsp; <b>LB</b> NITRO &nbsp; <b>Y</b> FLIP &nbsp;|&nbsp; <b>RS</b> AIM &nbsp; <b>RB</b> FIRE &nbsp; <b>X</b> RELOAD &nbsp; <b>B</b> GRENADE &nbsp; <b>D-PAD DOWN</b> MEDKIT' : '<b>WASD</b> DRIVE &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>T</b> FLIP &nbsp;|&nbsp; <b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>X</b> MEDKIT' };
     this.hud.hints([run.role === 'solo' ? H.solo : run.role === 'driver' ? H.driver : H.gunner, 'SHOOT THE DRIVERS &middot; SHOOT THE FUEL TANKS &middot; DON\'T CRASH']);
     return run;
   }

@@ -73,11 +73,11 @@ export const BIND_GROUPS = [
     ['special1', 'OIL SLICK'], ['special2', 'DROP MINE'], ['reset', 'FLIP / RESET'], ['camera', 'CAMERA'], ['lookBack', 'LOOK BACK'], ['horn', 'HORN'],
   ] },
   { id: 'gunner', name: 'GUNNER', actions: [
-    ['reload', 'RELOAD'], ['grenade', 'GRENADE'], ['melee', 'MELEE'], ['crouch', 'CROUCH'], ['lean', 'LEAN'],
+    ['reload', 'RELOAD'], ['grenade', 'GRENADE'], ['crouch', 'CROUCH'], ['view', 'CAMERA'],
     ['moveF', 'MOVE FORWARD'], ['moveB', 'MOVE BACK'], ['moveL', 'MOVE LEFT'], ['moveR', 'MOVE RIGHT'],
-    ['slot1', 'WEAPON 1'], ['slot2', 'WEAPON 2'], ['slot3', 'WEAPON 3'], ['slot4', 'WEAPON 4'], ['slot5', 'WEAPON 5'], ['slot6', 'WEAPON 6'],
+    ['slot1', 'WEAPON 1'], ['slot2', 'WEAPON 2'], ['slot3', 'WEAPON 3'],
   ] },
-  { id: 'global', name: 'GLOBAL', actions: [['pause', 'PAUSE MENU']] },
+  { id: 'global', name: 'GLOBAL', actions: [['pause', 'PAUSE MENU'], ['medkit', 'USE MEDKIT']] },
 ];
 export const ACTION_LABEL = Object.fromEntries(BIND_GROUPS.flatMap((g) => g.actions));
 /** Actions that could conflict with `action` (same role group, or anything for global). */
@@ -85,5 +85,5 @@ export function conflictSet(action) {
   const g = BIND_GROUPS.find((x) => x.actions.some((a) => a[0] === action));
   if (!g) return [];
   if (g.id === 'global') return BIND_GROUPS.flatMap((x) => x.actions.map((a) => a[0])).filter((a) => a !== action);
-  return [...g.actions.map((a) => a[0]), 'pause'].filter((a) => a !== action);
+  return [...g.actions.map((a) => a[0]), ...BIND_GROUPS.find((x) => x.id === 'global').actions.map((a) => a[0])].filter((a) => a !== action);
 }

@@ -450,7 +450,9 @@ export class Post {
 
     this._time += dt; this._frame++;
     const camera = this.camera;
-    camera.updateMatrixWorld();
+    // Uniforms need the camera's final world/inverse matrices, not another
+    // traversal of its attached arms and weapon. ScenePass updates that subtree.
+    camera.updateWorldMatrix(true, false);
     this._updateState(dt);
     this._updateUniforms(dt);
     if (this._profiling) this.timer.poll();
@@ -475,6 +477,12 @@ export class Post {
     if (this.aoPass) return;
     const [w, h] = [this._internal.x, this._internal.y];
     const ao = new N8AOPostPass(this.scene, this.camera, w, h);
+    // N8AO otherwise changes this default byte target to the input format on
+    // its first render. Prewarming has already allocated it by then, and Three
+    // does not recreate render-target storage for texture.needsUpdate alone.
+    // Match the real input before either warm() or render() allocates storage.
+    ao.outputTargetInternal.texture.type = this.composer.inputBuffer.texture.type;
+    ao.outputTargetInternal.texture.format = this.composer.inputBuffer.texture.format;
     ao.autoDetectTransparency = false;
     ao.configuration.transparencyAware = false;
     ao.configuration.halfRes = true;

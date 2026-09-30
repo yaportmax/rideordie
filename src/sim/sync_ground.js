@@ -1,5 +1,5 @@
 // Synchronous terrain colliders for headless runs (Node tests, bots). Same geometry as the streamer's colliders.
-import { RAPIER, GROUPS, COLLIDER_LABELS } from './physics.js';
+import { RAPIER, GROUPS, setColliderLabel, removeBody } from './physics.js';
 import { genTerrainChunk, genRoadChunk, CHUNK_LEN } from '../world/terrain_gen.js';
 
 const AHEAD = 420, BEHIND = 340;
@@ -9,7 +9,7 @@ export class SyncGround {
     const w = this.sim.world;
     const rb = w.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(anchor[0], anchor[1], anchor[2]));
     const col = w.createCollider(RAPIER.ColliderDesc.trimesh(pos, idx).setCollisionGroups(GROUPS.world).setFriction(0.9).setRestitution(0), rb);
-    COLLIDER_LABELS.set(col.handle, label);
+    setColliderLabel(w, col, label);
     return rb;
   }
   update(s) {
@@ -20,8 +20,9 @@ export class SyncGround {
       const r = genRoadChunk(this.sim.road, this.sim.seed, c);
       this.chunks.set(c, [this._trimesh(t.colPositions, t.colIndices, t.anchor, 'terrain' + c), this._trimesh(r.colPositions, r.colIndices, r.anchor, 'road' + c)]);
     }
-    for (const [c, rbs] of this.chunks) if (c < c0 - 1 || c > c1 + 1) { for (const rb of rbs) this.sim.world.removeRigidBody(rb); this.chunks.delete(c); }
+    for (const [c, rbs] of this.chunks) if (c < c0 - 1 || c > c1 + 1) { for (const rb of rbs) removeBody(this.sim.world, rb); this.chunks.delete(c); }
   }
   hasColliderAt(s) { return this.chunks.has(Math.floor(s / CHUNK_LEN)); }
   groundReady(s) { return this.hasColliderAt(s) && this.hasColliderAt(s + 60) && this.hasColliderAt(s - 40); }
+  dispose() { for (const rbs of this.chunks.values()) for (const rb of rbs) removeBody(this.sim.world, rb); this.chunks.clear(); }
 }

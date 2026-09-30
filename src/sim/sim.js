@@ -1,6 +1,6 @@
 // Authoritative simulation (runs on the DRIVER's machine, or locally in solo). DOM-free.
 import * as THREE from 'three';
-import { RAPIER, initPhysics, createWorld, COLLIDER_LABELS } from './physics.js';
+import { RAPIER, initPhysics, createWorld, getColliderLabel, clearColliderLabels } from './physics.js';
 import { Vehicle } from './vehicle.js';
 import { Car } from './car.js';
 import { VEHICLES } from '../data/vehicles.js';
@@ -71,7 +71,8 @@ export class Sim {
   setGround(g) { this.ground = g; }
   /** The WASM world and event queue are owned by one life, not by the renderer. */
   dispose() {
-    if (this.world) this.world.forEachCollider((c) => COLLIDER_LABELS.delete(c.handle));
+    this.ground?.dispose?.();
+    if (this.world) clearColliderLabels(this.world);
     this.eventQueue?.free(); this.eventQueue = null;
     this.world?.free(); this.world = null;
     this.cars.clear(); this.colMap.clear(); this.events.length = 0;
@@ -169,7 +170,7 @@ export class Sim {
   _contacts(dt) {
     this.eventQueue.drainContactForceEvents((ev) => {
       const A = this.colMap.get(ev.collider1()), B = this.colMap.get(ev.collider2());
-      this._lastOther = COLLIDER_LABELS.get(A ? ev.collider2() : ev.collider1()) || (this.boss && (A ? ev.collider2() : ev.collider1()) ? 'boss?' : 'unknown');
+      this._lastOther = getColliderLabel(this.world, A ? ev.collider2() : ev.collider1()) || (this.boss && (A ? ev.collider2() : ev.collider1()) ? 'boss?' : 'unknown');
       const mag = ev.totalForceMagnitude();
       if (!A && !B) return;
       const dir = ev.maxForceDirection();

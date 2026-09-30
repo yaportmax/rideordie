@@ -50,7 +50,29 @@ export function addStaticBox(world, center, half, rotQuat, opts = {}) {
   return { rb, col };
 }
 
-export function removeBody(world, rb) { if (rb) world.removeRigidBody(rb); }
+export function removeBody(world, rb) {
+  if (!rb) return;
+  // Query the body's own colliders before Rapier invalidates their handles.
+  for (let i = 0; i < rb.numColliders(); i++) deleteColliderLabel(world, rb.collider(i).handle);
+  world.removeRigidBody(rb);
+}
 
-/** Debug: collider handle -> label for static geometry (terrain chunk, road chunk, hazard ...). */
+/** Diagnostic view of the latest label registered for a handle. Handles repeat between worlds. */
 export const COLLIDER_LABELS = new Map();
+const WORLD_LABELS = new WeakMap(), LABEL_OWNERS = new Map();
+
+export function setColliderLabel(world, collider, label) {
+  let labels = WORLD_LABELS.get(world);
+  if (!labels) { labels = new Map(); WORLD_LABELS.set(world, labels); }
+  labels.set(collider.handle, label); LABEL_OWNERS.set(collider.handle, world); COLLIDER_LABELS.set(collider.handle, label);
+}
+export function getColliderLabel(world, handle) { return WORLD_LABELS.get(world)?.get(handle); }
+function deleteColliderLabel(world, handle) {
+  WORLD_LABELS.get(world)?.delete(handle);
+  if (LABEL_OWNERS.get(handle) === world) { LABEL_OWNERS.delete(handle); COLLIDER_LABELS.delete(handle); }
+}
+export function clearColliderLabels(world) {
+  const labels = WORLD_LABELS.get(world); if (!labels) return;
+  for (const handle of labels.keys()) deleteColliderLabel(world, handle);
+  WORLD_LABELS.delete(world);
+}

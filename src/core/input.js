@@ -3,6 +3,7 @@
 import { clamp, damp } from './util.js';
 
 const DEADZONE = 0.14;
+const PAD_ACTIVE_DEADZONES = [0.1, DEADZONE, 0.12, 0.12];
 const applyDead = (v, dz = DEADZONE) => { const a = Math.abs(v); if (a < dz) return 0; return Math.sign(v) * (a - dz) / (1 - dz); };
 const curve = (v, p = 1.6) => Math.sign(v) * Math.pow(Math.abs(v), p);
 const editing = (e) => (e.composedPath?.() || [e.target]).some((t) => t?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t?.tagName || ''));
@@ -49,7 +50,7 @@ export class Input {
     addEventListener('wheel', (e) => { if (this.locked) this.wheel += Math.sign(e.deltaY); }, { passive: true });
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; if (!this.locked) this.reset(); });
     addEventListener('gamepadconnected', (e) => { this.padConnected = true; this.padName = e.gamepad.id; });
-    addEventListener('gamepaddisconnected', () => this._clearPad());
+    addEventListener('gamepaddisconnected', (e) => { if (!this.pad || this.pad.index === e.gamepad.index) this._clearPad(); });
   }
 
   /** Clear held buttons as well as frame edges when focus, capture, or a run changes. */
@@ -84,7 +85,10 @@ export class Input {
         const d = !!(pad.buttons[i]?.pressed || pad.buttons[i]?.value > 0.5);
         this.padEdge[i] = d && !this.padPrev[i]; this.padPrev[i] = d;
       }
-      const act = pad.buttons.some((b) => b.pressed) || pad.axes.some((a) => Math.abs(a) > 0.4);
+      // Device prompts and aim assist must follow usable analog input, not only fully pressed triggers.
+      // Ignore unused axes and stick drift inside the same deadzones as the command readers.
+      const act = pad.buttons.some((b, i) => b.pressed || b.value > (i === 6 ? 0.3 : i === 7 ? 0.35 : 0.5))
+        || PAD_ACTIVE_DEADZONES.some((dz, i) => Math.abs(pad.axes[i] || 0) > dz);
       if (act) this.lastDevice = 'pad';
     }
   }
@@ -98,7 +102,7 @@ export class Input {
   }
 
   /** Driver commands. Steering: +1 = left. */
-  driver(dt) {
+  driver(dt, dpadSteer = true) {
     const c = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false, reset: false, cameraToggle: false, horn: false, special1: false, special2: false, medkit: this.hit('medkit'), lookX: 0, lookY: 0, lookBack: this.down('lookBack'), mouseYaw: 0, mousePitch: 0 };
     // mouse free-look (pointer locked): drifts back to straight ahead when the mouse rests
     const ml = this.mlook || (this.mlook = { yaw: 0, pitch: 0, idle: 0 });
@@ -119,7 +123,7 @@ export class Input {
       const sx = applyDead(this.pad.axes[0] || 0, 0.1);
       let steer = -curve(sx, 1.35);
       const dpadL = this.btn(14), dpadR = this.btn(15);
-      if (dpadL || dpadR) steer = (dpadL ? 1 : 0) - (dpadR ? 1 : 0);
+      if (dpadSteer && (dpadL || dpadR)) steer = (dpadL ? 1 : 0) - (dpadR ? 1 : 0);
       if (Math.abs(steer) > Math.abs(c.steer)) c.steer = steer;
       c.throttle = Math.max(c.throttle, this.btnV(7)); c.brake = Math.max(c.brake, this.btnV(6));
       c.handbrake = c.handbrake || this.btn(0); c.nitro = c.nitro || this.btn(5); c.reset = c.reset || this.btn(3);
@@ -160,7 +164,7 @@ export class Input {
 
   /** Solo mode: one human drives with WASD and aims/fires with the mouse (or LS/triggers + RS aim + RB fire on a pad). */
   solo(dt) {
-    const d = this.driver(dt);
+    const d = this.driver(dt, false); // Solo D-pad left/right are gadgets; steering stays on the stick/keyboard.
     const g = this.gunner(dt);
     g.moveX = 0; g.moveZ = 0; g.crouch = false;
     // solo bindings that would clash: R = reload (reset needs hold: use T), G = grenade
