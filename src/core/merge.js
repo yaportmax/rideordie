@@ -11,10 +11,19 @@ function attrsKey(g) {
     .map((k) => { const a = g.attributes[k]; return `${k}:${a.itemSize}:${a.normalized}:${a.array.constructor.name}`; }).join(',') + (g.index ? ':i' : ':n');
 }
 
-/** Merge in place. `root` = a loaded glTF scene (the template that later gets cloned). */
-export function mergeRigid(root) {
+/** Merge in place. `associations` optionally identifies authored glTF nodes versus generated primitive meshes. */
+export function mergeRigid(root, associations = null) {
   const groups = [root];
-  root.traverse((o) => { if (o !== root && GROUP_RE.test(o.name)) groups.push(o); });
+  root.traverse((o) => {
+    if (o === root || !GROUP_RE.test(o.name)) return;
+    const source = associations?.get(o);
+    // GLTFLoader names primitive children after their mesh, e.g. panel_hood_1.
+    // They are rigid geometry under the authored panel pivot, not extra parts.
+    // A single-primitive authored Mesh has both primitives and nodes, so its
+    // own geometry/pivot must still survive animation and detachment intact.
+    if (o.isMesh && source?.primitives !== undefined && source.nodes === undefined) return;
+    groups.push(o);
+  });
   const groupSet = new Set(groups);
   let before = 0, after = 0;
   root.updateMatrixWorld(true);

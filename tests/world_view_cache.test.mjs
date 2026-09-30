@@ -43,7 +43,7 @@ test('distance caching preserves LOD hysteresis, visibility and detached-body up
     enemy.pos.x = distance; world.update(1 / 60, states, [], ctx); assert.equal(records.get(2).view.lodOn, lod);
   }
   enemy.pos.x = 130.01; world.update(1 / 60, states, [], ctx);
-  assert.equal(records.get(2).crew.gunner.root.visible, false); assert.equal(records.get(2).crew.gunner.root.matrixWorldAutoUpdate, false);
+  assert.equal(records.get(2).crew.gunner.root.visible, false); assert.notEqual(records.get(2).crew.gunner.root.matrixWorldAutoUpdate, false);
   const detached = records.get(2).crew.gunner; detached.detached = true; detached.deadT = 1;
   updates.length = 0; world.update(1 / 60, states, [], ctx);
   const dead = updates.filter((u) => u.id === 2); assert.equal(dead.length, 1); assert.equal(dead[0].values.alive, false);

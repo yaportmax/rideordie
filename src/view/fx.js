@@ -416,7 +416,9 @@ export class Fx {
     dt = Math.min(dt, 0.05);
     this.time += dt; this.frame++;
     const cam = this.camera;
-    cam.updateMatrixWorld(); cam.getWorldPosition(this.camPos);
+    // Only camera coordinates are needed here. The main scene render has
+    // already updated its attached arms/weapon; avoid walking them again.
+    cam.updateWorldMatrix(true, false); this.camPos.setFromMatrixPosition(cam.matrixWorld);
     _pv2.copy(cam.matrixWorld).invert(); _pv.multiplyMatrices(cam.projectionMatrix, _pv2); this.frustum.setFromProjectionMatrix(_pv);
     this._lightT -= dt; if (this._lightT <= 0) { this._lightT = 0.4; this._syncLighting(); }
     this.U.uTime.value = this.time; this.timeU.value = this.time;

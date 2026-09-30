@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { Cockpit } from '../src/view/cockpit.js';
+import { skipHiddenMatrixTraversal } from '../src/view/hidden_matrices.js';
 
 for (const fail of [false, true]) test(`mirror traffic uses merged cars and restores every pose${fail ? ' after render failure' : ''}`, () => {
   const scene = new THREE.Scene(), cars = new THREE.Group(); cars.name = 'cars'; scene.add(cars);
@@ -9,7 +10,7 @@ for (const fail of [false, true]) test(`mirror traffic uses merged cars and rest
   const car = new THREE.Group(); car.name = 'car_enemy'; car.position.z = -20; cars.add(car);
   const full = new THREE.Group(), source = new THREE.Group(); source.name = 'wheel_FL';
   source.position.set(1, 2, 3); source.rotation.y = 0.4; source.scale.y = 0.3; full.add(source);
-  const lod = new THREE.Group(); lod.name = 'lod'; lod.visible = false; lod.matrixWorldAutoUpdate = false;
+  const lod = skipHiddenMatrixTraversal(new THREE.Group()); lod.name = 'lod'; lod.visible = false;
   const body = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial());
   const wheel = body.clone(); wheel.position.set(4, 5, 6); lod.add(body, wheel);
   const crew = new THREE.Group(); crew.name = 'crew_raider';

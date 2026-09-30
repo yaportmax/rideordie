@@ -95,7 +95,7 @@ export class WorldView {
       const hideCrew = far || off;
       let farCrew = false;
       if (camPos && st.kind !== 'player') { rec.view.setLod(rec.view.lodOn ? distanceSq > 40 * 40 : distanceSq > 46 * 46); farCrew = distanceSq > 40 * 40; } // (LOD: 5 draws instead of 35-60 past ~45 m)
-      for (const { crew } of rec.crewEntries) if (crew.deadT < 0) { crew.root.visible = !hideCrew; crew.root.matrixWorldAutoUpdate = !hideCrew; } // hidden crews: skip 52-bone matrix updates
+      for (const { crew } of rec.crewEntries) if (crew.deadT < 0) crew.root.visible = !hideCrew; // CrewView skips the hidden render traversal, retaining explicit bone queries.
       if (hideCrew) {
         // bodies thrown off the vehicle live in world space: keep them falling even when their car is off-screen
         for (const { crew: c } of rec.crewEntries) if (c.detached && c.deadT >= 0 && c.deadT < 9.5) c.update(dt, DEAD);

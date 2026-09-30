@@ -22,6 +22,7 @@ import { clamp } from '../core/util.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
 import { patchCrewMaterials } from './crew_material.js';
+import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
 
 // first person: the local gunner's own body only casts its shadow (the viewmodel draws the arms + gun)
 const shadowMats = new Map();
@@ -128,7 +129,7 @@ export class CrewView {
     this.kind = kind; this.role = opts.role; this.opts = opts; this.alive = true; this.hero = /^hero/.test(kind);
     this.ai = opts.weapon === 'enemy';
     this.enemyRate = this.ai ? ENEMY_GUNS[opts.enemyGun]?.rate ?? null : null;
-    this.root = new THREE.Group(); this.root.name = 'crew_' + kind;
+    this.root = skipHiddenMatrixTraversal(new THREE.Group()); this.root.name = 'crew_' + kind;
     this.body = new THREE.Group(); this.root.add(this.body);             // yawed toward the aim
     let url = `/models/characters/${kind}.glb`;
     if (!Assets.has(url) && /\d$/.test(kind)) { kind = kind.slice(0, -1); this.kind = kind; url = `/models/characters/${kind}.glb`; }   // variant not loaded -> base

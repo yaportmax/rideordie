@@ -50,7 +50,7 @@ export async function preload(urls, onProgress) {
         }
       });
     }
-    if (g && /\/models\/(vehicles|weapons)\//.test(u) && !g.__merged) { g.__merged = true; if (/weapons/.test(u)) unifyAtlasMaterials(g.scene); const r = mergeRigid(g.scene); mergeStats.push([u.split('/').pop(), r.before, r.after]); }
+    if (g && /\/models\/(vehicles|weapons)\//.test(u) && !g.__merged) { g.__merged = true; if (/weapons/.test(u)) unifyAtlasMaterials(g.scene); const r = mergeRigid(g.scene, g.parser.associations); mergeStats.push([u.split('/').pop(), r.before, r.after]); }
     loaded.set(u, g); n++; if (onProgress) onProgress(n, urls.length, u);
   }));
 }

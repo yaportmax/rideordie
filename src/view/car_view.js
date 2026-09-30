@@ -5,6 +5,7 @@ import { buildCarLod, makeLodMaterial } from './car_lod.js';
 import { buildEliteKit, ramBar, makeGlint } from './elite_kits.js';
 import { MINIBOSSES } from '../data/boss.js';
 import { VEHICLES } from '../data/vehicles.js';
+import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
 
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
@@ -32,7 +33,7 @@ export class CarView {
       const L = buildCarLod(url, Assets.template(url));
       if (L && L.body) {
         const mat = makeLodMaterial(opts.paint, opts.paint2 ?? 0x30302e);
-        const g = new THREE.Group(); g.name = 'lod'; g.visible = false;
+        const g = skipHiddenMatrixTraversal(new THREE.Group()); g.name = 'lod'; g.visible = false;
         const body = new THREE.Mesh(L.body, mat); body.castShadow = true; body.receiveShadow = true; g.add(body);
         this.lodWheels = [];
         for (const [name, geo] of L.wheels) { const w = new THREE.Mesh(geo, mat); w.castShadow = true; w.rotation.order = 'YXZ'; g.add(w); this.lodWheels.push([name, w]); }
@@ -60,7 +61,7 @@ export class CarView {
   }
 
   _adoptModel(model, opts) {
-    this.model = model;
+    this.model = skipHiddenMatrixTraversal(model);
     Assets.ownMaterials(model, /^(paint|paint2|light_.*)$/);
     const paintMats = new Set(), tailMats = new Set(), headMats = new Set();
     this.root.add(model);
@@ -115,7 +116,7 @@ export class CarView {
     // nose marker so orientation is unmistakable
     const nose = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.3), new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0x554400 }));
     nose.position.set(0, 0.6, s.length / 2 - 0.05); g.add(nose);
-    this.root.add(g); this.model = g;
+    this.root.add(g); this.model = skipHiddenMatrixTraversal(g);
   }
 
   /** Update from a CarState (same path for the local sim and for network snapshots). */
@@ -168,9 +169,8 @@ export class CarView {
   /** Switch between the full model and the far LOD. */
   setLod(far) {
     if (!this.lod || far === this.lodOn) return;
-    this.lodOn = far; this.lod.visible = far; if (this.model) { this.model.visible = !far; this.model.matrixWorldAutoUpdate = !far; } // hidden full model: skip its matrix updates
+    this.lodOn = far; this.lod.visible = far; if (this.model) this.model.visible = !far;
     if (this.shadowProxy) this.shadowProxy.visible = !far; // (the far LOD body casts its own shadow)
-    this.lod.matrixWorldAutoUpdate = far;
   }
   _syncLodWheels() {
     if (!this.lodOn || !this.lodWheels) return;
