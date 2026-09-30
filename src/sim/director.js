@@ -329,7 +329,7 @@ export class Director {
   }
 
   /** Spawn at an explicit road position (boss ramp drops). */
-  spawnAt(sim, key, s, d, speed, o = {}) { return this.spawn(sim, key, Math.max(this.level, 0.5), { ...o, at: { s, d, speed } }); }
+  spawnAt(sim, key, s, d, speed, o = {}) { const L = sim.boss && !sim.boss.dead ? Math.min(this.level, 0.88) : this.level; return this.spawn(sim, key, Math.max(L, 0.5), { ...o, at: { s, d, speed } }); } // (boss escorts: distance level only)
 
   /** Spawn an enemy. o: {behavior, side, mode, next, gap, at:{s,d,speed}, elite, pattern} */
   spawn(sim, key, L, o = {}) {
