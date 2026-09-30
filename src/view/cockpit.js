@@ -262,7 +262,7 @@ export class Cockpit {
     g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 1, 1], 2));
     g.setIndex([0, 2, 1, 1, 2, 3]); g.computeVertexNormals();
     this.crackMat = new THREE.MeshBasicMaterial({ map: this.crackTex, transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide, opacity: 0.9 });
-    const m = new THREE.Mesh(g, this.crackMat); m.name = 'windshield_damage'; m.renderOrder = 3; m.visible = false;
+    const m = new THREE.Mesh(g, this.crackMat); m.name = 'windshield_damage'; m.renderOrder = 95; // after particles: cracks sit in front of flames outside m.visible = false;
     this.group.add(m); this.crackMesh = m; this.meshes.push(m);
     this._dust();
   }
@@ -363,12 +363,13 @@ export class Cockpit {
     cam.rotateX(-0.06);
     cam.updateMatrixWorld();
     _pv.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); this.frustum.setFromProjectionMatrix(_pv);
-    const vis = playerRoot.visible; playerRoot.visible = false;
+    // hide every mirror glass (a door thrown off the truck carries its glass into the world: sampling the target we render into = feedback loop)
+    const vis = playerRoot.visible; playerRoot.visible = false; this.glassMat.visible = false;
     const auto = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
     const prev = renderer.getRenderTarget();
     // the post pipeline turns autoClear off: clear colour+depth ourselves or every frame smears into the last (ghost trails)
     renderer.setRenderTarget(this.rt); renderer.clear(true, true, true); renderer.render(scene, cam); renderer.setRenderTarget(prev);
-    renderer.shadowMap.autoUpdate = auto; playerRoot.visible = vis;
+    renderer.shadowMap.autoUpdate = auto; playerRoot.visible = vis; this.glassMat.visible = true;
   }
   /** World position of the look-back camera. */
   lookBackWorld(out) { return this.model.localToWorld(out.copy(this.lookBackLocal)); }

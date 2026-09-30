@@ -308,7 +308,7 @@ export class Fx {
   _chunkBounce(pool, i, x, y, z, imp) {
     if (imp < 3 || !this.near(x, y, z, 120)) return;
     const r = this.rng, size = pool.sc[i * 3] * 2.2 + 0.4;
-    R.dust(this, x, y, z, r.sym(1), r.range(0.4, 1.4), r.sym(1), size * 0.4, size * 1.6, r.range(0.7, 1.2), 0.6, 0.5, 0.38, 0.4, y - 0.05, 2, 0.1);
+    const dc = R.dustColor('dirt'); R.dust(this, x, y, z, r.sym(1), r.range(0.4, 1.4), r.sym(1), size * 0.4, size * 1.6, r.range(0.7, 1.2), dc[0] * 0.8, dc[1] * 0.8, dc[2] * 0.8, 0.4, y - 0.05, 2, 0.1);
     if (imp > 6 && r.next() < 0.5) for (let k = 0; k < 3; k++) R.spark(this, x, y + 0.05, z, r.sym(4), r.range(1, 5), r.sym(4), r.range(0.2, 0.5), y - 0.02, 0.6, 0.03);
   }
   _chunkTrail(x, y, z, k, age) {
@@ -360,7 +360,7 @@ export class Fx {
     const hI = hemi ? hemi.intensity / Math.PI : 0.1;
     const sc = hemi ? hemi.color : _c1.setRGB(0.6, 0.65, 0.75), gc = hemi ? hemi.groundColor : _c2.setRGB(0.4, 0.35, 0.3);
     const night = 1 - (ATMO.uAtmSun.value.w || 0);
-    const fl = [0.1 * night, 0.115 * night, 0.16 * night];
+    const fl = [0.07 * night, 0.08 * night, 0.11 * night];
     const sky = this.U.uSkyCol.value, gnd = this.U.uGndCol.value;
     sky.set(sc.r * hI + envI * (0.35 * zen.x + 0.45 * hor.x), sc.g * hI + envI * (0.35 * zen.y + 0.45 * hor.y), sc.b * hI + envI * (0.35 * zen.z + 0.45 * hor.z)).multiplyScalar(this.ambGain);
     gnd.set(gc.r * hI + envI * 0.25 * hor.x, gc.g * hI + envI * 0.25 * hor.y, gc.b * hI + envI * 0.25 * hor.z).multiplyScalar(this.ambGain);

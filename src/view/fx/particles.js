@@ -389,7 +389,7 @@ void main() {
     diff *= diff;
     float back = max(0.0, -vLs.z);                    // key light behind the puff: thin parts glow (forward scattering)
     float hemi = clamp(dot(nn, vUs) * 0.5 + 0.5, 0.0, 1.0);
-    vec3 L = uKeyCol * (diff * (0.55 + 0.45 * (1.0 - thin * 0.5)) + thin * back * back * 1.6) + mix(uGndCol, uSkyCol, hemi);
+    vec3 L = uKeyCol * (diff * (0.55 + 0.45 * (1.0 - thin * 0.5)) + thin * back * back * 0.8) + mix(uGndCol, uSkyCol, hemi);
     c = vCol.rgb * mix(vec3(1.0), L, vLitP.x);
     c += uGlowCol * vLitP.z * (0.35 + 0.65 * clamp(-dot(nn, vUs) * 0.5 + 0.5, 0.0, 1.0)) * (0.5 + 0.5 * thin);
   } else {
