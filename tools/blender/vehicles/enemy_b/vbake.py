@@ -39,6 +39,7 @@ DEFAULTS = dict(
     orm_half=True,
     wheels=[],           # hub positions (x, y, z, R) for spray
     scale=1.0,           # world scale of the wear patterns (noise size, edge-wear width, streak length, weld heat rings): >1 for huge rigs
+                         # (optional edge_scale / heat_scale override it for the edge-wear band / weld heat rings)
     heat_spots=[],       # (x, y, z, radius): soot + heat tint around thrusters / flame nozzles / stack tops
     dens_fn=None,        # f(centre, normal) -> texel density multiplier per chart (hero faces)
     shelf_window=0,      # >0: first-fit only over the last N shelves (fast packing for tens of thousands of charts)
@@ -834,6 +835,16 @@ def r_paint_col(S, pc, sun_col, chip_col=(0.20, 0.19, 0.18), primer=(0.50, 0.48,
     return np.clip(rgb, 0.02, 1), np.clip(rough, 0.05, 1), np.clip(metal, 0, 1)
 
 
+def r_boss_chrome(S):
+    """the boss's 'chrome' (fuel tank shells, stacks, bezels) lives in armor / metal_dark, which the game does not darken like a material
+    named chrome: a darker, blurrier, grimier polished steel so the big tank cylinders don't mirror the sky"""
+    rgb, rough, metal = r_chrome(S)
+    n = S['n']
+    rgb = rgb * 0.5
+    rgb = mix(rgb, col((0.10, 0.09, 0.08), n), ss(0.4, 0.8, S['n_lo2']) * 0.35)
+    return rgb, np.clip(rough + 0.16, 0.05, 1), metal * 0.92
+
+
 def r_boss_rim(S):
     rgb, r, mt = r_paint_col(S, (0.30, 0.085, 0.06), (0.40, 0.16, 0.11), rough0=0.6)
     bd = np.clip(S['ao'] * 1.5 + 0.2 * S['n_mid'], 0, 1)                          # brake dust in the dish
@@ -861,9 +872,10 @@ RECIPES = {
     'brass': lambda S: _steel_like(S, 0.55, (1.0, 0.78, 0.42), 0.3, bare_col=(0.85, 0.7, 0.4), metal0=1.0, rough0=0.35, heat_col=False),
     'gun_metal': lambda S: _steel_like(S, 0.16, (1.0, 1.0, 1.02), 0.2, metal0=0.85, rough0=0.45, heat_col=False),
     # the Leviathan (untinted): oxblood war paint, charcoal trim, oxblood wheels
-    'boss_paint': lambda S: r_paint_col(S, (0.36, 0.085, 0.055), (0.46, 0.17, 0.11)),
+    'boss_paint': lambda S: r_paint_col(S, (0.33, 0.09, 0.062), (0.43, 0.18, 0.125)),
     'boss_paint2': lambda S: r_paint_col(S, (0.075, 0.072, 0.068), (0.17, 0.16, 0.145), chip_col=(0.30, 0.29, 0.28), rough0=0.7),
     'boss_rim': r_boss_rim,
+    'boss_chrome': r_boss_chrome,
 }
 
 
@@ -1130,10 +1142,11 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
     wn = fbm(Pn, 9.0, 2, seed + 6)
     chipn = fbm(Pn, 55.0, 3, seed + 7, gain=0.6)
     cmin = np.array([max(min(c.du, c.dv), 0.004) for c in cl], np.float32)[cid]
-    width = np.minimum((0.004 + 0.02 * ss(0.35, 0.85, wn)) * wear * SC, 0.14 * cmin + 0.002)
+    ES = opts.get('edge_scale', SC)
+    width = np.minimum((0.004 + 0.02 * ss(0.35, 0.85, wn)) * wear * ES, 0.14 * cmin + 0.002)
     ewm = ss(width, width * 0.25, ed)
     S['ew'] = (ewm * ss(0.30, 0.52, chipn * 0.7 + wn * 0.45)).astype(np.float32)
-    S['ew_core'] = (ss(np.minimum(0.005 * wear * SC, 0.08 * cmin + 0.001), 0.001, ed) * ss(0.45, 0.62, chipn)).astype(np.float32)
+    S['ew_core'] = (ss(np.minimum(0.005 * wear * ES, 0.08 * cmin + 0.001), 0.001, ed) * ss(0.45, 0.62, chipn)).astype(np.float32)
     zone = ss(0.58, 0.8, S['n_lo'] * 0.5 + S['n_mid'] * 0.5 + 0.25 * ao - 0.1 * (1 - wear))
     S['chip'] = (zone * ss(0.66, 0.71, chipn) * wear).astype(np.float32)
     # ---------------- scratches (two directions), repaint patches
@@ -1159,7 +1172,7 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
         better = dd_ < heat_d[sel]
         heat_d[sel[better]] = dd_[better]; wt[sel[better]] = tt[better]
     hn = vnoise(Pn, 25.0, seed + 13)
-    S['heat_d'] = (heat_d * (0.75 + 0.5 * hn) / SC).astype(np.float32)
+    S['heat_d'] = (heat_d * (0.75 + 0.5 * hn) / opts.get('heat_scale', SC)).astype(np.float32)
     S['heat_on'] = np.ones(n, np.float32)
     S['heat'] = (ss(0.05, 0.006, S['heat_d'])).astype(np.float32)
     isweld = (ckind == 'weld')

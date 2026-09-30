@@ -29,12 +29,12 @@ def _dens(c, n):
     z = c[2]
     k = 0.8 if z > 3.0 else (1.0 if z > -9.5 else 1.45)
     if z < -16.3 and n[2] < -0.5:
-        k = 2.1                                   # rear faces of trailer #2 (plates, ramp, tower, bumper)
+        k = 2.8                                   # rear faces of trailer #2 (plates, ramp, tower, bumper)
     return k
 
 
 m.bake_opts = dict(
-    dens=90.0, dens_max=1.1, dens_floor=0.9, margin=2, scale=2.2, shelf_window=14,
+    dens=90.0, dens_max=1.1, dens_floor=0.9, margin=2, scale=2.2, edge_scale=1.5, heat_scale=1.2, shelf_window=14,
     max_size={'armor': (2048, 2048), 'paint': (2048, 1024), 'metal_dark': (2048, 1024), 'paint2': (1024, 1024), 'plastic': (1024, 1024),
               'canvas': (1024, 512), 'rubber_tire': (1024, 512), 'rim': (512, 512), 'wood': (512, 512)},
     max_default=(512, 512),
@@ -44,7 +44,7 @@ m.bake_opts = dict(
     heat_spots=BR.HEAT_SPOTS + [(2.4, 8.95, 6.15, 0.8), (-2.4, 8.95, 6.15, 0.8)],
     dens_fn=_dens,
     recipes={'paint': 'boss_paint', 'paint2': 'boss_paint2', 'rim': 'boss_rim'},
-    look_recipes={'paint': 'boss_paint', 'paint2': 'boss_paint2'},
+    look_recipes={'paint': 'boss_paint', 'paint2': 'boss_paint2', 'chrome': 'boss_chrome'},
 )
 WN = []
 WP = []
@@ -606,4 +606,10 @@ if want('extra'):
     extra_detail()
 
 add_proxies(m)
-m.finish(ao_rays=9, ao_dist=3.0)
+m.finish()
+# size pass: int8 normals + uint16 atlas UVs (KHR_mesh_quantization; positions / node transforms untouched), see quantize_glb.mjs
+if not os.environ.get('NO_QUANT'):
+    import subprocess
+    _out = os.environ.get('VEH_OUT') or OUTDIR
+    _out = os.path.join(_out if os.path.isabs(_out) else os.path.join(ROOT, _out), 'boss_warrig.glb')
+    subprocess.run(['node', os.path.join(HERE, 'quantize_glb.mjs'), _out], cwd=ROOT, check=True)

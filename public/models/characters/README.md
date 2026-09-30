@@ -14,7 +14,17 @@ procedural garments and gear, procedurally keyed clips).  Metres, **Y up, faces 
 | `raider_d.glb` | hooded bomber: hazard-yellow hood up, **gas mask with twin filters** + amber goggles, dynamite vest with detonator (red LED), **backpack with dynamite bundles**, **molotov satchel** on the left hip, trigger in the right hand | 1.75 m | 13.2k | 1.83 MB | gunner set |
 | `raider_driver.glb` | bright red cap with flight goggles, mirrored gold aviators, eye-black war paint, tan jacket, stubble, leather jacket with collar up, **spiked scrap pauldron on the door side (left)**, chain necklace, fingerless gloves | 1.78 m | 11.2k | 1.16 MB | driver set (22) |
 
-Total: 16.2 MB (was 14 MB with 13 clips per file).  Raiders stay at 3 draw calls (`body`, `hair`, `eyes`; raider_c has no hair).
+| `raider_a2.glb` | variant: middle-aged African grunt, face unmasked (short grey-flecked beard, scar across the eye), goggles pushed up on the red bandana | 1.80 m | 12.2k | 2.0 MB | gunner set |
+| `raider_b2.glb` | variant: young Asian punk, cyan mohawk, black war band across the eyes + chin stripes | 1.76 m | 11.2k | 2.0 MB | gunner set |
+| `raider_c2.glb` | variant: older African heavy, black hockey mask with white slashes, blue-grey door pauldron | 1.90 m | 12.6k | 2.0 MB | gunner set |
+| `raider_d2.glb` | variant: tall bomber, orange hood, green gas-mask lenses | 1.84 m | 13.3k | 2.1 MB | gunner set |
+| `raider_driver2.glb` | variant: bald, full beard, goggles on the forehead + aviators, black leather jacket (no cap) | 1.80 m | 11.0k | 1.4 MB | driver set (22) |
+
+Sizes after the round-3 quality pass: hero_gunner 9.7 MB (own armor atlas), hero_driver 5.6 MB, raiders 1.4-2.1 MB;
+total 36 MB for 12 files.  Raiders stay at 3 draw calls (`body`, `hair`, `eyes`; raider_c has no hair); hero_gunner
+draws `body`, `hair`, `eyes` + the one visible armor tier.
+`world_view.js` picks raider variants deterministically from the car id (gunners `raider_<x>` / `raider_<x>2`, drivers
+`raider_driver` / `raider_driver2`); a missing variant file falls back to the base type (`crew_view.js`).
 Round 2: bolder, higher-contrast palettes (the near-black outfits made every raider a dark blob beyond 10 m).
 Trousers were repainted (folds gather at the waist and stack above the boots instead of full-length streaks; faded knees,
 seat/shin grime) and the crease darkening is softer.
@@ -45,14 +55,22 @@ The tier nodes carry `extras.hidden = true` (three.js puts it in `userData.hidde
 
 | material | textures | notes |
 |---|---|---|
-| `body` | `baseColorTexture` (sRGB), `normalTexture`, `metallicRoughnessTexture`, `emissiveTexture` (raider_d only) | opaque, double sided. Heroes 2048², raiders 1024². All former per-material colours, roughness and metalness are baked in. Former lenses are opaque glossy glass. |
+| `body` | `baseColorTexture` (sRGB), `normalTexture`, `metallicRoughnessTexture`, `emissiveTexture` (raider_d only) | opaque, double sided. Heroes 2048², raiders 1024². All former per-material colours, roughness and metalness are baked in. Former lenses are opaque glossy glass. extras `detail: {pxm, size}` (atlas texels per metre / atlas size). |
+| `armor` | same set as `body` | hero_gunner only: the hidden armor tiers `armor_t1..3` have their own 2048² atlas, so the base body keeps the whole `body` atlas |
 | `hair` | RGBA base colour | `alphaMode MASK` (cutoff 0.42), double sided. 1024² heroes, 512² raiders |
 | `eye` | base colour | opaque, 256² / 128² |
 
 Some meshes also carry `COLOR_0`, for example the red/brass bandolier shells and the red/black wires. It multiplies the albedo; three.js enables it automatically.
 
-**Tinting ("paint"):** the regions that used to be tintable `paint*` materials are flagged in the **R channel of the
-metallicRoughness texture**. glTF and three.js only read G (roughness) and B (metal) from it. Those regions are:
+**Detail class + tint flag (R channel of the metallicRoughness texture):** `R = class * 32 + (paint ? 24 : 8)`, class
+0 none, 1 skin, 2 fabric, 3 leather, 4 metal, 5 rubber / plastic (saved as JPEG 4:4:4 so the value survives).
+glTF and three.js only read G (roughness) and B (metal).  `src/view/crew_material.js` uses the class at runtime:
+a tileable micro-detail normal + roughness layer per class (pores, plain weave, pebbled grain, scratches, stipple;
+world-scale from `extras.detail`, faded out beyond ~16 m) and a wrap-lit, red-scattering diffuse term on skin.
+Skin also has a baked relief normal map (forehead / frown / crow's-feet lines, nasolabial folds, lip crease, knuckle
+creases, forearm veins), darkened creases, darker lips and a roughness map (oily T-zone).
+
+**Tinting ("paint"):** the paint flag marks the regions that used to be tintable `paint*` materials:
 
 - raider_a: bandana
 - raider_c: car-door pauldron and one chest plate
@@ -65,7 +83,7 @@ const tint = new THREE.Color(0xcc3311);
 mat.onBeforeCompile = (s) => {
   s.uniforms.uTint = { value: tint };
   s.fragmentShader = 'uniform vec3 uTint;\n' + s.fragmentShader.replace('#include <map_fragment>',
-    '#include <map_fragment>\n  diffuseColor.rgb *= mix(vec3(1.0), uTint, texture2D(metalnessMap, vMetalnessMapUv).r);');
+    '#include <map_fragment>\n  diffuseColor.rgb *= mix(vec3(1.0), uTint, step(0.5, fract(texture2D(metalnessMap, vMetalnessMapUv).r * 255.0 / 32.0)));');
 };
 ```
 (GLTFLoader assigns the MR texture to both `roughnessMap` and `metalnessMap`.)  Without a tint the default colour
@@ -74,8 +92,8 @@ factor already baked in shows (faded red bandana/cap, faded blue-grey door).
 Texel density on `body`:
 
 - hero_driver: ~1.2k px/m
-- hero_gunner: ~0.5k px/m, because the three armor tiers share its atlas
-- raiders: 0.27–0.39k px/m
+- hero_gunner: ~0.87k px/m (armor tiers: ~0.72k px/m in their own atlas)
+- raiders: 0.27–0.39k px/m (+ the runtime micro-detail layer up close)
 
 Faces get 2× and hands 1.4× that.
 

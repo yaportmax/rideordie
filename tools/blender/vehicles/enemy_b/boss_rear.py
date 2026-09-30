@@ -244,8 +244,8 @@ def tower_top(m):
         P2.sandbag_ring(m, [(2.2 * sx, -16.3), (2.2 * sx, -16.98), (1.25 * sx, -16.98)], DECKY + 0.02, rows=2, L=0.55, D=0.32, H=0.18)
         P2.ammo_can(m, (1.7 * sx, DECKY + 0.02, -16.45), yaw=15 * sx, mat='paint2', size=(0.22, 0.26, 0.4))
         # horned skull on a spike pole beside the sign
-        m.cyl('metal_dark', (2.3 * sx, DECKY, -17.05), (2.3 * sx, 9.72, -17.05), 0.04, seg=6)
-        P2.skull2(m, (2.3 * sx, 9.8, -17.07), s=1.35, n=(0.25 * sx, 0.05, -1), mat='plastic', dark='light_amber', horn_mat='metal_dark')
+        m.cyl('metal_dark', (2.3 * sx, DECKY, -17.05), (2.3 * sx, 9.45, -17.05), 0.04, seg=6)
+        P2.skull2(m, (2.3 * sx, 9.52, -17.07), s=1.35, n=(0.25 * sx, 0.05, -1), mat='plastic', dark='light_amber', horn_mat='metal_dark')
         # flag poles at the front corners (flags stream back)
         m.cyl('metal_dark', (2.3 * sx, DECKY, -15.25), (2.3 * sx, 10.05, -15.25), 0.035, seg=6)
         P2.flag(m, (2.3 * sx, 10.0, -15.28), length=1.1, height=0.62, direction=(0.22 * sx, 0, -1), mat='cloth_red', cols=8, wave=0.08, t=0.012)
@@ -280,8 +280,8 @@ def rear_plates(m):
     import os
     specs = ((-0.6, 0.6, 5.23, -17.24), (0.65, 2.05, 5.18, -17.25), (-2.05, -0.65, 5.18, -17.25))
     layouts = {1: [(0.0, 7.72, 0.8, 0.5, 0.0), (0.0, 6.18, 0.84, 0.46, -3.0)],
-               2: [(-0.2, 7.42, 0.6, 1.08, 0.0), (0.13, 6.3, 0.72, 0.88, 4.0)],
-               3: [(0.16, 7.5, 0.66, 0.92, -2.5), (-0.1, 6.28, 0.7, 0.84, 0.0)]}
+               2: [(-0.17, 7.42, 0.56, 1.08, 0.0), (0.1, 6.3, 0.66, 0.88, 4.0)],
+               3: [(0.12, 7.5, 0.62, 0.92, -2.5), (-0.1, 6.28, 0.68, 0.84, 0.0)]}
     for i, (x0, x1, yb, zmin) in enumerate(specs, start=1):
         if os.environ.get('NOPLATES'):
             continue
@@ -333,13 +333,13 @@ def ramp(m):
     chevrons(m, (0, 5.2, -17.13), 3.5, 0.22, (0, 0, -1), obj=o, stripe=0.17, gaps=2)
     for i in range(6):                                                                                       # hinge knuckles on the pivot axis
         x = -1.75 + i * 0.7
-        m.cyl('metal_dark', (x - 0.22, 3.02, -17.0), (x + 0.22, 3.02, -17.0), 0.14, seg=10, obj=o)
+        m.cyl('metal_dark', (x - 0.22, 3.02, -17.0), (x + 0.22, 3.02, -17.0), 0.14, seg=8, obj=o)
     m.cyl('metal_dark', (-1.98, 3.02, -17.0), (1.98, 3.02, -17.0), 0.07, seg=8, obj=o)
     for sx in (1, -1):                                                                                       # hydraulic rams
         m.cyl('armor', (2.06 * sx, 3.22, -17.1), (2.46 * sx, 4.45, -17.3), 0.11, seg=8, obj=o)
-        m.cyl('chrome', (2.46 * sx, 4.45, -17.3), (2.62 * sx, 5.05, -17.39), 0.055, seg=8, obj=o)
+        m.cyl('chrome', (2.46 * sx, 4.45, -17.3), (2.63 * sx, 5.05, -17.39), 0.055, seg=8, obj=o)
         m.cyl('metal_dark', (2.0 * sx, 3.14, -17.08), (2.12 * sx, 3.3, -17.12), 0.14, seg=8, obj=o)
-        m.cyl('metal_dark', (2.62 * sx, 5.05, -17.26), (2.62 * sx, 5.05, -17.44), 0.06, seg=6, obj=o)
+        m.cyl('metal_dark', (2.62 * sx, 5.05, -17.26), (2.62 * sx, 5.05, -17.45), 0.06, seg=6, obj=o)
     plate_skull_emblem(m, (0, 4.14, -17.13), s=0.98, n=(0, 0, -1), obj=o)
     m.use('body')
 
@@ -380,6 +380,7 @@ def thruster(m, at):
             t = 0.47 + k * 0.1
             rr = 0.18 + 0.18 * (t - 0.42) / 0.36 + 0.035
             m.revolve('armor', [(rr - 0.02, t - 0.018), (rr + 0.012, t - 0.012), (rr + 0.012, t + 0.012), (rr - 0.02, t + 0.018)], axis='-z', seg=16)
+        m.cyl('light_amber', (0, 0, -0.33), (0, 0, -0.35), 0.085, seg=10)                       # hot throat glow
         for k in range(4):
             a = 2 * PI * k / 4 + PI / 4
             m.tube('metal_dark', [(0.2 * math.cos(a), 0.2 * math.sin(a), -0.1), (0.3 * math.cos(a), 0.3 * math.sin(a), -0.35), (0.3 * math.cos(a), 0.3 * math.sin(a), -0.5)],

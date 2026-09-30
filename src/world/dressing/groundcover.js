@@ -383,7 +383,7 @@ function buildCover2(ctx, chunk, deadline) {
     const rnd = st.rnd, data = st.data, ax = st.anchor.x, ay = st.anchor.y, az = st.anchor.z;
     const [sc0, sc1] = SCALE[kind], ck = KEY[kind];
     while (st.i < st.nCand) {
-      if ((st.i & 127) === 0 && st.i > 0 && performance.now() > deadline) return false;
+      if ((st.i & 31) === 0 && st.i > 0 && performance.now() > deadline) return false;
       st.i++;
       const uSide = rnd(), uA = rnd(), uS = rnd(), uAcc = rnd(), uYaw = rnd(), uSc = rnd(), uCol = rnd(), uCl = rnd(), uV = rnd();
       const side = uSide < 0.5 ? 1 : -1;

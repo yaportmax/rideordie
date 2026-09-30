@@ -399,7 +399,7 @@ export class Director {
     // ... and they corner like the player's truck does (tyre upgrades included), or a fast truck simply leaves them in the ditch
     const pg = P.spec.grip, gm = (x, y) => Math.max(x, y) * 1.04;
     const grip = { ...base.grip, front: gm(base.grip.front, pg.front), rear: gm(base.grip.rear, pg.rear) };
-    const spec = { ...base, grip, engine: { ...base.engine, vmax: base.engine.vmax * k, accel0: base.engine.accel0 * Math.pow(k, 0.85) * 1.12 }, susp: base.susp, nitro: { capacity: behavior === 'rammer' || o.elite ? 3 : 1.5, regen: 0.35, mul: 1.6 } };
+    const spec = { ...base, grip, engine: { ...base.engine, vmax: base.engine.vmax * k, accel0: base.engine.accel0 * Math.pow(k, 0.85) * 1.12 }, susp: base.susp, nitro: { capacity: 3, regen: 0.35, mul: 1.75, vmaxMul: 1.22 } };   // (passes, peel-outs and rams all run on it)
     if (o.elite) spec.mass = base.mass * (o.elite.massMul ?? 1.5); // warlords are armour-plated: they shove you around
     let yawOff = 0, groundY = null;
     if (o.at?.burst) {
