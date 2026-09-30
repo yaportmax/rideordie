@@ -62,23 +62,33 @@ export class CarView {
   _adoptModel(model, opts) {
     this.model = model;
     Assets.ownMaterials(model, /^(paint|paint2|light_.*)$/);
+    const paintMats = new Set(), tailMats = new Set(), headMats = new Set();
     this.root.add(model);
     model.traverse((o) => {
       const n = o.name;
-      if (/^wheel_/.test(n)) this.wheelNodes.set(n.slice(6), o);
+      if (/^wheel_[A-Za-z0-9]+$/.test(n)) this.wheelNodes.set(n.slice(6), o);
       else if (/^panel_/.test(n) && !/^panel_/.test(o.parent?.name || '')) this.panels.set(n.slice(6), o); // (not the per-material sub-meshes)
       else if (/^(seat_|steering_wheel|gun_mount|light_head_|light_tail_|exhaust|smoke_engine|fuel_cap|nitro_|camera_hood|roof_top|turret|rocket_pod|flame_|muzzle|floodlight|smoke_stack)/.test(n)) this.sockets[n] = o;
       if (o.isMesh) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         for (const m of mats) {
-          if (m.name === 'paint' || m.name === 'paint2') (this.paintMats || (this.paintMats = [])).push(m);
+          if (m.name === 'paint' || m.name === 'paint2') paintMats.add(m);
           if (m.name === 'paint' && opts.paint !== undefined) m.color.setHex(opts.paint);
           if (m.name === 'paint2' && opts.paint2 !== undefined) m.color.setHex(opts.paint2);
-          if (m.name === 'light_tail') this.taillights.push(m);
-          if (m.name === 'light_head') this.headlights.push(m);
+          if (m.name === 'light_tail') tailMats.add(m);
+          if (m.name === 'light_head') headMats.add(m);
           if (m.name === 'glass') { m.transparent = true; m.depthWrite = false; }
         }
       }
+    });
+    this.paintMats = [...paintMats]; this.taillights = [...tailMats]; this.headlights = [...headMats];
+    // Mesh primitives remain rigid inside their wheel/panel/steering parents.
+    // Their local transform is constant; world transforms still follow the
+    // car, animations and detached parts normally.
+    const movable = new Set([...this.wheelNodes.values(), ...this.panels.values(), this.sockets.steering_wheel]);
+    model.traverse((o) => {
+      if (!o.isMesh || o.isSkinnedMesh || movable.has(o)) return;
+      o.updateMatrix(); o.matrixAutoUpdate = false;
     });
     for (const [name, node] of this.wheelNodes) { node.rotation.order = 'YXZ'; node.userData.rest = node.position.clone(); }
   }
@@ -119,7 +129,7 @@ export class CarView {
     const vf = st.vel.dot(_fw);
     for (let i = 0; i < spec.wheels.length; i++) {
       const w = spec.wheels[i], node = this.wheelNodes.get(w.name);
-      if (!node) continue;
+      if (!node || node.userData.gone) continue; // detached wheels belong to the debris simulation
       st.spin[i] += (vf / spec.wheelRadius) * dt * (st.braking && st.slip[i] > 0.6 ? 0.2 : 1);
       const steer = w.front ? st.steer : 0;
       node.position.set(w.x, ri.mountY - st.L[i] + ri.restComHeight, w.z);
@@ -174,7 +184,7 @@ export class CarView {
   }
   setTint(hex, hex2) {
     if (this.lodMat) { this.lodMat.userData.uPaint.value.setHex(hex); if (hex2 !== undefined) this.lodMat.userData.uPaint2.value.setHex(hex2); }
-    this.root.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) { if (m.name === 'paint') m.color.setHex(hex); if (m.name === 'paint2' && hex2 !== undefined) m.color.setHex(hex2); } });
+    for (const m of this.paintMats || []) { if (m.name === 'paint') m.color.setHex(hex); if (m.name === 'paint2' && hex2 !== undefined) m.color.setHex(hex2); }
   }
   dispose() { this.kit?.dispose(); this.glint?.material.dispose(); this.root.removeFromParent(); }
 }

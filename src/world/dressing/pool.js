@@ -13,6 +13,9 @@ export class InstancePool {
   constructor(scene, kit) {
     this.scene = scene; this.kit = kit;
     this.group = new THREE.Group(); this.group.name = 'dressing-pool'; scene.add(this.group);
+    // Placements live in instanceMatrix, not Object3D transforms. Keep this
+    // identity node out of the scene's repeated matrix composition pass.
+    this.group.matrixAutoUpdate = false;
     this.specs = new Map();     // primary asset name -> spec
     this.entries = new Map();   // asset name -> entry
     this.qf = 1;                // far-distance quality factor
@@ -101,25 +104,33 @@ export class InstancePool {
         const ex = list.rad;
         const dx0 = Math.max(list.minx - ex - cx, 0, cx - list.maxx - ex), dy0 = Math.max(list.miny - ex - cy, 0, cy - list.maxy - ex), dz0 = Math.max(list.minz - ex - cz, 0, cz - list.maxz - ex);
         if (dx0 * dx0 + dy0 * dy0 + dz0 * dz0 > farSq) continue;
-        const lods = spec.lods || [{ asset: key, max: 1e9 }];
+        const lods = spec.lods || (spec._defaultLods || (spec._defaultLods = [{ asset: key, max: 1e9 }]));
         let ents = spec._ents;
         if (!ents || ents.length !== lods.length || ents.some((x) => !x)) {
           ents = lods.map((l) => this._entry(l.asset, spec)); spec._ents = ents;
           if (lods.some((l, k) => !ents[k] && this.kit.state(l.asset) !== 'missing')) missing++;
           if (ents.every((x) => !x)) continue;
         }
-        const lodSq = lods.map((l) => (Math.min(l.max, far) * (l.max >= 1e8 ? 1 : this.qf)) ** 2);
+        if (spec._lodQuality !== this.qf || spec._lodFar !== far || spec._lodSource !== lods) {
+          spec._lodQuality = this.qf; spec._lodFar = far; spec._lodSource = lods;
+          spec._lodSq = lods.map((l) => (Math.min(l.max, far) * (l.max >= 1e8 ? 1 : this.qf)) ** 2);
+        }
+        const lodSq = spec._lodSq;
         const nl = lods.length, m = list.m, col = list.col, behind = spec.behind, canShadow = spec.shadow && shOn;
         const rr = list.rad;
         // ---- fast path: whole list in the last LOD, inside the far range, in front of the camera and outside the shadow box -> one memcpy
-        if (nl > 1 && ents[nl - 1]) {
+        if (ents[nl - 1]) {
           const ax = Math.max(Math.abs(list.minx - cx), Math.abs(list.maxx - cx)), ay = Math.max(Math.abs(list.miny - cy), Math.abs(list.maxy - cy)), az = Math.max(Math.abs(list.minz - cz), Math.abs(list.maxz - cz));
           const dmin2 = dx0 * dx0 + dy0 * dy0 + dz0 * dz0, dmax2 = ax * ax + ay * ay + az * az;
           let front = true;
-          if (behind) for (const [qx, qz] of [[list.minx, list.minz], [list.maxx, list.minz], [list.minx, list.maxz], [list.maxx, list.maxz]]) if ((qx - cx) * fx + (qz - cz) * fz < 0) { front = false; break; }
+          if (behind) {
+            // The minimum dot product occurs at one corner of the AABB.
+            const qx = fx < 0 ? list.maxx : list.minx, qz = fz < 0 ? list.maxz : list.minz;
+            front = (qx - cx) * fx + (qz - cz) * fz >= 0;
+          }
           let noShadow = !canShadow;
           if (!noShadow) { const sx = Math.max(list.minx - rr - sh.fx, 0, sh.fx - list.maxx - rr), sz = Math.max(list.minz - rr - sh.fz, 0, sh.fz - list.maxz - rr); noShadow = sx * sx + sz * sz > (sh.rad + sh.depth) * (sh.rad + sh.depth); }
-          if (front && noShadow && dmin2 > lodSq[nl - 2] && dmax2 < farSq) {
+          if (front && noShadow && (nl === 1 || dmin2 > lodSq[nl - 2]) && dmax2 < farSq) {
             const set = ents[nl - 1].sets[0], n = list.n;
             if (set.n + n > set.cap) this._regrow(set, set.n + n);
             set.mat.set(m.subarray(0, n * 16), set.n * 16); set.col.set(col.subarray(0, n * 3), set.n * 3);
@@ -152,7 +163,10 @@ export class InstancePool {
           }
           const set = ent.sets[toShadow];
           if (set.n >= set.cap) this._regrow(set, set.n + 1);
-          set.mat.set(m.subarray(o, o + 16), set.n * 16);
+          // No temporary typed-array view for every visible prop. Mixed lists
+          // still need per-instance culling/LOD/shadow selection.
+          const mo = set.n * 16;
+          for (let k = 0; k < 16; k++) set.mat[mo + k] = m[o + k];
           const c = set.n * 3, ci = i * 3; set.col[c] = col[ci]; set.col[c + 1] = col[ci + 1]; set.col[c + 2] = col[ci + 2];
           set.n++; total += 1; shTotal += toShadow;
           if (px < set.min.x) set.min.x = px; if (px > set.max.x) set.max.x = px;

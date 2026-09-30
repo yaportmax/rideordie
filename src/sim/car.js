@@ -1,6 +1,5 @@
 // Car entity (player truck or raider): vehicle physics body + crew + hit zones + damage state.
 import * as THREE from 'three';
-import { clamp } from '../core/util.js';
 
 const _p = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion(), _c3 = [0, 0, 0];
 
@@ -40,6 +39,12 @@ export class Car {
     if (ng >= 1) this.crew.gunner = { hp: spec.gunnerHp ?? 50, max: spec.gunnerHp ?? 50, alive: true, armor: spec.gunnerArmor ?? 0, aimYaw: 0, aimPitch: 0, fire: false, crouch: false, ragdolled: false };
     if (ng >= 2) this.crew.gunner2 = { hp: spec.gunnerHp ?? 50, max: spec.gunnerHp ?? 50, alive: true, armor: 0, aimYaw: 0, aimPitch: 0, fire: false, crouch: false };
     this.zones = buildZones(spec);
+    // Static zone bounds are built once. Dynamic crew movement is included below.
+    this._zoneRadius = 0;
+    for (const zn of this.zones) {
+      const extent = zn.shape === 'sphere' ? zn.r : Math.hypot(...zn.h);
+      this._zoneRadius = Math.max(this._zoneRadius, Math.hypot(...zn.c) + extent);
+    }
     this.tireHp = spec.wheels.map(() => 3); this.engineHp = 100; this.fuelHp = 60;
     this.dead = false; this.exploded = false; this.burning = 0; this.smoking = false; this.fuseT = -1;
     this.s = 0; this.d = 0; // road coordinates
@@ -58,8 +63,18 @@ export class Car {
   /** Ray (world) vs this car's zones. Returns {t, zone, point, car, throughBody} or null. */
   raycast(origin, dir, maxDist, ignoreRoles) { return raycastZones(this, origin, dir, maxDist, ignoreRoles); }
 
+  /** Conservative world-space radius for rejecting projectile segments, including mobile crew. */
+  raycastRadius() {
+    let crewOffset = 0;
+    for (const role in this.crew) {
+      const c = this.crew[role];
+      crewOffset = Math.max(crewOffset, Math.hypot(c.x || 0, c.z || 0) + (c.crouch ? 0.55 : 0));
+    }
+    return this._zoneRadius + Math.abs(this.veh.restComHeight) + crewOffset + 1e-6;
+  }
+
   /** Alive crew count (for AI/scoring). */
-  crewAlive() { return Object.values(this.crew).filter((c) => c.alive).length; }
+  crewAlive() { let n = 0; for (const role in this.crew) if (this.crew[role].alive) n++; return n; }
 }
 
 export function raySphere(o, d, c, r) {
@@ -72,10 +87,25 @@ export function raySphere(o, d, c, r) {
 }
 export function rayBox(o, d, c, h) {
   let tmin = 0, tmax = 1e9;
-  const oo = [o.x - c[0], o.y - c[1], o.z - c[2]], dd = [d.x, d.y, d.z];
-  for (let i = 0; i < 3; i++) {
-    if (Math.abs(dd[i]) < 1e-9) { if (Math.abs(oo[i]) > h[i]) return -1; continue; }
-    let t1 = (-h[i] - oo[i]) / dd[i], t2 = (h[i] - oo[i]) / dd[i];
+  // Scalars avoid creating two temporary arrays for every box of every shot.
+  const ox = o.x - c[0], oy = o.y - c[1], oz = o.z - c[2];
+  if (Math.abs(d.x) < 1e-9) { if (Math.abs(ox) > h[0]) return -1; }
+  else {
+    let t1 = (-h[0] - ox) / d.x, t2 = (h[0] - ox) / d.x;
+    if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+    tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return -1;
+  }
+  if (Math.abs(d.y) < 1e-9) { if (Math.abs(oy) > h[1]) return -1; }
+  else {
+    let t1 = (-h[1] - oy) / d.y, t2 = (h[1] - oy) / d.y;
+    if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+    tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return -1;
+  }
+  if (Math.abs(d.z) < 1e-9) { if (Math.abs(oz) > h[2]) return -1; }
+  else {
+    let t1 = (-h[2] - oz) / d.z, t2 = (h[2] - oz) / d.z;
     if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
     tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
     if (tmin > tmax) return -1;
@@ -89,7 +119,7 @@ export function raycastZones(carLike, origin, dir, maxDist, ignoreRoles) {
   _q.copy(v.quat).invert();
   _p.copy(origin).sub(v.pos).applyQuaternion(_q); _p.y += v.restComHeight;
   _d.copy(dir).applyQuaternion(_q);
-  let bestBody = null, bestPart = null;
+  let bodyZone = null, partZone = null, bodyT = Infinity, partT = Infinity;
   for (const zn of carLike.zones) {
     const cr = zn.role ? carLike.crew[zn.role] : null;
     if (cr && !cr.alive) continue;
@@ -100,16 +130,17 @@ export function raycastZones(carLike, origin, dir, maxDist, ignoreRoles) {
     }
     const t = zn.shape === 'sphere' ? raySphere(_p, _d, c, zn.r) : rayBox(_p, _d, c, zn.h);
     if (t < 0 || t > maxDist) continue;
-    if (zn.kind === 'body') { if (!bestBody || t < bestBody.t) bestBody = { t, zone: zn }; }
-    else if (!bestPart || t < bestPart.t) bestPart = { t, zone: zn };
+    if (zn.kind === 'body') { if (!bodyZone || t < bodyT) { bodyT = t; bodyZone = zn; } }
+    else if (!partZone || t < partT) { partT = t; partZone = zn; }
   }
   // crew / engine / tyres inside the hull volume are reachable through the open windows and bed: prefer them when they lie
   // within a few metres behind the first bodywork entry; mark whether the shot crossed bodywork (armour applies)
-  let best = null;
-  if (bestPart && (!bestBody || bestPart.t <= bestBody.t + 3.2)) { best = bestPart; best.throughBody = !!bestBody && bestBody.t < bestPart.t - 0.05; }
-  else if (bestBody) { best = bestBody; best.throughBody = false; }
-  if (best) { best.point = new THREE.Vector3().copy(origin).addScaledVector(dir, best.t); best.car = carLike; }
-  return best;
+  let zone, t, throughBody;
+  if (partZone && (!bodyZone || partT <= bodyT + 3.2)) { zone = partZone; t = partT; throughBody = !!bodyZone && bodyT < partT - 0.05; }
+  else if (bodyZone) { zone = bodyZone; t = bodyT; throughBody = false; }
+  else return null;
+  // Only the returned hit owns objects; superseded candidates stay as scalar scratch.
+  return { t, zone, throughBody, point: new THREE.Vector3().copy(origin).addScaledVector(dir, t), car: carLike };
 }
 
 /** Client-side stand-in for a Car: built from a CarState so the gunner can raycast the cars it sees. */

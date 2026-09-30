@@ -43,6 +43,9 @@ export class TerrainStreamer {
     this.road = new Road(this.seed);       // main-thread copy of the deterministic road (floor placement only)
     this.onChunk = null; // callback(chunkIndex, record)
     this._sLast = 0;
+    this._want = []; this._wantPool = [];
+    this._scheduleS = NaN; this._scheduleLo = Infinity; this._scheduleHi = -Infinity;
+    this._scheduleDirty = true;
   }
 
   lodFor(dist) { return dist < LOD_DIST[0] ? 0 : dist < LOD_DIST[1] ? 1 : 2; }
@@ -52,23 +55,43 @@ export class TerrainStreamer {
     this._sLast = s;
     setRoadNight(this.roadMat, lookAt(s, _look).night);
     const c0 = Math.floor((s - BEHIND) / CHUNK_LEN), c1 = Math.floor((s + AHEAD) / CHUNK_LEN);
-    const want = [];
-    for (let c = Math.max(0, c0); c <= c1; c++) {
-      const centre = c * CHUNK_LEN + CHUNK_LEN / 2;
-      const dist = Math.abs(centre - s);
-      const lod = this.lodFor(centre < s ? dist * 1.6 : dist); // keep LOD0 a bit less behind
-      want.push({ c, lod, dist });
+    const want = this._want;
+    const changed = s !== this._scheduleS && !(s > this._scheduleLo && s < this._scheduleHi);
+    if (changed) {
+      want.length = 0;
+      // Chunk-window, LOD and nearest-first order can change only at these boundaries.
+      // Strict intervals deliberately re-evaluate an exact boundary once; a stationary
+      // player there still uses the exact-position cache below.
+      const half = CHUNK_LEN / 2;
+      let lo = Math.floor(s / half) * half, hi = lo + half;
+      if (s === lo) hi = s; // At a priority tie, either direction must re-sort once.
+      const bound = (b) => { if (b <= s) lo = Math.max(lo, b); if (b >= s) hi = Math.min(hi, b); };
+      bound(c0 * CHUNK_LEN + BEHIND); bound((c0 + 1) * CHUNK_LEN + BEHIND);
+      bound(c1 * CHUNK_LEN - AHEAD); bound((c1 + 1) * CHUNK_LEN - AHEAD);
+      for (let c = Math.max(0, c0); c <= c1; c++) {
+        const centre = c * CHUNK_LEN + half, dist = Math.abs(centre - s);
+        const lod = this.lodFor(centre < s ? dist * 1.6 : dist);
+        bound(centre - LOD_DIST[0]); bound(centre - LOD_DIST[1]);
+        bound(centre + LOD_DIST[0] / 1.6); bound(centre + LOD_DIST[1] / 1.6);
+        const i = want.length, rec = this._wantPool[i] || (this._wantPool[i] = { c: 0, lod: 0, dist: 0 });
+        rec.c = c; rec.lod = lod; rec.dist = dist; want.push(rec);
+      }
+      want.sort((a, b) => a.dist - b.dist);
+      this._scheduleS = s; this._scheduleLo = lo; this._scheduleHi = hi;
     }
-    want.sort((a, b) => a.dist - b.dist);
-    for (const w of want) {
-      const rec = this.chunks.get(w.c);
-      if (rec && rec.lod === w.lod) continue;
-      const key = `${w.c}:${w.lod}`;
-      if (this.pending.has(key)) continue;
-      const wk = this.workers.reduce((a, b) => (a.busy <= b.busy ? a : b));
-      if (wk.busy >= 2) break;
-      this.pending.add(key); wk.busy++;
-      wk.postMessage({ type: 'chunk', key, chunk: w.c, lod: w.lod, road: !rec });
+    if (changed || this._scheduleDirty) {
+      this._scheduleDirty = false;
+      for (const w of want) {
+        const rec = this.chunks.get(w.c);
+        if (rec && rec.lod === w.lod) continue;
+        const key = `${w.c}:${w.lod}`;
+        if (this.pending.has(key)) continue;
+        let wk = this.workers[0];
+        for (let i = 1; i < this.workers.length; i++) if (this.workers[i].busy < wk.busy) wk = this.workers[i];
+        if (!wk || wk.busy >= 2) break;
+        this.pending.add(key); wk.busy++;
+        wk.postMessage({ type: 'chunk', key, chunk: w.c, lod: w.lod, road: !rec });
+      }
     }
     // drop far chunks
     for (const [c, rec] of this.chunks) {
@@ -90,7 +113,7 @@ export class TerrainStreamer {
   _onMsg2(w, m) {
     if (m.type === 'ready') { this.ready++; return; }
     if (m.type !== 'chunk') return;
-    w.busy = Math.max(0, w.busy - 1); this.pending.delete(m.key);
+    w.busy = Math.max(0, w.busy - 1); this.pending.delete(m.key); this._scheduleDirty = true;
     const c0 = Math.floor((this._sLast - BEHIND) / CHUNK_LEN) - 1, c1 = Math.floor((this._sLast + AHEAD) / CHUNK_LEN) + 2;
     if (m.chunk < c0 || m.chunk > c1) return;
     let rec = this.chunks.get(m.chunk);

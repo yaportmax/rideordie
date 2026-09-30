@@ -71,6 +71,17 @@ function springStep(x, v, target, w, z, dt) {   // critically-ish damped vector 
 const smooth01 = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
+/** Eyes/hair do not need separate shadow draws; retain the held weapon's caster policy. */
+export function configureCrewShadows(root, weaponRoot = null) {
+  const weaponMeshes = new Set();
+  weaponRoot?.traverse((o) => { if (o.isMesh) weaponMeshes.add(o); });
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    if (!weaponMeshes.has(o)) { o.castShadow = !/^(eyes|hair)/.test(o.name); o.receiveShadow = true; }
+    o.frustumCulled = !o.isSkinnedMesh;
+  });
+}
+
 const clipIndex = new WeakMap();      // clips array -> Map(name -> clip)
 const additiveCache = new Map();      // source clip -> additive clone (shared by every crew using that GLB)
 function additiveOf(clip, ref) {
@@ -142,7 +153,7 @@ export class CrewView {
     if (this.role !== 'driver') this.setWeapon(opts.weapon === 'enemy' ? ENEMY_GUN_MODEL[opts.enemyGun] || 'rifle' : opts.weapon || 'pistol');
     this.aimYawL = 0; this.bodyYaw = 0; this.pitch = 0; this.crouch = 0; this.kick = 0; this.flinchT = 0; this.throwT = 0; this.steer = 0;
     this.deadT = -1; this.fallVel = V(); this.fallSpin = V(); this.detached = false; this.leave = null; this.y0 = 0; this.yGround = null;
-    this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh; } });
+    configureCrewShadows(this.root, this.weapon?.root);
   }
 
   _setupRig(model) {

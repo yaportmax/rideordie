@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { RAPIER, initPhysics, createWorld, RAY_SHOT } from '../sim/physics.js';
 import { Sim, DT } from '../sim/sim.js';
+import { RoadQuery } from '../sim/road_query.js';
 import { SyncGround } from '../sim/sync_ground.js';
 import { GhostCar } from '../sim/car.js';
 import { TerrainStreamer } from '../world/terrain.js';
@@ -136,7 +137,7 @@ export class Run {
     return h ? y + 4 - h.timeOfImpact : null;
   }
   _surfaceKind(x, z) {
-    const road = this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)));
+    const road = this.sim ? this.sim.roadQuery : (this._roadQuery || (this._roadQuery = new RoadQuery(this._road || (this._road = new Road(this.seed)))));
     const n = road.nearest(x, z, this.playerS || 0, 80, this._nn || (this._nn = {}));
     if (Math.abs(n.d) < 7.2) return 'asphalt';
     const b = biomeAt(n.s); const id = b.w > 0.5 ? b.b : b.a;
@@ -207,7 +208,7 @@ export class Run {
         if (!st || st.specId !== c.spec.id) { st = makeCarState(c.id, c.spec.id, c.kind); this.states.set(c.id, st); }
         stateFromCar(c, this.alpha, st);
       }
-      for (const id of [...this.states.keys()]) if (!this.sim.cars.has(id)) this.states.delete(id);
+      for (const id of this.states.keys()) if (!this.sim.cars.has(id)) this.states.delete(id);
       this.events = this.sim.drainEvents();
       if (this.role === 'driver' && this.net) this._sendNet(dt);
       this.playerS = P.s;
@@ -231,7 +232,7 @@ export class Run {
       for (const st of this.states.values()) st.hitFlash = 0;
       if (this.localFlash) for (const [id, t] of this.localFlash) { const st = this.states.get(id); if (st) st.hitFlash = t; const nt = t - dt; if (nt <= 0) this.localFlash.delete(id); else this.localFlash.set(id, nt); }
       for (const [id, st] of this.states) { let gh = this.ghosts.get(id); if (!gh) { gh = new GhostCar(st); this.ghosts.set(id, gh); } gh.sync(st); }
-      for (const id of [...this.ghosts.keys()]) if (!this.states.has(id)) this.ghosts.delete(id);
+      for (const id of this.ghosts.keys()) if (!this.states.has(id)) this.ghosts.delete(id);
       if (this.simState === 'over' && !this.over) { this.over = true; }
     }
     const pst = this.states.get(this.playerId);
@@ -323,7 +324,7 @@ export class Run {
       ctx.states = this.states;
       for (const e of evs) fx.handleEvent(e, ctx);
       const sc = this._surfCache || (this._surfCache = new Map());
-      const road = this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)));
+      const road = this.sim ? this.sim.roadQuery : (this._roadQuery || (this._roadQuery = new RoadQuery(this._road || (this._road = new Road(this.seed)))));
       for (const st of this.states.values()) {
         const v = this.wv.viewMap.get(st.id); if (!v) continue;
         let c = sc.get(st.id);

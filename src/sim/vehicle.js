@@ -9,9 +9,10 @@ import { RAPIER, GROUPS, RAY_WORLD, GRAVITY } from './physics.js';
 import { clamp, clamp01, lerp, smoothstep, damp, wrapAngle } from '../core/util.js';
 
 const V = THREE.Vector3, Q = THREE.Quaternion;
-const _v1 = new V(), _v2 = new V(), _v3 = new V(), _v4 = new V(), _v5 = new V(), _f = new V(), _l = new V(), _n = new V();
+const _v1 = new V(), _v3 = new V(), _v4 = new V(), _v5 = new V(), _f = new V(), _l = new V(), _n = new V();
 const _q = new Q(), _up = new V(0, 1, 0);
 const _imp = new V(), _pt = new V();
+const GEAR_CAPS = [0.16, 0.32, 0.5, 0.7, 1.0];
 
 export const DEFAULT_SURFACE = { grip: 1, drag: 0, kind: 'asphalt' };
 
@@ -72,12 +73,14 @@ export class Vehicle {
     // ---- wheels
     this.wheels = s.wheels.map((w) => ({
       name: w.name, front: !!w.front, drive: w.drive ?? 0, brake: w.brake ?? 0.25, hb: !!w.hb,
-      mount: new V(w.x, mountY, w.z),
+      mount: new V(w.x, mountY, w.z), mountWorld: new V(),
       L: this.maxLen, Lprev: this.maxLen, grounded: false, steer: 0, spin: 0, spinRate: 0, slip: 0, slipLat: 0, load: 0,
       contact: new V(), normal: new V(0, 1, 0), surface: DEFAULT_SURFACE, grip: 1, flat: false, hp: 1,
       compress: 0, vf: 0, vl: 0,
     }));
     this.axles = []; // pairs for anti-roll: [left,right] with same z
+    this._compression = new Float64Array(this.wheels.length);
+    this._antiRoll = new Float64Array(this.wheels.length);
     const byZ = new Map();
     this.wheels.forEach((w, i) => { const k = w.mount.z.toFixed(2); if (!byZ.has(k)) byZ.set(k, []); byZ.get(k).push(i); });
     for (const idx of byZ.values()) if (idx.length === 2) this.axles.push(idx);
@@ -113,11 +116,14 @@ export class Vehicle {
   readState() {
     const b = this.body;
     const t = b.translation(), r = b.rotation(), lv = b.linvel(), av = b.angvel();
+    const rotated = r.x !== this.quat.x || r.y !== this.quat.y || r.z !== this.quat.z || r.w !== this.quat.w;
     this.pos.set(t.x, t.y, t.z); this.quat.set(r.x, r.y, r.z, r.w);
     this.vel.set(lv.x, lv.y, lv.z); this.angvel.set(av.x, av.y, av.z);
-    this.fwd.set(0, 0, 1).applyQuaternion(this.quat);
-    this.up.set(0, 1, 0).applyQuaternion(this.quat);
-    this.left.set(1, 0, 0).applyQuaternion(this.quat);
+    if (rotated) {
+      this.fwd.set(0, 0, 1).applyQuaternion(this.quat);
+      this.up.set(0, 1, 0).applyQuaternion(this.quat);
+      this.left.set(1, 0, 0).applyQuaternion(this.quat);
+    }
   }
 
   /** Call once per fixed step BEFORE world.step(). env: {surfaceAt(x,z)->surface} */
@@ -150,7 +156,7 @@ export class Vehicle {
     if (Math.abs(this.steerSmooth - steerIn) < 0.002) this.steerSmooth = steerIn;
 
     // ---------------- surface + grounded state
-    let groundedCount = 0;
+    let groundedCount = 0, surfaceGrip = 0;
     const ray = this.ray;
     const R = this.wheelR;
     const downDir = _v1.copy(up).multiplyScalar(-1);
@@ -158,20 +164,21 @@ export class Vehicle {
     const maxDist = this.maxLen + R;
     for (let i = 0; i < this.wheels.length; i++) {
       const w = this.wheels[i];
-      _v2.copy(w.mount).applyQuaternion(q).add(p); // mount world
-      ray.origin.x = _v2.x; ray.origin.y = _v2.y; ray.origin.z = _v2.z;
+      const mount = w.mountWorld.copy(w.mount).applyQuaternion(q).add(p);
+      ray.origin.x = mount.x; ray.origin.y = mount.y; ray.origin.z = mount.z;
       const hit = this.world.castRayAndGetNormal(ray, maxDist, true, undefined, RAY_WORLD);
       w.Lprev = w.L;
       if (hit) {
         const dist = hit.timeOfImpact;
         w.L = clamp(dist - R, this.minLen, this.maxLen);
-        w.contact.set(_v2.x + downDir.x * dist, _v2.y + downDir.y * dist, _v2.z + downDir.z * dist);
+        w.contact.set(mount.x + downDir.x * dist, mount.y + downDir.y * dist, mount.z + downDir.z * dist);
         w.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
         if (w.normal.dot(up) < 0.2) { // hitting a wall/underside: treat as airborne
           w.grounded = false; w.L = this.maxLen; w.load = 0;
         } else {
           w.grounded = true; groundedCount++;
           w.surface = env?.surfaceAt ? env.surfaceAt(w.contact.x, w.contact.z) : DEFAULT_SURFACE;
+          surfaceGrip += w.surface.grip;
         }
       } else { w.grounded = false; w.L = this.maxLen; w.load = 0; }
     }
@@ -183,8 +190,8 @@ export class Vehicle {
 
     // ---------------- suspension (spring + damper + anti-roll)
     const sp = s.susp;
-    const comp = this.wheels.map((w) => this.maxLen - w.L);
-    const arbF = new Array(this.wheels.length).fill(0);
+    const comp = this._compression, arbF = this._antiRoll;
+    for (let i = 0; i < this.wheels.length; i++) { comp[i] = this.maxLen - this.wheels[i].L; arbF[i] = 0; }
     for (const [a, c] of this.axles) {
       if (!this.wheels[a].grounded && !this.wheels[c].grounded) continue;
       const diff = comp[a] - comp[c];
@@ -200,9 +207,8 @@ export class Vehicle {
       if (w.L <= this.minLen + 1e-4) f += sp.k * 6 * (this.minLen + 0.02 - (w.L)) ; // bump stop
       f = clamp(f, 0, sp.k * this.maxLen * 2.2);
       w.load = f; totalLoad += f; w.compress = comp[i];
-      _v2.copy(w.mount).applyQuaternion(q).add(p);
       _imp.copy(up).multiplyScalar(f * dt);
-      b.applyImpulseAtPoint(_imp, _v2, true);
+      b.applyImpulseAtPoint(_imp, w.mountWorld, true);
     }
 
     // ---------------- aero
@@ -217,7 +223,7 @@ export class Vehicle {
     // ---------------- steering angle (yaw-rate command law, blends to direct counter-steer while drifting)
     const grav = GRAVITY;
     const frontMu = s.grip.front, rearMu = s.grip.rear;
-    const avgSurfaceGrip = groundedCount ? this.wheels.reduce((a, w) => a + (w.grounded ? w.surface.grip : 0), 0) / groundedCount : 1;
+    const avgSurfaceGrip = groundedCount ? surfaceGrip / groundedCount : 1;
     const aLatMax = 0.9 * Math.min(frontMu, rearMu) * avgSurfaceGrip * (grav + downforceN / this.mass) * (s.steerAssistK ?? 0.9);
     const rMaxLow = s.yawRateMax ?? 2.3;
     const vAbs = Math.max(Math.abs(vfBody), 1.0);
@@ -380,7 +386,7 @@ export class Vehicle {
     // flat-tyre / damage pull handled via per-wheel grip in w.grip (set by damage)
 
     // ---------------- RPM / gear (cosmetic, drives audio + HUD)
-    const gearCaps = [0.16, 0.32, 0.5, 0.7, 1.0];
+    const gearCaps = GEAR_CAPS;
     const vr = Math.abs(vfBody) / (eng.vmax * 1.05);
     let g = 0; while (g < gearCaps.length - 1 && vr > gearCaps[g]) g++;
     const lo = g === 0 ? 0 : gearCaps[g - 1];

@@ -14,6 +14,10 @@ export class Projectiles {
   update(dt, sim) {
     if (!this.ray) this.ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
     const P = sim.player;
+    // Most bullets are still travelling towards the truck. Reject segments outside
+    // a conservative sphere before transforming the ray and testing every zone.
+    const playerRadius = this.bullets.length && P && !P.exploded && P.raycastRadius ? P.raycastRadius() : Infinity;
+    const playerRadiusSq = playerRadius * playerRadius;
     // ---- enemy bullets: swept segment vs the player's car zones + world
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i];
@@ -21,7 +25,13 @@ export class Projectiles {
       _o.set(b.x, b.y, b.z); _d.set(b.vx, b.vy, b.vz); const sp = _d.length(); _d.multiplyScalar(1 / sp);
       const step = sp * dt;
       let hit = null;
-      if (P && !P.exploded) hit = P.raycast(_o, _d, step, null);
+      if (P && !P.exploded) {
+        if (Number.isFinite(playerRadius)) {
+          _pv.copy(P.veh.pos).sub(_o);
+          const along = clamp(_pv.dot(_d), 0, step);
+          if (_pv.addScaledVector(_d, -along).lengthSq() <= playerRadiusSq) hit = P.raycast(_o, _d, step, null);
+        } else hit = P.raycast(_o, _d, step, null);
+      }
       let worldT = step + 1;
       if (b.life < b.maxLife - 0.03) {
         this.ray.origin.x = _o.x; this.ray.origin.y = _o.y; this.ray.origin.z = _o.z; this.ray.dir.x = _d.x; this.ray.dir.y = _d.y; this.ray.dir.z = _d.z;

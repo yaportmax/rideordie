@@ -5,6 +5,7 @@ import { Vehicle } from './vehicle.js';
 import { Car } from './car.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { Road } from '../world/road.js';
+import { RoadQuery } from './road_query.js';
 import { HALF_ROAD, biomeAt, BIOMES } from '../data/biomes.js';
 import { clamp, lerp, smoothstep, rng } from '../core/util.js';
 import { Projectiles } from './projectiles.js';
@@ -63,6 +64,7 @@ export class Sim {
     this.world = createWorld(DT);
     this.eventQueue = new RAPIER.EventQueue(true);
     this.road = new Road(this.seed);
+    this.roadQuery = new RoadQuery(this.road);
     return this;
   }
 
@@ -109,7 +111,7 @@ export class Sim {
 
   // ------------------------------------------------------------------------------------------ surface
   surfaceFor(car) {
-    const road = this.road;
+    const road = this.roadQuery;
     return (x, z) => {
       if (this.hazards.oil.length && this.hazards.oilAt(x, z)) return SURFACE.oil;
       const n = road.nearest(x, z, car.s, 35, this._near || (this._near = {}));
@@ -129,8 +131,6 @@ export class Sim {
     const P = this.player;
     // ground colliders near the action
     if (this.ground) {
-      let maxS = P ? P.s : 0;
-      for (const c of this.cars.values()) maxS = Math.max(maxS, c.s);
       if (this.tick % 12 === 0) this.ground.update(P ? P.s : 0);
       if (this.state === 'run' && P && P.held && this.ground.groundReady && this.ground.groundReady(P.s)) { this.releaseCar(P); }
     }
@@ -150,7 +150,7 @@ export class Sim {
 
     // road coordinates + progress
     for (const car of this.cars.values()) {
-      const n = this.road.nearest(car.veh.pos.x, car.veh.pos.z, car.s, 60, this._near || (this._near = {}));
+      const n = this.roadQuery.nearest(car.veh.pos.x, car.veh.pos.z, car.s, 60, this._near || (this._near = {}));
       car.s = n.s; car.d = n.d;
       if (car.crashCooldown > 0) car.crashCooldown -= dt;
       if (car.hitFlash > 0) car.hitFlash -= dt;

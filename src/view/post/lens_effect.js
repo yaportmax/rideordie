@@ -81,7 +81,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   float rr = length(cdir * asp);
   float caW = smoothstep(0.12, 0.85, rr) * nearK;
   vec2 caOff = cdir * (caAmount * caW * caW * 1.6 + shockCA * 0.6);
-  bool useCA = (caAmount > 0.0002) || (shockCA > 0.0002);
+  // Near-field and centre pixels have zero chromatic displacement. Reuse one
+  // RGB fetch there instead of fetching the same texel separately per channel.
+  bool useCA = ((caAmount > 0.0002) || (shockCA > 0.0002)) && dot(caOff, caOff) > 0.0;
 
   #ifdef MOTION_BLUR
   if (blurLen > 0.75) {

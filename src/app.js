@@ -16,7 +16,8 @@ export class App {
     document.body.appendChild(root);
     // the menus float over live 3D (title chase / garage / the run's death camera): no painted backdrop
     this.ui = new Ui(root, { input: this.input, backdrop: false, sound: (n) => this.sound(n), onSettingsChange: (s, k) => this.applySettings(s, k) });
-    root.style.pointerEvents = '';
+    // Menu panels opt into pointer events; the transparent screen must let
+    // gameplay clicks reach the canvas when pointer capture is unavailable.
     this.profile = loadProfile();
     this.personalProfile = this.profile;
     this.session = null; this.mode = 'title'; // title | solo | coop

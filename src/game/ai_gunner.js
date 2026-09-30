@@ -44,6 +44,33 @@ export class AIGunner {
     return out.filter((t) => { _d.copy(t.p).sub(eye); return _d.length() > 3; });
   }
 
+  /** Refresh only the chosen car between target-selection ticks, reusing its aim vector. */
+  _refreshTarget(t, eye) {
+    const car = t.car, run = this.run;
+    if (!car || run.sim.cars.get(car.id) !== car || car.kind !== 'enemy' || car.exploded || car.veh.pos.distanceToSquared(run.player.veh.pos) > 170 * 170) return;
+    const up = car.veh.restComHeight;
+    switch (t.kind) {
+      case 'gunner': {
+        if (!car.crew.gunner?.alive) return;
+        const s = car.spec.seats.gunner; _pt(car, s[0], s[1] + 1.25 - up, s[2], _p); break;
+      }
+      case 'driver': {
+        if (!car.crew.driver.alive) return;
+        const s = car.spec.seats.driver; _pt(car, s[0], s[1] + 0.55 - up, s[2], _p); break;
+      }
+      case 'fuel':
+        if (!(car.spec.explosive || car.spec.mass > 4000)) return;
+        _pt(car, 0, 0.62 - up, -car.spec.length / 2 + 0.6, _p); break;
+      case 'body': _p.copy(car.veh.pos); break;
+      case 'weak':
+        if (!(car.elite && car.weakPoint)) return;
+        carPoint(car, car.weakPoint.c, _p); break;
+      default: return;
+    }
+    // Match candidate filtering: keep the previous point until retargeting if the point is unavailable or too near.
+    if (_p.distanceToSquared(eye) > 9) t.p.copy(_p);
+  }
+
   update(dt, gunner, eye) {
     const run = this.run, sim = run.sim, P = run.player, c = this.cmd;
     c.fire = c.firePressed = c.reload = c.grenade = c.medkit = false; c.slot = -1; c.swap = 0; c.dYaw = 0; c.dPitch = 0; c.ads = false;
@@ -63,7 +90,7 @@ export class AIGunner {
     const w = gunner.weapon;
     if (!t) { if (gunner.magNow < w.mag * 0.6 && !gunner.reloading) c.reload = true; return c; }
     // refresh the aim point on the moving car
-    if (t.car) { const tt = this._targets(eye).find((q) => q.car === t.car && q.kind === t.kind); if (tt) t.p = tt.p; }
+    if (t.car) this._refreshTarget(t, eye);
     const dist = t.p.distanceTo(eye);
     // ---------------- weapon choice
     if (this.swapCd <= 0) {
@@ -132,4 +159,4 @@ export class AIGunner {
   }
 }
 
-function _pt(car, x, y, z) { return new THREE.Vector3(x, y, z).applyQuaternion(car.veh.quat).add(car.veh.pos); }
+function _pt(car, x, y, z, out = new THREE.Vector3()) { return out.set(x, y, z).applyQuaternion(car.veh.quat).add(car.veh.pos); }

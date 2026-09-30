@@ -114,11 +114,7 @@ export class Game {
 
   setQuality(q) {
     this.quality = q; this.post?.setQuality(q); this.fx?.setQuality?.(q);
-    const shadow = this.sky.sun.shadow, size = q >= 3 ? 4096 : q === 0 ? 1024 : 2048;
-    if (shadow.mapSize.x !== size) {
-      shadow.mapSize.set(size, size); shadow.map?.dispose(); shadow.map = null;
-      shadow.mapPass?.dispose(); shadow.mapPass = null; shadow.needsUpdate = true;
-    }
+    this.sky.setShadowSize(q >= 3 ? 4096 : q === 0 ? 1024 : 2048);
   }
 
   showGarage(truckId, paint, loadout) { this.mode = 'garage'; this.garage.setTruck(truckId, paint, loadout); this.hud.setVisible(false); if (this.post) this.post.enabled = false; }
@@ -152,8 +148,9 @@ export class Game {
       for (const o of culled) o.frustumCulled = true;
     } catch (e) { console.warn('prewarm', e); }
     this.renderer.setRenderTarget(null); rt.dispose(); this._fxPrewarmDone?.();
-    this.post?.warm?.();
-    this.scene.remove(g);
+    try { await this.post?.warm?.(); }
+    catch (e) { console.warn('post prewarm', e); }
+    finally { this.scene.remove(g); }
   }
 
   async startRun(cfg) {
@@ -191,6 +188,7 @@ export class Game {
     if (this.mode === 'run' && this.run) this._runFrame(dt, now);
     else if (this.mode === 'garage') { this.garage.update(dt, input); this.garage.render(); }
     this._pumpTextures();
+    this.audio?.setGameplayPaused?.(this.mode === 'run' && this.paused && !this.run?.net && !this.run?.over);
     this.audio?.update(dt);
     input.endFrame();
     this.frames++;
@@ -242,7 +240,7 @@ export class Game {
     run.cockpit?.renderMirrors(this.renderer, this.scene, run.wv.cars.get(1)?.view.root);
     if (this.post) this.post.render(dt); else this.renderer.render(this.scene, this.camera);
     const t3 = performance.now();
-    this.hud.update(dt, run.hud2);
+    this.hud.update(dt, run.hud2, run.started && !this.paused && !!p);
     // mouse capture prompt for mouse users who aim
     const needLock = !window.__aimbot && !window.__camOverride && run.humanGunner && run.role !== 'driver' && !this.paused && !run.over && this.input.lastDevice !== 'pad' && !this.input.locked;
     if (!this._lockEl) { const e = this._lockEl = document.createElement('div'); e.textContent = 'CLICK TO AIM'; e.style.cssText = 'position:fixed;left:50%;top:58%;transform:translateX(-50%);padding:10px 22px;background:rgba(0,0,0,.55);color:#ffc21a;font:600 16px Bahnschrift,Segoe UI,sans-serif;letter-spacing:4px;border-left:3px solid #ffc21a;pointer-events:none;z-index:4;display:none'; document.body.appendChild(e); }

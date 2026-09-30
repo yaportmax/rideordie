@@ -17,6 +17,20 @@ export const MECH = {
   rpg: { trigger: 12, cycle: { hammer: ['rot', [1, 0, 0], 35 * DEG] }, rocket: ['tr', [0, 0, 1], 420 * MM] },
 };
 
+/** Keep a readable firearm shadow with one caster, instead of drawing every mechanism. */
+export function configureWeaponShadows(root) {
+  let big = null, bigN = 0, bodyFound = false;
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    let body = /^(mesh_body|body)(_|$)/.test(o.name);
+    for (let p = o.parent; p && p !== root; p = p.parent) if (p.name === 'body') { body = true; break; }
+    const n = o.geometry.attributes.position?.count || 0;
+    if ((body && !bodyFound) || (body === bodyFound && n > bigN)) { big = o; bigN = n; bodyFound = body; }
+  });
+  root.traverse((o) => { if (o.isMesh) { o.castShadow = o === big; o.receiveShadow = false; } });
+  return big;
+}
+
 export class WeaponView {
   constructor(id) {
     this.id = id;
@@ -26,13 +40,14 @@ export class WeaponView {
     this.nodes = {}; this.rest = {}; this.sockets = {};
     if (m) {
       this.root.add(m);
+      configureWeaponShadows(m);
       m.traverse((o) => {
-        if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; }
         if (o.name) { this.nodes[o.name] = o; this.rest[o.name] = { p: o.position.clone(), q: o.quaternion.clone() }; }
         if (/^(muzzle|eject|grip_R|grip_L|mag_well|sight|stock|rocket_tip)$/.test(o.name)) this.sockets[o.name] = o;
       });
     } else {
       const box = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.09, 0.6), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.7 }));
+      box.castShadow = true;
       box.position.z = 0.25; this.root.add(box);
       const mz = new THREE.Object3D(); mz.name = 'muzzle'; mz.position.set(0, 0.03, 0.56); this.root.add(mz); this.sockets.muzzle = mz;
     }

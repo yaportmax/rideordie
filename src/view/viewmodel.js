@@ -127,8 +127,10 @@ const SLEEVE_ALBEDO = /* glsl */`
 export const TUNE = {
   pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', support: [0.011, 0.0213, -0.0018, -32, 0, 90], rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
   revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.0273, -0.0317, 0.0447, 28.7, 22.3, 76.3], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.15, fov: [62, 52], adsCut: [[-0.06, -0.2, -0.4, 0.06, 0.2, -0.085]], pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
-  shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], pose: 'pose_shotgun', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
+  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.15, fov: [62, 52], adsCut: [[-0.06, -0.2, -0.4, 0.06, 0.2, -0.085]], magAnchor: { off: [0.016, -0.09, 0.002], rot: [-90, 0, 90] }, pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
+  // The rear aperture sits 11.5 mm above the front fibre. Follow that sight line,
+  // including its height behind the receiver, rather than levelling the barrel.
+  shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], adsRot: [Math.atan2(0.0115, 0.6485) / DEG, 0, 0], adsSight: [0, 0.09227, -0.12], adsCut: [[-0.025, -0.08, -0.33, 0.025, 0.0825, 0.002]], pose: 'pose_shotgun', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rackR: true, rec: [0.032, 3.0, 1.0, 2.0], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
   lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_lmg', rec: [0.032, 2.7, 1.4, 2.6], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
   sniper: { hip: [0.165, -0.27, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_sniper', rec: [0.10, 9, 1.5, 4], reload: 'mag', bolt: true, blade: -0.45, sh: [0.02, -0.24, 0.04] },
@@ -518,10 +520,26 @@ export class ViewModel {
     w.root.updateMatrixWorld(true); _m.copy(w.root.matrixWorld).invert();
     w.loc = {};
     for (const [n, s] of Object.entries(w.sockets)) { s.updateWorldMatrix(true, false); const mm = new THREE.Matrix4().multiplyMatrices(_m, s.matrixWorld); w.loc[n] = { p: new THREE.Vector3().setFromMatrixPosition(mm), q: new THREE.Quaternion().setFromRotationMatrix(mm) }; }
-    // parts hidden while aiming (the SMG's wire stock would run under the eye): islands inside T.adsCut boxes (weapon space)
+    // Parts hidden while aiming: the shoulder stock passes through the eye at
+    // iron-sight eye relief. Include static body children and express weapon-root
+    // cut boxes in each mesh's geometry space; moving mechanics keep their parts.
     const cut = TUNE[id] && TUNE[id].adsCut;
     w.adsCut = [];
-    if (cut) w.root.traverse((o) => { if (o.isMesh && o.parent === w.model || (o.isMesh && o.parent?.name === 'Scene')) { const s = splitIslands(o, cut); if (s) w.adsCut.push({ mesh: o, ...s, on: false }); } });
+    if (cut) {
+      const toMesh = new THREE.Matrix4(), bounds = new THREE.Box3();
+      w.root.traverse((o) => {
+        if (!o.isMesh || o.isSkinnedMesh || Array.isArray(o.material)) return;
+        for (let p = o; p && p !== w.model; p = p.parent) {
+          if (/^(slide|bolt|pump|mag|trigger|hammer|cylinder|crane|charging_handle|feed_cover|belt|rocket|bolt_handle)$/.test(p.name)) return;
+        }
+        toMesh.copy(o.matrixWorld).invert().multiply(w.root.matrixWorld);
+        const boxes = cut.map((b) => {
+          bounds.min.set(b[0], b[1], b[2]); bounds.max.set(b[3], b[4], b[5]); bounds.applyMatrix4(toMesh);
+          return [bounds.min.x, bounds.min.y, bounds.min.z, bounds.max.x, bounds.max.y, bounds.max.z];
+        });
+        const s = splitIslands(o, boxes); if (s) w.adsCut.push({ mesh: o, ...s, on: false });
+      });
+    }
     this.guns.set(id, w);
     return w;
   }
@@ -612,10 +630,12 @@ export class ViewModel {
     const hip = T.hip, hr = T.hipRot;
     const pHip = _v.set(hip[0], hip[1], hip[2]);
     const qHip = _q.setFromEuler(_e.set(hr[0] * DEG, hr[1] * DEG, hr[2] * DEG, 'YXZ')).multiply(Q_FLIP);
-    const sl = gun.loc.sight ? gun.loc.sight.p : _v3.set(0, 0.1, -0.1);
-    const pAds = _v2.set(0, 0, -T.relief).sub(_t.copy(sl).applyQuaternion(Q_FLIP));
+    const sl = T.adsSight ? _v3.fromArray(T.adsSight) : gun.loc.sight ? gun.loc.sight.p : _v3.set(0, 0.1, -0.1);
+    const qAds = _q3.copy(Q_FLIP);
+    if (T.adsRot) qAds.premultiply(_q2.setFromEuler(_e.set(T.adsRot[0] * DEG, T.adsRot[1] * DEG, T.adsRot[2] * DEG, 'YXZ')));
+    const pAds = _v2.set(0, 0, -T.relief).sub(_t.copy(sl).applyQuaternion(qAds));
     this.pos.lerpVectors(pHip, pAds, adsE);
-    this.quat.slerpQuaternions(qHip, Q_FLIP, adsE);
+    this.quat.slerpQuaternions(qHip, qAds, adsE);
     // ADS travel arc: dip + roll mid-transition
     const mid = Math.sin(Math.PI * clamp(L.adsK || 0, 0, 1)) * (cur ? 1 : 0);
     let px = 0, py = -mid * 0.012, pz = 0, rx = 0, ry = 0, rz = -mid * 5 * DEG;
@@ -863,7 +883,11 @@ export class ViewModel {
     }
     else if (name === 'mag' || name === 'pistolMag') {
       const n = W.nodes.mag; if (n) { P.copy(n.position); if (n.parent !== W.model) { n.getWorldPosition(P); root.worldToLocal(P); } } else P.copy(W.loc.mag_well ? W.loc.mag_well.p : _v.set(0, 0, 0.1));
-      Q.setFromEuler(_e.set(A.rot[0] * DEG, A.rot[1] * DEG, A.rot[2] * DEG)); P.add(_v.fromArray(A.off));
+      // An upright SMG magazine needs a side grasp with the wrist behind it and
+      // fingers facing forward. The generic opposite pitch presents the palm to
+      // the eye and crosses the wrist over the gun hand during magazine handling.
+      const a = name === 'mag' && this.T.magAnchor ? this.T.magAnchor : A;
+      Q.setFromEuler(_e.set(a.rot[0] * DEG, a.rot[1] * DEG, a.rot[2] * DEG)); P.add(_v.fromArray(a.off));
     } else if (name === 'charge' || name === 'chargeR' || name === 'slide' || name === 'cover' || name === 'tray' || name === 'rocket' || name === 'bolt') {
       const nodeName = ANCHOR_NODE[name];
       const n = W.nodes[nodeName] || W.nodes.bolt || W.nodes.body;

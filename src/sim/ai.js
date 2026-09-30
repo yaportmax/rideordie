@@ -48,10 +48,11 @@ export class EnemyBrain {
     this.atkCd = this.r.range(2.5, 5) * lerp(1.4, 0.8, clamp(L, 0, 1));
     this.laneT = this.r.range(2, 5); this.laneOff = 0;
     this.guns = cfg.guns; // {gunner: gunDef, gunner2: gunDef}
+    this.gunRoles = Object.keys(this.guns);
     this.state = {}; // per gunner
-    for (const role of Object.keys(this.guns)) this.state[role] = { mode: 'idle', t: this.r.range(0.6, 1.8), burst: 0, fireT: 0, aimAt: 'body', err: new THREE.Vector3(), yaw: car.crew[role].aimYaw, pitch: 0 };
+    for (const role of this.gunRoles) this.state[role] = { mode: 'idle', t: this.r.range(0.6, 1.8), burst: 0, fireT: 0, aimAt: 'body', err: new THREE.Vector3(), yaw: car.crew[role].aimYaw, pitch: 0 };
     this.tgt = new THREE.Vector3();
-    this.hadGunner = !!Object.keys(this.guns).length;
+    this.hadGunner = this.gunRoles.length > 0;
   }
 
   setBehavior(b, gap) {
@@ -73,7 +74,7 @@ export class EnemyBrain {
       if (a.kind === 'ram' || a.kind === 'swipe' || a.kind === 'crush') return 'ram';
       if (a.kind === 'brake') return 'block';
     }
-    for (const st of Object.values(this.state)) if (st.mode === 'aim' || st.mode === 'burst') return 'shoot';
+    for (const role of this.gunRoles) { const st = this.state[role]; if (st.mode === 'aim' || st.mode === 'burst') return 'shoot'; }
     return null;
   }
 
@@ -101,7 +102,7 @@ export class EnemyBrain {
     const speed = veh.vf;
     const L = this.level;
     // a raider whose gunner died goes for the ram
-    if (this.hadGunner && this.behavior !== 'rammer' && !this.pattern && !Object.keys(this.guns).some((r) => car.crew[r]?.alive)) {
+    if (this.hadGunner && this.behavior !== 'rammer' && !this.pattern && !this.gunRoles.some((r) => car.crew[r]?.alive)) {
       if (!this.enragedT) this.enragedT = this.t;
       else if (this.t - this.enragedT > 1.2) {
         this.hadGunner = false;
@@ -381,8 +382,8 @@ export class EnemyBrain {
   gunnery(dt) {
     const car = this.car, sim = this.sim, P = sim.player;
     // (no target; or the Leviathan is going down: its escort loses heart, the finale is yours)
-    if (!P || P.exploded || sim.boss?.dead) { for (const role of Object.keys(this.guns)) { const c = car.crew[role]; if (c) { c.fire = false; c.ads = false; } } return; }
-    for (const role of Object.keys(this.guns)) {
+    if (!P || P.exploded || sim.boss?.dead) { for (const role of this.gunRoles) { const c = car.crew[role]; if (c) { c.fire = false; c.ads = false; } } return; }
+    for (const role of this.gunRoles) {
       const crew = car.crew[role]; const st = this.state[role]; const gun = this.guns[role];
       if (!crew || !crew.alive) { if (crew) { crew.fire = false; crew.ads = false; } continue; }
       if (this.mode === 'ambush') { crew.fire = false; crew.ads = false; continue; }

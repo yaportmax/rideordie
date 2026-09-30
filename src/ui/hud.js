@@ -1,5 +1,5 @@
 // DOM HUD overlay: speedometer, boost, HP bars, ammo, crosshair, damage vignette, radar arrows. Styled in hud.css (injected).
-import { clamp, fmtTime } from '../core/util.js';
+import { clamp } from '../core/util.js';
 import { GunnerHud } from './gunner_hud.js';
 
 const CSS = `
@@ -21,8 +21,7 @@ const CSS = `
 #hud .hp i{background:linear-gradient(90deg,#e33,#fa3 60%,#7d4)}
 #hud .dhp i{background:#6cf}
 #hud .ghp i{background:#f9c}
-#hud .top{left:50%;top:14px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px}
-#hud .top b{font-size:28px;font-weight:800;letter-spacing:1px}
+#hud .area{left:50%;top:30px;transform:translateX(-50%);text-align:center;font-size:25px;font-weight:800;letter-spacing:3px;opacity:0}
 #hud .cross{left:50%;top:50%;width:0;height:0}
 #hud .scope{inset:0;display:none;background:radial-gradient(circle at center,rgba(0,0,0,0) 0,rgba(0,0,0,0) 33vh,rgba(0,0,0,.97) 33.4vh)}
 #hud .scope:before{content:'';position:absolute;left:50%;top:17vh;bottom:17vh;width:1px;background:rgba(0,0,0,.85)}
@@ -47,9 +46,6 @@ const CSS = `
 #hud .boss{left:50%;top:104px;transform:translateX(-50%);width:520px;text-align:center;display:none}
 #hud .boss .bar{height:16px}
 #hud .boss .bar i{background:linear-gradient(90deg,#a11,#f54)}
-#hud .prog{left:50%;top:76px;transform:translateX(-50%);width:420px;text-align:center;font-size:12px;letter-spacing:2px;opacity:.85}
-#hud .prog .bar{height:6px;margin-top:3px}
-#hud .prog .bar i{background:#fff}
 `;
 
 export class Hud {
@@ -59,8 +55,7 @@ export class Hud {
     el.innerHTML = `
       <div class="abs vig"></div>
       <div class="abs arrows"></div>
-      <div class="abs top"><b class="dist">0.0 km</b><br><span class="biome"></span> · <span class="time">0:00</span></div>
-      <div class="abs prog"><span class="progt">TO THE DAM</span><div class="bar"><i class="progbar" style="transform:scaleX(0)"></i></div></div>
+      <div class="abs area"></div>
       <div class="abs boss"><div class="bossname">BOSS</div><div class="bar"><i class="bossbar"></i></div></div>
       <div class="abs scope"></div><div class="abs cross"><i class="h" style="left:-16px"></i><i class="h" style="left:7px"></i><i class="v" style="top:-16px"></i><i class="v" style="top:7px"></i><i class="dot"></i></div>
       <div class="abs hitm"></div>
@@ -77,14 +72,15 @@ export class Hud {
       <div class="abs ammo" style="display:none"><span class="wname"></span><b class="mag">0</b><small> / ∞</small></div>`;
     document.body.appendChild(el);
     const $ = (s) => el.querySelector(s);
-    this.q = { spd: $('.spd'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), hp: $('.hpbar'), dhp: $('.dhpbar'), ghp: $('.ghpbar'), dist: $('.dist'), time: $('.time'), biome: $('.biome'),
-      vig: $('.vig'), msg: $('.msg'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], progbar: $('.progbar'), boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
+    this.q = { spd: $('.spd'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), hp: $('.hpbar'), dhp: $('.dhpbar'), ghp: $('.ghpbar'), area: $('.area'),
+      vig: $('.vig'), msg: $('.msg'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
     this.arrowPool = []; this.msgT = 0; this.vigT = 0; this.hitT = 0;
     this.gh = new GunnerHud(el);   // first-person gunner layer (crosshair, hit markers, damage arcs, ammo, scope)
     this.show({ driver: true, gunner: true });
   }
   show(o) {
     const q = this.q;
+    this.seenAreas = new Set(); this.areaT = 0; q.area.textContent = ''; q.area.style.opacity = 0;
     q.speedBox.style.display = o.driver ? '' : 'none'; q.rpmBox.style.display = o.driver ? '' : 'none'; q.nitroBox.style.display = o.driver ? '' : 'none';
     q.cross.style.display = 'none'; q.ammo.style.display = 'none';   // replaced by GunnerHud
     this.gunnerOn = !!o.gunner; this.gh.setVisible(this.gunnerOn); this.gh.setDriverShown(!!(o.gunner && o.driver));
@@ -103,21 +99,26 @@ export class Hud {
   feed(text, color = '#fff') { const d = document.createElement('div'); d.textContent = text; d.style.color = color; this.q.kf.prepend(d); setTimeout(() => { d.style.opacity = 0; setTimeout(() => d.remove(), 400); }, 3200); while (this.q.kf.children.length > 6) this.q.kf.lastChild.remove(); }
 
   /** data: {speed(m/s), rpm01, nitro01, hp01, dhp01, ghp01, dist, time, biome, ammo, mag, weapon, prog01, boss:{name,hp01}|null, arrows:[{x,y,a}]} */
-  update(dt, d) {
+  update(dt, d, noticeReady = true) {
     const q = this.q;
     q.spd.textContent = Math.round(d.speed * 3.6);
     q.rpm.style.transform = `scaleX(${clamp(d.rpm01, 0, 1)})`;
     q.nitro.style.transform = `scaleX(${clamp(d.nitro01, 0, 1)})`; q.nitroBox.style.display = d.nitroMax > 0 && d.showDriver !== false ? '' : 'none';
     q.hp.style.transform = `scaleX(${clamp(d.hp01, 0, 1)})`; q.dhp.style.transform = `scaleX(${clamp(d.dhp01, 0, 1)})`; q.ghp.style.transform = `scaleX(${clamp(d.ghp01, 0, 1)})`;
-    q.dist.textContent = (d.dist / 1000).toFixed(2) + ' km'; q.time.textContent = fmtTime(d.time); q.biome.textContent = d.biome || '';
-    q.progbar.style.transform = `scaleX(${clamp(d.prog01 ?? 0, 0, 1)})`;
+    if (noticeReady && this.el.style.display !== 'none') {
+      if (d.biome && !this.seenAreas.has(d.biome)) {
+        this.seenAreas.add(d.biome); q.area.textContent = d.biome; this.areaT = 4;
+      }
+      this.areaT = Math.max(0, this.areaT - dt);
+      q.area.style.opacity = Math.min(1, this.areaT);
+    }
     if (d.spreadPx !== undefined) {
       const g = Math.max(4, Math.min(80, d.spreadPx));
       q.crossH[0].style.left = (-g - 9) + 'px'; q.crossH[1].style.left = g + 'px'; q.crossV[0].style.top = (-g - 9) + 'px'; q.crossV[1].style.top = g + 'px';
       q.scope.style.display = 'none';
     }
     if (d.weapon !== undefined) { q.wname.textContent = d.weapon; q.mag.textContent = d.reloading ? 'RELOAD' : d.mag; q.mag.style.fontSize = d.reloading ? '34px' : ''; }
-    q.progbar.parentElement.parentElement.style.display = d.boss ? 'none' : ''; if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
+    if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
     if (this.vigT > 0) { this.vigT = Math.max(0, this.vigT - dt * 1.4); }
     const hpLow = Math.min(d.hp01, this.gunnerOn ? d.ghp01 ?? 1 : 1);   // the gunner's own health counts too
     const lowHp = hpLow < 0.3 ? (0.22 + 0.2 * (1 - hpLow / 0.3)) * (0.75 + 0.25 * Math.pow(Math.abs(Math.sin(performance.now() / 420)), 6)) : 0;

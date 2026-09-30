@@ -366,15 +366,61 @@ export class Cockpit {
     cam.updateMatrixWorld();
     _pv.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); this.frustum.setFromProjectionMatrix(_pv);
     // hide every mirror glass (a door thrown off the truck carries its glass into the world: sampling the target we render into = feedback loop)
-    const vis = playerRoot.visible; playerRoot.visible = false; this.glassMat.visible = false;
+    const vis = playerRoot.visible, glassVis = this.glassMat.visible; playerRoot.visible = false; this.glassMat.visible = false;
+    // Keep the mirror useful for traffic and the road; tiny dressing/particles
+    // consume another full set of draws in this small rear render.
+    const hidden = this._mirrorHide || (this._mirrorHide = []), hv = this._mirrorVisible || (this._mirrorVisible = []);
+    hidden.length = 0; hv.length = 0;
+    for (const c of scene.children) if (/^(dressing-pool|fx_|hazard_marks)/.test(c.name || '')) { hidden.push(c); hv.push(c.visible); c.visible = false; }
     const auto = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
     const prev = renderer.getRenderTarget();
     // the post pipeline turns autoClear off: clear colour+depth ourselves or every frame smears into the last (ghost trails)
     // world matrices are one frame old here (updated by last frame's main render): fine for a 30 Hz mirror, saves a full scene-graph walk
     const mau = scene.matrixWorldAutoUpdate; scene.matrixWorldAutoUpdate = false;
-    renderer.setRenderTarget(this.rt); renderer.clear(true, true, true); renderer.render(scene, cam); renderer.setRenderTarget(prev);
-    scene.matrixWorldAutoUpdate = mau;
-    renderer.shadowMap.autoUpdate = auto; playerRoot.visible = vis; this.glassMat.visible = true;
+    const lods = this._mirrorLods || (this._mirrorLods = []); lods.length = 0;
+    try {
+      // Five merged meshes are enough to identify traffic in the small mirror.
+      // Keep the main camera's model, crew visibility and animation pose intact.
+      const cars = scene.children.find(c => c.name === 'cars');
+      const cache = this._mirrorCars || (this._mirrorCars = new WeakMap());
+      for (const car of cars?.children || []) {
+        if (car === playerRoot || !car.visible || !car.name.startsWith('car_')) continue;
+        const lod = car.children.find(c => c.name === 'lod'), model = car.children[0];
+        if (!lod || !model) continue;
+        let rec = cache.get(car);
+        if (!rec || rec.lod !== lod || rec.model !== model) {
+          const wheels = []; model.traverse(o => { if (/^wheel_[A-Za-z0-9]+$/.test(o.name)) wheels.push(o); });
+          const nodes = []; lod.traverse(o => nodes.push({ o, pos: o.position.clone(), quat: o.quaternion.clone(), scale: o.scale.clone(), matrix: o.matrix.clone(), world: o.matrixWorld.clone() }));
+          rec = { lod, model, wheels, nodes }; cache.set(car, rec);
+        }
+        lods.push(rec);
+        for (const n of rec.nodes) {
+          const o = n.o; n.pos.copy(o.position); n.quat.copy(o.quaternion); n.scale.copy(o.scale);
+          n.matrix.copy(o.matrix); n.world.copy(o.matrixWorld);
+          n.visible = o.visible; n.auto = o.matrixWorldAutoUpdate; n.dirty = o.matrixWorldNeedsUpdate;
+        }
+        for (const child of car.children) if (child === model || child.name === 'shadow_proxy' || child.name.startsWith('crew_')) {
+          hidden.push(child); hv.push(child.visible); child.visible = false;
+        }
+        lod.visible = true; lod.matrixWorldAutoUpdate = true;
+        for (let i = 0; i < rec.wheels.length; i++) {
+          const source = rec.wheels[i], wheel = lod.children[i + 1]; if (!wheel) continue;
+          wheel.position.copy(source.position); wheel.quaternion.copy(source.quaternion); wheel.scale.copy(source.scale);
+          wheel.visible = !source.userData.gone;
+        }
+        lod.updateMatrixWorld(true);
+      }
+      renderer.setRenderTarget(this.rt); renderer.clear(true, true, true); renderer.render(scene, cam);
+    } finally {
+      renderer.setRenderTarget(prev); scene.matrixWorldAutoUpdate = mau;
+      renderer.shadowMap.autoUpdate = auto; playerRoot.visible = vis; this.glassMat.visible = glassVis;
+      for (let i = 0; i < hidden.length; i++) hidden[i].visible = hv[i];
+      for (const rec of lods) for (const n of rec.nodes) {
+        const o = n.o; o.position.copy(n.pos); o.quaternion.copy(n.quat); o.scale.copy(n.scale);
+        o.matrix.copy(n.matrix); o.matrixWorld.copy(n.world); o.visible = n.visible;
+        o.matrixWorldAutoUpdate = n.auto; o.matrixWorldNeedsUpdate = n.dirty;
+      }
+    }
   }
   /** World position of the look-back camera. */
   lookBackWorld(out) { return this.model.localToWorld(out.copy(this.lookBackLocal)); }

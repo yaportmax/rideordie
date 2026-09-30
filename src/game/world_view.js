@@ -11,10 +11,11 @@ import { BOSS_ID } from '../data/boss.js';
 import { WEAPONS } from '../data/weapons.js';
 
 const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f, 0x6a2f2f, 0x91856a];
-const _q = new THREE.Quaternion();
 const _sph = new THREE.Sphere();
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const DEAD = { alive: false };
+const DAMAGE_PANELS = [[0.72, ['bumper_F', 'fender_L']], [0.55, ['door_L', 'door_R2', 'fender_R']], [0.4, ['hood']], [0.28, ['trunk', 'tailgate', 'bumper_R', 'door_R']], [0.14, ['roof', 'door_L2', 'armor_1']]];
+const NO_PROJECTILES = [];
 
 export class WorldView {
   /** opts: {scene, playerPaint, fx?, audio?} */
@@ -29,6 +30,7 @@ export class WorldView {
     this.debris = new DebrisSystem(this.scene, (x, y, z) => this.groundY(x, y, z));
     this.armorTier = 0; this.playerWeapon = 'pistol';
     this.projMeshes = new Map();
+    this._projectileSeen = new Set();
     this.loose = [];                       // dead crew bodies whose car was removed
     this.rocketGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.9, 8).rotateX(Math.PI / 2);
     this.rocketMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, emissive: 0xff6a20, emissiveIntensity: 1.5 });
@@ -56,6 +58,9 @@ export class WorldView {
     if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver' + v2(0), s.seats.driver);
     if (s.seats.gunner && (st.kind === 'player' || (s.gunners ?? 0) >= 1)) rec.crew.gunner = mk('gunner', st.kind === 'player' ? 'hero_gunner' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][st.id % 4] + v2(1), s.seats.gunner);
     if (s.seats.gunner2 && (s.gunners ?? 0) >= 2) rec.crew.gunner2 = mk('gunner2', 'raider_b' + v2(2), s.seats.gunner2);
+    // Crew membership is fixed for this vehicle spec. Each entry owns a pose
+    // scratch object, so updating one character never overwrites another's pose.
+    rec.crewEntries = Object.entries(rec.crew).map(([role, crew]) => ({ role, crew, pose: {} }));
     this.cars.set(st.id, rec); this.viewMap.set(st.id, view);
     return rec;
   }
@@ -63,7 +68,7 @@ export class WorldView {
   remove(id, all = false) {
     const rec = this.cars.get(id); if (!rec) return;
     // bodies already thrown onto the road outlive their (despawned) car until they fade out
-    for (const c of Object.values(rec.crew)) { if (!all && c.detached && c.deadT >= 0 && c.deadT < 9) this.loose.push(c); else c.dispose(); }
+    for (const { crew: c } of rec.crewEntries) { if (!all && c.detached && c.deadT >= 0 && c.deadT < 9) this.loose.push(c); else c.dispose(); }
     rec.view.dispose(); this.cars.delete(id); this.viewMap.delete(id);
   }
 
@@ -83,38 +88,40 @@ export class WorldView {
       rec.view.update(st, dt);
       rec.view.setLights(st.braking, this.night > 0.35);
       // crew poses (skip + hide crews that are far away or off-screen: skinned characters are the priciest thing we draw)
-      const q = st.quat;
       const camPos = ctx.cameraPos, frustum = ctx.frustum;
-      const far = camPos ? st.pos.distanceTo(camPos) > (st.kind === 'player' ? 1e9 : 130) : false;
+      const distanceSq = camPos ? st.pos.distanceToSquared(camPos) : 0;
+      const far = camPos ? distanceSq > (st.kind === 'player' ? 1e18 : 130 * 130) : false;
       const off = frustum && st.kind !== 'player' ? !frustum.intersectsSphere(_sph.set(st.pos, 5)) && !(ctx.frustum2 && ctx.frustum2.intersectsSphere(_sph)) : false;
       const hideCrew = far || off;
       let farCrew = false;
-      if (camPos && st.kind !== 'player') { const dd = st.pos.distanceTo(camPos); rec.view.setLod(rec.view.lodOn ? dd > 40 : dd > 46); farCrew = dd > 40; } // (LOD: 5 draws instead of 35-60 past ~45 m)
-      for (const crew of Object.values(rec.crew)) if (crew.deadT < 0) { crew.root.visible = !hideCrew; crew.root.matrixWorldAutoUpdate = !hideCrew; } // hidden crews: skip 52-bone matrix updates
+      if (camPos && st.kind !== 'player') { rec.view.setLod(rec.view.lodOn ? distanceSq > 40 * 40 : distanceSq > 46 * 46); farCrew = distanceSq > 40 * 40; } // (LOD: 5 draws instead of 35-60 past ~45 m)
+      for (const { crew } of rec.crewEntries) if (crew.deadT < 0) { crew.root.visible = !hideCrew; crew.root.matrixWorldAutoUpdate = !hideCrew; } // hidden crews: skip 52-bone matrix updates
       if (hideCrew) {
         // bodies thrown off the vehicle live in world space: keep them falling even when their car is off-screen
-        for (const role in rec.crew) { const c = rec.crew[role]; if (c.detached && c.deadT >= 0 && c.deadT < 9.5) c.update(dt, DEAD); }
+        for (const { crew: c } of rec.crewEntries) if (c.detached && c.deadT >= 0 && c.deadT < 9.5) c.update(dt, DEAD);
         if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); } this._damageVisuals(rec, st); continue;
       }
-      for (const [role, crew] of Object.entries(rec.crew)) {
+      for (const { role, crew, pose } of rec.crewEntries) {
         const gs = role === 'gunner' ? st.gunner : role === 'gunner2' ? st.gunner2 : null;
         const alive = role === 'driver' ? st.driverAlive : role === 'gunner' ? st.gunnerAlive : st.gunner2Alive;
         crew.lastVel = st.vel;
-        crew.update(dt, {
-          alive, aimYaw: gs ? gs.yaw : 0, aimPitch: gs ? gs.pitch : 0, fire: gs ? gs.fire : false, crouch: gs ? gs.crouch : false, ads: gs ? gs.ads : false,
-          reloading: gs ? gs.reloading : false, weaponId: st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null, steer: st.steer, speed: st.speed, quat: st.quat, vel: st.vel,
-          local: st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null, exploded: st.exploded,
-          bedX: gs ? gs.x || 0 : 0, bedZ: gs ? gs.z || 0 : 0, airborne: !!st.airborne, far: farCrew, player: st.kind === 'player' ? null : pPos, intent: st.intent,
-        });
+        pose.alive = alive; pose.aimYaw = gs ? gs.yaw : 0; pose.aimPitch = gs ? gs.pitch : 0; pose.fire = gs ? gs.fire : false;
+        pose.crouch = gs ? gs.crouch : false; pose.ads = gs ? gs.ads : false; pose.reloading = gs ? gs.reloading : false;
+        pose.weaponId = st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null;
+        pose.steer = st.steer; pose.speed = st.speed; pose.quat = st.quat; pose.vel = st.vel;
+        pose.local = st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null;
+        pose.exploded = st.exploded; pose.bedX = gs ? gs.x || 0 : 0; pose.bedZ = gs ? gs.z || 0 : 0;
+        pose.airborne = !!st.airborne; pose.far = farCrew; pose.player = st.kind === 'player' ? null : pPos; pose.intent = st.intent;
+        crew.update(dt, pose);
       }
       this._damageVisuals(rec, st);
       if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); this._blowParts(rec, st, 1.0); }
     }
     // remove views for cars that vanished
-    for (const id of [...this.cars.keys()]) if (!states.has(id)) this.remove(id);
+    for (const id of this.cars.keys()) if (!states.has(id)) this.remove(id);
     // events -> crew reactions and cross-module fan-out
     for (const e of events) this.handleEvent(e, states);
-    this._projectiles(ctx.proj || []);
+    this._projectiles(ctx.proj || NO_PROJECTILES);
     for (let i = this.loose.length - 1; i >= 0; i--) { const c = this.loose[i]; c.update(dt, DEAD); if (c.deadT > 9.5) { c.dispose(); this.loose.splice(i, 1); } }
     this.debris.update(dt);
   }
@@ -141,8 +148,7 @@ export class WorldView {
   _damageVisuals(rec, st) {
     // detach panels as hp falls through thresholds
     const hp = st.hp01; rec.hpPrev ??= 1;
-    const T = [[0.72, ['bumper_F', 'fender_L']], [0.55, ['door_L', 'door_R2', 'fender_R']], [0.4, ['hood']], [0.28, ['trunk', 'tailgate', 'bumper_R', 'door_R']], [0.14, ['roof', 'door_L2', 'armor_1']]];
-    for (const [th, names] of T) if (rec.hpPrev >= th && hp < th) for (const nm of names) this._throwPanel(rec, nm, 1.0);
+    if (hp < rec.hpPrev) for (const [th, names] of DAMAGE_PANELS) if (rec.hpPrev >= th && hp < th) for (const nm of names) this._throwPanel(rec, nm, 1.0);
     rec.hpPrev = hp;
     // flat tyres sit lower
     for (const [name, node] of rec.view.wheelNodes) { const target = node.userData.flat ? 0.82 : 1; node.scale.y += (target - node.scale.y) * 0.2; }
@@ -178,7 +184,7 @@ export class WorldView {
   }
 
   _projectiles(list) {
-    const seen = new Set();
+    const seen = this._projectileSeen; seen.clear();
     let i = 0;
     for (const p of list) {
       const key = p.k + ':' + i++;
@@ -194,7 +200,7 @@ export class WorldView {
     const rec = this.cars.get(st.id);
     const seat = st.spec.seats.gunner;
     if (rec && rec.crew.gunner && rec.crew.gunner.headWorld(out)) return out;
-    out.set(seat[0], seat[1] + 1.6, seat[2]).sub(_q.set(0, 0, 0, 1) && new THREE.Vector3(0, st.ride.restComHeight, 0)).applyQuaternion(st.quat).add(st.pos);
+    out.set(seat[0], seat[1] + 1.6 - st.ride.restComHeight, seat[2]).applyQuaternion(st.quat).add(st.pos);
     return out;
   }
   muzzlePos(st, out) {
@@ -202,5 +208,5 @@ export class WorldView {
     if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
     return false;
   }
-  dispose() { if (this.boss) { this.boss.dispose(); this.boss = null; } for (const id of [...this.cars.keys()]) this.remove(id, true); for (const c of this.loose) c.dispose(); this.loose.length = 0; this.debris.clear(); this.scene.remove(this.group); }
+  dispose() { if (this.boss) { this.boss.dispose(); this.boss = null; } for (const id of this.cars.keys()) this.remove(id, true); for (const c of this.loose) c.dispose(); this.loose.length = 0; this.debris.clear(); this.scene.remove(this.group); }
 }

@@ -49,8 +49,11 @@ export class CarRec {
     this.sock.exL = get(['exhaust_L', 'exhaust'], [0.5, 0.3, -L / 2]); this.sock.exR = get(['exhaust_R', 'exhaust'], [-0.5, 0.3, -L / 2]);
     this.sock.nitL = get(['nitro_L', 'exhaust_L', 'exhaust'], [0.45, 0.45, -L / 2]); this.sock.nitR = get(['nitro_R', 'exhaust_R', 'exhaust'], [-0.45, 0.45, -L / 2]);
     this.sock.engine = get(['smoke_engine'], [0, H * 0.55, L / 2 - 0.9]);
-    // paint patch: compile the wreck shader variant now, not on explosion
-    cv.root.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (m && /^paint/.test(m.name)) patchPaint(m, this.wreckU); });
+    // Only the vehicle's own paint belongs to its wreck uniforms. Crew weapons
+    // also have materials named paint, often shared between instances; walking
+    // the whole car root corrupted those materials and compiled a cold weapon
+    // wreck shader when a shotgun/RPG/sniper raider first appeared.
+    (cv.model || cv.root).traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (m && /^paint/.test(m.name)) patchPaint(m, this.wreckU); });
   }
 
   /** local (root space) -> world */

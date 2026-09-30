@@ -42,7 +42,10 @@ function bake(meshes, relTo) {
   if (!geos.length) return null;
   const allIndexed = geos.every((g) => g.index), noneIndexed = geos.every((g) => !g.index);
   const list = allIndexed || noneIndexed ? geos : geos.map((g) => (g.index ? g.toNonIndexed() : g));
-  return mergeGeometries(list, false);
+  const merged = mergeGeometries(list, false);
+  for (const g of new Set([...geos, ...list])) g.dispose();
+  if (merged) { merged.computeBoundingBox(); merged.computeBoundingSphere(); }
+  return merged;
 }
 
 /** LOD material (one per car instance so paint tints are per car). */

@@ -38,6 +38,61 @@ async function seat(page, role) {
   await page.locator('.garage [data-ready="1"]').waitFor();
 }
 
+async function videoResizeFlow(page) {
+  const saved = await page.evaluate(() => {
+    const post = window.__game.post;
+    const state = { quality: post.quality, scale: post.resolutionCeiling, automatic: post.autoResolution };
+    post.autoResolution = false;
+    post.setQuality(2); // Enable the High depth/AO path while exercising buffer resizing.
+    return state;
+  });
+  const checkpoints = [];
+  const checkpoint = async (label) => {
+    const before = await page.evaluate(() => window.__game.frames);
+    await until(page, (f) => window.__game.frames >= f + 4, before);
+    const state = await page.evaluate(() => {
+      const game = window.__game, post = game.post, gl = game.renderer.getContext();
+      const image = post.depthTexture?.image, rendererInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      return {
+        viewport: [innerWidth, innerHeight], canvas: [gl.drawingBufferWidth, gl.drawingBufferHeight],
+        scale: post.resolutionScale, internal: [post.internalSize.x, post.internalSize.y],
+        color: [post.composer.inputBuffer.width, post.composer.inputBuffer.height],
+        depth: image ? [image.width, image.height] : null,
+        glError: gl.getError(), contextLost: gl.isContextLost(),
+        renderer: rendererInfo ? gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+      };
+    });
+    assert.equal(state.glError, 0, `${label}: WebGL error after resize`);
+    assert.equal(state.contextLost, false, `${label}: WebGL context was lost`);
+    assert.deepEqual(state.internal, state.canvas.map((n) => Math.max(4, Math.round(n * state.scale))), `${label}: scaled render size`);
+    assert.deepEqual(state.color, state.internal, `${label}: scene color buffer size`);
+    assert.deepEqual(state.depth, state.internal, `${label}: scene depth texture size`);
+    checkpoints.push({ label, ...state });
+  };
+  try {
+    for (const scale of [1, 0.8, 0.65, 1]) {
+      await page.evaluate((s) => window.__game.post.setResolutionScale(s), scale);
+      await checkpoint(`resolution scale ${scale}`);
+      assert.equal(checkpoints.at(-1).scale, scale);
+    }
+    await page.setViewportSize({ width: 1400, height: 800 });
+    await checkpoint('viewport 1400x800');
+    assert.deepEqual(checkpoints.at(-1).viewport, [1400, 800]);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await checkpoint('viewport 1280x720');
+    assert.deepEqual(checkpoints.at(-1).viewport, [1280, 720]);
+    const framebuffers = evidence.console.filter((m) => /framebuffer.*(?:incomplete|not complete)|incomplete.*(?:framebuffer|attachment)|FRAMEBUFFER_INCOMPLETE|GL_INVALID_FRAMEBUFFER_OPERATION/i.test(m));
+    assert.deepEqual(framebuffers, [], 'resolution and viewport transitions must not produce incomplete framebuffers');
+    await shot(page, '06c-resolution-resize');
+    record('High graphics resolution and viewport resizing preserve complete color and depth buffers', { hardwareGpu: !!process.env.HARDWARE_GPU, checkpoints });
+  } finally {
+    await page.evaluate((state) => {
+      const post = window.__game.post;
+      post.setQuality(state.quality); post.setResolutionScale(state.scale); post.autoResolution = state.automatic;
+    }, saved);
+  }
+}
+
 async function soloFlow() {
   const page = await newPage('menus/solo');
   await page.goto(base); await until(page, () => window.__ready && window.__app?.screen === 'title');
@@ -87,11 +142,21 @@ async function soloFlow() {
   record('results pay once and dispose the previous physics world', payout);
 
   await page.evaluate(() => window.__app.title());
-  await seat(page, 'gunner'); await page.locator('.garage [data-ready="1"]').click();
+  await seat(page, 'gunner');
+  // Fund the shop fixture; purchase, equip and start through the same controls used in live play.
+  await page.evaluate(() => { window.__app.profile.cash = 5000; window.__app._garageRefresh(); });
+  await page.locator('.garage [data-tab="weapons"]').click();
+  await page.locator('.garage [data-row="smg"]').click();
+  await page.locator('.garage [data-buy="1"]').click();
+  await until(page, () => !!window.__app.profile.weapons.smg);
+  await page.locator('.garage [data-slot="0"]').click();
+  await until(page, () => window.__app.profile.loadout[0] === 'smg');
+  await page.locator('.garage [data-ready="1"]').click();
   await until(page, () => window.__run?.started && window.__run.role === 'gunner' && !window.__game.paused);
+  assert.equal(await page.evaluate(() => window.__run.gunner.weaponId), 'smg');
   const mag = await page.evaluate(() => window.__run.gunner.magNow);
   await page.mouse.move(640, 350); await page.mouse.down();
-  await until(page, (n) => window.__run.gunner.magNow < n, mag);
+  await until(page, (n) => window.__run.gunner.magNow < n - 2, mag);
   await page.mouse.up();
   const afterShot = await page.evaluate(() => window.__run.gunner.magNow);
   await page.keyboard.press('r');
@@ -99,7 +164,36 @@ async function soloFlow() {
   await until(page, () => !window.__run.gunner.reloading);
   assert.equal(await page.evaluate(() => window.__run.gunner.magNow), mag);
   await shot(page, '06-gunner');
-  record('solo gunner fires and reloads while the AI drives', { mag, afterShot });
+  record('solo SMG purchase, equip, hip fire and reload through normal menus', { mag, afterShot });
+
+  // Ordinary capture release must still open a working pause menu, then Resume must restore it.
+  await until(page, () => document.pointerLockElement === window.__game.canvas);
+  await page.evaluate(() => document.exitPointerLock());
+  await until(page, () => window.__game.paused && !document.pointerLockElement);
+  await page.locator('[data-act="resume"]').click();
+  await until(page, () => !window.__game.paused && document.pointerLockElement === window.__game.canvas);
+
+  // Model an active run whose initial capture request failed. Use the existing intentional-release path
+  // to leave gameplay active; all subsequent firing/capture input is real browser mouse input.
+  await page.evaluate(() => { window.__app._releasing = true; document.exitPointerLock(); });
+  await until(page, () => !window.__game.input.locked && !window.__game.paused);
+  const unlocked = await page.evaluate(() => ({
+    canvasReceivesClick: document.elementFromPoint(640, 350) === window.__game.canvas,
+    fire: window.__game.input.mouse.left, ads: window.__game.input.mouse.right,
+    mag: window.__run.gunner.magNow, shots: window.__run.gunner.shots,
+  }));
+  assert.equal(unlocked.canvasReceivesClick, true, 'the hidden full-screen menu container must not intercept CLICK TO AIM');
+  assert.equal(unlocked.fire, false); assert.equal(unlocked.ads, false);
+  await page.mouse.click(640, 350);
+  await until(page, () => window.__game.input.locked && document.pointerLockElement === window.__game.canvas);
+  await page.mouse.down();
+  await until(page, (n) => window.__run.gunner.magNow < n - 3, unlocked.mag);
+  await page.mouse.up();
+  const restored = await page.evaluate(() => ({ mag: window.__run.gunner.magNow, shots: window.__run.gunner.shots, ads: window.__run.gunner.ads, locked: window.__game.input.locked }));
+  assert.ok(restored.shots > unlocked.shots + 3); assert.equal(restored.ads, 0); assert.equal(restored.locked, true);
+  await shot(page, '06b-smg-hip-fire-recaptured');
+  record('SMG hip fire recovers mouse capture after an unlocked run without a HUD click shield', { unlocked, restored });
+  await videoResizeFlow(page);
   await page.context().close();
 }
 

@@ -45,7 +45,8 @@ gr = prism_bm([(-2, 80), (26, 80), (26, 84), (14, 86), (0, 86)], -12.0, 12.0, fi
 body.add(gr, "gun_black", bevel=0.5)
 for sy in (1, -1):
     body.add(prism_bm([(2, 85), (14, 85), (12, 95), (5, 95)], sy * 9.0 - 2.2, sy * 9.0 + 2.2, fillet=1.2, fsegs=2), "gun_black", bevel=0.5)
-body.add(lathe_bm([(0, 3.3), (0, 5.8), (3.0, 5.8), (3.0, 3.3)], 28, "x", c=(6.5, 0, 90.0), cap=True), "gun_black", bevel=0.35)
+# Close the annular cross-section, not the aperture: endpoint caps would fill the sight's bore.
+body.add(lathe_bm([(0, 3.3), (0, 5.8), (3.0, 5.8), (3.0, 3.3), (0, 3.3)], 28, "x", c=(6.5, 0, 90.0), cap=False), "gun_black", bevel=0.35)
 fp = prism_bm([(640, BZ + 9), (672, BZ + 9), (668, BZ + 20), (660, BZ + 26), (655, BZ + 26), (652, BZ + 19)], -2.2, 2.2, fillet=[1, 1, 2, 0.6, 0.6, 2], fsegs=2)
 body.add(fp, "gun_black", bevel=0.3)
 body.add(cyl_bm((652, 0, BZ + 24.5), (661, 0, BZ + 24.5), 1.3, segs=8), "paint2", bevel=0)

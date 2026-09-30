@@ -69,6 +69,12 @@ const efrag = /* glsl */`
 uniform sampler2D shaftTex;
 uniform vec3 shaftCol;
 void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
+  // The shafts pass sleeps while the sun is out of view. Skip its texture and
+  // depth reconstruction too when its contribution is exactly zero.
+  if (dot(shaftCol, shaftCol) == 0.0) {
+    outputColor = inputColor;
+    return;
+  }
   // no in-scattered light in the near field: the cockpit / truck bed / gun sit in the shade of the cab, not in lit air
   float nearK = depth < 0.0082 ? 0.0 : smoothstep(3.0, 12.0, -getViewZ(depth));
   outputColor = vec4(inputColor.rgb + texture2D(shaftTex, uv).r * shaftCol * nearK, inputColor.a);

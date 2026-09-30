@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { ATMO, ATMO_GLSL, KEY, noiseTexture } from './atmosphere.js';
 import { D2R, smoothstep } from '../core/util.js';
+import { StaticShadowCache } from '../view/post/static_shadows.js';
 
 const VERT = /* glsl */`
 varying vec3 vWorldPosition;
@@ -148,7 +149,21 @@ export class SkyRig {
     this.follow = new THREE.Vector3();
     this.shadowFocus = new THREE.Vector3();        // centre of the shadow box (Dressing selects shadow casters around it)
     this._baseY = null; this._time = 0;
+    this._shadowAnchor = new THREE.Vector3(); this._shadowDir = new THREE.Vector3();
+    this._haveShadowAnchor = false;
+    this.shadowCache = opts.staticShadows === false ? null : new StaticShadowCache(renderer, scene, this.sun);
     ATMO.uAtmFog.value.w = 1;
+  }
+
+  /** Resize both live and cached shadow depth; keep texel snapping in sync. */
+  setShadowSize(size) {
+    const shadow = this.sun.shadow;
+    this.shadowSize = size;
+    if (shadow.mapSize.x === size) return;
+    shadow.mapSize.set(size, size);
+    shadow.map?.depthTexture?.dispose(); shadow.map?.dispose(); shadow.map = null;
+    shadow.mapPass?.dispose(); shadow.mapPass = null; shadow.needsUpdate = true;
+    this.shadowCache?.invalidate(); this._haveShadowAnchor = false;
   }
 
   /** Apply a look; rebuilds the IBL environment when the sky changed enough (throttled). */
@@ -226,10 +241,22 @@ export class SkyRig {
     const fl = _f.length(); if (fl > 1e-3) _f.multiplyScalar(1 / fl); else _f.set(0, 0, 0);
     const F = this.shadowFocus.copy(f).addScaledVector(_f, this.shadowExtent * this.shadowAhead);
     // snap to texels in light space (basis as Matrix4.lookAt(eye, target, up) builds it)
-    const L = this.keyDir;
+    let L = this.keyDir;
+    // A world-stable box keeps fixed terrain/building depth reusable while
+    // driving or turning the view. Recenter before the useful near field can
+    // approach its edge, and refresh for moving sunlight (including moon swap).
+    // Dynamic cars/crew still cast into the combined map every render.
+    if (this.shadowCache?.enabled) {
+      if (!this._haveShadowAnchor || F.distanceToSquared(this._shadowAnchor) > 36 ||
+        this._shadowDir.dot(L) < 0.99999945 || this.shadowSize !== this.sun.shadow.mapSize.x) {
+        this._shadowAnchor.copy(F); this._shadowDir.copy(L); this._haveShadowAnchor = true;
+        this.shadowCache.invalidate();
+      }
+      F.copy(this._shadowAnchor); L = this._shadowDir;
+    }
     _x.crossVectors(_up, L); if (_x.lengthSq() < 1e-6) _x.set(1, 0, 0); _x.normalize();
     _y.crossVectors(L, _x);
-    const texel = (this.shadowExtent * 2) / this.shadowSize;
+    const texel = (this.shadowExtent * 2) / this.sun.shadow.mapSize.x;
     const u = F.dot(_x), v = F.dot(_y);
     F.addScaledVector(_x, Math.round(u / texel) * texel - u).addScaledVector(_y, Math.round(v / texel) * texel - v);
     this.sun.position.copy(F).addScaledVector(L, 160);

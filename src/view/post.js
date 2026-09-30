@@ -1,6 +1,6 @@
 // RIDE OR DIE post-processing pipeline (pmndrs `postprocessing` + `n8ao`).
 //
-//   scene (HDR half-float, MSAA 4x at quality>=2, private target + resolve blit)
+//   scene (HDR half-float, optional MSAA 4x at ultra, private target + resolve blit)
 //     -> N8AO ambient occlusion (half-res, quality gated)
 //     -> [depth of field]   (garage/menu only, params.dof > 0)
 //     -> LensEffect (camera motion blur by depth reprojection + edge chromatic aberration + shockwave refraction)
@@ -36,6 +36,7 @@ import { ScenePass } from './post/scene_pass.js';
 import { TaaPass } from './post/taa_pass.js';
 import { GpuTimer } from './post/gpu_timer.js';
 import { ShaftsPass, ShaftsEffect } from './post/shafts.js';
+import { AdaptiveResolutionController } from './post/adaptive_resolution.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -88,6 +89,9 @@ class ProfEffectPass extends EffectPass {
   render(renderer, inputBuffer, outputBuffer, deltaTime) {
     const t = this.timer;
     for (const effect of this.effects) {
+      // A zero bloom blend does not disable its luminance/blur work. Avoid the
+      // entire pyramid when the feature is off; the uniform still blends zero.
+      if (effect.name === 'BloomEffect' && effect.intensity === 0) continue;
       const timed = t && effect.update !== Effect.prototype.update;
       if (timed) t.begin(`${this.label}.${effect.name.replace('Effect', '')}`);
       effect.update(renderer, inputBuffer, deltaTime);
@@ -124,7 +128,8 @@ export class Post {
     this.quality = clamp(Math.round(opts.quality), 0, 3);
     this.resolutionScale = clamp(opts.resolutionScale, 0.5, 1);
     this.resolutionCeiling = this.resolutionScale;
-    this.autoResolution = true; this._resolutionAge = 0; this._resolutionMs = 16.7;
+    this.autoResolution = true;
+    this._resolutionController = new AdaptiveResolutionController(this.resolutionCeiling);
     this._enabled = true;
     this._taa = false; this.taaPass = null;
     this.params = { speed01: 0, boost: 0, damage01: 0, night01: 0, dof: 0, hitFlash: 0, slowmo: 0 };
@@ -264,10 +269,21 @@ export class Post {
     const s = this.resolutionScale;
     const iw = Math.max(4, Math.round(dw * s)), ih = Math.max(4, Math.round(dh * s));
     this._drawW = dw; this._drawH = dh;
+    if (this._internal.x === iw && this._internal.y === ih) return;
     this._internal.set(iw, ih);
     const c = this.composer;
-    c.inputBuffer.setSize(iw, ih); c.outputBuffer.setSize(iw, ih);
-    if (c.depthRenderTarget) c.depthRenderTarget.setSize(iw, ih);
+    for (const target of [c.inputBuffer, c.outputBuffer, c.depthRenderTarget]) {
+      if (!target) continue;
+      target.setSize(iw, ih);
+      // Three's RenderTarget.setSize updates only colour images. Soft particles
+      // sample stable depth before that target is next bound as a framebuffer:
+      // without synchronizing its image here they recreate immutable depth
+      // storage at the old size and make the later depth blit incomplete.
+      const depth = target.depthTexture;
+      if (depth && (depth.image.width !== iw || depth.image.height !== ih)) {
+        depth.image.width = iw; depth.image.height = ih; depth.needsUpdate = true;
+      }
+    }
     for (const p of c.passes) p.setSize(iw, ih);
   }
 
@@ -275,22 +291,17 @@ export class Post {
   setResolutionScale(s) {
     this.resolutionCeiling = clamp(s, 0.5, 1);
     this.resolutionScale = this.resolutionCeiling;
-    this._resolutionAge = 0; this._resolutionMs = 16.7;
+    this._resolutionController?.reset(this.resolutionCeiling);
     this._applyInternalSize(this._drawW, this._drawH);
   }
 
   /** Aim for smooth input on busy scenes; the user's scale remains the ceiling. */
   adaptResolution(frameMs) {
-    if (!this.autoResolution || frameMs > 100 || frameMs < 1) return;
-    this._resolutionAge += frameMs / 1000;
-    this._resolutionMs += (frameMs - this._resolutionMs) * 0.04;
-    if (this._resolutionAge < 2) return;
-    const floor = Math.min(0.65, this.resolutionCeiling), scale = this.resolutionScale;
-    let next = scale;
-    if (this._resolutionMs > 21) next = Math.max(floor, scale - 0.1);
-    else if (this._resolutionMs < 17.5 && this._resolutionAge > 10) next = Math.min(this.resolutionCeiling, scale + 0.05);
-    if (Math.abs(next - scale) < 0.001) return;
-    this.resolutionScale = next; this._resolutionAge = 0;
+    const controller = this._resolutionController ??= new AdaptiveResolutionController(this.resolutionCeiling);
+    if (!this.autoResolution) { controller.reset(this.resolutionCeiling); return; }
+    const next = controller.update(frameMs, this.resolutionScale, this.resolutionCeiling);
+    if (next === null) return;
+    this.resolutionScale = next;
     this._applyInternalSize(this._drawW, this._drawH);
     this.cut();
   }
@@ -338,11 +349,53 @@ export class Post {
     for (let i = 0; i < 3; i++) { G.shadowTint[i] = g.shT[i]; G.highTint[i] = g.hiT[i]; }
   }
 
-  /** Compile the programs of passes that only render conditionally (sun shafts) so they never compile mid-run. */
-  warm() {
-    const r = this.renderer, prev = r.getRenderTarget();
-    try { r.setRenderTarget(this.shaftsPass.rt); r.compile(this.shaftsPass.scene, this.shaftsPass.camera); } catch (e) { void e; }
-    r.setRenderTarget(prev);
+  /** Allocate current buffers and compile all post variants while the run loads. */
+  async warm() {
+    const r = this.renderer, prev = r.getRenderTarget(), face = r.getActiveCubeFace(), mip = r.getActiveMipmapLevel();
+    const c = this.composer, ao = this.aoPass, bloom = this.bloom;
+    const targets = new Set([c.inputBuffer, c.outputBuffer, c.depthRenderTarget, this.scenePass.rt,
+      this.shaftsPass.rt, bloom.renderTarget, bloom.luminancePass.renderTarget,
+      ...bloom.mipmapBlurPass.downsamplingMipmaps, ...bloom.mipmapBlurPass.upsamplingMipmaps,
+      this.smaaEffect.renderTargetEdges, this.smaaEffect.renderTargetWeights,
+      ao?.writeTargetInternal, ao?.readTargetInternal, ao?.accumulationRenderTarget,
+      ao?.depthDownsampleTarget, ao?.outputTargetInternal]);
+    const pending = [], hdr = c.outputBuffer;
+    const compile = (pass, target = hdr) => {
+      if (!pass?.scene || !pass.camera) return;
+      r.setRenderTarget(target); pending.push(r.compileAsync(pass.scene, pass.camera));
+    };
+    try {
+      for (const target of targets) if (target) r.initRenderTarget(target);
+      for (const pass of [this.dofPass, this.mainPass, this.smaaPass]) compile(pass);
+      compile(this.finalPass, null);
+      compile(this.shaftsPass, this.shaftsPass.rt);
+      compile(bloom.luminancePass, bloom.luminancePass.renderTarget);
+      compile(this.smaaEffect.edgeDetectionPass, this.smaaEffect.renderTargetEdges);
+      compile(this.smaaEffect.weightsPass, this.smaaEffect.renderTargetWeights);
+      // N8AO's private fullscreen meshes retain their actual two-component
+      // geometry. Compile both composite/copy and half-resolution branches.
+      const camera = new THREE.OrthographicCamera();
+      for (const quad of [ao?.depthDownsampleQuad, ao?.effectShaderQuad, ao?.poissonBlurQuad,
+        ao?.accumulationQuad, ao?.effectCompositerQuad, ao?.copyQuad]) if (quad?._mesh) {
+        r.setRenderTarget(hdr); pending.push(r.compileAsync(quad._mesh, camera));
+      }
+      const blur = bloom.mipmapBlurPass, material = blur.fullscreenMaterial;
+      try {
+        for (const next of [blur.downsamplingMaterial, blur.upsamplingMaterial]) {
+          blur.fullscreenMaterial = next; compile(blur, blur.renderTarget);
+        }
+      } finally { blur.fullscreenMaterial = material; }
+    } catch (error) {
+      // Prewarming is optional on unsupported drivers; normal rendering still
+      // initializes each pass. Do not strand the loading screen on a failure.
+      console.warn('Post prewarm failed', error);
+    } finally { r.setRenderTarget(prev, face, mip); }
+    // A driver that never completes its parallel compile must not leave the
+    // player waiting indefinitely. Promises are observed even after timeout.
+    let timeout;
+    try {
+      await Promise.race([Promise.allSettled(pending), new Promise(resolve => { timeout = setTimeout(resolve, 8000); })]);
+    } finally { clearTimeout(timeout); }
   }
 
   /** Settings: speed blur at the screen edges on/off. */

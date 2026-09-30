@@ -846,7 +846,9 @@ export class AudioSys {
       if (v[k] === undefined) continue;
       this.volumes[k] = clamp(+v[k], 0, 1.5);
       const node = k === 'master' ? this.masterGain : this.buses[k];
-      node.gain.setTargetAtTime(this.volumes[k], now, 0.03);
+      const muted = k === 'master' ? this._paused : this._gpPaused && (k === 'sfx' || k === 'ambience');
+      node.gain.cancelScheduledValues(now);
+      node.gain.setTargetAtTime(muted ? 0 : this.volumes[k], now, 0.03);
     }
     return this.volumes;
   }
@@ -1159,6 +1161,18 @@ export class AudioSys {
   }
   /** 0..1: heartbeat (>0.25) + warning alarm (>0.55) loops. */
   setDanger(v) { this._danger = clamp01(v); }
+  /** Solo pause fades world sounds; UI and music remain audible. */
+  setGameplayPaused(p) {
+    p = !!p;
+    if (p === this._gpPaused) return;
+    this._gpPaused = p;
+    const now = this.ctx.currentTime;
+    for (const k of ['sfx', 'ambience']) {
+      const gain = this.buses[k].gain;
+      gain.cancelScheduledValues(now);
+      gain.setTargetAtTime(p ? 0 : this.volumes[k], now, p ? 0.04 : 0.12);
+    }
+  }
   /** 0 = open air (gunner in the bed), 1 = inside the cab (driver cockpit). Smoothly crossfaded. */
   setCabin(k) {
     k = clamp01(k); if (Math.abs(k - this._cabin) < 0.01) return; this._cabin = k;
