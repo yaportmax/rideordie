@@ -35,8 +35,8 @@ def _dens(c, n):
 
 m.bake_opts = dict(
     dens=90.0, dens_max=1.1, dens_floor=0.9, margin=2, scale=2.2, edge_scale=1.5, heat_scale=1.2, shelf_window=14,
-    max_size={'armor': (2048, 2048), 'paint': (2048, 1024), 'metal_dark': (2048, 1024), 'paint2': (1024, 1024), 'plastic': (1024, 1024),
-              'canvas': (1024, 512), 'rubber_tire': (1024, 512), 'rim': (512, 512), 'wood': (512, 512)},
+    max_size={'armor': (2048, 2048), 'paint': (1024, 1024), 'metal_dark': (2048, 1024), 'paint2': (1024, 1024), 'plastic': (1024, 1024),
+              'canvas': (512, 512), 'rubber_tire': (1024, 512), 'rim': (512, 512), 'wood': (512, 512)},     # ~76 MB texture memory
     max_default=(512, 512),
     mat_dens={'rubber_tire': 0.7, 'wood': 0.7, 'canvas': 0.8},
     ao_dist=3.0, cav_dist=0.1, dirt_h=3.4, rust=1.15, wear=1.1, seed=41,

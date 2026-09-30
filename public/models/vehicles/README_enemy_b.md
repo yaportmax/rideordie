@@ -1,9 +1,9 @@
 # Enemy vehicles B — van, heavy, tanker + boss (procedural, Blender 4.5 headless)
 
 Files in this folder: `e_van.glb`, `e_heavy.glb`, `e_tanker.glb`, `boss_warrig.glb` (the boss is **The Leviathan**, a 34 m war-train).
-Sources / rebuild: `tools/blender/vehicles/enemy_b/` — `vlib.py` toolkit, `vmat.py` materials + textures, `vbake.py` (unique wear-atlas bake, v2 raiders),
-`parts.py` (legacy parts, used by the boss), `parts2.py` (v2 detail parts: wheels, sandbags, mesh screens, lamps, patches, seats ...), `boss_parts.py`, one script per vehicle.
-Rebuild one: `bash tools/blender/vehicles/enemy_b/run.sh <e_van|e_heavy|e_tanker|boss_warrig>.py` (raiders ~1.5-3 min each because of the bake, boss ~10 s).
+Sources / rebuild: `tools/blender/vehicles/enemy_b/` — `vlib.py` toolkit, `vmat.py` materials + textures, `vbake.py` (unique wear-atlas bake, raiders + boss),
+`parts.py` (legacy parts, used by the boss), `parts2.py` (v2 detail parts: wheels, sandbags, mesh screens, lamps, patches, seats ...), `boss_parts.py`, `boss_rear.py` (boss rear/flanks), one script per vehicle.
+Rebuild one: `bash tools/blender/vehicles/enemy_b/run.sh <e_van|e_heavy|e_tanker|boss_warrig>.py` (raiders ~1.5-3 min each because of the bake, boss ~4 min).
 Test builds: `VEH_OUT=shots/enemy_b/test` writes the GLB there instead of `public/` (Vite serves it as `/shots/enemy_b/test/<id>.glb`); `BAKE_QUICK=1` bakes at half density.
 Node/socket regression check: `python tools/blender/vehicles/enemy_b/check_nodes.py e_van e_heavy e_tanker [--base=http://localhost:5180] [--dir=shots/enemy_b/test] [--ref=old_model_info.json]`
 (`--ref` lists every socket / hub that moved by more than 1.5 mm).
@@ -24,7 +24,7 @@ Sockets are empties with identity rotation (+Z forward, +Y up) unless a rotation
   `material.color` multiplies it). Every opaque material carries a **unique baked wear atlas** (base colour + ORM: roughness in G, metalness in B) on
   **TEXCOORD_1**, plus a small tiling detail normal map on TEXCOORD_0. The bake (Cycles AO + cavity, convex-edge distance, weld heat tint, rust streaks that run down
   from rivets/edges/welds, height + wheel-spray road dirt, dust on up-facing surfaces, a warm dust film, scratches, chips) is per texel, so these GLBs have
-  **no COLOR_0 vertex colours** any more (the boss still has them). Emissive `light_head` / `light_tail` / `light_amber` and alpha `glass` are unchanged.
+  **no COLOR_0 vertex colours** any more (the boss neither, since round 3). Emissive `light_head` / `light_tail` / `light_amber` and alpha `glass` are unchanged.
 * **Folded materials**: small materials are merged into bigger ones to save draw calls, but each part keeps its own baked look. So a chrome handle, a rusty patch,
   a hazard stripe or a rubber mud flap may live in `armor` / `metal_dark` / `decal_red`. Consequences: these three models have **no `chrome` material** (the loader's
   chrome darkening no longer applies; their chrome parts are baked as dirty chrome), the tanker's aluminium tank is `metal_bare` and its red band `decal_red`.
@@ -100,18 +100,46 @@ cab skull crest 10.2), length 34.4 m (36 m with spikes).
 * **Missile racks**: `part_pod_L/R` (origin = trunnion, +-3.0,5.75,-4.0); sockets `rocket_pod_L/R` at the muzzle-plane centre (+-3.0,6.9,-1.1), rotated so **+Z = tube axis** (elevated 22 deg).
 * **Gunners** (standing, feet centre, platform y 3.9): `seat_gunner` (1.2,3.9,-2.4), `seat_gunner2` (-1.2,3.9,-2.4), `seat_gunner3` (1.2,3.9,-3.5), `seat_gunner4` (-1.2,3.9,-3.5).
 * **Fuel tanks**: `part_tank_L/R` (+-3.05,4.1,-13.7), horizontal cylinders on trailer #2's flanks; `fuel_cap` socket on tank L (3.05,5.14,-15.2).
-* **Flame throwers**: `flame_L/R` (+-2.55,4.1,-17.05) at the rear corners; socket **+Z = flame direction (backwards, 15 deg outward)**.
+* **Flame throwers**: `flame_L/R` (+-2.55,4.1,-17.05) at the rear corners; socket rotation unchanged (+Z backwards, 15 deg outward); the nozzle geometry points outboard
+  (the fx fires the jets sideways).
 * **Rear**: `ramp_rear` = drop-down ramp door, closed = vertical, hinge at its bottom edge (0,3.02,-17.0): rotate about X by -90 deg to lay it out backwards (about -70 deg is a car ramp).
   Above it the reactor tower: **`part_engine`** (= reactor core with glowing `light_amber` rods, origin 0,6.75,-16.05; socket **`weak_engine`** at the same point) hidden behind three bolt-on plates
   `panel_armor_rear_1` (centre, 0,6.75,-17.05), `panel_armor_rear_2` (left, 1.35,...), `panel_armor_rear_3` (right, -1.35,...). The tower's other faces are closed, so the core only shows once the plates are gone.
 * **Other destructibles**: `part_plow` (0,1.4,16.0; blade, spikes, impaled skulls, chains), `part_stack_L/R` (chrome stacks, pivot at base +-2.4,3.0,6.15), `panel_hood` (0,4.6,10.8 hinge),
   `panel_fender_L/R` (+-2.9,3.2,12.6), `panel_grille` (0,3.2,14.95: grille bars + skull face with glowing eyes), `panel_chin` (lower cab-front armor), `panel_armor_roof`, `panel_armor_cab_L/R`,
   `panel_armor_t1_L1/L2/R1/R2` (trailer #1 flank armor, 2 per side), `panel_tower_L/R` (reactor-tower side plates).
-* Props: hanging chains, banners on tall poles (cloth uses `paint2`, so banners take the tint), horned skulls (`plastic`, glowing `light_amber` eyes) on the cab crest, roof, towers and impaled on the plow,
+* Props: hanging chains, banners on tall poles, horned skulls (`plastic`, glowing `light_amber` eyes) on the cab crest, roof, towers and impaled on the plow,
   catwalks + ladders (cab flanks, trailer #1 flanks, rear tower, hitch bridge), generator + cables, radio mast, chained loot (crates/barrels/tyres) at the back of trailer #1, spare tyres + toolboxes +
   air hoses on the tractor deck, corner towers with floodlights/spikes, spiked flanks.
-* Textures on the boss are tiled at 2.6x scale (bigger rust / chip blotches for the bigger object); baked AO uses a 3 m ray length. The boss still uses the legacy tiling-texture +
-  vertex-colour path (`Model(bake=False)`); rebuilding it after the v2 changes gives a byte-identical GLB.
+
+### Boss rear / sides rebuild (round 3, `boss_rear.py`) — what the chasing players look at
+* **Reactor plates** `panel_armor_rear_1/2/3`: bevelled base plate + kick flange, two layered scrap patch plates each (corner-cut, fillet-welded all round, bolted),
+  edge stiffeners with bolt rows, lifting lug, chipped hazard band (real thin plates), reactor trefoil on the centre plate. All detail is parented to its plate; origins
+  and part boxes unchanged (model_info identical).
+* **Ramp** `ramp_rear` (hinge unchanged): framed slab with rivet rows, traction bars, broken hazard band, hinge knuckles on the pivot axis, two hydraulic rams, and a
+  **skull-and-crossbones cut from plate** (bone paint, bolted, welded crack, glowing eye holes) replacing the flat WARLORD/LEVIATHAN text.
+* **Tower**: armour strips + rivet rows on the pillar faces, caged tail/amber lamps and caged work lamps, lintel over the plates, chain loops, firing ports in
+  `panel_tower_L/R`, exhaust stacks out of the tower sides (sooted tops), caged ladder (left), guarded coolant radiator (right). Roof: grating deck, railings,
+  sandbagged rear-corner gun stands, horned skulls on spikes, flags, spike crown, caged floods, and the **WARLORD sign: 9 cm cut-plate bone letters standing proud
+  of a dark backing plate in a welded frame with marquee bulbs** (reads at 60 m in game).
+* **Flame throwers** `flame_L/R`: socket position/rotation unchanged, but the nozzle geometry now swings outboard (pump housing, swivel ring, finned heat sleeve,
+  flared glowing muzzle, pilot light, fuel hose) to match the fx, which fires the jets sideways. **Thrusters** at `nitro_L/R`: rocket bells with glowing throats and
+  heat soot. Spiked underride bumper with hazard band + chain; its centre spikes keep the rear of the bbox at z -18.645.
+* Flanks of trailer #2: broken hazard bands on the skirts, sandbagged firing stands at the front corners, tank cradle straps; caged floods on trailer #1's rear towers.
+* The reactor (`part_engine`) is unchanged and stays enclosed (closed tower sides/front/roof; a lintel now also closes the slot above the plates).
+
+### Boss materials / bake
+* The boss now uses the same **unique wear-atlas bake** as the raiders (`Model(bake=True)`, TEXCOORD_1 atlases, no COLOR_0), with boss options: pattern scale 2.2
+  (edge wear 1.5, weld heat 1.2), rear-facing charts of trailer #2 get 2.8x texel density, soot/heat spots at the thrusters, flame muzzles and all stack tops.
+* The boss is **never tinted**, so `paint` is baked **oxblood** (sun-faded, chipped to primer, rust bleed) and `paint2` **charcoal**; wheels (`rim`) oxblood.
+* Folded materials (baked looks kept): `chrome` -> `metal_dark` / `armor` (so the game's chrome darkening no longer applies; polished parts and the fuel-tank shells are
+  baked as dark grimy steel), `decal_yellow` (hazard bands) -> `plastic`, `cloth_red` (flags/banners) -> `paint2`, rust/spikes/bare steel -> `armor`.
+  Boss materials: `armor metal_dark paint paint2 plastic canvas wood rubber_tire rim glass light_head light_tail light_amber`.
+* Size pass: `quantize_glb.mjs` (run by the build) stores NORMAL as int8 and TEXCOORD_1 as uint16 (`KHR_mesh_quantization`, loaded natively by three.js);
+  positions, TEXCOORD_0, node transforms and names are untouched. `NO_QUANT=1` skips it.
+* Checks: `node tools/blender/vehicles/enemy_b/mi_diff.mjs <glb>` diffs one GLB against `src/data/model_info.json` (parts, sockets, hubs, bbox) without writing;
+  `node tools/blender/vehicles/enemy_b/boss_shots.mjs <prefix> [--glb=test.glb]` takes in-game stills from the chase positions (swaps the GLB in via request routing).
+  Full boss build ~4 min.
 
 ## How the v2 wear bake works (`vbake.py`, opt-in with `Model(..., bake=True)`)
 1. **Charts**: every primitive is split into planar-ish charts (faces binned by dominant signed axis, connected components); tiny primitives (rivets, bolts, weld beads)

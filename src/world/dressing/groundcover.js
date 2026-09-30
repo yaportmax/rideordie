@@ -301,13 +301,13 @@ function warm(ctx) {
   S.warming = true;
   const w = ctx.pool && ctx.pool.warmer;
   if (!w) { S.ready = true; return; }
-  const dummies = ['grass', 'pebble'].map((k) => makeMesh(k, new Float32Array(8), 1, [0, -5000, 0]));
+  const dummies = ['grass', 'pebble', 'tyre'].map((k) => makeMesh(k, new Float32Array(8), 1, [0, -5000, 0]));
   w(dummies).then(() => { S.ready = true; for (const d of dummies) disposeCoverMesh(d); }, () => { S.ready = true; });
 }
 
 /** Meshes using every cover program (for Game.prewarm: compiled up front, so the runtime warm-up is instant). */
 export function coverPrewarmMeshes() {
-  return ['grass', 'pebble'].map((k) => { const m = makeMesh(k, new Float32Array(8), 1, [0, 0, 0]); m.visible = true; return m; });
+  return ['grass', 'pebble', 'tyre'].map((k) => { const m = makeMesh(k, new Float32Array(8), 1, [0, 0, 0]); m.visible = true; return m; });
 }
 
 function makeMesh(kind, data, n, anchor) {
