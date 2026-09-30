@@ -150,11 +150,14 @@ export class Game {
   }
 
   async startRun(cfg) {
-    if (this.run) this.endRun();
+    this.endRun();
+    const generation = this._runGeneration;
     this.fade(1, 0);
     await this.prewarm();
+    if (generation !== this._runGeneration) return null;
     const run = new Run(this, cfg);
-    await run.init();
+    try { await run.init(); } catch (e) { run.dispose(); this.fade(0); throw e; }
+    if (generation !== this._runGeneration) { run.dispose(); return null; }
     this.run = run; this.mode = 'run'; this.paused = false;
     if (this.post) { this.post.enabled = true; this.post.cut?.(); }
     this.hud.setVisible(true); this.hud.show({ driver: run.humanDriver, gunner: run.humanGunner });
@@ -170,7 +173,7 @@ export class Game {
     if (!this._fadeEl) { const f = this._fadeEl = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;z-index:5;opacity:0;transition:opacity 0.6s'; document.body.appendChild(f); }
     this._fadeEl.style.transition = `opacity ${secs}s`; this._fadeEl.style.opacity = to;
   }
-  endRun() { if (this.run) { this.run.dispose(); this.run = null; } if (window.__app) window.__app._releasing = true; this.input.releaseLock(); this.hud.setVisible(false); if (this._lockEl) this._lockEl.style.display = 'none'; }
+  endRun() { this._runGeneration = (this._runGeneration || 0) + 1; this.paused = false; this.onPause = this.onRunEnd = null; if (this.run) { this.run.dispose(); this.run = null; } if (window.__app) window.__app._releasing = true; this.input.releaseLock(); this.input.reset(); this.hud.setVisible(false); if (this._lockEl) this._lockEl.style.display = 'none'; }
 
   frame(now) {
     const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
@@ -193,7 +196,9 @@ export class Game {
     if (run.role === 'solo') cmds = input.solo(dt);
     else if (run.role === 'driver') cmds = { driver: input.driver(dt), gunner: input.gunner(dt) };
     else cmds = { driver: input.driver(dt), gunner: input.gunner(dt, run.gunner && run.gunner.ads > 0.5) };
-    if (this.paused) { for (const k of Object.keys(cmds.driver)) if (typeof cmds.driver[k] !== 'number') cmds.driver[k] = false; else cmds.driver[k] = 0; cmds.gunner.fire = cmds.gunner.firePressed = cmds.gunner.reload = cmds.gunner.grenade = false; cmds.gunner.dYaw = cmds.gunner.dPitch = 0; }
+    if (this.paused) {
+      for (const c of [cmds.driver, cmds.gunner]) for (const k of Object.keys(c)) c[k] = typeof c[k] === 'number' ? (k === 'slot' ? -1 : 0) : false;
+    }
     if (window.__forceInput) Object.assign(cmds.driver, window.__forceInput);
     if (window.__forceGunner) Object.assign(cmds.gunner, window.__forceGunner);
     const t0 = performance.now();

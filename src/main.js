@@ -2,9 +2,12 @@ import { Game } from './game/game.js';
 import { App } from './app.js';
 import { DEFAULT_PROFILE, UPGRADES } from './data/upgrades.js';
 import { Session } from './net/session.js';
+import { Transport } from './net/transport.js';
+import { loadSettings } from './ui/settings_store.js';
 
+async function boot() {
 const q = new URLSearchParams(location.search);
-const game = new Game();
+const game = new Game({ quality: loadSettings().quality });
 window.__game = game;
 await game.boot();
 game.loop();
@@ -26,10 +29,18 @@ if (q.has('solo')) {
   window.__run = run; window.__ready = true;
 } else if (q.get('devnet')) {
   // dev shortcut for automated 2-browser tests: ?devnet=host&role=driver   /   ?devnet=join&code=ABCDE
-  const session = new Session(); window.__session = session;
+  // A local signalling server is supported by the test shortcut; normal rooms still use PeerJS defaults.
+  const peerOptions = q.get('peerHost') ? { host: q.get('peerHost'), port: +(q.get('peerPort') || 9000), path: '/peerjs', secure: false, config: { iceServers: [] } } : {};
+  const session = new Session(new Transport({ peerOptions })); window.__session = session;
   const profile = devProfile();
-  const startAs = async (cfg) => { const run = await game.startRun({ ...cfg, net: session, paint: 0x8f6a3d, startS: +(q.get('s') || 40) }); window.__run = run; window.__ready = true; };
-  session.on({ run: (m) => game.run && game.run.onNet(m), fast: (b) => game.run && game.run.onFast(b), start: (cfg) => startAs(cfg) });
+  const pending = []; let latestFast = null;
+  const startAs = async (cfg) => {
+    const run = await game.startRun({ ...cfg, net: session, paint: 0x8f6a3d, startS: +(q.get('s') || 40) });
+    for (const m of pending.splice(0)) run.onNet(m);
+    if (latestFast) { run.onFast(latestFast); latestFast = null; }
+    session.sendJSON({ t: 'runReady' }); window.__run = run; window.__ready = true;
+  };
+  session.on({ run: (m) => { if (game.run) game.run.onNet(m); else pending.push(m); }, fast: (b) => { if (game.run) game.run.onFast(b); else latestFast = b; }, start: (cfg) => startAs(cfg) });
   if (q.get('devnet') === 'host') {
     const code = await session.host(profile); window.__code = code;
     const role = q.get('role') || 'driver';
@@ -44,3 +55,14 @@ if (q.has('solo')) {
   app.title();
   window.__ready = true;
 }
+}
+
+boot().catch((e) => {
+  console.error('Game startup failed', e);
+  const panel = document.getElementById('boot') || document.body.appendChild(document.createElement('div'));
+  panel.id = 'boot'; panel.classList.remove('done'); panel.setAttribute('role', 'alert'); panel.replaceChildren();
+  const title = document.createElement('h1'); title.textContent = 'COULD NOT START THE GAME';
+  const detail = document.createElement('p'); detail.textContent = 'Check your connection and use a browser with hardware acceleration enabled.'; detail.style.color = '#d8d2c4';
+  const retry = document.createElement('button'); retry.textContent = 'TRY AGAIN'; retry.style.cssText = 'padding:16px 28px;background:#ffc21a;color:#14110f;border:0;font:700 16px sans-serif;cursor:pointer'; retry.onclick = () => location.reload();
+  title.style.color = '#ffc21a'; panel.append(title, detail, retry); retry.focus();
+});

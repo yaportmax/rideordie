@@ -16,7 +16,13 @@ export class GunnerController {
     this.ctx = ctx;
     this.slots = loadout.weapons.slice(0, 3);
     this.levels = loadout.levels || {};
-    this.stats = this.slots.map((id) => weaponStats(id, this.levels[id]));
+    this.stats = this.slots.map((id) => {
+      const s = weaponStats(id, this.levels[id]);
+      const steady = Math.max(0.1, 1 - 0.1 * (loadout.handling || 0));
+      s.reload *= loadout.reloadMul ?? 1;
+      s.spreadMul *= steady; s.recoilMul *= steady;
+      return s;
+    });
     this.mag = this.stats.map((s) => s.mag);
     this.cur = 0; this.yaw = 0; this.pitch = 0; this.crouch = 0; this.ads = 0;
     this.fireT = 0; this.reloadT = 0; this.reloading = false; this.pumpT = 0; this.boltT = 0;
@@ -53,7 +59,7 @@ export class GunnerController {
    * @param carYaw current heading of the truck (for stabilised aim)
    */
   update(dt, cmd, cam, carYaw, extra = {}) {
-    const w = this.weapon;
+    let w = this.weapon;
     // ---- aim (world-space stabilised, inherits a fraction of the truck's turn)
     if (this.lastCarYaw !== null) this.yaw += wrapAngle(carYaw - this.lastCarYaw) * 0.55;
     this.lastCarYaw = carYaw;
@@ -81,6 +87,7 @@ export class GunnerController {
     // ---- weapon swap
     if (cmd.slot >= 0) this.swapTo(cmd.slot);
     if (cmd.swap !== 0) { const n = this.slots.length; this.swapTo(((this.cur + (cmd.swap > 0 ? 1 : -1)) % n + n) % n); }
+    w = this.weapon;
     // ---- reload
     if (cmd.reload) this.startReload();
     if (this.reloading) {
