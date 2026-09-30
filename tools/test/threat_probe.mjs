@@ -162,6 +162,15 @@ function shop(prof) {
     if (r.ok) { bought.push(kind === 'track' ? `${id}.${track}` : id); PLAN.splice(k--, 1); }
     else if (r.reason === 'cash') break;
   }
+  // plan done: spend the rest like a player would -- cheapest remaining upgrade / weapon track first, until broke
+  if (!PLAN.length) for (let guard = 0; guard < 60; guard++) {
+    const opts = [];
+    for (const u of UPGRADES) { const c = upgradeCost(prof, u.id); if (c !== null && c <= prof.cash) opts.push([c, () => buyUpgrade(prof, u.id), u.id]); }
+    for (const w of prof.loadout) for (const t of ['dmg', 'mag', 'rel', 'hnd']) opts.push([0, () => buyWeaponTrack(prof, w, t), `${w}.${t}`]);
+    let done = false;
+    for (const [, fn, name] of opts.sort((a, b) => a[0] - b[0])) { const r = fn(); if (r.ok) { bought.push(name); done = true; break; } }
+    if (!done) break;
+  }
   return bought;
 }
 if (opt.campaign) {
