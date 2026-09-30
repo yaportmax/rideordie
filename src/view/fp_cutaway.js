@@ -28,7 +28,7 @@ export const CUTS = {
 /** Cockpit (local first-person driver) cuts. */
 export const DRIVER_CUTS = {
   truck_t4: [
-    [-0.3, 1.1, 1.5, 0.3, 1.75, 2.35],           // supercharger blower + scoop + injector stacks + belt (dead centre of the windshield)
+    [-0.3, 1.1, 1.5, 0.3, 1.85, 2.35],           // supercharger blower + scoop (chrome top reaches y 1.79) + injector stacks + belt
     [-1.1, 2.0, 0.7, 1.1, 2.25, 0.92],           // roof light bar + corner lamps (show through the windshield header from inside)
   ],
 };
