@@ -1,0 +1,7 @@
+Original prompt: Fix lag and optimize Ride or Die as much as possible; fix the left hand obstructing pistol sights; prioritize a shareable build quickly.
+
+Working from e5f7d1d in an isolated worktree because the original Claude session is active. Existing untracked bench.mjs preserved. Measure RTX gameplay before/after and verify gunner ADS, reload, controls and co-op.
+
+Implemented fitted FP pistol sockets plus lower support-hand rest placement, High preset SMAA without 4x HDR MSAA, quality-scaled sun shadows, opt-out automatic resolution with manual ceiling, and text state hook. 35 tests and lint pass. RTX 1440p canyon latest run median 16.7 ms; initial baseline 33.3 ms but background load varied, so paired validation still pending. Pistol firing/reload verified and sights visually clear. Co-op browser checks in progress.
+
+Final validation: skill client adapted to installed Chrome/RTX (software WebGL was impractically slow) passed a gameplay burst, screenshot and text state inspected. Full browser regression passed solo flow plus actual two-browser WebRTC co-op with both host seats and no runtime/asset errors. Paired static 1440p scene: GPU scene 25.97 -> 18.73 ms (27.9% reduction), p95 50.2 -> 33.7 ms. Original checkout continues changing under Claude, so this branch/build remains isolated and served at 4175. Launcher is in Codex find-x20 outputs. Follow-up: longer campaign/real remote-friend network verification; reconcile concurrent Claude optimizations only after that checkout is stable.

@@ -9,6 +9,13 @@ async function boot() {
 const q = new URLSearchParams(location.search);
 const game = new Game({ quality: loadSettings().quality });
 window.__game = game;
+window.render_game_to_text = () => {
+  const run = game.run, gunner = run?.gunner;
+  return JSON.stringify({ mode: game.mode, paused: game.paused, role: run?.role, distanceMetres: run?.playerS,
+    coordinates: 'world metres; y up; truck follows road distance', player: run?.states.get(1)?.pos,
+    weapon: gunner?.weapon?.id, magazine: gunner?.magNow, reloading: gunner?.reloading, ads: gunner?.ads,
+    vehicles: run?.states.size, finished: run?.finished, performance: game.perf });
+};
 await game.boot();
 game.loop();
 // dev shortcuts skip the menus: no boot screen (index.html removes it too; this is the safety net)

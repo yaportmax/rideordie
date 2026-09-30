@@ -7,6 +7,7 @@ const BINDINGS_KEY = 'rideordie.bindings.v1';
 export const DEFAULT_SETTINGS = {
   quality: 2,        // 0 low .. 3 ultra
   resScale: 1,       // render resolution scale 0.5 .. 1.5
+  autoResolution: true,
   fov: 80,           // vertical fov, degrees (60..100) -- first person
   shake: 1,          // camera shake amount 0..1
   mouseSens: 1,      // multiplier on Input.sens.mouse
@@ -30,7 +31,7 @@ export function normalizeSettings(value) {
   const limits = { quality: [0, 3], resScale: [0.5, 1.5], fov: [60, 100], shake: [0, 1], mouseSens: [0.1, 5], padSens: [0.1, 5], master: [0, 1], sfx: [0, 1], music: [0, 1] };
   for (const [k, [lo, hi]] of Object.entries(limits)) s[k] = Number.isFinite(s[k]) ? Math.min(hi, Math.max(lo, s[k])) : DEFAULT_SETTINGS[k];
   s.quality = Math.round(s.quality);
-  for (const k of ['invertY', 'aimAssist', 'vibration', 'motionBlur', 'chromatic', 'grain']) if (typeof s[k] !== 'boolean') s[k] = DEFAULT_SETTINGS[k];
+  for (const k of ['autoResolution', 'invertY', 'aimAssist', 'vibration', 'motionBlur', 'chromatic', 'grain']) if (typeof s[k] !== 'boolean') s[k] = DEFAULT_SETTINGS[k];
   return s;
 }
 export function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* blocked */ } }

@@ -42,6 +42,7 @@ export class App {
     if (s.quality !== undefined && s.quality !== this.game.quality) this.game.setQuality(s.quality);
     if (s.quality !== undefined) this.game.garage?.setQuality?.(s.quality);
     if (s.resScale !== undefined) this.game.post?.setResolutionScale?.(s.resScale);
+    if (this.game.post) this.game.post.autoResolution = s.autoResolution !== false;
     this.game.audio?.setVolumes?.({ master: s.master, sfx: s.sfx, music: s.music });
     this.game.post?.setFeatures?.({ mb: s.motionBlur !== false, ca: s.chromatic !== false, grain: s.grain !== false });
     // read live by the cameras / run: first-person FOV, shake amount, gamepad aim assist

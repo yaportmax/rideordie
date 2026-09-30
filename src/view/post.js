@@ -48,8 +48,8 @@ export const POST_PRESETS = [
   { msaa: 0, ao: null, bloomLevels: 5, bloomScale: 0.5, mbTaps: 0, dofTaps: 12, smaa: SMAAPreset.LOW, smaaMode: EdgeDetectionMode.LUMA, sharpen: 0.25 },
   // 1: medium - half-res AO (fast), MSAA off, light motion blur
   { msaa: 0, ao: 'Performance', bloomLevels: 6, bloomScale: 0.5, mbTaps: 6, dofTaps: 16, smaa: SMAAPreset.MEDIUM, smaaMode: EdgeDetectionMode.LUMA, sharpen: 0.3 },
-  // 2: high (default) - MSAA 4x, half-res AO, full motion blur
-  { msaa: 4, ao: 'Medium', bloomLevels: 7, bloomScale: 0.5, mbTaps: 10, dofTaps: 24, smaa: SMAAPreset.MEDIUM, smaaMode: EdgeDetectionMode.COLOR, sharpen: 0.3 },
+  // 2: high (default) - SMAA handles edges without a second 4x HDR/depth buffer and resolve.
+  { msaa: 0, ao: 'Performance', bloomLevels: 6, bloomScale: 0.5, mbTaps: 8, dofTaps: 24, smaa: SMAAPreset.HIGH, smaaMode: EdgeDetectionMode.COLOR, sharpen: 0.3 },
   // 3: ultra - MSAA 4x, better AO denoise, more taps, SMAA ultra
   { msaa: 4, ao: 'High', bloomLevels: 8, bloomScale: 0.5, mbTaps: 16, dofTaps: 40, smaa: SMAAPreset.ULTRA, smaaMode: EdgeDetectionMode.COLOR, sharpen: 0.3 },
 ];
@@ -123,6 +123,8 @@ export class Post {
     this.feat = { ao: true, bloom: true, mb: true, ca: true, vignette: true, grain: true, lines: true, dof: true, smaa: true, grade: true, sharpen: true, shafts: true };
     this.quality = clamp(Math.round(opts.quality), 0, 3);
     this.resolutionScale = clamp(opts.resolutionScale, 0.5, 1);
+    this.resolutionCeiling = this.resolutionScale;
+    this.autoResolution = true; this._resolutionAge = 0; this._resolutionMs = 16.7;
     this._enabled = true;
     this._taa = false; this.taaPass = null;
     this.params = { speed01: 0, boost: 0, damage01: 0, night01: 0, dof: 0, hitFlash: 0, slowmo: 0 };
@@ -271,8 +273,26 @@ export class Post {
 
   /** 0.5 .. 1.0: render-target scale; the final pass upscales with a contrast-adaptive sharpen. */
   setResolutionScale(s) {
-    this.resolutionScale = clamp(s, 0.5, 1);
+    this.resolutionCeiling = clamp(s, 0.5, 1);
+    this.resolutionScale = this.resolutionCeiling;
+    this._resolutionAge = 0; this._resolutionMs = 16.7;
     this._applyInternalSize(this._drawW, this._drawH);
+  }
+
+  /** Aim for smooth input on busy scenes; the user's scale remains the ceiling. */
+  adaptResolution(frameMs) {
+    if (!this.autoResolution || frameMs > 100 || frameMs < 1) return;
+    this._resolutionAge += frameMs / 1000;
+    this._resolutionMs += (frameMs - this._resolutionMs) * 0.04;
+    if (this._resolutionAge < 2) return;
+    const floor = Math.min(0.65, this.resolutionCeiling), scale = this.resolutionScale;
+    let next = scale;
+    if (this._resolutionMs > 21) next = Math.max(floor, scale - 0.1);
+    else if (this._resolutionMs < 17.5 && this._resolutionAge > 10) next = Math.min(this.resolutionCeiling, scale + 0.05);
+    if (Math.abs(next - scale) < 0.001) return;
+    this.resolutionScale = next; this._resolutionAge = 0;
+    this._applyInternalSize(this._drawW, this._drawH);
+    this.cut();
   }
 
   setQuality(q, force = false) {

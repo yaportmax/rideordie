@@ -32,7 +32,7 @@ export class Game {
     this.camera = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.15, 9000);
     this.scene.add(this.camera);
     this.input = new Input(this.canvas);
-    this.sky = new SkyRig(this.renderer, this.scene);
+    this.sky = new SkyRig(this.renderer, this.scene, { shadowSize: (opts.quality ?? 2) >= 3 ? 4096 : 2048 });
     this.hud = new Hud(); this.hud.setVisible(false);
     // player headlights: always in the scene (intensity 0 by day) so the light count never changes => no shader recompiles
     this.lampLights = new NightLights(this.scene);   // pooled street-lamp point lights (constant light count)
@@ -112,7 +112,14 @@ export class Game {
     }
   }
 
-  setQuality(q) { this.quality = q; this.post?.setQuality(q); this.fx?.setQuality?.(q); }
+  setQuality(q) {
+    this.quality = q; this.post?.setQuality(q); this.fx?.setQuality?.(q);
+    const shadow = this.sky.sun.shadow, size = q >= 3 ? 4096 : q === 0 ? 1024 : 2048;
+    if (shadow.mapSize.x !== size) {
+      shadow.mapSize.set(size, size); shadow.map?.dispose(); shadow.map = null;
+      shadow.mapPass?.dispose(); shadow.mapPass = null; shadow.needsUpdate = true;
+    }
+  }
 
   showGarage(truckId, paint, loadout) { this.mode = 'garage'; this.garage.setTruck(truckId, paint, loadout); this.hud.setVisible(false); if (this.post) this.post.enabled = false; }
 
@@ -176,7 +183,9 @@ export class Game {
   endRun() { this._runGeneration = (this._runGeneration || 0) + 1; this.paused = false; this.onPause = this.onRunEnd = null; if (this.run) { this.run.dispose(); this.run = null; } if (window.__app) window.__app._releasing = true; this.input.releaseLock(); this.input.reset(); this.hud.setVisible(false); if (this._lockEl) this._lockEl.style.display = 'none'; }
 
   frame(now) {
-    const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
+    const frameMs = now - this.last;
+    const dt = Math.min(0.05, frameMs / 1000); this.last = now;
+    if (this.mode === 'run' && this.run?.started && !this.paused && !this.run.over) this.post?.adaptResolution(frameMs);
     const input = this.input;
     input.poll();
     if (this.mode === 'run' && this.run) this._runFrame(dt, now);

@@ -443,7 +443,7 @@ export class ViewModel {
       body.parent.add(arms); arms.bind(body.skeleton, body.bindMatrix);
       const drop = []; model.traverse((o) => { if (o.isMesh && o !== arms) drop.push(o); }); for (const o of drop) o.removeFromParent();
     }
-    this.model = model; this.arms = arms;
+    this.model = model; this.arms = arms; this.dedicatedArms = !!fpModel;
     this.bodyG = new THREE.Group(); this.bodyG.add(model); this.root.add(this.bodyG);
     const B = this.B = {}; model.traverse((o) => { if (o.isBone || /^socket_/.test(o.name)) B[o.name] = o; });
     model.updateMatrixWorld(true);
@@ -913,11 +913,21 @@ export class ViewModel {
     // left hand
     const aL = this._aL || (this._aL = { p: new THREE.Vector3(), q: new THREE.Quaternion() });
     const aT = this._aT || (this._aT = { p: new THREE.Vector3(), q: new THREE.Quaternion() });
-    if (T.support) { if (R.lh.a === 'grip') R.lh.a = 'support'; if (R.lh.b === 'grip') R.lh.b = 'support'; }
+    // The FP asset's fingers and weapon sockets are fitted together. The legacy hero
+    // support transform rotates its palm over the slide and blocks the iron sights.
+    if (T.support && !this.dedicatedArms) { if (R.lh.a === 'grip') R.lh.a = 'support'; if (R.lh.b === 'grip') R.lh.b = 'support'; }
     this._anchor(R.lh.a, gun, aL);
+    // Cup the lower grip rather than the slide. Keep this offset on the resting
+    // pistol grip only so magazine and slide-racking anchors keep their reach.
+    if (this.dedicatedArms && this.id === 'pistol' && R.lh.a === 'grip') {
+      aL.p.x -= 0.035; aL.p.y -= 0.085;
+    }
     if (R.lh.a === 'grip' && T.lRot) aL.q.multiply(_q.setFromEuler(_e.set(T.lRot[0] * DEG, T.lRot[1] * DEG, T.lRot[2] * DEG)));
     if (R.lh.w > 0 && R.lh.b !== R.lh.a) {
       this._anchor(R.lh.b, gun, aT);
+      if (this.dedicatedArms && this.id === 'pistol' && R.lh.b === 'grip') {
+        aT.p.x -= 0.035; aT.p.y -= 0.085;
+      }
       if (R.lh.b === 'grip' && T.lRot) aT.q.multiply(_q.setFromEuler(_e.set(T.lRot[0] * DEG, T.lRot[1] * DEG, T.lRot[2] * DEG)));
       const w = R.lh.w; aL.p.lerp(aT.p, w); aL.q.slerp(aT.q, w); aL.p.y += Math.sin(Math.PI * w) * (R.lh.arc || 0);
     }

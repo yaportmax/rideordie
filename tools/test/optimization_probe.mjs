@@ -1,0 +1,40 @@
+import { chromium } from 'playwright-core';
+import { mkdir, writeFile } from 'node:fs/promises';
+const base = process.env.GAME_URL || 'http://127.0.0.1:5192';
+const label = process.argv[2] || 'before';
+const output = `shots/optimization/${label}`;
+await mkdir(output, { recursive: true });
+const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--use-angle=d3d11', '--force_high_performance_gpu', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
+const errors = [];
+try {
+  const page = await browser.newPage({ viewport: { width: 2560, height: 1440 } });
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(`${base}/?solo&as=gunner&s=14000&seed=7`);
+  await page.waitForFunction(() => window.__run?.started && window.__run.gunner?.vm, null, { timeout: 180000 });
+  await page.evaluate(() => { window.__autodrive = { speed: 30 }; window.__forceGunner = { ads: true }; window.__game.post.profile(true); });
+  await page.waitForTimeout(10000);
+  console.log('config', await page.evaluate(() => ({ samples:window.__game.post.scenePass.samples, scale:window.__game.post.resolutionScale, shadow:window.__game.sky.sun.shadow.mapSize.x, dedicated:window.__run.gunner.vm.dedicatedArms, id:window.__run.gunner.vm.id })));
+  await page.screenshot({ path: `${output}/pistol-ads.png` });
+  const result = await page.evaluate(async () => {
+    const frames = []; let last = performance.now(), start = last;
+    await new Promise(resolve => { const step = now => { frames.push(now - last); last = now; if (now - start < 6000) requestAnimationFrame(step); else resolve(); }; requestAnimationFrame(step); });
+    frames.sort((a,b) => a-b); const q = n => +frames[Math.floor((frames.length-1)*n)].toFixed(2);
+    const gl = window.__game.renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return { gpu: ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL), p50:q(.5), p95:q(.95), p99:q(.99), frames:frames.length, perf:window.__perf, gpuMs:Object.fromEntries(window.__game.post.timer.ms), spikes:window.__spikes?.slice(-12), hitches:window.__hitches?.slice(-12) };
+  });
+  result.errors = errors;
+  const mag = await page.evaluate(() => window.__run.gunner.magNow);
+  await page.evaluate(() => { window.__forceGunner = { fire:true, firePressed:true }; });
+  await page.waitForTimeout(150);
+  await page.evaluate(() => { window.__forceGunner = { reload:true }; });
+  await page.waitForFunction(() => window.__run.gunner.reloading, null, { timeout:5000 });
+  await page.evaluate(() => { window.__forceGunner = {}; });
+  await page.waitForFunction(() => !window.__run.gunner.reloading, null, { timeout:5000 });
+  if (await page.evaluate(() => window.__run.gunner.magNow) !== mag) throw new Error('pistol reload failed');
+  await page.evaluate(() => { window.__forceGunner = { ads:true }; });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path:`${output}/pistol-after-reload.png` });
+  result.pistolReload = true;
+  await writeFile(`${output}/result.json`, JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(result));
+} finally { await browser.close(); }

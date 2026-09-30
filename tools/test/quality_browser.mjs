@@ -154,7 +154,7 @@ try {
   signalling = await startPeerServer();
   browser = await chromium.launch({
     headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
-    args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--autoplay-policy=no-user-gesture-required'],
+    args: ['--no-sandbox', ...(process.env.HARDWARE_GPU ? ['--use-angle=d3d11', '--force_high_performance_gpu'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']), '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--autoplay-policy=no-user-gesture-required'],
   });
   await soloFlow(); await coopFlow('driver'); await coopFlow('gunner');
   assert.deepEqual(evidence.network, [], 'game assets failed to load');

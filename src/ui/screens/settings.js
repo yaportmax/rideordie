@@ -13,6 +13,7 @@ const ROWS = {
   video: [
     { key: 'quality', type: 'seg', label: 'GRAPHICS QUALITY', desc: 'Shadows, particles and post-processing.', opts: ['LOW', 'MEDIUM', 'HIGH', 'ULTRA'] },
     { key: 'resScale', type: 'slider', label: 'RESOLUTION SCALE', desc: 'Render resolution. Lower is faster, higher is sharper.', min: 0.5, max: 1.5, step: 0.05, fmt: pctFmt },
+    { key: 'autoResolution', type: 'toggle', label: 'AUTOMATIC RESOLUTION', desc: 'Adjust resolution in busy scenes for smoother play. Uses your resolution scale as the maximum.' },
     { key: 'fov', type: 'slider', label: 'FIELD OF VIEW (FIRST PERSON)', desc: 'Vertical field of view in the cockpit and the truck bed.', min: 60, max: 100, step: 1, fmt: (v) => Math.round(v) + '°' },
     { key: 'shake', type: 'slider', label: 'CAMERA SHAKE', desc: 'Screen shake from crashes and explosions.', min: 0, max: 1, step: 0.05, fmt: pctFmt },
     { key: 'motionBlur', type: 'toggle', label: 'MOTION BLUR', desc: 'Camera motion blur at speed.' },
