@@ -44,8 +44,10 @@ export class Director {
       // the Leviathan brings its own raiders (ramp); its fight keeps the damage scaling it was tuned with
       // (tuned when raider rounds never landed: its OWN guns keep that scaling; its raider escort now fires for real, so the
       // escort uses the normal late curve, and blasts sting a bit less -- the gunner stands in the open for the whole fight)
-      sim.bossDamageMul = 0.55 + 0.45 * L;
-      sim.enemyDamageMul = 0.55 + 0.4 * Math.min(L, 0.55) + 0.12 * Math.max(0, L - 0.55);
+      // the finale is tuned for its distance, not for how long the run took to get there (a long run shouldn't make it harder)
+      const Lb = Math.min(L, 0.88);
+      sim.bossDamageMul = 0.55 + 0.45 * Lb;
+      sim.enemyDamageMul = 0.55 + 0.4 * Math.min(Lb, 0.55) + 0.12 * Math.max(0, Lb - 0.55);
       sim.enemyRamMul = 0.8; sim.playerBlastMul = 0.45; sim.playerCarBlastMul = 0.8;
       this._cleanup(sim, P); return;
     }
