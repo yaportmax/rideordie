@@ -21,6 +21,7 @@ import { DriverArms } from './driver_arms.js';
 import { clamp } from '../core/util.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
+import { patchCrewMaterials } from './crew_material.js';
 
 // first person: the local gunner's own body only casts its shadow (the viewmodel draws the arms + gun)
 const shadowMats = new Map();
@@ -145,6 +146,7 @@ export class CrewView {
 
   _setupRig(model) {
     this.model = model; this.body.add(model);
+    patchCrewMaterials(model);
     this.bones = {};
     model.traverse((o) => { if (o.isBone || o.type === 'Bone' || /^(socket_|armor_t)/.test(o.name)) this.bones[o.name] = o; });
     // armour tiers on the hero gunner
@@ -285,12 +287,17 @@ export class CrewView {
     this.useVm = useVm;
     // local first-person driver in the cockpit: fp arms on the wheel; this body only casts its shadow (its skeleton still drives
     // the cockpit eye through the Head bone)
-    const useArms = fp && this.role === 'driver' && this.hero && !!(s.local && s.local.cockpit && s.local.cockpit.active) && DriverArms.available();
+    const cockpitFp = fp && this.role === 'driver' && this.hero && !!(s.local && s.local.cockpit && s.local.cockpit.active);
+    const useArms = cockpitFp && DriverArms.available();
     this.useArms = useArms;
+    if (this.role === 'driver' && s.local) {   // cockpit: cut the hood blower / roof bar out of the windshield view (split on the first frame)
+      if (!this._cutPrepared) { this._cutPrepared = true; prepareCutaway(this.car, 'driver'); }
+      setCutaway(this.car, cockpitFp, 'driver');
+    }
     this._setShadowOnly(useVm || useArms);
     if (this.role !== 'driver' && s.local) {   // clear sight lines: cut truck parts in the gunner's eye line (split on the first frame)
-      if (!this._cutPrepared) { this._cutPrepared = true; prepareCutaway(this.car); }
-      setCutaway(this.car, useVm);
+      if (!this._cutPrepared) { this._cutPrepared = true; prepareCutaway(this.car, 'gunner'); }
+      setCutaway(this.car, useVm, 'gunner');
     }
     this.body.visible = useVm || !(fp && s.local.scoped);
     // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
@@ -721,6 +728,7 @@ export class CrewView {
     this.alive = false; this.deadT = 0;
     if (this.vm) { this.vm.setVisible(false); this._setShadowOnly(false); this.useVm = false; }
     if (this.drvArms) { this.drvArms.setVisible(false); this._setShadowOnly(false); this.useArms = false; }
+    if (this.car) setCutaway(this.car, false, this.role === 'driver' ? 'driver' : 'gunner');   // the death camera sees the whole truck
     this.body.visible = true;
     if (this.bones) { this.bones.Head?.scale.setScalar(1); this.bones.Neck?.scale.setScalar(1); }     // the death camera sees us
     if (this.nade) this.nade.visible = false;

@@ -1,6 +1,7 @@
-// Per-part health markers over the Leviathan: a small label + bar floating over every live core part (guns, cannon, tanks,
-// rear armour, reactor). The current phase's targets are bright, the rest dimmed; the reactor only appears once its armour is
-// gone (big pulsing red bar). Screen-constant size, drawn over everything. Works on both peers (bossState + per-part hp).
+// Per-part health markers over the Leviathan: a small HP bar floating over every live core part (guns, cannon, tanks, rear
+// armour, reactor), plus ONE name label: the current-phase part nearest the crosshair (hidden while the gunner HUD's own readout
+// names a part). Current-phase targets bright, the rest dimmed; later phases stay hidden until they open; the reactor gets a big
+// pulsing bar once exposed. Screen-constant size, drawn over everything. Works on both peers (bossState + per-part hp).
 import * as THREE from 'three';
 import { BOSS_PARTS, PART_NAMES, bossZones } from '../data/boss.js';
 
@@ -39,9 +40,9 @@ export class BossMarks {
       g.add(bg, fill); if (!dupe) g.add(label);
       this.group.add(g);
       // lift the marker above the part's box
-      this.marks.push({ n, def, g, bg, fill, label, w, h, local: new THREE.Vector3(z.c[0], z.c[1] + z.h[1] + (big ? 1.4 : 0.9), z.c[2]) });
+      this.marks.push({ n, def, g, bg, fill, label, w, h, dupe, local: new THREE.Vector3(z.c[0], z.c[1] + z.h[1] + (big ? 1.4 : 0.9), z.c[2]) });
     }
-    this._v = new THREE.Vector3(); this._r = new THREE.Vector3();
+    this._v = new THREE.Vector3(); this._r = new THREE.Vector3(); this._p = new THREE.Vector3();
   }
 
   /**
@@ -49,11 +50,12 @@ export class BossMarks {
    * @param hpOf (partName) => 0..1
    * @param camera for the screen-space bar offset
    */
-  update(dt, bs, hpOf, camera) {
+  update(dt, bs, hpOf, camera, opts = {}) {
     this.t += dt;
     const on = !!bs && !bs.dead && !bs.exploded;
     this.group.visible = on; if (!on) return;
     const cam = camera;
+    let best = null, bestR = 0.45;
     for (const m of this.marks) {
       const alive = bs.alive[m.n], locked = (m.def.needs && m.def.needs.some((k) => bs.alive[k])) || (m.def.phase || 1) > (bs.phase || 1);   // sealed until its phase
       const vis = alive && !locked;
@@ -71,8 +73,13 @@ export class BossMarks {
       const focus = (m.def.phase || 2) <= bs.phase || m.def.weak;
       const pulse = m.def.weak ? 0.75 + 0.25 * Math.sin(this.t * 8) : 1;
       const a = (focus ? 1 : 0.45) * pulse;
-      m.fill.material.opacity = a; m.bg.material.opacity = 0.6 * (focus ? 1 : 0.6); m.label.visible = focus;   // (off-phase parts: bar only, no label clutter)
+      m.fill.material.opacity = a; m.bg.material.opacity = 0.6 * (focus ? 1 : 0.6); m.label.visible = false;
+      // one name at a time: only the current-phase part nearest the crosshair (screen centre) gets its label
+      if (focus && cam && !m.dupe) { this._p.copy(this._v).project(cam); const r = this._p.z < 1 ? Math.hypot(this._p.x * cam.aspect, this._p.y) : 9; if (r < bestR) { bestR = r; best = m; } }
     }
+    // ... and none while the gunner HUD's own readout under the crosshair names a part (never two labels)
+    if (best && !opts.suppressLabel) best.label.visible = true;
+    this.labelPart = best && !opts.suppressLabel ? best.n : null;
   }
 
   dispose() { this.scene.remove(this.group); this.group.traverse((o) => { if (o.material) o.material.dispose(); }); }

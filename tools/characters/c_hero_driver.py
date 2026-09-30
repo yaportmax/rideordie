@@ -197,6 +197,7 @@ def build():
     common.add_hair(ctx, "ponytail01", (0.075, 0.06, 0.055), lift=0.06, rough=0.75)
     common.cloth_group(ctx, "cloth_tank", [pc_tank], outfit.fabric_painter(BLACK, dust=0.25, seed=2, drape=0.0016))
     common.cloth_group(ctx, "cloth_pants", [pc_p], outfit.fabric_painter(PANTS, dust=0.5, seed=4, legs=True, folds_scale=0.55))
+    ctx.detail_class = {**getattr(ctx, "detail_class", {}), "cloth_jacket": "leather"}
     common.cloth_group(ctx, "cloth_jacket", [pc_j], jacket_painter(), rough=0.7)
     pcs = dict(jacket=pc_j, pants=pc_p, tank=pc_tank, g_tank=tank, g_pants=pants, g_jacket=jacket)
     add_gear(ctx, fit, pcs)

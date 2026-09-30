@@ -151,6 +151,7 @@ def fabric_painter(color, dust=0.5, dust_col=(0.42, 0.34, 0.24), drape=0.0018, h
         if extra:
             alb, h = extra(bk, alb, h)
         return alb, h
+    paint.kind = "fabric"
     return paint
 
 
@@ -194,4 +195,5 @@ def leather_painter(color, scuff_col=(0.55, 0.36, 0.2), dust=0.3, seed=1, wear=0
         if extra:
             alb, h = extra(bk, alb, h)
         return alb, h
+    paint.kind = "leather"
     return paint

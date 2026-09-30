@@ -138,9 +138,11 @@ export class EnemyBrain {
       default: slotLat = this.lat * Math.sin(this.t * 0.35 + this.phase) * 1.2 + this.lat * 0.4;
     }
     if (this.mode === 'overtake') {
-      // pass on one side, then cut in ahead and become a leader/flanker
-      slotLat = this.side * 4.6; slotGap = -30;
-      if (gap < -14) { this.mode = 'engage'; this.setBehavior(this.next || 'leader'); this.laneOff = 0; this.laneT = this.r.range(1.5, 3); this.atkCd = Math.min(this.atkCd, this.r.range(0.8, 2.2)); this._tell('cutIn'); }
+      // blast past close alongside (+30-50 km/h, nitro), then swerve across the bow and settle in front as a leader/flanker
+      slotLat = this.side * 3.6; slotGap = -30;
+      if (gap < -9 && !this.cutT) { this.cutT = this.t; this._tell('cutIn'); if (this.r() < 0.6) sim.emit({ t: 'horn', id: car.id }); }
+      if (this.cutT) slotLat = -this.side * 1.2;          // across the bow
+      if (this.cutT && (this.t - this.cutT > 1.3 || gap < -24)) { this.mode = 'engage'; this.cutT = 0; this.setBehavior(this.next || 'leader'); this.laneOff = 0; this.laneT = this.r.range(1.5, 3); this.atkCd = Math.min(this.atkCd, this.r.range(0.8, 2.2)); }
     }
     // a slot ahead of the player is reached by PASSING in the next lane (not by tailgating him)
     if (slotGap < -2 && gap > -9 && this.mode !== 'overtake') {
@@ -165,7 +167,11 @@ export class EnemyBrain {
     dT = P.d + slotLat;
     // speed: close on the slot; the approach from far away is quick, the final metres are gentle
     // (the closing speed shrinks with the pace: at 200 km/h a +24 m/s lunge ends in the desert)
-    vDes = pv + clamp((gap - slotGap) * 0.45, -12, lerp(24, 11, clamp(pv / 60, 0, 1)));
+    vDes = pv + clamp((gap - slotGap) * 0.45, -12, lerp(26, 15, clamp(pv / 60, 0, 1)));
+    if (this.mode === 'overtake') {
+      if (gap > -10 && gap < 28) { vDes = pv + (this.passV || (this.passV = this.r.range(10.5, 15))); nitro = true; }   // the pass itself: ~40-55 km/h faster
+      else if (this.cutT) vDes = pv + 5;
+    }
     if (dropBack) vDes = Math.max(vDes, pv - (Math.abs(car.d - P.d) > 3 ? 8 : 2));
     if (this.launchT !== undefined && this.t - this.launchT < 3) nitro = true;   // peel-out
     // chasers get bored and come forward (they are the gunner's problem at first, the driver's next)
@@ -307,7 +313,8 @@ export class EnemyBrain {
       const range = chaos ? 7 + speed * 0.12 : 16 + speed * 0.3;
       if (ahead > 0 && ahead < range && Math.abs(lat) < 3.4) {
         steer += clamp((lat >= 0 ? -1 : 1) * (1 - ahead / range) * (chaos ? 0.9 : 1.6), -1, 1);
-        if (o.veh.vf < speed - 2 && ahead < 10 + speed * 0.2) brakeAvoid = Math.max(brakeAvoid, chaos ? 0.3 : 0.6);
+        // (an overtaker steers round the truck instead of braking behind it: the pass stays fast)
+        if (o.veh.vf < speed - 2 && ahead < 10 + speed * 0.2 && !(o === P && this.mode === 'overtake' && Math.abs(lat) > 1.6)) brakeAvoid = Math.max(brakeAvoid, chaos ? 0.3 : 0.6);
       }
     }
     // at speed, full lock just breaks traction (and the drift governor takes over): keep the input under the grip limit

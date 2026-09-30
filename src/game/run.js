@@ -188,8 +188,8 @@ export class Run {
       } else { const r = this.gunnerRemote; gs.aimYaw = r.yaw; gs.aimPitch = r.pitch; gs.fire = r.fire; gs.crouch = r.crouch; gs.ads = r.ads; gs.weapon = r.weapon; gs.reloading = r.reloading; gs.x = r.x; gs.z = r.z; }
       const B = this.sim.boss;
       // adrenaline pulse: a heartbeat of slow motion on big close explosions / triple kills
-      if (this.pulseT > 0) this.pulseT -= dt;
-      this.slowmo = this.pulseT > 0 && !(B && B.dead) ? 0.45 : B && B.dead && B.deathT < 5.5 ? (B.deathT < 0.4 ? 0.2 : Math.min(1, 0.25 + (B.deathT - 0.4) * 0.12)) : (this.slowmo ? Math.min(1, this.slowmo + dt * 0.6) : 1);
+      if (this.pulseT > 0) this.pulseT -= dt; else this.pulseK = 0;
+      this.slowmo = this.pulseT > 0 && !(B && B.dead) ? (this.pulseK || 0.45) : B && B.dead && B.deathT < 5.5 ? (B.deathT < 0.4 ? 0.2 : Math.min(1, 0.25 + (B.deathT - 0.4) * 0.12)) : (this.slowmo ? Math.min(1, this.slowmo + dt * 0.6) : 1);
       if (this.slowmo >= 1) this.slowmo = 0;
       this.acc += dt * (this.slowmo || 1);
       let steps = 0;
@@ -283,7 +283,7 @@ export class Run {
     (this.hazMarks || (this.hazMarks = new HazardMarks(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)))))).update(dt, this.playerS || 0);
     (this.banner || (this.banner = new Banner(g.hud.el))).update(dt, this.playerS || 0, this.bossState);
     // Leviathan per-part health markers (sim peer reads the boss directly, the gunner peer the snapshot's per-part hp)
-    if (this.bossState || this.bossMarks) { const Bs = this.sim?.boss; (this.bossMarks || (this.bossMarks = new BossMarks(g.scene))).update(dt, this.bossState, (n) => Bs ? Bs.hp[n] / BOSS_PARTS[n].hp : this.bossState?.hp?.[n] ?? 1, g.camera); }
+    if (this.bossState || this.bossMarks) { const Bs = this.sim?.boss; (this.bossMarks || (this.bossMarks = new BossMarks(g.scene))).update(dt, this.bossState, (n) => Bs ? Bs.hp[n] / BOSS_PARTS[n].hp : this.bossState?.hp?.[n] ?? 1, g.camera, { suppressLabel: !!g.hud.gh && (g.hud.gh.partLabelOn ?? g.hud.gh.bpT > 0) }); }   // one part name on screen: the gunner HUD's readout wins
     if (!this._frustum) { this._frustum = new THREE.Frustum(); this._pv = new THREE.Matrix4(); }
     g.camera.updateMatrixWorld(); this._pv.multiplyMatrices(g.camera.projectionMatrix, g.camera.matrixWorldInverse); this._frustum.setFromProjectionMatrix(this._pv);
     const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside, cockpit: this.cockpit, gear: this.player ? this.player.veh.gear : 1 } : null;   // cockpit + gear: first-person driver arms
@@ -348,7 +348,8 @@ export class Run {
     if (!this.threatHud && (this.humanDriver || this.humanGunner)) this.threatHud = new ThreatHUD();
     if (this.threatHud) {
       const dying = this.sim ? this.sim.state !== 'run' : this.simState !== 'run';
-      this.threatHud.setVisible(!dying && !g.paused && !window.__camOverride);
+      const aiming = this.humanGunner && this.gunner && this.role !== 'driver' && this.gcam.adsK > 0.35; // never over sights / scopes
+      this.threatHud.setVisible(!dying && !g.paused && !window.__camOverride && !this.cinematic && !this.introOutside && !aiming);
       this.threatHud.update(dt, g.camera, this.states, pst, (st) => !!this.sim?.cars.get(st.id)?.elite, this.cockpit?.active ? { cy: 0.37, ry: 0.2, rx: 0.36 } : null);
     }
     // HUD data
@@ -395,6 +396,8 @@ export class Run {
       if (e.t === 'playerDown') this.g.hud.message(e.why === 'car' ? 'TRUCK DESTROYED' : e.why === 'driver' ? 'DRIVER DOWN' : 'GUNNER DOWN', 2400, '#ff4433');
       if (e.t === 'crash' && e.id === 1) { this.chase.shake.add(clamp(e.dv * 0.05, 0, 0.7)); this.gcam.shake.add(clamp(e.dv * 0.05, 0, 0.7)); if (e.dv > 2.5) { this.g.hud.damageFlash(clamp(e.dv * 0.08, 0.2, 0.6)); this.g.input.rumble(0.8, 0.6, 200); } }
       if (e.t === 'crewHit' && e.id === 1) { this.g.hud.damageFlash(0.45); this.chase.shake.add(0.12); this.gcam.shake.add(0.15); this.g.input.rumble(0.3, 0.7, 90); }
+      // near miss: a raider scraping past within ~1.5 m, or a car blowing up within 8 m -> a short 0.6x heartbeat (max one per 5 s)
+      if ((e.t === 'nearMiss' || (e.t === 'explode' && e.id !== 1 && this.states.get(1) && this.states.get(1).pos.distanceTo(_v.fromArray(e.pos)) < 8)) && !(this.lastPulse > this.time - 5)) { this.pulseT = 0.25; this.pulseK = 0.6; this.lastPulse = this.time; if (e.t === 'nearMiss') this.g.audio?.ui('whoosh_transition'); }
       if (e.t === 'explode' && e.size >= 1.8 && this.states.get(1) && this.states.get(1).pos.distanceTo(_v.fromArray(e.pos)) < 70 && !(this.lastPulse > this.time - 6)) { this.pulseT = 0.35; this.lastPulse = this.time; }
       if (e.t === 'explode') { const p = this.states.get(1); const d = p ? p.pos.distanceTo(_v.fromArray(e.pos)) : 999; const k = clamp(1 - d / 90, 0, 1) * e.size; this.chase.shake.add(k * 0.8); this.gcam.shake.add(k * 0.8); if (k > 0.3) this.g.input.rumble(0.6, 0.4, 250); }
     }

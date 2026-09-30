@@ -190,9 +190,9 @@ export class Cockpit {
     }
     // the rear camera sits at the back of the cab at eye height, looking straight back (the truck itself is hidden for this pass)
     this.rearLocal = new THREE.Vector3(0, S.top - 0.02, this.cabRearZ - 0.15);
-    // look-back: the driver leans out and looks back over the cab on his side -- the bed rail, the gunner and the tailgate frame
-    // the road behind (from inside, the small rear window + guard + the gunner's legs block almost everything)
-    this.lookBackLocal = new THREE.Vector3(this.seatPos.x + 0.45, S.top + 0.42, this.cabRearZ + 0.25);
+    // look-back (from inside, the small rear window + guard + the gunner's legs block almost everything)
+    // (head out of the driver's window, looking back down the truck's flank: the road behind, the raiders, a sliver of bed)
+    this.lookBackLocal = new THREE.Vector3(Math.max(this.seatPos.x + 0.78, (this.cv.spec.width || 2) / 2 + 0.42), this.eye.y + 0.08, this.seatPos.z + 0.15); // (outboard of stacks/mirrors on wide trucks)
   }
 
   // ---------------------------------------------------------------- gauge cluster

@@ -12,8 +12,12 @@ material colour swatch.
 Atlas textures of the body class:
     albedo (sRGB)                                    baseColorTexture
     normal (tangent space, glTF +Y)                  normalTexture
-    mr: R = PAINT MASK (1 where the source material was `paint*`: tint it at runtime), G = roughness, B = metallic
-                                                     metallicRoughnessTexture  (glTF ignores R there)
+    mr: R = DETAIL CLASS + PAINT FLAG: R = class * 32 + (paint ? 24 : 8)   (class 0 none, 1 skin, 2 fabric, 3 leather,
+                                                     4 metal, 5 rubber/plastic; paint = the source material was `paint*`, tint it
+                                                     at runtime); G = roughness, B = metallic
+                                                     metallicRoughnessTexture  (glTF ignores R; src/view/crew_view.js reads it)
+    The body material carries extras.detail = {pxm, size}: atlas texels per metre (islands at priority 1) and atlas size, so
+    the runtime can tile world-scale micro-detail over the atlas UVs.
     emissive (only when a source material glows)     emissiveTexture
 """
 import numpy as np
@@ -27,6 +31,25 @@ import uvbake as U
 
 HAIR = {"hair", "hair_face"}
 EYE = {"eye"}
+
+
+DETAIL = {"none": 0, "skin": 1, "fabric": 2, "leather": 3, "metal": 4, "rubber": 5, "plastic": 5}
+
+
+def detail_class(name, overrides=None):
+    """Micro-detail class of a source material (see the module doc): per-character overrides first, then name rules."""
+    if overrides and name in overrides:
+        return DETAIL[overrides[name]]
+    n = name.lower()
+    rules = (("skin", "skin"), ("eye", "none"), ("glass", "none"), ("lens", "none"), ("light", "none"), ("leather", "leather"),
+             ("glove", "leather"), ("boot", "leather"), ("metal", "metal"), ("armor", "metal"), ("spike", "metal"), ("rust", "metal"),
+             ("rim", "metal"), ("chain", "metal"), ("steel", "metal"), ("rubber", "rubber"), ("plastic", "plastic"), ("bone", "plastic"),
+             ("webbing", "fabric"), ("canvas", "fabric"), ("tape", "fabric"), ("rag", "fabric"), ("cloth", "fabric"), ("knit", "fabric"),
+             ("denim", "fabric"), ("trim", "fabric"), ("paint", "fabric"), ("strap", "fabric"), ("lace", "fabric"))
+    for key, cls in rules:
+        if key in n:
+            return DETAIL[cls]
+    return 0
 
 
 def classify(name):
@@ -74,6 +97,7 @@ class Source:
             st = m.get("extensions", {}).get("KHR_materials_emissive_strength", {}).get("emissiveStrength", 1.0)
             self.emissive = (np.array(em, float) ** (1 / 2.2), float(st))
         self.paint = self.name.startswith("paint")
+        self.dclass = detail_class(self.name, getattr(ctx, "detail_class", {}))
         self.wrap = self.name not in ctx.clamped
         if self.alpha < 1.0 and m.get("alphaMode") == "BLEND":     # lenses become opaque glossy glass in the atlas
             self.rough = min(self.rough, 0.08)
@@ -322,6 +346,7 @@ def render(entries, isls, sw, tile_slots, S, pad, alpha=False, swatch_px=6):
     normal = np.zeros((S, S, 3), np.float32)
     normal[...] = (128.0, 128.0, 255.0)
     mr = np.zeros((S, S, 3), np.float32)
+    mr[..., 0] = 8
     mr[..., 1] = 0.85 * 255
     emis = None
     if any(s.emissive is not None for _, s in entries):
@@ -355,7 +380,7 @@ def render(entries, isls, sw, tile_slots, S, pad, alpha=False, swatch_px=6):
         else:
             mr[ys, xs, 1] = src.rough * 255.0
             mr[ys, xs, 2] = src.metal * 255.0
-        mr[ys, xs, 0] = 255.0 if src.paint else 0.0
+        mr[ys, xs, 0] = src.dclass * 32 + (24 if src.paint else 8)
         if emis is not None and src.emissive is not None:
             emis[ys, xs] = np.asarray(src.emissive[0], np.float32) * 255.0
         written[ys, xs] = True
@@ -473,13 +498,16 @@ def merge(ctx, out, sizes=None, pad=None, head_boost=2.0, hand_boost=1.4, jpg_q=
     sizes: dict(body=2048, hair=1024, eye=256)."""
     sizes = {**dict(body=1024, hair=512, eye=128), **(sizes or {})}
     srcs = {}
-    by_class = {"body": [], "hair": [], "eye": []}
+    by_class = {"body": [], "hair": [], "eye": [], "armor": []}
     for gname, prims in ctx.groups.items():
         for p in prims:
             mi = p["material"]
             if mi not in srcs:
                 srcs[mi] = Source(ctx, mi)
-            by_class[classify(srcs[mi].name)].append((gname, p, srcs[mi]))
+            cls = classify(srcs[mi].name)
+            if cls == "body" and "armor" in sizes and gname.startswith("armor_"):
+                cls = "armor"                   # hidden armor tiers get their own atlas (the base body keeps the full one)
+            by_class[cls].append((gname, p, srcs[mi]))
     result = {}
     prio = _prio_fn(head_boost, hand_boost)
     for cls, items in by_class.items():
@@ -488,7 +516,7 @@ def merge(ctx, out, sizes=None, pad=None, head_boost=2.0, hand_boost=1.4, jpg_q=
         S = sizes[cls]
         pd = pad if pad is not None else (4 if S >= 2048 else 3 if S >= 1024 else 2)
         entries = [(p, s) for _, p, s in items]
-        isls = gather(entries, prio if cls == "body" else (lambda p, v: 1.0))
+        isls = gather(entries, prio if cls in ("body", "armor") else (lambda p, v: 1.0))
         sw, tiles, D = layout(isls, S, pd)
         imgs, new_uv = render(entries, isls, sw, tiles, S, pd, alpha=(cls == "hair"))
         kinds = {k: sum(1 for i in isls if i.kind == k) for k in ("own", "shared", "swatch")}
@@ -502,16 +530,17 @@ def merge(ctx, out, sizes=None, pad=None, head_boost=2.0, hand_boost=1.4, jpg_q=
             tb = out.texture_array("eye_albedo", imgs["albedo"], "jpg", 92)
             mat = out.material("eye", base_tex=tb, rough=0.25, srgb=False)
         else:
-            tb = out.texture_array("body_albedo", imgs["albedo"], "jpg", jpg_q)
-            tn = out.texture_array("body_normal", imgs["normal"], "jpg", jpg_q)
-            tm = out.texture_array("body_mr", imgs["mr"], "jpg", jpg_q)
+            tb = out.texture_array(cls + "_albedo", imgs["albedo"], "jpg", jpg_q)
+            tn = out.texture_array(cls + "_normal", imgs["normal"], "jpg", 92)
+            tm = out.texture_array(cls + "_mr", imgs["mr"], "jpg", 94)          # 4:4:4 - R carries the detail class
             kw = {}
             if imgs["emissive"] is not None:
                 te = out.texture_array("body_emissive", imgs["emissive"], "jpg", 85)
                 strength = max(s.emissive[1] for _, s in entries if s.emissive is not None)
                 kw = dict(emissive=(1.0, 1.0, 1.0), emissive_strength=strength)
-            mat = out.material("body", base_tex=tb, normal_tex=tn, mr_tex=tm, rough=1.0, metallic=1.0, double_sided=True, srgb=False,
+            mat = out.material(cls, base_tex=tb, normal_tex=tn, mr_tex=tm, rough=1.0, metallic=1.0, double_sided=True, srgb=False,
                                spec=0.45, **kw)
+            out.g["materials"][mat]["extras"] = {"detail": {"pxm": round(float(D), 2), "size": int(S)}}
             if imgs["emissive"] is not None:
                 out.g["materials"][mat]["emissiveTexture"] = {"index": te}
         ctx.atlas_images = getattr(ctx, "atlas_images", {})
@@ -521,7 +550,7 @@ def merge(ctx, out, sizes=None, pad=None, head_boost=2.0, hand_boost=1.4, jpg_q=
             d = "C:/Dev/rideordie/shots/chars/atlas"
             os.makedirs(d, exist_ok=True)
             Image.fromarray(imgs["albedo"]).save("%s/%s_%s.png" % (d, ctx.name, cls))
-            if cls == "body":
+            if cls in ("body", "armor"):
                 Image.fromarray(imgs["mr"]).save("%s/%s_%s_mr.png" % (d, ctx.name, cls))
         except Exception as e:                      # debug output only
             print("  (atlas dump failed: %s)" % e)
@@ -534,6 +563,6 @@ def merge(ctx, out, sizes=None, pad=None, head_boost=2.0, hand_boost=1.4, jpg_q=
         for gname, plist in per_group.items():
             m = _concat(plist)
             m["material"] = mat
-            m["_label"] = cls
+            m["_label"] = "body" if cls == "armor" else cls
             result.setdefault(gname, []).append(m)
     return result

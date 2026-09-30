@@ -1,19 +1,24 @@
 // Cinematic banners over the HUD: the WARLORD intro (name, title, weak point, how it fights) and hazard warnings that count
 // down the distance to a roadblock with the side of the gap. Driven from run.js by sim events:
-//   banner.miniboss({name, title, weak, tip, color})   banner.hazard({s0, gapD})   banner.update(dt, playerS)
+//   banner.miniboss({name, title, weak, tip, color})   banner.event({title, sub})   banner.hazard({s0, gapD})   banner.update(dt, playerS, bossState)
 import { MINIBOSSES } from '../data/boss.js';
 
 const CSS = `
 #bnr{position:absolute;inset:0;pointer-events:none;font-family:'Bahnschrift','Segoe UI Semibold','Arial Narrow',Impact,sans-serif;color:#fff}
-#bnr .bn-boss{position:absolute;left:0;right:0;top:24%;height:150px;display:none;align-items:center;justify-content:center;flex-direction:column;
+#bnr .bn-boss{position:absolute;left:0;right:0;top:19%;height:132px;display:none;align-items:center;justify-content:center;flex-direction:column;
   background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(10,4,2,.78) 18%,rgba(10,4,2,.86) 50%,rgba(10,4,2,.78) 82%,rgba(0,0,0,0) 100%);
   border-top:2px solid var(--ac);border-bottom:2px solid var(--ac);transform-origin:center;text-shadow:0 2px 6px #000}
 #bnr .bn-boss .k{font-size:15px;letter-spacing:9px;color:var(--ac);font-weight:700}
-#bnr .bn-boss .n{font-size:64px;line-height:1;font-weight:900;font-style:italic;letter-spacing:3px;margin:4px 0 2px}
+#bnr .bn-boss .n{font-size:56px;line-height:1;font-weight:900;font-style:italic;letter-spacing:3px;margin:4px 0 2px}
 #bnr .bn-boss .t{font-size:16px;letter-spacing:6px;opacity:.85}
 #bnr .bn-boss .w{margin-top:8px;font-size:15px;letter-spacing:3px;color:#ffe08a}
 #bnr .bn-boss .w b{color:var(--ac);font-weight:800}
 #bnr .bn-boss .tip{font-size:13px;letter-spacing:2px;opacity:.75;margin-top:3px}
+#bnr .bn-strip{position:absolute;left:50%;top:206px;transform:translateX(-50%);display:none;align-items:baseline;gap:12px;padding:5px 22px;white-space:nowrap;
+  background:linear-gradient(90deg,rgba(10,4,2,0),rgba(10,4,2,.72) 12%,rgba(10,4,2,.72) 88%,rgba(10,4,2,0));border-top:1px solid var(--ac);border-bottom:1px solid var(--ac);text-shadow:0 1px 4px #000}
+#bnr .bn-strip .k{font-size:11px;letter-spacing:5px;color:var(--ac);font-weight:700}
+#bnr .bn-strip .n{font-size:24px;font-weight:900;font-style:italic;letter-spacing:2px}
+#bnr .bn-strip .t{font-size:12px;letter-spacing:3px;opacity:.85}
 #bnr .bn-obj{position:absolute;left:50%;top:150px;transform:translateX(-50%);display:none;padding:4px 14px;background:rgba(0,0,0,.55);border-left:3px solid #ff5a2a;
   font-size:14px;letter-spacing:2px;font-weight:700;white-space:nowrap;text-shadow:0 1px 3px #000}
 #bnr .bn-obj b{color:#ffb21a;font-weight:800;margin-right:8px}
@@ -34,11 +39,13 @@ export class Banner {
     if (!document.getElementById('bnr-css')) { const st = document.createElement('style'); st.id = 'bnr-css'; st.textContent = CSS; document.head.appendChild(st); }
     const el = this.el = document.createElement('div'); el.id = 'bnr';
     el.innerHTML = `<div class="bn-boss"><div class="k">WARLORD</div><div class="n"></div><div class="t"></div><div class="w"></div><div class="tip"></div></div>
+      <div class="bn-strip"><span class="k"></span><span class="n"></span><span class="t"></span></div>
       <div class="bn-obj"></div>
       <div class="bn-haz"><div class="ic"></div><div><div class="tx">ROADBLOCK</div><div class="g"></div></div><div class="d"></div></div>`;
     parent.appendChild(el);
     const $ = (s) => el.querySelector(s);
-    this.q = { boss: $('.bn-boss'), n: $('.bn-boss .n'), t: $('.bn-boss .t'), w: $('.bn-boss .w'), tip: $('.bn-boss .tip'), haz: $('.bn-haz'), hd: $('.bn-haz .d'), hg: $('.bn-haz .g'), htx: $('.bn-haz .tx'), obj: $('.bn-obj') };
+    this.q = { boss: $('.bn-boss'), n: $('.bn-boss .n'), t: $('.bn-boss .t'), w: $('.bn-boss .w'), tip: $('.bn-boss .tip'), haz: $('.bn-haz'), hd: $('.bn-haz .d'), hg: $('.bn-haz .g'), htx: $('.bn-haz .tx'), obj: $('.bn-obj'), st: $('.bn-strip'), stk: $('.bn-strip .k'), stn: $('.bn-strip .n'), stt: $('.bn-strip .t') };
+    this.stripT = -1;
     this.bossT = -1; this.hazards = []; this.time = 0;
   }
 
@@ -53,16 +60,15 @@ export class Banner {
     q.w.innerHTML = weak ? `WEAK POINT: <b>${weak}</b>` : '';
     q.tip.textContent = M.tip || '';
     q.boss.querySelector('.k').textContent = 'WARLORD';
-    this.bossT = 0; this.bossHold = 4.2;
+    this.bossT = 0; this.bossHold = 2.7;
   }
 
-  /** Set-piece announcement (smaller, no weak point line): e {title, sub}. */
+  /** Set-piece / boss-beat announcement: a thin strip in the top third, ~1.5 s, never near the crosshair. e {title, sub, k?, color?} */
   event(e) {
     const q = this.q;
-    q.boss.style.setProperty('--ac', e.color || '#ffb21a');
-    q.boss.querySelector('.k').textContent = e.k || 'INCOMING';
-    q.n.textContent = e.title || ''; q.t.textContent = e.sub || ''; q.w.innerHTML = ''; q.tip.textContent = '';
-    this.bossT = 0; this.bossHold = 2.6; // shorter hold than a warlord intro
+    q.st.style.setProperty('--ac', e.color || '#ffb21a');
+    q.stk.textContent = e.k || 'INCOMING'; q.stn.textContent = e.title || ''; q.stt.textContent = e.sub || '';
+    this.stripT = 0;
   }
 
   /** Roadblock warning: tracked until the player is past it. e: {s0, gapD} (gapD > 0 = gap on the LEFT, +X is left). */
@@ -109,6 +115,18 @@ export class Banner {
         q.n.style.letterSpacing = `${3 + (1 - e) * 22}px`;
       }
     }
+    // ---- event strip: quick slide-in, 1.5 s hold, fade
+    if (this.stripT >= 0) {
+      this.stripT += dt;
+      const T = this.stripT, IN = 0.18, HOLD = 1.5, OUT = 0.3;
+      if (T > IN + HOLD + OUT) { this.stripT = -1; q.st.style.display = 'none'; }
+      else {
+        q.st.style.display = 'flex';
+        const kin = Math.min(1, T / IN), kout = T > IN + HOLD ? 1 - (T - IN - HOLD) / OUT : 1;
+        q.st.style.opacity = String(Math.min(kin, kout));
+        q.st.style.transform = `translateX(-50%) scaleX(${0.6 + 0.4 * (1 - Math.pow(1 - kin, 3))})`;
+      }
+    }
     // ---- hazard warnings (closest one ahead)
     this.hazards = this.hazards.filter((h) => h.s0 - playerS > -8);
     const h = this.hazards.reduce((a, x) => (!a || x.s0 < a.s0 ? x : a), null);
@@ -125,6 +143,6 @@ export class Banner {
     q.haz.style.borderColor = dist < 90 ? '#ff4a1a' : '#ffb21a';
   }
 
-  clear() { this.hazards.length = 0; this.bossT = -1; this.q.boss.style.display = 'none'; this.q.haz.style.display = 'none'; }
+  clear() { this.hazards.length = 0; this.bossT = -1; this.stripT = -1; this.q.boss.style.display = 'none'; this.q.st.style.display = 'none'; this.q.haz.style.display = 'none'; }
   dispose() { this.el.remove(); }
 }

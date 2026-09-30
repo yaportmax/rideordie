@@ -19,7 +19,7 @@ def light_bar(pt, c, w, h=0.075, d=0.06, n=10, facing=1, m_body='metal_dark'):
         xx = x - w / 2 + 0.03 + seg * (i + 0.5)
         pt.box('chrome', (xx, f + facing * (d / 2 - 0.004), z), (seg * 0.9, 0.008, h * 0.8), bev=0.003, taper=(0.8, 1.0))
         for sz in (-0.2, 0.2):
-            pt.cyl('light_head', (xx, f + facing * (d / 2 + 0.001), z + sz * h), seg * 0.2, 0.006, axis='f', n=10)
+            pt.cyl("light_head", (xx, f + facing * (d / 2 + 0.001), z + sz * h), seg * 0.2, 0.006, axis="f", n=8, caps=True)
         pt.box('metal_dark', (x - w / 2 + 0.03 + seg * i, f + facing * (d / 2 + 0.002), z), (0.004, 0.01, h * 0.84), bev=0.0)
     pt.box('glass_lens', (x, f + facing * (d / 2 + 0.008), z), (w - 0.04, 0.006, h * 0.86), bev=0.003)
     for sx in (-1, 1):

@@ -15,6 +15,7 @@ import { vnoise2, smoothstep } from '../../core/util.js';
 import { WIND } from './assets.js';
 import { rngOf, strId, CHUNK_LEN, EDGE } from './util.js';
 import { HALF_ROAD } from '../road.js';
+import { vegFactor, hollow, VEG_MAX } from './ecology.js';
 
 /** Cover window around the player (m along the road): chunks overlapping it are drawn. */
 export const COVER_BEHIND = 125, COVER_AHEAD = 150;   // behind: the gunner watches pursuers, cover must be faded before it drops
@@ -336,6 +337,7 @@ export function disposeCoverMesh(mesh) {
 
 // ------------------------------------------------------------------------------------------------ placement
 const _g = {}, _rs = {};
+const _eg = { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } };
 let _scratch = new Float32Array(8192 * 8), _owner = null;
 const PACK = 2.5; // packed colours cover 0..2.5 (tints brighten the darker cards)
 const packCol = (c) => Math.round(Math.min(1, c.r / PACK) * 255) * 65536 + Math.round(Math.min(1, c.g / PACK) * 255) * 256 + Math.round(Math.min(1, c.b / PACK) * 255);
@@ -372,7 +374,8 @@ function buildCover2(ctx, chunk, deadline) {
     if (st.data && _owner !== st) st.data = null;          // another chunk used the scratch buffer meanwhile: redo this kind (deterministic)
     if (!st.data) {
       let D = 0; for (const b of st.bios) D = Math.max(D, bdens(b, kind));
-      st.nCand = kind === 'tumble' ? Math.ceil(D * CHUNK_LEN * 2) : Math.ceil(D * qk * CHUNK_LEN * 2 * (A1 - A0)); st.D = D;
+      const vegBoost = kind === 'grass' || kind === 'scrub' || kind === 'flower' ? 1.6 : 1;   // groves get dense, open ground stays bare
+      st.nCand = kind === 'tumble' ? Math.ceil(D * CHUNK_LEN * 2) : Math.ceil(D * qk * CHUNK_LEN * 2 * (A1 - A0) * vegBoost); st.D = D;
       if (_scratch.length < st.nCand * 8) _scratch = new Float32Array(Math.ceil(st.nCand * 1.25) * 8);   // reused: no per-chunk garbage
       st.data = _scratch; _owner = st; st.n = 0; st.i = 0;
       st.rnd = rngOf(seed, chunk.c, strId('cover:' + kind));
@@ -399,9 +402,16 @@ function buildCover2(ctx, chunk, deadline) {
       let gx, gy, gz, nx = 0, nz = 0;
       if (a < 0) { const p = road.pointAt(s, d, _rs); gx = p.x; gy = p.y; gz = p.z; }
       else { const g = chunk.ground.sample(s, d, _g); gx = g.x; gy = g.y; gz = g.z; nx = g.nx; nz = g.nz; if (1 - g.ny > (kind === 'pebble' ? 0.55 : 0.42)) continue; }
-      // clumps: grass / flowers grow in patches, scrub is sparse and even, pebbles gather in washes
+      // composition (ecology.js): grass / scrub / flowers grow in groves, along washes and at the feet of rocks and cacti, open ground
+      // stays bare; a thin line of verge weeds hugs the shoulder; pebbles collect in washes; litter is loosely clumped
       const cn = vnoise2(gx / 7.5, gz / 7.5, seed + 71) * 0.65 + vnoise2(gx / 23, gz / 23, seed + 72) * 0.35;
-      const cl = kind === 'grass' ? smoothstep(0.28, 0.6, cn) : kind === 'flower' ? smoothstep(0.55, 0.7, cn) : kind === 'pebble' ? 0.35 + 0.65 * smoothstep(0.62, 0.35, cn) : kind === 'tyre' ? smoothstep(0.5, 0.64, cn) : VARIANTS[kind] ? 0.3 + 0.7 * smoothstep(0.35, 0.55, cn) : 1;
+      let cl;
+      if (kind === 'grass' || kind === 'scrub' || kind === 'flower') {
+        // verge weeds come in runs along the shoulder (with long gaps), not as an even line
+        cl = a < 1.5 ? 0.6 * smoothstep(0.45, 0.62, vnoise2(s / 38, side * 3.1, seed + 73)) : vegFactor(seed, chunk, s, d, _eg.set(gx, gy, gz), kind === 'grass' ? 0.03 : 0.02) / VEG_MAX;
+        if (kind === 'grass') cl *= 0.55 + 0.45 * smoothstep(0.25, 0.55, cn);           // tufts still clump inside a grove
+      } else if (kind === 'pebble') cl = a < 0 ? 1 : 0.25 + 0.75 * smoothstep(-0.1, 0.5, hollow(chunk, s, d, gy));
+      else cl = kind === 'tyre' ? smoothstep(0.5, 0.64, cn) : VARIANTS[kind] ? 0.3 + 0.7 * smoothstep(0.35, 0.55, cn) : 1;
       if (uCl > cl) continue;
       if (gy < chunk.seaY + 0.6) continue;
       const roadY = road.sample(s, _rs).y;

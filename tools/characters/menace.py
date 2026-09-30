@@ -61,15 +61,16 @@ def pauldron(ctx, brc, binder, side, mats, layers=3, spikes=3, size=1.0, spike_l
     rivs = []
     for i in range(layers):
         t = i / max(layers - 1, 1)
-        c0 = arm + np.array([sg * (0.015 + 0.035 * t), 0.055 - 0.07 * t, 0.0])
+        c0 = arm + np.array([sg * (0.020 + 0.042 * t), 0.055 - 0.085 * t, 0.0])
         n = out_dir * (1 - t) + np.array([sg, 0.15, 0.0]) * t
         n /= np.linalg.norm(n)
         P, hn = gear.surface_pts(rc, c0[None])
-        hu, hv = (0.105 - 0.012 * t) * size, (0.085 - 0.012 * t) * size
-        so = 0.030 + 0.012 * (layers - 1 - i)
+        hu, hv = (0.105 - 0.018 * t) * size, (0.080 - 0.022 * t) * size
+        so = 0.022 + 0.022 * (layers - 1 - i)
         try:
-            pm = kit.patch_on_surface(rc, P[0], n, (0, 0, 1), hu, hv, standoff=so, thick=0.008, bevel=0.003, e=5.0, rings=3, seg=18,
-                                      dome=0.018 * size, cast_from=0.3)
+            pm = kit.patch_on_surface(rc, P[0], n, (0, 0, 1), hu, hv, standoff=so, thick=0.007, bevel=0.003, e=5.0, rings=4, seg=24,
+                                      dome=(0.016 - 0.008 * t) * size, cast_from=0.3)
+            pm = kit.smooth_normals(pm, 70.0)
         except RuntimeError:
             continue
         common.add_gear(ctx, pm, mats["plate"], binder, bone=side + "Arm", label=label)

@@ -13,7 +13,7 @@ class GunnerDressMixin:
     def gunner_dress(self):
         C = self.C
         getattr(self, 'gdress_t%d' % C.tier)()
-        self.casings(40 if C.tier > 1 else 26)
+        self.casings({1: 26, 2: 40, 3: 36, 4: 28}[C.tier])
 
     # ------------------------------------------------------------------------------------------- common pieces
     def casings(self, n):
@@ -206,47 +206,77 @@ class GunnerDressMixin:
             b.box('metal_dark', (x, f, zb + 0.82), (0.07, 0.08, 0.02), bev=0.004)
             b.cyl2('metal_dark', (x + sg * 0.05, f - 0.1, zb + 0.8), (sg * xr_, f - 0.1, zb + 0.92), 0.004, n=5)
 
+    def stripes_on(self, frame, u0, u1, v0, v1, n, nrm_hint, slant=0.55, m='paint2', off=0.003):
+        """diagonal hazard bars on a surface patch given by frame(u, v, d) -> game point (d = offset along the surface normal)"""
+        from kit_common import _clip_poly
+        b = self.b
+        w = (u1 - u0) / n
+        sl = (v1 - v0) * slant
+        for i in range(0, n, 2):
+            ua = u0 + i * w
+            poly = _clip_poly([(ua, v0), (ua + w, v0), (ua + w + sl, v1), (ua + sl, v1)], u0, u1)
+            if len(poly) >= 3:
+                b.plate(m, poly, lambda u, v: frame(u, v, off), out=nrm_hint, thick=0.002, bev=0.0)
+
     def gdress_t4(self):
         C, b = self.C, self.b
-        hwi = C.bed_hw - C.bed_wall_t
         zb = C.z_bed
+        N = self.nest
+        zt0, zt1, f_front, f_rear, hw_n, span = N['zt0'], N['zt1'], N['f_front'], N['f_rear'], N['hw_n'], N['span']
         self.diamond_pad(0.0, self.gunner_f, 1.3, 1.0, zb + 0.016)
-        hw_n = hwi - 0.02
-        zt0 = C.bed_top - 0.04
-        zt1 = zb + 1.02
-        f_front = C.f_bf - 0.17
-        f_rear = C.f_tail + 0.10
-        span = zt1 - zt0
-        # side plates, inside: stiffener ribs + grab handles + label
+        rnd = random.Random(44)
+        # side plates, inside: hazard band along the top edge, rivet rows, a welded seam, stiffeners, grab handles, scuffs, stencils
         for sg in (1, -1):
             def ins(f, z, d=0.0, sg=sg):
                 return (sg * (hw_n + 0.02 + 0.10 * (z - zt0) / span - 0.034 - d), f, z)
-            for fr in (0.3, 0.5, 0.7):
+            fa, fb_ = f_rear + 0.36, f_front - 0.36
+            self.stripes_on(lambda u, v, d, ins=ins: ins(u, v, d), fa, fb_, zt1 - 0.1, zt1 - 0.015, 22, (-sg, 0, 0))
+            for z in (zt1 - 0.13, zt0 + 0.06):
+                for i in range(12):
+                    f = fa - 0.2 + (fb_ - fa + 0.4) * i / 11
+                    b.cyl('metal_bare', ins(f, z, 0.003), 0.011, 0.008, axis='x', n=5)
+            fm = (fa + fb_) / 2 + 0.25
+            weld_seam(b, ins(fm, zt0 + 0.02, 0.004), ins(fm, zt1 - 0.02, 0.004), r=0.005)
+            for fr in (0.25, 0.75):
                 f = f_rear + (f_front - f_rear) * fr
-                b.cyl2('metal_dark', ins(f, zt0 + 0.12, 0.012), ins(f, zt1 - 0.1, 0.012), 0.014, n=6)
-            for f in (f_rear + 0.5, f_front - 0.55):
-                p0, p1 = ins(f - 0.1, zt1 - 0.18), ins(f + 0.1, zt1 - 0.18)
-                b.tube('metal_bare', [p0, ins(f - 0.1, zt1 - 0.18, 0.06), ins(f + 0.1, zt1 - 0.18, 0.06), p1], 0.011, n=8, rad=0.03, k=3)
-            b.sticker('lbl_caution' if sg > 0 else 'lbl_nostep', ins((f_front + f_rear) / 2, zt0 + 0.28, 0.0025), (-sg, 0, 0.1), (0, 0, 1), 0.26, 0.065, lift=0.0)
-        # fire extinguisher in a bracket on the rear plate (inside)
-        ex = (0.55, f_rear + 0.02, zt0 + 0.25)
+                b.cyl2('metal_dark', ins(f, zt0 + 0.1, 0.012), ins(f, zt1 - 0.16, 0.012), 0.013, n=6)
+            p0, p1 = ins(fm - 0.55, zt1 - 0.2), ins(fm - 0.35, zt1 - 0.2)
+            b.tube('metal_bare', [p0, ins(fm - 0.55, zt1 - 0.2, 0.055), ins(fm - 0.35, zt1 - 0.2, 0.055), p1], 0.011, n=8, rad=0.025, k=3)
+            for q in range(5):            # scuffed bare-steel patches where boots and ammo cans rub
+                f = rnd.uniform(fa, fb_)
+                z = rnd.uniform(zt0 + 0.05, zt1 - 0.22)
+                b.plate('metal_bare', [(f - 0.05, z - 0.012), (f + 0.06, z - 0.02), (f + 0.07, z + 0.01), (f - 0.04, z + 0.018)],
+                        lambda u, v, ins=ins: ins(u, v, 0.0015), out=(-sg, 0, 0), thick=0.001, bev=0.0)
+            b.sticker('lbl_caution' if sg > 0 else 'lbl_nostep', ins((fa + fb_) / 2 - 0.3, zt0 + 0.18, 0.0025), (-sg, 0, 0.1), (0, 0, 1), 0.24, 0.06, lift=0.0)
+
+        # rear plate inside: hazard band + rivets + extinguisher in its bracket
+        def rin(x, z, d=0.0):
+            return (x, f_rear - 0.03 - 0.09 * (z - zt0) / span + 0.03 + d, z)
+        self.stripes_on(lambda u, v, d: rin(u, v, d), -hw_n + 0.34, hw_n - 0.34, zt1 - 0.1, zt1 - 0.015, 18, (0, 1, 0))
+        for i in range(10):
+            x = -hw_n + 0.35 + (2 * hw_n - 0.7) * i / 9
+            b.cyl('metal_bare', rin(x, zt1 - 0.13, 0.003), 0.011, 0.008, axis='f', n=5)
+        ex = (0.55, f_rear + 0.02, zt0 + 0.2)
         b.swatch('red')
-        b.cyl('decal', ex, 0.06, 0.38, axis='z', n=14, bev=0.02)
+        b.cyl('decal', ex, 0.06, 0.34, axis='z', n=14, bev=0.02)
         b.swatch(None)
-        b.cyl('metal_dark', (ex[0], ex[1], ex[2] + 0.22), 0.025, 0.06, axis='z', n=10)
-        b.box('metal_dark', (ex[0] + 0.04, ex[1], ex[2] + 0.26), (0.08, 0.02, 0.015), bev=0.003)
-        for dz in (-0.1, 0.1):
+        b.cyl('metal_dark', (ex[0], ex[1], ex[2] + 0.2), 0.025, 0.06, axis='z', n=10)
+        b.box('metal_dark', (ex[0] + 0.04, ex[1], ex[2] + 0.24), (0.08, 0.02, 0.015), bev=0.003)
+        for dz in (-0.09, 0.09):
             b.torus('metal_dark', (ex[0], ex[1], ex[2] + dz), 0.064, 0.005, axis='z', nR=14, nr=4)
-        # inner face of the front shield: 'NITRO ARMED' + grab bar
-        zs0, zs1 = zb + 0.30, zb + 1.30
-        xs_ = hw_n - 0.10
+        # front shield inside: hazard band under the notch, rivets, stiffeners, grab bar, label
+        zs0, zs1 = N['zs0'], N['zs1']
 
         def shi(x, z, d=0.0):
             t = (z - zs0) / (zs1 - zs0)
             return (x, f_front + 0.03 - 0.16 * t - 0.036 - d, z)
-        b.sticker('lbl_nitro', shi(0.0, zs0 + 0.5, 0.0025), (0, -0.99, 0.16), (0, 0.16, 0.99), 0.3, 0.075, lift=0.0)
-        p0, p1 = shi(-0.55, zs1 - 0.35), shi(0.55, zs1 - 0.35)
-        b.tube('metal_bare', [p0, shi(-0.55, zs1 - 0.35, 0.07), shi(0.55, zs1 - 0.35, 0.07), p1], 0.012, n=8, rad=0.04, k=3)
+        xs_ = N['xs']
+        self.stripes_on(lambda u, v, d: shi(u, v, d), -xs_ + 0.16, xs_ - 0.16, zs1 - 0.30, zs1 - 0.2, 24, (0, -1, 0.15))
+        b.sticker('lbl_nitro', shi(0.0, zs0 + 0.34, 0.0025), (0, -0.99, 0.16), (0, 0.16, 0.99), 0.3, 0.075, lift=0.0)
+        p0, p1 = shi(-0.5, zs1 - 0.38), shi(0.5, zs1 - 0.38)
+        b.tube('metal_bare', [p0, shi(-0.5, zs1 - 0.38, 0.07), shi(0.5, zs1 - 0.38, 0.07), p1], 0.012, n=8, rad=0.04, k=3)
         for sx in (-0.7, -0.35, 0.35, 0.7):
-            b.cyl2('metal_dark', shi(sx, zs0 + 0.12, 0.012), shi(sx, zs1 - 0.2, 0.012), 0.013, n=6)
+            b.cyl2('metal_dark', shi(sx, zs0 + 0.1, 0.012), shi(sx, zs1 - 0.34, 0.012), 0.013, n=6)
+        for x in [(-xs_ + 0.06) + (2 * xs_ - 0.12) * i / 13 for i in range(14)]:
+            b.cyl('metal_bare', shi(x, zs0 + 0.06, 0.003), 0.011, 0.008, axis=(0, -1, 0.15), n=5)
         self.roof_mark('lbl_ride', 0.5, 0.125, fo=-0.35, xo=0.0)

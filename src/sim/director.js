@@ -10,6 +10,7 @@ import { BOSS_S, HALF_ROAD } from '../data/biomes.js';
 import { MINIBOSSES } from '../data/boss.js';
 import { Leviathan } from './boss.js';
 import { EnemyBrain } from './ai.js';
+import { RAPIER, RAY_WORLD } from './physics.js';
 
 const LANES = [-5.0, -1.7, 1.7, 5.0];
 const _v = new THREE.Vector3();
@@ -37,8 +38,9 @@ export class Director {
       // death on a 1800-HP truck. Scale them with the truck: a tank fire is a threat you see coming, not a coin flip.
       P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4);
     }
-    const L = this.level = levelAt(P.s, sim.time);
+    const L = this.level = levelAt(P.s, sim.time); this.simTime = sim.time;
     this._runQueue(sim);
+    if ((sim.tick & 3) === 0) this._nearMiss(sim, P);
     this._bosses(sim, P, L);
     if (sim.boss && !sim.boss.dead) {
       // the Leviathan brings its own raiders (ramp); its fight keeps the damage scaling it was tuned with
@@ -121,7 +123,7 @@ export class Director {
     const opts = [];
     let total = 0;
     for (const [key, E] of Object.entries(ENCOUNTERS)) {
-      if (E.minLevel > L || this.disabled.has(key)) continue;
+      if (E.minLevel > L || this.disabled.has(key) || (this.failT?.[key] ?? 0) > this.simTime) continue;
       if (first && key !== 'ambush') continue;
       const cars = E.cars.filter((c) => (c.minLevel ?? 0) <= L);
       if (cars.length > room) continue;
@@ -166,7 +168,12 @@ export class Director {
       // placement relative to the truck, resolved when the car actually spawns (squads arrive one car per few frames)
       let rel;
       if (c.at === 'park') rel = { ds: baseAhead - 40 + ai++ * 22, d: side * (HALF_ROAD - 1.7), vMul: 0.45, vAdd: 0, park: true };   // waiting on the shoulder ahead
-      else if (c.at === 'ahead') rel = { ds: baseAhead + ai++ * 16, d: c.role === 'flanker' ? side * 4.2 : r.pick([-1.7, 1.7]), vMul: 0.72, vAdd: 0 };
+      else if (c.at === 'ahead') {
+        // a crest up the road hides whatever is behind it: they come OVER it at you (placed just beyond the blind spot)
+        const crest = this._crestAhead(sim, P, 70, 240);
+        const ds = crest ? crest - P.s + 12 + ai++ * 14 : baseAhead + ai++ * 16;
+        rel = { ds, d: c.role === 'flanker' ? side * 4.2 : r.pick([-1.7, 1.7]), vMul: crest ? 0.9 : 0.72, vAdd: 0 };
+      } else if (c.at === 'burst') rel = { ds: r.range(75, 105) + ai++ * 24, d: side * (HALF_ROAD + r.range(9, 13)), vMul: 0.85, vAdd: 0, burst: side };   // charges in from off-road
       else if (pv > 40 && r() < Math.min(1, (pv - 40) / 14)) {
         // a fast truck outruns anything spawned behind it: at speed the squad comes from up the road instead (and adapts:
         // rammers / chasers drop back through the next lane, flankers ease onto your flanks)
@@ -174,7 +181,7 @@ export class Director {
       } else rel = { ds: -baseBehind - bi++ * 14, d: c.role === 'flanker' || c.mode === 'overtake' ? side * 4.6 : r.pick(LANES), vMul: 1, vAdd: c.role === 'chaser' && !c.mode ? 8 : 14 };
       jobs.push(() => {
         const Pn = sim.player, pvn = Math.max(10, Pn.veh.vf);
-        const at = { s: Pn.s + rel.ds, d: rel.d, speed: pvn * rel.vMul + rel.vAdd, park: rel.park };
+        const at = { s: Pn.s + rel.ds, d: rel.d, speed: pvn * rel.vMul + rel.vAdd, park: rel.park, burst: rel.burst };
         const car = this.spawn(sim, k, L, { behavior: c.role, side, mode: c.at === 'park' ? 'ambush' : c.mode, next: c.at === 'park' ? c.role : c.next, at, gap: c.gap, squad: key });
         if (car && at.park) car.ai.parkD = at.d;
         return car;
@@ -182,10 +189,51 @@ export class Director {
     }
     if (!jobs.length) return 0;
     const first = jobs.shift()();
-    if (!first) return 0;
+    if (!first) { (this.failT || (this.failT = {}))[key] = sim.time + 8; return 0; }   // (e.g. no flat ground for an off-road burst here)
     for (const j of jobs) this.queue(j);
     sim.emit({ t: 'encounter', key, ids: [first.id], n: jobs.length + 1, level: +L.toFixed(3) });
     return jobs.length + 1;
+  }
+
+  /** First road point (s) in [P.s+a, P.s+b] that the driver can't see over a crest (road surface hidden behind a rise), or null. */
+  _crestAhead(sim, P, a, b) {
+    const road = sim.road, eyeY = road.sample(P.s).y + 2.2;
+    let hidden = null;
+    for (let ds = 30; ds <= b; ds += 10) {
+      const y = road.sample(P.s + ds).y + 1.2;        // roof of a car at that point
+      // line of sight from the eye to that point, checked against the road profile in between
+      let blocked = false;
+      for (let k = 10; k < ds; k += 10) { const yk = road.sample(P.s + k).y, yl = eyeY + (y - eyeY) * (k / ds); if (yk > yl + 0.3) { blocked = true; break; } }
+      if (blocked) { hidden = P.s + ds; break; }
+    }
+    return hidden !== null && hidden - P.s >= a ? hidden : null;
+  }
+
+  /** Height of whatever the physics world has under (s, d) (terrain / structures), or null. */
+  _groundY(sim, s, d) {
+    const p = sim.road.pointAt(s, d, this._gp || (this._gp = {}));
+    const ray = this._gray || (this._gray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 }));
+    ray.origin.x = p.x; ray.origin.y = p.y + 40; ray.origin.z = p.z;
+    const h = sim.world.castRay(ray, 120, true, undefined, RAY_WORLD);
+    return h ? p.y + 40 - h.timeOfImpact : null;
+  }
+
+  /** Near misses: a raider scraping past the truck (< ~1.5 m clearance) at speed -> {t:'nearMiss'} (run.js: a 0.6x heartbeat). */
+  _nearMiss(sim, P) {
+    const pv = P.veh, hwP = P.spec.width / 2, hlP = P.spec.length / 2;
+    for (const c of sim.cars.values()) {
+      if (c.kind !== 'enemy' || c.exploded || sim.time - (c.nearMissT ?? -9) < 3) continue;
+      _v.copy(c.veh.pos).sub(pv.pos);
+      if (_v.lengthSq() > 144) continue;
+      const lon = _v.dot(pv.fwd), lat = Math.abs(_v.dot(pv.left));
+      const clear = lat - hwP - c.spec.width / 2;
+      if (Math.abs(lon) > hlP + c.spec.length / 2 - 0.5 || clear > 1.5 || clear < 0.15) continue;
+      const rel = Math.abs(c.veh.vf - pv.vf);
+      if (rel < 5 && !c.driverless) continue;
+      c.nearMissT = sim.time;
+      sim.emit({ t: 'nearMiss', id: c.id, clear: +clear.toFixed(2), rel: +rel.toFixed(1) });
+      return;
+    }
   }
 
   /** Deferred spawns: at most one new raider every ~0.13 s, so a squad never builds 3-4 car views (+ crews) in one frame. */
@@ -353,7 +401,21 @@ export class Director {
     const grip = { ...base.grip, front: gm(base.grip.front, pg.front), rear: gm(base.grip.rear, pg.rear) };
     const spec = { ...base, grip, engine: { ...base.engine, vmax: base.engine.vmax * k, accel0: base.engine.accel0 * Math.pow(k, 0.85) * 1.12 }, susp: base.susp, nitro: { capacity: behavior === 'rammer' || o.elite ? 3 : 1.5, regen: 0.35, mul: 1.6 } };
     if (o.elite) spec.mass = base.mass * (o.elite.massMul ?? 1.5); // warlords are armour-plated: they shove you around
-    const car = sim.spawnCar(def.spec, { spec, s, d: lane, speed: o.at ? o.at.speed : ahead ? pv * 0.7 : pv * 0.95 + 5, kind: 'enemy' });
+    let yawOff = 0, groundY = null;
+    if (o.at?.burst) {
+      // off-road entry: only where the ground out there is roughly level with the road (no cliffs / canyon walls / structures)
+      groundY = this._groundY(sim, s, lane);
+      const roadY = sim.road.surfaceY(sim.road.sample(s), Math.sign(lane) * HALF_ROAD);
+      const midY = this._groundY(sim, s + 6, lane * 0.7);
+      if (groundY === null || midY === null || Math.abs(groundY - roadY) > 1.4 || Math.abs(midY - roadY) > 1.4) return false;
+      yawOff = -Math.sign(lane) * 0.55;   // angled in toward the road (+X is left: a car on the left turns right)
+    }
+    const car = sim.spawnCar(def.spec, { spec, s, d: lane, speed: o.at ? o.at.speed : ahead ? pv * 0.7 : pv * 0.95 + 5, kind: 'enemy', yawOff });
+    if (groundY !== null) {
+      const t = car.veh.body.translation(), th = sim.road.sample(s).th + yawOff, sp = o.at.speed;
+      car.veh.body.setTranslation({ x: t.x, y: groundY + car.veh.restComHeight + 0.35, z: t.z }, true);
+      car.veh.body.setLinvel({ x: Math.sin(th) * sp, y: 0, z: Math.cos(th) * sp }, true);   // moving the way it points
+    }
     const hpMul = 1 + 1.9 * L;
     car.tag = def.label; car.maxHp = car.hp = Math.round(base.hp * hpMul); car.armor = clamp(0.08 * L * 2, 0, 0.35);
     const el = o.elite;
@@ -377,6 +439,7 @@ export class Director {
     if (el) for (const role of Object.keys(car.crew)) { const c = car.crew[role]; c.hp = c.max = Math.round(c.max * (role === 'driver' ? 6 : 2.5)); c.armor = role === 'driver' ? 0.92 : 0.45; }
     car.ai = new EnemyBrain(car, sim, { behavior, side: o.side, mode: o.mode, next: o.next, pattern: o.pattern, skill: clamp(def.skill + 0.25 * L + (el ? 0.15 : 0), 0.2, 0.95), level: L, guns, gap: o.gap });
     car.gunName = ENEMY_GUNS[gunName]?.model || gunName; // (what the crew view shows / snapshots carry)
+    if (o.at?.burst) { car.ai.launchT = 0; car.ai._tell('burst'); sim.emit({ t: 'horn', id: car.id }); }   // floors it out of the scrub, nitro, horn
     this.spawned++;
     sim.emit({ t: 'enemySpawn', id: car.id, spec: def.spec, label: def.label, behavior, elite: el ? el.index + 1 : 0 });
     return car;

@@ -320,6 +320,7 @@ def build():
     common.add_eyes_lite(ctx, iris=(0.30, 0.34, 0.30))
     common.cloth_group(ctx, "cloth_under", [pc_u], outfit.fabric_painter(UNDER, dust=0.6, seed=71, oil=0.3))
     common.cloth_group(ctx, "cloth_trousers", [pc_t], outfit.fabric_painter(TROUSERS, dust=0.8, seed=81, legs=True, oil=0.4))
+    ctx.detail_class = {**getattr(ctx, "detail_class", {}), "paint": "metal", "plastic": "plastic"}
     common.cloth_group(ctx, "plastic", [pc_m], mask_painter(), rough=0.45, ppm=900, spec=0.5)
     pcs = dict(under=pc_u, trousers=pc_t, mask=pc_m)
     add_gear(ctx, fit, pcs)

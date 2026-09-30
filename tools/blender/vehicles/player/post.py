@@ -424,7 +424,7 @@ def vnoise(x, y, z, freq=1.0, seed=0.0):
 
 
 # ------------------------------------------------------------------------------------------------- export
-def export(path, objs, quality=82):
+def export(path, objs, quality=80):
     vs = bpy.context.scene.view_settings
     vs.view_transform = 'Standard'
     vs.look = 'None'

@@ -20,7 +20,7 @@ TIER_PAL = {
     1: dict(paint=dict(rough=0.64, clearcoat=0.0), paint2=dict(rough=0.66, clearcoat=0.0)),
     2: dict(paint=dict(rough=0.56, clearcoat=0.05), paint2=dict(rough=0.6, clearcoat=0.0)),
     3: dict(paint=dict(rough=0.72, clearcoat=0.0), paint2=dict(rough=0.6, clearcoat=0.0), armor=dict(rough=0.62)),
-    4: dict(),
+    4: dict(armor=dict(base=(0.15, 0.15, 0.16), rough=0.6, metal=0.45)),
 }
 TIER_TWEAK = {3: dict(paint=dict(spec=0.18), paint2=dict(spec=0.3)), 4: dict(paint=dict(spec=0.28), paint2=dict(spec=0.35))}
 MERGE_ALL = {'plastic': 'rubber'}

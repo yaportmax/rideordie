@@ -311,3 +311,122 @@ def face_bands(alb, sb, ch, paint):
     for mask, colour, strength in paint(x, y, front):
         alb = blend(alb, colour, np.clip(U.blur((mask * front).astype(np.float32), 0.6) * strength, 0, 1))
     return alb
+
+
+# --- relief (normal map) + roughness for the skin ------------------------------------------------------------------------------
+
+def _texel_metres(P, mask):
+    """Metres per texel along x (columns) and y (rows) from the baked positions (smoothed, >0)."""
+    dx = np.linalg.norm(np.diff(P, axis=1, append=P[:, -1:]), axis=-1)
+    dy = np.linalg.norm(np.diff(P, axis=0, append=P[-1:]), axis=-1)
+    m = mask.astype(bool)
+    for d in (dx, dy):
+        good = m & (d > 1e-6) & (d < 0.02)
+        med = float(np.median(d[good])) if good.any() else 1e-3
+        d[~good] = med
+    return U.blur(dx, 2.0), U.blur(dy, 2.0)
+
+
+def skin_relief(sb, ch, age=0.5, muscle=0.5, seed=1):
+    """Height field (metres) of the skin: forehead lines, frown lines, crow's feet, under-eye creases, nasolabial folds,
+    lip crease + vertical lip lines, knuckle creases, forearm veins.  Returns (height, crease mask 0..1, roughness 0..1)."""
+    rng = np.random.default_rng(seed)
+    P, shape = sb.P, sb.mask.shape
+    head = sb.G["Head"] > 0.5
+    c, half = _face_frame(ch)
+    u = half / 0.032
+    x = (P[..., 0] - c[0]) / u
+    y = (P[..., 1] - c[1]) / u
+    front = (sb.N[..., 2] < 0.35) & head & (P[..., 2] < c[2] + 0.05 * u)
+    ak = float(np.clip((age - 0.30) * 3.2, 0.35, 1.3))
+    acc = {"h": np.zeros(shape, np.float32), "c": np.zeros(shape, np.float32)}
+
+    def groove(mask, depth, soft=1.0):
+        m = U.blur(mask.astype(np.float32), soft)
+        acc["h"] -= m * depth
+        acc["c"] = np.maximum(acc["c"], m)
+
+    # forehead lines (wavy, broken)
+    for k, yy in enumerate((0.052, 0.064, 0.077)):
+        wav = yy + 0.0025 * np.sin(x * 70 + k * 1.7) + 0.0015 * np.sin(x * 190 + k)
+        brk = U.fbm(shape, 25.0, 2, seed + k, wrap=False) > 0.38
+        groove((np.abs(y - wav) < 0.0014) & (np.abs(x) < 0.050 - 0.006 * k) & brk & front, 0.00035 * ak)
+    # frown lines between the brows
+    for sx in (-1, 1):
+        groove((np.abs(x - sx * (0.007 + 0.12 * (y - 0.03))) < 0.0011) & (y > 0.022) & (y < 0.046) & front, 0.0004 * ak)
+    # crow's feet
+    for sx in (-1, 1):
+        for a in (-0.35, 0.0, 0.35):
+            px, py = sx * x - 0.056, y - 0.002
+            t = px * np.cos(a) + py * np.sin(a)
+            dist = np.abs(-px * np.sin(a) + py * np.cos(a))
+            groove((dist < 0.0010) & (t > 0) & (t < 0.014) & front, 0.0003 * ak)
+    # under-eye crease (arc)
+    for sx in (-1, 1):
+        r = np.hypot((x - sx * 0.032) / 1.35, y + 0.004)
+        groove((np.abs(r - 0.020) < 0.0012) & (y < -0.008) & front, 0.0003 * ak, 0.8)
+    # nasolabial folds: nose wing -> mouth corner (deep, soft)
+    for sx in (-1, 1):
+        t = np.clip((0.036 - y) / 0.052, 0, 1)
+        cx = sx * (0.021 + 0.017 * t + 0.004 * np.sin(t * np.pi))
+        groove((np.abs(x - cx) < 0.0022) & (y < 0.018) & (y > -0.092) & front, 0.0008 * (0.6 + 0.4 * ak), 1.4)
+    # mouth: lip crease, corners, philtrum, vertical lip lines
+    groove((np.abs(y + 0.0775 + 0.004 * (x / 0.03) ** 2) < 0.0012) & (np.abs(x) < 0.027) & front, 0.0007, 0.7)
+    for sx in (-1, 1):
+        groove((np.hypot(x - sx * 0.029, y + 0.080) < 0.0035) & front, 0.0004, 1.0)
+    groove((np.abs(x) < 0.005) & (y < -0.052) & (y > -0.070) & front, 0.00025, 1.5)
+    lipz = (np.abs(y + 0.078) < 0.010) & (np.abs(x) < 0.025) & front
+    groove(lipz & (np.abs(np.sin(x * 900 + 2 * np.sin(y * 300))) < 0.22), 0.0001, 0.5)
+    # hands: knuckle creases around every finger joint
+    Hh = {n: np.asarray(ch.sk["heads"][n], float) for n in mh.BONE_NAMES if n in ch.sk["heads"]}
+    for side in ("Left", "Right"):
+        hand = sb.G[side + "Hand"] > 0.5
+        for f in ("Index", "Middle", "Ring", "Pinky", "Thumb"):
+            for j in (2, 3):
+                n0, nprev = "%sHand%s%d" % (side, f, j), "%sHand%s%d" % (side, f, j - 1)
+                if n0 not in Hh or nprev not in Hh:
+                    continue
+                p = Hh[n0]
+                ax = p - Hh[nprev]
+                ax /= max(np.linalg.norm(ax), 1e-6)
+                rel = P - p
+                along = rel @ ax
+                rad = np.linalg.norm(rel - along[..., None] * ax, axis=-1)
+                near = (rad < 0.014) & hand
+                for off in (-0.0022, 0.0, 0.0022):
+                    groove(near & (np.abs(along - off) < 0.0007), 0.00025)
+    # forearm veins (muscular bodies): meandering raised lines on the forearm
+    if muscle > 0.45:
+        for side in ("Left", "Right"):
+            el, wr = Hh[side + "ForeArm"], Hh[side + "Hand"]
+            ax = (wr - el) / np.linalg.norm(wr - el)
+            rel = P - el
+            along = rel @ ax
+            perp = rel - along[..., None] * ax
+            ang = np.arctan2(perp[..., 1], perp[..., 2])
+            L = np.linalg.norm(wr - el)
+            sel = (sb.G[side + "ForeArm"] > 0.5) & (along > 0.02) & (along < L - 0.02)
+            for k in range(2):
+                a0 = rng.uniform(-2.4, -1.0) if k == 0 else rng.uniform(-1.8, -0.6)
+                path = a0 + 0.25 * np.sin(along * rng.uniform(25, 40) + rng.uniform(0, 6))
+                vein = sel & (np.abs(ang - path) < 0.05)
+                acc["h"] += U.blur(vein.astype(np.float32), 1.2) * 0.0005 * (muscle - 0.3)
+    # roughness: oily T-zone and lips glossier, the rest satin
+    rough = np.full(shape, 0.66, np.float32)
+    tz = front & (((np.abs(x) < 0.018) & (y > -0.06) & (y < 0.02)) | ((y > 0.035) & (np.abs(x) < 0.045)))
+    rough -= U.blur(tz.astype(np.float32), 3.0) * 0.14
+    rough -= U.blur(lipz.astype(np.float32), 1.5) * 0.22
+    rough += 0.06 * (U.fbm(shape, 30.0, 2, seed + 9, wrap=False) - 0.5)
+    rough += acc["c"] * 0.08
+    return acc["h"], acc["c"], np.clip(rough, 0.3, 0.9)
+
+
+def relief_normal(sb, h, strength=1.0):
+    """Tangent-space normal map from a skin height field, gradients in metres using the per-texel scale."""
+    mx, my = _texel_metres(sb.P, sb.mask)
+    gy, gx = np.gradient(h.astype(np.float32))
+    gx = gx / mx * strength
+    gy = gy / my * strength
+    n = np.stack([-gx, gy, np.ones_like(gx)], axis=-1)
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    return ((n * 0.5 + 0.5) * 255.0 + 0.5).astype(np.uint8)

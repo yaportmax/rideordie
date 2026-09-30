@@ -721,6 +721,8 @@ Two-tier butte/mesa backdrop, ~112 m wide lower tier (62 m) + 48 m upper butte o
 | `rb_wreck_car` | 882 | 4.5 x 1.6 x 5.8 | 78 | concrete, metal_dark, rubber, rust, spike |
 | `rb_wreck_van` | 1284 | 5.3 x 2.6 x 5.5 | 113 | canvas, metal_dark, paint, rubber, rust |
 | `rb_wreck_small` | 380 | 2.3 x 1.3 x 4.9 | 35 | concrete, metal_dark, rubber, rust, spike |
+| `rb_wreck_stack` | 1630 | 5.4 x 5.8 x 5.8 | 139 | bone, metal_dark, paint, rubber, rust |
+| `rb_container` | 2288 | 6.3 x 7.7 x 5.4 | 206 | bone, canvas, hazard, metal_bare, metal_dark, paint, paint2, rubber, rust, spike |
 
 ### `wreck_sedan`
 Loose vehicle wreck, origin ground centre, front +Z, one collision box.
@@ -772,4 +774,18 @@ Narrow roadblock module (2.4 m wide, x -1.20..1.20, road-aligned): jersey barrie
 * bbox min [-1.15, 0.0, 1.3] max [1.15, 1.27, 6.2]; 380 tris (+24 collision tris)
 * sockets: `hw` [1.2, 0, 0]
 * nodes: `concrete`, `metal_dark`, `rubber`, `rust`, `spike`, `collision`
+
+### `rb_wreck_stack`
+Tall roadblock module (5.6 m wide, x -2.80..2.80, road-aligned): overturned van across the road with a burnt car flipped on top (~4.3 m), tyres, drums, skull pole. Socket `fire` on the top wreck. Visuals + collision never exceed |x| <= hw.
+* hw: 2.8
+* bbox min [-2.75, -0.14, 0.48] max [2.64, 5.63, 6.32]; 1630 tris (+72 collision tris)
+* sockets: `fire` [0.2, 3.5, 3.3], `hw` [2.8, 0, 0]
+* nodes: `bone`, `metal_dark`, `paint`, `rubber`, `rust`, `collision`
+
+### `rb_container`
+Tall roadblock module (6.5 m wide, x -3.25..3.25, road-aligned): rusty container lying across the road with a spiked scrap parapet on top (~4.4 m), sandbags, drums, war banner. Socket `fire` (drum fire on the roof). Visuals + collision never exceed |x| <= hw.
+* hw: 3.25
+* bbox min [-3.13, 0.0, 1.05] max [3.13, 7.66, 6.42]; 2288 tris (+36 collision tris)
+* sockets: `fire` [1.4, 3.5, 3.9], `hw` [3.25, 0, 0]
+* nodes: `bone`, `canvas`, `hazard`, `metal_bare`, `metal_dark`, `paint`, `paint2`, `rubber`, `rust`, `spike`, `collision`
 

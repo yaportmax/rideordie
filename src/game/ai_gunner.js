@@ -9,7 +9,7 @@ import { bossAimPoint } from '../sim/boss.js';
 const _p = new THREE.Vector3(), _d = new THREE.Vector3();
 
 export class AIGunner {
-  constructor(run, skill = 0.75) {
+  constructor(run, skill = 0.5) {
     this.run = run; this.skill = skill;
     this.target = null; this.aimErr = new THREE.Vector2(); this.retargetT = 0; this.burstT = 0; this.pauseT = 0; this.nadeCd = 6; this.swapCd = 0; this.rpgCd = 0;
     this.cmd = { dYaw: 0, dPitch: 0, fire: false, firePressed: false, ads: false, reload: false, grenade: false, swap: 0, slot: -1, crouch: false, moveX: 0, moveZ: 0, lean: 0, medkit: false, viewToggle: false };
@@ -55,7 +55,7 @@ export class AIGunner {
       let best = null; for (const t of ts) if (!best || t.score > best.score) best = t;
       if (best && (!this.target || best.car !== this.target.car || best.kind !== this.target.kind)) {
         this.aimErr.set((Math.random() - 0.5) * 0.12, (Math.random() - 0.5) * 0.06).multiplyScalar(1.4 - this.skill); // fresh target: start a bit off
-        this.pauseT = lerp(0.45, 0.18, this.skill);                                                                   // reaction
+        this.pauseT = lerp(0.7, 0.3, this.skill);                                                                     // reaction
       }
       this.target = best; this.retargetT = 0.5 + Math.random() * 0.4;
     }
@@ -85,7 +85,11 @@ export class AIGunner {
     }
     // ---------------- aim: turn-rate limited toward target + settling error
     _d.copy(t.p).sub(eye).normalize();
-    const wantYaw = Math.atan2(_d.x, _d.z) + this.aimErr.x, wantPitch = Math.asin(clamp(_d.y, -1, 1)) + this.aimErr.y;
+    // a human-ish tracking error that never quite settles (slow drift + faster tremor): ~35-50% of rounds land, not 70%+
+    this.swayT = (this.swayT || 0) + dt;
+    const amp = lerp(0.03, 0.012, this.skill) * (t.boss ? 0.6 : 1);
+    const nx = (Math.sin(this.swayT * 1.3) + 0.6 * Math.sin(this.swayT * 3.7 + 1.1)) * amp, ny = (Math.sin(this.swayT * 1.1 + 2) + 0.5 * Math.sin(this.swayT * 4.3)) * amp * 0.6;
+    const wantYaw = Math.atan2(_d.x, _d.z) + this.aimErr.x + nx, wantPitch = Math.asin(clamp(_d.y, -1, 1)) + this.aimErr.y + ny;
     this.aimErr.multiplyScalar(Math.exp(-dt * lerp(2.5, 6, this.skill)));
     const rate = lerp(3.5, 7, this.skill) * dt;
     const dy = wrapAngle(wantYaw - gunner.yaw), dp = wantPitch - gunner.pitch;
@@ -96,14 +100,19 @@ export class AIGunner {
     // wobble: humans don't hold perfectly still on a truck bed
     c.dYaw += (Math.random() - 0.5) * 0.004 * (1.2 - this.skill); c.dPitch += (Math.random() - 0.5) * 0.003 * (1.2 - this.skill);
     const onTarget = Math.abs(dy) < Math.max(0.008, 0.5 / Math.max(dist, 6)) && Math.abs(dp) < Math.max(0.008, 0.4 / Math.max(dist, 6));
+    const nearTarget = Math.abs(dy) < Math.max(0.02, 1.3 / Math.max(dist, 6)) && Math.abs(dp) < Math.max(0.016, 0.9 / Math.max(dist, 6)); // single shots: pulled a bit early
     // ---------------- trigger discipline
     if (this.pauseT > 0) this.pauseT -= dt;
-    else if (onTarget && dist < w.range * 0.95) {
+    else if ((onTarget || (w.mode !== 'auto' && nearTarget)) && dist < w.range * 0.95) {
       if (w.mode === 'auto') {
         this.burstT += dt;
         c.fire = true;
         if (this.burstT > lerp(0.5, 1.1, this.skill) * (t.boss ? 2.2 : 1)) { this.burstT = 0; this.pauseT = t.boss ? 0.1 : 0.18; c.fire = false; } // let the recoil settle
-      } else { c.fire = true; c.firePressed = !this._pressed; }
+      } else {
+        // semi / pump / bolt: a fresh trigger pull at a human cadence (a held trigger only fires once)
+        this.pullT = (this.pullT || 0) - dt;
+        if (this.pullT <= 0) { c.fire = true; c.firePressed = true; this.pullT = Math.max(60 / (w.rpm || 120), lerp(0.55, 0.32, this.skill)) * (0.85 + Math.random() * 0.4); }
+      }
     }
     this._pressed = c.fire;
     if (t.boss && w.mode !== 'auto' && gunner.magNow === 0 && this.swapCd > 0.3) this.swapCd = 0.3;   // fired the rocket: swap back, don't reload

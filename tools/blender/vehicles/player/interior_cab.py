@@ -223,27 +223,33 @@ class InteriorCabMixin:
         b.box('wood', (x, f0 + 0.0, z - 0.03), (0.035, 0.26, 0.07), bev=0.012, rot=(-8, 0, 0))
 
     def nos_panel(self):
-        """T4: overhead aircraft-style switch panel (NOS arm/purge/pump) bolted to the headliner"""
+        """T4: overhead aircraft-style switch panel (NOS arm/purge/pump) on a bracket plate bolted through the headliner"""
         C, b = self.C, self.b
         zs = self.roof_z
         f = self.ws['ft'] - 0.2
-        z = zs(0.12, f) - 0.075
+        z = zs(0.12, f) - 0.088
         c = Vector((0.12, f, z))
-        b.box('metal_bare', tuple(c), (0.32, 0.13, 0.03), bev=0.006)
+        # mounting plate flush with the headliner + two drop brackets, then the panel (painted light grey so it reads against the dark roof)
+        b.box("metal_dark", tuple(c + Vector((0, 0, 0.03))), (0.36, 0.17, 0.01), bev=0.003)
+        for sx in (-0.13, 0.13):
+            b.box('metal_dark', tuple(c + Vector((sx, 0, 0.02))), (0.03, 0.12, 0.03), bev=0.004)
+        b.swatch('silver')
+        b.box('decal', tuple(c), (0.32, 0.13, 0.024), bev=0.006)
+        b.swatch(None)
         for sx in (-0.15, 0.15):
             for sf in (-0.055, 0.055):
-                b.cyl('metal_dark', tuple(c + Vector((sx, sf, -0.016))), 0.005, 0.004, axis='z', n=6)
-        b.sticker('lbl_nitro', tuple(c + Vector((0.08, 0.035, -0.0152))), (0, 0, -1), (0, -1, 0), 0.12, 0.03, lift=0.0)
-        b.sticker('lbl_arm', tuple(c + Vector((-0.08, 0.035, -0.0152))), (0, 0, -1), (0, -1, 0), 0.1, 0.028, lift=0.0)
+                b.cyl('metal_dark', tuple(c + Vector((sx, sf, -0.013))), 0.005, 0.004, axis='z', n=6)
+        b.sticker('lbl_nitro', tuple(c + Vector((0.08, 0.035, -0.0135))), (0, 0, -1), (0, -1, 0), 0.12, 0.03, lift=0.0)
+        b.sticker('lbl_arm', tuple(c + Vector((-0.08, 0.035, -0.0135))), (0, 0, -1), (0, -1, 0), 0.1, 0.028, lift=0.0)
         for i in range(4):
             sx = -0.105 + i * 0.07
-            p = c + Vector((sx, -0.02, -0.016))
+            p = c + Vector((sx, -0.02, -0.012))
             b.cyl('metal_dark', tuple(p), 0.011, 0.006, axis='z', n=10)
             b.cyl2('chrome', tuple(p), tuple(p + Vector((0, -0.012, -0.03))), 0.003, n=6)
             b.swatch('red' if i < 2 else 'orange')
-            b.box('decal', tuple(p + Vector((0, 0.022, -0.02))), (0.026, 0.006, 0.04), bev=0.002, rot=(-60, 0, 0))
+            b.box('decal', tuple(p + Vector((0, 0.018, -0.022))), (0.026, 0.006, 0.036), bev=0.002, rot=(-55, 0, 0))
             b.swatch(None)
-        b.sticker('lamps', tuple(c + Vector((0, -0.05, -0.0152))), (0, 0, -1), (0, -1, 0), 0.12, 0.028, lift=0.0)
+        b.sticker('lamps', tuple(c + Vector((0, -0.05, -0.0135))), (0, 0, -1), (0, -1, 0), 0.12, 0.028, lift=0.0)
 
     def cab_cage(self):
         """T4: internal roll cage (A-pillar bars, header, B-hoop) with foam pads"""
@@ -257,11 +263,11 @@ class InteriorCabMixin:
             p1 = (sg * (ws['hw1'] - 0.075), ws['ft'] - 0.1, ws['zt'] - 0.04)
             p2 = (sg * hx, fb_, zs(hx, fb_) - 0.07)
             b.tube('metal_dark', [(sg * (ws['hw0'] - 0.07), ws['fb'] - 0.1, C.z_floor + 0.3), (sg * (ws['hw0'] - 0.07), ws['fb'] - 0.12, ws['zb'] - 0.05), p1,
-                                  (sg * (hx - 0.02), ws['ft'] - 0.25, zs(hx, ws['ft'] - 0.25) - 0.07), p2, (sg * hx, fb_, C.z_floor + 0.02)], r, n=10, rad=0.08, k=4)
-            b.tube('rubber', [(sg * (ws['hw1'] - 0.075), ws['ft'] - 0.12, ws['zt'] - 0.05), (sg * (hx - 0.02), ws['ft'] - 0.28, zs(hx, ws['ft'] - 0.28) - 0.07)], r * 1.8, n=10)
-        b.tube('metal_dark', [(hx, fb_, zs(hx, fb_) - 0.07), (-hx, fb_, zs(hx, fb_) - 0.07)], r, n=10)
-        b.tube('metal_dark', [(hx, fb_, zs(hx, fb_) - 0.07), (-hx, fb_, C.z_belt + 0.1)], r * 0.9, n=10)
-        b.tube('rubber', [(0.45, fb_, zs(0.45, fb_) - 0.07), (-0.45, fb_, zs(0.45, fb_) - 0.07)], r * 1.9, n=10)
+                                  (sg * (hx - 0.02), ws['ft'] - 0.25, zs(hx, ws['ft'] - 0.25) - 0.07), p2, (sg * hx, fb_, C.z_floor + 0.02)], r, n=8, rad=0.08, k=3)
+            b.tube('rubber', [(sg * (ws['hw1'] - 0.075), ws['ft'] - 0.12, ws['zt'] - 0.05), (sg * (hx - 0.02), ws['ft'] - 0.28, zs(hx, ws['ft'] - 0.28) - 0.07)], r * 1.8, n=8)
+        b.tube('metal_dark', [(hx, fb_, zs(hx, fb_) - 0.07), (-hx, fb_, zs(hx, fb_) - 0.07)], r, n=8)
+        b.tube('metal_dark', [(hx, fb_, zs(hx, fb_) - 0.07), (-hx, fb_, C.z_belt + 0.1)], r * 0.9, n=8)
+        b.tube('rubber', [(0.45, fb_, zs(0.45, fb_) - 0.07), (-0.45, fb_, zs(0.45, fb_) - 0.07)], r * 1.9, n=8)
 
     # =========================================================================================== door card
     def door_card(self, pt, sg, f_r, f_f, zdb, zbl, hwd):

@@ -143,7 +143,8 @@ export const ANCH = {
   cover: { off: [0.0, 0.03, 0.08], rot: [0, 0, 180] },
   port: { off: [0.0, -0.03, 0.0], rot: [0, 0, 60] },
   cyl: { off: [0.03, 0.0, -0.02], rot: [0, 0, 90] },
-  rocket: { off: [0.0, -0.05, 0.12], rot: [0, 0, 0] },
+  rocket: { off: [0.0, 0.0, -0.12], rot: [0, 0, 0] },       // hand round the motor section, 12 cm behind the rocket's origin
+  rocketLoad: { off: [0.0, 0.09, 0.625 + 0.42 - 0.12], rot: [0, 0, 0] },   // the same grip with the rocket lined up 42 cm out of the mouth
   pocket: { off: [0.10, -0.42, -0.05], rot: [40, 0, 40] },
   bolt: { off: [0.0, 0.0, 0.0], rot: [0, 0, 0] },
   grenade: { off: [0, 0, 0], rot: [0, 0, 0] },
@@ -161,7 +162,7 @@ const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t 
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _p = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4();
-const _s = new THREE.Vector3(1, 1, 1);
+const _s = new THREE.Vector3(1, 1, 1), _sc = new THREE.Vector3(), _mi = new THREE.Matrix4();
 const Q_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);   // gun +Z forward -> camera -Z
 
 /** Damped spring on N channels (semi-implicit Euler, sub-stepped). freq Hz, zeta damping ratio. */
@@ -655,7 +656,6 @@ export class ViewModel {
     gun.update(dt, gs);
     // mag carried away to / brought back from the "pocket"; rocket brought up from below
     if (parts.magOff > 0 && gun.nodes.mag) gun.nodes.mag.position.lerp(_v.fromArray(ANCH.pocket.off), parts.magOff * 0.85);
-    if (parts.rocketOff > 0 && gun.nodes.rocket) gun.nodes.rocket.position.lerp(_v.set(0.02, -0.3, 0.5), parts.rocketOff);
     gun.root.updateMatrixWorld(true);
     // ---------------------------------------------------------------- viewmodel projection
     const fov = T.fov[0] + (T.fov[1] - T.fov[0]) * adsE;
@@ -723,7 +723,7 @@ export class ViewModel {
     const R = this._R || (this._R = { p: [0, 0, 0], r: [0, 0, 0], parts: {}, lh: { a: 'grip', b: 'grip', w: 0, arc: 0 }, rh: null });
     R.p[0] = R.p[1] = R.p[2] = 0; R.r[0] = R.r[1] = R.r[2] = 0; const P = R.parts;
     P.mag = P.magVisible = P.magOff = P.rack = P.cover = P.crane = P.rocket = P.rocketVisible = P.rocketOff = P.pump = P.bolt = P.shell = undefined;
-    R.lh.a = 'grip'; R.lh.b = 'grip'; R.lh.w = 0; R.lh.arc = 0; R.rh = null; R.rhA = 'bolt'; R.hideMag = false; R.showShell = false;
+    R.lh.a = 'grip'; R.lh.b = 'grip'; R.lh.w = 0; R.lh.arc = 0; R.rh = null; R.rhA = 'bolt'; R.rocketHand = false; R.hideMag = false; R.showShell = false;
     const kind = T.reload, rel = cur && G.reloading;
     // shotgun: a pump when the reload finishes (chambers a round)
     if (kind === 'shotgun') {
@@ -826,13 +826,14 @@ export class ViewModel {
       case 'rpg': {
         const low = seg(0.0, 0.14) * (1 - seg(0.86, 1.0));
         R.r[0] = low * 16; R.r[2] = -low * 12; R.p[0] = -low * 0.02; R.p[1] = -low * 0.03; R.p[2] = low * 0.12;
-        P.rocket = r < 0.5 ? 1 : 1 - seg(0.55, 0.8); P.rocketVisible = r > 0.36;
-        P.rocketOff = r < 0.5 ? 1 - seg(0.36, 0.52) : 0;
-        tween(lh, 0.06, 0.2, 'grip', 'pocket', 0.02);
-        if (r > 0.3) tween(lh, 0.32, 0.5, 'pocket', 'rocket', 0.04);
-        if (r > 0.5) { lh.a = 'rocket'; lh.b = 'rocket'; lh.w = 0; }
-        if (r > 0.8) tween(lh, 0.8, 0.94, 'rocket', 'grip', 0.03);
-        if (r > 0.76 && r < 0.86) this._jolt(r, 0.8, 0.012);
+        // fresh rocket from the pack (it rides in the closed left hand), lined up at the mouth, pushed home, hand back on the grip
+        P.rocket = r < 0.5 ? 1 : 1 - seg(0.52, 0.78); P.rocketVisible = r > 0.26;
+        R.rocketHand = r > 0.26 && r < 0.5;
+        tween(lh, 0.04, 0.18, 'grip', 'pocket', 0.02);
+        if (r > 0.26) tween(lh, 0.28, 0.48, 'pocket', 'rocketLoad', 0.05);
+        if (r > 0.48) { lh.a = 'rocket'; lh.b = 'rocket'; lh.w = 0; }
+        if (r > 0.8) tween(lh, 0.8, 0.9, 'rocket', 'grip', 0.03);
+        this._contact(r, 0.78, 0.016);
         break;
       }
       default: break;
@@ -865,6 +866,8 @@ export class ViewModel {
       const n = W.nodes[nodeName] || W.nodes.bolt || W.nodes.body;
       if (n) { n.getWorldPosition(P); root.worldToLocal(P); } else P.set(0, 0.1, 0);
       const a = ANCH[name] || ANCH.charge; Q.setFromEuler(_e.set(a.rot[0] * DEG, a.rot[1] * DEG, a.rot[2] * DEG)); P.add(_v.fromArray(a.off));
+    } else if (name === 'rocketLoad') {
+      P.fromArray(A.off); Q.identity();
     } else if (name === 'port' || name === 'cyl') {
       const s = W.loc.mag_well; if (s) P.copy(s.p); else P.set(0, 0, 0.15);
       if (name === 'cyl' && W.nodes.crane) { const sk = W.sockets.mag_well; if (sk) { sk.getWorldPosition(P); root.worldToLocal(P); } }
@@ -883,6 +886,7 @@ export class ViewModel {
     const lh = R.lh, REACH = lh.b === 'pocket' || lh.b === 'cover' || lh.b === 'charge' || lh.b === 'slide' || lh.b === 'port' || lh.b === 'cyl' || lh.b === 'tray';
     let openL = lh.a !== lh.b ? Math.sin(Math.PI * lh.w) * 0.9 : 0;
     if (REACH) openL = Math.max(openL, 0.55 * lh.w);
+    if (R.rocketHand || lh.a === 'rocket') openL = 0;              // holding the rocket: fist closed round it
     if (thr > 0) openL = Math.max(openL, sstep(0.0, 0.1, thr) * (1 - sstep(0.6, 0.9, thr)));
     this._setPoses(T, openL);
     this.mixer.update(0);
@@ -919,9 +923,21 @@ export class ViewModel {
       aL.p.lerp(_v.set(-0.12 + f * 0.04, -0.16 + Math.sin(f * Math.PI) * 0.12 - dn * 0.3, -0.32 - f * 0.22), e);
     }
     this._handTo('Left', aL, rootInv);
+    if (R.rocketHand && gun.nodes.rocket) this._rocketInHand(gun);
     const so = this.B.socket_hand_L;
     if (so && this.shell.parent !== so) { so.add(this.shell); this.shell.position.set(0.0, 0.0, 0.035); }
     this.shell.visible = !!R.showShell;
+  }
+
+  /** The loading rocket rides in the left hand: its node follows the hand socket (motor section in the fist, nose forward). */
+  _rocketInHand(gun) {
+    const n = gun.nodes.rocket, so = this.B.socket_hand_L; if (!so || !n.parent) return;
+    so.updateWorldMatrix(true, false);
+    _m.makeTranslation(0, 0, -ANCH.rocket.off[2]).premultiply(so.matrixWorld);
+    n.parent.updateWorldMatrix(true, false);
+    _m.premultiply(_mi.copy(n.parent.matrixWorld).invert());
+    _m.decompose(n.position, n.quaternion, _sc);
+    n.updateMatrixWorld(true);
   }
 
   /** Two-bone IK the arm so the hand's grip socket lands on the anchor (camera-space transform). */

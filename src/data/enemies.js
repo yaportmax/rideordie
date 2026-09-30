@@ -28,7 +28,8 @@ export const ENEMY_KEYS = Object.keys(ENEMIES);
 
 /**
  * Encounters: squads with a plan. Each car: {k: archetype or [archetypes by preference, first unlocked wins from the END],
- * role: behavior, at: 'behind' | 'ahead' | 'park' (waiting at the roadside ahead, peels out when you arrive),
+ * role: behavior, at: 'behind' | 'ahead' (placed just over a crest when there is one) | 'park' (waiting at the roadside ahead,
+ * peels out when you arrive) | 'burst' (charges onto the road from off-road ahead, where the ground is level),
  * side: +1 left / -1 right / 0 either, mode: 'overtake' (passes you, then takes `next`), gap: slot override}.
  * The director picks by weight among the unlocked + affordable ones; `max` caps how often a pattern repeats in a row.
  */
@@ -36,7 +37,9 @@ export const ENCOUNTERS = {
   // two bandits waiting on the shoulder ahead: they pull out as you arrive, one leads, one rides your flank
   ambush:   { minLevel: 0, weight: 6, cars: [{ k: ['e_sedan', 'e_buggy', 'e_technical'], role: 'leader', at: 'park', side: 1 }, { k: ['e_sedan', 'e_buggy'], role: 'flanker', at: 'park', side: -1 }] },
   // a car tails you, then overtakes and cuts in front; its partner hangs back as the gunner's target
-  overtake: { minLevel: 0, weight: 5, cars: [{ k: ['e_sedan', 'e_buggy', 'e_technical'], role: 'chaser', mode: 'overtake', next: 'leader', at: 'behind' }, { k: ['e_sedan', 'e_buggy'], role: 'chaser', at: 'behind' }] },
+  overtake: { minLevel: 0, weight: 6, cars: [{ k: ['e_sedan', 'e_buggy', 'e_technical'], role: 'chaser', mode: 'overtake', next: 'leader', at: 'behind' }, { k: ['e_sedan', 'e_buggy'], role: 'chaser', at: 'behind' }] },
+  // they come charging out of the scrub from both sides of the road ahead, nitro and horns, and cut into your windshield
+  sidehit:  { minLevel: 0.03, weight: 5, cars: [{ k: ['e_sedan', 'e_buggy', 'e_technical'], role: 'flanker', at: 'burst', side: 1 }, { k: ['e_buggy', 'e_sedan'], role: 'leader', at: 'burst', side: -1 }] },
   // one on each flank at once
   pincer:   { minLevel: 0.04, weight: 5, cars: [{ k: ['e_sedan', 'e_buggy'], role: 'flanker', side: 1, at: 'behind' }, { k: ['e_sedan', 'e_buggy'], role: 'flanker', side: -1, at: 'behind' }] },
   // gunless bruisers: they only know how to ram

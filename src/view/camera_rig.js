@@ -88,7 +88,7 @@ ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
   if (back) {
     // look back: a camera over the tailgate facing backwards (instant cut, like every racing game)
     cam.position.copy(opts.lookBackEye).add(so);
-    cam.quaternion.setFromEuler(_e.set(this.cockPitch - 0.13, _e.y - 0.1, this.cockRoll, 'YXZ'));
+    cam.quaternion.setFromEuler(_e.set(this.cockPitch - 0.08, _e.y + 0.1, this.cockRoll, 'YXZ')); // yaw a touch outboard, clear of the bed
   } else {
     cam.position.copy(opts.cockpitEye).add(so).add(_v.copy(this.head).applyQuaternion(carQuat));
     // cameras look down -Z, the truck faces +Z: turn 180 degrees (which also flips the sign of pitch and roll)

@@ -33,15 +33,33 @@ def cull_tris(ch, covers, keep_extra=None, hide_bones=()):
     return tv[keep], tt[keep]
 
 
-def add_skin(ctx, tris, albedo, rough=0.78, normal=None):
-    """Skin prim from the (culled) body triangles with the painted albedo (HxWx3 uint8/float)."""
+def add_skin(ctx, tris, albedo, rough=0.78, normal=None, relief=True):
+    """Skin prim from the (culled) body triangles with the painted albedo (HxWx3 uint8/float).  relief=True bakes the skin
+    relief (wrinkles, folds, lip lines, knuckles, veins -> normal map, darkened creases) and a roughness map."""
     ch = ctx.ch
     tv, tt = tris
     nrm = mh.vertex_normals(ch.pos, ch.tv)          # normals from the FULL body (seamless at cull borders)
     m = mh.split_seams(ch.pos, nrm, ch.vt, tv, tt)
     j, w = mh.top4(ch.W[m["src"]])
+    mr_tex = None
+    if relief and normal is None and getattr(ctx, "fit", None) is not None:
+        import skinpaint as SPT
+        size = int(np.asarray(albedo).shape[0])
+        sb = SPT.SkinBake(ch, ctx.fit, size)
+        mac = ctx.spec.get("macro", {})
+        hgt, crease, rgh = SPT.skin_relief(sb, ch, age=float(mac.get("age", 0.5)), muscle=float(mac.get("muscle", 0.5)))
+        normal = SPT.relief_normal(sb, hgt)
+        a = np.asarray(albedo, np.float32)
+        if a.max() > 1.5:
+            a = a / 255.0
+        albedo = np.clip(a * (1.0 - 0.28 * crease[..., None]), 0, 1)
+        mr = np.zeros(hgt.shape + (3,), np.float32)
+        mr[..., 1] = rgh
+        mr_tex = ctx.glb.texture_array("skin_mr", mr, "jpg", 90)
+        rough = 1.0
+        ctx.skin_debug = dict(height=hgt, crease=crease)
     tex = ctx.glb.texture_array("skin_albedo", albedo, "jpg", 90)
-    mat = ctx.material("skin", base_tex=tex, rough=rough, metallic=0.0, spec=0.6,
+    mat = ctx.material("skin", base_tex=tex, rough=rough, metallic=0.0, spec=0.6, mr_tex=mr_tex,
                        normal_tex=None if normal is None else ctx.glb.texture_array("skin_normal", normal, "jpg", 92))
     ctx.add(dict(pos=mh.to_final(m["pos"]), nrm=mh.to_final(m["nrm"]), uv=m["uv"], joints=j, weights=w, idx=m["idx"]),
             mat, label="skin")
@@ -61,6 +79,11 @@ def cloth_group(ctx, name, pieces, painter, ppm=500, extra=("depth", "ao"), grou
                 tile_ppm_min=250, spec=0.3):
     """Pack finished pieces (from cloth.finish) into one atlas, bake attributes, paint albedo+height with `painter(bk)`
     -> (albedo float HxWx3, height metres HxW), write textures + material + skinned prims."""
+    kind = getattr(painter, "kind", None)
+    if kind:
+        if not hasattr(ctx, "detail_class"):
+            ctx.detail_class = {}
+        ctx.detail_class.setdefault(name, kind)
     while True:
         try:
             atlas = cloth.pack(pieces, ppm)

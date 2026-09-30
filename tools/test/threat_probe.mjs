@@ -97,6 +97,12 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
     if (opt.traceelite && i % 240 === 0 && sim.director.activeElite) console.log(`  t${sim.time.toFixed(0)} P v${(P.veh.vf * 3.6) | 0} d${P.d.toFixed(1)} hp${P.hp | 0} | ` + sim.director.activeElite.cars.map((c) => `#${c.id} ${(c.s - P.s).toFixed(0)}/${c.d.toFixed(1)} v${(c.veh.vf * 3.6) | 0} hp${c.hp | 0}${c.exploded ? 'X' : ''}${c.driverless ? 'D' : ''} ${c.ai?.behavior}${c.ai?.atk ? '!' + c.ai.atk.kind + '.' + c.ai.atk.phase : ''}`).join(' | '));
     const b = bandOf(P.s);
     if (sim.state === 'run') { R.time[b] += DT; R.t += DT; }
+    // pass speeds: a raider going from behind to ahead of the truck (relative speed at the moment it draws level)
+    if ((i & 3) === 0) for (const c of sim.cars.values()) {
+      if (c.kind !== 'enemy' || c.exploded) continue;
+      const g = c.s - P.s, pg = c._pg; c._pg = g;
+      if (pg !== undefined && pg < 0 && g >= 0 && Math.abs(c.d - P.d) < 7) { const v = (c.veh.vf - P.veh.vf) * 3.6; (R.passes || (R.passes = [])).push(v); if (c.ai?.mode === 'overtake') (R.opasses || (R.opasses = [])).push(v); }
+    }
     // view presence
     if ((i & 7) === 0 && sim.state === 'run') {
       let fwd = false, side = false, ahead = false;
@@ -120,6 +126,7 @@ async function oneRun(k, profIn = null, maxSecs = SECS) {
         if (e.t === 'hit') { R.hits[b]++; if (R.tContact === null) R.tContact = sim.time; }
       }
       if (e.t === 'shot' && e.src !== 'player' && !e.fromGunner) { R.eshots = (R.eshots || 0) + (e.rays ? e.rays.length : 1); }
+      if (e.t === 'enemyTell' && e.kind === 'burst') R.bursts = (R.bursts || 0) + 1;
       if (e.t === 'kill') { R.kills++; if (e.crash) R.crashKills++; cash += Math.round((KILL_CASH[e.spec] || 60) * (1 + sim.director.level * ECONOMY.killLevel) * (e.crash ? ECONOMY.crashMul : 1) * effects.cashMul); }
       if (e.t === 'minibossDown') { cash += Math.round(ECONOMY.minibossBounty[e.index] * effects.cashMul); R.mbDown = (R.mbDown || 0) + 1; }
       if (e.t === 'minibossSpawn') { R.mbSeen = (R.mbSeen || 0) + 1; R.mbFight = { name: e.name, t0: sim.time, hp0: P.hp, crew0: P.crew.driver.hp + P.crew.gunner.hp }; }
@@ -224,4 +231,7 @@ const ev = {}; for (const r of all) for (const [k2, v] of Object.entries(r.event
 const scen2 = {}; for (const r of all) for (const [k2, v] of Object.entries(r.scenery || {})) scen2[k2] = (scen2[k2] || 0) + v;
 console.log('hard scenery impacts by collider:', JSON.stringify(scen2));
 console.log(`per min: enemy rounds ${(sum((r) => r.eshots || 0) / (T / 60)).toFixed(0)}, whizz ${((ev.whizz || 0) / (T / 60)).toFixed(0)}, crewHit ${((ev.crewHit || 0) / (T / 60)).toFixed(0)}, tells ${((ev.enemyTell || 0) / (T / 60)).toFixed(1)}, encounters ${((ev.encounter || 0) / (T / 60)).toFixed(2)}`);
+const passes = all.flatMap((r) => r.passes || []).sort((a, b) => a - b), op = all.flatMap((r) => r.opasses || []).sort((a, b) => a - b);
+console.log(`overtakes: ${(op.length / (T / 60)).toFixed(2)}/min, pass speed median ${op.length ? op[op.length >> 1].toFixed(0) : '-'} km/h (p25 ${op.length ? op[Math.floor(op.length * 0.25)].toFixed(0) : '-'}, p75 ${op.length ? op[Math.floor(op.length * 0.75)].toFixed(0) : '-'})`);
+console.log(`raider passes: ${(passes.length / (T / 60)).toFixed(2)}/min, relative speed median ${passes.length ? passes[passes.length >> 1].toFixed(0) : '-'} km/h (p75 ${passes.length ? passes[Math.floor(passes.length * 0.75)].toFixed(0) : '-'})  near misses ${((ev.nearMiss || 0) / (T / 60)).toFixed(2)}/min  off-road bursts ${ev.enemyTell ? all.reduce((a, r) => a + (r.bursts || 0), 0) : 0}`);
 console.log(`kills/min ${(sum((r) => r.kills) / (T / 60)).toFixed(2)}  crash kills ${sum((r) => r.crashKills)}  chain explosions ${sum((r) => r.chain)}  driver kills ${sum((r) => r.driverKills)} -> hit another car ${sum((r) => r.dkCrash)}`);

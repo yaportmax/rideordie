@@ -25,5 +25,7 @@ for cid in sys.argv[1:]:
     ctx = mod.build_full() if cid == "hero_gunner" else mod.build()
     hero = cid.startswith("hero")
     sizes = dict(body=2048, hair=1024, eye=256) if hero else dict(body=1024, hair=512, eye=128)
+    if cid == "hero_gunner":
+        sizes["armor"] = 2048
     hidden = ("armor_t1", "armor_t2", "armor_t3") if cid == "hero_gunner" else ()
     ctx.save_final(OUT + "/%s.glb" % cid, hidden_groups=hidden, atlas_sizes=sizes)

@@ -5,17 +5,18 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { biomeAt } from '../../data/biomes.js';
 import { hash2, lerp } from '../../core/util.js';
 import { roadFrame, groundAt, CHUNK_LEN, rngOf } from './util.js';
+import { terrainPoint, EDGE } from '../terrain_gen.js';
 import { GLOW } from './pool.js';
 import { instanceMaterial } from './assets.js';
 
 /** Furniture density per biome (0..1 activity). */
 const CFG = {
-  desert:   { poles: 0.75, signs: 1.0, board: 1.0, mile: 1, lamps: 0, delin: 1, ranch: 0.5, chain: 0 },
-  canyon:   { poles: 0.30, signs: 0.8, board: 0.25, mile: 1, lamps: 0, delin: 1, ranch: 0.15, chain: 0 },
-  coast:    { poles: 0.0, signs: 0.8, board: 0.35, mile: 1, lamps: 0, delin: 1, ranch: 0.3, chain: 0 },
+  desert:   { poles: 0.75, signs: 1.0, board: 1.0, mile: 1, lamps: 0, delin: 1, ranch: 0.75, chain: 0 },
+  canyon:   { poles: 0.30, signs: 0.8, board: 0.25, mile: 1, lamps: 0, delin: 1, ranch: 0.35, chain: 0 },
+  coast:    { poles: 0.0, signs: 0.8, board: 0.35, mile: 1, lamps: 0, delin: 1, ranch: 0.5, chain: 0 },
   mountain: { poles: 0.30, signs: 1.0, board: 0.2, mile: 1, lamps: 0, delin: 1, ranch: 0, chain: 0 },
   city:     { poles: 0.35, signs: 0.7, board: 1.0, mile: 1, lamps: 1, delin: 0, ranch: 0, chain: 0.55 },
-  dam:      { poles: 0.0, signs: 0.35, board: 0.0, mile: 0, lamps: 0, delin: 1, ranch: 0, chain: 0.35 },
+  dam:      { poles: 0.0, signs: 0.35, board: 0.0, mile: 0, lamps: 0, delin: 1, ranch: 0.4, chain: 0.35 },
 };
 function cfg(s, key) { const b = biomeAt(s); return lerp(CFG[b.a][key], CFG[b.b][key], b.w); }
 
@@ -113,6 +114,75 @@ function guardrails(ctx, chunk) {
         ctx.hook({ type: 'guardrail', id, s0: lo, s1: hi, side: sd > 0 ? 'L' : 'R', d: sd * 9.3, height: 0.8, halfThickness: 0.1, polyline: poly });
       }
     }
+  }
+  return true;
+}
+
+// ------------------------------------------------------------------------------------------------ roadside rails (embankments, curve outsides)
+// W-beam rails just off the shoulder (|d| = 10.6 m, clear of the drivable strip) where they are plausible: along fills where the ground
+// falls away beside the road and on the outside of curves. They get static box colliders (like landmarks), so they are real barriers.
+// Decided per 48 m block (deterministic, identical for neighbouring chunks); a block needs an active neighbour (no 48 m stubs).
+const RAIL_D = 10.6, RAIL_BLOCK = 48;
+const _railCache = new Map(); let _railRoad = null;
+const _rp = {}, _rsm = {};
+function railCond(road, seed, b, side) {
+  const s0 = b * RAIL_BLOCK, s1 = s0 + RAIL_BLOCK;
+  const bio = biomeAt(s0 + RAIL_BLOCK / 2);
+  if (bio.a === 'city' || bio.b === 'city' || s0 < 400) return false;
+  for (const f of road.featuresIn(s0 - 25, s1 + 25)) if (f.type !== 'boost') return false;   // any road feature nearby: leave it clear
+  let curve = 0, drop = 0;
+  for (let k = 0; k < 4; k++) {
+    const s = s0 + 6 + k * 12, sm = road.sample(s, _rsm);
+    curve += sm.k * side;
+    terrainPoint(road, seed, s, side * (EDGE + 4), _rp);
+    if (road.surfaceY(sm, side * EDGE) - _rp.y > 1.8) drop++;
+  }
+  return curve / 4 < -1 / 420 || drop >= 2;
+}
+/** True when a roadside rail runs at road distance s on `side` (+1 left). */
+export function railAt(road, seed, s, side) {
+  if (_railRoad !== road) { _railRoad = road; _railCache.clear(); }
+  const b = Math.floor(s / RAIL_BLOCK), key = b * 2 + (side > 0 ? 1 : 0);
+  let v = _railCache.get(key);
+  if (v === undefined) {
+    v = railCond(road, seed, b, side) && (railCond(road, seed, b - 1, side) || railCond(road, seed, b + 1, side));
+    if (_railCache.size > 20000) _railCache.clear();
+    _railCache.set(key, v);
+  }
+  return v;
+}
+function sideRails(ctx, chunk) {
+  const rail = need(ctx, 'guardrail_4m'), lod = need(ctx, 'guardrail_lod');
+  if (rail === undefined || lod === undefined) return false;
+  if (!rail) return true;
+  const { road, seed } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
+  let any = false;
+  for (const sd of [1, -1]) {
+    let run = null;
+    const flush = () => {
+      if (!run || run.pos.length < 2 * 24) { run = null; return; }
+      const id = `rail:${chunk.c}:${sd}:${Math.round(run.lo)}`; chunk.hooks.push(id);
+      ctx.hook({ type: 'static', id, asset: 'guardrail', pos: [run.pos[0], run.pos[1], run.pos[2]], yaw: 0, scale: [1, 1, 1], collision: { pos: new Float32Array(run.pos), idx: new Uint32Array(run.idx) } });
+      run = null;
+    };
+    for (let k = Math.ceil(s0 / 4); k * 4 < s1; k++) {
+      const sc = k * 4;
+      if (!railAt(road, seed, sc + 2, sd)) { flush(); continue; }
+      if (!any) { useSpec(ctx, 'guardrail_4m'); any = true; }
+      const fr = roadFrame(road, sc, 4, sd * RAIL_D, _f);
+      const sgn = sd > 0 ? -1 : 1;                                // traffic (+X) side of the rail faces the road
+      const cx = fr.x + fr.fx * 2, cy = fr.y + fr.fy * 2, cz = fr.z + fr.fz * 2;
+      chunk.list('guardrail_4m').pushBasis(cx, cy, cz, fr.lx * sgn, fr.ly * sgn, fr.lz * sgn, fr.ux, fr.uy, fr.uz, fr.fx * sgn, fr.fy * sgn, fr.fz * sgn, 1, 1, 1, 2.2);
+      // collider: a 4.1 x 0.8 x 0.26 box per segment
+      if (!run) run = { lo: sc, pos: [], idx: [] };
+      const b = run.pos.length / 3;
+      for (const [u, v, w] of [[-1, 0, -1], [1, 0, -1], [1, 1, -1], [-1, 1, -1], [-1, 0, 1], [1, 0, 1], [1, 1, 1], [-1, 1, 1]]) {
+        const la = u * 0.13, up = v * 0.8 - 0.1, al = w * 2.05;
+        run.pos.push(cx + fr.lx * la + fr.ux * up + fr.fx * al, cy + fr.ly * la + fr.uy * up + fr.fy * al, cz + fr.lz * la + fr.uz * up + fr.fz * al);
+      }
+      for (const t of [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5]) run.idx.push(b + t);
+    }
+    flush();
   }
   return true;
 }
@@ -374,6 +444,7 @@ function delineators(ctx, chunk) {
     if (cfg(s, 'delin') < 0.5 || blockedBy(feats, s, 6)) continue;
     for (const side of [1, -1]) {
       if (guards.some((f) => s > f.s0 - 4 && s < f.s1 + 4 && (f.side === 'both' || (f.side === 'L') === (side > 0)))) continue;
+      if (railAt(road, ctx.seed, s, side)) continue;
       const p = road.pointAt(s, side * 9.15, _pa);
       chunk.list('delineator').push(p.x, p.y - 0.02, p.z, faceYaw(road, s, side, 0.05) + (side > 0 ? Math.PI : 0), 1, 1, 1, 0, 1, 0, 0, 1.2);
     }
@@ -430,11 +501,11 @@ export function buildFences(ctx, chunk) {
       const isChain = CFG[id].chain > 0;
       if (h > (isChain ? CFG[id].chain : CFG[id].ranch)) continue;
       if (isChain && !chain) continue;
-      const dist = isChain ? 12.6 + hash2(b, 57 + side, seed) * 2 : 16 + hash2(b, 57 + side, seed) * 9;
+      const dist = isChain ? 12.6 + hash2(b, 57 + side, seed) * 2 : 12.8 + hash2(b, 57 + side, seed) * 3;   // close to the verge: posts stream past
       const name = isChain ? 'fence_chainlink_4m' : 'fence_ranch', list = chunk.list(name);
       for (let k = Math.ceil(Math.max(st0, s0) / 4); k * 4 < Math.min(st1, s1); k++) {
         const s = k * 4;
-        if (blockedBy(feats, s, 14)) continue;
+        if (blockedBy(feats, s, 14) || railAt(road, seed, s, side)) continue;
         const d = side * dist;
         const a = chunk.ground.sample(s, d, g0), c = chunk.ground.sample(Math.min(s + 4, s1), d, g1);   // both ends from the chunk grid (cheap)
         const ry = road.sample(s, sm).y;
@@ -476,6 +547,7 @@ export function buildWrecks(ctx, chunk) {
       const h = hash2(b, side > 0 ? 71 : 72, seed), bio = biomeAt(b * BL + BL / 2), id = bio.w > 0.5 ? bio.b : bio.a;
       const s = b * BL + 20 + hash2(b, side > 0 ? 73 : 74, seed) * (BL - 40);
       if (s < s0 || s >= s1 || blockedBy(feats, s, 25) || feats.some((f) => f.type === 'guard' && s > f.s0 - 5 && s < f.s1 + 5)) continue;
+      if (railAt(road, seed, s, side) || railAt(road, seed, s - 12, side) || railAt(road, seed, s + 12, side)) continue;
       const r = rngOf(seed, b * 2 + (side > 0 ? 1 : 0), 7373);
       const wreck = h < WRECK_P[id] * 0.5;                                   // ~1 wreck per 640 m per side at p = 1
       const loose = !wreck && h < WRECK_P[id] * 0.5 + 0.35;
@@ -525,7 +597,7 @@ export function buildWrecks(ctx, chunk) {
 export function buildFurniture(ctx, chunk) {
   let ok = true;
   registerFurnitureAssets(ctx.kit);
-  for (const [key, fn] of [['guard', guardrails], ['poles', poles], ['lamps', lamps], ['signs', signs], ['delin', delineators], ['curves', curveSigns]]) {
+  for (const [key, fn] of [['guard', guardrails], ['poles', poles], ['lamps', lamps], ['signs', signs], ['delin', delineators], ['curves', curveSigns], ['rails', sideRails]]) {
     if (chunk.done.has('f:' + key)) continue;
     if (fn(ctx, chunk)) chunk.done.add('f:' + key); else ok = false;
   }

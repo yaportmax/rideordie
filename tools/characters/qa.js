@@ -11,10 +11,12 @@
 //   vehicle=e_technical&seat=gunner|driver   load a vehicle at the origin and put the character on that seat socket
 //                     (gunner: feet on seat_gunner; driver: hip point on seat_driver, root 0.56 m below). vyaw= vehicle yaw deg
 //   labels=1          print the clip time in every grid cell
+//   crew=1            apply the in-game character material upgrade (src/view/crew_material.js: micro detail + skin wrap)
 //   rail=0.95:0.30    draw a horizontal rail (height:z in front of the character, metres) for death_slump_rail
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Sky } from 'three/addons/objects/Sky.js';
+import { patchCrewMaterials } from '/src/view/crew_material.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -124,6 +126,7 @@ if (q.has('rail')) {
 }
 loader.load(modelUrl, async (gltf) => {
   root = gltf.scene; scene.add(root);
+  if (q.has('crew')) patchCrewMaterials(root);
   if (q.has('vehicle')) {
     const vg = await loader.loadAsync('/models/vehicles/' + q.get('vehicle') + '.glb');
     const veh = vg.scene; veh.rotation.y = THREE.MathUtils.degToRad(num('vyaw', 0)); scene.add(veh);

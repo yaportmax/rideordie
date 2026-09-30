@@ -184,7 +184,7 @@ def kit(T):
 
     # ================================================================== ARMORED GUNNER NEST + shield
     zt0 = C.bed_top - 0.04
-    zt1 = zb + 1.02
+    zt1 = zb + 0.84                 # low enough that the gunner sees over the sides (was 1.02)
     f_front = C.f_bf - 0.17
     f_rear = C.f_tail + 0.10
     T.gunner_f = (f_front + f_rear) / 2
@@ -195,7 +195,7 @@ def kit(T):
 
         def fns(u, v, sg=sg):
             return (sg * (hw_n + 0.02 + 0.10 * (v - zt0) / span), u, v)
-        b.shell('armor', poly, fns, out=(sg, 0, 0.3), thick=0.032, dens=0.14, bev=0.008, m2='metal_dark', seed=41 + sg)
+        b.shell('armor', poly, fns, out=(sg, 0, 0.3), thick=0.032, dens=0.14, bev=0.008, m2='armor', seed=41 + sg)
         top = [(sg * (hw_n + 0.02 + 0.10 + 0.0), f, zt1 + 0.02) for f in (f_front - 0.34, (f_front + f_rear) / 2, f_rear + 0.34)]
         b.tube('leather', top, 0.034, n=8)
         pts = edge_points([(p[0] + (0.035 if p[0] < (f_front + f_rear) / 2 else -0.035), p[1] + (0.04 if p[1] < zt0 + 0.3 else -0.04)) for p in poly], lambda u, v, fns=fns: (lambda q: (q[0] + sg * 0.03, q[1], q[2]))(fns(u, v)), 0.19)
@@ -204,18 +204,19 @@ def kit(T):
         b.box('armor', (sg * (hw_n + 0.04), (f_front + f_rear) / 2, zt0 + 0.30), (0.03, f_front - f_rear - 0.5, 0.05), bev=0.006)
     # rear plate
     rp = [(-hw_n + 0.05, zt0), (hw_n - 0.05, zt0), (hw_n - 0.30, zt1), (-hw_n + 0.30, zt1)]
-    b.shell('armor', rp, lambda u, v: (u, f_rear - 0.03 - 0.09 * (v - zt0) / span, v), out=(0, -1, 0.2), thick=0.03, dens=0.15, bev=0.008, m2='metal_dark', seed=45)
+    b.shell('armor', rp, lambda u, v: (u, f_rear - 0.03 - 0.09 * (v - zt0) / span, v), out=(0, -1, 0.2), thick=0.03, dens=0.15, bev=0.008, m2='armor', seed=45)
     b.tube('leather', [(-hw_n + 0.30, f_rear - 0.12, zt1 + 0.02), (hw_n - 0.30, f_rear - 0.12, zt1 + 0.02)], 0.034, n=8)
     hazard_stripes(b, -hw_n + 0.10, hw_n - 0.10, zt0 + 0.015, zt0 + 0.16, f_rear - 0.036, 14, facing=-1)
     # front shield (sloped, gun notch, wings)
-    zs0, zs1 = zb + 0.30, zb + 1.30
+    zs0, zs1 = zb + 0.30, zb + 1.14
     xs_ = hw_n - 0.10
+    T.nest = dict(zt0=zt0, zt1=zt1, f_front=f_front, f_rear=f_rear, hw_n=hw_n, span=span, zs0=zs0, zs1=zs1, xs=xs_)
     sh = [(-xs_, zs0), (xs_, zs0), (xs_, zs1 - 0.12), (xs_ - 0.14, zs1), (0.32, zs1), (0.26, zs1 - 0.18), (-0.26, zs1 - 0.18), (-0.32, zs1), (-xs_ + 0.14, zs1), (-xs_, zs1 - 0.12)]
 
     def shf(u, v):
         t = (v - zs0) / (zs1 - zs0)
         return (u, f_front + 0.03 - 0.16 * t, v)
-    b.shell('armor', sh, shf, out=(0, 1, 0.3), thick=0.035, dens=0.14, bev=0.009, m2='metal_dark', seed=51)
+    b.shell('armor', sh, shf, out=(0, 1, 0.3), thick=0.035, dens=0.14, bev=0.009, m2='armor', seed=51)
     sl_ang = math.degrees(math.atan2(0.16, zs1 - zs0))
     for sx in (-0.62, -0.20, 0.20, 0.62):
         b.box('armor', (sx, f_front + 0.03 - 0.16 * 0.42 + 0.028, (zs0 + zs1) / 2 - 0.10), (0.07, 0.035, zs1 - zs0 - 0.45), bev=0.007, rot=(sl_ang, 0, 0))
@@ -224,7 +225,7 @@ def kit(T):
     hazard_stripes(b, -xs_ + 0.03, xs_ - 0.03, zs0 + 0.09, zs0 + 0.20, f_front + 0.03 - 0.16 * 0.15 + 0.036, 14, facing=1)
     # shield wings
     for sg in (1, -1):
-        wing = [(0.0, 0.0), (0.26, 0.10), (0.26, 0.85), (0.0, 0.92)]
+        wing = [(0.0, 0.0), (0.26, 0.10), (0.26, 0.56), (0.0, 0.64)]
         b.plate('armor', wing, lambda u, v, sg=sg: (sg * (xs_ - 0.02 + u * 0.55), f_front + 0.01 - u * 0.75 + 0.0, zs0 + v), out=(sg, 0.5, 0), thick=0.028, bev=0.005)
     # ammo boxes + nitro bottles ahead of the shield
     for sg in (1, -1):

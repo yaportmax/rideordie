@@ -44,8 +44,13 @@ def paint_top(bk):
     th = fit.theta(bk.P.reshape(-1, 3)).reshape(shape)
     back = np.exp(-(((np.abs(th) - np.pi) / 0.32) ** 2)) * U.smoothstep(fit.belt_y, fit.belt_y + 0.25, bk.Y) * (1 - U.smoothstep(fit.sh_y - 0.05, fit.sh_y + 0.02, bk.Y))
     alb *= (1.0 - 0.22 * back * (0.6 + 0.6 * mott))[..., None]
-    dm, dc = PC.dust_layer(bk, 11, 0.55)
-    alb = alb * (1 - dm[..., None]) + dc[None, None, :] * dm[..., None] * 0.95
+    dm, dc = PC.dust_layer(bk, 11, 0.26)
+    alb = alb * (1 - dm[..., None] * 0.7) + dc[None, None, :] * dm[..., None] * 0.7 * 0.8
+    # rib knit: fine vertical ribs (the tank top reads as a knit up close)
+    th = fit.theta(bk.P.reshape(-1, 3)).reshape(shape)
+    rib = np.sin(th * 0.17 / 0.0032)
+    h += rib * 0.00018
+    alb *= (1.0 - 0.05 * (rib * 0.5 + 0.5))[..., None]
     return alb, h
 
 
@@ -206,6 +211,57 @@ def add_gear(ctx, fit, pc_top, pc_pants):
         g = cloth.glove(ctx.fit, side, fingerless=True)
         if g.pos:
             common.add_tiled_piece(ctx, cloth.finish(g, ctx.fit), glove_mat, label="glove")
+    # --- extra silhouette gear for the base look: rolled shemagh around the neck, rifle sling across the chest, thigh
+    # holster on the right leg, dog tags
+    shem = common.gear_material(ctx, "cloth_shemagh", "canvas", color=(0.62, 0.55, 0.40), rough=0.95, seed=5)
+    nk, s2 = H["Neck"], H["Spine2"]
+    rc_nk = brc.region("Neck", "Spine2", "Shoulder")
+    ring = []
+    for a in np.linspace(0, 2 * np.pi, 25):
+        d = np.array([np.sin(a), 0.0, np.cos(a)])
+        o = np.array([0.0, nk[1] - 0.012 + 0.02 * np.cos(a), nk[2]]) + d * 0.3
+        T, hp, hn = rc_nk.cast(o[None], (-d)[None], tmax=0.45)
+        r = (0.3 - T[0]) if np.isfinite(T[0]) else 0.075
+        ring.append(np.array([0.0, nk[1] - 0.012 + 0.02 * np.cos(a), nk[2]]) + d * (r + 0.018))
+    ring = np.array(ring)
+    common.add_gear(ctx, kit.sweep(ring, 0.024 + 0.006 * np.cos(np.linspace(0, 6 * np.pi, 25)), sides=8, caps=False, tile=0.12),
+                    shem, binder, label="shemagh")
+    knot = ring[0] + np.array([0.012, -0.008, 0.012])
+    common.add_gear(ctx, kit.ellipsoid(knot, [0.034, 0.028, 0.022], seg=10, rings=6), shem, binder, bone="Spine2", label="shemagh")
+    for sx, ln in ((1.0, 0.16), (-1.0, 0.12)):
+        tail = kit.polyline_smooth([knot, knot + np.array([sx * 0.02, -0.06, 0.015]), knot + np.array([sx * 0.035, -ln, 0.01])], 8)
+        common.add_gear(ctx, kit.sweep(tail, np.linspace(0.02, 0.012, 8), profile=np.array([[-1.0, -0.25], [1.0, -0.25], [1.0, 0.25], [-1.0, 0.25]]),
+                                       sides=4, caps=True, tile=0.12), shem, binder, bone="Spine2", label="shemagh")
+    # sling: left shoulder -> right hip, over the tank top
+    sm, _, _ = gear.ribbon(rc_cloth, [[0.12, H["Neck"][1] - 0.02, 0.02], [0.06, s2[1] - 0.05, 0.12], [-0.08, ctx.fit.belt_y + 0.08, 0.13],
+                                      [-0.17, ctx.fit.belt_y - 0.02, 0.02]], 0.034, standoff=0.004, thick=0.004, n=24)
+    common.add_gear(ctx, sm, black, binder, label="sling")
+    sm2, _, _ = gear.ribbon(rc_cloth, [[0.12, H["Neck"][1] - 0.02, 0.0], [0.08, s2[1] - 0.05, -0.12], [-0.08, ctx.fit.belt_y + 0.08, -0.13],
+                                       [-0.17, ctx.fit.belt_y - 0.02, -0.02]], 0.034, standoff=0.004, thick=0.004, n=24)
+    common.add_gear(ctx, sm2, black, binder, label="sling")
+    # thigh holster (right leg): a leather drop holster + two leg straps
+    hipR, kneeR = H["RightUpLeg"], H["RightLeg"]
+    y = hipR[1] - 0.16
+    o = np.array([[-0.6, y, 0.5 * (hipR[2] + kneeR[2]) + 0.01]])
+    T, hp, hn = rc_pants.cast(o, np.array([[1.0, 0.0, 0.0]]), tmax=1.0)
+    if np.isfinite(T[0]):
+        hol = gear.place(gear.pouch((0.075, 0.17, 0.045), flap=0.3, radius=0.008), hp[0] + hn[0] * 0.006, hn[0])
+        common.add_gear(ctx, hol, leather_dk, binder, bone="RightUpLeg", label="holster")
+        for yy in (y + 0.05, y - 0.05):
+            rr, dirs = kit.rings_along(brc.region("RightUpLeg"), np.array([hipR[0], yy - 0.012, hipR[2]]), np.array([hipR[0], yy + 0.012, hipR[2]]),
+                                       [0.0, 1.0], offset=0.036, n=18, r_out=0.3)
+            inner = rr - dirs[None] * 0.004
+            m = kit.orient_outward(kit.loft(np.array([inner[0], rr[0], rr[1], inner[1]]), closed=True, tile=0.25, angle=60.0),
+                                   np.array([hipR[0], yy, hipR[2]]), 60.0)
+            common.add_gear(ctx, m, black, binder, bone="RightUpLeg", label="holster_strap")
+    # dog tags on a bead chain
+    T, hp, hn = brc.region("Spine2", "Neck").cast(np.array([[0.0, nk[1] - 0.10, 0.6]]), np.array([[0.0, 0.0, -1.0]]), tmax=1.0)
+    if np.isfinite(T[0]):
+        low = hp[0] + hn[0] * 0.018
+        tag_m = common.gear_material(ctx, "metal_tag", "metal_dark", color=(0.78, 0.78, 0.76), rough=0.5, metal=1.0, seed=7)
+        for k, dx in enumerate((-0.004, 0.006)):
+            tg = kit.xform(kit.rbox((0.022, 0.034, 0.002), 0.004, 1), R=kit.look_rot(hn[0]), t=low + np.array([dx, -0.004 * k, 0.001 * k]))
+            common.add_gear(ctx, tg, tag_m, binder, bone="Spine2", label="dogtag")
     ctx.brc, ctx.binder, ctx.rc_cloth = brc, binder, rc_cloth
 
 

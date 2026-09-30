@@ -1,0 +1,10 @@
+import { chromium } from 'playwright-core';
+const [q, secs = '60'] = process.argv.slice(2);
+const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--use-angle=d3d11', '--force_high_performance_gpu', '--disable-background-timer-throttling'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+await page.goto('http://localhost:5180/index.html?' + q);
+await page.waitForFunction('window.__run && window.__run.sim && window.__run.sim.state==="run"', null, { timeout: 150000 });
+await page.evaluate(() => { window.__autodrive = { speed: 30 }; const sim = window.__run.sim, em = sim.emit.bind(sim); window.__k = { crewDead: 0, kill: 0, explode: 0, crashKill: 0 }; sim.emit = (e) => { if (e.t === 'crewDead' && e.src === 1) window.__k.crewDead++; if (e.t === 'kill') { window.__k.kill++; if (e.crash) window.__k.crashKill++; } return em(e); }; });
+await page.waitForTimeout(secs * 1000);
+console.log(JSON.stringify(await page.evaluate(() => { const r = window.__run, g = r.gunner; return { shots: g.shots, hits: r.sim.stats.hits, acc: +(r.sim.stats.hits / Math.max(1, g.shots)).toFixed(2), k: window.__k, hp: +(r.player.hp / r.player.maxHp).toFixed(2), s: Math.round(r.player.s), slots: g.slots, dbg: g.dbg }; })));
+await browser.close();

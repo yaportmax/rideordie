@@ -29,9 +29,18 @@ export class ThreatHUD {
     // ring at windshield height, clear of the HUD corners (cockpit: flatter, so 'behind' sits above the dash, not on the gauges)
     const cx = W / 2, cy = H * (layout?.cy ?? 0.42), rx = W * (layout?.rx ?? 0.40), ry = H * (layout?.ry ?? 0.30);
     const seen = new Set();
-    x.textAlign = 'center'; x.textBaseline = 'middle';
+    // one chevron per bearing sector: the closest raider in each ~24 degree slice speaks for the group (no 3-4 deep stacks)
+    const best = this._best || (this._best = new Map()); best.clear();
     for (const st of states.values()) {
       if (st.kind !== 'enemy' || st.exploded) continue;
+      _d.copy(st.pos).sub(camera.position); const dist = _d.length(); if (dist > RANGE) continue;
+      const sector = Math.round(Math.atan2(_d.dot(_r), _d.dot(_f)) / 0.42);
+      const cur = best.get(sector); if (!cur || cur.d > dist) best.set(sector, { id: st.id, d: dist });
+    }
+    const keep = this._keep || (this._keep = new Set()); keep.clear(); for (const v of best.values()) keep.add(v.id);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    for (const st of states.values()) {
+      if (st.kind !== 'enemy' || st.exploded || !keep.has(st.id)) continue;
       _d.copy(st.pos).sub(camera.position); const dist = _d.length(); if (dist > RANGE) continue;
       // on screen? (projected inside a margin and in front of the camera)
       _p.copy(st.pos).project(camera);

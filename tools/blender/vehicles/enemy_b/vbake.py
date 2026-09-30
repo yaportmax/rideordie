@@ -38,6 +38,11 @@ DEFAULTS = dict(
     seed=7,
     orm_half=True,
     wheels=[],           # hub positions (x, y, z, R) for spray
+    scale=1.0,           # world scale of the wear patterns (noise size, edge-wear width, streak length, weld heat rings): >1 for huge rigs
+    heat_spots=[],       # (x, y, z, radius): soot + heat tint around thrusters / flame nozzles / stack tops
+    dens_fn=None,        # f(centre, normal) -> texel density multiplier per chart (hero faces)
+    shelf_window=0,      # >0: first-fit only over the last N shelves (fast packing for tens of thousands of charts)
+    recipes={},          # material -> recipe name override
 )
 SMALL = 0.085            # primitives smaller than this (m) get a single chart
 
@@ -215,6 +220,8 @@ def build_charts(m, data, opts):
                 elif kind == 'hero':
                     mult = 1.3
                 c.mult = mult * opts['mat_dens'].get(mat, 1.0)
+                if opts.get('dens_fn') is not None:
+                    c.mult *= opts['dens_fn'](pv.mean(0), n)
                 c.umin, c.vmin = float(c.u.min()), float(c.v.min())
                 c.du, c.dv = float(c.u.max() - c.umin), float(c.v.max() - c.vmin)
                 charts.append(c)
@@ -258,9 +265,13 @@ def _sizes(charts, dens, margin):
         c.h = int(math.ceil(c.dv * c.dens)) + 1 + 2 * margin
 
 
+_WIN = [0]
+
+
 def _shelf(charts, W, dens, margin):
     """shelf packing with column stacking: short charts stack inside the columns of taller shelves (first fit)"""
     _sizes(charts, dens, margin)
+    win = _WIN[0]
     order = sorted(charts, key=lambda c: (-c.h, -c.w))
     shelves = []                    # [y, h, x_end, cols]  cols: [x, w, used_h]
     ytop = 0
@@ -268,7 +279,7 @@ def _shelf(charts, W, dens, margin):
         if c.w > W:
             return None
         placed = False
-        for sh in shelves:
+        for sh in (shelves[-win:] if win else shelves):
             if c.h > sh[1]:
                 continue
             for col in sh[3]:
@@ -307,6 +318,7 @@ def _max_wh(opts, mat):
 def pack(charts, opts, mat):
     """pick the smallest pow2 atlas (W >= H) that holds the charts at >= floor * target density, then use the largest density that fits"""
     margin = opts['margin']
+    _WIN[0] = opts.get('shelf_window', 0)
     mxW, mxH = _max_wh(opts, mat)
     target = opts['dens']
     floor = opts.get('dens_floor', 0.85)
@@ -958,6 +970,13 @@ def finish(m, data, objs):
             Ssub['n'] = len(idx)
             r2, ro2, me2 = RECIPES[lk](Ssub)
             rgb[idx] = r2; rough[idx] = ro2; metal[idx] = me2
+        if 'soot' in S and S['soot'].any():                   # soot bloom + heat-tinted steel around thrusters / nozzles / stack tops
+            so, ho = S['soot'], S['hot']
+            rgb = rgb * (1 - 0.85 * so[:, None]) + np.array([0.05, 0.045, 0.04], np.float32) * (0.85 * so[:, None])
+            tint = np.stack([0.30 + 0.2 * ho, 0.22 + 0.05 * ho, 0.34 - 0.1 * ho], 1).astype(np.float32)
+            rgb = rgb * (1 - 0.5 * ho[:, None]) + tint * (0.5 * ho[:, None])
+            rough = rough * (1 - so) + so * 0.9
+            metal = metal * (1 - 0.6 * so)
         isweld, wt = extra['isweld'], extra['wt']
         if isweld.any():                                    # weld bead: ripples + scale
             rip = 0.5 + 0.5 * np.sin(wt[isweld] * 2 * math.pi / 0.02)
@@ -1006,7 +1025,8 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
     cav = np.clip((cav - 0.05) * 1.6, 0, 1).astype(np.float32)
     lap('read')
     seed = opts['seed'] + (zlib.crc32(mat.encode()) & 0xff)
-    Pn = Pv
+    SC = opts.get('scale', 1.0)
+    Pn = Pv if SC == 1.0 else (Pv / SC).astype(np.float32)
     S = dict(n=n, P=Pv, N=Nv, ao=ao, cav=cav, sky=sky.astype(np.float32))
     S['n_lo'] = fbm(Pn, 1.3, 3, seed + 1)
     S['n_lo2'] = vnoise(Pn, 2.6, seed + 17)
@@ -1048,10 +1068,10 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
     wn = fbm(Pn, 9.0, 2, seed + 6)
     chipn = fbm(Pn, 55.0, 3, seed + 7, gain=0.6)
     cmin = np.array([max(min(c.du, c.dv), 0.004) for c in cl], np.float32)[cid]
-    width = np.minimum((0.004 + 0.02 * ss(0.35, 0.85, wn)) * wear, 0.14 * cmin + 0.002)
+    width = np.minimum((0.004 + 0.02 * ss(0.35, 0.85, wn)) * wear * SC, 0.14 * cmin + 0.002)
     ewm = ss(width, width * 0.25, ed)
     S['ew'] = (ewm * ss(0.30, 0.52, chipn * 0.7 + wn * 0.45)).astype(np.float32)
-    S['ew_core'] = (ss(np.minimum(0.005 * wear, 0.08 * cmin + 0.001), 0.001, ed) * ss(0.45, 0.62, chipn)).astype(np.float32)
+    S['ew_core'] = (ss(np.minimum(0.005 * wear * SC, 0.08 * cmin + 0.001), 0.001, ed) * ss(0.45, 0.62, chipn)).astype(np.float32)
     zone = ss(0.58, 0.8, S['n_lo'] * 0.5 + S['n_mid'] * 0.5 + 0.25 * ao - 0.1 * (1 - wear))
     S['chip'] = (zone * ss(0.66, 0.71, chipn) * wear).astype(np.float32)
     # ---------------- scratches (two directions), repaint patches
@@ -1077,7 +1097,7 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
         better = dd_ < heat_d[sel]
         heat_d[sel[better]] = dd_[better]; wt[sel[better]] = tt[better]
     hn = vnoise(Pn, 25.0, seed + 13)
-    S['heat_d'] = (heat_d * (0.75 + 0.5 * hn)).astype(np.float32)
+    S['heat_d'] = (heat_d * (0.75 + 0.5 * hn) / SC).astype(np.float32)
     S['heat_on'] = np.ones(n, np.float32)
     S['heat'] = (ss(0.05, 0.006, S['heat_d'])).astype(np.float32)
     isweld = (ckind == 'weld')
@@ -1094,7 +1114,7 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
         rsrc[idx] = np.maximum(rsrc[idx], w)
     top = (ed < 0.02) & (edy > 0.002) & (eh > 0.5) & (np.abs(Nv[:, 1]) < 0.5)
     rsrc = np.maximum(rsrc, top * ss(0.55, 0.85, vnoise(Pn, (14.0, 2.0, 14.0), seed + 14)))
-    rsrc = np.maximum(rsrc, ss(0.04, 0.0, heat_d) * 0.8)
+    rsrc = np.maximum(rsrc, ss(0.04 * SC, 0.0, heat_d) * 0.8)
     rsrc = np.maximum(rsrc, ss(0.86, 0.92, fbm(Pn, 7.0, 2, seed + 15)))
     rsrc *= rust_amt
     lap('rsrc')
@@ -1102,7 +1122,7 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
     Simg[yy, xx] = rsrc
     vimg = np.zeros((H, W), bool); vimg[yy, xx] = cvert
     decay_img = np.zeros((H, W), np.float32)
-    Lpx = 0.45 * dens
+    Lpx = 0.45 * dens * SC
     dn = vnoise(Pn, (22.0, 1.5, 22.0), seed + 16)
     decay_img[yy, xx] = np.exp(-1.0 / (Lpx * (0.25 + 1.2 * dn)))
     same_all = ((CID[1:] == CID[:-1]) & vimg[1:] & (CID[1:] >= 0)).astype(np.float32)
@@ -1136,6 +1156,15 @@ def compose_masks(m, mat, B, bk, yy, xx, opts, edges, welds, data):
     S['dust'] = np.clip(dust, 0, 1).astype(np.float32)
     S['grain_x'] = np.abs(np.array([c.n for c in cl])[cid][:, 0]) < 0.5
     S['film_on'] = np.where(cshared | (ckind == 'inner'), 0.35, 1.0).astype(np.float32)
+    soot = np.zeros(n, np.float32)
+    hot = np.zeros(n, np.float32)
+    for (sx_, sy_, sz_, sr) in opts.get('heat_spots', []):
+        dd_ = np.sqrt(((Pv - np.array([sx_, sy_, sz_], np.float32)) ** 2).sum(1))
+        wv = fbm(Pn, 3.0, 2, seed + 31)
+        soot = np.maximum(soot, ss(sr * (0.8 + 0.4 * wv), sr * 0.1, dd_))
+        hot = np.maximum(hot, ss(sr * 0.45, sr * 0.05, dd_))
+    S['soot'] = np.where(cshared, 0.0, soot).astype(np.float32)
+    S['hot'] = np.where(cshared, 0.0, hot).astype(np.float32)
     lap('dirt')
     if os.environ.get('BAKE_TIMING'):
         print('      ', mat, ' '.join('%s %.1f' % kv for kv in tm.items()))

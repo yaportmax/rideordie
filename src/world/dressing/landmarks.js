@@ -11,6 +11,7 @@ import { cityDens, cityExclusions, CITY_PROPS } from './city.js';
 import { rockExclusions } from './rocks.js';
 import { momentExclusions } from './moments.js';
 import { GAUNTLET_ASSETS } from './damroad.js';
+import { rbFlankExclusions } from './features.js';
 
 // ------------------------------------------------------------------------------------------------ tables
 // part: { a asset, u (metres along the road from the anchor; number or [min,max]), v (lateral distance from the road centre), yaw: 'face' | 'oncoming' | 'free' | 'along',
@@ -422,6 +423,7 @@ export function landmarkExclusions(ctx, sA, sB) {
   for (const c of cityExclusions(ctx, sA, sB)) out.push(c);
   for (const c of rockExclusions(ctx, sA, sB)) out.push(c);
   for (const c of momentExclusions(ctx, sA, sB)) out.push(c);
+  for (const c of rbFlankExclusions(ctx.road, sA - 40, sB + 40)) out.push(c);
   return out;
 }
 

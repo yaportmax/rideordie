@@ -1,0 +1,52 @@
+{
+ "id": "rb_wreck_stack",
+ "file": "models/structures/rb_wreck_stack.glb",
+ "tris": 1630,
+ "collision_tris": 72,
+ "size_kb": 139.4,
+ "bbox_min": [
+  -2.75,
+  -0.14,
+  0.48
+ ],
+ "bbox_max": [
+  2.64,
+  5.63,
+  6.32
+ ],
+ "dims": [
+  5.39,
+  5.77,
+  5.84
+ ],
+ "materials": [
+  "bone",
+  "metal_dark",
+  "paint",
+  "rubber",
+  "rust"
+ ],
+ "nodes": {
+  "metal_dark": 518,
+  "paint": 264,
+  "rubber": 440,
+  "rust": 316,
+  "bone": 92
+ },
+ "sockets": {
+  "fire": [
+   0.2,
+   3.5,
+   3.3
+  ],
+  "hw": [
+   2.8,
+   0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Tall roadblock module (5.6 m wide, x -2.80..2.80, road-aligned): overturned van across the road with a burnt car flipped on top (~4.3 m), tyres, drums, skull pole. Socket `fire` on the top wreck. Visuals + collision never exceed |x| <= hw.",
+  "hw": 2.8
+ }
+}

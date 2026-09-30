@@ -8,6 +8,7 @@ import { roadFrame, groundAt, CHUNK_LEN, seedOf } from './util.js';
 import { need, useSpec } from './furniture.js';
 import { makePierGeometry } from './procedural.js';
 import { rbGapD, RB_SOFT } from '../../sim/hazards.js';
+import { cityDens } from './city.js';
 
 export const FEATURE_SPECS = {
   jump_ramp: { far: 650, shadow: true, behind: true, showRoad: true },
@@ -15,6 +16,11 @@ export const FEATURE_SPECS = {
   rb_wreck_car: { far: 650, shadow: true, behind: true, mergeNear: 45 },
   rb_wreck_van: { far: 650, shadow: true, behind: true, mergeNear: 45 },
   rb_wreck_small: { far: 500, shadow: true, behind: true, mergeNear: 45 },
+  rb_wreck_stack: { far: 900, shadow: true, behind: true, mergeNear: 45 },
+  rb_container: { far: 900, shadow: true, behind: true, mergeNear: 45 },
+  shipping_container_stack3: { far: 1000, shadow: true, behind: true, mergeNear: 40 },
+  watchtower: { far: 1000, shadow: true, behind: true, mergeNear: 40 },
+  banner_skull: { far: 1000, shadow: true, behind: true, mergeNear: 40 },
   bridge_span_20m: { far: 1400, shadow: true, behind: true },
   bridge_span_20m_damaged: { far: 1400, shadow: true, behind: true },
   overpass_concrete: { far: 900, shadow: true, behind: true, showRoad: true },
@@ -139,7 +145,12 @@ function buildBoost(ctx, chunk, f) {
 }
 
 /** Roadblock wreck modules: road-aligned, centred on x=0, visuals + collision within |x| <= hw (see tools/blender/structures/roadside.py). */
-const RB_MODULES = [{ name: 'rb_wreck_car', hw: 2.4 }, { name: 'rb_wreck_van', hw: 2.8 }, { name: 'rb_wreck_small', hw: 1.2 }];
+const RB_MODULES = [{ name: 'rb_wreck_car', hw: 2.4 }, { name: 'rb_wreck_van', hw: 2.8 }, { name: 'rb_wreck_small', hw: 1.2 },
+  { name: 'rb_wreck_stack', hw: 2.8, fire: [0.2, 3.5, 3.3] }, { name: 'rb_container', hw: 3.25, fire: [1.4, 3.5, 3.9] }];
+const [RB_CAR, RB_VAN, RB_SMALL, RB_STACK, RB_CONT] = RB_MODULES;
+/** Set pieces flanking the wreck line (off the road, |d| >= 11): container stacks, a sentry tower with a searchlight, war banners. */
+const RB_FLANK = ['shipping_container_stack3', 'watchtower', 'banner_skull', 'fx_flame', 'fx_smoke', 'lamp_cone'];
+const FLANK_SPEC = { far: 900, shadow: true, behind: true, mergeNear: 40 };
 const RB_EDGE = 9.6;          // fill the wreck line out to (a little past) the shoulder edge
 
 /**
@@ -153,20 +164,80 @@ export function rbWreckLayout(f, seed) {
   for (const side of [-1, 1]) {
     const inner = g + side * (RB_SOFT + 0.15), W = RB_EDGE - side * inner;   // strip boundary (+15 cm for the curvature of the road under a straight module)
     if (W < 0.5) continue;
-    let cov = 0;
+    let cov = 0, first = true;
     while (cov < W - 0.35) {
-      const rem = W - cov;
-      const m = rem > 4.2 ? RB_MODULES[rnd() < 0.5 ? 0 : 1] : rem > 2.0 ? (rnd() < 0.6 ? RB_MODULES[2] : RB_MODULES[0]) : RB_MODULES[2];
-      out.push({ name: m.name, d: inner + side * (cov + m.hw), hw: m.hw, flip: rnd() < 0.5, dz: (rnd() - 0.5) * 1.2 });
-      cov += m.hw * 2;
+      const rem = W - cov + 2.5;                                    // modules may overhang the shoulder edge by up to 2.5 m
+      let m;
+      if (first) m = rnd() < 0.5 ? RB_STACK : RB_CONT;              // the gap is framed by TALL pieces (readable from far out)
+      else m = rem > 6.6 ? [RB_VAN, RB_CAR, RB_STACK, RB_CONT][Math.floor(rnd() * 4) % 4] : rem > 5.7 ? [RB_VAN, RB_CAR, RB_STACK][Math.floor(rnd() * 3) % 3] : rem > 4.9 ? RB_CAR : RB_SMALL;
+      if (m.hw * 2 > rem) m = RB_CAR.hw * 2 <= rem ? RB_CAR : RB_SMALL;
+      out.push({ name: m.name, d: inner + side * (cov + m.hw), hw: m.hw, flip: rnd() < 0.5, dz: (rnd() - 0.5) * 1.2, fire: m.fire });
+      cov += m.hw * 2; first = false;
     }
   }
   return out;
 }
 
+/** Exclusion circles [x, z, r] of the roadblock flank set pieces anchored in [sA, sB) (scatter keeps clear of them). */
+export function rbFlankExclusions(road, sA, sB) {
+  const out = [], P = {};
+  for (const f of road.featuresIn(sA, sB, 'roadblock')) {
+    if (f.s0 < sA || f.s0 >= sB) continue;
+    for (const sd of [1, -1]) { road.pointAt(f.s0 + 6, sd * 15.5, P); out.push([P.x, P.z, 6]); road.pointAt(f.s0 + 12, sd * 18.5, P); out.push([P.x, P.z, 6]); }
+  }
+  return out;
+}
+
+/** Tall, burning set dressing around the wreck line: readable from 200+ m in first person. All off the road (|d| >= 11). */
+function roadblockFlank(ctx, chunk, f, dGap, fires, cols) {
+  const { road, seed } = ctx, P = {};
+  const rnd = (k) => ((seedOf(seed, Math.round(f.s0 * 10), 900 + k) >>> 8) / 16777216);
+  const glbAt = (name, s, d, yaw, sc = 1, tint = 1) => {
+    const a = ctx.kit.get(name); if (!a) return null;
+    const g = groundAt(road, seed, s, d, {});
+    const ry = road.sample(s, {}).y;
+    if (Math.abs(g.y - ry) > 4.5) return null;                              // no flat ground there (cliff / ravine)
+    useSpec(ctx, name, FLANK_SPEC);
+    chunk.list(name).push(g.x, g.y - 0.1, g.z, yaw, sc, sc, sc, 0, 1, 0, 0, a.sphere.radius * sc, tint, tint, tint);
+    if (a.collision) {
+      const c = Math.cos(yaw), sn = Math.sin(yaw), src = a.collision.pos, pos = new Float32Array(src.length);
+      for (let i = 0; i < src.length; i += 3) { pos[i] = g.x + (src[i] * c + src[i + 2] * sn) * sc; pos[i + 1] = g.y - 0.1 + src[i + 1] * sc; pos[i + 2] = g.z + (-src[i] * sn + src[i + 2] * c) * sc; }
+      cols.push({ pos, idx: a.collision.idx });
+    }
+    return { g, a, yaw };
+  };
+  const th = road.sample(f.s0 + 4, {}).th;
+  const city = cityDens(f.s0) > 0.25;                                       // the street wall of the city frames it already
+  // container stacks: a wall on both sides just past the shoulders, long axis along the road
+  if (!city) for (const side of [1, -1]) glbAt('shipping_container_stack3', f.s0 + 3 + rnd(side + 2) * 6, side * (14.2 + rnd(side + 4) * 2), th + (rnd(side + 6) - 0.5) * 0.3, 1, 0.8 + rnd(side + 8) * 0.3);
+  // raider war banners at the line
+  for (const side of [1, -1]) glbAt('banner_skull', f.s0 - 2, side * 11.6, th + side * 0.25, 1.25);
+  // sentry tower with a searchlight sweeping the approach (away from the gap side, so it reads against the sky)
+  const tSide = dGap > 0.5 ? -1 : dGap < -0.5 ? 1 : rnd(1) < 0.5 ? 1 : -1;
+  const tw = city ? null : glbAt('watchtower', f.s0 + 12, tSide * 18.5, th + Math.PI + tSide * 0.35, 1.15);
+  if (tw && tw.a.sockets.searchlight) {
+    const so = tw.a.sockets.searchlight, c = Math.cos(tw.yaw), sn = Math.sin(tw.yaw), k = 1.15;
+    const L0 = { x: tw.g.x + (so.x * c + so.z * sn) * k, y: tw.g.y - 0.1 + so.y * k, z: tw.g.z + (-so.x * sn + so.z * c) * k };
+    road.pointAt(f.s0 - 28, dGap, P);
+    let dx = P.x - L0.x, dy = P.y - L0.y, dz = P.z - L0.z; const len = Math.hypot(dx, dy, dz); dx /= len; dy /= len; dz /= len;
+    // lamp_cone points down its local -Y (tip at the origin): up = -beam, any perpendicular pair for x / z
+    const ux = -dx, uy = -dy, uz = -dz; let lx = uz, lz = -ux; const ll = Math.hypot(lx, lz) || 1; lx /= ll; lz /= ll; const ly = 0;
+    const fx = uy * lz - uz * ly, fy = uz * lx - ux * lz, fz = ux * ly - uy * lx;
+    useSpec(ctx, 'lamp_cone', { far: 600 });
+    chunk.list('lamp_cone').pushBasis(L0.x, L0.y, L0.z, lx, ly, lz, ux, uy, uz, fx, fy, fz, 1.6, len / 9, 1.6, len);
+  }
+  // fires on the tall wrecks + one smoke column that marks the roadblock from far away
+  useSpec(ctx, 'fx_flame', { far: 1200, shadow: false }); useSpec(ctx, 'fx_smoke', { far: 3200, shadow: false });
+  fires.forEach((q, i) => {
+    chunk.list('fx_flame').push(q.x, q.y - 0.3, q.z, i, 2.8, 3.8, 2.8, 0, 1, 0, 0, 4);
+    if (i < 2) chunk.list('fx_smoke').push(q.x, q.y + 1.5, q.z, 0, i ? 4 : 6.5, (i ? 50 : 80) + rnd(9 + i) * 30, i ? 4 : 6.5, 0, 1, 0, 0, 130);
+  });
+}
+
 function buildRoadblock(ctx, chunk, f) {
   const mods = RB_MODULES.map((m) => need(ctx, m.name)), cone = need(ctx, 'road_cone'), jb = need(ctx, 'jersey_barrier'), jl = need(ctx, 'jersey_lod'), brl = need(ctx, 'barrel');
-  if ([...mods, cone, jb, jl, brl].some((x) => x === undefined)) return false;
+  const flank = RB_FLANK.map((n) => need(ctx, n));
+  if ([...mods, ...flank, cone, jb, jl, brl].some((x) => x === undefined)) return false;
   if (mods.some((x) => !x)) return true;
   const { road } = ctx;
   for (const m of RB_MODULES) useSpec(ctx, m.name, FEATURE_SPECS[m.name]);
@@ -175,17 +246,18 @@ function buildRoadblock(ctx, chunk, f) {
   if (brl) useSpec(ctx, 'barrel', FEATURE_SPECS.barrel);
   const dGap = rbGapD(f);
   const cols = [];
+  const fires = [];
   for (const q of rbWreckLayout(f, ctx.seed)) {
     const a = ctx.kit.get(q.name), L = 8.6;
     const fr = roadFrame(road, f.s0 + q.dz, L, q.d, {});
-    if (!q.flip) { put(chunk, q.name, fr, 1, 1, 1, 0.02, 6); cols.push(worldMesh(a.collision, fr, 1, 1, 1, 0, 0.02, 0)); }
-    else {
-      // turned 180 deg about up with the origin at the far end (the module is symmetric in x, so it stays inside its lane slice)
-      putFlip(chunk, q.name, fr, L, 1, 0.02, 6);
-      const ff = frameOf(fr);
-      cols.push(worldMesh(a.collision, { ...ff, x: fr.x + fr.fx * L, y: fr.y + fr.fy * L, z: fr.z + fr.fz * L, lx: -fr.lx, ly: -fr.ly, lz: -fr.lz, fx: -fr.fx, fy: -fr.fy, fz: -fr.fz }, 1, 1, 1, 0, 0.02, 0));
-    }
+    const ff = frameOf(fr);
+    // flipped = turned 180 deg about up with the origin at the far end (the module is symmetric in x, so it stays inside its lane slice)
+    const W = !q.flip ? ff : { ...ff, x: fr.x + fr.fx * L, y: fr.y + fr.fy * L, z: fr.z + fr.fz * L, lx: -fr.lx, ly: -fr.ly, lz: -fr.lz, fx: -fr.fx, fy: -fr.fy, fz: -fr.fz };
+    if (!q.flip) put(chunk, q.name, fr, 1, 1, 1, 0.02, 6); else putFlip(chunk, q.name, fr, L, 1, 0.02, 6);
+    cols.push(worldMesh(a.collision, W, 1, 1, 1, 0, 0.02, 0));
+    if (q.fire) { const [x, y, z] = q.fire; fires.push({ x: W.x + W.lx * x + W.ux * y + W.fx * z, y: W.y + W.ly * x + W.uy * y + W.fy * z, z: W.z + W.lz * x + W.uz * y + W.fz * z }); }
   }
+  roadblockFlank(ctx, chunk, f, dGap, fires, cols);
   const fr = roadFrame(road, f.s0, 9, dGap, _fr);
   const meshFr = frameOf(fr);
   const collision = mergeMeshes(cols);

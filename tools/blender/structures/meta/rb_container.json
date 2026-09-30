@@ -1,0 +1,62 @@
+{
+ "id": "rb_container",
+ "file": "models/structures/rb_container.glb",
+ "tris": 2288,
+ "collision_tris": 36,
+ "size_kb": 206.8,
+ "bbox_min": [
+  -3.13,
+  0.0,
+  1.05
+ ],
+ "bbox_max": [
+  3.13,
+  7.66,
+  6.42
+ ],
+ "dims": [
+  6.26,
+  7.66,
+  5.37
+ ],
+ "materials": [
+  "bone",
+  "canvas",
+  "hazard",
+  "metal_bare",
+  "metal_dark",
+  "paint",
+  "paint2",
+  "rubber",
+  "rust",
+  "spike"
+ ],
+ "nodes": {
+  "metal_dark": 268,
+  "paint": 468,
+  "metal_bare": 40,
+  "rust": 264,
+  "paint2": 36,
+  "spike": 184,
+  "hazard": 36,
+  "canvas": 768,
+  "bone": 92,
+  "rubber": 132
+ },
+ "sockets": {
+  "fire": [
+   1.4,
+   3.5,
+   3.9
+  ],
+  "hw": [
+   3.25,
+   0,
+   0
+  ]
+ },
+ "notes": {
+  "desc": "Tall roadblock module (6.5 m wide, x -3.25..3.25, road-aligned): rusty container lying across the road with a spiked scrap parapet on top (~4.4 m), sandbags, drums, war banner. Socket `fire` (drum fire on the roof). Visuals + collision never exceed |x| <= hw.",
+  "hw": 3.25
+ }
+}
