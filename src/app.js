@@ -10,6 +10,8 @@ import { normalizeUnits } from './ui/units.js';
 const DAM_CHECKPOINT_S = 52500, DAM_CHECKPOINT_UNLOCK = 59000; // start past the last warlord's window (city ~49.5 km + 2.5 km)
 
 const APP_MSGS = new Set(['toGarage', 'garageReady', 'backToLobby', 'abort']);
+const PENDING_LATEST_MSGS = new Set(['g', 'input', 'runReady', 'go', 'summary']);
+const PENDING_SIGNALS = new Set(['runReady', 'go', 'summary']);
 
 export class App {
   constructor(game) {
@@ -25,6 +27,8 @@ export class App {
     this.session = null; this.mode = 'title'; // title | solo | coop
     this.screen = 'title';                    // title | lobby | garage | run | results
     this.readyMine = false; this.readyOther = false;
+    this._flowId = 0; this._garageGeneration = 0; this._garageEpoch = 0;
+    this._peerGarageReady = null; this._startSelection = null; this._startup = null; this._lostTransition = null; this._roomPending = null;
     this.applySettings(this.ui.settings);
     window.__app = this;
     addEventListener('resize', () => requestAnimationFrame(() => this._frameRect()));
@@ -41,6 +45,13 @@ export class App {
   }
 
   sound(name) { this.game.audio?.ui(name); }
+  _transition() {
+    this._flowId = (this._flowId || 0) + 1;
+    this._cancelStartSelection(); this._startup = this._lostTransition = null;
+    return this._flowId;
+  }
+  _cancelStartSelection() { const selection = this._startSelection; this._startSelection = null; selection?.choice?.close(); }
+  _sessionEpoch(s = this.session) { return s?.runSeq ?? (s?.isHost ? s._runSeq : s?._receivedRunSeq) ?? 0; }
   applySettings(s) {
     if (s.quality !== undefined && s.quality !== this.game.quality) this.game.setQuality(s.quality);
     if (s.quality !== undefined) this.game.garage?.setQuality?.(s.quality);
@@ -61,6 +72,7 @@ export class App {
   _stage(stage) {
     const g = this.game;
     g.endRun();
+    g.fade(0, 0);
     g.showGarage(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0], this._garageLoadout());
     g.garage.setStage(stage);
   }
@@ -78,7 +90,9 @@ export class App {
 
   // ------------------------------------------------------------------------------------------ title
   title() {
+    this._transition(); this.ui.hideAll();
     this.mode = 'title'; this.screen = 'title';
+    this._roomPending = null; this._peerGarageReady = null; this.readyMine = this.readyOther = false;
     this._pendingResults = null;
     if (this.session) { const guest = !this.session.isHost; this.session.leave(); this.session = null; if (guest) this.profile = this.personalProfile; }
     this._pendingRunMsgs = []; this._pendingFast = null;
@@ -109,12 +123,26 @@ export class App {
   // ------------------------------------------------------------------------------------------ lobby
   _newSession() {
     this.session?.leave();
+    this._transition(); this.ui.hideAll?.();
+    this._roomPending = null; this._peerGarageReady = null; this.readyMine = this.readyOther = false;
     const s = this.session = new Session();
     s.me.name = this.ui.settings.name || (s.isHost ? 'Host' : 'Player');
     s.on({
-      lobby: () => this._lobbyRefresh(),
+      lobby: () => {
+        if (this.session !== s) return;
+        const selection = this._startSelection;
+        if (selection && (s.me.role !== selection.mine || s.other?.role !== selection.other)) this._cancelStartSelection();
+        this._lobbyRefresh();
+      },
+      state: () => { if (this.session === s) this._lobbyRefresh(); },
       profile: (p) => {
         if (this.session !== s) return;
+        const selection = this._startSelection;
+        if (selection && (p !== selection.profile || p.revision !== selection.revision)) {
+          this._cancelStartSelection(); this.readyMine = false;
+          s.sendJSON({ t: 'garageReady', epoch: this._garageEpoch, ready: false });
+          this.ui.toast('Loadout changed. Ready up again.', 'info');
+        }
         this.profile = p;
         if (this.screen === 'garage') this._garageRefresh();
         const pending = this._pendingResults;
@@ -122,20 +150,27 @@ export class App {
           this._pendingResults = null; this._results(pending);
         }
       },
-      buyDenied: () => { this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); },
-      start: (cfg) => this._startRun(cfg),
-      run: (m) => this._onRunMsg(m),
+      buyDenied: () => { if (this.session !== s) return; this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); },
+      start: (cfg) => { if (this.session === s) this._startRun(cfg); },
+      run: (m) => { if (this.session === s) this._onRunMsg(m); },
       fast: (b) => { if (this.session !== s) return; if (this.game.run) this.game.run.onFast(b); else if (this.screen === 'run') this._pendingFast = b; },
-      disconnect: () => this._lost(),
-      error: (e) => console.warn('net', e),
+      disconnect: () => { if (this.session === s) this._lost(s); },
+      error: (e) => {
+        if (this.session !== s) return;
+        console.warn('net', e);
+        if (this._roomPending?.session !== s || e?.type === 'protocol-mismatch') this.ui.toast(e?.message || 'Connection problem. Please try again.', 'bad');
+        this._lobbyRefresh();
+      },
     });
     return s;
   }
   async host() {
     this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Host';
+    this._roomPending = { session: s, code: '' };
     this.ui.showLobby(this._lobbyState('connecting'), this._lobbyCb());
     try { await s.host(this.profile); } catch (e) { if (this.session !== s) return; this.ui.toast('Could not create room: ' + (e.message || e.type), 'bad'); return this.title(); }
+    finally { if (this._roomPending?.session === s) this._roomPending = null; }
     if (this.session !== s || this.screen !== 'lobby') return;
     s.setRole('driver');
     this._lobbyRefresh();
@@ -143,8 +178,10 @@ export class App {
   async join(code) {
     this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Player 2';
-    this.ui.showLobby({ ...this._lobbyState('connecting'), code }, this._lobbyCb());
+    this._roomPending = { session: s, code: String(code || '').trim().toUpperCase() };
+    this.ui.showLobby(this._lobbyState('connecting'), this._lobbyCb());
     try { await s.join(code, this.profile); } catch (e) { if (this.session !== s) return; this.ui.toast(e.message || 'Could not join', 'bad'); return this.title(); }
+    finally { if (this._roomPending?.session === s) this._roomPending = null; }
     if (this.session !== s || this.screen !== 'lobby') return;
     s.setRole('gunner');
     this._lobbyRefresh();
@@ -156,7 +193,8 @@ export class App {
       players.push({ id: 'me', name: L.me.name, device: this.input.lastDevice, seat: L.me.role, ready: L.me.ready, you: true, host: L.isHost });
       if (L.other) players.push({ id: 'other', name: L.other.name, device: L.other.device || 'kbm', seat: L.other.role, ready: L.other.ready, you: false, host: !L.isHost });
     }
-    return { code: L?.code || '', status: status || (L?.connected ? 'connected' : 'waiting'), latency: s ? Math.round(s.rtt) : 0, isHost: !!L?.isHost, canStart: s ? s.canStart() : false, players };
+    const pending = this._roomPending?.session === s ? this._roomPending : null;
+    return { code: L?.code || pending?.code || s?.tp?.code || '', status: status || s?.status || (pending ? 'connecting' : L?.connected ? 'connected' : 'waiting'), latency: s ? Math.round(s.rtt) : 0, isHost: !!L?.isHost, canStart: s ? s.canStart() : false, players };
   }
   _lobbyRefresh() { if (this.screen === 'lobby' && this.mode === 'coop' && !this.game.run) this.ui.updateLobby(this._lobbyState()); }
   _lobbyCb() {
@@ -167,16 +205,37 @@ export class App {
       onLeave: () => this.title(),
     };
   }
-  _lost() { if (this.mode !== 'coop') return; this.game.endRun(); this.ui.connectionLost('Your partner disconnected.').then(() => this.title()); }
+  _lost(s = this.session) {
+    if (this.mode !== 'coop' || this.session !== s || this._lostTransition) return;
+    const flow = this._transition(), token = this._lostTransition = { session: s, flow };
+    this.game.endRun(); this.game.fade(0, 0);
+    this.ui.connectionLost('Your partner disconnected.').then((result) => {
+      if (result === null || this._lostTransition !== token || this._flowId !== flow || this.session !== s || this.mode !== 'coop') return;
+      this.title();
+    });
+  }
 
   _onRunMsg(m) {
     if (!APP_MSGS.has(m.t)) {
       if (this.game.run) this.game.run.onNet(m);
-      else if (this.screen === 'run') { const q = this._pendingRunMsgs || (this._pendingRunMsgs = []); q.push(m); if (q.length > 256) q.shift(); }
+      else if (this.screen === 'run') {
+        const q = this._pendingRunMsgs || (this._pendingRunMsgs = []);
+        // Loading needs the latest controls, but a one-shot readiness signal
+        // must survive a slow partner's stream of poses and effects.
+        if (PENDING_LATEST_MSGS.has(m.t)) { const i = q.findIndex((v) => v.t === m.t); if (i >= 0) q.splice(i, 1); }
+        q.push(m);
+        if (q.length > 256) q.splice(q.findIndex((v) => !PENDING_SIGNALS.has(v.t)), 1);
+      }
       return;
     }
     if (m.t === 'toGarage' && !this.session?.isHost) { this.garage(); }
-    else if (m.t === 'garageReady') { this.readyOther = !!m.ready; this._garageRefresh(); this._maybeStart(); }
+    else if (m.t === 'garageReady') {
+      const s = this.session;
+      if (!s || this.mode !== 'coop' || !Number.isSafeInteger(m.epoch) || m.epoch !== this._sessionEpoch(s)) return;
+      if (!m.ready) this._cancelStartSelection();
+      this._peerGarageReady = { session: s, epoch: m.epoch, ready: !!m.ready };
+      if (this.screen === 'garage' && this._garageEpoch === m.epoch) { this.readyOther = !!m.ready; this._garageRefresh(); this._maybeStart(); }
+    }
     else if (m.t === 'abort') { this.game.endRun(); this.garage(); this.ui.toast('Run abandoned', 'warn'); }
   }
 
@@ -184,10 +243,15 @@ export class App {
   /** @param open optional {tab, select} to open the shop on a specific item (e.g. the results screen's NEXT UP card). */
   garage(open) {
     const fromRun = !!this.game.run || this.screen === 'results';
+    this._transition(); this.ui.hideAll();
+    this._garageGeneration = (this._garageGeneration || 0) + 1;
+    this._garageEpoch = this._sessionEpoch();
     this.screen = 'garage';
     this._pendingResults = null;
     if (this.session) this.session.activeRunId = null;
-    this.readyMine = false; this.readyOther = false;
+    this.readyMine = false;
+    const peer = this._peerGarageReady;
+    this.readyOther = !!(peer && peer.session === this.session && peer.epoch === this._garageEpoch && peer.ready);
     this._pendingRunMsgs = []; this._pendingFast = null;
     this._stage('garage');
     const G = this.game.garage;
@@ -244,44 +308,68 @@ export class App {
       onEquip: (w, slot) => act('equip', w, slot),
       onView: (tab, sel) => this._garageView(tab, sel),
       onReady: async () => {
+        if (this.screen !== 'garage') return;
         if (this.mode === 'solo') {
-          const startS = await this._pickStart(); if (startS === null) return;
-          const r = this.soloRole || 'both';
-          return this._startRun({ role: r === 'both' ? 'solo' : r, ai: r === 'driver' ? 'gunner' : r === 'gunner' ? 'driver' : null, seed: (Math.random() * 1e9) | 0, profile: this.profile, startS });
+          if (this._startSelection) return;
+          const token = this._startSelection = { flow: this._flowId, garage: this._garageGeneration, profile: this.profile, revision: this.profile.revision };
+          try {
+            const startS = await this._pickStart(token);
+            if (startS === null || this._startSelection !== token || this._flowId !== token.flow || this._garageGeneration !== token.garage || this.screen !== 'garage' || this.mode !== 'solo' || this.session || this.profile !== token.profile || this.profile.revision !== token.revision) return;
+            const r = this.soloRole || 'both';
+            return this._startRun({ role: r === 'both' ? 'solo' : r, ai: r === 'driver' ? 'gunner' : r === 'gunner' ? 'driver' : null, seed: (Math.random() * 1e9) | 0, profile: this.profile, startS });
+          } finally { if (this._startSelection === token) this._startSelection = null; }
         }
+        if (this.mode !== 'coop' || !this.session) return;
+        this._cancelStartSelection();
         this.readyMine = !this.readyMine;
-        this.session.sendJSON({ t: 'garageReady', ready: this.readyMine });
+        this.session.sendJSON({ t: 'garageReady', epoch: this._garageEpoch, ready: this.readyMine });
         this._garageRefresh(); this._maybeStart();
       },
       onMenu: async () => {
+        const flow = this._flowId, session = this.session;
         if (this.mode === 'coop') {
           const r = await this.ui.modal({ title: 'LEAVE THE CONVOY?', text: 'You go back to the title screen and your partner is disconnected.', kind: 'warn', buttons: [{ label: 'STAY', kind: 'primary', cancel: true }, { label: 'LEAVE', id: 'leave', kind: 'danger' }] });
           if (r !== 'leave') return;
         }
+        if (this._flowId !== flow || this.session !== session || this.screen !== 'garage') return;
         this.title();
       },
     };
   }
   async _maybeStart() {
     const s = this.session;
-    if (!s || !s.isHost || !s.connected || !s.other || !this.readyMine || !this.readyOther || !s.me.role || !s.other.role || s.me.role === s.other.role) return;
-    const startS = await this._pickStart(); if (startS === null) return;
-    s.me.ready = s.other.ready = true;
-    const cfg = s.startRun({ seed: (Math.random() * 1e9) | 0, startS });
-    if (cfg) this._startRun(cfg);
+    if (this._startSelection || this.screen !== 'garage' || this.mode !== 'coop' || !s?.isHost || !s.connected || !s.other || !this.readyMine || !this.readyOther || !s.me.role || !s.other.role || s.me.role === s.other.role) return;
+    const token = this._startSelection = { session: s, flow: this._flowId, garage: this._garageGeneration, epoch: this._garageEpoch, profile: this.profile, revision: this.profile.revision, mine: s.me.role, other: s.other.role };
+    try {
+      const startS = await this._pickStart(token);
+      if (this._startSelection !== token || this._flowId !== token.flow || this._garageGeneration !== token.garage || this._garageEpoch !== token.epoch || this._sessionEpoch(s) !== token.epoch || this.session !== s || this.mode !== 'coop' || this.screen !== 'garage' || !s.connected || !s.other || !this.readyMine || !this.readyOther || s.me.role !== token.mine || s.other.role !== token.other) return;
+      if (startS === null) { this.readyMine = false; s.sendJSON({ t: 'garageReady', epoch: token.epoch, ready: false }); this._garageRefresh(); return; }
+      if (this.profile !== token.profile || this.profile.revision !== token.revision) {
+        this.readyMine = false; s.sendJSON({ t: 'garageReady', epoch: token.epoch, ready: false }); this._garageRefresh();
+        this.ui.toast('Loadout changed. Ready up again.', 'info'); return;
+      }
+      s.me.ready = s.other.ready = true;
+      const cfg = s.startRun({ seed: (Math.random() * 1e9) | 0, startS });
+      if (cfg) this._startRun(cfg);
+    } finally { if (this._startSelection === token) this._startSelection = null; }
   }
   /** Once the crew has reached the Leviathan, a run can roll out from the dam road (past the warlords) for another shot at it. */
-  async _pickStart() {
+  async _pickStart(selection) {
     const reached = (this.profile.best?.furthestS ?? this.profile.best?.distance ?? 0) >= DAM_CHECKPOINT_UNLOCK;
     if (!reached) return 40;
-    const r = await this.ui.modal({ title: 'ROLL OUT FROM', text: 'You have reached the Leviathan. Start at the dam road for another shot at it (distance pays from where you start), or run the whole highway.', buttons: [
+    const choice = this.ui.modal({ title: 'ROLL OUT FROM', text: 'You have reached the Leviathan. Start at the dam road for another shot at it (distance pays from where you start), or run the whole highway.', buttons: [
       { label: 'THE DAM ROAD', id: 'dam', kind: 'primary' }, { label: 'THE START', id: 'start' }, { label: 'BACK', id: null, cancel: true }] });
+    if (selection) selection.choice = choice;
+    const r = await choice;
     if (!r) return null;
     return r === 'dam' ? DAM_CHECKPOINT_S : 40;
   }
 
   // ------------------------------------------------------------------------------------------ run
   async _startRun(cfg) {
+    const mode = this.mode, session = mode === 'coop' ? this.session : null;
+    const flow = this._transition(), token = this._startup = { flow, session, mode };
+    this._peerGarageReady = null;
     this.ui.hideAll();
     this.screen = 'run';
     this._pendingResults = null;
@@ -290,22 +378,28 @@ export class App {
     this.game.garage?.release?.();
     this.readyMine = this.readyOther = false;
     if (cfg.profile) this.profile = cfg.profile;
+    const current = () => this._startup === token && this._flowId === flow && this.screen === 'run' && this.mode === mode && this.session === session;
+    const cancel = () => { if (!current()) return; session?.sendJSON({ t: 'abort' }); this.garage(); };
+    const loading = this.ui.modal({ title: 'GETTING READY', text: 'Getting your truck and the road ready.', buttons: [{ label: 'BACK TO GARAGE', id: 'cancel', cancel: true, onClick: cancel }] });
+    loading.then((result) => { if (result === 'cancel') cancel(); });
     let run;
-    try { run = await this.game.startRun({ ...cfg, net: this.mode === 'coop' ? this.session : null, paint: TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0] }); }
+    try { run = await this.game.startRun({ ...cfg, net: session, paint: TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0] }); }
     catch (e) {
-      if (this.screen !== 'run') return;
-      this.session?.sendJSON({ t: 'abort' }); this.garage(); this.game.fade(0);
+      if (!current()) return;
+      session?.sendJSON({ t: 'abort' }); this.garage();
       this.ui.toast('Could not start the run. Please try again.', 'bad'); console.warn('run startup', e); return;
-    }
-    if (!run || this.screen !== 'run') return;
+    } finally { loading.close(); }
+    if (!current()) return;
+    if (!run) { this.garage(); return; }
+    this._startup = null;
     for (const m of this._pendingRunMsgs) run.onNet(m);
     if (this._pendingFast) run.onFast(this._pendingFast);
     this._pendingRunMsgs = []; this._pendingFast = null;
-    this.session?.sendJSON({ t: 'runReady' });
+    session?.sendJSON({ t: 'runReady' });
     this.game.audio?.music?.setState?.('run');
     window.__run = run;
-    this.game.onRunEnd = (r) => this._results(r);
-    this.game.onPause = () => this._pause();
+    this.game.onRunEnd = (r) => { if (this.game.run === run && this.session === session) this._results(r); };
+    this.game.onPause = () => { if (this.game.run === run && this.session === session) this._pause(); };
     this.input.requestLock();
     this._watchEnd(run);
   }
@@ -336,11 +430,14 @@ export class App {
   _pause() {
     const g = this.game;
     if (g.paused) return;
+    const run = g.run, session = this.session, flow = this._flowId;
+    const current = () => this.screen === 'run' && g.run === run && this.session === session && this._flowId === flow;
     g.paused = true; this._releasing = true; this.input.releaseLock(); this.input.reset();
     this.ui.showPause({
       coop: this.mode === 'coop',
-      onResume: () => { g.paused = false; this.input.reset(); this.ui.hideAll(); this.input.requestLock(); },
+      onResume: () => { if (!current()) return; g.paused = false; this.input.reset(); this.ui.hideAll(); this.input.requestLock(); },
       onQuit: () => {
+        if (!current()) return;
         g.paused = false;
         if (this.mode === 'coop') this.session?.sendJSON({ t: 'abort' });
         // abandoning a run still pays what was earned so far (solo)
@@ -354,8 +451,12 @@ export class App {
     const sm = run.summary || run.remoteSummary;
     // The host authorizes both payouts. A guest may finish rendering the crash
     // first, so resume this transition from the profile callback when paid.
-    if (sm && this.session && !this.session.isHost && !this.session.hasCreditedResult(sm.id)) { this._pendingResults = run; return; }
+    if (sm && this.session && !this.session.isHost && !this.session.hasCreditedResult(sm.id)) {
+      if (this._pendingResults !== run) this.game.hud?.message?.('WAITING FOR RESULTS', 12000, '#ffc21a');
+      this._pendingResults = run; return;
+    }
     this._pendingResults = null;
+    this._transition(); this.ui.hideAll();
     this.game.paused = false; this._releasing = true; this.input.releaseLock();
     if (!sm) { this.garage(); return; }
     this.screen = 'results';
@@ -374,8 +475,9 @@ export class App {
     });
   }
   async _victoryModal() {
-    const p = this.profile;
-    await this.ui.modal({ title: 'THE ROAD IS YOURS', text: `The Leviathan is scrap and the Warlord's convoy is broken. ${p.runs} runs, $${p.totalCash.toLocaleString()} earned. The highway still has raiders on it... keep riding for the high score, or start a new campaign from the title screen.`, buttons: [{ label: 'BACK TO THE GARAGE', kind: 'primary' }] });
+    const p = this.profile, flow = this._flowId, run = this.game.run, session = this.session;
+    const result = await this.ui.modal({ title: 'THE ROAD IS YOURS', text: `The Leviathan is scrap and the Warlord's convoy is broken. ${p.runs} runs, $${p.totalCash.toLocaleString()} earned. The highway still has raiders on it... keep riding for the high score, or start a new campaign from the title screen.`, buttons: [{ label: 'BACK TO THE GARAGE', id: 'garage', kind: 'primary' }] });
+    if (result !== 'garage' || this._flowId !== flow || this.screen !== 'results' || this.game.run !== run || this.session !== session) return;
     this.garage();
   }
 }

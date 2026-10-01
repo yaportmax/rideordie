@@ -145,7 +145,7 @@ function readSnapshot(dv) {
 
 /** Client-side buffer: interpolates CarStates ~100 ms behind the newest snapshot. */
 export class SnapshotBuffer {
-  constructor() { this.snaps = []; this.states = new Map(); this.delay = 0.1; this.clockOffset = null; this.latest = null; this._q1 = new THREE.Quaternion(); this._q2 = new THREE.Quaternion(); this.jitter = 0; this.lastArrival = 0; }
+  constructor() { this.snaps = []; this.states = new Map(); this.delay = 0.1; this.clockOffset = null; this.renderTime = null; this.latest = null; this._q1 = new THREE.Quaternion(); this._q2 = new THREE.Quaternion(); this._qE = new THREE.Quaternion(); this.jitter = 0; this.lastArrival = 0; }
   push(snap, now) {
     // The unordered channel can deliver an older frame after a newer one. Never rewind its clock or state.
     if (!snap || !Number.isFinite(now) || !Number.isFinite(snap.time)) return false;
@@ -161,8 +161,12 @@ export class SnapshotBuffer {
   }
   /** Fill states (Map id -> CarState) for local time `now`. Returns the snapshot bracket info. */
   sample(now) {
-    const snaps = this.snaps; if (!snaps.length) return null;
-    const rt = now - this.clockOffset - this.delay;  // render time in sim time
+    const snaps = this.snaps; if (!snaps.length || !Number.isFinite(now)) return null;
+    const target = now - this.clockOffset - this.delay;
+    // Offset/jitter changes may hold the pose, but never replay an earlier sim
+    // time or predict beyond the same 100ms horizon used for vehicle motion.
+    // Authoritative packet-return corrections/teleports remain separate.
+    const rt = this.renderTime = Math.min(snaps[snaps.length - 1].time + 0.1, Math.max(this.renderTime ?? target, target));
     let a = snaps[0], b = a;
     for (let i = 1; i < snaps.length; i++) { if (snaps[i].time > rt) { b = snaps[i]; break; } a = b = snaps[i]; }
     let t = b.time > a.time ? (rt - a.time) / (b.time - a.time) : 1;
@@ -178,6 +182,14 @@ export class SnapshotBuffer {
       st.pos.set(ca.x + (cb.x - ca.x) * t + cb.vx * dtE, ca.y + (cb.y - ca.y) * t + cb.vy * dtE, ca.z + (cb.z - ca.z) * t + cb.vz * dtE);
       this._q1.set(ca.qx, ca.qy, ca.qz, ca.qw).normalize(); this._q2.set(cb.qx, cb.qy, cb.qz, cb.qw).normalize();
       st.quat.slerpQuaternions(this._q1, this._q2, t);
+      if (dtE > 0) {
+        const omega = Math.hypot(cb.wx, cb.wy, cb.wz);
+        if (omega > 0) {
+          const halfAngle = omega * dtE * 0.5, k = Math.sin(halfAngle) / omega;
+          this._qE.set(cb.wx * k, cb.wy * k, cb.wz * k, Math.cos(halfAngle));
+          st.quat.premultiply(this._qE).normalize(); // Rapier angular velocity is world-space.
+        }
+      }
       st.vel.set(ca.vx + (cb.vx - ca.vx) * t, ca.vy + (cb.vy - ca.vy) * t, ca.vz + (cb.vz - ca.vz) * t);
       st.steer = ca.steer + (cb.steer - ca.steer) * t;
       for (let w = 0; w < st.nWheels && w < ca.L.length && w < cb.L.length; w++) { st.L[w] = ca.L[w] + (cb.L[w] - ca.L[w]) * t; st.slip[w] = ca.slip[w]; st.grounded[w] = ca.gr[w]; }

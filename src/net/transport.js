@@ -1,5 +1,6 @@
 // WebRTC transport: PeerJS signalling, reliable messages, and an unordered channel for snapshots.
 import { Peer } from 'peerjs';
+import { getIceConfig } from './ice.js';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export function makeCode(n = 5) { let s = ''; for (let i = 0; i < n; i++) s += ALPHABET[(Math.random() * ALPHABET.length) | 0]; return s; }
@@ -8,20 +9,112 @@ const FAST_ID = 7;
 const MAX_BUFFER = 262144;
 
 export class Transport {
-  constructor({ peerOptions = {}, PeerClass = Peer, timeout = 15000 } = {}) {
+  constructor({ peerOptions = {}, PeerClass = Peer, iceProvider = PeerClass === Peer ? getIceConfig : null, timeout = 15000, reconnectDelays = [500, 1500, 3000], reconnectTimeout = 5000 } = {}) {
     this.PeerClass = PeerClass; this.peerOptions = peerOptions; this.timeout = timeout;
+    this.iceProvider = iceProvider; this._peerRequest = null;
+    this.reconnectDelays = reconnectDelays; this.reconnectTimeout = reconnectTimeout;
     this.peer = null; this.conn = null; this.fast = null;
     this.isHost = false; this.code = ''; this.open = false;
-    this.onMessage = () => {}; this.onFast = () => {}; this.onOpen = () => {}; this.onClose = () => {}; this.onError = () => {};
+    this.onMessage = () => {}; this.onFast = () => {}; this.onOpen = () => {}; this.onClose = () => {}; this.onError = () => {}; this.onState = () => {};
     this.rtt = 0; this.stats = { bytesIn: 0, bytesOut: 0, msgIn: 0, fastIn: 0, fastOut: 0 };
     this._pingT = null; this._cancelPending = null;
+    this._seatT = null; this._reconnectT = null; this._reconnectDeadline = null; this._reconnectPeer = null; this._reconnectAttempt = 0;
+    this._signallingState = 'closed'; this._lastState = '';
   }
 
-  host(code = makeCode(), attempt = 0) {
+  get signallingState() { return this._signallingState; }
+  get status() {
+    if (this.open) return 'connected';
+    if (this._signallingState === 'reconnecting' || this._signallingState === 'lost') return this._signallingState;
+    if (this.conn || this._signallingState === 'connecting') return 'connecting';
+    return this._signallingState === 'ready' ? 'waiting' : 'closed';
+  }
+  _emitState() {
+    const key = this.status + ':' + this._signallingState;
+    if (this._lastState === key) return;
+    this._lastState = key;
+    this.onState(this.status, { signalling: this._signallingState, connected: this.open, code: this.code });
+  }
+  _setSignalling(state) { this._signallingState = state; this._emitState(); }
+
+  _preparePeer(request, id, cachedConfig, ready, fail) {
+    const current = () => this._peerRequest === request;
+    const create = (config) => {
+      if (!current()) return;
+      try {
+        const options = { debug: 1, ...this.peerOptions };
+        if (config !== undefined && this.peerOptions.config === undefined) options.config = config;
+        const peer = this.peer = new this.PeerClass(id, options);
+        this._watchPeer(peer); ready(peer, config);
+      } catch (err) { if (current()) fail(err); }
+    };
+    // Explicit ICE options and injected peers retain their synchronous setup path.
+    if (this.peerOptions.config !== undefined || !this.iceProvider) { create(undefined); return; }
+    if (cachedConfig !== undefined) { create(cachedConfig); return; }
+    Promise.resolve().then(() => {
+      if (!current()) return;
+      return this.iceProvider();
+    }).then((config) => {
+      if (!current()) return;
+      if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Could not load multiplayer connection settings. Try again.');
+      create(config);
+    }).catch((err) => { if (current()) fail(err); });
+  }
+
+  _watchPeer(peer) {
+    let opened = false;
+    this._setSignalling('connecting');
+    peer.on('open', () => {
+      if (this.peer !== peer || peer.destroyed || peer.disconnected) return;
+      opened = true; this._stopRecovery(); this._setSignalling('ready');
+    });
+    peer.on('disconnected', () => {
+      if (this.peer !== peer || !opened || this._signallingState === 'lost') return;
+      if (this._reconnectPeer !== peer) { this._reconnectPeer = peer; this._reconnectAttempt = 0; this._setSignalling('reconnecting'); }
+      this._scheduleReconnect(peer);
+    });
+    peer.on('close', () => {
+      if (this.peer !== peer) return;
+      const err = new Error('The room service connection closed. Create or join a room again.');
+      this._stopRecovery(); this.peer = null; this._setSignalling('lost');
+      this._cancelPending?.(err); this.closeConnection(err); this.onError(err);
+    });
+  }
+
+  _stopRecovery() {
+    clearTimeout(this._reconnectT); clearTimeout(this._reconnectDeadline);
+    this._reconnectT = null; this._reconnectDeadline = null; this._reconnectPeer = null; this._reconnectAttempt = 0;
+  }
+  _scheduleReconnect(peer) {
+    if (this.peer !== peer || this._reconnectPeer !== peer) return;
+    clearTimeout(this._reconnectDeadline); this._reconnectDeadline = null;
+    if (this._reconnectT !== null) return;
+    if (peer.destroyed || this._reconnectAttempt >= this.reconnectDelays.length) {
+      this._stopRecovery(); this._setSignalling('lost');
+      this.onError(new Error('Could not reconnect to the room service. Create or join a room again.'));
+      return;
+    }
+    const delay = this.reconnectDelays[this._reconnectAttempt];
+    this._reconnectT = setTimeout(() => {
+      this._reconnectT = null;
+      if (this.peer !== peer || this._reconnectPeer !== peer) return;
+      this._reconnectAttempt++;
+      this._reconnectDeadline = setTimeout(() => {
+        if (this.peer !== peer || this._reconnectPeer !== peer) return;
+        this._reconnectDeadline = null;
+        // A stalled socket must be disconnected before PeerJS can retry the same ID.
+        try { if (!peer.disconnected && !peer.destroyed) peer.disconnect(); } catch { /* retry below */ }
+        this._scheduleReconnect(peer);
+      }, this.reconnectTimeout);
+      try { peer.reconnect(); } catch (err) { this.onError(err); this._scheduleReconnect(peer); }
+    }, delay);
+  }
+
+  host(code = makeCode(), attempt = 0, cachedConfig = undefined) {
     this.destroy(); this.isHost = true; this.code = code;
     return new Promise((res, rej) => {
       let settled = false;
-      const peer = this.peer = new this.PeerClass(idFor(code), { debug: 1, ...this.peerOptions });
+      const request = this._peerRequest = {};
       const finish = (err) => {
         if (settled) return; settled = true; clearTimeout(timer); this._cancelPending = null;
         if (err) rej(err); else res(code);
@@ -29,19 +122,22 @@ export class Transport {
       const fail = (err) => { finish(err); this.destroy(); this.onError(err); };
       const timer = setTimeout(() => fail(new Error('Timed out creating a room. Try again.')), this.timeout);
       this._cancelPending = finish;
-      peer.on('open', () => { if (this.peer === peer) finish(); });
-      peer.on('error', (e) => {
-        if (this.peer !== peer) return;
-        if (!settled && e.type === 'unavailable-id' && attempt < 4) {
-          settled = true; clearTimeout(timer); this._cancelPending = null;
-          this.host(makeCode(), attempt + 1).then(res, rej);
-        } else if (!settled) fail(e); else this.onError(e);
-      });
-      peer.on('connection', (conn) => {
-        if (this.peer !== peer || this.conn) { conn.close(); return; }
-        // Reserve the second seat while its connection opens, too.
-        this._adopt(conn);
-      });
+      this._setSignalling('connecting');
+      this._preparePeer(request, idFor(code), cachedConfig, (peer, config) => {
+        peer.on('open', () => { if (this.peer === peer) finish(); });
+        peer.on('error', (e) => {
+          if (this.peer !== peer) return;
+          if (!settled && e.type === 'unavailable-id' && attempt < 4) {
+            settled = true; clearTimeout(timer); this._cancelPending = null;
+            this.host(makeCode(), attempt + 1, config).then(res, rej);
+          } else if (!settled) fail(e); else this.onError(e);
+        });
+        peer.on('connection', (conn) => {
+          if (this.peer !== peer || this.conn) { conn.close(); return; }
+          // Reserve the second seat while its connection opens, too.
+          this._adopt(conn);
+        });
+      }, fail);
     });
   }
 
@@ -51,7 +147,7 @@ export class Transport {
     this.destroy(); this.isHost = false; this.code = code;
     return new Promise((res, rej) => {
       let settled = false;
-      const peer = this.peer = new this.PeerClass(undefined, { debug: 1, ...this.peerOptions });
+      const request = this._peerRequest = {};
       const finish = (err) => {
         if (settled) return; settled = true; clearTimeout(timer); this._cancelPending = null;
         if (err) rej(err); else res();
@@ -59,18 +155,27 @@ export class Transport {
       const fail = (err) => { finish(err); this.destroy(); this.onError(err); };
       const timer = setTimeout(() => fail(new Error('Timed out connecting to room ' + code)), this.timeout);
       this._cancelPending = finish;
-      peer.on('open', () => {
-        if (this.peer !== peer) return;
-        const conn = peer.connect(idFor(code), { reliable: true, serialization: 'json' });
-        this._adopt(conn);
-        if (conn.open) finish(); else conn.on('open', () => { if (this.conn === conn) finish(); });
-        conn.on('error', (e) => { if (this.conn === conn && !settled) fail(e); });
-      });
-      peer.on('error', (e) => {
-        if (this.peer !== peer) return;
-        const err = e.type === 'peer-unavailable' ? new Error('No room with code ' + code) : e;
-        if (!settled) fail(err); else this.onError(err);
-      });
+      this._setSignalling('connecting');
+      this._preparePeer(request, undefined, undefined, (peer) => {
+        let adopted = false;
+        peer.on('open', () => {
+          if (this.peer !== peer || adopted || peer.destroyed || peer.disconnected) return;
+          // Signalling can reopen while the original P2P connection is still healthy.
+          adopted = true;
+          let conn;
+          try {
+            conn = peer.connect(idFor(code), { reliable: true, serialization: 'json' });
+            if (!conn) throw new Error('Could not open a connection to the room. Try joining again.');
+          } catch (err) { fail(err); return; }
+          this._adopt(conn);
+          if (conn.open) finish(); else conn.on('open', () => { if (this.conn === conn) finish(); });
+        });
+        peer.on('error', (e) => {
+          if (this.peer !== peer) return;
+          const err = e.type === 'peer-unavailable' ? new Error('No room with code ' + code) : e;
+          if (!settled) fail(err); else this.onError(err);
+        });
+      }, fail);
     });
   }
 
@@ -78,7 +183,9 @@ export class Transport {
     this.conn = conn;
     const ready = () => {
       if (this.conn !== conn || this.open) return;
+      clearTimeout(this._seatT); this._seatT = null;
       this.open = true; this._openFast(conn); this._startPing(); this.onOpen();
+      this._emitState();
     };
     conn.on('data', (d) => {
       if (this.conn !== conn) return;
@@ -96,18 +203,38 @@ export class Transport {
       }
       this.onMessage(d);
     });
-    conn.on('close', () => {
+    conn.on('close', () => { if (this.conn === conn) this.closeConnection(); });
+    conn.on('error', (e) => {
       if (this.conn !== conn) return;
-      const wasOpen = this.open;
-      this.open = false; this.conn = null;
-      clearInterval(this._pingT); this._pingT = null;
-      const dc = this.fast; this.fast = null; try { dc?.close(); } catch { /* already closed */ }
-      this._cancelPending?.(new Error('The room closed before connecting.'));
-      if (!wasOpen && !this.isHost) this.destroy();
-      if (wasOpen) this.onClose();
+      // PeerJS closes failed pre-open negotiations without emitting a close event.
+      if (!this.open) this.closeConnection(e);
+      this.onError(e);
     });
-    conn.on('error', (e) => { if (this.conn === conn) this.onError(e); });
-    if (conn.open) ready(); else conn.on('open', ready);
+    if (conn.open) ready(); else {
+      conn.on('open', ready);
+      this._seatT = setTimeout(() => {
+        if (this.conn !== conn) return;
+        const err = new Error('Timed out connecting the second seat. Your partner can try again.');
+        this.closeConnection(err); this.onError(err);
+      }, this.timeout);
+      this._emitState();
+    }
+  }
+
+  /** Release a failed or rejected player without destroying the host's room. */
+  closeConnection(error = null) {
+    const conn = this.conn; if (!conn) return;
+    const wasOpen = this.open;
+    this.open = false; this.conn = null;
+    clearTimeout(this._seatT); this._seatT = null;
+    clearInterval(this._pingT); this._pingT = null;
+    const dc = this.fast; this.fast = null;
+    this._cancelPending?.(error || new Error('The room closed before connecting.'));
+    try { dc?.close(); } catch { /* already closed */ }
+    try { conn.close(); } catch { /* already closed */ }
+    if (!wasOpen && !this.isHost) this.destroy();
+    if (wasOpen) this.onClose();
+    this._emitState();
   }
 
   _openFast(conn) {
@@ -149,14 +276,16 @@ export class Transport {
   get ready() { return this.open; }
 
   destroy() {
+    this._stopRecovery(); clearTimeout(this._seatT); this._seatT = null;
     clearInterval(this._pingT); this._pingT = null;
     const cancel = this._cancelPending; this._cancelPending = null;
     const conn = this.conn, peer = this.peer, dc = this.fast;
     // Invalidate callbacks before close() emits anything.
-    this.open = false; this.conn = null; this.peer = null; this.fast = null;
+    this.open = false; this.conn = null; this.peer = null; this.fast = null; this._peerRequest = null;
     cancel?.(new Error('Connection cancelled.'));
     try { dc?.close(); } catch { /* already closed */ }
     try { conn?.close(); } catch { /* already closed */ }
     try { peer?.destroy(); } catch { /* already closed */ }
+    this._setSignalling('closed');
   }
 }

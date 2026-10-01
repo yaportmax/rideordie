@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "ride-or-die-network",
+  "main": "worker.js",
+  "account_id": "6ba6abe9133ad77796b3809ab899ee9c",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "ratelimits": [
+    {
+      "name": "ICE_RATE_LIMIT",
+      "namespace_id": "417520260930",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ]
+}

@@ -7,7 +7,9 @@ const ROLES = {
   gunner: { name: 'GUNNER', icon: 'crosshair', blurb: 'Stand in the bed with the guns. Shoot drivers, tyres and fuel tanks.' },
 };
 const STATUS = {
+  closed: { txt: 'CONNECTION CLOSED', cls: 'bad' },
   connecting: { txt: 'CONNECTING', cls: 'wait', dots: true }, waiting: { txt: 'WAITING FOR PLAYER', cls: 'wait', dots: true },
+  reconnecting: { txt: 'RECONNECTING', cls: 'wait', dots: true },
   connected: { txt: 'PLAYER CONNECTED', cls: 'ok' }, lost: { txt: 'CONNECTION LOST', cls: 'bad' },
 };
 
@@ -23,38 +25,43 @@ export class LobbyScreen {
   me() { return (this.state.players || []).find((p) => p.you) || null; }
   other() { return (this.state.players || []).find((p) => !p.you) || null; }
   seatOccupant(role) { return (this.state.players || []).find((p) => p.seat === role) || null; }
-  canStart() {
-    const s = this.state, ps = s.players || [];
+  actionsAvailable() { return this.state.status === 'waiting' || this.state.status === 'connected'; }
+  roomCode() { return String(this.state.code || '').trim().toUpperCase(); }
+  canStart(s = this.state) {
+    if (s.status !== 'connected') return false;
+    const ps = s.players || [];
     if (s.canStart != null) return !!s.canStart;
     const d = ps.find((p) => p.seat === 'driver'), g = ps.find((p) => p.seat === 'gunner');
     return !!(d && g && d.ready && g.ready);
   }
   render() {
-    const s = this.state, me = this.me(), st = STATUS[s.status] || STATUS.waiting;
-    const code = (s.code || '').toUpperCase();
+    const s = this.state, me = this.me(), st = STATUS[s.status] || STATUS.closed, available = this.actionsAvailable();
+    const code = this.roomCode();
     const tiles = code ? [...code].map((c) => `<i>${esc(c)}</i>`).join('') : '<i class="ph">&middot;</i><i class="ph">&middot;</i><i class="ph">&middot;</i><i class="ph">&middot;</i>';
     const seat = (role) => {
       const R = ROLES[role], occ = this.seatOccupant(role), mine = !!(occ && occ.you);
+      const disabled = !available || !!(occ && !mine);
       const dev = occ ? (occ.device === 'pad' ? `${icon('gamepad')}<span>CONTROLLER</span>` : `${icon('kbm')}<span>KEYBOARD &amp; MOUSE</span>`) : '';
       const body = occ
         ? `<div class="avatar">${esc((occ.name || '?').trim().charAt(0).toUpperCase())}</div><div class="who"><b>${esc(occ.name || 'PLAYER')}${occ.host ? '<em class="hostb">HOST</em>' : ''}</b><span class="dev">${dev}</span></div>${mine ? '<em class="you">YOU</em>' : ''}`
         : `<div class="openseat"><b>OPEN SEAT</b><small>${me && me.seat ? 'CLICK TO SWITCH HERE' : 'CLICK TO SIT HERE'}</small></div>`;
       const ready = occ ? `<div class="rdy ${occ.ready ? 'on' : ''}"><i></i>${occ.ready ? 'READY' : 'NOT READY'}</div>` : '<div class="rdy off"><i></i>WAITING FOR PLAYER&hellip;</div>';
-      return `<div class="f seat ${role} ${mine ? 'mine' : ''} ${occ ? 'occ' : 'open'} ${occ && occ.ready ? 'isready' : ''}" role="button" data-seat="${role}" data-k="seat:${role}">
+      return `<div class="f seat ${role} ${mine ? 'mine' : ''} ${occ ? 'occ' : 'open'} ${occ && occ.ready ? 'isready' : ''} ${disabled ? 'dis' : ''}" role="button" aria-disabled="${disabled}" data-seat="${role}" data-k="seat:${role}">
         <div class="sk-top"><span class="sicon">${icon(R.icon)}</span><div><h3>${R.name}</h3><p>${R.blurb}</p></div></div>
         <div class="sk-body">${body}</div>${ready}</div>`;
     };
     const canStart = this.canStart(), host = !!s.isHost;
-    const readyBtn = `<div class="f btn ready-btn ${me && me.ready ? 'is-ready' : 'primary'} ${me && me.seat ? '' : 'inactive'}" role="button" data-act="ready" data-k="ready" data-snd="none"><span>${me && me.ready ? icon('check') + ' READY' : 'READY UP'}${me && me.ready ? '<small>PRESS TO CANCEL</small>' : ''}</span></div>`;
+    const canReady = available && !!(me && me.seat);
+    const readyBtn = `<div class="f btn ready-btn ${me && me.ready ? 'is-ready' : 'primary'} ${canReady ? '' : 'inactive dis'}" role="button" aria-disabled="${!canReady}" data-act="ready" data-k="ready" data-snd="none"><span>${me && me.ready ? icon('check') + ' READY' : 'READY UP'}${me && me.ready ? '<small>PRESS TO CANCEL</small>' : ''}</span></div>`;
     const startBtn = host
-      ? `<div class="f btn start-btn ${canStart ? 'primary' : 'inactive'}" role="button" data-act="start" data-k="start" data-snd="none"><span>TO THE GARAGE${canStart ? '' : '<small>BOTH PLAYERS MUST BE READY</small>'}</span></div>`
+      ? `<div class="f btn start-btn ${canStart ? 'primary' : 'inactive dis'}" role="button" aria-disabled="${!canStart}" data-act="start" data-k="start" data-snd="none"><span>TO THE GARAGE${canStart ? '' : '<small>BOTH PLAYERS MUST BE READY</small>'}</span></div>`
       : '<div class="waithost"><i></i>WAITING FOR HOST TO START</div>';
     this.safe.innerHTML = `
       <div class="lb-title stg" style="--i:0"><div class="eyebrow">CO-OP LOBBY</div><h1>THE CONVOY</h1></div>
       <div class="lb-code plate trans stg" style="--i:1">
         <div class="lc-l"><span class="eyebrow">ROOM CODE</span><div class="codetiles">${tiles}</div><div class="lc-sub">SHARE THIS CODE WITH YOUR PARTNER</div></div>
         <div class="lc-r">
-          <div class="f btn copy" role="button" data-act="copy" data-k="copy"><span>${icon('copy')}COPY CODE</span></div>
+          <div class="f btn copy ${code ? '' : 'inactive dis'}" role="button" aria-disabled="${!code}" data-act="copy" data-k="copy"><span>${icon('copy')}COPY CODE</span></div>
           <div class="lb-status ${st.cls}"><i class="dot"></i><span>${st.txt}${st.dots ? '<b class="dots"><u>.</u><u>.</u><u>.</u></b>' : ''}</span>${s.latency != null && s.status === 'connected' ? `<em>${Math.round(s.latency)} MS</em>` : ''}</div>
         </div>
       </div>
@@ -77,23 +84,29 @@ export class LobbyScreen {
     if (nn > on) { const p = state.players.find((x) => !x.you && !(old.players || []).some((o) => o.id === x.id)); if (p) { this.ui.toast(`${(p.name || 'PLAYER').toUpperCase()} JOINED`, 'good'); this.ui.snd('coin'); } }
     else if (nn < on) { const p = (old.players || []).find((o) => !(state.players || []).some((x) => x.id === o.id)); if (p && !p.you) { this.ui.toast(`${(p.name || 'PLAYER').toUpperCase()} LEFT`, 'warn'); } }
     if (!(old.status === 'lost') && state.status === 'lost') this.ui.snd('error');
-    const wasGo = this.canStart.call({ state: old }), nowGo = this.canStart();
+    const wasGo = this.canStart(old), nowGo = this.canStart();
     this.render();
     if (!wasGo && nowGo) this.ui.snd('ready');
     if (k) { const n = this.el.querySelector(`[data-k="${k}"]`); if (n && nav.isFocusable(n)) nav.focus(n, { silent: true, reveal: false }); }
     if (!nav.cur || !nav.cur.isConnected) nav.ensure();
   }
   copy() {
-    const code = this.state.code || '';
+    const code = this.roomCode();
+    if (!code) return;
     const done = () => { this.ui.toast('ROOM CODE COPIED', 'good', 1800); this.cb.onCopy && this.cb.onCopy(); };
     const fallback = () => {
-      try { const t = document.createElement('textarea'); t.value = code; t.style.cssText = 'position:fixed;left:-999px'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); } catch { this.ui.toast('COULD NOT COPY — CODE: ' + code, 'warn'); }
+      let t;
+      try { t = document.createElement('textarea'); t.value = code; t.style.cssText = 'position:fixed;left:-999px'; document.body.appendChild(t); t.select(); if (!document.execCommand('copy')) throw new Error('Copy failed'); done(); }
+      catch { this.ui.toast('COULD NOT COPY - CODE: ' + code, 'warn'); }
+      finally { t?.remove(); }
     };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, fallback); else fallback();
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(code).then(done, fallback);
+    return fallback();
   }
   onClick(e) {
-    const t = e.target.closest('.f'); if (!t) return;
+    const t = e.target.closest('.f'); if (!t || t.classList.contains('dis')) return;
     const ui = this.ui, cb = this.cb, me = this.me();
+    if ((t.dataset.seat || t.dataset.act === 'ready' || t.dataset.act === 'start') && !this.actionsAvailable()) return;
     if (t.dataset.seat) {
       const role = t.dataset.seat, occ = this.seatOccupant(role);
       if (occ && !occ.you) { ui.snd('error'); ui.toast('SEAT TAKEN', 'warn', 1500); return; }
@@ -113,6 +126,7 @@ export class LobbyScreen {
     }
   }
   initialFocus() {
+    if (!this.actionsAvailable()) return this.el.querySelector('[data-act=leave]');
     const me = this.me();
     if (!me || !me.seat) return this.el.querySelector('.seat.open') || this.el.querySelector('.seat');
     return this.el.querySelector('[data-act=ready]');

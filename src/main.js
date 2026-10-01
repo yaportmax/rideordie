@@ -42,20 +42,34 @@ if (q.has('solo')) {
   const profile = devProfile();
   const pending = []; let latestFast = null;
   const startAs = async (cfg) => {
+    if (!cfg) return;
     const run = await game.startRun({ ...cfg, net: session, paint: 0x8f6a3d, startS: +(q.get('s') || 40) });
+    if (!run || game.run !== run || session.activeRunId !== cfg.runId) return;
     for (const m of pending.splice(0)) run.onNet(m);
     if (latestFast) { run.onFast(latestFast); latestFast = null; }
     session.sendJSON({ t: 'runReady' }); window.__run = run; window.__ready = true;
   };
   session.on({ run: (m) => { if (game.run) game.run.onNet(m); else pending.push(m); }, fast: (b) => { if (game.run) game.run.onFast(b); else latestFast = b; }, start: (cfg) => startAs(cfg) });
   if (q.get('devnet') === 'host') {
-    const code = await session.host(profile); window.__code = code;
     const role = q.get('role') || 'driver';
-    session.tp.onOpen = () => {
-      session.connected = true; session.tp.send({ t: 'hello', name: 'Host' });
+    session.me.name = 'Host';
+    let started = false;
+    const startWhenReady = () => {
+      if (started || !session.connected || !session.peerWallet || !session.other) return;
       session.me.role = role; session.me.ready = true;
-      setTimeout(() => { session.other = { name: 'Guest', role: role === 'driver' ? 'gunner' : 'driver', ready: true }; startAs(session.startRun({ seed: +(q.get('seed') || 7) })); }, 800);
+      session.other = { ...session.other, role: role === 'driver' ? 'gunner' : 'driver', ready: true };
+      // The real Session handshake validates protocol and wallet before it can
+      // start. No fixed timeout can safely assume a WAN hello has arrived.
+      const cfg = session.startRun({ seed: +(q.get('seed') || 7) });
+      if (!cfg) return;
+      started = true; startAs(cfg);
     };
+    session.on({ lobby: startWhenReady });
+    const opened = session.tp.onOpen;
+    session.tp.onOpen = () => {
+      opened(); startWhenReady();
+    };
+    const code = await session.host(profile); window.__code = code;
   } else await session.join(q.get('code'), profile);
 } else {
   const app = new App(game);

@@ -121,7 +121,7 @@ export class Ui {
     this.bgEl = stage.querySelector('.bg'); this.screensEl = stage.querySelector('.screens');
     this.toastsEl = stage.querySelector('.toasts'); this.modalEl = stage.querySelector('.modal-layer');
 
-    this.stack = []; this._modal = null; this._sound = opts.sound || null; this._dev = el.dataset.dev;
+    this.stack = []; this._modal = null; this._disposed = false; this._sound = opts.sound || null; this._dev = el.dataset.dev;
     this._blockUntil = 0; this._mmT = 0; this._lastHoverSnd = 0; this.k = 1;
     this.nav = new Nav(this);
     this._running = false; this._last = 0;
@@ -270,6 +270,7 @@ export class Ui {
 
   // ---------------------------------------------------------------- modal
   modal({ title = '', text = '', buttons = [{ label: 'OK' }], kind = 'info', dismiss = true } = {}) {
+    if (this._disposed) { const promise = Promise.resolve(null); promise.close = () => {}; return promise; }
     if (this._modal) this._closeModal(null, true);
     const el = document.createElement('div');
     el.className = `modal k-${kind}`;
@@ -280,37 +281,43 @@ export class Ui {
     const prevFocus = this.nav.cur;
     const m = this._modal = { el, buttons, dismiss, resolve, prevFocus };
     el.querySelectorAll('.mbtn').forEach((n) => n.addEventListener('click', () => {
-      const i = +n.dataset.i, b = buttons[i];
-      if (b.onClick) { try { b.onClick(); } catch (e) { console.error(e); } }
-      this._closeModal(b.id ?? i);
+      this._chooseModal(m, +n.dataset.i);
     }));
     this.nav.clear(); this._block(); this._refresh(); this.snd('menu_open');
     requestAnimationFrame(() => {
+      if (this._disposed || this._modal !== m) return;
       const first = buttons.findIndex((b) => b.kind === 'primary');
       this.nav.ensure(el.querySelectorAll('.mbtn')[first >= 0 ? first : 0]);
     });
-    promise.close = () => { if (this._modal === m) this._closeModal(null); };
+    promise.close = () => this._closeModal(null, false, m);
     return promise;
+  }
+  _chooseModal(m, i) {
+    const b = m.buttons[i];
+    if (!b || !this._closeModal(Object.hasOwn(b, 'id') ? b.id : i, false, m)) return;
+    // Close the selected dialog before its callback can create a replacement.
+    if (b.onClick) { try { b.onClick(); } catch (e) { console.error(e); } }
   }
   modalCancel() {
     const m = this._modal; if (!m) return false;
     if (!m.dismiss) return true;
     let i = m.buttons.findIndex((b) => b.cancel);
     if (i < 0 && m.buttons.length > 1) i = m.buttons.length - 1;
-    if (i >= 0) { const b = m.buttons[i]; if (b.onClick) { try { b.onClick(); } catch (e) { console.error(e); } } this._closeModal(b.id ?? i); } else this._closeModal(null);
+    if (i >= 0) this._chooseModal(m, i); else this._closeModal(null, false, m);
     return true;
   }
-  _closeModal(val, silent = false) {
-    const m = this._modal; if (!m) return;
+  _closeModal(val, silent = false, m = this._modal) {
+    if (!m || this._modal !== m) return false;
     this._modal = null; m.el.remove(); m.resolve(val);
     this.nav.clear();
     if (!silent) this.snd('menu_close');
     this._block(160); this._refresh();
-    requestAnimationFrame(() => { if (!this._modal) this.nav.ensure(m.prevFocus && m.prevFocus.isConnected ? m.prevFocus : undefined); });
+    requestAnimationFrame(() => { if (!this._disposed && !this._modal) this.nav.ensure(m.prevFocus && m.prevFocus.isConnected ? m.prevFocus : undefined); });
+    return true;
   }
   connectionLost(text = 'The other player left or the connection dropped.') {
     return this.modal({ title: 'CONNECTION LOST', text, kind: 'bad', dismiss: false, buttons: [{ label: 'OK', kind: 'primary' }] });
   }
 
-  dispose() { this._running = false; cancelAnimationFrame(this._raf); this._ro.disconnect(); this.el.remove(); }
+  dispose() { this._disposed = true; this._closeModal(null, true); this._clearStack(); this._running = false; cancelAnimationFrame(this._raf); this._ro.disconnect(); this.el.remove(); }
 }

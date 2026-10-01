@@ -4,10 +4,11 @@
 import { Transport } from './transport.js';
 import { normalizeProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from '../meta/profile.js';
 import { TRUCK_COLORS } from '../data/upgrades.js';
+import { NET_PROTOCOL, RUN_JSON_TYPES, validRunId, createRunHeader, encodeRunPacket, decodeRunPacket } from './run_packet.js';
 
 const ROLES = new Set(['driver', 'gunner']);
 const natural = (v) => Number.isFinite(v) ? Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.trunc(v))) : 0;
-const runId = (v) => typeof v === 'string' && v.length > 0 && v.length <= 128 ? v : null;
+const runId = (v) => validRunId(v) ? v : null;
 const walletOf = (p) => ({ playerId: p.campaignId, cash: natural(p.cash), totalCash: natural(p.totalCash), lastRunId: runId(p.coopLastRunId) });
 const readWallet = (v) => v && typeof v.playerId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(v.playerId)
   ? { playerId: v.playerId, cash: natural(v.cash), totalCash: natural(v.totalCash), lastRunId: runId(v.lastRunId) } : null;
@@ -23,19 +24,34 @@ export class Session {
     this.activeRunId = null;
     this._receivedCampaign = null; this._receivedRevision = -1; this._startedRunIds = new Set();
     this._runSeq = 0; this._receivedRunSeq = 0;
+    this._peerProtocol = null; this._protocolError = null;
     this.h = {}; // handlers: lobby, start, profile, run, fast, disconnect, results, error, buyDenied
     this.tp.onMessage = (m) => this._onMsg(m);
-    this.tp.onFast = (b) => this.h.fast && this.h.fast(b);
-    this.tp.onClose = () => { this.connected = false; this.activeRunId = null; this.peerWallet = null; this.h.disconnect && this.h.disconnect(); };
+    this.tp.onFast = (b) => {
+      if (this._peerProtocol !== NET_PROTOCOL) return;
+      const body = decodeRunPacket(this._fastHeader, b);
+      if (body) this.h.fast && this.h.fast(body);
+    };
+    this.tp.onClose = () => { this.connected = false; this.activeRunId = null; this.peerWallet = null; this._peerProtocol = null; if (!this._protocolError) this.h.disconnect && this.h.disconnect(); };
     this.tp.onError = (e) => this.h.error && this.h.error(e);
-    this.tp.onOpen = () => { this.connected = true; this.tp.send({ t: 'hello', name: this.me.name, campaign: this.profile?.campaignId, rev: this.profile?.revision, wallet: walletOf(this.personalProfile) }); if (this.isHost) this._broadcastLobby(); };
+    this.tp.onState = (status, details) => this.h.state && this.h.state(status, details);
+    this.tp.onOpen = () => { this.connected = true; this.tp.send({ t: 'hello', protocol: NET_PROTOCOL, name: this.me.name, campaign: this.profile?.campaignId, rev: this.profile?.revision, wallet: walletOf(this.personalProfile) }); if (this.isHost) this._broadcastLobby(); };
   }
   on(h) { Object.assign(this.h, h); return this; }
   get rtt() { return this.tp.rtt; }
+  get runSeq() { return this.isHost ? this._runSeq : this._receivedRunSeq; }
+  get status() { return this.tp.status ?? (this.connected ? 'connected' : 'waiting'); }
+  get signallingState() { return this.tp.signallingState ?? 'unknown'; }
+  get protocolError() { return this._protocolError; }
+  get activeRunId() { return this._activeRunId; }
+  set activeRunId(id) {
+    this._activeRunId = runId(id);
+    this._fastHeader = createRunHeader(this._activeRunId);
+  }
 
-  async host(profile) { this.isHost = true; this.peerWallet = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); this.code = await this.tp.host(); return this.code; }
-  async join(code, profile) { this.isHost = false; this.peerWallet = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); await this.tp.join(code); this.code = code.toUpperCase(); }
-  leave() { this.tp.destroy(); this.connected = false; this.other = null; this.me.ready = false; this.activeRunId = null; }
+  async host(profile) { this.isHost = true; this.peerWallet = null; this._peerProtocol = null; this._protocolError = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); this.code = await this.tp.host(); return this.code; }
+  async join(code, profile) { this.isHost = false; this.peerWallet = null; this._peerProtocol = null; this._protocolError = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); await this.tp.join(code); this.code = code.toUpperCase(); }
+  leave() { this.tp.destroy(); this.connected = false; this.other = null; this.me.ready = false; this.activeRunId = null; this._peerProtocol = null; }
 
   // ---- lobby
   setRole(role) {
@@ -52,7 +68,7 @@ export class Session {
     this.tp.send({ t: 'lobby', host: { ...this.me }, guest: this.other ? { ...this.other } : null });
     this.h.lobby && this.h.lobby(this.lobby());
   }
-  canStart() { return !!(this.isHost && this.connected && this.peerWallet && this.other && ROLES.has(this.me.role) && ROLES.has(this.other.role) && this.me.role !== this.other.role && this.me.ready && this.other.ready); }
+  canStart() { return !!(this.isHost && this.connected && this._peerProtocol === NET_PROTOCOL && this.peerWallet && this.other && ROLES.has(this.me.role) && ROLES.has(this.other.role) && this.me.role !== this.other.role && this.me.ready && this.other.ready); }
 
   /** Host: begin a run. Returns the start config (also sent to the guest). */
   startRun(extra = {}) {
@@ -129,13 +145,34 @@ export class Session {
     return true;
   }
 
-  sendJSON(m, unreliableOK) { this.tp.send(m); }
-  sendFast(b) { this.tp.sendFast(b); }
+  sendJSON(m, unreliableOK) {
+    if (RUN_JSON_TYPES.has(m?.t)) {
+      if (!this.activeRunId) return false;
+      return this.tp.send({ ...m, runId: this.activeRunId });
+    }
+    return this.tp.send(m);
+  }
+  sendFast(b) {
+    const packet = encodeRunPacket(this._fastHeader, b);
+    return packet ? this.tp.sendFast(packet) : false;
+  }
 
   _onMsg(m) {
     if (!m || typeof m !== 'object' || typeof m.t !== 'string') return;
+    if (m.t !== 'hello' && this._peerProtocol !== NET_PROTOCOL) return;
+    if (RUN_JSON_TYPES.has(m.t) && (!this.activeRunId || m.runId !== this.activeRunId)) return;
     switch (m.t) {
       case 'hello':
+        if (m.protocol !== NET_PROTOCOL) {
+          this._peerProtocol = null; this.connected = false; this.activeRunId = null;
+          this.other = null; this.peerWallet = null; this.me.ready = false;
+          this._protocolError = { type: 'protocol-mismatch', message: 'Your game versions differ. Both players should reload ride.maxyaport.com.' };
+          this.h.error && this.h.error(this._protocolError);
+          this.tp.closeConnection?.();
+          this.h.lobby && this.h.lobby(this.lobby());
+          return;
+        }
+        this._peerProtocol = NET_PROTOCOL; this._protocolError = null;
         this.other = { name: m.name || 'Player', role: this.other?.role ?? null, ready: false };
         if (this.isHost) {
           // Establish once from the connected person's save, never from a buy

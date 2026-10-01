@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE, UPGRADE_BY_ID, weaponTrackCost } from '../src/data/upgrades.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { saveProfile, loadProfile } from '../src/meta/profile.js';
+import { NET_PROTOCOL } from '../src/net/run_packet.js';
 const { Session } = await import('../src/net/session.js');
 
 const storage = () => {
@@ -75,7 +76,7 @@ test('a rich partner cannot fund an unaffordable or forged guest request and rep
   guest.tp.send({ t: 'buy', kind: 'weapon', id: 'smg', payer: 'host', cash: 999999, wallet: { cash: 999999, playerId: 'host-person' } });
   await flush();
   assert.equal(denied, 1); assert.equal(host.profile.cash, 100000); assert.equal(guest.profile.cash, 0); assert.equal(host.profile.weapons.smg, undefined);
-  guest.tp.send({ t: 'hello', name: 'Guest', wallet: { playerId: 'guest-person', cash: 999999, totalCash: 999999 } }); await flush();
+  guest.tp.send({ t: 'hello', protocol: NET_PROTOCOL, name: 'Guest', wallet: { playerId: 'guest-person', cash: 999999, totalCash: 999999 } }); await flush();
   guestBuy('upgrade', 'engine'); await flush();
   assert.equal(denied, 2); assert.equal(host.peerWallet.cash, 0); assert.equal(host.profile.cash, 100000); assert.equal(host.profile.upgrades.engine, undefined);
 });
@@ -138,7 +139,7 @@ test('leaving and reconnecting resumes each saved wallet without adopting the ho
 
 test('invalid wallet handshakes cannot start a split run or debit the host', async () => {
   const { host, guest } = await pair(); host.peerWallet = null;
-  host._onMsg({ t: 'hello', name: 'Old client', wallet: { playerId: '', cash: Infinity } });
+  host._onMsg({ t: 'hello', protocol: NET_PROTOCOL, name: 'Old client', wallet: { playerId: '', cash: Infinity } });
   host.me.role = 'driver'; host.other.role = 'gunner'; host.me.ready = host.other.ready = true;
   assert.equal(host.canStart(), false); assert.equal(host.startRun(), null);
   host._onMsg({ t: 'buy', kind: 'weapon', id: 'smg' }); await flush();
@@ -164,7 +165,7 @@ test('a new physical connection binds its own wallet rather than the prior guest
   const previous = host.peerWallet; assert.equal(previous.cash, 5000 - WEAPONS.smg.cost);
   host.tp.onClose(); assert.equal(host.peerWallet, null); assert.equal(host.activeRunId, null);
   host.tp.onOpen();
-  host._onMsg({ t: 'hello', name: 'A different person', wallet: { playerId: 'third-person', cash: 1234, totalCash: 4000 } });
+  host._onMsg({ t: 'hello', protocol: NET_PROTOCOL, name: 'A different person', wallet: { playerId: 'third-person', cash: 1234, totalCash: 4000 } });
   assert.equal(host.peerWallet.playerId, 'third-person'); assert.equal(host.peerWallet.cash, 1234);
   assert.notEqual(host.peerWallet, previous); assert.equal(host.profile.cash, 7000);
   guest.leave(); host.leave(); await flush();
@@ -184,7 +185,7 @@ test('an unseen older start cannot replace a later run even when campaign revisi
 test('a valid peer hello received before the local open callback keeps its wallet', async () => {
   const store = storage(), session = new Session(new Memory(store));
   const profile = DEFAULT_PROFILE(); profile.cash = 7000; await session.host(profile);
-  session._onMsg({ t: 'hello', name: 'Guest', wallet: { playerId: 'guest-person', cash: 1234, totalCash: 5000 } });
+  session._onMsg({ t: 'hello', protocol: NET_PROTOCOL, name: 'Guest', wallet: { playerId: 'guest-person', cash: 1234, totalCash: 5000 } });
   const wallet = session.peerWallet; session.tp.onOpen();
   assert.equal(session.peerWallet, wallet); assert.equal(session.peerWallet.cash, 1234); assert.equal(session.profile.cash, 7000);
 });

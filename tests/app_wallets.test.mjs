@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { DEFAULT_PROFILE } from '../src/data/upgrades.js';
+import { NET_PROTOCOL } from '../src/net/run_packet.js';
 const css = registerHooks({ load(url, context, nextLoad) {
   if (/\.css(?:\?.*)?$/.test(url)) return { format: 'module', source: 'export default "";', shortCircuit: true };
   return nextLoad(url, context);
@@ -20,10 +21,11 @@ function fixture() {
     profile: initial, personalProfile: personal, screen: 'run', mode: 'coop', session: null,
     input: { releaseLock() { releases++; } }, sound() {},
     game: { run, paused: false, hud: { setVisible() {} }, audio: { music: { setState() {} } } },
-    ui: { settings: {}, showResults(value, profile) { shown.push({ value, profile }); } },
+    ui: { settings: {}, hideAll() {}, showResults(value, profile) { shown.push({ value, profile }); } },
   });
   const session = app._newSession(); session.isHost = false; session.personalProfile = personal; session.profile = initial;
   session.wallet = { playerId: personal.campaignId, cash: 2000, totalCash: 0, lastRunId: null };
+  session._onMsg({ t: 'hello', protocol: NET_PROTOCOL, name: 'Host', wallet: { playerId: initial.campaignId, cash: initial.cash, totalCash: 0, lastRunId: null } });
   const paid = () => {
     const p = { ...initial, revision: 1, runs: 1, cash: 7400, best: { distance: 800, furthestS: 840, time: 20, kills: 3 } };
     session._onMsg({ t: 'profile', p, wallet: { playerId: personal.campaignId, cash: 2400, totalCash: 400, lastRunId: summary.id } });
