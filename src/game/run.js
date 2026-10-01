@@ -308,7 +308,7 @@ export class Run {
     }
     // The gunner's projection must precede its viewmodel. The driver's cockpit
     // eye instead queries the current crew/head pose, so resolve it after views.
-    const cameraBeforeViews = this.role !== 'driver';
+    const cameraBeforeViews = this.role !== 'driver' || isDefeated(this);
     if (cameraBeforeViews) this._camera(dt, cmds, pst);
     else {
       // Choose the driver's mode before crew visibility/cutaways, while keeping
@@ -546,26 +546,53 @@ export class Run {
     const co = window.__camOverride; // dev: {offset:[x,y,z] in truck frame, look:[x,y,z] in truck frame}
     if (co) { const q = pst.quat; g.camera.position.set(...co.offset).applyQuaternion(q).add(pst.pos); _v.set(...co.look).applyQuaternion(q).add(pst.pos); g.camera.lookAt(_v); if (co.fov) { g.camera.fov = co.fov; g.camera.updateProjectionMatrix(); } return; }
     if (defeated) {
-      // pulled out of your own eyes: the first-person pose at the moment of death blends into a slow orbit around the wreck
+      // Terminal cameras start outside the restored cabin, without altering healthy FP.
       if (!this.deathFrom) {
-        this.deathFrom = { pos: g.camera.position.clone(), quat: g.camera.quaternion.clone(), fov: g.camera.fov };
-        _f.set(0, 0, 1).applyQuaternion(pst.quat); this.deathYaw = Math.atan2(-_f.x, -_f.z) + 0.6; // start behind-left of the truck
+        _f.set(0, 0, 1).applyQuaternion(pst.quat); this.deathYaw = Math.atan2(-_f.x, -_f.z) + 0.6;
+        const offset = g.camera.position.clone().sub(pst.pos);
+        const minRadius = Math.min(8, Math.max(4, Math.hypot(pst.spec.width, pst.spec.length) * 0.5 + 1.2));
+        const radius = Math.hypot(offset.x, offset.z);
+        const externalCut = radius < minRadius || offset.y < 2.6 || offset.y > 4.6 || radius > 13;
+        if (radius < minRadius || offset.y < 2.6) offset.set(Math.sin(this.deathYaw) * minRadius, clamp(offset.y, 2.6, 4.6), Math.cos(this.deathYaw) * minRadius);
+        else { const r0 = Math.min(13, radius); offset.x *= r0 / radius; offset.z *= r0 / radius; offset.y = clamp(offset.y, 2.6, 4.6); }
+        this.deathFrom = { offset, quat: g.camera.quaternion.clone(), fov: g.camera.fov, externalCut, minRadius, lastOffset: offset.clone(), lastClear: false };
       }
       this.deathCamT = (this.deathCamT || 0) + dt;
       this.cinematic = true;
       const a = this.deathYaw + this.deathCamT * 0.3;
-      // a low, tight orbit (never high enough to see past the terrain streaming ring), pulled in front of obstructions
+      const k = smooth01(this.deathCamT / 1.4), aimK = smooth01(this.deathCamT / 0.25);
+      // Retain the authored position/FOV duration; aim converges separately before 0.35s.
       const r = Math.min(13, 8 + this.deathCamT * 1.0), hgt = Math.min(4.6, 2.6 + this.deathCamT * 0.35);
-      g.camera.position.set(pst.pos.x + Math.sin(a) * r, pst.pos.y + hgt, pst.pos.z + Math.cos(a) * r);
-      { const from = _t2.set(pst.pos.x, pst.pos.y + 1.2, pst.pos.z), dir = _v.copy(g.camera.position).sub(from); const len = dir.length(); dir.multiplyScalar(1 / len);
-        const hit = this._worldRay(from, dir, len); if (hit && hit.t < len) g.camera.position.copy(from).addScaledVector(dir, Math.max(2.5, hit.t - 0.6));
-        const gy = this._groundY(g.camera.position.x, g.camera.position.y + 20, g.camera.position.z); if (gy !== null && g.camera.position.y < gy + 1.2) g.camera.position.y = gy + 1.2; }
-      g.camera.lookAt(pst.pos.x, pst.pos.y + 0.8, pst.pos.z);
-      const k = smooth01(this.deathCamT / 1.4);
-      if (k < 1) {
-        g.camera.position.lerpVectors(this.deathFrom.pos, g.camera.position, k);
-        g.camera.quaternion.slerpQuaternions(this.deathFrom.quat, g.camera.quaternion, k);
+      _v.set(Math.sin(a) * r, hgt, Math.cos(a) * r);
+      g.camera.position.copy(this.deathFrom.offset).lerp(_v, k).add(pst.pos);
+      // Preserve a clear hemisphere and revalidate the last translated safe point before a large side jump.
+      _deathDesired.copy(g.camera.position);
+      const preferred = this.deathSide ?? 0;
+      const radial = Math.hypot(_deathDesired.x - pst.pos.x, _deathDesired.z - pst.pos.z);
+      let bestRadius = -1, selected = false;
+      this.deathCameraHeld = false;
+      for (let i = 0; i < 4; i++) {
+        const side = (preferred + i) % 4;
+        g.camera.position.copy(_deathDesired);
+        if (side === 1) { g.camera.position.x = 2 * pst.pos.x - g.camera.position.x; g.camera.position.z = 2 * pst.pos.z - g.camera.position.z; }
+        else if (side >= 2) {
+          const a0 = this.deathYaw - 0.6 + (side === 3 ? Math.PI : 0), r0 = Math.max(this.deathFrom.minRadius, radial);
+          g.camera.position.x = pst.pos.x + Math.sin(a0) * r0; g.camera.position.z = pst.pos.z + Math.cos(a0) * r0;
+        }
+        const floorClear = limitDeathCameraPosition(this, pst, g.camera.position);
+        const exteriorRadius = Math.hypot(g.camera.position.x - pst.pos.x, g.camera.position.z - pst.pos.z);
+        if (exteriorRadius > bestRadius) { bestRadius = exteriorRadius; _deathBest.copy(g.camera.position); }
+        if (floorClear && deathCameraExterior(this, pst, g.camera.position) && boundDeathCameraMotion(this, pst, g.camera.position, dt)) { this.deathSide = side; selected = true; break; }
+        if (i === 0 && this.deathFrom.lastClear) {
+          g.camera.position.copy(this.deathFrom.lastOffset).add(pst.pos);
+          if (limitDeathCameraPosition(this, pst, g.camera.position) && deathCameraExterior(this, pst, g.camera.position) && boundDeathCameraMotion(this, pst, g.camera.position, dt)) { this.deathCameraHeld = true; selected = true; break; }
+        }
       }
+      this.deathCameraClear = selected;
+      if (selected) { this.deathFrom.lastOffset.copy(g.camera.position).sub(pst.pos); this.deathFrom.lastClear = true; }
+      else g.camera.position.copy(_deathBest); // No reachable clear exterior point found; explicit unresolved geometry.
+      g.camera.lookAt(pst.pos.x, pst.pos.y + 0.8, pst.pos.z);
+      if (aimK < 1) g.camera.quaternion.slerp(this.deathFrom.quat, 1 - aimK);
       const fov = lerp(this.deathFrom.fov, 60, k); if (Math.abs(g.camera.fov - fov) > 0.05) { g.camera.fov = fov; g.camera.updateProjectionMatrix(); }
       if (g.camera.near !== 0.15) { g.camera.near = 0.15; g.camera.updateProjectionMatrix(); }
       this.introOutside = true; this.cockpit?.setActive(false); // show our own crew/truck from outside
@@ -796,6 +823,38 @@ export class Run {
 }
 
 const _f = new V3(), _v = new V3(), _t2 = new V3(), _t3 = new V3(), _aiDir = new V3(), _q2 = new THREE.Quaternion();
+const _deathDesired = new V3(), _deathBest = new V3(), _deathStep = new V3(), _deathDelta = new V3();
+function deathCameraExterior(run, pst, position) {
+  return Math.hypot(position.x - pst.pos.x, position.z - pst.pos.z) >= run.deathFrom.minRadius - 0.05;
+}
+function limitDeathCameraPosition(run, pst, position) {
+  // Ray-limit first, including the clearance margin beyond the point, before a floor query.
+  // This keeps an overhead roof from becoming ground and activates pull-in continuously.
+  for (let i = 0; i < 2; i++) {
+    const from = _t2.set(pst.pos.x, pst.pos.y + 0.8, pst.pos.z), dir = _v.copy(position).sub(from); const len = dir.length();
+    if (len <= 1e-6) return false;
+    dir.multiplyScalar(1 / len);
+    const hit = run._worldRay(from, dir, len + 0.6);
+    if (hit && hit.t < len + 0.6) position.copy(from).addScaledVector(dir, Math.max(0, Math.min(len, hit.t - 0.6)));
+    const floorOriginY = Math.max(pst.pos.y + 0.8, position.y);
+    const gy = run._groundY(position.x, floorOriginY - 4, position.z);
+    if (gy === null || position.y >= gy + 1.2 - 1e-3) return true;
+    position.y = gy + 1.2;
+  }
+  return false; // Floor and line-of-sight did not jointly settle within the bounded passes.
+}
+function boundDeathCameraMotion(run, pst, position, dt) {
+  if (!run.deathFrom.lastClear) return true;
+  const maxStep = Math.min(0.45, Math.max(0, dt) * 15);
+  _deathStep.copy(position).sub(pst.pos).sub(run.deathFrom.lastOffset);
+  const distance = _deathStep.length();
+  if (distance <= maxStep + 1e-6) return true;
+  _deathStep.multiplyScalar(maxStep / distance).add(run.deathFrom.lastOffset).add(pst.pos);
+  if (!limitDeathCameraPosition(run, pst, _deathStep) || !deathCameraExterior(run, pst, _deathStep)) return false;
+  if (_deathDelta.copy(_deathStep).sub(pst.pos).sub(run.deathFrom.lastOffset).length() > maxStep + 1e-4) return false;
+  position.copy(_deathStep); return true;
+}
+
 function g_kill(run, e) {
   // cash + style: crash kills and multi-kills pay more
   const base = KILL_CASH[e.spec] || 60;
