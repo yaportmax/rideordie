@@ -148,11 +148,11 @@ export class GhostCar {
   constructor(st) {
     this.id = st.id; this.spec = st.spec; this.kind = st.kind; this.zones = buildZones(st.spec);
     this.crew = { driver: { alive: true } }; if (st.spec.seats.gunner) this.crew.gunner = { alive: true, crouch: false, x: 0, z: 0 }; if (st.spec.seats.gunner2) this.crew.gunner2 = { alive: true };
-    this.veh = { pos: st.pos, quat: st.quat, restComHeight: st.ride.restComHeight, vel: st.vel };
+    this.veh = { pos: st.pos, quat: st.quat, restComHeight: st.ride.restComHeight, vel: st.vel, poseRevision: st.poseRevision || 0 };
     this.exploded = false; this.st = st;
   }
   sync(st) {
-    this.st = st; this.veh.pos = st.pos; this.veh.quat = st.quat; this.veh.vel = st.vel; this.exploded = st.exploded;
+    this.st = st; this.veh.pos = st.pos; this.veh.quat = st.quat; this.veh.vel = st.vel; this.veh.poseRevision = st.poseRevision || 0; this.exploded = st.exploded;
     this.crew.driver.alive = st.driverAlive;
     if (this.crew.gunner) { this.crew.gunner.alive = st.gunnerAlive; this.crew.gunner.crouch = st.gunner.crouch; this.crew.gunner.x = st.gunner.x; this.crew.gunner.z = st.gunner.z; }
     if (this.crew.gunner2) this.crew.gunner2.alive = st.gunner2Alive;

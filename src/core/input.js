@@ -128,7 +128,7 @@ export class Input {
       c.throttle = Math.max(c.throttle, this.btnV(7)); c.brake = Math.max(c.brake, this.btnV(6));
       c.handbrake = c.handbrake || this.btn(0); c.nitro = c.nitro || this.btn(5); c.reset = c.reset || this.btn(3);
       c.special1 = c.special1 || this.edge(2); c.special2 = c.special2 || this.edge(1);
-      c.cameraToggle = c.cameraToggle || this.edge(10); c.lookBack = c.lookBack || this.btn(4); c.medkit = c.medkit || this.edge(13);
+      c.cameraToggle = c.cameraToggle || this.edge(11); c.lookBack = c.lookBack || this.btn(4); c.medkit = c.medkit || this.edge(13);
       c.lookX = applyDead(this.pad.axes[2] || 0); c.lookY = applyDead(this.pad.axes[3] || 0);
     }
     return c;

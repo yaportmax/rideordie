@@ -13,14 +13,14 @@ const clamp16 = (v) => (v > 32767 ? 32767 : v < -32768 ? -32768 : v | 0);
 export function encodeSnapshot(sim, tick, hud, buf) {
   const cars = [...sim.cars.values()];
   let size = 64;
-  for (const c of cars) size += 62 + c.veh.wheels.length * 2;
+  for (const c of cars) size += 64 + c.veh.wheels.length * 2;
   const p = sim.projectiles;
   const nProj = p.rockets.length + p.grenades.length;
   size += 2 + nProj * 14 + 40 + PART_NAMES.length;
   const ab = buf && buf.byteLength >= size ? buf : new ArrayBuffer(size + 256);
   const dv = new DataView(ab);
   let o = 0;
-  dv.setUint8(o, 1); o += 1;
+  dv.setUint8(o, 2); o += 1;
   dv.setUint32(o, tick, true); o += 4;
   dv.setFloat32(o, sim.time, true); o += 4;
   dv.setFloat32(o, hud.dist || 0, true); o += 4;
@@ -48,6 +48,7 @@ export function encodeSnapshot(sim, tick, hud, buf) {
     if (v.brakeApplied > 0.1) fl |= F.braking; if (v.boosting) fl |= F.boosting; if (v.drifting) fl |= F.drifting; if (v.grounded === 0 && v.airTime > 0.12) fl |= F.airborne;
     if (v.wheels.some((w) => w.flat)) fl |= F.flatAny;
     dv.setUint16(o, fl, true); o += 2;
+    dv.setUint16(o, v.poseRevision || 0, true); o += 2;
     dv.setFloat32(o, v.pos.x, true); dv.setFloat32(o + 4, v.pos.y, true); dv.setFloat32(o + 8, v.pos.z, true); o += 12;
     dv.setInt16(o, clamp16(q.x * QN), true); dv.setInt16(o + 2, clamp16(q.y * QN), true); dv.setInt16(o + 4, clamp16(q.z * QN), true); dv.setInt16(o + 6, clamp16(q.w * QN), true); o += 8;
     dv.setInt16(o, clamp16(v.vel.x * 64), true); dv.setInt16(o + 2, clamp16(v.vel.y * 64), true); dv.setInt16(o + 4, clamp16(v.vel.z * 64), true); o += 6;
@@ -92,7 +93,7 @@ export function decodeSnapshot(ab) {
 
 function readSnapshot(dv) {
   let o = 0;
-  if (dv.getUint8(o) !== 1) return null; o += 1;
+  const version = dv.getUint8(o); if (version !== 1 && version !== 2) return null; o += 1;
   const s = { cars: [], proj: [] };
   s.tick = dv.getUint32(o, true); o += 4; s.time = dv.getFloat32(o, true); o += 4; s.dist = dv.getFloat32(o, true); o += 4;
   s.state = ['countdown', 'run', 'dying', 'over'][dv.getUint8(o)]; o += 1;
@@ -106,6 +107,7 @@ function readSnapshot(dv) {
     c.id = dv.getUint16(o, true); o += 2; c.spec = SPEC_IDS[dv.getUint8(o)]; c.kind = dv.getUint8(o + 1) === 0 ? 'player' : 'enemy'; o += 2;
     if (!c.spec) return null;
     c.fl = dv.getUint16(o, true); o += 2;
+    c.poseRevision = version >= 2 ? dv.getUint16(o, true) : 0; if (version >= 2) o += 2;
     c.x = dv.getFloat32(o, true); c.y = dv.getFloat32(o + 4, true); c.z = dv.getFloat32(o + 8, true); o += 12;
     if (![c.x, c.y, c.z].every(Number.isFinite)) return null;
     c.qx = dv.getInt16(o, true) / QN; c.qy = dv.getInt16(o + 2, true) / QN; c.qz = dv.getInt16(o + 4, true) / QN; c.qw = dv.getInt16(o + 6, true) / QN; o += 8;
@@ -143,19 +145,38 @@ function readSnapshot(dv) {
   return o === dv.byteLength ? s : null;
 }
 
+// Explicit revisions survive loss of the first recovery packet. The position
+// check also protects older/default-revision packets from traversing a void;
+// velocity and a generous acceleration allowance retain real jumps/crashes.
+function poseDiscontinuity(a, b, dt) {
+  if (a.poseRevision !== b.poseRevision || a.spec !== b.spec || a.kind !== b.kind) return true;
+  const travel = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const speed = Math.max(Math.hypot(a.vx, a.vy, a.vz), Math.hypot(b.vx, b.vy, b.vz));
+  return travel > 2 + speed * dt + 30 * dt * dt;
+}
+
 /** Client-side buffer: interpolates CarStates ~100 ms behind the newest snapshot. */
 export class SnapshotBuffer {
-  constructor() { this.snaps = []; this.states = new Map(); this.delay = 0.1; this.clockOffset = null; this.renderTime = null; this.latest = null; this._q1 = new THREE.Quaternion(); this._q2 = new THREE.Quaternion(); this._qE = new THREE.Quaternion(); this.jitter = 0; this.lastArrival = 0; }
+  constructor() { this.snaps = []; this.states = new Map(); this.delay = 0.1; this.clockOffset = null; this.renderTime = null; this.latest = null; this._q1 = new THREE.Quaternion(); this._q2 = new THREE.Quaternion(); this._qE = new THREE.Quaternion(); this._sampleSerial = 0; this.jitter = 0; this.lastArrival = 0; this.lastSample = null; }
   push(snap, now) {
     // The unordered channel can deliver an older frame after a newer one. Never rewind its clock or state.
-    if (!snap || !Number.isFinite(now) || !Number.isFinite(snap.time)) return false;
+    if (!snap || !Number.isFinite(now) || !Number.isFinite(snap.time) || !Array.isArray(snap.cars)) return false;
     if (this.latest) { const delta = (snap.tick - this.latest.tick) >>> 0; if (delta === 0 || delta > 0x7fffffff || snap.time < this.latest.time) return false; }
+    // Index each received packet once. Rendering only looks up these entries;
+    // no per-frame Map/Set rebuilding or per-car scratch allocation is needed.
+    snap.carsById = new Map(); for (const car of snap.cars) snap.carsById.set(car.id, car);
     snap.arrival = now;
     if (this.latest) { const dt = now - this.lastArrival, expect = snap.time - this.latest.time; this.jitter = this.jitter * 0.95 + Math.abs(dt - expect) * 0.05; }
     this.lastArrival = now; this.latest = snap;
     if (this.clockOffset === null) this.clockOffset = now - snap.time; // simTime -> local clock
     else this.clockOffset = (now - snap.time) * 0.1 + this.clockOffset * 0.9; // track slow-motion as well as network clock drift
-    this.snaps.push(snap); if (this.snaps.length > 12) this.snaps.shift();
+    this.snaps.push(snap);
+    if (this.snaps.length > 12) {
+      // During bounded outage catch-up retain both ends of the active bracket.
+      // Dropping its old endpoint would itself force a packet-return jump.
+      if (this.snaps[1].time <= (this.renderTime ?? Infinity)) this.snaps.shift();
+      else this.snaps.splice(2, 1);
+    }
     this.delay = 0.075 + Math.min(0.12, this.jitter * 2.5);
     return true;
   }
@@ -163,46 +184,54 @@ export class SnapshotBuffer {
   sample(now) {
     const snaps = this.snaps; if (!snaps.length || !Number.isFinite(now)) return null;
     const target = now - this.clockOffset - this.delay;
-    // Offset/jitter changes may hold the pose, but never replay an earlier sim
-    // time or predict beyond the same 100ms horizon used for vehicle motion.
-    // Authoritative packet-return corrections/teleports remain separate.
-    const rt = this.renderTime = Math.min(snaps[snaps.length - 1].time + 0.1, Math.max(this.renderTime ?? target, target));
+    const previous = this.renderTime, elapsed = this.lastSample === null ? 0 : Math.max(0, now - this.lastSample);
+    this.lastSample = Math.max(this.lastSample ?? now, now);
+    const newestTime = snaps[snaps.length - 1].time;
+    // A short outage resumes at at most 1.25x receive-clock speed. This accepts
+    // transient extra render delay instead of a many-meter one-frame correction.
+    // After a genuinely stale stream, rebase rather than traverse obsolete road.
+    let cursor = previous === null ? target : Math.max(previous, Math.min(target, previous + elapsed * 1.25));
+    if (previous !== null && newestTime - previous > 1) cursor = newestTime;
+    const rt = this.renderTime = Math.min(newestTime + 0.1, cursor);
     let a = snaps[0], b = a;
     for (let i = 1; i < snaps.length; i++) { if (snaps[i].time > rt) { b = snaps[i]; break; } a = b = snaps[i]; }
     let t = b.time > a.time ? (rt - a.time) / (b.time - a.time) : 1;
     const dtE = Math.min(0.1, Math.max(0, rt - b.time));
     t = Math.max(0, Math.min(1, t));
-    const seen = new Set();
-    const bm = new Map(b.cars.map((c) => [c.id, c]));
+    const seen = this._sampleSerial = (this._sampleSerial + 1) >>> 0, bm = b.carsById;
     for (const ca of (t >= 1 ? b.cars : a.cars)) {
       const cb = bm.get(ca.id) || ca;
       let st = this.states.get(ca.id);
       if (!st || st.specId !== ca.spec) { st = makeCarState(ca.id, ca.spec, ca.kind); this.states.set(ca.id, st); }
-      seen.add(ca.id);
-      st.pos.set(ca.x + (cb.x - ca.x) * t + cb.vx * dtE, ca.y + (cb.y - ca.y) * t + cb.vy * dtE, ca.z + (cb.z - ca.z) * t + cb.vz * dtE);
-      this._q1.set(ca.qx, ca.qy, ca.qz, ca.qw).normalize(); this._q2.set(cb.qx, cb.qy, cb.qz, cb.qw).normalize();
-      st.quat.slerpQuaternions(this._q1, this._q2, t);
-      if (dtE > 0) {
-        const omega = Math.hypot(cb.wx, cb.wy, cb.wz);
+      st._sampleSerial = seen;
+      const discontinuity = ca !== cb && poseDiscontinuity(ca, cb, b.time - a.time);
+      const blend = discontinuity ? 0 : t, pose = discontinuity ? ca : cb;
+      const predict = discontinuity ? Math.min(0.1, Math.max(0, rt - a.time)) : dtE;
+      st.pos.set(ca.x + (pose.x - ca.x) * blend + pose.vx * predict, ca.y + (pose.y - ca.y) * blend + pose.vy * predict, ca.z + (pose.z - ca.z) * blend + pose.vz * predict);
+      st.poseRevision = pose.poseRevision;
+      this._q1.set(ca.qx, ca.qy, ca.qz, ca.qw).normalize(); this._q2.set(pose.qx, pose.qy, pose.qz, pose.qw).normalize();
+      st.quat.slerpQuaternions(this._q1, this._q2, blend);
+      if (predict > 0) {
+        const omega = Math.hypot(pose.wx, pose.wy, pose.wz);
         if (omega > 0) {
-          const halfAngle = omega * dtE * 0.5, k = Math.sin(halfAngle) / omega;
-          this._qE.set(cb.wx * k, cb.wy * k, cb.wz * k, Math.cos(halfAngle));
+          const halfAngle = omega * predict * 0.5, k = Math.sin(halfAngle) / omega;
+          this._qE.set(pose.wx * k, pose.wy * k, pose.wz * k, Math.cos(halfAngle));
           st.quat.premultiply(this._qE).normalize(); // Rapier angular velocity is world-space.
         }
       }
-      st.vel.set(ca.vx + (cb.vx - ca.vx) * t, ca.vy + (cb.vy - ca.vy) * t, ca.vz + (cb.vz - ca.vz) * t);
-      st.steer = ca.steer + (cb.steer - ca.steer) * t;
-      for (let w = 0; w < st.nWheels && w < ca.L.length && w < cb.L.length; w++) { st.L[w] = ca.L[w] + (cb.L[w] - ca.L[w]) * t; st.slip[w] = ca.slip[w]; st.grounded[w] = ca.gr[w]; }
-      const fl = t > 0.5 ? cb.fl : ca.fl;
+      st.vel.set(ca.vx + (pose.vx - ca.vx) * blend, ca.vy + (pose.vy - ca.vy) * blend, ca.vz + (pose.vz - ca.vz) * blend);
+      st.steer = ca.steer + (pose.steer - ca.steer) * blend;
+      for (let w = 0; w < st.nWheels && w < ca.L.length && w < pose.L.length; w++) { st.L[w] = ca.L[w] + (pose.L[w] - ca.L[w]) * blend; st.slip[w] = ca.slip[w]; st.grounded[w] = ca.gr[w]; }
+      const fl = blend > 0.5 ? pose.fl : ca.fl;
       st.dead = !!(fl & F.dead); st.exploded = !!(fl & F.exploded); st.burning = !!(fl & F.burning); st.smoking = !!(fl & F.smoking);
       st.driverAlive = !!(fl & F.driverAlive); st.gunnerAlive = !!(fl & F.gunnerAlive); st.gunner2Alive = !!(fl & F.gunner2Alive);
       st.braking = !!(fl & F.braking); st.boosting = !!(fl & F.boosting); st.drifting = !!(fl & F.drifting); st.airborne = !!(fl & F.airborne);
-      st.hp01 = cb.hp01; st.rpm01 = ca.rpm01 + (cb.rpm01 - ca.rpm01) * t; st.engineHp01 = cb.eng01; st.speed = st.vel.length();
+      st.hp01 = cb.hp01; st.rpm01 = ca.rpm01 + (pose.rpm01 - ca.rpm01) * blend; st.engineHp01 = cb.eng01; st.speed = st.vel.length();
       st.gunner.yaw = cb.gyaw; st.gunner.pitch = cb.gpitch; st.gunner.fire = cb.gfire; st.gunner.crouch = cb.gcrouch; st.gunner.ads = cb.gads; st.gunner.reloading = cb.greload; st.gunner.weapon = cb.gweapon; st.gunner.x = cb.gx; st.gunner.z = cb.gz;
       st.gunner2.yaw = cb.g2yaw; st.gunner2.pitch = cb.g2pitch; st.gunner2.fire = cb.g2fire;
       st.gunName = GUNS[cb.tagIdx - 1] || null; st.elite = cb.elite; st.intent = cb.intent;
     }
-    for (const id of [...this.states.keys()]) if (!seen.has(id)) this.states.delete(id);
+    for (const id of this.states.keys()) if (this.states.get(id)._sampleSerial !== seen) this.states.delete(id);
     if (b.boss) {
       const ba = a.boss || b.boss, bb = b.boss;
       const st = this.boss || (this.boss = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), vel: new THREE.Vector3(), v: 0, alive: {}, phase: 1, dead: false, exploded: false });

@@ -1,6 +1,6 @@
 // Each life uses one cached full identifier. Late packets from a prior life
 // must be rejected before they reach startup queues or the snapshot clock.
-export const NET_PROTOCOL = 2;
+export const NET_PROTOCOL = 3;
 export const RUN_JSON_TYPES = new Set([
   'runReady', 'go', 'g', 'input', 'events', 'feed', 'hit', 'rocket',
   'grenade', 'shotfx', 'medkit', 'summary', 'runOver', 'results', 'abort',

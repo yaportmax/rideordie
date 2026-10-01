@@ -10,7 +10,7 @@
   "variations": "files list one file per variation; pick randomly, never same twice in a row, pitch +-4%",
   "engines": "see 'engines': stage loops recorded at fixed RPM; crossfade neighbours (equal power) and set playbackRate = currentRPM / stageRPM (0.75..1.35)"
  },
- "totalBytes": 15405904,
+ "totalBytes": 25510252,
  "engines": {
   "engine_boss": {
    "stages": [
@@ -2275,269 +2275,119 @@
     1.1
    ]
   },
-  "music/boss_base": {
-   "file": "music/boss_base.ogg",
+  "music/boss_dnb_base": {
+   "file": "music/boss_dnb_base.ogg",
    "files": [
-    "music/boss_base.ogg"
+    "music/boss_dnb_base.ogg"
    ],
-   "duration": 22.5882,
+   "duration": 44.13793650793651,
    "durations": [
-    22.5882
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
-   "peakDb": -7.15,
-   "lufs": -19.8,
-   "loopStart": 0.0,
-   "loopEnd": 22.58823129251701,
-   "loopJumpRatio": 0.68,
+   "notes": "Original dark cinematic DnB (boss) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -3.683,
+   "truePeak4xDb": -3.653,
+   "lufs": -16.384,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.1377,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "boss",
-   "bpm": 170.0,
-   "bpmNominal": 170,
-   "bars": 16,
-   "beats": 64,
-   "key": "E phrygian",
-   "loopBars": 16,
-   "samples": 996141,
-   "secPerBar": 1.41176,
-   "beatSec": 0.35294,
-   "barSec": 1.41176,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 5,
-     "name": "half-time breakdown"
-    },
-    {
-     "bar": 9,
-     "name": "double-time"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "boss_base",
-    "boss_drums",
-    "boss_lead",
-    "boss_extra"
-   ],
+   "track": "boss_dnb",
+   "kind": "boss",
    "stem": "base",
-   "intensity": 0
-  },
-  "music/boss_drums": {
-   "file": "music/boss_drums.ogg",
-   "files": [
-    "music/boss_drums.ogg"
-   ],
-   "duration": 22.5882,
-   "durations": [
-    22.5882
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
-   "peakDb": -8.79,
-   "lufs": -18.8,
-   "loopStart": 0.0,
-   "loopEnd": 22.58823129251701,
-   "loopJumpRatio": 0.41,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "boss",
-   "bpm": 170.0,
-   "bpmNominal": 170,
-   "bars": 16,
-   "beats": 64,
-   "key": "E phrygian",
-   "loopBars": 16,
-   "samples": 996141,
-   "secPerBar": 1.41176,
-   "beatSec": 0.35294,
-   "barSec": 1.41176,
+   "intensity": 0,
+   "biomes": [],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
      "name": "drive"
     },
     {
-     "bar": 5,
-     "name": "half-time breakdown"
-    },
-    {
      "bar": 9,
-     "name": "double-time"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "boss_base",
-    "boss_drums",
-    "boss_lead",
-    "boss_extra"
-   ],
-   "stem": "drums",
-   "intensity": 1
+   ]
   },
-  "music/boss_extra": {
-   "file": "music/boss_extra.ogg",
+  "music/boss_dnb_extra": {
+   "file": "music/boss_dnb_extra.ogg",
    "files": [
-    "music/boss_extra.ogg"
+    "music/boss_dnb_extra.ogg"
    ],
-   "duration": 22.5882,
+   "duration": 44.13793650793651,
    "durations": [
-    22.5882
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
-   "peakDb": -5.04,
-   "lufs": -20.9,
-   "loopStart": 0.0,
-   "loopEnd": 22.58823129251701,
-   "loopJumpRatio": 0.02,
+   "notes": "Original dark cinematic DnB (boss) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -8.061,
+   "truePeak4xDb": -8.055,
+   "lufs": -25.481,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0438,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "boss",
-   "bpm": 170.0,
-   "bpmNominal": 170,
-   "bars": 16,
-   "beats": 64,
-   "key": "E phrygian",
-   "loopBars": 16,
-   "samples": 996141,
-   "secPerBar": 1.41176,
-   "beatSec": 0.35294,
-   "barSec": 1.41176,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 5,
-     "name": "half-time breakdown"
-    },
-    {
-     "bar": 9,
-     "name": "double-time"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "boss_base",
-    "boss_drums",
-    "boss_lead",
-    "boss_extra"
-   ],
+   "track": "boss_dnb",
+   "kind": "boss",
    "stem": "extra",
-   "intensity": 3
-  },
-  "music/boss_lead": {
-   "file": "music/boss_lead.ogg",
-   "files": [
-    "music/boss_lead.ogg"
-   ],
-   "duration": 22.5882,
-   "durations": [
-    22.5882
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "BOSS convoy E phrygian 170 BPM; stems base/drums/lead/extra = intensity 0..3; half-time breakdown bars 5-8, double-time bars 9-12",
-   "peakDb": -9.73,
-   "lufs": -20.8,
-   "loopStart": 0.0,
-   "loopEnd": 22.58823129251701,
-   "loopJumpRatio": 0.04,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "boss",
-   "bpm": 170.0,
-   "bpmNominal": 170,
-   "bars": 16,
-   "beats": 64,
-   "key": "E phrygian",
-   "loopBars": 16,
-   "samples": 996141,
-   "secPerBar": 1.41176,
-   "beatSec": 0.35294,
-   "barSec": 1.41176,
+   "intensity": 1,
+   "biomes": [],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
      "name": "drive"
     },
     {
-     "bar": 5,
-     "name": "half-time breakdown"
-    },
-    {
      "bar": 9,
-     "name": "double-time"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "boss_base",
-    "boss_drums",
-    "boss_lead",
-    "boss_extra"
-   ],
-   "stem": "lead",
-   "intensity": 2
+   ]
   },
   "music/garage_loop": {
    "file": "music/garage_loop.ogg",
@@ -2593,797 +2443,713 @@
     }
    ]
   },
-  "music/run_a_base": {
-   "file": "music/run_a_base.ogg",
+  "music/run_01_desert_base": {
+   "file": "music/run_01_desert_base.ogg",
    "files": [
-    "music/run_a_base.ogg"
+    "music/run_01_desert_base.ogg"
    ],
-   "duration": 25.2632,
+   "duration": 44.13793650793651,
    "durations": [
-    25.2632
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -7.2,
-   "lufs": -19.8,
-   "loopStart": 0.0,
-   "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.19,
+   "notes": "Original dark cinematic DnB (desert) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -3.517,
+   "truePeak4xDb": -3.207,
+   "lufs": -16.465,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.3297,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "run_a",
-   "bpm": 152.0,
-   "bpmNominal": 152,
-   "bars": 16,
-   "beats": 64,
-   "key": "A minor",
-   "loopBars": 16,
-   "samples": 1114105,
-   "secPerBar": 1.57895,
-   "beatSec": 0.39474,
-   "barSec": 1.57895,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
-    },
-    {
-     "bar": 9,
-     "name": "lift"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_a_base",
-    "run_a_drums",
-    "run_a_lead",
-    "run_a_extra"
-   ],
+   "track": "run_01_desert",
+   "kind": "run",
    "stem": "base",
-   "intensity": 0
-  },
-  "music/run_a_drums": {
-   "file": "music/run_a_drums.ogg",
-   "files": [
-    "music/run_a_drums.ogg"
+   "intensity": 0,
+   "biomes": [
+    "desert"
    ],
-   "duration": 25.2632,
-   "durations": [
-    25.2632
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -8.91,
-   "lufs": -18.8,
-   "loopStart": 0.0,
-   "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.09,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "run_a",
-   "bpm": 152.0,
-   "bpmNominal": 152,
-   "bars": 16,
-   "beats": 64,
-   "key": "A minor",
-   "loopBars": 16,
-   "samples": 1114105,
-   "secPerBar": 1.57895,
-   "beatSec": 0.39474,
-   "barSec": 1.57895,
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
+     "name": "drive"
     },
     {
      "bar": 9,
-     "name": "lift"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_a_base",
-    "run_a_drums",
-    "run_a_lead",
-    "run_a_extra"
-   ],
-   "stem": "drums",
-   "intensity": 1
+   ]
   },
-  "music/run_a_extra": {
-   "file": "music/run_a_extra.ogg",
+  "music/run_01_desert_extra": {
+   "file": "music/run_01_desert_extra.ogg",
    "files": [
-    "music/run_a_extra.ogg"
+    "music/run_01_desert_extra.ogg"
    ],
-   "duration": 25.2632,
+   "duration": 44.13793650793651,
    "durations": [
-    25.2632
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -5.11,
-   "lufs": -20.9,
-   "loopStart": 0.0,
-   "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.04,
+   "notes": "Original dark cinematic DnB (desert) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -7.442,
+   "truePeak4xDb": -7.375,
+   "lufs": -25.246,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0356,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "run_a",
-   "bpm": 152.0,
-   "bpmNominal": 152,
-   "bars": 16,
-   "beats": 64,
-   "key": "A minor",
-   "loopBars": 16,
-   "samples": 1114105,
-   "secPerBar": 1.57895,
-   "beatSec": 0.39474,
-   "barSec": 1.57895,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
-    },
-    {
-     "bar": 9,
-     "name": "lift"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_a_base",
-    "run_a_drums",
-    "run_a_lead",
-    "run_a_extra"
-   ],
+   "track": "run_01_desert",
+   "kind": "run",
    "stem": "extra",
-   "intensity": 3
-  },
-  "music/run_a_lead": {
-   "file": "music/run_a_lead.ogg",
-   "files": [
-    "music/run_a_lead.ogg"
+   "intensity": 1,
+   "biomes": [
+    "desert"
    ],
-   "duration": 25.2632,
-   "durations": [
-    25.2632
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "RUN A (desert) A minor 152 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -11.6,
-   "lufs": -20.7,
-   "loopStart": 0.0,
-   "loopEnd": 25.26315192743764,
-   "loopJumpRatio": 0.03,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "run_a",
-   "bpm": 152.0,
-   "bpmNominal": 152,
-   "bars": 16,
-   "beats": 64,
-   "key": "A minor",
-   "loopBars": 16,
-   "samples": 1114105,
-   "secPerBar": 1.57895,
-   "beatSec": 0.39474,
-   "barSec": 1.57895,
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
+     "name": "drive"
     },
     {
      "bar": 9,
-     "name": "lift"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_a_base",
-    "run_a_drums",
-    "run_a_lead",
-    "run_a_extra"
-   ],
-   "stem": "lead",
-   "intensity": 2
+   ]
   },
-  "music/run_b_base": {
-   "file": "music/run_b_base.ogg",
+  "music/run_02_canyon_base": {
+   "file": "music/run_02_canyon_base.ogg",
    "files": [
-    "music/run_b_base.ogg"
+    "music/run_02_canyon_base.ogg"
    ],
-   "duration": 24.3038,
+   "duration": 44.13793650793651,
    "durations": [
-    24.3038
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -6.97,
-   "lufs": -19.9,
-   "loopStart": 0.0,
-   "loopEnd": 24.303786848072562,
-   "loopJumpRatio": 0.72,
+   "notes": "Original dark cinematic DnB (canyon) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -3.697,
+   "truePeak4xDb": -3.451,
+   "lufs": -16.452,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.1344,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "run_b",
-   "bpm": 158.0001,
-   "bpmNominal": 158,
-   "bars": 16,
-   "beats": 64,
-   "key": "D phrygian",
-   "loopBars": 16,
-   "samples": 1071797,
-   "secPerBar": 1.51899,
-   "beatSec": 0.37975,
-   "barSec": 1.51899,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
-    },
-    {
-     "bar": 9,
-     "name": "lift"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_b_base",
-    "run_b_drums",
-    "run_b_lead",
-    "run_b_extra"
-   ],
+   "track": "run_02_canyon",
+   "kind": "run",
    "stem": "base",
-   "intensity": 0
-  },
-  "music/run_b_drums": {
-   "file": "music/run_b_drums.ogg",
-   "files": [
-    "music/run_b_drums.ogg"
+   "intensity": 0,
+   "biomes": [
+    "canyon"
    ],
-   "duration": 24.3038,
-   "durations": [
-    24.3038
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -8.23,
-   "lufs": -18.9,
-   "loopStart": 0.0,
-   "loopEnd": 24.303786848072562,
-   "loopJumpRatio": 0.58,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "run_b",
-   "bpm": 158.0001,
-   "bpmNominal": 158,
-   "bars": 16,
-   "beats": 64,
-   "key": "D phrygian",
-   "loopBars": 16,
-   "samples": 1071797,
-   "secPerBar": 1.51899,
-   "beatSec": 0.37975,
-   "barSec": 1.51899,
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
+     "name": "drive"
     },
     {
      "bar": 9,
-     "name": "lift"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_b_base",
-    "run_b_drums",
-    "run_b_lead",
-    "run_b_extra"
-   ],
-   "stem": "drums",
-   "intensity": 1
+   ]
   },
-  "music/run_b_extra": {
-   "file": "music/run_b_extra.ogg",
+  "music/run_02_canyon_extra": {
+   "file": "music/run_02_canyon_extra.ogg",
    "files": [
-    "music/run_b_extra.ogg"
+    "music/run_02_canyon_extra.ogg"
    ],
-   "duration": 24.3038,
+   "duration": 44.13793650793651,
    "durations": [
-    24.3038
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -5.85,
-   "lufs": -21.0,
-   "loopStart": 0.0,
-   "loopEnd": 24.303786848072562,
-   "loopJumpRatio": 0.1,
+   "notes": "Original dark cinematic DnB (canyon) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -7.281,
+   "truePeak4xDb": -7.276,
+   "lufs": -25.128,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0378,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "run_b",
-   "bpm": 158.0001,
-   "bpmNominal": 158,
-   "bars": 16,
-   "beats": 64,
-   "key": "D phrygian",
-   "loopBars": 16,
-   "samples": 1071797,
-   "secPerBar": 1.51899,
-   "beatSec": 0.37975,
-   "barSec": 1.51899,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
-    },
-    {
-     "bar": 9,
-     "name": "lift"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_b_base",
-    "run_b_drums",
-    "run_b_lead",
-    "run_b_extra"
-   ],
+   "track": "run_02_canyon",
+   "kind": "run",
    "stem": "extra",
-   "intensity": 3
-  },
-  "music/run_b_lead": {
-   "file": "music/run_b_lead.ogg",
-   "files": [
-    "music/run_b_lead.ogg"
+   "intensity": 1,
+   "biomes": [
+    "canyon"
    ],
-   "duration": 24.3038,
-   "durations": [
-    24.3038
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "RUN B (canyon/coast) D phrygian 158 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -12.08,
-   "lufs": -20.8,
-   "loopStart": 0.0,
-   "loopEnd": 24.303786848072562,
-   "loopJumpRatio": 0.26,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "run_b",
-   "bpm": 158.0001,
-   "bpmNominal": 158,
-   "bars": 16,
-   "beats": 64,
-   "key": "D phrygian",
-   "loopBars": 16,
-   "samples": 1071797,
-   "secPerBar": 1.51899,
-   "beatSec": 0.37975,
-   "barSec": 1.51899,
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
+     "name": "drive"
     },
     {
      "bar": 9,
-     "name": "lift"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_b_base",
-    "run_b_drums",
-    "run_b_lead",
-    "run_b_extra"
-   ],
-   "stem": "lead",
-   "intensity": 2
+   ]
   },
-  "music/run_c_base": {
-   "file": "music/run_c_base.ogg",
+  "music/run_03_coast_base": {
+   "file": "music/run_03_coast_base.ogg",
    "files": [
-    "music/run_c_base.ogg"
+    "music/run_03_coast_base.ogg"
    ],
-   "duration": 23.4146,
+   "duration": 44.13793650793651,
    "durations": [
-    23.4146
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -8.11,
-   "lufs": -19.8,
-   "loopStart": 0.0,
-   "loopEnd": 23.414625850340137,
-   "loopJumpRatio": 0.74,
+   "notes": "Original dark cinematic DnB (coast) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -3.144,
+   "truePeak4xDb": -2.963,
+   "lufs": -16.414,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0597,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "run_c",
-   "bpm": 164.0001,
-   "bpmNominal": 164,
-   "bars": 16,
-   "beats": 64,
-   "key": "F# minor",
-   "loopBars": 16,
-   "samples": 1032585,
-   "secPerBar": 1.46341,
-   "beatSec": 0.36585,
-   "barSec": 1.46341,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
-    },
-    {
-     "bar": 9,
-     "name": "lift"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_c_base",
-    "run_c_drums",
-    "run_c_lead",
-    "run_c_extra"
-   ],
+   "track": "run_03_coast",
+   "kind": "run",
    "stem": "base",
-   "intensity": 0
-  },
-  "music/run_c_drums": {
-   "file": "music/run_c_drums.ogg",
-   "files": [
-    "music/run_c_drums.ogg"
+   "intensity": 0,
+   "biomes": [
+    "coast"
    ],
-   "duration": 23.4146,
-   "durations": [
-    23.4146
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -8.78,
-   "lufs": -18.9,
-   "loopStart": 0.0,
-   "loopEnd": 23.414625850340137,
-   "loopJumpRatio": 0.17,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "run_c",
-   "bpm": 164.0001,
-   "bpmNominal": 164,
-   "bars": 16,
-   "beats": 64,
-   "key": "F# minor",
-   "loopBars": 16,
-   "samples": 1032585,
-   "secPerBar": 1.46341,
-   "beatSec": 0.36585,
-   "barSec": 1.46341,
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
+     "name": "drive"
     },
     {
      "bar": 9,
-     "name": "lift"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_c_base",
-    "run_c_drums",
-    "run_c_lead",
-    "run_c_extra"
-   ],
-   "stem": "drums",
-   "intensity": 1
+   ]
   },
-  "music/run_c_extra": {
-   "file": "music/run_c_extra.ogg",
+  "music/run_03_coast_extra": {
+   "file": "music/run_03_coast_extra.ogg",
    "files": [
-    "music/run_c_extra.ogg"
+    "music/run_03_coast_extra.ogg"
    ],
-   "duration": 23.4146,
+   "duration": 44.13793650793651,
    "durations": [
-    23.4146
+    44.13793650793651
    ],
    "loop": true,
    "variations": 1,
-   "gain": 0.4,
+   "gain": 0.5,
    "category": "music_stem",
    "channels": 2,
-   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -5.87,
-   "lufs": -20.9,
-   "loopStart": 0.0,
-   "loopEnd": 23.414625850340137,
-   "loopJumpRatio": 0.42,
+   "notes": "Original dark cinematic DnB (coast) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -8.355,
+   "truePeak4xDb": -8.174,
+   "lufs": -25.307,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0176,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ],
-   "track": "run_c",
-   "bpm": 164.0001,
-   "bpmNominal": 164,
-   "bars": 16,
-   "beats": 64,
-   "key": "F# minor",
-   "loopBars": 16,
-   "samples": 1032585,
-   "secPerBar": 1.46341,
-   "beatSec": 0.36585,
-   "barSec": 1.46341,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
-    },
-    {
-     "bar": 9,
-     "name": "lift"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ],
-   "fillBars": [
-    8,
-    16
-   ],
-   "layers": [
-    "run_c_base",
-    "run_c_drums",
-    "run_c_lead",
-    "run_c_extra"
-   ],
+   "track": "run_03_coast",
+   "kind": "run",
    "stem": "extra",
-   "intensity": 3
-  },
-  "music/run_c_lead": {
-   "file": "music/run_c_lead.ogg",
-   "files": [
-    "music/run_c_lead.ogg"
+   "intensity": 1,
+   "biomes": [
+    "coast"
    ],
-   "duration": 23.4146,
-   "durations": [
-    23.4146
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "RUN C (mountain/city) F# minor 164 BPM; layers base/drums/lead/extra = intensity 0..3, all 16 bars, identical length",
-   "peakDb": -11.7,
-   "lufs": -20.8,
-   "loopStart": 0.0,
-   "loopEnd": 23.414625850340137,
-   "loopJumpRatio": 0.07,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "run_c",
-   "bpm": 164.0001,
-   "bpmNominal": 164,
-   "bars": 16,
-   "beats": 64,
-   "key": "F# minor",
-   "loopBars": 16,
-   "samples": 1032585,
-   "secPerBar": 1.46341,
-   "beatSec": 0.36585,
-   "barSec": 1.46341,
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
    "sections": [
     {
      "bar": 1,
-     "name": "riff"
-    },
-    {
-     "bar": 5,
-     "name": "variation"
+     "name": "drive"
     },
     {
      "bar": 9,
-     "name": "lift"
+     "name": "variation"
     },
     {
-     "bar": 13,
-     "name": "peak"
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
     }
+   ]
+  },
+  "music/run_04_mountain_base": {
+   "file": "music/run_04_mountain_base.ogg",
+   "files": [
+    "music/run_04_mountain_base.ogg"
    ],
-   "fillBars": [
-    8,
-    16
+   "duration": 44.13793650793651,
+   "durations": [
+    44.13793650793651
    ],
-   "layers": [
-    "run_c_base",
-    "run_c_drums",
-    "run_c_lead",
-    "run_c_extra"
+   "loop": true,
+   "variations": 1,
+   "gain": 0.5,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "Original dark cinematic DnB (mountain) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -3.588,
+   "truePeak4xDb": -3.48,
+   "lufs": -16.429,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.2365,
+   "pitchRange": [
+    1,
+    1
    ],
-   "stem": "lead",
-   "intensity": 2
+   "track": "run_04_mountain",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "biomes": [
+    "mountain"
+   ],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 9,
+     "name": "variation"
+    },
+    {
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
+    }
+   ]
+  },
+  "music/run_04_mountain_extra": {
+   "file": "music/run_04_mountain_extra.ogg",
+   "files": [
+    "music/run_04_mountain_extra.ogg"
+   ],
+   "duration": 44.13793650793651,
+   "durations": [
+    44.13793650793651
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.5,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "Original dark cinematic DnB (mountain) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -8.596,
+   "truePeak4xDb": -8.389,
+   "lufs": -25.3,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0239,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "track": "run_04_mountain",
+   "kind": "run",
+   "stem": "extra",
+   "intensity": 1,
+   "biomes": [
+    "mountain"
+   ],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 9,
+     "name": "variation"
+    },
+    {
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
+    }
+   ]
+  },
+  "music/run_05_city_base": {
+   "file": "music/run_05_city_base.ogg",
+   "files": [
+    "music/run_05_city_base.ogg"
+   ],
+   "duration": 44.13793650793651,
+   "durations": [
+    44.13793650793651
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.5,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "Original dark cinematic DnB (city) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -3.605,
+   "truePeak4xDb": -3.151,
+   "lufs": -16.379,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.1466,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "track": "run_05_city",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "biomes": [
+    "city"
+   ],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 9,
+     "name": "variation"
+    },
+    {
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
+    }
+   ]
+  },
+  "music/run_05_city_extra": {
+   "file": "music/run_05_city_extra.ogg",
+   "files": [
+    "music/run_05_city_extra.ogg"
+   ],
+   "duration": 44.13793650793651,
+   "durations": [
+    44.13793650793651
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.5,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "Original dark cinematic DnB (city) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -7.445,
+   "truePeak4xDb": -7.38,
+   "lufs": -25.436,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0035,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "track": "run_05_city",
+   "kind": "run",
+   "stem": "extra",
+   "intensity": 1,
+   "biomes": [
+    "city"
+   ],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 9,
+     "name": "variation"
+    },
+    {
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
+    }
+   ]
+  },
+  "music/run_06_dam_base": {
+   "file": "music/run_06_dam_base.ogg",
+   "files": [
+    "music/run_06_dam_base.ogg"
+   ],
+   "duration": 44.13793650793651,
+   "durations": [
+    44.13793650793651
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.5,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "Original dark cinematic DnB (dam) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -3.6,
+   "truePeak4xDb": -3.445,
+   "lufs": -16.388,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.1799,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "track": "run_06_dam",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "biomes": [
+    "dam"
+   ],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 9,
+     "name": "variation"
+    },
+    {
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
+    }
+   ]
+  },
+  "music/run_06_dam_extra": {
+   "file": "music/run_06_dam_extra.ogg",
+   "files": [
+    "music/run_06_dam_extra.ogg"
+   ],
+   "duration": 44.13793650793651,
+   "durations": [
+    44.13793650793651
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.5,
+   "category": "music_stem",
+   "channels": 2,
+   "notes": "Original dark cinematic DnB (dam) 174 BPM; complete groove in base, adaptive pressure in extra.",
+   "peakDb": -9.464,
+   "truePeak4xDb": -9.452,
+   "lufs": -25.581,
+   "loopStart": 0,
+   "loopEnd": 44.13793650793651,
+   "loopJumpRatio": 0.0075,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "track": "run_06_dam",
+   "kind": "run",
+   "stem": "extra",
+   "intensity": 1,
+   "biomes": [
+    "dam"
+   ],
+   "bpm": 173.99997842262172,
+   "bpmNominal": 174,
+   "bars": 32,
+   "beats": 128,
+   "key": "D minor",
+   "samples": 1946483,
+   "secPerBar": 1.379310515873016,
+   "beatSec": 0.344827628968254,
+   "sections": [
+    {
+     "bar": 1,
+     "name": "drive"
+    },
+    {
+     "bar": 9,
+     "name": "variation"
+    },
+    {
+     "bar": 17,
+     "name": "half-time break then return"
+    },
+    {
+     "bar": 25,
+     "name": "pressure"
+    }
+   ]
   },
   "music/title_loop": {
    "file": "music/title_loop.ogg",
@@ -5862,5 +5628,14 @@
     1.6
    ]
   }
+ },
+ "soundtrackProvenance": {
+  "generator": "Original deterministic offline DSP composition",
+  "source": "tools/audio/compose_dnb.py",
+  "copyrightSources": "No external samples, tracks, melodies or artist imitation",
+  "bpm": 174,
+  "runThemes": 6,
+  "bossThemes": 1,
+  "adaptiveStemsPerTheme": 2
  }
 }

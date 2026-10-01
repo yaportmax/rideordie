@@ -362,7 +362,7 @@ class LoopBed {
     if (this.dead) return; this.dead = true;
     for (const s of this.stems) { try { s.src.stop(); } catch { /* */ } try { s.src.disconnect(); } catch { /* */ } this.A._rel('src'); this.A._free(s.g, 'gain'); }
     this.A._free(this.out, 'gain');
-    this.stems = [];
+    this.stems = []; this.prev = null;
   }
 }
 
@@ -370,7 +370,8 @@ class LoopBed {
 export class MusicSys {
   constructor(A) {
     this.A = A; this.tracks = new Map(); this.state = null; this.cur = null; this.fading = [];
-    this.intensity = 0; this.log = []; this._req = 0; this.pinned = new Set(['boss']); this._pendLayer = null; this.biome = null; this.layerTau = 0.4; this.want = null;
+    this.intensity = 0; this.log = []; this._req = 0; this.pinned = new Set(); this._pendLayer = null; this.biome = null; this.layerTau = 0.4; this.want = null;
+    this.successor = null; this._loadPending = false; this._retryAt = Infinity; this._disposed = false;
   }
   _rebuild() {
     const A = this.A; this.tracks.clear();
@@ -380,13 +381,16 @@ export class MusicSys {
       let id = m.track, stem = m.stem;
       if (!id) { const r = /^(.*?)(?:_(base|drums|lead|extra))?$/.exec(def.name); id = r[1]; stem = r[2]; }
       let t = this.tracks.get(id);
-      if (!t) { t = { id, kind: /^run/.test(id) ? 'run' : /^boss/.test(id) ? 'boss' : /^garage/.test(id) ? 'garage' : /^title/.test(id) ? 'title' : /^victory/.test(id) ? 'victory' : 'other', stems: [], bpm: m.bpm, bars: m.bars, secPerBar: m.secPerBar, loop: def.loop, biomes: null }; this.tracks.set(id, t); }
-      if (!t.biomes && t.kind === 'run') { const bm = /\(([a-z/ ]+)\)/i.exec(m.notes || ''); if (bm) t.biomes = bm[1].toLowerCase().split('/').map((x) => x.trim()); }
+      if (!t) { t = { id, kind: m.kind || (/^run/.test(id) ? 'run' : /^boss/.test(id) ? 'boss' : /^garage/.test(id) ? 'garage' : /^title/.test(id) ? 'title' : /^victory/.test(id) ? 'victory' : 'other'), stems: [], bpm: m.bpm, bars: m.bars, secPerBar: m.secPerBar, loop: def.loop, biomes: null }; this.tracks.set(id, t); }
+      if (!t.biomes && t.kind === 'run') {
+        if (Array.isArray(m.biomes)) t.biomes = m.biomes.map((b) => String(b).toLowerCase());
+        else { const bm = /\(([a-z/ ]+)\)/i.exec(m.notes || ''); if (bm) t.biomes = bm[1].toLowerCase().split('/').map((x) => x.trim()); }
+      }
       t.stems.push({ def, stem: stem || 'base', layer: m.intensity ?? Math.max(0, ['base', 'drums', 'lead', 'extra'].indexOf(stem || 'base')) });
       if (!def.loop) t.loop = false;
     }
     for (const t of this.tracks.values()) t.stems.sort((a, b) => a.layer - b.layer);
-    if (this.want && !this.cur) this.setState(this.want, this._wantOpts || {});
+    if (this.want && !this._disposed) this.setState(this.want, this._wantOpts || {});
   }
   trackIds(kind) { return [...this.tracks.values()].filter((t) => !kind || t.kind === kind).map((t) => t.id).sort(); }
   _pick(kind, o) {
@@ -405,7 +409,7 @@ export class MusicSys {
   /** Music follows the biome: each biome maps to one of the run tracks (crossfades at the next bar while in the run state). */
   setBiome(id) {
     if (this.biome === id) return; this.biome = id;
-    if (this.state === 'run' && this.cur) this.setState('run', {});
+    if (this.state === 'run') this.setState('run', {});
   }
   layerLevels(track, v) {
     const n = track.stems.length, p = clamp01(v) * Math.max(0, n - 1);
@@ -413,18 +417,43 @@ export class MusicSys {
   }
   /** state: 'garage' | 'title' | 'run' | 'boss' | 'victory'. Starts at the next bar boundary of the current track (equal-power crossfade). */
   setState(state, o = {}) {
-    const A = this.A;
+    if (this._disposed) return null;
+    const A = this.A, req = ++this._req;
     this.state = state; this.want = state; this._wantOpts = o;
+    this._loadPending = false; this._retryAt = Infinity;
     const tid = this._pick(state, o);
     if (!tid) { A.missing.set('music/' + state, (A.missing.get('music/' + state) || 0) + 1); if (this.cur) this.stop(o.xfade ?? 1.2); return null; }
-    if (this.cur && this.cur.track.id === tid && !this.cur.dead && !o.force) return tid;
-    const track = this.tracks.get(tid), req = ++this._req;
     this.wantTrack = tid;
-    A.whenReady(track.stems.map((s) => s.def), 2, () => { if (req === this._req) this._start(track, o); });
+    this.successor = null;
+    this._releaseUnused();
+    if (this.cur && this.cur.track.id === tid && !this.cur.dead && !o.force) { this._prefetchNext(); return tid; }
+    this._requestTrack(this.tracks.get(tid), o, req);
     return tid;
+  }
+  _requestTrack(track, o, req = this._req) {
+    if (this._disposed || req !== this._req || this._loadPending) return;
+    this._loadPending = true;
+    this.A.whenReady(track.stems.map((s) => s.def), 2, () => {
+      if (this._disposed || req !== this._req) return;
+      this._loadPending = false;
+      // Failed loads retain the audible old bed and retry on the audio clock.
+      // A hidden/suspended tab consequently cannot flood the asset loader.
+      this._retryAt = this.A.ctx.currentTime + 2;
+      if (track.stems.every((s) => s.def.bufs[0])) this._start(track, o);
+      this._releaseUnused();
+    });
   }
   _start(track, o) {
     const A = this.A, c = A.ctx, now = c.currentTime;
+    const levels = this.layerLevels(track, this.intensity), items = [];
+    for (let i = 0; i < track.stems.length; i++) {
+      const s = track.stems[i], buf = s.def.bufs[0];
+      if (!buf) return;
+      const first = items[0]?.buf;
+      if (first && (Math.abs(first.duration - buf.duration) > 1e-6 || first.length !== buf.length)) return;
+      items.push({ buf, gain: levels[i] * s.def.gain, key: s.def.key, layer: s.layer, def: s.def, name: s.stem });
+    }
+    if (!items.length) return;
     let prev = this.cur;
     // an unstarted, superseded transition: drop it and let the previous track keep playing
     if (prev && prev.t0 > now + 0.02) {
@@ -432,12 +461,17 @@ export class MusicSys {
       if (back && !back.dead) { back.cancelFadeOut(); this.fading = this.fading.filter((f) => f !== back); }
       prev = back || null;
     }
-    const levels = this.layerLevels(track, this.intensity);
-    const items = [];
-    for (let i = 0; i < track.stems.length; i++) {
-      const s = track.stems[i], buf = A._pickBuf(s.def);
-      if (!buf) return;
-      items.push({ buf, gain: levels[i] * s.def.gain, key: s.def.key, layer: s.layer, def: s.def, name: s.stem });
+    // Coalesce another transition until an audible crossfade has retired.
+    // This bounds active themes and avoids stacking three or more loud beds.
+    if (this.fading.length) {
+      this._retryAt = Math.max(...this.fading.map((p) => p.endAt)) + 0.001;
+      return;
+    }
+    this._retryAt = Infinity; this._pendLayer = null;
+    if (prev && prev.track.id === track.id && !o.force) {
+      this.cur = prev;
+      prev.stems.forEach((s, i) => { s.target = levels[i] * s.def.gain; });
+      this._applyLayers(prev, now); this._prefetchNext(); return;
     }
     const spb = track.secPerBar || (items[0].buf.duration / (track.bars || 16));
     let tb = now + 0.06, xf = 0.05;
@@ -451,23 +485,40 @@ export class MusicSys {
     play.prev = prev;
     if (prev && !prev.dead) { prev.fadeOut(xf, tb); this.fading.push(prev); }
     this.cur = play;
-    this.log.push({ type: 'start', track: track.id, when: tb, now, xfade: xf, bar: prev ? Math.round((tb - prev.t0) / prev.spb * 1000) / 1000 : 0, prev: prev ? prev.track.id : null });
-    this._releaseUnused(track.id, prev && prev.track.id);
+    this._log({ type: 'start', track: track.id, when: tb, now, xfade: xf, bar: prev ? Math.round((tb - prev.t0) / prev.spb * 1000) / 1000 : 0, prev: prev ? prev.track.id : null });
+    this._prefetchNext(); this._releaseUnused();
   }
   _retire(p) { p.dead || p.dispose(); this.fading = this.fading.filter((f) => f !== p); if (this.cur === p) this.cur = null; }
-  /** Pin tracks / kinds that must stay decoded (default: the boss theme). Everything else except current + previous is released (stems are ~9 MB each). */
+  _log(event) { this.log.push(event); if (this.log.length > 128) this.log.splice(0, this.log.length - 128); }
+  /** Optional explicit pins; normal gameplay retains only current, outgoing and one successor. */
   pin(...ids) { for (const i of ids) this.pinned.add(i); }
-  preload(kinds = ['run', 'boss'], prio = 2) { const defs = []; for (const t of this.tracks.values()) if (kinds.includes(t.kind) || kinds.includes(t.id)) for (const s of t.stems) defs.push(s.def); return this.A.load(defs, prio); }
-  _releaseUnused(keepA, keepB) {
+  preload(kinds = ['run', 'boss'], prio = 3) {
+    // Kinds select the appropriate current stage, never all six large themes.
+    const ids = new Set(kinds.map((k) => this.tracks.has(k) ? k : this._pick(k, {})).filter(Boolean));
+    return this.A.load([...ids].flatMap((id) => this.tracks.get(id).stems.map((s) => s.def)), prio);
+  }
+  _prefetchNext() {
+    const cur = this.cur, stages = this.trackIds('run');
+    this.successor = null;
+    if (cur && !cur.dead && cur.track.kind === 'run' && this.wantTrack === cur.track.id) {
+      const index = stages.indexOf(cur.track.id);
+      this.successor = stages[index + 1] || this.trackIds('boss')[0] || null;
+      if (this.successor) this.A.load(this.tracks.get(this.successor).stems.map((s) => s.def), 3);
+    }
+    this._releaseUnused();
+  }
+  _releaseUnused() {
+    const keep = new Set([this.cur?.track.id, this.wantTrack, this.successor, ...this.fading.filter((f) => !f.dead).map((f) => f.track.id)]);
     for (const t of this.tracks.values()) {
-      if (t.id === keepA || t.id === keepB || this.pinned.has(t.id) || this.pinned.has(t.kind)) continue;
-      for (const s of t.stems) if (s.def.bufs[0] && !s.def.injected && !this.A.defInUse(s.def)) { this.A.unload(s.def); }
+      if (keep.has(t.id) || this.pinned.has(t.id) || this.pinned.has(t.kind)) continue;
+      for (const s of t.stems) if ((s.def.bufs.length || s.def.loading.some(Boolean)) && !s.def.injected && !this.A.defInUse(s.def)) this.A.unload(s.def);
     }
   }
   setIntensity(v, o = {}) {
-    this.intensity = clamp01(v);
+    const level = clamp01(v), changed = Math.abs(level - this.intensity) > 1e-6;
+    this.intensity = level;
     const A = this.A, now = A.ctx.currentTime, cur = this.cur;
-    if (!cur || cur.dead) return;
+    if (!cur || cur.dead || (!changed && !o.immediate && o.quantize !== false)) return;
     const lv = this.layerLevels(cur.track, this.intensity);
     cur.stems.forEach((s, i) => { s.target = lv[i] * s.def.gain; });
     if (o.immediate || o.quantize === false) { this._applyLayers(cur, now); return; }
@@ -476,18 +527,37 @@ export class MusicSys {
   _applyLayers(play, t) {
     const now = this.A.ctx.currentTime;
     for (const s of play.stems) s.g.gain.setTargetAtTime(s.target, Math.max(t, now), this.layerTau);
-    this.log.push({ type: 'layers', t: Math.max(t, now), levels: play.stems.map((s) => +s.target.toFixed(3)) });
+    this._log({ type: 'layers', t: Math.max(t, now), levels: play.stems.map((s) => +s.target.toFixed(3)) });
   }
   stop(fade = 1.0) {
-    this._req++; this.want = null; this.state = null;
+    this._req++; this.want = null; this.state = null; this._loadPending = false; this._retryAt = Infinity; this._pendLayer = null;
     const p = this.cur; if (p && !p.dead) { p.fadeOut(fade); this.fading.push(p); }
-    this.cur = null; this.wantTrack = null;
+    this.cur = null; this.wantTrack = null; this.successor = null; this._releaseUnused();
+  }
+  dispose() {
+    if (this._disposed) return;
+    this.stop(0); this._disposed = true;
+    for (const p of this.fading) p.dispose();
+    this.fading.length = 0; this.pinned.clear(); this._releaseUnused();
   }
   tick(now) {
     if (this._pendLayer && this.cur && !this.cur.dead && now + 0.12 >= this._pendLayer.time) { this._applyLayers(this.cur, this._pendLayer.time); this._pendLayer = null; } else if (this._pendLayer && (!this.cur || this.cur.dead)) this._pendLayer = null;
-    for (let i = this.fading.length - 1; i >= 0; i--) { const f = this.fading[i]; if (f.dead || now > f.endAt) { f.dispose(); this.fading.splice(i, 1); } }
+    let retired = false;
+    for (let i = this.fading.length - 1; i >= 0; i--) {
+      const f = this.fading[i];
+      if (f.dead || now > f.endAt) {
+        if (this.cur?.prev === f) this.cur.prev = null;
+        f.dispose(); this.fading.splice(i, 1); retired = true;
+      }
+    }
     const c = this.cur;
-    if (c && !c.loop && now > c.endAt) { c.dispose(); this.cur = null; this.log.push({ type: 'ended', t: now }); }
+    if (c && !c.loop && now > c.endAt) {
+      c.dispose(); this.cur = null;
+      if (this.wantTrack === c.track.id) { this.wantTrack = null; this._retryAt = Infinity; }
+      this._log({ type: 'ended', t: now }); retired = true;
+    }
+    if (retired) this._releaseUnused();
+    if (!this._disposed && this.wantTrack && !this._loadPending && now >= this._retryAt) this._requestTrack(this.tracks.get(this.wantTrack), this._wantOpts || {});
   }
   info() {
     const c = this.cur, now = this.A.ctx.currentTime;
@@ -1020,25 +1090,31 @@ export class AudioSys {
   }
   preloadEngine(engineId, prio = 0) { const t = this.engineTable.get(engineId); return t ? this.load(t.map((s) => s.def), prio) : Promise.resolve([]); }
   _loadVar(def, i, prio = 1) {
+    if (this._disposed) return Promise.resolve(null);
     if (def.bufs[i]) return Promise.resolve(def.bufs[i]);
     const cur = def.loading[i];
     if (cur) { if (prio < cur.prio) { cur.prio = prio; const t = this._queue.find((q) => q.rec === cur); if (t) t.prio = prio; } return cur.promise; }
-    const rec = { prio, promise: null };
-    rec.promise = new Promise((res, rej) => {
-      this._queue.push({ prio, seq: this._seq++, rec, run: async () => {
-        try {
-          const r = await fetch(def.urls[i], { cache: this.fetchCache });
-          if (!r.ok) throw new Error(def.urls[i] + ' ' + r.status);
-          const ab = await r.arrayBuffer(), nb = ab.byteLength; // decodeAudioData detaches `ab`
-          const buf = await this.ctx.decodeAudioData(ab);
-          def.bufs[i] = buf; this.stats.fetched++; this.stats.fetchedBytes += nb;
-          if (def.waiters.length) { const ws = def.waiters.splice(0); for (const w of ws) w.attach(this._pickBuf(def)); }
-          res(buf);
-        } catch (e) { this.stats.failed++; def.failed[i] = true; def.loading[i] = null; rej(e); }
-      }, res, rej });
-      this._pump();
-    });
+    const rec = { prio, promise: null }, buffers = def.bufs, loading = def.loading, failed = def.failed, signature = def.sig, url = def.urls[i];
+    const owns = () => !this._disposed && def.bufs === buffers && def.loading === loading && def.sig === signature && def.urls[i] === url && loading[i] === rec;
+    let resolve, reject;
+    rec.promise = new Promise((res, rej) => { resolve = res; reject = rej; });
     def.loading[i] = rec;
+    this._queue.push({ prio, seq: this._seq++, rec, run: async () => {
+        if (!owns()) { resolve(null); return; }
+        try {
+          const r = await fetch(url, { cache: this.fetchCache });
+          if (!r.ok) throw new Error(url + ' ' + r.status);
+          const ab = await r.arrayBuffer(), nb = ab.byteLength; // decodeAudioData detaches `ab`
+          if (!owns()) { resolve(null); return; }
+          const buf = await this.ctx.decodeAudioData(ab);
+          this.stats.fetched++; this.stats.fetchedBytes += nb;
+          if (!owns()) { resolve(null); return; }
+          buffers[i] = buf; loading[i] = null; failed[i] = false;
+          if (def.waiters.length) { const ws = def.waiters.splice(0); for (const w of ws) w.attach(this._pickBuf(def)); }
+          resolve(buf);
+        } catch (e) { this.stats.failed++; if (owns()) { failed[i] = true; loading[i] = null; } reject(e); }
+      }, res: resolve, rej: reject });
+    this._pump();
     return rec.promise;
   }
   _pump() {
@@ -1073,7 +1149,7 @@ export class AudioSys {
     if (ready.length > 1 && i === def.last) i = ready[(ready.indexOf(i) + 1 + Math.floor(this.rand() * (ready.length - 1))) % ready.length];
     def.last = i; return i;
   }
-  unload(def) { def.bufs = []; def.loading = []; }
+  unload(def) { def.bufs = []; def.loading = []; def.failed = []; }
   defInUse(def) { return def.voices.length > 0 || (this.music.cur && this.music.cur.stems.some((s) => s.def === def)) || this.music.fading.some((f) => f.stems.some((s) => s.def === def)); }
   bufferStats() {
     let count = 0, bytes = 0;
@@ -1309,10 +1385,13 @@ export class AudioSys {
       buffers: b.count, bufferMB: +(b.bytes / 1048576).toFixed(1), loading: b.queued + b.active, stats: { ...this.stats }, missing: this.reportMissing().length };
   }
   dispose() {
+    if (this._disposed) return; this._disposed = true;
     if (this._timer) clearInterval(this._timer);
     for (const v of [...this.voices]) v._cleanup();
     for (const e of [...this.engines.values()]) { e.disposed = true; e._releaseAll(); }
-    this.music.stop(0.01); this.ctx.close?.().catch(() => {});
+    this.music.dispose();
+    for (const def of this.defs.values()) this.unload(def);
+    this.ctx.close?.().catch(() => {});
   }
 }
 

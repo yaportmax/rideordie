@@ -72,14 +72,14 @@ test('cockpit dial labels, numbered ticks and needle agree when units change, wi
   cockpit.faceTex = { needsUpdate: false }; cockpit.needleS = { rotation: {} };
   cockpit.gaugeState = { speed: METERS_PER_MILE / 60, hp01: 1, dhp01: 1, ghp01: 1, nitro01: 0 };
   cockpit.setUnits('mi');
-  assert.ok(text.includes('MPH') && text.includes('125') && text.includes('25'));
+  assert.ok(text.includes('MPH') && text.includes('250') && text.includes('50'));
   const angle = ratio => -(Math.PI * .75 + Math.PI * 1.5 * ratio) - Math.PI / 2;
-  assert.ok(Math.abs(cockpit.needleS.rotation.z - angle(60 / 125)) < 1e-12);
+  assert.ok(Math.abs(cockpit.needleS.rotation.z - angle(60 / 250)) < 1e-12);
   const drawCount = text.length; cockpit.setUnits('mi'); assert.equal(text.length, drawCount);
   text.length = 0; cockpit.setUnits('km');
-  assert.ok(text.includes('KM/H') && text.includes('200') && text.includes('40'));
+  assert.ok(text.includes('KM/H') && text.includes('400') && text.includes('80'));
   assert.equal(text.includes('MPH'), false);
-  assert.ok(Math.abs(cockpit.needleS.rotation.z - angle(speedValue(cockpit.gaugeState.speed, 'km') / 200)) < 1e-12);
+  assert.ok(Math.abs(cockpit.needleS.rotation.z - angle(speedValue(cockpit.gaugeState.speed, 'km') / 400)) < 1e-12);
   assert.equal(cockpit.faceTex.needsUpdate, true);
 });
 

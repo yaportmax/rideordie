@@ -26,6 +26,7 @@ export class Vehicle {
     this.world = world;
     this.spec = spec;
     this.id = opts.id ?? 0;
+    this.poseRevision = 0; // incremented by explicit recovery/unflip, never ordinary motion
     const s = spec;
     this.mass = s.mass;
 
@@ -280,13 +281,15 @@ export class Vehicle {
     let driveShareGrounded = 0;
     for (const w of this.wheels) if (w.grounded) driveShareGrounded += w.drive;
     let anySlide = false, maxSlip = 0;
-    const tyreLoadBoost = 1 + downforceN / (this.mass * grav) * 0.7;
     for (let i = 0; i < this.wheels.length; i++) {
       const w = this.wheels[i];
       // visual steer
       w.steer = w.front ? this.steerAngle : 0;
       if (!w.grounded || w.load <= 0) { w.slip = damp(w.slip, 0, 10, dt); w.spinRate = damp(w.spinRate, w.spinRate * 0.98, 2, dt); w.spin += w.spinRate * dt; continue; }
-      const N = w.load * tyreLoadBoost;
+      // The suspension already carries gravity plus aero downforce. Applying
+      // another speed multiplier here counts that load twice and gives tyres
+      // quadratic extra grip/rolling resistance at motorway speeds.
+      const N = w.load;
       const n = _n.copy(w.normal);
       // wheel frame
       const cs = Math.cos(w.steer), sn = Math.sin(w.steer);

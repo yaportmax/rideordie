@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { WEAPONS, weaponStats, GRENADE } from '../data/weapons.js';
 import { clamp, damp, lerp, wrapAngle, D2R } from '../core/util.js';
 import { BOSS_PARTS } from '../data/boss.js';
+import { localHitPoint } from '../sim/hit_contact.js';
 
 const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _m = new THREE.Vector3();
 
@@ -269,7 +270,7 @@ export class GunnerController {
       const zone = hit.zone;
       const dmg = w.dmg * fall * (pass > 0 ? 0.6 : 1);
       rays.push({ end: end.toArray(), carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, through: !!hit.through, surface: zone.kind === 'tire' ? 'tire' : /driver|gunner/.test(zone.kind) ? 'flesh' : 'metal', dmg });
-      ctx.report({ carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, dmg, through: !!hit.through, point: end.toArray(), dir: dr.toArray(), weapon: w.id, tireMul: w.tireMul || 1, head: /_head$/.test(zone.kind) });
+      ctx.report({ carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, dmg, through: !!hit.through, point: end.toArray(), localPoint: localHitPoint(hit.car, end), poseRevision: hit.car.veh?.poseRevision || 0, shotId: this.shots, dir: dr.toArray(), weapon: w.id, tireMul: w.tireMul || 1, head: /_head$/.test(zone.kind) });
       // feedback class for the HUD: boss part / armour deflect (the war-train's hull and locked parts take no damage) / weak point
       const car = hit.car; let kind = 'hit';
       if (car.isBoss) {

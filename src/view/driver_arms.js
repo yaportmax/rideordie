@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { FP_ARMS_URL, aimBone, twoBoneIK, registerDriverArmsWarm } from './viewmodel.js';
 import { ownClonedSkeletons, disposeOwnedSkeletons } from './owned_skeletons.js';
+import { prepareLocalSkinning } from './local_skinning.js';
 
 const R_RIM = 0.19;                                    // rim radius (all tiers)
 const HOME = { Left: 0.84, Right: 2.3 };               // grip angles on the rim (socket XY, from +X = truck left toward +Y up)
@@ -181,18 +182,20 @@ export class DriverArms {
   static available() { return Assets.has(FP_ARMS_URL); }
   /** Warm-up object for Game.prewarm (the leather program). */
   static warmObject() {
-    const m = ownClonedSkeletons(Assets.clone(FP_ARMS_URL)); if (!m) return new THREE.Group();
+    const m = Assets.clone(FP_ARMS_URL); if (!m) return new THREE.Group();
     m.traverse((o) => { if (o.isSkinnedMesh) { o.geometry = shoulderGeometry(o); sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; } });
+    prepareLocalSkinning(m); ownClonedSkeletons(m);
     return m;
   }
 
   constructor(crew) {
     this.crew = crew;
-    const model = ownClonedSkeletons(Assets.clone(FP_ARMS_URL));
+    const model = Assets.clone(FP_ARMS_URL);
     this.ok = !!(model && crew.bones && crew.bones.Spine2);
-    if (!this.ok) { disposeOwnedSkeletons(model); return; }
+    if (!this.ok) { ownClonedSkeletons(model); disposeOwnedSkeletons(model); return; }
     this.model = model;
     model.traverse((o) => { if (o.isMesh) o.userData.fpArms = true; if (o.isSkinnedMesh) { o.geometry = shoulderGeometry(o); sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; o.castShadow = false; o.receiveShadow = true; } });
+    prepareLocalSkinning(model); ownClonedSkeletons(model);
     const B = this.B = {}; model.traverse((o) => { if (o.isBone || /^socket_/.test(o.name)) B[o.name] = o; });
     // the fp Spine2 sits on the hero's Spine2 (both rigs have identity rest rotations, model axes)
     model.updateMatrixWorld(true);

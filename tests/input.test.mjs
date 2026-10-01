@@ -168,3 +168,29 @@ test('left stick cannot walk the gunner while driver/solo steering and right-sti
   assert.ok(driver.steer < 0); assert.equal(solo.driver.steer, driver.steer);
   assert.deepEqual([solo.gunner.moveX, solo.gunner.moveZ], [0, 0]);
 });
+
+test('advertised driver right-stick click changes camera once while steering-stick click preserves the view', t => {
+  const s = scopedSetup(t), i = s.input, p = pad([11]);
+  p.axes = [.7, 0, .4, -.3]; s.pads([p]); i.poll();
+  const command = i.driver(1 / 60);
+  assert.equal(command.cameraToggle, true, 'standard button11 is advertised R3 camera');
+  assert.ok(command.steer < 0, 'steering remains active while clicking the look stick');
+  assert.ok(command.lookX > 0 && command.lookY < 0, 'right-stick looking is not consumed by camera switching');
+  assert.equal(command.medkit, false);
+  i.endFrame(); i.poll();
+  assert.equal(i.driver(1 / 60).cameraToggle, false, 'held R3 does not toggle every frame');
+  p.buttons[11] = { pressed: false, value: 0 }; p.buttons[10] = { pressed: true, value: 1 }; i.poll();
+  assert.equal(i.driver(1 / 60).cameraToggle, false, 'L3 steering click does not switch the driver view');
+  p.buttons[10] = { pressed: false, value: 0 }; p.buttons[11] = { pressed: true, value: 1 }; i.poll();
+  assert.equal(i.driver(1 / 60).cameraToggle, true, 'release and repress R3 switches again');
+});
+
+test('right-stick click retains the separate gunner medkit and solo next-weapon bindings', t => {
+  const s = scopedSetup(t), i = s.input, p = pad([11]); s.pads([p]); i.poll();
+  const gunner = i.gunner(1 / 60), solo = i.solo(1 / 60);
+  assert.equal(gunner.medkit, true); assert.equal(gunner.viewToggle, false);
+  assert.equal(solo.gunner.swap, 1); assert.equal(solo.gunner.medkit, false, 'solo next weapon cannot spend a medkit');
+  i.endFrame(); i.poll();
+  assert.equal(i.gunner(1 / 60).medkit, false);
+  assert.equal(i.solo(1 / 60).gunner.swap, 0, 'holding R3 cannot continuously cycle the loadout');
+});

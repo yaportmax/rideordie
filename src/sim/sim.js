@@ -11,6 +11,7 @@ import { clamp, lerp, smoothstep, rng } from '../core/util.js';
 import { Projectiles } from './projectiles.js';
 import { Director } from './director.js';
 import { Hazards } from './hazards.js';
+import { validHitReport, resolveHitPoint } from './hit_contact.js';
 
 export const DT = 1 / 120;
 const V3 = THREE.Vector3;
@@ -48,6 +49,7 @@ export class Sim {
     this.result = null;
     this.rand = rng(this.seed * 977 + 13);
     this.stats = { kills: 0, crashKills: 0, distance: 0, maxSpeed: 0, damageTaken: 0, shots: 0, hits: 0, cash: 0, streak: 0 };
+    this._landedShots = new Set(); this._hitShotWatermark = 0;
     this.systems = []; // objects with update(dt, sim)
     this.profile = opts.profile || null;
     this.timeScale = 1;
@@ -76,6 +78,7 @@ export class Sim {
     this.eventQueue?.free(); this.eventQueue = null;
     this.world?.free(); this.world = null;
     this.cars.clear(); this.colMap.clear(); this.events.length = 0;
+    this._landedShots.clear();
     this.ground = null; this.player = null; this.boss = null;
   }
   use(sys) { this.systems.push(sys); return sys; }
@@ -206,6 +209,7 @@ export class Sim {
     v.body.setTranslation({ x: v.pos.x, y: groundY + v.restComHeight + 0.15, z: v.pos.z }, true);
     v.body.setRotation({ x: 0, y: Math.sin(sm.th / 2), z: 0, w: Math.cos(sm.th / 2) }, true);
     v.body.setLinvel({ x: velocity.x, y: 0, z: velocity.z }, true); v.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    v.poseRevision = ((v.poseRevision || 0) + 1) & 0xffff;
     v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat); v.airTime = 0; v.grounded = 0;
     for (let i = 0; i < v.wheels.length; i++) v.wheels[i].L = v.wheels[i].Lprev = v.prevL[i] = v.restLen;
     car._roadGrounded = false;
@@ -256,6 +260,7 @@ export class Sim {
       const speed = car.kind === 'player' ? Math.min(12, Math.hypot(v.vel.x, v.vel.z)) : Math.min(v.spec.engine.vmax * .8, Math.max(12, this.player.veh.vf));
       v.body.setTranslation({ x, y, z }, true); v.body.setRotation(q, true);
       v.body.setLinvel({ x: fx * speed, y: 0, z: fz * speed }, true); v.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      v.poseRevision = ((v.poseRevision || 0) + 1) & 0xffff;
       v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat); v.airTime = 0; v.grounded = 0;
       for (let i = 0; i < v.wheels.length; i++) v.wheels[i].L = v.wheels[i].Lprev = v.prevL[i] = v.restLen;
       car.s = s; car.d = d; car._roadGrounded = false;
@@ -496,22 +501,35 @@ export class Sim {
 
   /** The gunner's client reports a hit it detected against the cars it sees. */
   applyHit(rep) {
+    if (!validHitReport(rep)) return false;
     if (this.boss && rep.carId === this.boss.id) {
       const d = this.boss.damage(rep.zone, rep.dmg * this.playerDamageMul, { point: rep.point });
-      if (d > 0) this.stats.hits++;
+      if (d > 0) this._countLandedShot(rep.shotId);
       return d > 0;
     }
     const car = this.cars.get(rep.carId);
     if (!car || (car.exploded && !rep.wreck)) return false;
     const P = this.player;
     if (P && car.veh.pos.distanceTo(P.veh.pos) > 900) return false;
+    const point = resolveHitPoint(car, rep, _c);
+    if (!point) return false;
     const zone = car.zones.find((z) => z.kind === rep.zone && (z.index === undefined || z.index === rep.zoneIndex)) || car.zones.find((z) => z.kind === 'body');
     const dmg = rep.dmg * this.playerDamageMul * (rep.tireMul && zone.kind === 'tire' ? rep.tireMul : 1);
-    this.stats.hits++;
-    this.damageZone(car, { zone, throughBody: !!rep.through }, dmg, { cause: 'bullet', src: 1, point: new THREE.Vector3(...rep.point), head: !!rep.head, weapon: rep.weapon });
+    this._countLandedShot(rep.shotId);
+    this.damageZone(car, { zone, throughBody: !!rep.through }, dmg, { cause: 'bullet', src: 1, point: point.clone(), head: !!rep.head, weapon: rep.weapon });
     // hit reaction impulse (tiny shove so shots feel physical)
-    const dir = rep.dir; car.veh.body.applyImpulseAtPoint({ x: dir[0] * dmg * 3, y: dir[1] * dmg * 3, z: dir[2] * dmg * 3 }, { x: rep.point[0], y: rep.point[1], z: rep.point[2] }, true);
+    const dir = rep.dir; car.veh.body.applyImpulseAtPoint({ x: dir[0] * dmg * 3, y: dir[1] * dmg * 3, z: dir[2] * dmg * 3 }, { x: point.x, y: point.y, z: point.z }, true);
     return true;
+  }
+
+  /** A shell's pellets and a penetrating round count as one landed shot. */
+  _countLandedShot(id) {
+    if (!Number.isSafeInteger(id) || id <= 0) { this.stats.hits++; return; }
+    if (id <= this._hitShotWatermark - 128 || this._landedShots.has(id)) return;
+    this._hitShotWatermark = Math.max(this._hitShotWatermark, id);
+    this._landedShots.add(id);
+    for (const previous of this._landedShots) if (previous <= this._hitShotWatermark - 128) this._landedShots.delete(previous);
+    this.stats.hits++;
   }
 
   _burning(dt) {

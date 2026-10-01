@@ -177,6 +177,8 @@ def torso_top(fit, style="tank", off=0.014, bridge=0.04, sleeve_len=None, hem=0.
     first, verts, lt = res
     g.cover = verts[np.array(lt) - first]
     trim_slivers(g, 0)
+    # Cull skin only beneath retained cloth faces after boundary sliver removal.
+    g.cover = verts[np.asarray(g.tris, dtype=np.int64).reshape(-1, 3) - first]
     if drape:
         G._drape(g, first, fit, y_hem + 0.03 * S)
     P = fit.clear(np.array(g.pos[first:]), off * S * 0.7)

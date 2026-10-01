@@ -18,6 +18,7 @@ import { Banner } from '../ui/banner.js';
 import { HazardMarks } from '../view/hazard_marks.js';
 import { BossMarks } from '../view/boss_marks.js';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../net/snapshot.js';
+import { advanceCadence, consumeCadence } from '../net/cadence.js';
 import { WEAPONS } from '../data/weapons.js';
 import { Road } from '../world/road.js';
 import { ECONOMY, KILL_CASH } from '../data/economy.js';
@@ -97,7 +98,11 @@ export class Run {
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
     if (this.ai === 'driver') this.aiDriver = new AIDriver(this);
     if (this.ai === 'gunner') this.aiGunner = new AIGunner(this);
-    if (g.audio) { this.abridge = new AudioBridge(g.audio, { playerId: 1, localRole: this.role }); this.abridge.preload({ weapons: effects.weapons, truck: spec.id }); }
+    if (g.audio) {
+      const b = biomeAt(cfg.startS ?? 40);
+      g.audio.music.setBiome(b.w > 0.5 ? b.b : b.a);
+      this.abridge = new AudioBridge(g.audio, { playerId: 1, localRole: this.role }); this.abridge.preload({ weapons: effects.weapons, truck: spec.id });
+    }
     if (g.fx) { g.fx.clear(); g.fx.setGround((x, z) => { const p = this.states.get(1); return this._groundY(x, (p ? p.pos.y : 0) + 30, z) ?? (p ? p.pos.y - 0.6 : 0); }); }
     return this;
   }
@@ -475,6 +480,7 @@ export class Run {
     b.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
     b.setTranslation({ x: P.veh.pos.x, y: P.veh.pos.y + 1.8, z: P.veh.pos.z }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    v.poseRevision = ((v.poseRevision || 0) + 1) & 0xffff;
     v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat);
     if (P._groundHold) P._groundHold.angularVelocity = { x: 0, y: 0, z: 0 };
     if (!free) this.sim.damageCar(P, P.maxHp * 0.04, { cause: 'flip' });
@@ -715,9 +721,9 @@ export class Run {
 
   // ---------------------------------------------------------------------------------------------- networking
   _sendNet(dt) {
-    this.snapAcc += dt;
+    this.snapAcc = advanceCadence(this.snapAcc, dt);
     if (this.snapAcc >= 1 / 30) {
-      this.snapAcc = 0;
+      this.snapAcc = consumeCadence(this.snapAcc);
       const P = this.player;
       const bossHud = this._bossHud(); const hud = { bossId: bossHud.id, bossHp01: bossHud.hp01, hp01: P.hp / P.maxHp, dhp01: P.crew.driver.hp / P.crew.driver.max, ghp01: P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1, nitro01: P.veh.nitro / Math.max(0.001, P.veh.nitroMax), cash: this.cash, kills: this.sim.stats.kills, streak: this.sim.stats.streak, level: this.sim.director.level, dist: P.s, medkits: this.medkits };
       this.net.sendFast(encodeSnapshot(this.sim, this.sim.tick, hud));
@@ -726,9 +732,9 @@ export class Run {
     if (out.length) this.net.sendJSON({ t: 'events', e: out });
   }
   _sendGunner(dt) {
-    this.gunnerSendAcc += dt;
+    this.gunnerSendAcc = advanceCadence(this.gunnerSendAcc, dt);
     if (this.gunnerSendAcc >= 1 / 30 && this.gunner) {
-      this.gunnerSendAcc = 0;
+      this.gunnerSendAcc = consumeCadence(this.gunnerSendAcc);
       const gn = this.gunner;
       this.net.sendJSON({ t: 'g', y: +gn.yaw.toFixed(4), p: +gn.pitch.toFixed(4), f: gn.trigger && gn.magNow > 0 ? 1 : 0, c: 0, a: gn.ads > 0.5 ? 1 : 0, w: gn.cur, r: gn.reloading ? 1 : 0, x: 0, z: 0 }, true);
     }

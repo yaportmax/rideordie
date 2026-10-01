@@ -9,7 +9,8 @@
   -webkit-font-smoothing:antialiased; user-select:none; -webkit-user-select:none; text-rendering:optimizeLegibility;
 }
 .rod-ui *{box-sizing:border-box}
-.rod-ui .rod-stage{position:absolute; left:0; top:0; transform-origin:0 0; overflow:hidden}
+/* The scaled viewport must not scroll when a child gains focus; item lists own scrolling. */
+.rod-ui .rod-stage{position:absolute; left:0; top:0; transform-origin:0 0; overflow:hidden; overflow:clip}
 .rod-ui .layer{position:absolute; inset:0; z-index:1}
 .rod-ui .screens .screen{position:absolute; inset:0; animation:sIn .5s cubic-bezier(.2,.8,.2,1) both}
 .rod-ui .screen.under{display:none}

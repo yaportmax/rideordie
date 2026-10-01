@@ -16,7 +16,7 @@ const specOf = (p) => VEHICLES[p.truck] || VEHICLES.truck_t1;
 const level = (n, label = 'LEVEL') => ({ label, get: (_e, lv) => lv, max: n, fmt: (v) => (v === 0 ? 'NONE' : `LV ${v}`), byLevel: true });
 const UP_STATS = {
   engine: (spec, n, units) => [
-    { label: 'TOP SPEED', get: (e) => speedValue(spec.engine.vmax * e.engineMul, units), max: speedValue(260 / 3.6, units), unit: speedLabel(units), fmt: r0 },
+    { label: 'TOP SPEED', get: (e) => speedValue(spec.engine.vmax * e.engineMul, units), max: speedValue(360 / 3.6, units), unit: speedLabel(units), fmt: r0 },
     { label: 'ACCELERATION', get: (e) => spec.engine.accel0 * (1 + (e.engineMul - 1) * 1.1), max: 10, unit: 'M/S²', fmt: r1 },
   ],
   armor: (spec) => [
@@ -28,8 +28,8 @@ const UP_STATS = {
     { label: 'RUN-FLAT TIRES', get: (e) => (e.runFlat ? 1 : 0), max: 1, fmt: (v) => (v ? 'YES' : 'NO') },
   ],
   nitro: () => [
-    { label: 'NITRO TANK', get: (e) => e.nitroCap, max: 6, unit: 'SEC', fmt: r1 },
-    { label: 'REFILL RATE', get: (e) => e.nitroRegen * 100, max: 25, unit: '%/S', fmt: r0 },
+    { label: 'NITRO TANK', get: (e) => e.nitroCap, max: 9, unit: 'SEC', fmt: r1 },
+    { label: 'REFILL RATE', get: (e) => e.nitroRegen / e.nitroCap * 100, max: 25, unit: '%/S', fmt: r1 },
   ],
   ram: (spec, n) => [level(n, 'RAM PLATE')],
   spikes: (spec, n) => [level(n, 'SPIKED SKIRTS')],
@@ -77,7 +77,7 @@ export function truckStats(profile, id, units = 'mi') {
   const a = f(cur), b = f(tgt), same = cur.id === tgt.id;
   const row = (label, k, max, fmt, unit, lowerBetter) => ({ label, before: a[k], after: same ? null : b[k], max, fmt, unit, lowerBetter });
   return [
-    row('TOP SPEED', 'speed', speedValue(260 / 3.6, units), r0, speedLabel(units)), row('ACCELERATION', 'accel', 10, r1, 'M/S²'),
+    row('TOP SPEED', 'speed', speedValue(360 / 3.6, units), r0, speedLabel(units)), row('ACCELERATION', 'accel', 10, r1, 'M/S²'),
     row('HULL HP', 'hp', 1800, r0), { ...row('WEIGHT', 'mass', 3200, r0, 'KG'), },
   ];
 }

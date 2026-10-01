@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { Run } from '../src/game/run.js';
 import { GunnerController } from '../src/game/gunner.js';
 import { makeCarState } from '../src/view/car_state.js';
+import { decodeSnapshot } from '../src/net/snapshot.js';
 
 const neutral = () => ({ dYaw: 0, dPitch: 0, fire: false, firePressed: false, ads: false,
   reload: false, grenade: false, swap: 0, slot: -1, crouch: false, moveX: 0, moveZ: 0 });
@@ -22,7 +23,7 @@ function browserFlags(fn) {
 // Keep the actual Run branches, car-state conversion, controller, ray/report
 // plumbing and network sends. Only rendering/physics/UI consumers are boundaries.
 function runFixture({ peer, role = peer === 'host' ? 'driver' : 'gunner', readyMuzzle = true } = {}) {
-  const run = Object.create(Run.prototype), calls = [], packets = [], fxEvents = [], viewEvents = [], poseEvents = [], posedWeapons = [];
+  const run = Object.create(Run.prototype), calls = [], packets = [], fastPackets = [], fxEvents = [], viewEvents = [], poseEvents = [], posedWeapons = [];
   const hits = [], feedback = [], camera = new THREE.PerspectiveCamera(65, 16 / 9, .1, 500);
   camera.position.set(-9, 1, -11);
   let frame = 0, queue = [];
@@ -30,8 +31,9 @@ function runFixture({ peer, role = peer === 'host' ? 'driver' : 'gunner', readyM
   const enemyState = makeCarState(2, 'truck_t1', 'enemy'); enemyState.pos.set(40, 1, -20);
   const car = (st) => ({ id: st.id, spec: st.spec, kind: st.kind, s: 20, hp: 400, maxHp: 400,
     engineHp: 100, hitFlash: 0, age: 1, burning: 0,
-    crew: { driver: { alive: true }, gunner: { alive: true, aimYaw: 0, aimPitch: 0 } },
-    veh: { vel: new THREE.Vector3(4, 0, 1), steerAngle: 0, brakeApplied: 0, grounded: 4,
+    crew: { driver: { alive: true, hp: 100, max: 100 }, gunner: { alive: true, hp: 100, max: 100, aimYaw: 0, aimPitch: 0 } },
+    veh: { pos: st.pos, quat: st.quat, vel: st.vel.set(4, 0, 1), angvel: new THREE.Vector3(), poseRevision: 0,
+      nitro: 8, nitroMax: 8, steerAngle: 0, brakeApplied: 0, grounded: 4,
       airTime: 0, rpm01: .4, speed: 4, wheels: st.spec.wheels.map(() => ({ L: .4, slip: 0, grounded: true })),
       lerpPose(alpha, pos, quat) { pos.copy(st.pos); quat.copy(st.quat); }, setInput() {} },
     sync() {}, raycast(o, d, max) {
@@ -45,9 +47,10 @@ function runFixture({ peer, role = peer === 'host' ? 'driver' : 'gunner', readyM
     role, playerId: 1, player, states: new Map([[1, state], [2, enemyState]]), ghosts: new Map([[1, player], [2, enemy]]),
     buf: { sample: () => null }, simState: 'run', time: 0, acc: 0, shots: 0, hitsLanded: 0,
     localEvents: [], outEvents: [], events: [], netEvents: [], proj: [], effects: { weapons: ['pistol'] },
-    gunnerSendAcc: 0, snapAcc: -100, humanGunner: role !== 'driver', humanDriver: role === 'driver', driverLocal: role === 'driver',
+    gunnerSendAcc: 0, snapAcc: 0, cash: 0, medkits: 2, humanGunner: role !== 'driver', humanDriver: role === 'driver', driverLocal: role === 'driver',
     camDir: new THREE.Vector3(0, 0, 1), eye: new THREE.Vector3(), _roadQuery: road,
-    net: { sendJSON(packet, fast) { packets.push({ packet: structuredClone(packet), fast }); } },
+    net: { sendJSON(packet, fast) { packets.push({ packet: structuredClone(packet), fast }); },
+      sendFast(bytes) { fastPackets.push(new Uint8Array(bytes).slice()); } },
     g: { camera, input: { lastDevice: 'mouse', rumble(...values) { feedback.push(['rumble', ...values]); } },
       hud: { damageFlash(value) { feedback.push(['damage', value]); }, hitMarker() {} },
       fx: { handleEvent(event) { fxEvents.push(structuredClone(event)); } } },
@@ -59,7 +62,9 @@ function runFixture({ peer, role = peer === 'host' ? 'driver' : 'gunner', readyM
     _camera() { calls.push('camera'); camera.position.set(13 + frame * 2, 3, -21 + frame); run.camDir.set(1, 0, 0); },
   });
   if (peer === 'host') run.sim = {
-    state: 'run', cars: new Map([[1, player], [2, enemy]]), roadQuery: road, step() {},
+    state: 'run', cars: new Map([[1, player], [2, enemy]]), roadQuery: road, time: 0, tick: 0,
+    director: { level: 0, activeElite: null }, stats: { kills: 0, streak: 0 }, projectiles: { rockets: [], grenades: [] }, boss: null,
+    step(dt) { this.time += dt; this.tick++; },
     emit(event) { queue.push(event); }, drainEvents() { const events = queue; queue = []; return events; },
     applyHit(hit) {
       hits.push(structuredClone(hit));
@@ -90,7 +95,7 @@ function runFixture({ peer, role = peer === 'host' ? 'driver' : 'gunner', readyM
     frame++; calls.length = 0;
     run.update(1 / 60, { driver: {}, gunner: { ...neutral(), ...cmd } }, frame / 60);
   }));
-  return { run, calls, packets, fxEvents, viewEvents, poseEvents, posedWeapons, hits, feedback, muzzle, step };
+  return { run, calls, packets, fastPackets, fxEvents, viewEvents, poseEvents, posedWeapons, hits, feedback, muzzle, step };
 }
 
 test('actual Run.update resolves the final camera and posed muzzle before a single committed shot', () => {
@@ -149,6 +154,28 @@ test('host late shot and damage events reach views, feedback, FX and network onc
   assert.deepEqual(f.run.allEvents, []); assert.equal(f.fxEvents.length, count); assert.equal(f.viewEvents.length, handled);
   assert.equal(f.packets.filter(({ packet }) => packet.t === 'events').length, 1, 'the following frame sends no repeated events');
   assert.equal(f.feedback.filter(entry => entry[0] === 'damage').length, 1);
+});
+
+test('driver firing phases retain real30Hz snapshots with current pose, HUD and one reliable event delivery', () => {
+  const f = runFixture({ peer: 'host' });
+  f.step({ fire: true, firePressed: true }); assert.equal(f.fastPackets.length, 0, 'The first60Hz frame does not invent a due snapshot');
+  for (let frame = 1; frame < 6; frame++) f.step();
+  assert.equal(f.fastPackets.length, 3, 'Six real Run.update frames carry three fresh30Hz snapshots');
+  let tick = -1, time = -1;
+  for (const bytes of f.fastPackets) {
+    assert.equal(bytes[0], 2, 'The current snapshot wire version is actually encoded');
+    const snapshot = decodeSnapshot(bytes); assert(snapshot, 'Captured binary bytes decode using the production receiver');
+    assert(snapshot.tick > tick && snapshot.time > time); tick = snapshot.tick; time = snapshot.time;
+    assert.equal(snapshot.cars.length, 2); assert.equal(snapshot.hp01, 1); assert.equal(snapshot.dhp01, 1); assert.equal(snapshot.ghp01, 1);
+    assert.equal(snapshot.nitro01, 1); assert.equal(snapshot.cash, 0); assert.equal(snapshot.medkits, 2); assert.equal(snapshot.bossHp01, 0);
+    const player = snapshot.cars.find(car => car.id === 1);
+    assert.deepEqual([player.x, player.y, player.z], f.run.player.veh.pos.toArray());
+    assert.equal(player.poseRevision, 0); assert.equal(player.L.length, 4); assert.equal(player.kind, 'player');
+  }
+  assert.equal(tick, f.run.sim.tick); assert(Math.abs(time - f.run.sim.time) < 1e-7, 'The final snapshot reports the current authoritative simulation clock');
+  const events = f.packets.filter(({ packet }) => packet.t === 'events');
+  assert.equal(events.length, 1); assert.equal(events[0].packet.e.filter(event => event.t === 'shot').length, 1, 'Snapshot cadence cannot repeat physical firing events');
+  assert.equal(f.run.shots, 1); assert.equal(f.run.hitsLanded, 1);
 });
 
 test('driver cockpit glass feedback reaches local FX once without refeeding the cockpit or entering network events', () => {

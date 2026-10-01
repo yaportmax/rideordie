@@ -15,7 +15,7 @@ G = "music"
 STEM_ORDER = ["base", "drums", "lead", "extra"]
 MUSIC_GAIN = 0.4          # uniform per-track 'gain' override for the manifest (keeps stem balance intact)
 
-TRACK_MODULES = ["mus_run_a", "mus_run_b", "mus_run_c", "mus_boss", "mus_garage", "mus_title", "mus_victory"]
+TRACK_MODULES = ["mus_garage", "mus_title", "mus_victory"]
 
 
 def _stem_fn(mod_name, key):
@@ -67,3 +67,32 @@ def _register(mod_name):
 
 for _m in TRACK_MODULES:
     _register(_m)
+
+
+def _register_dnb(track, biome, title, level):
+    from compose_dnb import BPM, BARS, compose
+    gr = M.Grid(BPM, BARS)
+
+    def stem_fn(stem):
+        def fn(v, r):
+            stems, _ = M.cached_stems(track, lambda: compose(track, biome, title, level),
+                                     ["compose_dnb.py", "dsp.py", "music_lib.py"])
+            return stems[stem]
+        return fn
+
+    for stem in ("base", "extra"):
+        extra = dict(track=track, kind="boss" if biome == "boss" else "run", stem=stem,
+                     intensity=0 if stem == "base" else 1, biomes=[] if biome == "boss" else [biome],
+                     bpm=gr.bpm, bpmNominal=BPM, bars=BARS, beats=BARS * 4, samples=gr.N,
+                     secPerBar=gr.N / SR / BARS, beatSec=gr.N / SR / BARS / 4,
+                     loopEnd=gr.N / SR, key="D minor", gain=.5,
+                     sections=[dict(bar=1, name="drive"), dict(bar=9, name="variation"),
+                               dict(bar=17, name="half-time break then return"), dict(bar=25, name="pressure")])
+        sound(G, track + "_" + stem, loop=True, ch=2, norm=("none", 0), category="music_stem", extra=extra,
+              notes=f"Original dark cinematic DnB ({biome}) 174 BPM; complete groove in base, adaptive pressure in extra.",
+              ceiling=-1.0)(stem_fn(stem))
+
+
+from compose_dnb import TRACKS
+for _track in TRACKS:
+    _register_dnb(*_track)

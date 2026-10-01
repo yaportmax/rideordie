@@ -1,6 +1,7 @@
 // Shop catalogue. Every entry is data; `effects(profile)` folds owned upgrades into stat modifiers used by the run setup.
 // COST_SCALE is the master economy knob (campaign target ~2-3 h across all runs).
 import { WEAPON_ORDER, WEAPONS } from './weapons.js';
+import { VEHICLES } from './vehicles.js';
 
 export const COST_SCALE = 1.25;
 const C = (arr) => arr.map((c) => Math.round(c * COST_SCALE));
@@ -68,12 +69,16 @@ export function effects(profile) {
   const lv = (id) => profile.upgrades[id] || 0;
   const truck = profile.truck;
   const tier = +truck.slice(-1);
+  const nitro = VEHICLES[truck]?.nitro ?? VEHICLES.truck_t1.nitro;
   const vestT = lv('vest');
   const e = {
     truck, tier,
     engineMul: 1 + 0.07 * lv('engine'), hpMul: 1 + 0.16 * lv('armor'), bulletResist: Math.max(0.55, 1 - 0.04 * lv('armor')),
     gripMul: 1 + 0.04 * lv('tires'), runFlat: lv('tires') >= 3,
-    nitroCap: lv('nitro') > 0 ? 1.4 + 0.8 * lv('nitro') : 1.0, nitroRegen: (lv('nitro') > 0 ? 0.1 : 0.07) + 0.03 * lv('nitro'), // a taste of boost from the start; the upgrade makes it a weapon
+    // Tank upgrades add to the selected chassis, rather than replacing every
+    // tier's authored tank/refill with the Rustbucket's one-second baseline.
+    nitroCap: nitro.capacity + (lv('nitro') > 0 ? 0.4 + 0.8 * lv('nitro') : 0),
+    nitroRegen: nitro.regen + (lv('nitro') > 0 ? 0.03 : 0) + 0.03 * lv('nitro'),
     ramLevel: lv('ram'), spikes: lv('spikes'), glass: lv('glass'), fueltank: lv('fueltank'), oil: lv('oil'), mines: lv('mines'),
     gunnerHp: 100 + [0, 20, 50, 90][vestT], gunnerArmor: [0, 0.15, 0.3, 0.45][vestT], armorTier: vestT, driverHp: 100,
     driverArmor: 0.3 * lv('glass') > 0 ? 0.3 * lv('glass') : 0,

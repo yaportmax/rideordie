@@ -24,12 +24,13 @@ import { ENEMY_GUNS } from '../data/enemies.js';
 import { patchCrewMaterials } from './crew_material.js';
 import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
 import { ownClonedSkeletons, disposeOwnedSkeletons } from './owned_skeletons.js';
+import { prepareLocalSkinning, copyLocalSkinningHooks } from './local_skinning.js';
 
 // first person: the local gunner's own body only casts its shadow (the viewmodel draws the arms + gun)
 const shadowMats = new Map();
 function shadowOnly(m) {
   let c = shadowMats.get(m);
-  if (!c) { c = m.clone(); c.colorWrite = false; c.depthWrite = false; shadowMats.set(m, c); }
+  if (!c) { c = copyLocalSkinningHooks(m, m.clone()); c.colorWrite = false; c.depthWrite = false; shadowMats.set(m, c); }
   return c;
 }
 
@@ -134,7 +135,7 @@ export class CrewView {
     this.body = new THREE.Group(); this.root.add(this.body);             // yawed toward the aim
     let url = `/models/characters/${kind}.glb`;
     if (!Assets.has(url) && /\d$/.test(kind)) { kind = kind.slice(0, -1); this.kind = kind; url = `/models/characters/${kind}.glb`; }   // variant not loaded -> base
-    const model = ownClonedSkeletons(Assets.clone(url));
+    const model = Assets.clone(url);
     this.rigged = !!model;
     this.clips = Assets.getAnimations(url).length ? Assets.getAnimations(url) : Assets.getAnimations('/models/characters/hero_gunner.glb');
     this.acts = new Map();
@@ -156,6 +157,12 @@ export class CrewView {
     this.aimYawL = 0; this.bodyYaw = 0; this.pitch = 0; this.crouch = 0; this.kick = 0; this.flinchT = 0; this.throwT = 0; this.steer = 0;
     this.deadT = -1; this.fallVel = V(); this.fallSpin = V(); this.detached = false; this.leave = null; this.y0 = 0; this.yGround = null;
     configureCrewShadows(this.root, this.weapon?.root);
+    // Prepare after the authored animation phase has been selected: cached
+    // material UUID allocation must not change seeded pose choices. Register
+    // ownership only after any shared palette has been split, before updates
+    // can attach/move arms or detach character meshes.
+    if (model && this.kind === 'hero_driver') prepareLocalSkinning(model, mesh => mesh.name === 'body');
+    ownClonedSkeletons(model);
   }
 
   _setupRig(model) {

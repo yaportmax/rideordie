@@ -9,6 +9,7 @@ import { normalizeUnits, speedValue, speedLabel } from '../ui/units.js';
 const _v = new THREE.Vector3(), _m = new THREE.Matrix4(), _pv = new THREE.Matrix4();
 const _impact = new THREE.Vector3(), _incoming = new THREE.Vector3();
 const RT_W = 1024, RT_H = 320, REAR_HFOV = 110;
+const SPEED_DIAL = { km: { max: 400, step: 80 }, mi: { max: 250, step: 50 } };
 // Seven actual front-window bullet crossings leave the driver's view clear for
 // the rest of this truck's life. Side/rear shots and blast damage do not count.
 export const WINDSHIELD_BREAK_HITS = 7;
@@ -303,8 +304,8 @@ export class Cockpit {
       }
       x.fillStyle = '#8b949c'; x.font = '600 12px Bahnschrift, Segoe UI, sans-serif'; x.textAlign = 'center'; x.fillText(label, cx, 142);
     };
-    const metric = normalizeUnits(this.units) === 'km';
-    dial(128, metric ? 200 : 125, metric ? 40 : 25, speedLabel(this.units)); dial(384, 8, 1, 'x1000 RPM', 6.5);
+    const speedDial = SPEED_DIAL[normalizeUnits(this.units)];
+    dial(128, speedDial.max, speedDial.step, speedLabel(this.units)); dial(384, 8, 1, 'x1000 RPM', 6.5);
     // centre stack: nitro bar + lamps
     x.fillStyle = '#10151a'; x.fillRect(236, 26, 40, 140);
     for (let i = 0; i < 20; i++) { x.fillStyle = i < nitro ? (i > 14 ? '#6fe3ff' : '#1fa8ff') : '#15202a'; x.fillRect(241, 158 - i * 6.6, 30, 4.6); }
@@ -436,13 +437,13 @@ export class Cockpit {
     if (!this.faceCtx) return;
     const d = this.gaugeState || { nitro01: 0, hp01: 1, dhp01: 1, ghp01: 1, speed: 0 };
     this._drawFace(d, true);
-    const sp = clamp(speedValue(d.speed || 0, units) / (units === 'km' ? 200 : 125), 0, 1.04);
+    const sp = clamp(speedValue(d.speed || 0, units) / SPEED_DIAL[units].max, 0, 1.04);
     this.needleS.rotation.z = -(Math.PI * .75 + Math.PI * 1.5 * sp) - Math.PI / 2;
   }
   update(dt, d, night = 0) {
     if (!this.active || !d) return;
     // needles (smooth, per frame)
-    const sp = clamp(speedValue(d.speed || 0, this.units) / (this.units === 'km' ? 200 : 125), 0, 1.04), rp = clamp((d.rpm01 || 0) * 7.6 / 8, 0, 1);
+    const sp = clamp(speedValue(d.speed || 0, this.units) / SPEED_DIAL[normalizeUnits(this.units)].max, 0, 1.04), rp = clamp((d.rpm01 || 0) * 7.6 / 8, 0, 1);
     const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
     // canvas angle a (clockwise from +x, y down) -> mesh rotation about z (counter-clockwise from +y)
     this.needleS.rotation.z = -(a0 + (a1 - a0) * sp) - Math.PI / 2;

@@ -22,13 +22,15 @@ const truckBase = {
 };
 
 export const VEHICLES = {
+  // A longer straight earns higher cruising speed: roughly 17% higher engine
+  // limits with 14% gentler launch torque. Reverse limits stay parking-speed.
   // ---------------------------------------------------------------- player trucks
   truck_t1: {
     ...truckBase, id: 'truck_t1', name: 'Rustbucket', kind: 'player', tier: 1,
     mass: 1350, length: 4.9, width: 1.75, height: 1.75, hp: 400,
     wheels: wheels4(0.82, 1.5, -1.45), wheelRadius: 0.34,
     colliders: [{ center: [0, 0.72, 0], half: [0.86, 0.36, 2.4] }, { center: [0, 1.28, 0.65], half: [0.76, 0.32, 0.85] }],
-    engine: { accel0: 5.0, vmax: 41, reverseMax: 11 }, nitro: { capacity: 1.0, regen: 0.07, mul: 1.6 },
+    engine: { accel0: 4.3, vmax: 48, reverseMax: 11 }, nitro: { capacity: 1.0, regen: 0.07, mul: 1.6 },
     seats: { driver: [0.4, 0.55, 0.55], gunner: [0, 0.95, -0.85] },
   },
   truck_t2: {
@@ -36,7 +38,7 @@ export const VEHICLES = {
     mass: 1700, length: 5.6, width: 2.0, height: 1.9,
     wheels: wheels4(0.92, 1.72, -1.6), wheelRadius: 0.4,
     colliders: [{ center: [0, 0.8, 0], half: [0.98, 0.4, 2.75] }, { center: [0, 1.4, 0.8], half: [0.85, 0.36, 0.95] }],
-    engine: { accel0: 5.4, vmax: 47, reverseMax: 12 }, nitro: { capacity: 2.0, regen: 0.12, mul: 1.65 },
+    engine: { accel0: 4.65, vmax: 55, reverseMax: 12 }, nitro: { capacity: 2.0, regen: 0.12, mul: 1.65 },
     seats: { driver: [0.45, 0.6, 0.75], gunner: [0, 1.0, -0.95] },
   },
   truck_t3: {
@@ -44,7 +46,7 @@ export const VEHICLES = {
     mass: 2300, length: 5.7, width: 2.1, height: 2.0,
     wheels: wheels4(0.96, 1.75, -1.65), wheelRadius: 0.42,
     colliders: [{ center: [0, 0.82, 0], half: [1.02, 0.42, 2.85] }, { center: [0, 1.45, 0.85], half: [0.88, 0.36, 0.95] }],
-    engine: { accel0: 6.4, vmax: 53, reverseMax: 12 }, nitro: { capacity: 3.0, regen: 0.14, mul: 1.7 },
+    engine: { accel0: 5.5, vmax: 62, reverseMax: 12 }, nitro: { capacity: 3.0, regen: 0.14, mul: 1.7 },
     seats: { driver: [0.48, 0.65, 0.8], gunner: [0, 1.05, -1.0] },
   },
   truck_t4: {
@@ -52,7 +54,7 @@ export const VEHICLES = {
     mass: 3000, length: 6.2, width: 2.3, height: 2.2,
     wheels: wheels4(1.05, 1.95, -1.8), wheelRadius: 0.48,
     colliders: [{ center: [0, 0.95, 0], half: [1.12, 0.48, 3.1] }, { center: [0, 1.6, 0.95], half: [0.95, 0.38, 1.0] }],
-    engine: { accel0: 7.6, vmax: 60, reverseMax: 13 }, nitro: { capacity: 4.0, regen: 0.16, mul: 1.8 },
+    engine: { accel0: 6.55, vmax: 70, reverseMax: 13 }, nitro: { capacity: 4.0, regen: 0.16, mul: 1.8 },
     seats: { driver: [0.52, 0.72, 0.9], gunner: [0, 1.15, -1.1] },
   },
 
@@ -61,35 +63,35 @@ export const VEHICLES = {
     ...truckBase, id: 'e_sedan', name: 'Bandit', kind: 'enemy', mass: 1500, length: 5.3, width: 1.95, height: 1.5, hp: 90,
     wheels: wheels4(0.85, 1.65, -1.6), wheelRadius: 0.33,
     colliders: [{ center: [0, 0.68, 0], half: [0.9, 0.34, 2.6] }, { center: [0, 1.15, 0.2], half: [0.78, 0.28, 1.0] }],
-    engine: { accel0: 4.4, vmax: 44, reverseMax: 10 }, grip: { ...truckBase.grip, front: 1.4, rear: 1.35 },
+    engine: { accel0: 3.8, vmax: 51.5, reverseMax: 10 }, grip: { ...truckBase.grip, front: 1.4, rear: 1.35 },
     seats: { driver: [0.4, 0.5, 0.5], gunner: [0, 0.75, -0.8] }, gunners: 1, driverHp: 40, gunnerHp: 40,
   },
   e_muscle: {
     ...truckBase, id: 'e_muscle', name: 'Rammer', kind: 'enemy', mass: 1750, length: 5.1, width: 1.95, height: 1.35, hp: 150,
     wheels: wheels4(0.86, 1.6, -1.5), wheelRadius: 0.35,
     colliders: [{ center: [0, 0.62, 0], half: [0.92, 0.3, 2.55] }, { center: [0, 1.05, -0.1], half: [0.75, 0.26, 0.95] }],
-    engine: { accel0: 6.2, vmax: 52, reverseMax: 12 },
+    engine: { accel0: 5.35, vmax: 61, reverseMax: 12 },
     seats: { driver: [0.4, 0.45, 0.2], gunner: null }, gunners: 0, driverHp: 50, gunnerHp: 0,
   },
   e_buggy: {
     ...truckBase, id: 'e_buggy', name: 'Skirmisher', kind: 'enemy', mass: 850, length: 3.7, width: 2.0, height: 1.7, hp: 60,
     wheels: wheels4(0.9, 1.15, -1.1), wheelRadius: 0.4,
     colliders: [{ center: [0, 0.7, 0], half: [0.95, 0.3, 1.85] }],
-    engine: { accel0: 6.0, vmax: 48, reverseMax: 10 }, grip: { ...truckBase.grip, front: 1.5, rear: 1.5 },
+    engine: { accel0: 5.15, vmax: 56, reverseMax: 10 }, grip: { ...truckBase.grip, front: 1.5, rear: 1.5 },
     seats: { driver: [0.35, 0.55, 0.15], gunner: [0, 0.7, -0.75] }, gunners: 1, driverHp: 35, gunnerHp: 35,
   },
   e_technical: {
     ...truckBase, id: 'e_technical', name: 'Technical', kind: 'enemy', mass: 1600, length: 5.0, width: 1.85, height: 1.9, hp: 150,
     wheels: wheels4(0.85, 1.5, -1.45), wheelRadius: 0.36,
     colliders: [{ center: [0, 0.75, 0], half: [0.9, 0.38, 2.5] }, { center: [0, 1.3, 0.7], half: [0.78, 0.32, 0.85] }],
-    engine: { accel0: 4.8, vmax: 45, reverseMax: 10 },
+    engine: { accel0: 4.15, vmax: 52.5, reverseMax: 10 },
     seats: { driver: [0.4, 0.55, 0.6], gunner: [0, 0.95, -0.9] }, gunners: 1, driverHp: 45, gunnerHp: 50,
   },
   e_van: {
     ...truckBase, id: 'e_van', name: 'Boxer', kind: 'enemy', mass: 2600, length: 5.6, width: 2.1, height: 2.4, hp: 320,
     wheels: wheels4(0.92, 1.75, -1.6), wheelRadius: 0.38,
     colliders: [{ center: [0, 1.15, 0], half: [1.0, 0.85, 2.75] }],
-    engine: { accel0: 4.0, vmax: 40, reverseMax: 9 },
+    engine: { accel0: 3.45, vmax: 47, reverseMax: 9 },
     seats: { driver: [0.45, 0.85, 1.2], gunner: [0, 1.5, -0.4] }, gunners: 1, driverHp: 60, gunnerHp: 60,
   },
   e_heavy: {
@@ -101,7 +103,7 @@ export const VEHICLES = {
     ].map((w) => ({ ...w, hb: !w.front })),
     wheelRadius: 0.55,
     colliders: [{ center: [0, 1.4, 0.8], half: [1.25, 0.9, 3.9] }],
-    engine: { accel0: 2.8, vmax: 34, reverseMax: 8 },
+    engine: { accel0: 2.4, vmax: 40, reverseMax: 8 },
     seats: { driver: [0.5, 1.3, 2.8], gunner: [0, 1.7, -1.6], gunner2: [0.3, 1.7, -3.0] }, gunners: 2, driverHp: 80, gunnerHp: 70,
     susp: { freq: 1.6, zeta: 0.6, maxLen: 0.7, minLen: 0.2 },
   },
@@ -114,7 +116,7 @@ export const VEHICLES = {
     ].map((w) => ({ ...w, hb: !w.front })),
     wheelRadius: 0.55,
     colliders: [{ center: [0, 1.3, 1.9], half: [1.2, 0.8, 1.6] }, { center: [0, 1.7, -1.6], half: [1.2, 1.0, 3.6] }],
-    engine: { accel0: 2.6, vmax: 33, reverseMax: 8 },
+    engine: { accel0: 2.25, vmax: 39, reverseMax: 8 },
     seats: { driver: [0.5, 1.3, 3.3], gunner: [0, 2.3, 2.6] }, gunners: 1, driverHp: 80, gunnerHp: 70, explosive: true,
     susp: { freq: 1.5, zeta: 0.6, maxLen: 0.7, minLen: 0.2 },
   },

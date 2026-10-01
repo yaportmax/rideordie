@@ -79,9 +79,9 @@ export class Director {
     if (this.activeElite) return;   // a warlord fight is its own encounter (the warlord calls its own help)
     // biome set piece: once per run, regardless of budget / cap
     for (const sp of SET_PIECES) {
-      if (this.setDone?.has(sp.key) || P.s < sp.s - 260 || P.s > sp.s + 900) continue;
-      (this.setDone || (this.setDone = new Set())).add(sp.key);
+      if (this.setDone?.has(sp.key) || P.s < sp.s - 260 || P.s > sp.s + 900 || (this.failT?.[sp.key] ?? 0) > sim.time) continue;
       if (this.spawnEncounter(sim, sp.key, Math.max(L, 0.05))) {
+        (this.setDone || (this.setDone = new Set())).add(sp.key);
         sim.emit({ t: 'setPiece', key: sp.key, title: sp.title, sub: sp.sub });
         this.cooldown = Math.max(this.cooldown, 10); this.encounters++;
         return;

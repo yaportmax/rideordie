@@ -21,7 +21,7 @@ test('every truncated packet is ignored; unknown specs and non-finite positions 
   const ab = frame(120, 1);
   for (let n = 0; n < ab.byteLength; n++) assert.equal(decodeSnapshot(ab.slice(0, n)), null, 'truncated at ' + n);
   const invalid = ab.slice(0); new DataView(invalid).setUint8(36, 255); assert.equal(decodeSnapshot(invalid), null);
-  const nan = ab.slice(0); new DataView(nan).setFloat32(40, NaN, true); assert.equal(decodeSnapshot(nan), null);
+  const nan = ab.slice(0); new DataView(nan).setFloat32(42, NaN, true); assert.equal(decodeSnapshot(nan), null);
   assert.equal(decodeSnapshot({}), null);
 });
 

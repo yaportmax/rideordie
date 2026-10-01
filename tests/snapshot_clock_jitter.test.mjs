@@ -94,7 +94,7 @@ test('manual clockOffset/delay tuning stays supported and correction cannot rewi
   b.delay = .2; b.clockOffset += .5; b.sample(10.1);
   assert.equal(b.renderTime, cursor); assert.equal(b.states.get(1).pos.x, x, 'Increased buffering holds the current pose until the target catches up');
   b.delay = 0; b.clockOffset = 9; b.sample(10.18); assert(b.renderTime > cursor);
-  b.sample(10.01); assert.equal(b.renderTime, 10.18 - 9, 'A backward receive-clock sample also cannot rewind');
+  const resumed = b.renderTime; b.sample(10.01); assert.equal(b.renderTime, resumed, 'A backward receive-clock sample also cannot rewind');
 });
 
 test('tick wrap, duplicate/reordered packets and fresh run resets preserve cursor and newest state', () => {
