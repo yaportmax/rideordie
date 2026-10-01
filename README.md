@@ -6,6 +6,7 @@ wreck the five warlord minibosses, and bring down **the Leviathan** — a 36 m w
 When you die you go back to the garage, spend your cash on trucks, weapons, armor and upgrades, and ride again.
 
 ## Play
+- Play the public build at **https://ride.maxyaport.com**. Both players open that address, then use HOST GAME / JOIN GAME and the room code below.
 - Double-click **`Play Ride or Die.bat`** (first launch installs + builds, then opens `http://localhost:4173`).
 - Co-op: one player clicks **HOST GAME** and shares the 5-letter room code; the other clicks **JOIN GAME** and types it.
   Your friend opens the address the launcher prints (your Tailscale IP, e.g. `http://100.x.x.x:4173`) — or any public host of the `dist/` folder.
