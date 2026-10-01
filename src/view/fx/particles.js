@@ -102,12 +102,20 @@ varying vec3 vUs;             // world up in sprite space
 varying vec3 vCab;            // position in the cab frame
 varying float vDepth;         // view depth
 varying float vClip;          // 1 = cabin clip applies
+varying float vGround;        // signed height in ground-fade widths; preserves the sprite plane
 
 float hash11(float n) { return fract(sin(n) * 43758.5453123); }
 
 void hideP() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vCol = vec4(0.0); vUv0 = vec2(0.0); vUv1 = vec2(0.0); vBlend = 0.0; vAdd = 0.0; vMono = 0.0;
-  vFog = vec4(0.0); vLitP = vec4(0.0); vLs = vec3(0.0); vUs = vec3(0.0); vCab = vec3(0.0); vDepth = 0.0; vClip = 0.0;
+  vFog = vec4(0.0); vLitP = vec4(0.0); vLs = vec3(0.0); vUs = vec3(0.0); vCab = vec3(0.0); vDepth = 0.0; vClip = 0.0; vGround = 1.0;
+}
+
+float particleGroundHeight(float worldY, float groundY, float softDistance, bool hasGround, int mode) {
+  if (!hasGround || mode == 2) return 1.0;
+  // Clip the actual sprite surface instead of folding its lower vertices onto
+  // the road. Keep a small contact band even without the depth texture on Low.
+  return (worldY - groundY) / clamp(softDistance, 0.08, 0.35);
 }
 
 float particleEnvelope(float t, float fin, float fout, int flags) {
@@ -311,7 +319,7 @@ void main() {
     }
     rgt = side; up = ax;
   }
-  if (hasGround && mode != 2) world.y = max(world.y, gy + 0.03);
+  vGround = particleGroundHeight(world.y, gy, aX.x, hasGround, mode);
 
   // ---------------------------------------------------------------- overdraw bound: near-camera + screen-size fade
   if (mode == 0 || mode == 4 || mode == 7) {
@@ -372,16 +380,18 @@ uniform vec3 uSkyCol; uniform vec3 uGndCol; uniform vec3 uGlowCol;
 uniform vec4 uCabMin; uniform vec4 uCabMax; uniform vec4 uCabPlane;
 varying vec2 vUv0; varying vec2 vUv1; varying float vBlend; varying vec4 vCol; varying float vAdd; varying float vMono;
 varying vec4 vFog; varying vec4 vLitP; varying vec3 vLs; varying vec3 vUs; varying vec3 vCab; varying float vDepth; varying float vClip;
+varying float vGround;
 
 void main() {
   if (vCol.a <= 0.0005) discard;
-  float k = 1.0;
+  float k = smoothstep(0.0, 1.0, vGround);
+  if (k <= 0.002) discard;
   // cabin clip: never draw inside the local player's cab (soft over ~5 cm at the walls / glass)
   if (vClip > 0.5) {
     vec3 p = vCab;
     vec3 a = p - uCabMin.xyz, b = uCabMax.xyz - p;
     float inside = min(min(min(a.x, b.x), min(a.y, b.y)), min(min(a.z, b.z), uCabPlane.w - dot(uCabPlane.xyz, p)));
-    k = 1.0 - smoothstep(-0.2, 0.02, inside);
+    k *= 1.0 - smoothstep(-0.2, 0.02, inside);
     if (k <= 0.002) discard;
   }
   // soft particles against last frame's scene depth

@@ -89,9 +89,12 @@ export function chip(fx, x, y, z, vx, vy, vz, size, life, cell, gy, tr = 1, tg =
 }
 
 /** Camera-facing additive glow (spark sprite) or flash (blast flash sprite). */
-export function glow(fx, x, y, z, size, life, r, g, b, big = false, grow = 1.5, flags = 0) {
+export function glow(fx, x, y, z, size, life, r, g, b, big = false, grow = 1.5, flags = 0, ground = -1e4) {
   const p = fx.p.reset(); p.pos(x, y, z); p.life = life; p.spr = big ? SPR.FLASH : SPR.SPARK; p.size(size, size * grow); p.sCurve = 0.5;
   p.col(r, g, b, 1); p.add0 = p.add1 = 1; p.rot = fx.rng.next() * PI2; p.fin = 0.0; p.fout = 0.85; p.flags = flags;
+  // Large blast halos intersect the road through their bright interior. Fade
+  // that contact on every quality tier instead of relying on hard depth tests.
+  if (ground > -9000) { p.ground = ground; p.soft = 0.35; }
   fx.pf.emit(p);
 }
 
@@ -149,8 +152,8 @@ export function explosion(fx, x, y, z, S, o) {
   const R = 4.2 * S;
   const sS = Math.sqrt(S);
   // 1. flash: hot white bloom + wide soft flash
-  glow(fx, x, y + 0.6, z, R * 1.9, 0.14, 12, 9, 5.5, true, 2.1);
-  glow(fx, x, y + 0.8, z, R * 3.2, 0.32, 2.6, 1.0, 0.25, true, 1.5);
+  glow(fx, x, y + 0.6, z, R * 1.9, 0.14, 12, 9, 5.5, true, 2.1, 0, gy);
+  glow(fx, x, y + 0.8, z, R * 3.2, 0.32, 2.6, 1.0, 0.25, true, 1.5, 0, gy);
   // 2. fireball: flipbook blobs, hot core first, outer ones a hair later (the ball keeps growing for ~0.2 s)
   const nb = Math.max(5, Math.round((8 + 4 * S) * qd));
   for (let i = 0; i < nb; i++) {
@@ -217,7 +220,7 @@ export function explosion(fx, x, y, z, S, o) {
 /** Small secondary fireball (used for chained pops). */
 export function miniPop(fx, x, y, z, S, gy) {
   const r = fx.rng, qd = fx.qd, R = 4.0 * S;
-  glow(fx, x, y + 0.4, z, R * 2.4, 0.14, 8, 6, 3, true, 2.0);
+  glow(fx, x, y + 0.4, z, R * 2.4, 0.14, 8, 6, 3, true, 2.0, 0, gy);
   const nb = Math.max(2, Math.round(4 * qd * Math.sqrt(S) * 1.6));
   for (let i = 0; i < nb; i++) {
     let rx = r.sym(1), ry = r.range(-0.1, 1), rz = r.sym(1); const rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
@@ -261,8 +264,8 @@ export function boom(fx, x, y, z, radius, kind, ground) {
 export function cannonBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy) {
   const r = fx.rng, p = fx.p, qd = fx.qd;
   const yaw = Math.atan2(dx, dz), pitch = Math.asin(Math.max(-1, Math.min(1, dy)));
-  glow(fx, ox + dx, oy + dy, oz + dz, 7, 0.14, 12, 9, 6, true, 2.0);
-  glow(fx, ox + dx * 3, oy + dy * 3, oz + dz * 3, 16, 0.26, 3.2, 1.4, 0.4, true, 1.4);
+  glow(fx, ox + dx, oy + dy, oz + dz, 7, 0.14, 12, 9, 6, true, 2.0, 0, gy);
+  glow(fx, ox + dx * 3, oy + dy * 3, oz + dz * 3, 16, 0.26, 3.2, 1.4, 0.4, true, 1.4, 0, gy);
   p.reset(); p.pos(ox + dx * 0.5, oy + dy * 0.5, oz + dz * 0.5).vel(vx, vy, vz); p.spr = SPR.MUZZLE; p.f0 = 6; p.size(5.5); p.life = 0.11; p.rot = r.next() * PI2; p.col(7, 5, 2.4, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0.7; fx.pf.emit(p);
   for (let k = 0; k < 2; k++) {
     p.reset(); p.pos(ox - dx * 1.2, oy - dy * 1.2, oz - dz * 1.2).vel(vx, vy, vz); p.spr = SPR.MUZZLE; p.f0 = k ? 3 : 4; p.mode = MODE.FWD; p.pivot = yaw; p.aspect = pitch;
@@ -294,8 +297,8 @@ export function cannonBlast(fx, ox, oy, oz, dx, dy, dz, vx, vy, vz, gy) {
 /** THE LEVIATHAN's final blast: a mushroom-cloud fireball (the rising cap / stem / long column is driven by BossFx's job). */
 export function megaExplosion(fx, x, y, z, gy) {
   const r = fx.rng, p = fx.p, qd = fx.qd;
-  glow(fx, x, y + 4, z, 70, 0.35, 10, 7, 4, true, 1.8);
-  glow(fx, x, y + 6, z, 140, 0.7, 2.6, 1.1, 0.3, true, 1.3);
+  glow(fx, x, y + 4, z, 70, 0.35, 10, 7, 4, true, 1.8, 0, gy);
+  glow(fx, x, y + 6, z, 140, 0.7, 2.6, 1.1, 0.3, true, 1.3, 0, gy);
   // initial fireball: dense cluster of fireball blobs thrown up and out
   const nb = Math.round(26 * qd) + 8;
   for (let i = 0; i < nb; i++) {
