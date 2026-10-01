@@ -7,10 +7,12 @@ When you die you go back to the garage, spend your cash on trucks, weapons, armo
 
 ## Play
 - Play the public build at **https://ride.maxyaport.com**. Both players open that address, then use HOST GAME / JOIN GAME and the room code below.
+- Both players should reload after an update before joining. Multiplayer checks protocol compatibility and asks older clients to reload.
 - Double-click **`Play Ride or Die.bat`** (first launch installs + builds, then opens `http://localhost:4173`).
 - Co-op: one player clicks **HOST GAME** and shares the 5-letter room code; the other clicks **JOIN GAME** and types it.
   Your friend opens the address the launcher prints (your Tailscale IP, e.g. `http://100.x.x.x:4173`) — or any public host of the `dist/` folder.
   Connections are peer-to-peer (WebRTC); the free PeerJS service only introduces the two browsers.
+- Direct co-op is verified on the public build with both host seats and repeated runs. Restrictive-network relay is awaiting service activation, and joining from a different household remains unverified.
 - In the lobby pick seats (DRIVER / GUNNER), both press READY, the host starts. The host's save file is the shared campaign. Each player keeps their own cash, pays for their own purchases, and earns the team run reward independently. Truck upgrades and equipment remain shared, and changing seats does not move your cash.
 - **SOLO** lets one person drive (WASD) and shoot (mouse) at the same time — good for practice.
 - Distance and speed default to miles and mph; switch to kilometers in Settings.
