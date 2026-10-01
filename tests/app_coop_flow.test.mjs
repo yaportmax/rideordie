@@ -255,13 +255,14 @@ test('loading cancel records intent before a queued successful initializer conti
 });
 
 test('co-op Results closes old pause confirmation and stale pause callbacks cannot abort or resume it', (t) => {
-  const f = fixture(t), run = { summary: { id: 'paid', distance: 100, time: 4, kills: 1, won: false } };
+  const f = fixture(t), run = {};
   f.app.screen = 'run'; f.game.run = run;
   let pauseCallbacks, resultsShown = 0;
   f.ui.showPause = (cb) => { pauseCallbacks = cb; };
   f.ui.showResults = () => { resultsShown++; };
   f.session.creditResult = () => {};
   f.app._pause(); const quitDialog = f.ui.modal({ title: 'QUIT?' });
+  run.summary = { id: 'paid', distance: 100, time: 4, kills: 1, won: false };
   f.app._results(run);
   assert.equal(f.app.screen, 'results'); assert.equal(f.ui.current, null); assert.equal(resultsShown, 1);
   pauseCallbacks.onQuit(); pauseCallbacks.onResume();

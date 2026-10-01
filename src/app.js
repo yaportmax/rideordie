@@ -7,6 +7,7 @@ import { loadProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTra
 
 import { TRUCK_COLORS, UPGRADE_BY_ID } from './data/upgrades.js';
 import { normalizeUnits } from './ui/units.js';
+import { canCaptureRun, isDefeated } from './game/run_status.js';
 const DAM_CHECKPOINT_S = 52500, DAM_CHECKPOINT_UNLOCK = 59000; // start past the last warlord's window (city ~49.5 km + 2.5 km)
 
 const APP_MSGS = new Set(['toGarage', 'garageReady', 'backToLobby', 'abort']);
@@ -429,13 +430,15 @@ export class App {
   }
   _pause() {
     const g = this.game;
-    if (g.paused) return;
+    // A defeated solo run must keep advancing to its existing results timer.
+    // An already-owned pause remains owned; co-op continues underneath it.
+    if (g.paused || g.run?.over || isDefeated(g.run)) return;
     const run = g.run, session = this.session, flow = this._flowId;
     const current = () => this.screen === 'run' && g.run === run && this.session === session && this._flowId === flow;
     g.paused = true; this._releasing = true; this.input.releaseLock(); this.input.reset();
     this.ui.showPause({
       coop: this.mode === 'coop',
-      onResume: () => { if (!current()) return; g.paused = false; this.input.reset(); this.ui.hideAll(); this.input.requestLock(); },
+      onResume: () => { if (!current()) return; g.paused = false; this.input.reset(); this.ui.hideAll(); if (canCaptureRun(run)) this.input.requestLock(); },
       onQuit: () => {
         if (!current()) return;
         g.paused = false;

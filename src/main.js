@@ -10,9 +10,12 @@ const q = new URLSearchParams(location.search);
 const game = new Game({ quality: loadSettings().quality });
 window.__game = game;
 window.render_game_to_text = () => {
-  const run = game.run, gunner = run?.gunner;
+  const run = game.run, gunner = run?.gunner, player = run?.states.get(1);
   return JSON.stringify({ mode: game.mode, paused: game.paused, role: run?.role, distanceMetres: run?.playerS,
-    coordinates: 'world metres; y up; truck follows road distance', player: run?.states.get(1)?.pos,
+    coordinates: 'world metres; y up; truck follows road distance', player: player?.pos,
+    phase: run?.phase, defeated: run?.defeated, defeatReason: run?.defeatReason,
+    driverAlive: player?.driverAlive, gunnerAlive: player?.gunnerAlive, truckHp01: player?.hp01,
+    cinematic: run?.cinematic, introOutside: run?.introOutside, mouseCaptured: game.input.locked,
     weapon: gunner?.weapon?.id, magazine: gunner?.magNow, reloading: gunner?.reloading, ads: gunner?.ads,
     vehicles: run?.states.size, finished: run?.finished, performance: game.perf });
 };

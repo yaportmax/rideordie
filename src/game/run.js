@@ -31,10 +31,14 @@ import { StructureColliders } from '../sim/structure_colliders.js';
 import { BOSS_ID, BOSS_NAMES, MINIBOSSES, BOSS_PARTS } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
 import { clamp, damp, lerp, wrapAngle } from '../core/util.js';
+import { runPhase, defeatReason, isDefeated, rememberDefeat } from './run_status.js';
 
 const V3 = THREE.Vector3;
 
 export class Run {
+  get phase() { return runPhase(this); }
+  get defeated() { return isDefeated(this); }
+  get defeatReason() { return defeatReason(this); }
   /**
    * @param g Game (renderer, scene, camera, input, hud, materials, fx?, audio?, post?)
    * @param cfg {role, seed, profile, net?, startS?}
@@ -267,11 +271,12 @@ export class Run {
       for (const id of this.ghosts.keys()) if (!this.states.has(id)) this.ghosts.delete(id);
       if (this.simState === 'over' && !this.over) { this.over = true; }
     }
+    rememberDefeat(this, this.events);
     const pst = this.states.get(this.playerId);
     if (!this.sim && cmds.gunner.medkit) this._medkit();
     if (this.streamer) this.streamer.update(this.playerS || 0);
     if (pst) this._gunnerEye(pst, this.eye || (this.eye = new THREE.Vector3()));
-    if (cmds.gunner.viewToggle && this.humanGunner) this.gcam.toggle();
+    if (cmds.gunner.viewToggle && this.humanGunner && !isDefeated(this)) this.gcam.toggle();
     if (this.aiGunner && this.gunner && this.sim) cmds.gunner = this.aiGunner.update(dt, this.gunner, this.eye);
     // debug aimbot (tests only): point the gunner at the nearest enemy
     if (window.__aimbot && this.gunner && pst) {
@@ -293,7 +298,7 @@ export class Run {
     if (this.gunner && pst) {
       const carYaw = Math.atan2(_f.set(0, 0, 1).applyQuaternion(pst.quat).x, _f.z);
       this.gunner.crewAlive = pst.gunnerAlive;
-      if (!pst.gunnerAlive || (this.sim ? this.sim.state : this.simState) !== 'run') { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
+      if (!pst.gunnerAlive || (this.sim ? this.sim.state : this.simState) !== 'run' || isDefeated(this)) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
       if (this.humanGunner && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
         this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, this._assistTargets(), pst.vel);
       }
@@ -487,7 +492,7 @@ export class Run {
     this.sim.emit({ t: 'unflip', id: P.id });
   }
   _medkit() {
-    if (this.medkits <= 0 || (this.sim ? this.sim.state : this.simState) !== 'run') return;
+    if (this.medkits <= 0 || (this.sim ? this.sim.state : this.simState) !== 'run' || isDefeated(this)) return;
     if (!this.sim) { this.net.sendJSON({ t: 'medkit' }); return; }
     if (this.sim.useMedkit()) { this.medkits--; this.g.hud.message('MEDKIT', 900, '#7fdc7f'); }
   }
@@ -501,7 +506,6 @@ export class Run {
       }
       if (e.t === 'kill') { g_kill(this, e); }
       if (e.t === 'runOver' && !this.over) { this.over = true; this.overWhy = e.why; }
-      if (e.t === 'playerDown') this.g.hud.message(e.why === 'car' ? 'TRUCK DESTROYED' : e.why === 'driver' ? 'DRIVER DOWN' : 'GUNNER DOWN', 2400, '#ff4433');
       if (e.t === 'crash' && e.id === 1) { this.chase.shake.add(clamp(e.dv * 0.05, 0, 0.7)); this.gcam.shake.add(clamp(e.dv * 0.05, 0, 0.7)); if (e.dv > 2.5) { this.g.hud.damageFlash(clamp(e.dv * 0.08, 0.2, 0.6)); this.g.input.rumble(0.8, 0.6, 200); } }
       if (e.t === 'rampLand' && e.id === 1) { const k = clamp(e.v / 14, 0.3, 1); this.chase.shake.add(0.35 * k); this.gcam.shake.add(0.4 * k); this.g.input.rumble(0.7 * k, 0.5, 220); }
       if (e.t === 'crewHit' && e.id === 1) { this.g.hud.damageFlash(0.45); this.chase.shake.add(0.12); this.gcam.shake.add(0.15); this.g.input.rumble(0.3, 0.7, 90); }
@@ -517,11 +521,17 @@ export class Run {
     if (!pst) return;
     const B = this.bossState;
     this.cinematic = false;
-    if (B && (B.dead || B.exploded) && !this.finaleDone) {
+    const defeated = isDefeated(this);
+    if (defeated && this._finaleHudHidden) {
+      this._finaleHudHidden = false;
+      // Results own their visibility; only undo the finale's earlier run hide.
+      if (!window.__app || window.__app.game !== g || window.__app.screen === 'run') g.hud.setVisible(true);
+    }
+    if (B && (B.dead || B.exploded) && !this.finaleDone && !defeated) {
       this.finaleT = (this.finaleT || 0) + dt;
       if (this.finaleT < 9) {
         // cinematic: no first-person gun/arms, no cockpit, no HUD over the war-train's death
-        this.cinematic = true; this.introOutside = true; this.cockpit?.setActive(false); g.hud.setVisible(false);
+        this.cinematic = true; this.introOutside = true; this.cockpit?.setActive(false); g.hud.setVisible(false); this._finaleHudHidden = true;
         const a = this.finaleT * 0.25 + 0.6, r = 42 - this.finaleT * 1.5;
         g.camera.position.set(B.pos.x + Math.sin(a) * r, B.pos.y + 9 + this.finaleT * 0.6, B.pos.z + Math.cos(a) * r);
         // keep the camera out of bridges / cliffs: pull it in front of the first obstruction
@@ -531,12 +541,11 @@ export class Run {
         g.camera.lookAt(B.pos.x, B.pos.y + 4, B.pos.z);
         return;
       }
-      this.finaleDone = true; this.introOutside = false; g.hud.setVisible(true);
+      this.finaleDone = true; this.introOutside = false; g.hud.setVisible(true); this._finaleHudHidden = false;
     }
     const co = window.__camOverride; // dev: {offset:[x,y,z] in truck frame, look:[x,y,z] in truck frame}
     if (co) { const q = pst.quat; g.camera.position.set(...co.offset).applyQuaternion(q).add(pst.pos); _v.set(...co.look).applyQuaternion(q).add(pst.pos); g.camera.lookAt(_v); if (co.fov) { g.camera.fov = co.fov; g.camera.updateProjectionMatrix(); } return; }
-    const dying = this.sim ? this.sim.state === 'dying' || this.sim.state === 'over' : this.simState === 'dying' || this.simState === 'over';
-    if (dying && !this.sim?.won) {
+    if (defeated) {
       // pulled out of your own eyes: the first-person pose at the moment of death blends into a slow orbit around the wreck
       if (!this.deathFrom) {
         this.deathFrom = { pos: g.camera.position.clone(), quat: g.camera.quaternion.clone(), fov: g.camera.fov };
@@ -744,7 +753,7 @@ export class Run {
   onNet(m) {
     if (!m || this.disposed) return;
     if (m.t === 'runReady') { this.partnerReady = true; return; }
-    if (m.t === 'events') { (this.netEvents || (this.netEvents = [])).push(...m.e); return; }
+    if (m.t === 'events') { if (!this.sim) rememberDefeat(this, m.e); (this.netEvents || (this.netEvents = [])).push(...m.e); return; }
     if (m.t === 'feed') { this.g.hud.feed(m.text, m.crash ? '#ffc21a' : '#fff'); if (this.gunner) this.g.hud.hitMarker(true); return; }
     if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; return; }
     if (m.t === 'go') { this.goSeen = true; this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }

@@ -24,6 +24,7 @@ import { CrewView } from '../view/crew_view.js';
 import { ViewModel } from '../view/viewmodel.js';
 import { disposeOwnedSkeletonsIn } from '../view/owned_skeletons.js';
 import { clamp } from '../core/util.js';
+import { canCaptureRun, defeatReason } from './run_status.js';
 
 export class Game {
   constructor(opts = {}) {
@@ -50,7 +51,12 @@ export class Game {
     this.perf = { sim: 0, render: 0, frame: 16.7, fps: 60, worst: 0 };
     window.__perf = this.perf;
     addEventListener('resize', () => this.resize());
-    this.canvas.addEventListener('click', () => { if (this.mode === 'run' && this.run && !this.run.over && !this.paused) this.input.requestLock(); });
+    this.canvas.addEventListener('click', () => this._captureRunPointer());
+  }
+
+  _captureRunPointer() {
+    if (this.mode !== 'run' || this.paused || !canCaptureRun(this.run)) return false;
+    this.input.requestLock(); return true;
   }
 
   resize() {
@@ -239,7 +245,7 @@ export class Game {
     if (!this._fadeEl) { const f = this._fadeEl = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;z-index:5;opacity:0;transition:opacity 0.6s'; document.body.appendChild(f); }
     this._fadeEl.style.transition = `opacity ${secs}s`; this._fadeEl.style.opacity = to;
   }
-  endRun() { this._runGeneration = (this._runGeneration || 0) + 1; this.paused = false; this.onPause = this.onRunEnd = null; if (this.run) { this.run.dispose(); this.run = null; } if (window.__app) window.__app._releasing = true; this.input.releaseLock(); this.input.reset(); this.hud.setVisible(false); if (this._lockEl) this._lockEl.style.display = 'none'; }
+  endRun() { this._runGeneration = (this._runGeneration || 0) + 1; this.paused = false; this.onPause = this.onRunEnd = null; if (this.run) { this.run.dispose(); this.run = null; } if (window.__app) window.__app._releasing = true; this.input.releaseLock(); this.input.reset(); this.hud.setDefeat?.(null); this.hud.setVisible(false); if (this._lockEl) this._lockEl.style.display = 'none'; }
 
   frame(now) {
     const frameMs = now - this.last;
@@ -304,8 +310,9 @@ export class Game {
     if (this.post) this.post.render(dt); else this.renderer.render(this.scene, this.camera);
     const t3 = performance.now();
     this.hud.update(dt, run.hud2, run.started && !this.paused && !!p);
+    this.hud.setDefeat?.(defeatReason(run));
     // mouse capture prompt for mouse users who aim
-    const needLock = !window.__aimbot && !window.__camOverride && run.humanGunner && run.role !== 'driver' && !this.paused && !run.over && this.input.lastDevice !== 'pad' && !this.input.locked;
+    const needLock = !window.__aimbot && !window.__camOverride && run.humanGunner && run.role !== 'driver' && !this.paused && canCaptureRun(run) && this.input.lastDevice !== 'pad' && !this.input.locked;
     if (!this._lockEl) { const e = this._lockEl = document.createElement('div'); e.textContent = 'CLICK TO AIM'; e.style.cssText = 'position:fixed;left:50%;top:58%;transform:translateX(-50%);padding:10px 22px;background:rgba(0,0,0,.55);color:#ffc21a;font:600 16px Bahnschrift,Segoe UI,sans-serif;letter-spacing:4px;border-left:3px solid #ffc21a;pointer-events:none;z-index:4;display:none'; document.body.appendChild(e); }
     this._lockEl.style.display = needLock ? 'block' : 'none';
     if (t3 - t0 > 80) (window.__hitches || (window.__hitches = [])).push({ at: +(performance.now() / 1000).toFixed(1), sim: +(t1 - t0).toFixed(0), look: +(t2 - t1).toFixed(0), render: +(t3 - t2).toFixed(0), chunks: run.streamer?.stats?.built, cars: run.states.size, progs: this.renderer.info.programs?.length, ev: (run.allEvents || []).map((e) => e.t).join(',').slice(0, 120) });

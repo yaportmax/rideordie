@@ -35,6 +35,7 @@ const CSS = `
 #hud .ammo .wname{font-size:15px;letter-spacing:3px;opacity:.9;display:block}
 #hud .vig{inset:0;background:radial-gradient(ellipse at center,rgba(200,0,0,0) 45%,rgba(200,0,0,.55) 100%);opacity:0}
 #hud .msg{left:50%;top:22%;transform:translateX(-50%);font-size:44px;font-weight:800;letter-spacing:4px;text-align:center;opacity:0;font-style:italic}
+#hud .defeat{left:50%;top:14%;transform:translateX(-50%);max-width:calc(100% - 48px);padding:12px 20px;background:rgba(12,8,8,.82);border-left:3px solid #ff4433;color:#ffb3a8;font-size:clamp(18px,2vw,26px);font-weight:800;letter-spacing:2px;text-align:center;display:none}
 #hud .kf{right:30px;top:80px;text-align:right;font-size:18px;letter-spacing:1px}
 #hud .kf div{opacity:1;transition:opacity .4s}
 #hud .hitm{left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0;transition:opacity .18s}
@@ -59,6 +60,7 @@ export class Hud {
       <div class="abs scope"></div><div class="abs cross"><i class="h" style="left:-16px"></i><i class="h" style="left:7px"></i><i class="v" style="top:-16px"></i><i class="v" style="top:7px"></i><i class="dot"></i></div>
       <div class="abs hitm"></div>
       <div class="abs msg"></div>
+      <div class="abs defeat" role="status" aria-live="polite"></div>
       <div class="abs kf"></div>
       <div class="abs speed"><b class="spd">0</b><small class="spdunit">MPH</small></div>
       <div class="abs bar rpm"><i class="rpmbar"></i></div>
@@ -70,13 +72,14 @@ export class Hud {
     document.body.appendChild(el);
     const $ = (s) => el.querySelector(s);
     this.q = { spd: $('.spd'), spdUnit: $('.spdunit'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), hp: $('.hpbar'), area: $('.area'),
-      vig: $('.vig'), msg: $('.msg'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
+      vig: $('.vig'), msg: $('.msg'), defeat: $('.defeat'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
     this.arrowPool = []; this.msgT = 0; this.vigT = 0; this.hitT = 0;
     this.gh = new GunnerHud(el);   // first-person gunner layer (crosshair, hit markers, damage arcs, ammo, scope)
     this.show({ driver: true, gunner: true });
   }
   show(o) {
     const q = this.q;
+    this.setDefeat(null);
     this.seenAreas = new Set(); this.areaT = 0; q.area.textContent = ''; q.area.style.opacity = 0;
     q.speedBox.style.display = o.driver ? '' : 'none'; q.rpmBox.style.display = o.driver ? '' : 'none'; q.nitroBox.style.display = o.driver ? '' : 'none';
     q.cross.style.display = 'none'; q.ammo.style.display = 'none';   // replaced by GunnerHud
@@ -95,6 +98,14 @@ export class Hud {
     clearTimeout(this._hintT); this._hintT = setTimeout(() => { this.hintEl.style.opacity = 0; }, ms);
   }
   message(text, ms = 1600, color = '#fff') { const m = this.q.msg; m.textContent = text; m.style.color = color; m.style.opacity = 1; this.msgT = ms / 1000; }
+  setDefeat(why) {
+    if (this.defeatWhy === why) return;
+    this.defeatWhy = why;
+    const e = this.q.defeat;
+    const cause = why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED';
+    e.textContent = why ? `RUN ENDED · ${cause}` : ''; e.style.display = why ? 'block' : 'none';
+    if (why) this.q.boss.style.display = 'none';
+  }
   /** Hit / kill marker: only when the local human is the gunner (an AI gunner's hits never show on the driver's screen). */
   hitMarker(kill = false, head = false) { if (this.gunnerOn) this.gh.hit(kill, head); }
   damageFlash(a = 0.6) { this.vigT = Math.max(this.vigT, a); }
@@ -121,7 +132,7 @@ export class Hud {
       q.scope.style.display = 'none';
     }
     if (d.weapon !== undefined) { q.wname.textContent = d.weapon; q.mag.textContent = d.reloading ? 'RELOAD' : d.mag; q.mag.style.fontSize = d.reloading ? '34px' : ''; }
-    if (d.boss) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
+    if (d.boss && !this.defeatWhy) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
     if (this.vigT > 0) { this.vigT = Math.max(0, this.vigT - dt * 1.4); }
     const hpLow = Math.min(d.hp01, this.gunnerOn ? d.ghp01 ?? 1 : 1);   // the gunner's own health counts too
     const lowHp = hpLow < 0.3 ? (0.22 + 0.2 * (1 - hpLow / 0.3)) * (0.75 + 0.25 * Math.pow(Math.abs(Math.sin(performance.now() / 420)), 6)) : 0;

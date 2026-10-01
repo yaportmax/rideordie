@@ -138,3 +138,25 @@ test('hiding crew bars preserves the gunner low-health vignette without changing
     assertOnlyTruck(hud);
   });
 });
+
+test('persistent defeat status survives transient messages and resets for the next run without new HP bars', () => {
+  withHud(hud => {
+    const status = hud.el.querySelector('.defeat');
+    assert.equal(status, hud.q.defeat); assert.equal(status.attributes.role, 'status');
+    const activeBoss = { name: 'THE LEVIATHAN', hp01: .5 };
+    hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block');
+    for (const [why, text] of [['car', 'TRUCK DESTROYED'], ['driver', 'DRIVER KILLED'], ['gunner', 'GUNNER KILLED'], ['wrecked', 'WRECKED']]) {
+      hud.setDefeat(why); assert.equal(status.textContent, `RUN ENDED · ${text}`); assert.equal(status.style.display, 'block');
+      assert.equal(hud.q.boss.style.display, 'none', 'terminal transition hides the overlapping boss immediately');
+      hud.message('OTHER COMBAT EVENT', 20); hud.update(1, state({ hp01: .6, boss: activeBoss }), false);
+      assert.equal(status.textContent, `RUN ENDED · ${text}`); assert.equal(status.style.display, 'block'); assertOnlyTruck(hud);
+      assert.equal(hud.q.boss.style.display, 'none', 'later boss snapshots cannot cover the terminal notice');
+    }
+    hud.setDefeat(null); assert.equal(status.style.display, 'none'); assert.equal(status.textContent, '');
+    hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block');
+    assert.equal(hud.q.bossbar.style.transform, 'scaleX(0.5)', 'live boss presentation restores through normal updates');
+    hud.setDefeat('gunner'); hud.show({ driver: false, gunner: true });
+    assert.equal(status.style.display, 'none'); assert.equal(status.textContent, ''); assertOnlyTruck(hud);
+    hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block', 'fresh run restores normal boss HUD');
+  });
+});
