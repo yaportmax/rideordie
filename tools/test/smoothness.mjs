@@ -74,11 +74,12 @@ try {
           if (now-start < seconds*1000 && !r.over) requestAnimationFrame(tick); else resolve();
         }; requestAnimationFrame(tick);
       });
+      const rawFrameMs = f.slice();
       f.sort((a,b)=>a-b); const q = n => +f[Math.min(f.length-1,Math.floor(f.length*n))].toFixed(2);
       const gl = g.renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
       return { gpu: ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL), p50:q(.5), p95:q(.95), p99:q(.99), max:q(1),
         averageFps: +(f.length*1000/f.reduce((a,b)=>a+b,0)).toFixed(2), activeSeconds:+((last-start)/1000).toFixed(2), frames:f.length, over25:slow.length, over33:f.filter(x=>x>33.4).length,
-        recordingStartMs:start, scaleStart, scale:p.resolutionScale, internal:p._internal.toArray(), quality:g.quality, gpuProfiling:p._profiling, gpuMs:Object.fromEntries(p.timer?.ms || []),
+        recordingStartMs:start, rawFrameMs, scaleStart, scale:p.resolutionScale, internal:p._internal.toArray(), quality:g.quality, gpuProfiling:p._profiling, gpuMs:Object.fromEntries(p.timer?.ms || []),
         audioStart, audioEnd:g.audio?.graphStats(),
         cacheEnabled:g.sky.shadowCache.enabled, cacheBefore, cacheAfter:{...g.sky.shadowCache.stats}, calls:g.perf.calls,
         shots:r.shots-shotBefore, cars:r.states.size, over:r.over, playerS:r.playerS, bossBefore, bossAfter:r.sim?.boss ? { phase:r.sim.boss.phase, dead:r.sim.boss.dead, exploded:r.sim.boss.exploded } : null,

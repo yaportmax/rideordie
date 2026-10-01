@@ -62,6 +62,10 @@ const ENGINE_OPTS = {
 const _isArr = Array.isArray;
 function setVec(out, p) { if (_isArr(p)) { out.x = p[0]; out.y = p[1]; out.z = p[2]; } else { out.x = p.x; out.y = p.y; out.z = p.z; } return out; }
 function setParam(p, v) { p.value = v; }
+function hasDecodedVariation(def) {
+  for (let i = 0; i < def.urls.length; i++) if (def.bufs[i]) return true;
+  return false;
+}
 /** Distance -> lowpass cutoff (air absorption + terrain masking). */
 export function airCutoff(d, scale = 1) { return clamp(20000 * Math.exp(-Math.max(0, d - 15) / (95 * scale)), 700, 20000); }
 /** PannerNode 'inverse' model gain. */
@@ -229,8 +233,11 @@ export class LoopLayer {
   get active() { return !!this.src; }
   _start() {
     const A = this.A, d = this.def;
+    // Share the cold request across all layers using this definition. A first
+    // decoded variation is playable even while the remaining variations load.
+    if (!hasDecodedVariation(d)) { A._requestLoopLoad(d); return false; }
     const buf = A._pickBuf(d);
-    if (!buf) { A.load(d, 1); return false; }
+    if (!buf) return false;
     if (!this.gain) { this.gain = A._gain(0); this.gain.connect(this.dest); }
     const src = A._src(); src.buffer = buf; src.loop = true; src.loopStart = 0; src.loopEnd = buf.duration;
     src.connect(this.gain);
@@ -984,6 +991,20 @@ export class AudioSys {
     }
     return Promise.all(ps);
   }
+  /** One cold-loop batch per definition; failed batches may retry after one audio second. */
+  _requestLoopLoad(def) {
+    const now = this.ctx.currentTime, previous = def._loopLoad;
+    if (previous && previous.signature === def.sig && previous.buffers === def.bufs && previous.loading === def.loading && (previous.pending || now < previous.retryAt)) return;
+    const state = { signature: def.sig, buffers: def.bufs, loading: def.loading, pending: true, retryAt: 0 };
+    def._loopLoad = state;
+    // The callback owns no layer or destination graph, and never starts audio.
+    const settled = () => {
+      state.pending = false;
+      if (def._loopLoad !== state || hasDecodedVariation(def)) { state.buffers = state.loading = null; state.retryAt = 0; }
+      else state.retryAt = this.ctx.currentTime + 1;
+    };
+    this.load(def, 0).then(settled, settled);
+  }
   /** Names or RegExp (on the full key). */
   preload(names, prio = 1) {
     const out = [];
@@ -1122,6 +1143,7 @@ export class AudioSys {
   }
   _voiceEnded(v, early) {
     const i = v.def.voices.indexOf(v); if (i >= 0) v.def.voices.splice(i, 1);
+    const pending = v.def.waiters.indexOf(v); if (pending >= 0) v.def.waiters.splice(pending, 1);
     this.voices.delete(v); this._dyn.delete(v);
     void early;
   }
