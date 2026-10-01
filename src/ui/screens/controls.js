@@ -18,7 +18,6 @@ const KB = {
   ],
   gunner: [
     ['AIM', [L('MouseMove')]], ['FIRE', [L('MouseLeft')]], ['AIM DOWN SIGHTS', [L('MouseRight')]], ['RELOAD', [A('reload')]], ['THROW GRENADE', [A('grenade')]],
-    ['CROUCH', [A('crouch')]], ['MOVE', [A('moveF'), A('moveL'), A('moveB'), A('moveR')]],
     ['WEAPON 1-3', [A('slot1'), A('slot2'), A('slot3')]], ['NEXT / PREVIOUS WEAPON', [L('Wheel')]], ['CAMERA (FIRST / THIRD PERSON)', [A('view')]], ['USE MEDKIT', [A('medkit')]], ['PAUSE MENU', [A('pause')]],
   ],
   solo: [
@@ -30,7 +29,7 @@ const KB = {
 // gamepad mapping (mirrors src/core/input.js: driver(), gunner(), solo())
 const PADMAP = {
   driver: { LT: 'BRAKE / REVERSE', RT: 'ACCELERATE', LB: 'LOOK BACK (HOLD)', RB: 'NITRO', LS: 'STEER', DPAD: 'LEFT / RIGHT: STEER · DOWN: MEDKIT', A: 'HANDBRAKE / DRIFT', B: 'DROP MINE', X: 'OIL SLICK', Y: 'FLIP / RESET (HOLD)', RS: 'LOOK AROUND · CLICK: CAMERA', START: 'PAUSE' },
-  gunner: { LT: 'AIM DOWN SIGHTS', RT: 'FIRE', LB: 'GRENADE', RB: 'GRENADE', LS: 'MOVE', DPAD: 'UP / RIGHT / DOWN: WEAPON 1-3', B: 'CROUCH (HOLD)', X: 'RELOAD', Y: 'NEXT WEAPON', RS: 'AIM · CLICK: MEDKIT', BACK: 'FIRST / THIRD PERSON', START: 'PAUSE' },
+  gunner: { LT: 'AIM DOWN SIGHTS', RT: 'FIRE', LB: 'GRENADE', RB: 'GRENADE', DPAD: 'UP / RIGHT / DOWN: WEAPON 1-3', X: 'RELOAD', Y: 'NEXT WEAPON', RS: 'AIM · CLICK: MEDKIT', BACK: 'FIRST / THIRD PERSON', START: 'PAUSE' },
   solo: { LT: 'BRAKE', RT: 'ACCELERATE', LB: 'NITRO', RB: 'FIRE', LS: 'STEER', DPAD: 'LEFT: OIL · RIGHT: MINE · DOWN: MEDKIT', A: 'HANDBRAKE / DRIFT', B: 'GRENADE', X: 'RELOAD', Y: 'FLIP / RESET', RS: 'AIM · CLICK: NEXT WEAPON', BACK: 'FIRST / THIRD PERSON', START: 'PAUSE' },
 };
 const LEFT = ['LT', 'LB', 'LS', 'DPAD'], RIGHT = ['RT', 'RB', 'Y', 'X', 'B', 'A', 'RS', 'BACK', 'START'];

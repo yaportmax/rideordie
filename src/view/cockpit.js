@@ -4,9 +4,35 @@
 // Positions are measured from the truck GLB at runtime (windshield glass, door mirror housings, sockets) => works on every tier.
 import * as THREE from 'three';
 import { clamp } from '../core/util.js';
+import { normalizeUnits, speedValue, speedLabel } from '../ui/units.js';
 
 const _v = new THREE.Vector3(), _m = new THREE.Matrix4(), _pv = new THREE.Matrix4();
+const _impact = new THREE.Vector3(), _incoming = new THREE.Vector3();
 const RT_W = 1024, RT_H = 320, REAR_HFOV = 110;
+// Seven actual front-window bullet crossings leave the driver's view clear for
+// the rest of this truck's life. Side/rear shots and blast damage do not count.
+export const WINDSHIELD_BREAK_HITS = 7;
+
+/** The authored centre bezel is a quadratic rounded rectangle, not a box.
+ *  A rectangular live image protrudes beyond its corners into empty space. */
+export function mirrorGlassGeometry(w, h, radius = 0) {
+  if (!radius) return new THREE.PlaneGeometry(w, h);
+  const r = Math.min(radius, w * .45, h * .45), points = [];
+  const corners = [[w/2, -h/2], [w/2, h/2], [-w/2, h/2], [-w/2, -h/2]];
+  for (let i = 0; i < corners.length; i++) {
+    const previous = new THREE.Vector2(...corners[(i + 3) % 4]);
+    const corner = new THREE.Vector2(...corners[i]), next = new THREE.Vector2(...corners[(i + 1) % 4]);
+    const a = previous.sub(corner).normalize().multiplyScalar(r).add(corner);
+    const b = next.sub(corner).normalize().multiplyScalar(r).add(corner);
+    for (let j = 0; j <= 4; j++) {
+      const t = j / 4;
+      points.push(a.clone().multiplyScalar((1-t) ** 2).addScaledVector(corner, 2 * (1-t) * t).addScaledVector(b, t * t));
+    }
+  }
+  const geometry = new THREE.ShapeGeometry(new THREE.Shape(points)), pos = geometry.attributes.position, uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / w + .5, pos.getY(i) / h + .5);
+  return geometry;
+}
 
 export class Cockpit {
   /** carView: the local player's CarView (GLB model). */
@@ -23,22 +49,56 @@ export class Cockpit {
     this.glassMat = new THREE.MeshBasicMaterial({ map: this.rt.texture, color: 0xcfcfcf, fog: false });
     // this truck's own glass: from inside it must be nearly invisible (tinted/reflective glass in front of the eye washes out
     // the whole world) -- per-instance clones so enemies/other views keep the normal look
-    this.glass = [];
+    this.glass = []; this.glassSwap = [];
     this.model.traverse((o) => {
       if (!o.isMesh) return;
       const arr = Array.isArray(o.material);
       const mats = arr ? o.material.slice() : [o.material];
       let changed = false;
       for (let i = 0; i < mats.length; i++) if (mats[i] && mats[i].name === 'glass') { const c = mats[i].clone(); c.userData.base = { opacity: c.opacity, env: c.envMapIntensity ?? 1, color: c.color.clone() }; mats[i] = c; this.glass.push(c); changed = true; }
-      if (changed) o.material = arr ? mats : mats[0];
+      if (changed) { this.glassSwap.push({ mesh: o, full: o.material }); o.material = arr ? mats : mats[0]; }
     });
     this._measure();
+    this.windshieldHits = 0; this.windshieldBroken = false;
+    this._frontGlass();
     this._sunStrip();
     this._mirrors();
     this._cluster();
     this._windshield();
     this.hpSeen = 1; this.cracks = 0;
     this.active = true; this.setActive(false);
+  }
+
+  /** Only this truck's front glass is removable. Other windows can share its
+   *  mesh/material, so preserve their triangles rather than hiding the mesh. */
+  _frontGlass() {
+    this.frontGlassSwap = [];
+    const inv = new THREE.Matrix4().copy(this.model.matrixWorld).invert();
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    this.model.traverse(o => {
+      if (!o.isMesh || !o.geometry?.attributes?.position) return;
+      for (let p = o; p && p !== this.model; p = p.parent) if (/^panel_/.test(p.name)) return;
+      const full = o.geometry, pos = full.attributes.position, idx = full.index, mats = [].concat(o.material);
+      const groups = full.groups.length ? full.groups : [{ start: 0, count: idx ? idx.count : pos.count, materialIndex: 0 }];
+      const mw = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld), keep = [], keptGroups = [];
+      let cut = 0;
+      for (const group of groups) {
+        const start = keep.length, glass = (mats[group.materialIndex] || mats[0])?.name === 'glass';
+        for (let i = group.start; i < group.start + group.count; i += 3) {
+          const ia = idx ? idx.getX(i) : i, ib = idx ? idx.getX(i + 1) : i + 1, ic = idx ? idx.getX(i + 2) : i + 2;
+          if (glass) {
+            a.fromBufferAttribute(pos, ia).applyMatrix4(mw); b.fromBufferAttribute(pos, ib).applyMatrix4(mw); c.fromBufferAttribute(pos, ic).applyMatrix4(mw);
+            if ((a.z + b.z + c.z) / 3 >= this.wheelPos.z - 0.05) { cut++; continue; }
+          }
+          keep.push(ia, ib, ic);
+        }
+        if (keep.length > start) keptGroups.push({ start, count: keep.length - start, materialIndex: group.materialIndex });
+      }
+      if (!cut) return;
+      const broken = full.clone(); broken.setIndex(keep); broken.clearGroups();
+      for (const group of keptGroups) broken.addGroup(group.start, group.count, group.materialIndex);
+      this.frontGlassSwap.push({ mesh: o, full, broken });
+    });
   }
 
   // ---------------------------------------------------------------- measurement (model space)
@@ -113,23 +173,26 @@ export class Cockpit {
       if (!o.isMesh || Array.isArray(o.material) || o.material?.name !== 'decal' || !o.geometry.index) return;
       for (let p = o.parent; p && p !== this.model; p = p.parent) if (/^panel_/.test(p.name)) return;
       const g = o.geometry, pos = g.attributes.position, idx = g.index, mw = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
-      const keep = []; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-      let cut = 0;
+      const keep = [], brokenKeep = []; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+      let cut = 0, brokenCut = 0;
       for (let i = 0; i < idx.count; i += 3) {
         a.fromBufferAttribute(pos, idx.getX(i)).applyMatrix4(mw); b.fromBufferAttribute(pos, idx.getX(i + 1)).applyMatrix4(mw); c.fromBufferAttribute(pos, idx.getX(i + 2)).applyMatrix4(mw);
         const y = (a.y + b.y + c.y) / 3, z = (a.z + b.z + c.z) / 3;
+        const front = y >= S.bot - 0.04 && y <= S.top + 0.08 && z > this.wheelPos.z - 0.05 && Math.abs((a.x + b.x + c.x) / 3) <= S.hw + 0.08;
+        if (front) brokenCut++; else brokenKeep.push(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
         if (y > S.top - 0.3 && z > this.wheelPos.z - 0.05) { cut++; continue; }
         keep.push(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
       }
-      if (!cut) return;
-      const g2 = g.clone(); g2.setIndex(keep);
-      this.decalSwap.push({ mesh: o, full: g, cut: g2 });
+      if (!cut && !brokenCut) return;
+      const g2 = cut ? g.clone().setIndex(keep) : g;
+      const broken = brokenCut ? g.clone().setIndex(brokenKeep) : g;
+      this.decalSwap.push({ mesh: o, full: g, cut: g2, broken });
     });
   }
 
   // ---------------------------------------------------------------- mirrors
-  _mirrorGlass(w, h, u0, u1, v0, v1) {
-    const g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv;
+  _mirrorGlass(w, h, u0, u1, v0, v1, radius = 0) {
+    const g = mirrorGlassGeometry(w, h, radius), uv = g.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
     const m = new THREE.Mesh(g, this.glassMat); m.renderOrder = 2; this.meshes.push(m); return m;
   }
@@ -146,7 +209,7 @@ export class Cockpit {
     const sC = this.model.getObjectByName('mirror_C'), sL = this.model.getObjectByName('mirror_L'), sR = this.model.getObjectByName('mirror_R');
     if (sC) {
       const W = 0.25 * 0.97, H = 0.07 * 0.92, uw = 0.4, vh = (uw * RT_W) / (W / H) / RT_H;
-      const g = this._mirrorGlass(W, H, 0.5 + uw / 2, 0.5 - uw / 2, 0.56 - vh / 2, 0.56 + vh / 2); g.name = 'mirror_centre'; g.position.z = 0.002;
+      const g = this._mirrorGlass(W, H, 0.5 + uw / 2, 0.5 - uw / 2, 0.56 - vh / 2, 0.56 + vh / 2, .026 * .92); g.name = 'mirror_centre'; g.position.z = 0.002;
       sC.add(g); (this.sideGlass || (this.sideGlass = [])).push(g);
     }
     for (const [side, sk] of [['L', sL], ['R', sR]]) {
@@ -220,9 +283,10 @@ export class Cockpit {
     this.faceT = 0; this.faceKey = '';
   }
   _drawFace(d, force) {
+    this.gaugeState = d;
     const x = this.faceCtx, W = 512, H = 192;
     const nitro = Math.round((d.nitro01 || 0) * 20), warnE = d.hp01 < 0.3, warnD = d.dhp01 < 0.35, warnG = d.ghp01 < 0.35, blink = (performance.now() / 400 | 0) % 2;
-    const key = `${nitro}|${warnE && blink}|${warnD && blink}|${warnG && blink}`;
+    const key = `${normalizeUnits(this.units)}|${nitro}|${warnE && blink}|${warnD && blink}|${warnG && blink}`;
     if (!force && key === this.faceKey) return false;
     this.faceKey = key;
     x.fillStyle = '#07090b'; x.fillRect(0, 0, W, H);
@@ -239,7 +303,8 @@ export class Cockpit {
       }
       x.fillStyle = '#8b949c'; x.font = '600 12px Bahnschrift, Segoe UI, sans-serif'; x.textAlign = 'center'; x.fillText(label, cx, 142);
     };
-    dial(128, 200, 40, 'KM/H'); dial(384, 8, 1, 'x1000 RPM', 6.5);
+    const metric = normalizeUnits(this.units) === 'km';
+    dial(128, metric ? 200 : 125, metric ? 40 : 25, speedLabel(this.units)); dial(384, 8, 1, 'x1000 RPM', 6.5);
     // centre stack: nitro bar + lamps
     x.fillStyle = '#10151a'; x.fillRect(236, 26, 40, 140);
     for (let i = 0; i < 20; i++) { x.fillStyle = i < nitro ? (i > 14 ? '#6fe3ff' : '#1fa8ff') : '#15202a'; x.fillRect(241, 158 - i * 6.6, 30, 4.6); }
@@ -267,6 +332,7 @@ export class Cockpit {
     this._dust();
   }
   _dust() {
+    if (this.windshieldBroken) return;
     // a light film of dust and bug splats toward the edges (drawn once; cracks are added on top)
     const x = this.crackCtx, W = 1024, H = 512;
     const gr = x.createRadialGradient(W / 2, H * 0.55, H * 0.35, W / 2, H * 0.55, W * 0.62);
@@ -277,6 +343,9 @@ export class Cockpit {
   }
   /** A bullet hole with a spider-web crack. u,v in 0..1 (u=0 driver's left, v=1 top). */
   bulletHole(u = Math.random() * 0.55, v = 0.35 + Math.random() * 0.5) {
+    if (this.windshieldBroken) return false;
+    this.windshieldHits++;
+    if (this.windshieldHits >= WINDSHIELD_BREAK_HITS) { this._breakWindshield(); return true; }
     const x = this.crackCtx, W = 1024, H = 512, cx = u * W, cy = (1 - v) * H;
     const n = 9 + (Math.random() * 6 | 0), R = 60 + Math.random() * 70;
     x.lineCap = 'round';
@@ -301,9 +370,37 @@ export class Cockpit {
     const gr = x.createRadialGradient(cx, cy, 0, cx, cy, 16); gr.addColorStop(0, 'rgba(10,10,10,0.95)'); gr.addColorStop(0.35, 'rgba(40,40,40,0.9)'); gr.addColorStop(0.6, 'rgba(230,235,240,0.7)'); gr.addColorStop(1, 'rgba(230,235,240,0)');
     x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, 16, 0, Math.PI * 2); x.fill();
     this.crackTex.needsUpdate = true; this.crackMesh.visible = true;
+    return false;
+  }
+  _breakWindshield() {
+    this.windshieldBroken = true;
+    this.crackCtx.clearRect(0, 0, 1024, 512); this.crackTex.needsUpdate = true; this.crackMesh.visible = false;
+    for (const d of this.frontGlassSwap) d.mesh.geometry = d.broken;
+    for (const d of this.decalSwap) d.mesh.geometry = d.broken;
+  }
+  /** Backtrack a confirmed bullet impact along its incoming ray to the front
+   *  window. Crew damage alone has no direction and can also be an explosion. */
+  _windowImpact(e) {
+    if (!e.enemy || e.carId !== 1 || !e.pos?.every(Number.isFinite) || !e.normal?.every(Number.isFinite)) return false;
+    this.model.updateWorldMatrix(true, false);
+    _m.copy(this.model.matrixWorld).invert();
+    _impact.fromArray(e.pos).applyMatrix4(_m); _incoming.fromArray(e.normal).transformDirection(_m);
+    const S = this.shield, dy = S.top - S.bot;
+    if (dy <= 0) return false;
+    const slope = (S.topZ - S.botZ) / dy;
+    const den = _incoming.z - slope * _incoming.y;
+    // A ray from the side/rear cannot have entered through the front glass.
+    if (den <= 1e-5) return false;
+    const t = (S.botZ + slope * (_impact.y - S.bot) - _impact.z) / den;
+    if (t < 0 || t > 4) return false;
+    _impact.addScaledVector(_incoming, t);
+    if (_impact.y < S.bot || _impact.y > S.top || Math.abs(_impact.x) > S.hw) return false;
+    this.impactU = (S.hw - _impact.x) / (2 * S.hw); this.impactV = (_impact.y - S.bot) / dy;
+    return true;
   }
   /** A long impact crack running in from an edge. */
   crashCrack(strength = 1) {
+    if (this.windshieldBroken) return;
     const x = this.crackCtx, W = 1024, H = 512;
     const edge = Math.random() * 4 | 0;
     let px = edge === 0 ? 0 : edge === 1 ? W : Math.random() * W, py = edge === 2 ? 0 : edge === 3 ? H : Math.random() * H;
@@ -328,14 +425,24 @@ export class Cockpit {
     // armoured visor: from inside it would leave a letterbox slit above the road -- the driver looks past it (outside it's still there)
     const visor = this.cv.panels.get('armor_windshield');
     if (visor && !visor.userData.gone) visor.visible = !on;
-    for (const d of this.decalSwap || []) d.mesh.geometry = on ? d.cut : d.full;
+    for (const d of this.decalSwap || []) d.mesh.geometry = this.windshieldBroken ? d.broken : on ? d.cut : d.full;
     for (const m of this.glass) { const b = m.userData.base; m.opacity = on ? 0.05 : b.opacity; m.envMapIntensity = on ? 0.12 : b.env; if (on) m.color.setRGB(0.85, 0.88, 0.9).multiplyScalar(0.5); else m.color.copy(b.color); }
   }
   /** d: run.hud2. night: 0..1. */
+  setUnits(units) {
+    units = normalizeUnits(units);
+    if (units === this.units) return;
+    this.units = units;
+    if (!this.faceCtx) return;
+    const d = this.gaugeState || { nitro01: 0, hp01: 1, dhp01: 1, ghp01: 1, speed: 0 };
+    this._drawFace(d, true);
+    const sp = clamp(speedValue(d.speed || 0, units) / (units === 'km' ? 200 : 125), 0, 1.04);
+    this.needleS.rotation.z = -(Math.PI * .75 + Math.PI * 1.5 * sp) - Math.PI / 2;
+  }
   update(dt, d, night = 0) {
     if (!this.active || !d) return;
     // needles (smooth, per frame)
-    const sp = clamp((d.speed || 0) * 3.6 / 200, 0, 1.04), rp = clamp((d.rpm01 || 0) * 7.6 / 8, 0, 1);
+    const sp = clamp(speedValue(d.speed || 0, this.units) / (this.units === 'km' ? 200 : 125), 0, 1.04), rp = clamp((d.rpm01 || 0) * 7.6 / 8, 0, 1);
     const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
     // canvas angle a (clockwise from +x, y down) -> mesh rotation about z (counter-clockwise from +y)
     this.needleS.rotation.z = -(a0 + (a1 - a0) * sp) - Math.PI / 2;
@@ -347,9 +454,14 @@ export class Cockpit {
     if (d.hp01 < this.hpSeen - 0.14) { this.hpSeen = d.hp01; this.crashCrack(1 - d.hp01); }
   }
   onEvent(e) {
-    if (!this.active) return;
-    if (e.t === 'crewHit' && e.id === 1 && e.role === 'driver') this.bulletHole();
-    else if (e.t === 'crash' && e.id === 1 && e.dv > 7 && Math.random() < 0.5) this.crashCrack(clamp(e.dv / 15, 0.3, 1));
+    if (this.windshieldBroken) return;
+    if (e.t === 'hit' && this._windowImpact(e)) {
+      if (this.bulletHole(this.impactU, this.impactV)) {
+        _v.set(0, (this.shield.bot + this.shield.top) / 2, (this.shield.botZ + this.shield.topZ) / 2);
+        this.model.localToWorld(_v);
+        return { t: 'windshieldBreak', id: 1, pos: _v.toArray() };
+      }
+    } else if (e.t === 'crash' && e.id === 1 && e.dv > 7 && Math.random() < 0.5) this.crashCrack(clamp(e.dv / 15, 0.3, 1));
   }
 
   /** Render the shared rear view (every other frame). playerRoot is hidden for the pass. */
@@ -426,11 +538,14 @@ export class Cockpit {
   lookBackWorld(out) { return this.model.localToWorld(out.copy(this.lookBackLocal)); }
 
   dispose() {
+    if (this._disposed) return; this._disposed = true;
     this.group.removeFromParent(); if (this.sideGlass) for (const g of this.sideGlass) g.removeFromParent();
     this.rt.dispose(); this.faceTex.dispose(); this.crackTex.dispose();
     for (const m of this.meshes) m.geometry?.dispose();
+    for (const d of this.glassSwap) d.mesh.material = d.full;
     for (const m of this.glass) m.dispose();
-    for (const d of this.decalSwap || []) { d.mesh.geometry = d.full; d.cut.dispose(); }
+    for (const d of this.frontGlassSwap || []) { d.mesh.geometry = d.full; d.broken.dispose(); }
+    for (const d of this.decalSwap || []) { d.mesh.geometry = d.full; if (d.cut !== d.full) d.cut.dispose(); if (d.broken !== d.full) d.broken.dispose(); }
     this.dark.dispose(); this.glassMat.dispose(); this.faceMat.dispose(); this.needleMat.dispose(); this.crackMat.dispose();
   }
 }

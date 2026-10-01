@@ -1,12 +1,13 @@
 // Colliders for dressing structures (bridges, tunnels, overpasses, roadblock wrecks, roadside landmarks). Fed by Dressing's physicsHook.
 // Used by the sim world (vehicles collide) and by the gunner peer's query world (bullets hit structures).
 import * as THREE from 'three';
-import { RAPIER, GROUPS } from './physics.js';
+import { RAPIER, GROUPS, setColliderLabel, removeBody } from './physics.js';
+import { RockColliders } from './rock_colliders.js';
 
 const TYPES = new Set(['bridge', 'tunnel', 'overpass', 'static', 'roadblock']);
 
 export class StructureColliders {
-  constructor(world) { this.world = world; this.bodies = new Map(); this.roadblocks = new Map(); }
+  constructor(world) { this.world = world; this.bodies = new Map(); this.roadblocks = new Map(); this.rocks = new RockColliders(world, this.bodies); }
 
   hook(req) {
     const _t0 = performance.now();
@@ -14,10 +15,12 @@ export class StructureColliders {
   }
   _hook(req) {
     if (req.type === 'remove') {
-      const rb = this.bodies.get(req.id); if (rb) { this.world.removeRigidBody(rb); this.bodies.delete(req.id); }
+      this.rocks.remove(req.id);
+      const rb = this.bodies.get(req.id); if (rb) { removeBody(this.world, rb); this.bodies.delete(req.id); }
       this.roadblocks.delete(req.id);
       return;
     }
+    if (req.asset === 'scatter-rocks' && req.cells) { this.rocks.add(req); return; }
     if (!TYPES.has(req.type) || !req.collision || !req.collision.pos || !req.collision.idx || this.bodies.has(req.id)) return;
     const pos = req.collision.pos, idx = req.collision.idx;
     if (pos.length < 9 || idx.length < 3) return;
@@ -28,11 +31,14 @@ export class StructureColliders {
     const local = new Float32Array(pos.length);
     for (let i = 0; i < pos.length; i += 3) { local[i] = pos[i] - cx; local[i + 1] = pos[i + 1] - cy; local[i + 2] = pos[i + 2] - cz; }
     const rb = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(cx, cy, cz));
-    this.world.createCollider(RAPIER.ColliderDesc.trimesh(local, idx instanceof Uint32Array ? idx : Uint32Array.from(idx)).setCollisionGroups(GROUPS.world).setFriction(0.3).setRestitution(0.05), rb);
+    const col = this.world.createCollider(RAPIER.ColliderDesc.trimesh(local, idx instanceof Uint32Array ? idx : Uint32Array.from(idx)).setCollisionGroups(GROUPS.world).setFriction(0.3).setRestitution(0.05), rb);
+    setColliderLabel(this.world, col, req.asset || req.type);
     this.bodies.set(req.id, rb);
     if (req.type === 'roadblock') this.roadblocks.set(req.id, new THREE.Vector3(cx, cy, cz));
   }
 
   roadblockNear(p, r = 18) { for (const c of this.roadblocks.values()) if (c.distanceToSquared(p) < r * r) return true; return false; }
-  dispose() { for (const rb of this.bodies.values()) this.world.removeRigidBody(rb); this.bodies.clear(); this.roadblocks.clear(); }
+  updateRocks(cars, budget) { this.rocks.update(cars, budget); }
+  raycastRocks(o, d, max) { return this.rocks.raycast(o, d, max); }
+  dispose() { this.rocks.dispose(); for (const rb of this.bodies.values()) removeBody(this.world, rb); this.bodies.clear(); this.roadblocks.clear(); }
 }

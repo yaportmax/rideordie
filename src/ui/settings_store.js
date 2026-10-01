@@ -1,5 +1,6 @@
 // Settings + key bindings persistence, and applying them to the Input object (sens, invertY, bindings, vibration).
 import { DEFAULT_BINDINGS } from '../core/input.js';
+import { normalizeUnits } from './units.js';
 
 const SETTINGS_KEY = 'rideordie.settings.v1';
 const BINDINGS_KEY = 'rideordie.bindings.v1';
@@ -8,7 +9,9 @@ export const DEFAULT_SETTINGS = {
   quality: 2,        // 0 low .. 3 ultra
   resScale: 1,       // render resolution scale 0.5 .. 1.5
   autoResolution: true,
-  fov: 80,           // vertical fov, degrees (60..100) -- first person
+  fov: 80,          // gunner vertical field of view, degrees (60..100)
+  driverFov: 85,    // driver cockpit vertical field of view, degrees (60..100)
+  units: 'mi',      // displayed distance/speed; simulation remains in meters
   shake: 1,          // camera shake amount 0..1
   mouseSens: 1,      // multiplier on Input.sens.mouse
   padSens: 1,        // multiplier on Input.sens.padYaw/padPitch
@@ -28,24 +31,31 @@ export function loadSettings() {
 export function normalizeSettings(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_SETTINGS };
   const s = { ...DEFAULT_SETTINGS, ...value };
-  const limits = { quality: [0, 3], resScale: [0.5, 1.5], fov: [60, 100], shake: [0, 1], mouseSens: [0.1, 5], padSens: [0.1, 5], master: [0, 1], sfx: [0, 1], music: [0, 1] };
+  // Existing saves had one FOV setting. Keep a customized value for both seats;
+  // an unchanged old default gets the new driver default without widening ADS.
+  if (!Object.hasOwn(value, 'driverFov') && Number.isFinite(value.fov) && value.fov !== DEFAULT_SETTINGS.fov) s.driverFov = value.fov;
+  const limits = { quality: [0, 3], resScale: [0.5, 1.5], fov: [60, 100], driverFov: [60, 100], shake: [0, 1], mouseSens: [0.1, 5], padSens: [0.1, 5], master: [0, 1], sfx: [0, 1], music: [0, 1] };
   for (const [k, [lo, hi]] of Object.entries(limits)) s[k] = Number.isFinite(s[k]) ? Math.min(hi, Math.max(lo, s[k])) : DEFAULT_SETTINGS[k];
   s.quality = Math.round(s.quality);
+  s.units = normalizeUnits(s.units);
   for (const k of ['autoResolution', 'invertY', 'aimAssist', 'vibration', 'motionBlur', 'chromatic', 'grain']) if (typeof s[k] !== 'boolean') s[k] = DEFAULT_SETTINGS[k];
   return s;
 }
 export function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* blocked */ } }
 
+const activeBindings = raw => {
+  const out = {};
+  for (const k of Object.keys(DEFAULT_BINDINGS)) if (Array.isArray(raw[k]) && raw[k].every(c => typeof c === 'string')) out[k] = raw[k].slice(0, 2);
+  return out;
+};
 export function loadBindings() {
   try {
     const raw = JSON.parse(localStorage.getItem(BINDINGS_KEY) || 'null');
     if (!raw || typeof raw !== 'object') return null;
-    const out = {};
-    for (const k of Object.keys(DEFAULT_BINDINGS)) if (Array.isArray(raw[k]) && raw[k].every((c) => typeof c === 'string')) out[k] = raw[k].slice(0, 2);
-    return out;
+    return activeBindings(raw);
   } catch { return null; }
 }
-export function saveBindings(b) { try { localStorage.setItem(BINDINGS_KEY, JSON.stringify(b)); } catch { /* blocked */ } }
+export function saveBindings(b) { try { localStorage.setItem(BINDINGS_KEY, JSON.stringify(activeBindings(b))); } catch { /* blocked */ } }
 export const defaultBindings = () => Object.fromEntries(Object.entries(DEFAULT_BINDINGS).map(([k, v]) => [k, v.slice()]));
 
 /** Push settings into the Input instance (sensitivities / invert / vibration gate). Everything else is the integrator's via onChange. */
@@ -73,8 +83,7 @@ export const BIND_GROUPS = [
     ['special1', 'OIL SLICK'], ['special2', 'DROP MINE'], ['reset', 'FLIP / RESET'], ['camera', 'CAMERA'], ['lookBack', 'LOOK BACK'], ['horn', 'HORN'],
   ] },
   { id: 'gunner', name: 'GUNNER', actions: [
-    ['reload', 'RELOAD'], ['grenade', 'GRENADE'], ['crouch', 'CROUCH'], ['view', 'CAMERA'],
-    ['moveF', 'MOVE FORWARD'], ['moveB', 'MOVE BACK'], ['moveL', 'MOVE LEFT'], ['moveR', 'MOVE RIGHT'],
+    ['reload', 'RELOAD'], ['grenade', 'GRENADE'], ['view', 'CAMERA'],
     ['slot1', 'WEAPON 1'], ['slot2', 'WEAPON 2'], ['slot3', 'WEAPON 3'],
   ] },
   { id: 'global', name: 'GLOBAL', actions: [['pause', 'PAUSE MENU'], ['medkit', 'USE MEDKIT']] },

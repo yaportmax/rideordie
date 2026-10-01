@@ -389,7 +389,8 @@ export function gridMesh(ctx, chunk, mat, grid, kind, opts = {}) {
     const s0i = pos.length / 3;
     for (const [r, c] of ring) {
       const src = at(r, c);
-      pos.push(pos[src * 3], pos[src * 3 + 1] - opts.skirt, pos[src * 3 + 2]); nor.push(nor[src * 3], nor[src * 3 + 1], nor[src * 3 + 2]);
+      const floor = grid[r][c].skirtMinY ?? -Infinity;
+      pos.push(pos[src * 3], Math.max(pos[src * 3 + 1] - opts.skirt, floor - ay), pos[src * 3 + 2]); nor.push(nor[src * 3], nor[src * 3 + 1], nor[src * 3 + 2]);
       for (let k = 0; k < 4; k++) { sp0.push(sp0[src * 4 + k]); sp1.push(sp1[src * 4 + k]); sp2.push(sp2[src * 4 + k]); } mac.push(mac[src]);
     }
     for (let i = 0; i < ring.length; i++) {
@@ -430,7 +431,10 @@ function buildCap(ctx, chunk, f, rockKind) {
       const prof = 1 - smoothstep(4, 56, ad);
       const noise = (fbm2(s / 26, d / 22, 3, seed + 991) - 0.5) * 6.5 * smoothstep(6, 30, ad) + (fbm2(s / 9, d / 9, 2, seed + 992) - 0.5) * 1.2;
       const capY = sm.y + H * prof * prof * (3 - 2 * prof) + noise * prof;
-      row.push({ x: sm.x + sm.nx * d, y: Math.max(ty, capY), z: sm.z + sm.nz * d, ty });
+      // The closing curtain belongs above the tube, never across its bore.
+      // 8.2 m clears the 7.4 m crown plus the authored 0.7 m outer lining.
+      row.push({ x: sm.x + sm.nx * d, y: Math.max(ty, capY), z: sm.z + sm.nz * d, ty,
+        skirtMinY: ad <= 9 ? sm.y + 8.2 : undefined });
     }
     grid.push(row);
   }

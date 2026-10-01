@@ -142,7 +142,7 @@ export class Voice {
       this.send = A._gain(this.pos ? this.slap * clamp(0.45 + dist / 90, 0.45, 2.2) : this.slap);
       tail.connect(this.send); this.send.connect(A.reverbIn);
     }
-    this.score = (cat.prio ?? 0.5) * this.baseGain * (this.pos ? attGain(dist, this.ref, this.rolloff) : 1);
+    this._rescore(dist);
     this.age0 = A.ctx.currentTime;
   }
   get playing() { return !this.ended && !this.stopped; }
@@ -186,6 +186,7 @@ export class Voice {
   setGain(g, tau = 0.03) {
     if (this.ended) return; this.userGain = g; this.baseGain = g * (this.o.raw ? 1 : this.def.gain);
     this.gainNode.gain.setTargetAtTime(this.baseGain, this.A.ctx.currentTime, tau);
+    this._rescore();
   }
   setPitch(p, tau = 0.03) {
     if (this.ended) return; this.pitch = p;
@@ -203,9 +204,13 @@ export class Voice {
   _spatial(now) {
     if (this.ended || !this.pos) return;
     const A = this.A, d = A.listener.distTo(this.pos);
+    this._rescore(d);
     if (this.lp && this.o.lowpass === undefined) this.lp.frequency.setTargetAtTime(airCutoff(d, this.airScale), now, 0.06);
     if (this.send) this.send.gain.setTargetAtTime(this.slap * clamp(0.45 + d / 90, 0.45, 2.2), now, 0.08);
     if (this.vel && this.src) this.src.playbackRate.setTargetAtTime(clamp(this.pitch * A.doppler(this.pos, this.vel), 0.05, 8), now, 0.05);
+  }
+  _rescore(dist) {
+    this.score = (this.def.cat.prio ?? 0.5) * this.baseGain * (this.pos ? attGain(dist ?? this.A.listener.distTo(this.pos), this.ref, this.rolloff) : 1);
   }
   _cleanup() {
     if (this.ended) return; this.ended = true;
@@ -1123,7 +1128,7 @@ export class AudioSys {
     if (o.pos && !loop && !o.noCull && est < 0.004) { this.stats.culled++; return NULL_HANDLE; }
     const vi = this._pickVar(def, o.variation);
     if (vi < 0 && !(loop || o.wait)) { this.stats.notLoaded++; this.notLoadedNames.add(def.key); return NULL_HANDLE; }
-    if (!this._admit(def, (cat.prio ?? 0.5) * est)) { this.stats.dropped++; return NULL_HANDLE; }
+    if (!this._admit(def, (cat.prio ?? 0.5) * est, loop)) { this.stats.dropped++; return NULL_HANDLE; }
     const v = new Voice(this, def, o, d);
     def.voices.push(v); this.voices.add(v); if (v.dynamic) this._dyn.add(v);
     def.plays = (def.plays || 0) + 1;
@@ -1131,8 +1136,18 @@ export class AudioSys {
     this.stats.played++;
     return v;
   }
-  _admit(def, score) {
-    if (def.voices.length >= def.cap) { const v = def.voices[0]; v.stop(0.012); this._voiceEnded(v, true); this.stats.stolen++; }
+  _admit(def, score, loop = false) {
+    if (def.voices.length >= def.cap) {
+      let victim = def.voices[0];
+      if (loop) {
+        // Persistent beds keep the most audible sources; stable ties avoid
+        // repeatedly replacing an already playing loop with the same sound.
+        victim = null;
+        for (const v of def.voices) if (!v.ended && !v.stopped && (!victim || v.score < victim.score)) victim = v;
+        if (!victim || (victim.loop && victim.score >= score)) return false;
+      }
+      victim.stop(0.012); this._voiceEnded(victim, true); this.stats.stolen++;
+    }
     if (this.voices.size >= this.maxVoices) {
       let victim = null, vs = Infinity; const now = this.ctx.currentTime;
       for (const v of this.voices) { const s = v.score - (now - v.age0) * 0.01; if (s < vs && !v.loop) { vs = s; victim = v; } }

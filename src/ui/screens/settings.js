@@ -11,10 +11,12 @@ const TABS = [
 const pctFmt = (v) => Math.round(v * 100) + '%';
 const ROWS = {
   video: [
+    { key: 'units', type: 'seg', label: 'DISTANCE & SPEED UNITS', desc: 'Distance and speed in the HUD, cockpit, garage and run results.', opts: ['MILES', 'KILOMETERS'], values: ['mi', 'km'] },
     { key: 'quality', type: 'seg', label: 'GRAPHICS QUALITY', desc: 'Shadows, particles and post-processing.', opts: ['LOW', 'MEDIUM', 'HIGH', 'ULTRA'] },
     { key: 'resScale', type: 'slider', label: 'RESOLUTION SCALE', desc: 'Render resolution. Lower is faster, higher is sharper.', min: 0.5, max: 1.5, step: 0.05, fmt: pctFmt },
     { key: 'autoResolution', type: 'toggle', label: 'AUTOMATIC RESOLUTION', desc: 'Adjust resolution in busy scenes for smoother play. Uses your resolution scale as the maximum.' },
-    { key: 'fov', type: 'slider', label: 'FIELD OF VIEW (FIRST PERSON)', desc: 'Vertical field of view in the cockpit and the truck bed.', min: 60, max: 100, step: 1, fmt: (v) => Math.round(v) + '°' },
+    { key: 'driverFov', type: 'slider', label: 'DRIVER FIELD OF VIEW', desc: 'Vertical field of view in the cockpit.', min: 60, max: 100, step: 1, fmt: (v) => Math.round(v) + '°' },
+    { key: 'fov', type: 'slider', label: 'GUNNER FIELD OF VIEW', desc: 'Vertical field of view in the truck bed.', min: 60, max: 100, step: 1, fmt: (v) => Math.round(v) + '°' },
     { key: 'shake', type: 'slider', label: 'CAMERA SHAKE', desc: 'Screen shake from crashes and explosions.', min: 0, max: 1, step: 0.05, fmt: pctFmt },
     { key: 'motionBlur', type: 'toggle', label: 'MOTION BLUR', desc: 'Camera motion blur at speed.' },
     { key: 'chromatic', type: 'toggle', label: 'CHROMATIC ABERRATION', desc: 'Colour fringing at the screen edges and on hits.' },
@@ -71,7 +73,7 @@ export class SettingsScreen {
     const v = this.S[r.key];
     let ctl = '';
     if (r.type === 'slider') { const f = (v - r.min) / (r.max - r.min); ctl = `<div class="track"><i class="fill" style="width:${f * 100}%"></i><i class="thumb" style="left:${f * 100}%"></i></div><span class="val">${r.fmt(v)}</span>`; }
-    else if (r.type === 'seg') ctl = `<div class="seg">${r.opts.map((o, i) => `<i data-v="${i}" class="${i === v ? 'on' : ''}">${o}</i>`).join('')}</div>`;
+    else if (r.type === 'seg') ctl = `<div class="seg">${r.opts.map((o, i) => `<i data-v="${i}" class="${(r.values ? r.values[i] : i) === v ? 'on' : ''}">${o}</i>`).join('')}</div>`;
     else ctl = `<div class="tog ${v ? 'on' : ''}"><i class="knob"></i><span>${v ? 'ON' : 'OFF'}</span></div>`;
     return `<div class="f srow ${r.type}" role="slider" data-key="${r.key}" data-adjust="1" data-k="s:${r.key}"><div class="sl"><b>${r.label}</b><small>${r.desc}</small></div><div class="ctl">${ctl}</div></div>`;
   }
@@ -98,12 +100,13 @@ export class SettingsScreen {
   }
   step(r, row, dir) {
     if (r.type === 'slider') this.setSlider(r, row, this.S[r.key] + dir * r.step);
-    else if (r.type === 'seg') this.setSeg(r, row, Math.min(r.opts.length - 1, Math.max(0, this.S[r.key] + dir)));
+    else if (r.type === 'seg') this.setSeg(r, row, Math.min(r.opts.length - 1, Math.max(0, (r.values ? r.values.indexOf(this.S[r.key]) : this.S[r.key]) + dir)));
     else this.setToggle(r, row, dir > 0);
   }
   setSeg(r, row, i) {
-    if (i === this.S[r.key]) return;
-    this.ui.changeSetting(r.key, i, this.cb); this.ui.snd('click');
+    const value = r.values ? r.values[i] : i;
+    if (value === this.S[r.key]) return;
+    this.ui.changeSetting(r.key, value, this.cb); this.ui.snd('click');
     row.querySelectorAll('.seg i').forEach((n) => n.classList.toggle('on', +n.dataset.v === i));
   }
   setToggle(r, row, on) {

@@ -5,6 +5,7 @@ import { h, tween } from '../comp.js';
 import { esc, money, fmtNum, icon, hints, weaponIcon } from '../glyphs.js';
 import { BIOME_PLAN, MINIBOSS_S, BOSS_S } from '../../data/biomes.js';
 import { suggestNext } from '../garage_stats.js';
+import { distanceValue, distanceLabel, formatDistance } from '../units.js';
 
 const fmtTime = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const BIOME_SHORT = { desert: 'SCORCHED HWY', canyon: 'RED CANYON', coast: 'COASTAL CLIFFS', mountain: 'IRON PEAKS', city: 'ASHEN CITY', dam: 'THE DAM' };
@@ -23,7 +24,7 @@ export class ResultsScreen {
     this.timers.push(setTimeout(() => this.start(), 700));
   }
   lines() {
-    const r = this.run; let ls = Array.isArray(r.breakdown) && r.breakdown.length ? r.breakdown.map((l) => ({ label: String(l.label), amount: Math.round(l.amount) })) : [];
+    const r = this.run; let ls = Array.isArray(r.breakdown) && r.breakdown.length ? r.breakdown.map((l) => ({ label: /^DISTANCE(?:\s|$)/i.test(String(l.label)) ? `DISTANCE ${formatDistance(r.distance || 0, this.ui.settings?.units)}` : String(l.label), amount: Math.round(l.amount) })) : [];
     const sum = ls.reduce((a, l) => a + l.amount, 0), total = Math.round(r.cash ?? sum);
     if (!ls.length) ls = [{ label: 'RUN EARNINGS', amount: total }];
     else if (sum !== total) ls.push({ label: 'OTHER', amount: total - sum });
@@ -35,7 +36,7 @@ export class ResultsScreen {
     const acc = r.shots > 0 ? Math.round(100 * (r.hits || 0) / r.shots) : null;
     const bestSub = (k, fmt) => (nb[k] && prev[k] ? `PREV ${fmt(prev[k])}` : !nb[k] && prev[k] ? `BEST ${fmt(prev[k])}` : '');
     const tiles = [
-      { k: 'distance', ic: 'road', label: 'DISTANCE', to: r.distance / 1000, fmt: (v) => v.toFixed(1), unit: 'KM', nb: nb.distance, sub: bestSub('distance', (v) => (v / 1000).toFixed(1) + ' KM') },
+      { k: 'distance', ic: 'road', label: 'DISTANCE', to: distanceValue(r.distance || 0, this.ui.settings?.units), fmt: (v) => v.toFixed(1), unit: distanceLabel(this.ui.settings?.units), nb: nb.distance, sub: bestSub('distance', (v) => formatDistance(v, this.ui.settings?.units)) },
       { k: 'time', ic: 'clock', label: 'TIME SURVIVED', to: r.time, fmt: (v) => fmtTime(v), unit: '', nb: nb.time, sub: bestSub('time', fmtTime) },
       { k: 'kills', ic: 'skull', label: 'KILLS', to: r.kills || 0, fmt: (v) => fmtNum(v), unit: '', nb: nb.kills, sub: bestSub('kills', fmtNum) },
       { k: 'crash', ic: 'bolt', label: 'CRASH KILLS', to: r.crashKills || 0, fmt: (v) => fmtNum(v), unit: '' },
@@ -75,8 +76,8 @@ export class ResultsScreen {
     const pct = Math.min(100, (Math.max(0, reached) / total) * 100);
     const bestPct = Math.min(100, (best / total) * 100);
     this.routePct = pct;
-    const left = Math.max(0, (total - reached) / 1000);
-    return `<div class="rt-head"><span>ROUTE TO THE LEVIATHAN</span><em>${this.win ? 'CONVOY BROKEN' : `<b>${left.toFixed(1)} KM</b> TO GO`}</em></div>
+    const left = Math.max(0, total - reached);
+    return `<div class="rt-head"><span>ROUTE TO THE LEVIATHAN</span><em>${this.win ? 'CONVOY BROKEN' : `<b>${formatDistance(left, this.ui.settings?.units)}</b> TO GO`}</em></div>
       <div class="rt-bar"><div class="rt-segs">${seg}</div><div class="rt-fill" style="width:0"></div>${mini}${best > reached + 50 ? `<i class="rt-best" style="left:${bestPct}%"><span>BEST</span></i>` : ''}<i class="rt-boss">${icon('skull')}</i><i class="rt-you" style="left:0"></i></div>`;
   }
   nextHtml() {

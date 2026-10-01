@@ -103,3 +103,68 @@ test('solo controller gadgets do not steer the truck and the steering stick stil
   assert.ok(s.input.solo(1 / 60).driver.steer < 0, 'the left stick retains right steering while the oil button is held');
   assert.equal(s.input.driver(1 / 60).steer, 1, 'dedicated driver retains D-pad steering');
 });
+
+function scopedSetup(t) {
+  const names = ['addEventListener', 'document', 'navigator'];
+  const previous = names.map(name => Object.getOwnPropertyDescriptor(globalThis, name));
+  t.after(() => names.forEach((name, i) => {
+    if (previous[i]) Object.defineProperty(globalThis, name, previous[i]);
+    else delete globalThis[name];
+  }));
+  return setup();
+}
+
+test('old crouch keys and a legacy custom binding cannot crouch the gunner or suppress normal actions', t => {
+  const s = scopedSetup(t), i = s.input;
+  i.bindings.crouch = ['ControlLeft', 'KeyZ'];
+  for (const code of ['ControlLeft', 'KeyC', 'KeyZ', 'KeyW', 'KeyR', 'KeyG']) s.emit('keydown', { code, target: {} });
+  i.mouse.left = i.mouse.right = true;
+  const cmd = i.gunner(1 / 60);
+  assert.equal(cmd.crouch, false, 'held legacy keys cannot activate crouch even if an old binding object remains in memory');
+  assert.equal(cmd.moveX, 0); assert.equal(cmd.moveZ, 0); assert.equal(cmd.fire, true); assert.equal(cmd.ads, true);
+  assert.equal(cmd.reload, true); assert.equal(cmd.grenade, true);
+  assert.equal(i.driver(1 / 60).cameraToggle, true, 'C remains the driver camera control');
+  assert.equal(i.solo(1 / 60).gunner.crouch, false);
+});
+
+test('controller B is inactive for dedicated gunner crouch and preserves driver/solo role actions', t => {
+  const s = scopedSetup(t), i = s.input;
+  s.pads([pad([1])]); i.poll();
+  const gunner = i.gunner(1 / 60), driver = i.driver(1 / 60), solo = i.solo(1 / 60);
+  assert.equal(gunner.crouch, false); assert.equal(gunner.grenade, false);
+  assert.equal(gunner.fire, false); assert.equal(gunner.ads, false); assert.equal(gunner.reload, false);
+  assert.equal(driver.special2, true, 'dedicated driver B still drops a mine');
+  assert.equal(solo.gunner.grenade, true, 'solo B still throws a grenade');
+  assert.equal(solo.gunner.crouch, false); assert.equal(solo.driver.special2, false);
+  i.endFrame(); i.poll();
+  assert.equal(i.gunner(1 / 60).crouch, false, 'holding B across subsequent frames cannot crouch');
+  assert.equal(i.solo(1 / 60).gunner.grenade, false, 'holding B does not repeat the solo grenade edge');
+});
+
+test('gunner WASD and old custom walking bindings stay neutral while keyboard driving still works', t => {
+  const s = scopedSetup(t), i = s.input;
+  for (const [key, command, value] of [['KeyW', 'throttle', 1], ['KeyS', 'brake', 1], ['KeyA', 'steer', 1], ['KeyD', 'steer', -1]]) {
+    i.reset();
+    s.emit('keydown', { code: key, target: {} });
+    assert.deepEqual([i.gunner(1 / 60).moveX, i.gunner(1 / 60).moveZ], [0, 0], key + ' cannot walk the gunner');
+    for (let frame = 0; frame < 60; frame++) i.driver(1 / 60);
+    assert.equal(i.driver(1 / 60)[command], value, key + ' still drives the truck');
+    assert.equal(i.solo(1 / 60).driver[command], value, key + ' still drives in solo');
+  }
+  i.reset();
+  Object.assign(i.bindings, { moveL: ['KeyJ'], moveR: ['KeyL'], moveF: ['KeyI'], moveB: ['KeyK'] });
+  for (const key of ['KeyJ', 'KeyL', 'KeyI', 'KeyK']) {
+    i.keys.clear(); s.emit('keydown', { code: key, target: {} });
+    assert.deepEqual([i.gunner(1 / 60).moveX, i.gunner(1 / 60).moveZ], [0, 0], key + ' cannot revive a stale walking binding');
+  }
+});
+
+test('left stick cannot walk the gunner while driver/solo steering and right-stick aiming remain active', t => {
+  const s = scopedSetup(t), p = pad(), i = s.input;
+  p.axes = [.8, -.7, .4, -.35]; s.pads([p]); i.poll();
+  const gunner = i.gunner(1 / 60), driver = i.driver(1 / 60), solo = i.solo(1 / 60);
+  assert.deepEqual([gunner.moveX, gunner.moveZ, gunner.crouch], [0, 0, false]);
+  assert.ok(gunner.dYaw < 0); assert.ok(gunner.dPitch > 0);
+  assert.ok(driver.steer < 0); assert.equal(solo.driver.steer, driver.steer);
+  assert.deepEqual([solo.gunner.moveX, solo.gunner.moveZ], [0, 0]);
+});

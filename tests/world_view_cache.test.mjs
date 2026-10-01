@@ -27,7 +27,7 @@ test('world-view pose caches stay independent and refresh weapon, crew and local
   const first = updates.filter((u) => u.id === 1), gunner = first.find((u) => u.role === 'gunner'), driver = first.find((u) => u.role === 'driver');
   assert.notEqual(gunner.pose, driver.pose);
   assert.equal(gunner.values.local, local); assert.equal(gunner.values.weaponId, 'smg');
-  assert.equal(gunner.values.aimYaw, .6); assert.equal(gunner.values.bedX, 1); assert.equal(driver.values.aimYaw, 0);
+  assert.equal(gunner.values.aimYaw, .6); assert.equal(gunner.values.bedX, 0); assert.equal(driver.values.aimYaw, 0);
   const oldPose = gunner.pose;
   states.get(1).gunner = null; states.get(1).gunnerAlive = false;
   world.update(1 / 60, states, [], { cameraPos: ctx.cameraPos, playerWeaponId: 'shotgun' });

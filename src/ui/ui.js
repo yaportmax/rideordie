@@ -249,6 +249,7 @@ export class Ui {
   changeSetting(key, value, cb) {
     this.settings = { ...this.settings, [key]: value };
     saveSettings(this.settings); applySettings(this.input, this.settings);
+    if (key === 'units') for (const screen of this.stack) screen.onUnitsChange?.();
     try { if (cb && cb.onChange) cb.onChange(this.settings, key); if (this.opts.onSettingsChange) this.opts.onSettingsChange(this.settings, key); } catch (e) { console.error(e); }
   }
 

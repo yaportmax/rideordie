@@ -10,6 +10,7 @@ import { rngOf, strId, CHUNK_LEN, EDGE } from './util.js';
 import { buildCover } from './groundcover.js';
 import { buildFences, buildWrecks } from './furniture.js';
 import { vegFactor, rockFactor, addAnchor, VEG_MAX } from './ecology.js';
+import { isSolidRock, RockCollisionBatch } from './rock_collisions.js';
 
 const QKEEP = [0.26, 0.5, 0.74, 1.0];
 const scat = (id, key) => (key ? (BIOMES[id].scatter[key] ?? 0) : 1);
@@ -69,9 +70,10 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
     chunk.done.add('f:wrecks'); chunk.dirty = true;
   }
   let ready = true, worked = 0;
+  const collisions = new RockCollisionBatch();
   for (const e of SCATTER) {
     if (tierOf(e) !== tier || chunk.done.has(e.id)) continue;
-    if (worked > 0 && performance.now() > deadline) { chunk._more = true; return false; }
+    if (worked > 0 && performance.now() > deadline) { collisions.flush(ctx, chunk, tier); chunk._more = true; return false; }
     let wmax = 0; for (const b of bios) wmax = Math.max(wmax, entryDens(e, b));
     if (wmax <= 0) { chunk.done.add(e.id); continue; }
     const res = resolve(ctx, e);
@@ -95,13 +97,17 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
       const br = 0.84 + 0.3 * uTint;
       let cr = br, cg = br, cb = br;
       if (tintKind) { const t = (TINTS[tintKind] || {})[bio.w > 0.5 ? bio.b : bio.a]; if (t) { cr *= t[0]; cg *= t[1]; cb *= t[2]; } }
-      list.push(g.x, g.y - e.sink * h0 * sc, g.z, uYaw * 6.2832, sx, sy, sz, g.nx, g.ny, g.nz, e.align, rr, cr, cg, cb);
+      const index = list.push(g.x, g.y - e.sink * h0 * sc, g.z, uYaw * 6.2832, sx, sy, sz, g.nx, g.ny, g.nz, e.align, rr, cr, cg, cb);
+      collisions.add(e, asset, sc, list.m, index * 16);
       if (e.anchor) addAnchor(chunk, g.x, g.z, rr);
     };
     for (let i = 0; i < n; i++) {
       // fixed number of draws per candidate -> streams never depend on accept/reject
       const uSide = rnd(), uA = rnd(), uS = rnd(), uAcc = rnd(), uYaw = rnd(), uScale = rnd(), uTint = rnd(), uKeep = rnd(), uAux = rnd();
-      if (uKeep > qkeep) continue;
+      const scC = G ? e.sc[0] + (e.sc[1] - e.sc[0]) * (0.55 + 0.45 * uScale) : e.sc[0] + (e.sc[1] - e.sc[0]) * uScale;
+      // Physical rocks must exist on both peers even when graphics quality
+      // thins the surrounding small scatter.
+      if (uKeep > qkeep && !isSolidRock(e, asset, scC)) continue;
       const side = uSide < 0.5 ? 1 : -1;
       const a = e.a[0] + (e.a[1] - e.a[0]) * uA;
       const s = s0 + uS * CHUNK_LEN;
@@ -118,7 +124,6 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
       // composition: vegetation follows groves / washes / anchors; rock and cactus groups follow their own outcrop field
       if (e.role === 'veg' && uAux * VEG_MAX > vegFactor(seed, chunk, s, d, g, e.open ?? 0.08)) continue;
       if (e.role === 'rock' && uAux * 1.3 > rockFactor(seed, chunk, s, d, g)) continue;
-      const scC = G ? e.sc[0] + (e.sc[1] - e.sc[0]) * (0.55 + 0.45 * uScale) : e.sc[0] + (e.sc[1] - e.sc[0]) * uScale;
       if (!placeable(ctx, chunk, e, s, d, a, side, g, rad0 * scC, excl, tun, uAux)) continue;
       put(g, scC, uYaw, uTint, bio);
       if (!G) continue;
@@ -138,6 +143,7 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
       }
     }
   }
+  collisions.flush(ctx, chunk, tier);
   // dense near-road ground cover (grass, scrub, flowers, pebbles, litter) once the near tier's anchors exist
   if (tier === 3 && ready && !chunk.done.has('cover')) {
     const r = buildCover(ctx, chunk, deadline);

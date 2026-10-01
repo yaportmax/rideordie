@@ -310,7 +310,8 @@ async function appCoopFlow(hostRole) {
       };
     }, signalling.port);
   }
-  await host.evaluate(() => { window.__app.profile.cash = 5000; });
+  await host.evaluate(() => { window.__app.profile.cash = 7000; });
+  await guest.evaluate(() => { window.__app.profile.cash = 5000; });
   await host.locator('.title [data-act="host"]').click();
   await until(host, () => window.__app.session?.code && window.__app.session.me.role === 'driver');
   if (hostRole === 'gunner') {
@@ -340,9 +341,18 @@ async function appCoopFlow(hostRole) {
   await Promise.all([until(host, () => !!window.__app.profile.weapons.smg), until(guest, () => !!window.__app.profile.weapons.smg)]);
   await guest.locator('.garage [data-slot="0"]').click();
   await Promise.all([until(host, () => window.__app.profile.loadout[0] === 'smg'), until(guest, () => window.__app.profile.loadout[0] === 'smg')]);
+  assert.equal(await host.evaluate(() => window.__app.profile.cash), 7000, 'guest weapon purchase must not spend host cash');
+  const guestCashBefore = await guest.evaluate(() => window.__app.profile.cash);
+  assert.ok(guestCashBefore < 5000);
+  assert.equal(await guest.evaluate(() => window.__app.personalProfile.cash), guestCashBefore);
+  // The host pays for a shared truck upgrade from their own wallet as well.
+  await host.locator('.garage [data-tab="upgrades"]').click();
+  await host.locator('.garage [data-row="engine"]').click();
+  await host.locator('.garage [data-buy="1"]').click();
+  await Promise.all([until(host, () => window.__app.profile.upgrades.engine === 1), until(guest, () => window.__app.profile.upgrades.engine === 1)]);
   const cashBefore = await host.evaluate(() => window.__app.profile.cash);
-  assert.equal(await guest.evaluate(() => window.__app.profile.cash), cashBefore);
-  assert.ok(cashBefore < 5000);
+  assert.ok(cashBefore < 7000);
+  assert.equal(await guest.evaluate(() => window.__app.profile.cash), guestCashBefore, 'host truck upgrade must not spend guest cash');
   await shot(guest, `${tag}-02-guest-purchase`);
 
   const start = async () => {
@@ -411,11 +421,11 @@ async function appCoopFlow(hostRole) {
   await until(guest, () => window.__app.profile.runs === 1);
   assert.equal(await host.evaluate(() => window.__app.profile.runs), 1);
   assert.equal(await host.evaluate(() => window.__app.profile.cash), cashBefore + first.cash);
-  assert.equal(await guest.evaluate(() => window.__app.profile.cash), cashBefore + first.cash);
+  assert.equal(await guest.evaluate(() => window.__app.profile.cash), guestCashBefore + first.cash);
   for (const page of [host, guest]) {
     await page.evaluate(() => window.__app._results(window.__run));
     assert.equal(await page.evaluate(() => window.__app.profile.runs), 1);
-    assert.equal(await page.evaluate(() => window.__app.profile.cash), cashBefore + first.cash);
+    assert.equal(await page.evaluate(() => window.__app.profile.cash), (page === host ? cashBefore : guestCashBefore) + first.cash);
   }
   await shot(guest, `${tag}-04-results`);
   await garage();
@@ -427,10 +437,11 @@ async function appCoopFlow(hostRole) {
   await until(guest, () => window.__app.profile.runs === 2);
   assert.equal(await host.evaluate(() => window.__app.profile.runs), 2);
   assert.equal(await host.evaluate(() => window.__app.profile.cash), cashBefore + first.cash + second.cash);
-  assert.equal(await guest.evaluate(() => window.__app.profile.cash), cashBefore + first.cash + second.cash);
+  assert.equal(await guest.evaluate(() => window.__app.profile.cash), guestCashBefore + first.cash + second.cash);
   await garage();
-  record(`normal-menu co-op purchase, hip fire, results and second run, ${hostRole} hosts`, { code, first, second, firstInput, secondInput, cashBefore,
-    cashAfter: await host.evaluate(() => window.__app.profile.cash), runs: 2, realPeerJsTransport: true, localSignallingOnly: true });
+  record(`normal-menu co-op purchase, hip fire, results and second run, ${hostRole} hosts`, { code, first, second, firstInput, secondInput, cashBefore, guestCashBefore,
+    cashAfter: await host.evaluate(() => window.__app.profile.cash), guestCashAfter: await guest.evaluate(() => window.__app.profile.cash),
+    independentWallets: true, guestWeaponPaidByGuest: true, sharedTruckUpgradePaidByHost: true, runs: 2, realPeerJsTransport: true, localSignallingOnly: true });
   await host.context().close(); await guest.context().close();
 }
 

@@ -2,6 +2,7 @@
 import { effects, UPGRADE_BY_ID, TRUCKS } from '../data/upgrades.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { WEAPONS, WEAPON_ORDER, weaponStats } from '../data/weapons.js';
+import { speedValue, speedLabel } from './units.js';
 
 const r0 = (v) => String(Math.round(v));
 const r1 = (v) => (Math.round(v * 10) / 10).toFixed(1);
@@ -14,8 +15,8 @@ const specOf = (p) => VEHICLES[p.truck] || VEHICLES.truck_t1;
 /** Per-upgrade stat definitions: (spec, max levels) -> [{label, get(effects), max, unit, fmt, lowerBetter}]. */
 const level = (n, label = 'LEVEL') => ({ label, get: (_e, lv) => lv, max: n, fmt: (v) => (v === 0 ? 'NONE' : `LV ${v}`), byLevel: true });
 const UP_STATS = {
-  engine: (spec) => [
-    { label: 'TOP SPEED', get: (e) => spec.engine.vmax * e.engineMul * 3.6, max: 260, unit: 'KM/H', fmt: r0 },
+  engine: (spec, n, units) => [
+    { label: 'TOP SPEED', get: (e) => speedValue(spec.engine.vmax * e.engineMul, units), max: speedValue(260 / 3.6, units), unit: speedLabel(units), fmt: r0 },
     { label: 'ACCELERATION', get: (e) => spec.engine.accel0 * (1 + (e.engineMul - 1) * 1.1), max: 10, unit: 'M/S²', fmt: r1 },
   ],
   armor: (spec) => [
@@ -49,13 +50,13 @@ const UP_STATS = {
 };
 
 /** Rows for a leveled upgrade: current level and (if not maxed) the level you would get. */
-export function upgradeStats(profile, id) {
+export function upgradeStats(profile, id, units = 'mi') {
   const u = UPGRADE_BY_ID[id]; if (!u) return [];
   const lv = profile.upgrades[id] || 0, n = u.costs.length;
   const spec = specOf(profile);
   const e0 = effects(profile);
   const e1 = lv < n ? effects({ ...profile, upgrades: { ...profile.upgrades, [id]: lv + 1 } }) : null;
-  return (UP_STATS[id] ? UP_STATS[id](spec, n) : [level(n)]).map((d) => {
+  return (UP_STATS[id] ? UP_STATS[id](spec, n, units) : [level(n)]).map((d) => {
     // "invertBar" rows are negative numbers (less damage taken): show the magnitude as a growing bar, text keeps the sign.
     const before = d.get(e0, lv), after = e1 ? d.get(e1, lv + 1) : null;
     const flip = d.invertBar ? -1 : 1;
@@ -64,11 +65,11 @@ export function upgradeStats(profile, id) {
 }
 
 /** Rows comparing truck `id` with the currently selected truck (upgrades included). */
-export function truckStats(profile, id) {
+export function truckStats(profile, id, units = 'mi') {
   const cur = specOf(profile), tgt = VEHICLES[id] || cur;
   const e = effects(profile);
   const f = (spec) => ({
-    speed: spec.engine.vmax * e.engineMul * 3.6,
+    speed: speedValue(spec.engine.vmax * e.engineMul, units),
     accel: spec.engine.accel0 * (1 + (e.engineMul - 1) * 1.1),
     hp: hullHp(spec) * e.hpMul, mass: spec.mass,
     size: spec.length * spec.width,
@@ -76,7 +77,7 @@ export function truckStats(profile, id) {
   const a = f(cur), b = f(tgt), same = cur.id === tgt.id;
   const row = (label, k, max, fmt, unit, lowerBetter) => ({ label, before: a[k], after: same ? null : b[k], max, fmt, unit, lowerBetter });
   return [
-    row('TOP SPEED', 'speed', 260, r0, 'KM/H'), row('ACCELERATION', 'accel', 10, r1, 'M/S²'),
+    row('TOP SPEED', 'speed', speedValue(260 / 3.6, units), r0, speedLabel(units)), row('ACCELERATION', 'accel', 10, r1, 'M/S²'),
     row('HULL HP', 'hp', 1800, r0), { ...row('WEIGHT', 'mass', 3200, r0, 'KG'), },
   ];
 }

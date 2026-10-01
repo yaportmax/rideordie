@@ -32,6 +32,7 @@ export function normalizeProfile(value) {
     minibosses: Object.fromEntries(Object.entries(record(p.minibosses)).filter(([id, done]) => /^[0-4]$/.test(id) && done === true)),
     bossKilled: p.bossKilled === true,
     lastRunId: typeof p.lastRunId === 'string' ? p.lastRunId : null,
+    coopLastRunId: typeof p.coopLastRunId === 'string' && p.coopLastRunId.length > 0 && p.coopLastRunId.length <= 128 ? p.coopLastRunId : null,
   };
 }
 

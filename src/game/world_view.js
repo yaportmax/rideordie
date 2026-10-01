@@ -106,11 +106,15 @@ export class WorldView {
         const alive = role === 'driver' ? st.driverAlive : role === 'gunner' ? st.gunnerAlive : st.gunner2Alive;
         crew.lastVel = st.vel;
         pose.alive = alive; pose.aimYaw = gs ? gs.yaw : 0; pose.aimPitch = gs ? gs.pitch : 0; pose.fire = gs ? gs.fire : false;
-        pose.crouch = gs ? gs.crouch : false; pose.ads = gs ? gs.ads : false; pose.reloading = gs ? gs.reloading : false;
+        pose.crouch = st.kind === 'player' ? false : gs ? gs.crouch : false; pose.ads = gs ? gs.ads : false; pose.reloading = gs ? gs.reloading : false;
         pose.weaponId = st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null;
         pose.steer = st.steer; pose.speed = st.speed; pose.quat = st.quat; pose.vel = st.vel;
         pose.local = st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null;
-        pose.exploded = st.exploded; pose.bedX = gs ? gs.x || 0 : 0; pose.bedZ = gs ? gs.z || 0 : 0;
+        if (st.kind === 'player' && role === 'gunner' && ctx.localGunner) {
+          const gn = ctx.localGunner.gunner;
+          if (gn) { pose.aimYaw = gn.yaw; pose.aimPitch = gn.pitch; pose.fire = gn.trigger && gn.magNow > 0; pose.ads = gn.ads > 0.5; pose.reloading = gn.reloading; }
+        }
+        pose.exploded = st.exploded; pose.bedX = st.kind === 'player' ? 0 : gs ? gs.x || 0 : 0; pose.bedZ = st.kind === 'player' ? 0 : gs ? gs.z || 0 : 0;
         pose.airborne = !!st.airborne; pose.far = farCrew; pose.player = st.kind === 'player' ? null : pPos; pose.intent = st.intent;
         crew.update(dt, pose);
       }
@@ -207,6 +211,11 @@ export class WorldView {
     const rec = this.cars.get(st.id);
     if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
     return false;
+  }
+  /** Notify the local viewmodel after the current pose was used to fire. */
+  notifyLocalShot(st, gunner) {
+    const crew = this.cars.get(st.id)?.crew.gunner;
+    if (crew?.useVm) crew.vm?.notifyShot?.(gunner);
   }
   dispose() {
     if (this.disposed) return; this.disposed = true;

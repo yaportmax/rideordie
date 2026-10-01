@@ -148,6 +148,12 @@ def kit(T):
         b.box('armor', (lx, fg + 0.12, zl + 0.16 * k), (0.30 * k, 0.05, 0.03), bev=0.006)
         b.box('armor', (lx, fg + 0.12, zl - 0.16 * k), (0.30 * k, 0.05, 0.03), bev=0.006)
     b.box('armor', (0, fg + 0.09, zl + 0.30 * k), (2 * (C.hood_hw - 0.02), 0.20, 0.03), bev=0.008, rot=(-14, 0, 0))
+    # Weld the brow to the fixed grille posts. The detachable hood cannot be
+    # its support: damage exposes a 10 cm air gap under the old floating visor.
+    mount_lo, mount_hi = ztg - 0.02, zl + 0.30 * k + 0.02
+    for sg in (1, -1):
+        b.box('armor', (sg * (gwh + 0.06), fg + 0.075, (mount_lo + mount_hi) / 2),
+              (0.045, 0.05, mount_hi - mount_lo), bev=0.0)
     for j in range(9):
         xx = -0.62 + j * 0.155
         spike(b, (xx, fg + 0.185, zl + 0.30 * k - 0.05), (xx, fg + 0.30, zl + 0.30 * k - 0.11), 0.017)

@@ -33,9 +33,12 @@ export class Vehicle {
     const sp = s.susp;
     this.wheelR = s.wheelRadius;
     const perWheelMass = s.mass / s.wheels.length;
-    sp.k = sp.k ?? perWheelMass * Math.pow(2 * Math.PI * (sp.freq ?? 2.1), 2);
-    sp.c = sp.c ?? 2 * (sp.zeta ?? 0.5) * Math.sqrt(sp.k * perWheelMass);
-    const staticComp = (perWheelMass * GRAVITY) / sp.k;
+    // Specs can share a suspension table across vehicle masses. Derived values
+    // belong to this body; writing them to the spec makes spawn order change
+    // every later vehicle's ride height, stiffness and damping.
+    this.springK = sp.k ?? perWheelMass * Math.pow(2 * Math.PI * (sp.freq ?? 2.1), 2);
+    this.damperC = sp.c ?? 2 * (sp.zeta ?? 0.5) * Math.sqrt(this.springK * perWheelMass);
+    const staticComp = (perWheelMass * GRAVITY) / this.springK;
     this.maxLen = sp.maxLen ?? 0.55;
     this.minLen = sp.minLen ?? 0.16;
     this.restLen = this.maxLen - staticComp;
@@ -94,6 +97,7 @@ export class Vehicle {
     this.nitro = s.nitro?.capacity ?? 0; // meter in seconds of boost
     this.nitroMax = s.nitro?.capacity ?? 0;
     this.boosting = false;
+    this.nitroNeedsRelease = false;
     this.engineDamage = 0; // 0..1, reduces power
     this.stunned = 0; // seconds: no control (driver dead etc.)
     this.driverAlive = true;
@@ -203,9 +207,9 @@ export class Vehicle {
       const w = this.wheels[i];
       if (!w.grounded) { w.compress = 0; continue; }
       const compVel = (w.Lprev - w.L) / dt;
-      let f = sp.k * comp[i] + sp.c * compVel + arbF[i];
-      if (w.L <= this.minLen + 1e-4) f += sp.k * 6 * (this.minLen + 0.02 - (w.L)) ; // bump stop
-      f = clamp(f, 0, sp.k * this.maxLen * 2.2);
+      let f = this.springK * comp[i] + this.damperC * compVel + arbF[i];
+      if (w.L <= this.minLen + 1e-4) f += this.springK * 6 * (this.minLen + 0.02 - (w.L)) ; // bump stop
+      f = clamp(f, 0, this.springK * this.maxLen * 2.2);
       w.load = f; totalLoad += f; w.compress = comp[i];
       _imp.copy(up).multiplyScalar(f * dt);
       b.applyImpulseAtPoint(_imp, w.mountWorld, true);
@@ -244,9 +248,17 @@ export class Vehicle {
     this.steerAngle = damp(this.steerAngle, delta, 24, dt);
 
     // ---------------- engine
-    const nitroOn = !!inp.nitro && this.nitro > 0 && throttle > 0.1 && this.driverAlive;
+    // Once a held boost runs dry, wait for release before spending regenerated
+    // fuel. Otherwise a tiny recharge retriggers boost every other physics step,
+    // repeatedly punching the camera/FOV and alternating engine force.
+    if (!inp.nitro) this.nitroNeedsRelease = false;
+    else if (this.nitro <= 0) this.nitroNeedsRelease = true;
+    const nitroOn = !!inp.nitro && !this.nitroNeedsRelease && this.nitro > 0 && throttle > 0.1 && this.driverAlive;
     this.boosting = nitroOn;
-    if (nitroOn) this.nitro = Math.max(0, this.nitro - dt);
+    if (nitroOn) {
+      this.nitro = Math.max(0, this.nitro - dt);
+      if (this.nitro === 0) this.nitroNeedsRelease = true;
+    }
     else if (this.nitroMax > 0) this.nitro = Math.min(this.nitroMax, this.nitro + dt * (s.nitro?.regen ?? 0.12) * (Math.abs(this.slipAngle) > 0.25 && speed > 15 ? 3.0 : 1));
     const eng = s.engine;
     const powerMul = (1 - this.engineDamage * 0.6) * (nitroOn ? (s.nitro?.mul ?? 1.7) : 1);

@@ -41,7 +41,10 @@ export class ChaseCam {
     this.yaw += wrapAngle(target - this.yaw) * (1 - Math.exp(-dt * 4.2));
     this.lookYaw = damp(this.lookYaw, (opts.lookX || 0) * -1.4, 8, dt);
     this.lookPitch = damp(this.lookPitch, (opts.lookY || 0) * 0.5, 8, dt);
-    const y = this.yaw + this.lookYaw;
+    // Reverse the chase offset and view together while held. Keep the filtered
+    // forward heading intact so release is an immediate return, not a half-turn
+    // through the truck or a long yaw-smoothing spin.
+    const y = this.yaw + this.lookYaw + (opts.lookBack ? Math.PI : 0);
     const boost = opts.boosting ? 1 : 0;
     const spd01 = smoothstep(5, 62, speed);
     this.back = damp(this.back, this.mode === 2 ? 10.5 : 7.2 + spd01 * 1.6 + boost * 0.8, 3, dt);
@@ -102,7 +105,7 @@ ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
     cam.quaternion.setFromEuler(_e.set(-this.cockPitch + this.lookPitch - 0.035, _e.y + Math.PI + this.lookYaw, -this.cockRoll + so.x * 0.02, 'YXZ'));
   }
   const speed = Math.hypot(vel.x, vel.z), spd01 = smoothstep(5, 62, speed);
-  const targetFov = back ? 78 : (opts.fovBase ?? 80) + spd01 * 12 + (opts.boosting ? 11 : 0);
+  const targetFov = back ? 78 : (opts.fovBase ?? 85) + spd01 * 12 + (opts.boosting ? 11 : 0);
   this.fov = damp(this.fov, targetFov, back ? 30 : 4, dt);
   if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
   if (cam.near !== 0.05) { cam.near = 0.05; cam.updateProjectionMatrix(); }

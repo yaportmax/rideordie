@@ -343,7 +343,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
   const collide = lod === 0;
   const seaY = (() => { // sea level for coast/lake: fixed world height under the road of that biome
     const bio = biomeAt((s0 + s1) / 2);
-    return bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : bio.a === 'dam' ? seaLevel(road, 'dam') : -1e9;
+    return bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : bio.a === 'dam' || bio.b === 'dam' ? seaLevel(road, 'dam') : -1e9;
   })();
   for (const side of sides) {
     const base = vi;

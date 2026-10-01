@@ -409,10 +409,10 @@ export function tracerHit(fx, wid, ox, oy, oz, ex, ey, ez) {
   const t = TRACER[wid] || TRACER.pistol, p = fx.p, inv = 1 / dist, speed = 620;
   const L = t.len, h = t.hdr;
   p.reset(); p.pos(ox, oy, oz).vel(dx * inv * speed, dy * inv * speed, dz * inv * speed); p.life = (dist + L) / speed; p.clip = dist;
-  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = L; p.size(t.width); p.col(t.col[0] * h, t.col[1] * h, t.col[2] * h, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
+  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = L; p.flags = PF.MUZZLE_START; p.size(t.width); p.col(t.col[0] * h, t.col[1] * h, t.col[2] * h, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
   fx.pf.emit(p);
   p.reset(); p.pos(ox, oy, oz).vel(dx * inv * speed, dy * inv * speed, dz * inv * speed); p.life = (dist + L * 0.6) / speed; p.clip = dist;
-  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = L * 0.6; p.size(t.width * 0.4); p.col(9, 8, 6.5, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
+  p.spr = SPR.STREAK; p.mode = MODE.STREAK; p.len = L * 0.6; p.flags = PF.MUZZLE_START; p.size(t.width * 0.4); p.col(9, 8, 6.5, 1); p.add0 = p.add1 = 1; p.fin = 0; p.fout = 0;
   fx.pf.emit(p);
 }
 

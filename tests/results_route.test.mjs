@@ -5,6 +5,7 @@ import { ResultsScreen } from '../src/ui/screens/results.js';
 function screen(run, profile = null) {
   return Object.assign(Object.create(ResultsScreen.prototype), {
     run: { distance: 0, time: 0, ...run }, profile, win: !!run.won,
+    ui: { settings: { units: 'km' } },
     safe: { innerHTML: '', querySelector: () => ({ style: {} }) },
   });
 }

@@ -43,6 +43,7 @@ export const PF = {
   FLIPU: 2,     // mirror the sprite horizontally (variety)
   DEFLECT: 4,   // attached particles slide up the windshield and over the roof instead of entering the cab
   NOCLIP: 8,    // exempt from the cabin clip (e.g. debug)
+  MUZZLE_START: 16, // clipped tracer has a nondegenerate muzzle-connected birth frame
 };
 
 /** Reusable particle description (no allocation per spawn). Fill fields, call pool.emit(d). */
@@ -109,6 +110,22 @@ void hideP() {
   vFog = vec4(0.0); vLitP = vec4(0.0); vLs = vec3(0.0); vUs = vec3(0.0); vCab = vec3(0.0); vDepth = 0.0; vClip = 0.0;
 }
 
+float particleEnvelope(float t, float fin, float fout, int flags) {
+  // Muzzle-start ribbons are visible on their uploaded birth frame. All other
+  // recipes keep their authored fade-in and every ribbon keeps its fade-out.
+  float enter = (flags & 16) != 0 ? 1.0 : smoothstep(0.0, max(fin, 0.0001), t);
+  return enter * (1.0 - smoothstep(1.0 - max(fout, 0.0001), 1.0, t));
+}
+
+vec2 streakSpan(float travel, float ribbonLength, float clip, float age, int flags) {
+  float head = min(travel, clip);
+  // Emits are published before the birth frame is drawn. A short launch ribbon
+  // makes that age-zero frame visible; subsequent frames retain normal flight.
+  if ((flags & 16) != 0 && age < 0.0001) head = min(ribbonLength, clip);
+  float tail = clamp(travel - ribbonLength, 0.0, clip);
+  return vec2(tail, head);
+}
+
 void main() {
   float age = uTime - aP0.w;
   float life = aV.w;
@@ -161,7 +178,7 @@ void main() {
   // ---------------------------------------------------------------- size / colour / envelope
   float sz = mix(aSz.x, aSz.y, pow(t, aEn.z));
   vec4 col = mix(aC0, aC1, pow(t, aEn.w));
-  float env = smoothstep(0.0, max(aEn.x, 1e-4), t) * (1.0 - smoothstep(1.0 - max(aEn.y, 1e-4), 1.0, t));
+  float env = particleEnvelope(t, aEn.x, aEn.y, flags);
 
   // attached particles: the flow parts around the cab instead of entering it - up the glass and over the roof from the
   // middle of the hood, around the A-pillars and past the doors from the sides; it reattaches ~3 m behind the cab
@@ -281,8 +298,8 @@ void main() {
       float w2 = max(w, uPix * dist * 2.2);
       if (aLt.z > 0.0) {                               // clipped travel (hitscan tracers): grows out of the muzzle, shrinks into the impact
         float trav = length(disp);
-        float head = min(trav, aLt.z); float tail = clamp(trav - L, 0.0, aLt.z);
-        world = aP0.xyz + ax * (tail + (q.x + 0.5) * (head - tail)) + side * (q.y * w2);
+        vec2 span = streakSpan(trav, L, aLt.z, age, flags);
+        world = aP0.xyz + ax * (span.x + (q.x + 0.5) * (span.y - span.x)) + side * (q.y * w2);
       } else {
         world = wpos + ax * ((q.x - 0.5) * L) + side * (q.y * w2);
       }
@@ -518,17 +535,23 @@ export class ParticleSystem {
   }
   birthOf(slot) { return this.data[slot * STRIDE + 3]; }
 
-  /** Advance the pool clock, upload the dirty range, count live particles (cheap: one pass over the expiry array). */
-  update(time) {
-    this.time = time;
+  /** Publish new emits without advancing their clock or scanning the pool. */
+  flush() {
     if (this.dmax >= this.dmin) {
       const buf = this.buf;
-      buf.clearUpdateRanges();
+      // An after-render update can have pending ranges from FX jobs. Retain
+      // those until WebGL uploads and clears them, along with this frame's emits.
       buf.addUpdateRange(this.dmin * STRIDE, (this.dmax - this.dmin + 1) * STRIDE);
       buf.needsUpdate = true;
       this.dmin = 1e9; this.dmax = -1;
     }
     this.geo.instanceCount = this.hw;
+  }
+
+  /** Advance the pool clock, publish writes, count live particles once. */
+  update(time) {
+    this.time = time;
+    this.flush();
     let n = 0; const ex = this.expire;
     for (let i = 0, e = this.hw; i < e; i++) if (ex[i] > time) n++;
     this.live = n;

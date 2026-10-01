@@ -3,8 +3,31 @@
 // Third person drives the reload from `reload01`; the first-person viewmodel drives every part itself (`s.parts`, see update()).
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
+import { sightBoreGeometry, supportsSightBoreGeometry } from './sight_geometry.js';
 
 const MM = 0.001, DEG = Math.PI / 180;
+const bore = (part, centerX, centerY, radius, minZ, maxZ) => ({ part, centerX, centerY, radius, minZ, maxZ });
+const cap = (part, centerX, centerY, radius, z) => bore(part, centerX, centerY, radius, z - 0.00002, z + 0.00002);
+/** Shipped optic caps in weapon-root metres. Open only their optical bore in the local ADS copy. */
+export const SIGHT_BORES = {
+  smg: [
+    // The authored 1.5 mm diopter hole is too small at the game's eye relief.
+    // Open the complete rear plate bore, leaving its outer housing intact.
+    bore('body', 0, .107, .005, -.06802, -.05198),
+    cap('body', 0, .104, .0085, .286), cap('body', 0, .104, .0085, .300),
+  ],
+  rifle: [bore('optic', 0, .1585, .010, -.07102, -.01248)],
+  // A ghost ring needs a useful window, including the inner walls between caps.
+  lmg: [bore('feed_cover', 0, .146, .0045, -.01202, -.00898)],
+  shotgun: [bore('body', 0, .09, .0045, .00648, .00952)],
+  sniper: [
+    cap('scope', 0, .124, .014, -.125), cap('scope', 0, .124, .014, .250),
+    ...[-.049, -.031, .111, .129, .1592, .1607].map(z => cap('scope', 0, .124, .014, z)),
+    bore('scope', 0, .124, .014, -.00502, .04502),
+    bore('body', 0, .124, .018, -.315, -.1251),
+  ],
+  rpg: [bore('body', .064, .106, .012, -.12802, .10902)],
+};
 // part -> {t:'tr'|'rot', axis:[x,y,z], amount (m or rad)}
 export const MECH = {
   pistol: { cycle: { slide: ['tr', [0, 0, -1], 38 * MM] }, trigger: 12, mag: ['tr', [0, -0.94, -0.342], 135 * MM], rack: { slide: ['tr', [0, 0, -1], 38 * MM] } },
@@ -115,11 +138,46 @@ export class WeaponView {
     if (M.cover && N.feed_cover) this._apply('feed_cover', M.cover, P.cover || 0);
     if (M.crane && N.crane) this._apply('crane', M.crane, P.crane || 0);
     if (M.rocket && N.rocket) { N.rocket.quaternion.copy(this.rest.rocket.q); this._apply('rocket', M.rocket, P.rocket || 0); N.rocket.visible = P.rocketVisible !== false; }   // (the viewmodel may have carried it in the hand)
-    if (M.rack && (P.rack || 0) > 0) for (const [n, sp] of Object.entries(M.rack)) this._apply(n, sp, P.rack);
+    if (M.rack) for (const [n, sp] of Object.entries(M.rack)) {
+      // Cycle-driven parts already reset above; preserve their firing cycle.
+      // A rack-only handle still needs its rest transform after reload ends.
+      if ((P.rack || 0) > 0 || !M.cycle?.[n]) this._apply(n, sp, P.rack || 0);
+    }
   }
 
   muzzleWorld(out) { const m = this.sockets.muzzle; if (!m) return false; m.getWorldPosition(out); return true; }
   ejectWorld(out) { const m = this.sockets.eject; if (!m) return false; m.getWorldPosition(out); return true; }
+  /** Prepare immutable geometry variants; callers decide when their local ADS copy uses them. */
+  prepareSightBores(channels = SIGHT_BORES[this.id]) {
+    if (!channels?.length) return [];
+    this.root.updateMatrixWorld(true);
+    const cuts = [], perMesh = new Map(), toMesh = new THREE.Matrix4(), a = new THREE.Vector3(), b = new THREE.Vector3();
+    for (const channel of channels) {
+      // Load-time batching can bake body/optic meshes directly into the scene.
+      // Animated cover/scope pivots stay intact; static cuts use exact root-space
+      // bounds rather than relying on an empty authored group retaining meshes.
+      const part = /^(body|optic)$/.test(channel.part) ? this.root : this.nodes[channel.part]; if (!part) continue;
+      part.traverse(mesh => {
+        if (!mesh.isMesh || mesh.isSkinnedMesh || Array.isArray(mesh.material) || /glass|lens/.test(mesh.material.name || '')) return;
+        toMesh.copy(mesh.matrixWorld).invert().multiply(this.root.matrixWorld);
+        const e = toMesh.elements;
+        // Authored firearm parts have an unrotated local +Z bore. Do not carve
+        // unrelated or rotated mechanisms using an axis-aligned approximation.
+        if (Math.abs(e[1]) + Math.abs(e[2]) + Math.abs(e[4]) + Math.abs(e[6]) + Math.abs(e[8]) + Math.abs(e[9]) > 1e-6
+          || Math.abs(Math.abs(e[0]) - Math.abs(e[5])) > 1e-6) return;
+        a.set(channel.centerX, channel.centerY, channel.minZ).applyMatrix4(toMesh);
+        b.set(channel.centerX, channel.centerY, channel.maxZ).applyMatrix4(toMesh);
+        let list = perMesh.get(mesh); if (!list) { list = []; perMesh.set(mesh, list); }
+        list.push({ centerX: a.x, centerY: a.y, radius: channel.radius * Math.abs(e[0]), minZ: Math.min(a.z, b.z), maxZ: Math.max(a.z, b.z) });
+      });
+    }
+    for (const [mesh, list] of perMesh) {
+      const full = mesh.geometry; if (!supportsSightBoreGeometry(full)) continue;
+      const keep = sightBoreGeometry(full, list);
+      if (keep !== full) cuts.push({ mesh, full, keep, on: false });
+    }
+    return cuts;
+  }
   dispose() { this.root.removeFromParent(); }
 }
 const _q = new THREE.Quaternion(), _ax = new THREE.Vector3();

@@ -6,6 +6,7 @@ import { esc, money, icon, weaponIcon, hints } from '../glyphs.js';
 import { TRUCKS, UPGRADES, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, TRUCK_COLORS } from '../../data/upgrades.js';
 import { WEAPONS, WEAPON_ORDER } from '../../data/weapons.js';
 import { upgradeStats, truckStats, weaponRows } from '../garage_stats.js';
+import { formatDistance } from '../units.js';
 
 const TABS = [
   { id: 'truck', name: 'TRUCK', icon: 'truck' }, { id: 'upgrades', name: 'UPGRADES', icon: 'wrench' }, { id: 'weapons', name: 'WEAPONS', icon: 'gun' },
@@ -54,6 +55,7 @@ export class GarageScreen {
     this.renderAll();
   }
   mounted() { requestAnimationFrame(() => { this.updateMore(); this.notifyView(); }); }
+  onUnitsChange() { this.keepFocus(() => { this.renderHeader(); this.renderDetail(); }); }
 
   // ---------------------------------------------------------------- data helpers
   snapshot(p) {
@@ -112,7 +114,7 @@ export class GarageScreen {
     const p = this.p, best = p.best || {};
     const parts = [];
     if (this.extra.runNo || p.runs != null) parts.push(`RUN #${this.extra.runNo || p.runs + 1}`);
-    if (best.distance) parts.push(`BEST ${(best.distance / 1000).toFixed(1)} KM`);
+    if (best.distance) parts.push(`BEST ${formatDistance(best.distance, this.ui.settings?.units)}`);
     if (best.kills) parts.push(`${best.kills} KILLS`);
     if (p.wins) parts.push(`${p.wins} VICTOR${p.wins > 1 ? 'IES' : 'Y'}`);
     this.q.sub.textContent = parts.join('  ·  ');
@@ -183,7 +185,7 @@ export class GarageScreen {
     if (t === 'truck') {
       const tr = TRUCKS.find((x) => x.id === id) || TRUCKS[0], s = this.truckState(tr);
       body = `<div class="d-head"><div class="eyebrow">${s.cur ? 'CURRENT TRUCK' : s.owned ? 'OWNED' : 'FOR SALE'}</div><h2>${esc(tr.name)}</h2><div class="d-tier">${pips(tr.tier, 4, -1, 'tier')} TIER ${tr.tier}</div></div>
-        <p class="d-desc">${esc(tr.blurb)}</p><div class="d-sec">${s.cur ? 'STATS' : 'VS CURRENT TRUCK'}</div><div class="stats">${truckStats(this.p, tr.id).map(statRow).join('')}</div>`;
+        <p class="d-desc">${esc(tr.blurb)}</p><div class="d-sec">${s.cur ? 'STATS' : 'VS CURRENT TRUCK'}</div><div class="stats">${truckStats(this.p, tr.id, this.ui.settings?.units).map(statRow).join('')}</div>`;
       buy = s.owned ? this.buyBtn(s.cur ? 'active' : 'select', 0, 'SELECT') : this.buyBtn(s.state, tr.cost, 'BUY TRUCK');
     } else if (t === 'weapons') {
       const w = WEAPONS[id], s = this.weaponState(id);
@@ -205,7 +207,7 @@ export class GarageScreen {
       buy = String(this.p.truckColor) === id ? '<div class="f buy max dis" role="button"><span class="bl">' + icon('check') + ' APPLIED</span></div>' : '<div class="f buy ok pressable" role="button" data-paint="1" data-k="buy" data-snd="none"><span class="bl">APPLY PAINT</span><span class="bp">FREE</span></div>';
     } else {
       const s = this.upState(id);
-      const rows = upgradeStats(this.p, id);
+      const rows = upgradeStats(this.p, id, this.ui.settings?.units);
       const role = s.u.role === 'driver' ? 'DRIVER UPGRADE' : s.u.role === 'gunner' ? 'GUNNER GEAR' : 'SHARED PERK';
       body = `<div class="d-head"><div class="eyebrow">${role}</div><h2>${esc(s.u.name)}</h2></div>
         <p class="d-desc">${esc(s.u.desc)}</p>

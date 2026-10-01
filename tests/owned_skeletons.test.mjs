@@ -148,7 +148,7 @@ test('runtime VM releases only unique flash/reticle/shell allocations, preservin
   for (const root of [vm.model, sibling.model, gun.root, siblingGun.root, Assets.template(FP_ARMS_URL), sibling.shell]) root.traverse(o => {
     if (o.isMesh) { shared.add(o.geometry); for (const material of [].concat(o.material)) shared.add(material); }
   });
-  for (const cut of gun.adsCut) { shared.add(cut.full); shared.add(cut.keep); shared.add(cut.cut); }
+  for (const cut of gun.adsCut) { shared.add(cut.full); shared.add(cut.keep); if (cut.cut) shared.add(cut.cut); }
   const pool = new WorldView({ scene: new THREE.Scene() });
   shared.add(pool.grenadeGeo); shared.add(pool.grenadeMat); shared.add(pool.rocketGeo); shared.add(pool.rocketMat);
   shared.add(vm.flashStar.material.uniforms.map.value); // shared muzzle atlas

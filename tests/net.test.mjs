@@ -82,10 +82,11 @@ class Memory {
   destroy() {}
 }
 const flush = () => new Promise((r) => setImmediate(r));
-async function pair() {
+async function pair({ hostCash = 0, guestCash = 0 } = {}) {
   const a = new Memory(), b = new Memory(); a.other = b; b.other = a;
   const host = new Session(a), guest = new Session(b);
-  await host.host(DEFAULT_PROFILE()); await guest.join('ABCDE', DEFAULT_PROFILE());
+  const hp = DEFAULT_PROFILE(), gp = DEFAULT_PROFILE(); hp.cash = hostCash; gp.cash = guestCash;
+  await host.host(hp); await guest.join('ABCDE', gp);
   a.onOpen(); b.onOpen(); await flush(); host.setRole('driver'); guest.setRole('gunner'); await flush();
   return { host, guest };
 }
@@ -102,14 +103,15 @@ test('a role clash clears the guest seat and both readiness flags on both machin
   assert.equal(mine.role, 'gunner'); assert.equal(cfg.role, 'driver'); assert.equal(cfg.runId, mine.runId); assert.equal(cfg.seed, 17);
 });
 
-test('guest weapon-track purchases spend host cash and mirror into the shared campaign', async () => {
+test('guest weapon-track purchases spend only personal cash and mirror shared campaign gear', async () => {
   const store = new Map(); globalThis.localStorage = { getItem: (k) => store.get(k), setItem: (k, v) => store.set(k, v) };
-  const { host, guest } = await pair(); host.profile.cash = 10000; host.broadcastProfile(); await flush();
-  const cash = host.profile.cash; guest.buy('weaponTrack', 'pistol', 'dmg'); await flush();
-  assert.equal(host.profile.weapons.pistol.dmg, 1); assert.ok(host.profile.cash < cash); assert.equal(guest.profile.cash, host.profile.cash);
+  const { host, guest } = await pair({ hostCash: 10000, guestCash: 2000 }); host.broadcastProfile(); await flush();
+  const cash = guest.profile.cash; guest.buy('weaponTrack', 'pistol', 'dmg'); await flush();
+  assert.equal(host.profile.weapons.pistol.dmg, 1); assert.equal(guest.profile.weapons.pistol.dmg, 1);
+  assert.equal(host.profile.cash, 10000); assert.ok(guest.profile.cash < cash); assert.equal(guest.personalProfile.cash, guest.profile.cash);
   let denied = 0; guest.on({ buyDenied: () => denied++ });
   guest.buy('upgrade', 'missing'); guest.buy('track', 'pistol', 'bad'); guest.buy('color', -3); await flush();
-  assert.equal(denied, 3); assert.equal(host.profile.cash, guest.profile.cash);
+  assert.equal(denied, 3); assert.equal(host.profile.cash, 10000);
 });
 
 test('guest profile mirroring does not replace its personal primary save', async () => {

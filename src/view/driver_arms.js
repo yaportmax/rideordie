@@ -26,6 +26,105 @@ const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 let MAT = null, GEO_SLEEVE = null;
+const shoulderGeometryCache = new WeakMap();
+/** The dedicated FP asset ends at the deltoids. Continue those two open edges
+ *  into the jacket behind the driver's eye, rather than exposing a cut sleeve
+ *  when the cockpit FOV widens. Hands, authored arm vertices and IK stay exact.
+ *  This driver-only geometry is built during warm-up and shared by live rigs. */
+export function shoulderGeometry(mesh) {
+  const source = mesh.geometry, cached = shoulderGeometryCache.get(source);
+  if (cached) return cached;
+  const pos = source.attributes.position, si = source.attributes.skinIndex, sw = source.attributes.skinWeight;
+  const names = mesh.skeleton.bones.map(b => b.name), spine = names.indexOf('Spine2');
+  if (!source.index || spine < 0) return source;
+  const weld = [], points = [], members = [], map = new Map(), edges = new Map();
+  for (let i = 0; i < pos.count; i++) {
+    const key = [pos.getX(i), pos.getY(i), pos.getZ(i)].map(x => Math.round(x * 1e5)).join(',');
+    let w = map.get(key);
+    if (w === undefined) { w = points.length; map.set(key, w); points.push(new THREE.Vector3().fromBufferAttribute(pos, i)); members.push(i); }
+    weld[i] = w;
+  }
+  const idx = source.index.array;
+  for (let t = 0; t < idx.length; t += 3) for (let k = 0; k < 3; k++) {
+    const ia = idx[t + k], ib = idx[t + (k + 1) % 3], a = weld[ia], b = weld[ib];
+    if (a === b) continue;
+    const key = a < b ? a + ',' + b : b + ',' + a, e = edges.get(key);
+    if (e) e.n++; else edges.set(key, { a, b, ia, ib, n: 1 });
+  }
+  const proximal = w => {
+    const p = points[w], i = members[w]; let weight = 0;
+    for (let k = 0; k < 4; k++) if (/^(Spine2|LeftShoulder|RightShoulder)$/.test(names[si.getComponent(i, k)])) weight += sw.getComponent(i, k);
+    return weight > .2 && p.y > 1.2 && Math.abs(p.x) < .3;
+  };
+  const next = new Map();
+  for (const e of edges.values()) if (e.n === 1 && proximal(e.a) && proximal(e.b)) next.set(e.a, e);
+  const loops = [], visited = new Set();
+  for (const start of next.keys()) {
+    if (visited.has(start)) continue;
+    const loop = []; let w = start;
+    while (next.has(w) && !visited.has(w)) { visited.add(w); const e = next.get(w); loop.push(e); w = e.b; }
+    if (w === start && loop.length >= 12) loops.push(loop);
+  }
+  if (loops.length !== 2) { shoulderGeometryCache.set(source, source); return source; }
+  const extra = loops.reduce((n, loop) => n + loop.length * 3 + 1, 0), geometry = source.clone();
+  for (const [name, attr] of Object.entries(source.attributes)) {
+    const array = new attr.array.constructor((pos.count + extra) * attr.itemSize); array.set(attr.array);
+    geometry.setAttribute(name, new THREE.BufferAttribute(array, attr.itemSize, attr.normalized));
+  }
+  const indices = Array.from(idx), added = [], gp = geometry.attributes.position, gsi = geometry.attributes.skinIndex, gsw = geometry.attributes.skinWeight;
+  let cursor = pos.count;
+  const add = (sourceIndex, point, blend, uv) => {
+    const i = cursor++;
+    for (const [name, attr] of Object.entries(source.attributes)) {
+      const dest = geometry.attributes[name].array;
+      for (let k = 0; k < attr.itemSize; k++) dest[i * attr.itemSize + k] = attr.array[sourceIndex * attr.itemSize + k];
+    }
+    gp.setXYZ(i, point.x, point.y, point.z);
+    if (uv) geometry.attributes.uv.setXY(i, uv.x, uv.y);
+    let rootSlot = -1, smallest = 0;
+    for (let k = 0; k < 4; k++) { if (si.getComponent(sourceIndex, k) === spine) rootSlot = k; if (sw.getComponent(sourceIndex, k) < sw.getComponent(sourceIndex, smallest)) smallest = k; }
+    if (rootSlot < 0) rootSlot = smallest;
+    const weights = []; let total = 0;
+    for (let k = 0; k < 4; k++) {
+      const weight = sw.getComponent(sourceIndex, k) * (1 - blend) + (k === rootSlot ? blend : 0); weights.push(weight); total += weight;
+      if (k === rootSlot) gsi.setComponent(i, k, spine);
+    }
+    for (let k = 0; k < 4; k++) gsw.setComponent(i, k, weights[k] / total);
+    added.push(i); return i;
+  };
+  for (const loop of loops) {
+    const center = new THREE.Vector3(); for (const e of loop) center.add(points[e.a]); center.divideScalar(loop.length);
+    const uvCenter = new THREE.Vector2(), sourceUv = source.attributes.uv;
+    for (const e of loop) uvCenter.add(new THREE.Vector2().fromBufferAttribute(sourceUv, e.ia)); uvCenter.divideScalar(loop.length);
+    const side = Math.sign(center.x), count = loop.length;
+    let previous = loop.map(e => e.ia);
+    // Rounded jacket shoulder, turning inward/back toward the torso. The final
+    // ring and cap follow the chest instead of inheriting steering-arm twist.
+    for (const [inward, down, back, scale, blend] of [[.045, -.005, -.08, .98, .35], [.075, -.012, -.20, .85, .7], [.11, -.02, -.34, .45, 1]]) {
+      // Continue the authored atlas island into a nested shoulder patch. Each
+      // row needs UV area, otherwise the normal-map tangent frame degenerates.
+      const ring = loop.map(e => add(e.ia, points[e.a].clone().sub(center).multiplyScalar(scale).add(center).add(new THREE.Vector3(-side * inward, down, back)), blend,
+        new THREE.Vector2().fromBufferAttribute(sourceUv, e.ia).sub(uvCenter).multiplyScalar(scale).add(uvCenter)));
+      for (let j = 0; j < count; j++) {
+        const k = (j + 1) % count, a = previous[j], b = previous[k];
+        // The authored boundary's seam duplicates can have different UVs. Use
+        // its actual edge endpoint on the first strip to preserve that seam.
+        const edgeB = previous[j] === loop[j].ia ? loop[j].ib : b;
+        indices.push(edgeB, a, ring[j], edgeB, ring[j], ring[k]);
+      }
+      previous = ring;
+    }
+    const cap = add(loop[0].ia, center.clone().add(new THREE.Vector3(-side * .12, -.025, -.38)), 1, uvCenter);
+    for (let j = 0; j < count; j++) indices.push(previous[(j + 1) % count], previous[j], cap);
+  }
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  // Retain the authored normal field on all original skin/glove/kit vertices.
+  geometry.attributes.normal.array.set(source.attributes.normal.array);
+  geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+  geometry.userData.driverShoulderVertices = added;
+  shoulderGeometryCache.set(source, geometry); return geometry;
+}
 /** Leather-sleeve variant of the fp_arms material: vertices skinned to the arm / forearm bones take a rust-orange leather tint
  *  (the albedo's luminance keeps the seams / folds), gloves stay as authored. World-space material (no viewmodel projection). */
 function leatherMaterial(src) {
@@ -52,6 +151,7 @@ function sleeveAttr(mesh) {
   const si = g.attributes.skinIndex, sw = g.attributes.skinWeight, names = mesh.skeleton.bones.map((b) => b.name);
   const a = new Float32Array(si.count), RE = /^(Left|Right)(Arm|ForeArm|Shoulder)$/;
   for (let i = 0; i < si.count; i++) { let w = 0; for (let k = 0; k < 4; k++) if (RE.test(names[si.getComponent(i, k)])) w += sw.getComponent(i, k); a[i] = w; }
+  for (const i of g.userData.driverShoulderVertices || []) a[i] = 1;
   g.setAttribute('sleeve', new THREE.BufferAttribute(a, 1));
   GEO_SLEEVE = g;
 }
@@ -82,7 +182,7 @@ export class DriverArms {
   /** Warm-up object for Game.prewarm (the leather program). */
   static warmObject() {
     const m = ownClonedSkeletons(Assets.clone(FP_ARMS_URL)); if (!m) return new THREE.Group();
-    m.traverse((o) => { if (o.isSkinnedMesh) { sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; } });
+    m.traverse((o) => { if (o.isSkinnedMesh) { o.geometry = shoulderGeometry(o); sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; } });
     return m;
   }
 
@@ -92,7 +192,7 @@ export class DriverArms {
     this.ok = !!(model && crew.bones && crew.bones.Spine2);
     if (!this.ok) { disposeOwnedSkeletons(model); return; }
     this.model = model;
-    model.traverse((o) => { if (o.isMesh) o.userData.fpArms = true; if (o.isSkinnedMesh) { sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; o.castShadow = false; o.receiveShadow = true; } });
+    model.traverse((o) => { if (o.isMesh) o.userData.fpArms = true; if (o.isSkinnedMesh) { o.geometry = shoulderGeometry(o); sleeveAttr(o); o.material = leatherMaterial(o.material); o.frustumCulled = false; o.castShadow = false; o.receiveShadow = true; } });
     const B = this.B = {}; model.traverse((o) => { if (o.isBone || /^socket_/.test(o.name)) B[o.name] = o; });
     // the fp Spine2 sits on the hero's Spine2 (both rigs have identity rest rotations, model axes)
     model.updateMatrixWorld(true);

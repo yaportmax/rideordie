@@ -1,6 +1,6 @@
 // Authoritative simulation (runs on the DRIVER's machine, or locally in solo). DOM-free.
 import * as THREE from 'three';
-import { RAPIER, initPhysics, createWorld, getColliderLabel, clearColliderLabels } from './physics.js';
+import { RAPIER, RAY_WORLD, G, initPhysics, createWorld, getColliderLabel, clearColliderLabels } from './physics.js';
 import { Vehicle } from './vehicle.js';
 import { Car } from './car.js';
 import { VEHICLES } from '../data/vehicles.js';
@@ -102,7 +102,15 @@ export class Sim {
     return car;
   }
 
-  releaseCar(car) { if (car.held) { car.veh.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); car.held = false; } }
+  releaseCar(car) {
+    if (!car.held) return;
+    car.veh.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); car.held = false;
+    if (car._groundHold) {
+      car.veh.body.setLinvel(car._groundHold.velocity, true);
+      car.veh.body.setAngvel(car._groundHold.angularVelocity, true);
+      car._groundHold = null;
+    }
+  }
 
   removeCar(car, why = 'gone') {
     for (const c of car.veh.colliders) this.colMap.delete(c.handle);
@@ -133,7 +141,8 @@ export class Sim {
     // ground colliders near the action
     if (this.ground) {
       if (this.tick % 12 === 0) this.ground.update(P ? P.s : 0);
-      if (this.state === 'run' && P && P.held && this.ground.groundReady && this.ground.groundReady(P.s)) { this.releaseCar(P); }
+      if (P && P.held && (this.state === 'run' || P._groundHold) && this.ground.groundReady && this.ground.groundReady(P.s)) { this.releaseCar(P); }
+      if (this.state === 'run' && P && !P.dead && !P.held) this._protectGround(P);
     }
     for (const sys of this.systems) sys.update(dt, this);
     if ((this.tick & 1) === 0 && this.state === 'run') for (const car of this.cars.values()) if (car.ai) car.ai.update(dt * 2);
@@ -158,12 +167,102 @@ export class Sim {
     }
     if (P && !P.exploded) this._rampKick(P);
     if (P && !P.exploded && P.veh.grounded === 0 && P.veh.airTime > 0.12) this._airSteer(P, dt);
+    if (P && !P.dead && !P.held) this._recoverRoadFall(P);
+    if (this.tick % 12 === 0) for (const car of this.cars.values()) if (!car.dead && !car.held && (car === P || car.elite)) this._recoverOffroadFall(car);
     if (P) {
       this.stats.distance = Math.max(this.stats.distance, P.s);
       this.stats.maxSpeed = Math.max(this.stats.maxSpeed, P.veh.speed);
     }
     this._burning(dt);
     this._runState(dt);
+  }
+
+  /** A late worker must delay landing/driving rather than let the car pass through an unbuilt tile. */
+  _protectGround(car) {
+    if (!this.ground?.groundReady || this.ground.groundReady(car.s) || Math.abs(car.d) > HALF_ROAD + 1) return;
+    const v = car.veh, sm = this.road.sample(car.s), roadY = this.road.surfaceY(sm, car.d);
+    const velocity = v.body.linvel();
+    // Keep real airborne travel free; pause only on the road or immediately at its landing plane.
+    if (v.pos.y < roadY - 2 || velocity.y > 1 || (v.grounded === 0 && v.pos.y > roadY + v.restComHeight + 1)) return;
+    car._groundHold = { velocity: { ...velocity }, angularVelocity: { ...v.body.angvel() } };
+    v.body.setBodyType(RAPIER.RigidBodyType.Fixed, true); car.held = true;
+    v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat);
+    for (let i = 0; i < v.wheels.length; i++) v.prevL[i] = v.wheels[i].L;
+  }
+
+  /** Recover an on-road streaming fall, using actual road collision rather than terrain/roof height. */
+  _recoverRoadFall(car) {
+    const v = car.veh;
+    if (Math.abs(car.d) > HALF_ROAD + 2) { car._roadGrounded = false; return; }
+    const sm = this.road.sample(car.s), roadY = this.road.surfaceY(sm, car.d);
+    if (v.grounded >= 2 && Math.abs(v.pos.y - roadY - v.restComHeight) < 2) {
+      car._roadGrounded = true; car._roadGroundedS = car.s; return;
+    }
+    // Leaving the road clears the checkpoint, preserving falls into ravines or travel under bridges.
+    if (!car._roadGrounded || Math.abs(car.s - car._roadGroundedS) > 500 || v.pos.y >= roadY - 6) return;
+    const groundY = this.ground?.roadHeightAt?.(car.s, v.pos.x, v.pos.z, roadY + 2);
+    if (groundY == null || v.pos.y >= groundY - 6) return;
+    const velocity = v.body.linvel();
+    v.body.setTranslation({ x: v.pos.x, y: groundY + v.restComHeight + 0.15, z: v.pos.z }, true);
+    v.body.setRotation({ x: 0, y: Math.sin(sm.th / 2), z: 0, w: Math.cos(sm.th / 2) }, true);
+    v.body.setLinvel({ x: velocity.x, y: 0, z: velocity.z }, true); v.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat); v.airTime = 0; v.grounded = 0;
+    for (let i = 0; i < v.wheels.length; i++) v.wheels[i].L = v.wheels[i].Lprev = v.prevL[i] = v.restLen;
+    car._roadGrounded = false;
+    this.emit({ t: 'groundRecovered', id: car.id, s: car.s });
+  }
+
+  /** Water and the space below every terrain triangle are terminal driving areas, never playable underpasses. */
+  _recoverOffroadFall(car) {
+    if (this.state !== 'run') return;
+    const v = car.veh, bounds = this.ground?.recoveryBoundsAt?.(car.s), bio = biomeAt(car.s);
+    const waterSide = ['coast', 'dam'].find(id => (bio.a === id || bio.b === id) && car.d * BIOMES[id].terrain.seaSide > HALF_ROAD + 6);
+    const submerged = waterSide && bounds?.waterY != null && v.pos.y < bounds.waterY - 2;
+    const roadY = this.road.sample(car.s).y;
+    const voidFall = bounds ? v.pos.y < bounds.minY - 12 : v.pos.y < roadY - 400;
+    if (!submerged && !voidFall) return;
+    const player = car.kind === 'player';
+    const targetS = player ? car.s : this.player.s + 120 + car.id % 3 * 22;
+    if (!this._placeOnClearRoad(car, targetS)) return;
+    if (player) this.damageCar(car, car.maxHp * 0.04, { cause: 'fall' });
+    this.emit({ t: 'groundRecovered', id: car.id, s: car.s, reason: submerged ? 'water' : 'void', penalty: player });
+  }
+
+  /** Place a living car on verified, unobstructed asphalt without changing encounter or damage state. */
+  _placeOnClearRoad(car, targetS) {
+    if (!this.ground?.roadHeightAt) return false;
+    const v = car.veh, q = v.quat.clone(), local = new V3();
+    for (const ds of [0, -18, 18, -36, 36, -60, 60]) for (const d of [0, -2.7, 2.7]) {
+      const s = Math.max(8, targetS + ds), sm = this.road.sample(s);
+      if (this.road.featuresIn(s - car.spec.length / 2 - 8, s + car.spec.length / 2 + 8).some(f => f.type === 'roadblock' || f.type === 'ramp')) continue;
+      const x = sm.x + sm.nx * d, z = sm.z + sm.nz * d;
+      const gy = this.ground.roadHeightAt(s, x, z, this.road.surfaceY(sm, d) + 2);
+      if (gy == null) continue;
+      const y = gy + v.restComHeight + 0.15, fx = Math.sin(sm.th), fz = Math.cos(sm.th);
+      let blocked = false;
+      for (const other of this.cars.values()) {
+        if (other === car || Math.abs(other.veh.pos.y - y) > 5) continue;
+        const dx = other.veh.pos.x - x, dz = other.veh.pos.z - z;
+        if (Math.abs(dx * fx + dz * fz) < (car.spec.length + other.spec.length) / 2 + 5 && Math.abs(dx * fz - dz * fx) < (car.spec.width + other.spec.width) / 2 + 1) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      q.set(0, Math.sin(sm.th / 2), 0, Math.cos(sm.th / 2));
+      for (const collider of v.colliders) {
+        const t = collider.translationWrtParent();
+        local.set(t.x, t.y, t.z).applyQuaternion(q); local.x += x; local.y += y; local.z += z;
+        if (this.world.intersectionWithShape(local, q, collider.shape, undefined, RAY_WORLD | G.CAR | G.PROP, undefined, v.body)) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      const speed = car.kind === 'player' ? Math.min(12, Math.hypot(v.vel.x, v.vel.z)) : Math.min(v.spec.engine.vmax * .8, Math.max(12, this.player.veh.vf));
+      v.body.setTranslation({ x, y, z }, true); v.body.setRotation(q, true);
+      v.body.setLinvel({ x: fx * speed, y: 0, z: fz * speed }, true); v.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat); v.airTime = 0; v.grounded = 0;
+      for (let i = 0; i < v.wheels.length; i++) v.wheels[i].L = v.wheels[i].Lprev = v.prevL[i] = v.restLen;
+      car.s = s; car.d = d; car._roadGrounded = false;
+      if (car.ai) { car.ai.stuckT = 0; car.ai.dTs = car.ai._lastDT = d; }
+      return true;
+    }
+    return false;
   }
 
   // ------------------------------------------------------------------------------------------ damage
@@ -337,6 +436,8 @@ export class Sim {
 
   explodeCar(car, cause, src) {
     if (car.exploded) return;
+    // A waiting live car becomes a dynamic wreck before its launch impulses.
+    if (car._groundHold) this.releaseCar(car);
     car.exploded = true; car.dead = true; car.hp = 0;
     car.veh.driverAlive = false; car.driverless = true; car.veh.input.throttle = 0; car.veh.input.brake = 0;
     for (const r of Object.keys(car.crew)) { const c = car.crew[r]; if (c.alive) { c.alive = false; c.hp = 0; this.emit({ t: 'crewDead', id: car.id, role: r, cause: 'explosion', src }); } }
@@ -363,13 +464,17 @@ export class Sim {
     }
   }
 
-  /** Area damage + impulse. sourceCar is excluded; ownerId attributes kills (1 = the player's weapons). */
+  /** Area damage + impulse. sourceCar identifies a detonating vehicle, not a weapon owner.
+   * Its own body is excluded; ownerId attributes weapon kills (1 = the player's weapons).
+   * Enemy vehicle cook-offs never hurt or shove the player; their weapons still can.
+   */
   blast(pos, radius, damage, impulseScale, sourceCar, ownerId) {
     const src = ownerId ?? (sourceCar ? sourceCar.id : -1);
+    const enemyCarExplosion = sourceCar?.kind === 'enemy';
     if (this.boss && src === 1) this.boss.blastParts(pos, radius, damage);
     for (const car of this.cars.values()) {
       if (car === sourceCar) continue;
-      if (src === 1 && car.kind === 'player') continue; // no friendly fire from the player's own weapons
+      if (car.kind === 'player' && (src === 1 || enemyCarExplosion)) continue;
       // chain explosions of a car the player wrecked are credited to the player (for enemies only)
       const credit = car.kind === 'enemy' && sourceCar && sourceCar.kind === 'enemy' && sourceCar.lastHitBy === 1 && this.time - sourceCar.lastHitT < 12 ? 1 : src;
       const d = car.veh.pos.distanceTo(pos);

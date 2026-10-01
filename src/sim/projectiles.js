@@ -36,7 +36,9 @@ export class Projectiles {
       if (b.life < b.maxLife - 0.03) {
         this.ray.origin.x = _o.x; this.ray.origin.y = _o.y; this.ray.origin.z = _o.z; this.ray.dir.x = _d.x; this.ray.dir.y = _d.y; this.ray.dir.z = _d.z;
         // Projectile impact handling consumes TOI only; suspension queries still need normals.
-        const wh = sim.world.castRay(this.ray, step, true, undefined, RAY_SHOT);
+        let wh = sim.world.castRay(this.ray, step, true, undefined, RAY_SHOT);
+        const rock = sim.structures?.raycastRocks(this.ray.origin, this.ray.dir, wh ? Math.min(step, wh.timeOfImpact) : step);
+        if (rock && (!wh || rock.timeOfImpact < wh.timeOfImpact)) wh = rock;
         if (wh) worldT = wh.timeOfImpact;
       }
       if (hit && hit.t <= worldT) {
@@ -80,14 +82,17 @@ export class Projectiles {
         if (h && (!best || h.t < best.t)) best = { t: h.t, car: null, point: h.point, bossZone: h.zone.kind };
       }
       this.ray.origin.x = _o.x; this.ray.origin.y = _o.y; this.ray.origin.z = _o.z; this.ray.dir.x = _d.x; this.ray.dir.y = _d.y; this.ray.dir.z = _d.z;
-      const wh = sim.world.castRay(this.ray, step + 0.2, true, undefined, RAY_SHOT);
+      let wh = sim.world.castRay(this.ray, step + 0.2, true, undefined, RAY_SHOT);
+      const rock = sim.structures?.raycastRocks(this.ray.origin, this.ray.dir, wh ? Math.min(step + 0.2, wh.timeOfImpact) : step + 0.2);
+      if (rock && (!wh || rock.timeOfImpact < wh.timeOfImpact)) wh = rock;
+      const directHit = best && (!wh || best.t <= wh.timeOfImpact) ? best : null;
       let boom = null;
-      if (best && (!wh || best.t <= wh.timeOfImpact)) boom = best.point; else if (wh) boom = new THREE.Vector3(_o.x + _d.x * wh.timeOfImpact, _o.y + _d.y * wh.timeOfImpact, _o.z + _d.z * wh.timeOfImpact);
+      if (directHit) boom = directHit.point; else if (wh) boom = new THREE.Vector3(_o.x + _d.x * wh.timeOfImpact, _o.y + _d.y * wh.timeOfImpact, _o.z + _d.z * wh.timeOfImpact);
       if (boom || r.life <= 0) {
         const p = boom || _o.clone();
         this.rockets.splice(i, 1);
-        if (best && best.bossZone && r.direct) sim.boss.damage(best.bossZone, r.direct * 1.5, { point: p });
-        this._explode(sim, p, r.blast, r.blastDmg, r.owner, r.direct && best ? best.car : null, r.direct);
+        if (directHit && directHit.bossZone && r.direct) sim.boss.damage(directHit.bossZone, r.direct * 1.5, { point: p });
+        this._explode(sim, p, r.blast, r.blastDmg, r.owner, r.direct && directHit ? directHit.car : null, r.direct);
         continue;
       }
       r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt;

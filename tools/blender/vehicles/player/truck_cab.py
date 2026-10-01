@@ -112,6 +112,15 @@ class CabMixin:
             b.box('rubber', (sg * (C.door_hw - 0.025), C.f_dr - 0.004, (C.z_db + C.z_belt) / 2), (0.02, 0.02, C.z_belt - C.z_db), bev=0.005, seg=1)
             b.box('rubber', (sg * (C.door_hw - 0.025), C.f_df + 0.004, (C.z_db + C.z_belt) / 2), (0.02, 0.02, C.z_belt - C.z_db), bev=0.005, seg=1)
         # floor, tunnel, firewall carpet
+        # Close the front footwell/jamb corners with permanent kick panels.
+        # The front fenders are detachable; they cannot be the cab's side wall.
+        # Overlap floor, dash end caps, jambs and firewall without filling windows.
+        kick_f0, kick_f1 = C.f_df - 0.012, C.f_cowl + 0.005
+        kick_z0, kick_z1 = C.z_floor - 0.035, C.z_ws_base + 0.005
+        for sg in (1, -1):
+            b.box('interior', (sg * (C.cab_hw - 0.01), (kick_f0 + kick_f1) / 2,
+                              (kick_z0 + kick_z1) / 2),
+                  (0.056, kick_f1 - kick_f0, kick_z1 - kick_z0), bev=0.0)
         xw = C.cab_hw - 0.02
         b.box('metal_dark', (0, (C.f_cowl + fbk) / 2, C.z_floor - 0.02), (2 * xw, C.f_cowl - fbk, 0.03), bev=0.004)
         b.box('interior', (0, (C.f_cowl + fbk) / 2, C.z_floor - 0.0), (2 * xw - 0.06, C.f_cowl - fbk - 0.06, 0.015), bev=0.004)

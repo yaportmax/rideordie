@@ -139,7 +139,16 @@ export class TerrainStreamer {
     if (rec.mesh) { this.group.remove(rec.mesh); rec.mesh.geometry.dispose(); }
     rec.mesh = mesh; rec.lod = m.lod; this.group.add(mesh);
     this.stats.built++;
-    rec.tCol = t.colPositions ? { pos: t.colPositions, idx: t.colIndices, anchor: t.anchor } : null;
+    // Render LOD changes must not discard the fine collision surface. Its
+    // retention window is wider than LOD0, and reversing can re-enter that
+    // window before another fine worker reply arrives.
+    if (t.colPositions) {
+      rec.tCol = { pos: t.colPositions, idx: t.colIndices, anchor: t.anchor };
+      let minY = Infinity;
+      for (let i = 1; i < t.colPositions.length; i += 3) minY = Math.min(minY, t.colPositions[i] + t.anchor[1]);
+      rec.minGroundY = minY;
+    }
+    rec.waterY = t.aux[3] > -1000 ? t.aux[3] : null;
     // road mesh (first time only; road strip does not change with LOD)
     if (m.r) {
       const r = m.r, rg = new THREE.BufferGeometry();
@@ -171,11 +180,11 @@ export class TerrainStreamer {
     if (!this.world) return;
     const centre = c * CHUNK_LEN + CHUNK_LEN / 2;
     const near = centre > s - COLLIDE_BEHIND && centre < s + COLLIDE_AHEAD;
-    if (near && !rec.colT && rec.tCol) {
-      rec.colT = this._trimesh(rec.tCol);
-      if (rec.rCol) rec.colR = this._trimesh(rec.rCol);
-    } else if (!near && rec.colT) this._dropCol(rec);
-    if (near && rec.tCol && rec.rCol && !rec.colR) rec.colR = this._trimesh(rec.rCol);
+    if (!near) { if (rec.colT || rec.colR) this._dropCol(rec); return; }
+    if (!rec.colT && rec.tCol) rec.colT = this._trimesh(rec.tCol);
+    // Road collision data is always fine, including a tile's first far-LOD
+    // reply. Keep asphalt solid while the detailed off-road surface loads.
+    if (!rec.colR && rec.rCol) rec.colR = this._trimesh(rec.rCol);
   }
   _trimesh(d) {
     const rb = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(d.anchor[0], d.anchor[1], d.anchor[2]));
@@ -198,9 +207,34 @@ export class TerrainStreamer {
 
   hasColliderAt(s) { const r = this.chunks.get(Math.floor(s / CHUNK_LEN)); return !!(r && r.colT && r.colR); }
 
+  /** Query only asphalt, so hills/tunnel roofs cannot be mistaken for a road recovery surface. */
+  roadHeightAt(s, x, z, y) {
+    const ray = new RAPIER.Ray({ x, y, z }, { x: 0, y: -1, z: 0 });
+    let height = null;
+    const c = Math.floor(s / CHUNK_LEN);
+    for (let i = Math.max(0, c - 1); i <= c + 1; i++) {
+      const col = this.chunks.get(i)?.colR?.col;
+      const hit = col?.castRayAndGetNormal(ray, 8, true);
+      if (hit && hit.normal.y > 0.5) height = Math.max(height ?? -Infinity, y - hit.timeOfImpact);
+    }
+    return height;
+  }
+
+  /** Physical lower bound and authored water level for the current tile and its neighbours. */
+  recoveryBoundsAt(s) {
+    let minY = Infinity, waterY = null;
+    const c = Math.floor(s / CHUNK_LEN);
+    for (let i = Math.max(0, c - 1); i <= c + 1; i++) {
+      const rec = this.chunks.get(i);
+      if (rec?.minGroundY != null) minY = Math.min(minY, rec.minGroundY);
+      if (rec?.waterY != null) waterY = Math.max(waterY ?? -Infinity, rec.waterY);
+    }
+    return Number.isFinite(minY) ? { minY, waterY } : null;
+  }
+
   /** True once the chunks around s have their colliders (used to hold the car until the ground exists). */
   groundReady(s) {
-    for (let c = Math.floor((s - 40) / CHUNK_LEN); c <= Math.floor((s + 80) / CHUNK_LEN); c++) {
+    for (let c = Math.max(0, Math.floor((s - 40) / CHUNK_LEN)); c <= Math.floor((s + 80) / CHUNK_LEN); c++) {
       const r = this.chunks.get(c); if (!r || !r.mesh || (this.world && (!r.colT || !r.colR))) return false;
     }
     return true;

@@ -352,7 +352,14 @@ def rock_portal(pid, seed, exit_=False):
         body.append(row)
     mesh_from_rings(p, "rock_red", body, flip=True, flat=True)
     back = body[-1]
-    p.raw("rock_red", [(x, y, z) for x, y, z in back], [tuple(reversed(range(len(back))))], sg=-1)
+    # The rock mass must stay open behind the tube. A solid back polygon makes
+    # a non-colliding wall at z=17 (or z=-5 after rotating an exit portal).
+    # Bridge the outer silhouette to the same arch used by the tube lining.
+    outer = resample([(x, y) for x, y, z in back], 128)
+    inner = resample(prof, 128)
+    ring = [(x, y, 17.0) for x, y in outer + inner]
+    faces = [(i, i + 1, 128 + i + 1, 128 + i) for i in range(127)]
+    p.raw("rock_red", ring, [tuple(reversed(face)) for face in faces], sg=-1)
     # portal ring (concrete) around the opening, proud of the rock
     ring_out = offset_profile(prof, -0.95)
     poly = [q for q in prof[1:-1]] + [q for q in reversed(ring_out[1:-1])]

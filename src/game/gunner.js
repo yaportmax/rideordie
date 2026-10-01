@@ -44,6 +44,7 @@ export class GunnerController {
   swapTo(i) {
     if (i < 0 || i >= this.slots.length || i === this.cur) return;
     this._autoFireContinuous = false;
+    if (this.reloading) this.ctx.emit({ t: 'reloadCancel', weapon: this.weaponId });
     this.cur = i; this.reloading = false; this.reloadT = 0; this.swapT = 0.42; this.fireT = Math.max(this.fireT, 0.2); this.pumpT = 0; this.boltT = 0;
     this.ctx.emit({ t: 'weaponSwap', weapon: this.slots[i] });
   }
@@ -58,7 +59,7 @@ export class GunnerController {
 
   /**
    * @param cmd from Input.gunner()
-   * @param cam {position:Vector3, dir:Vector3} the camera used for aiming (previous frame is fine)
+   * @param cam {position:Vector3, dir:Vector3} the camera used for the target probe
    * @param carYaw current heading of the truck (for stabilised aim)
    */
   update(dt, cmd, cam, carYaw, extra = {}) {
@@ -69,7 +70,7 @@ export class GunnerController {
     const adsMul = this.ads > 0.5 ? (w.scope ? 0.28 : 0.6) : 1;
     this.yaw += cmd.dYaw * adsMul; this.pitch = clamp(this.pitch + cmd.dPitch * adsMul, -1.15, 1.2);
     this.yaw = wrapAngle(this.yaw);
-    this.crouch = damp(this.crouch, cmd.crouch ? 1 : 0, 12, dt);
+    this.crouch = 0;
     this.ads = damp(this.ads, cmd.ads && !this.reloading && this.swapT <= 0 ? 1 : 0, 14, dt);
     // scope breathing: a slow figure-eight drift of the aim while looking through a scope (applied as a delta, never accumulates)
     this.swayT = (this.swayT || 0) + dt;
@@ -79,9 +80,8 @@ export class GunnerController {
     // crosshair target probe (the HUD crosshair turns red over an enemy); every other frame is plenty
     this._probe = ((this._probe || 0) + 1) & 1;
     if (this._probe === 0 && cam && cam.dir) this.aimAt(cam);
-    // bed movement (small range)
-    const bx = this.pos.x + cmd.moveX * dt * 2.2, bz = this.pos.z + cmd.moveZ * dt * 2.0;
-    this.pos.x = clamp(bx, -0.55, 0.55); this.pos.z = clamp(bz, -0.45, 0.45);
+    // The player stays at the standing gunner seat, including legacy input/state.
+    this.pos.x = 0; this.pos.z = 0;
     // ---- timers
     const fireRemaining = this.fireT - dt;
     this.fireT = Math.max(0, fireRemaining); this.swapT = Math.max(0, this.swapT - dt); this.grenadeCd = Math.max(0, this.grenadeCd - dt);
@@ -98,7 +98,7 @@ export class GunnerController {
       this.reloadT += dt;
       if (w.reloadPerShell) {
         if (this.reloadT >= w.reload) { this.reloadT = 0; this.mag[this.cur]++; this.ctx.emit({ t: 'shellIn', weapon: w.id }); if (this.mag[this.cur] >= w.mag) { this.reloading = false; this.ctx.emit({ t: 'reloadEnd', weapon: w.id }); } }
-        if (cmd.fire && this.mag[this.cur] > 0) { this.reloading = false; }
+        if (cmd.fire && this.mag[this.cur] > 0 && this.reloading) { this.reloading = false; this.ctx.emit({ t: 'reloadCancel', weapon: w.id }); }
       } else if (this.reloadT >= w.reload) { this.mag[this.cur] = w.mag; this.reloading = false; this.ctx.emit({ t: 'reloadEnd', weapon: w.id }); }
     }
     // ---- grenade
@@ -113,21 +113,33 @@ export class GunnerController {
     if (w.mode === 'pump' || w.mode === 'bolt' || w.mode === 'launcher') want = cmd.fire && !this.trigger;
     this.trigger = cmd.fire;
     const autoReady = w.mode === 'auto' && want && dt > 0 && dt < 0.05 && !this.reloading && this.swapT <= 0 && this.pumpT <= 0 && this.boltT <= 0 && this.throwing <= 0 && this.magNow > 0;
+    this._fireQueued = true; this._fireWant = want; this._fireCan = canFire; this._fireAutoReady = autoReady;
+    this._fireCarry = autoReady && this._autoFireContinuous ? Math.max(-Math.min(dt, 60 / w.rpm), Math.min(0, fireRemaining)) : 0;
+    // Run resolves the camera and current gun pose before committing a shot.
+    // Standalone callers retain the original immediate update behavior.
+    if (!extra.deferFire) this.finishFire(cam, extra);
+    return this;
+  }
+
+  /** Commit at most one prepared shot using this frame's camera and live muzzle. */
+  finishFire(cam, extra = {}) {
+    if (!this._fireQueued) return false;
+    this._fireQueued = false;
+    const w = this.weapon, autoReady = this._fireAutoReady;
     let fired = false;
-    if (want && canFire) {
+    if (this._fireWant && this._fireCan) {
       if (this.mag[this.cur] > 0) {
         // Keep fractional frame time only inside an uninterrupted automatic burst.
         // One shot per update and at most one frame of carry avoid pause/reload catch-up.
-        const carry = autoReady && this._autoFireContinuous ? Math.max(-Math.min(dt, 60 / w.rpm), Math.min(0, fireRemaining)) : 0;
         this.fire(cam, extra);
-        this.fireT = Math.max(0, this.fireT + carry);
+        this.fireT = Math.max(0, this.fireT + this._fireCarry);
         fired = true;
       }
       else { if (this.dryClickT <= 0) { this.ctx.emit({ t: 'dryClick', weapon: w.id }); this.dryClickT = 0.3; } this.startReload(); }
     }
     if (!autoReady || this.reloading || this.magNow <= 0) this._autoFireContinuous = false;
     else if (fired) this._autoFireContinuous = true;
-    return this;
+    return fired;
   }
 
   /**
@@ -163,8 +175,7 @@ export class GunnerController {
   spreadNow() {
     const w = this.weapon, s = w.spread;
     const base = lerp(s.hip, s.ads, this.ads);
-    const crouchMul = lerp(1, 0.75, this.crouch);
-    return (base * crouchMul + this.bloom) * (w.spreadMul ?? 1);
+    return (base + this.bloom) * (w.spreadMul ?? 1);
   }
 
   /** Computes the crosshair target point using the camera ray against cars + world. */
@@ -222,7 +233,7 @@ export class GunnerController {
     }
     // recoil: camera kick + crosshair bloom
     const rm = w.recoilMul ?? 1;
-    const kick = w.recoil.pitch * D2R * rm * lerp(1, 0.7, this.ads) * lerp(1, 0.8, this.crouch);
+    const kick = w.recoil.pitch * D2R * rm * lerp(1, 0.7, this.ads);
     this.pitch += kick * 0.45;                   // sticks in the aim (must be pulled down)
     this.yaw += (Math.random() - 0.5) * 2 * w.recoil.yaw * D2R * rm;
     ctx.kick && ctx.kick(kick * 0.9, (Math.random() - 0.5) * w.recoil.yaw * D2R * rm, w.recoil.kick * rm);

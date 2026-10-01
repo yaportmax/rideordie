@@ -116,7 +116,7 @@ test('per-definition stealing keeps pending waiters and nodes bounded through de
   const voices = [];
   for (let i = 0; i < 100; i++) {
     ctx.currentTime += .01;
-    voices.push(playPending(audio, def));
+    voices.push(playPending(audio, def, { gain: 1 + i * .01 }));
     const count = Math.min(i + 1, 2);
     assert.equal(def.waiters.length, count);
     assert.equal(audio.voices.size, count);
@@ -151,6 +151,27 @@ test('global stealing removes pending one-shot waiters from their original defin
   for (const voice of voices.slice(-2)) voice.src.finish();
   assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, filter: 0, panner: 0 });
   assert.ok(defs.every(def => def.waiters.length === 0 && def.voices.length === 0));
+});
+
+test('equal-score pending loops preserve their original waiters without stealing or node churn', async t => {
+  const gate = deferred();
+  const { audio, ctx, defs: [def] } = fixture({ decode: () => gate.promise });
+  t.after(() => audio.dispose());
+  def.cap = 2;
+  const first = playPending(audio, def), second = playPending(audio, def);
+  for (let i = 0; i < 100; i++) {
+    ctx.currentTime += .01;
+    assert.equal(playPending(audio, def).isNull, true);
+  }
+  assert.equal(audio.stats.stolen, 0); assert.equal(audio.stats.dropped, 100);
+  assert.deepEqual(def.waiters, [first, second]); assert.deepEqual(def.voices, [first, second]);
+  assert.equal(audio._cnt.gain, 2); assert.equal(audio._cnt.src, 0);
+  await ctx.decodeStarted.promise;
+  const loaded = audio.load(def); gate.resolve(buffer()); await loaded;
+  assert.equal(audio._cnt.src, 2); assert.equal(def.waiters.length, 0);
+  assert.equal(first.playing, true); assert.equal(second.playing, true);
+  first.src.finish(); second.src.finish();
+  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, filter: 0, panner: 0 });
 });
 
 test('delayed attachment preserves start, offset, pitch and pending scheduled-stop behavior', async t => {

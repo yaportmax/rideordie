@@ -7,10 +7,10 @@ const A = await mk('host'), B = await mk('guest');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 await A.goto(BASE + '/'); await B.goto(BASE + '/');
 await A.waitForFunction('window.__app', null, { timeout: 60000 }); await B.waitForFunction('window.__app', null, { timeout: 60000 });
-await A.evaluate('localStorage.clear(); window.__app.profile.cash = 5000; window.__app.host()');
+await A.evaluate('localStorage.clear(); window.__app.profile.cash = 7000; window.__app.host()');
 await A.waitForFunction('window.__app.session && window.__app.session.code', null, { timeout: 30000 });
 const code = await A.evaluate('window.__app.session.code'); console.log('room', code);
-await B.evaluate((c) => window.__app.join(c), code);
+await B.evaluate((c) => { window.__app.profile.cash = 5000; return window.__app.join(c); }, code);
 await A.waitForFunction('window.__app.session.connected && window.__app.session.other', null, { timeout: 30000 });
 await wait(800);
 console.log('lobby host', await A.evaluate('JSON.stringify(window.__app._lobbyState())'));
@@ -21,7 +21,7 @@ await A.screenshot({ path: 'shots/flow_lobby.png' });
 await A.evaluate('window.__app._lobbyCb().onStart()');
 await wait(1500);
 console.log('modes', await A.evaluate('window.__game.mode'), await B.evaluate('window.__game.mode'));
-// guest buys a weapon via the host
+// Guest buys shared gear with personal cash; the host validates the purchase.
 await B.evaluate("window.__app._garageCb().onBuy('weapon', 'revolver')");
 await wait(800);
 console.log('after buy: host cash', await A.evaluate('window.__app.profile.cash'), 'guest cash', await B.evaluate('window.__app.profile.cash'), 'guest weapons', await B.evaluate('Object.keys(window.__app.profile.weapons).join()'));

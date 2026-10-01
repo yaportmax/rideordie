@@ -127,13 +127,13 @@ const SLEEVE_ALBEDO = /* glsl */`
 // rotation on the grip sockets (deg, socket axes); sh: shoulder-centre offset (camera space); blade: torso yaw (rad).
 export const TUNE = {
   pistol: { hip: [0.11, -0.175, -0.40], hipRot: [1, 3, -3], relief: 0.40, fov: [62, 52], pose: 'pose_pistol', support: [0.011, 0.0213, -0.0018, -32, 0, 90], rec: [0.05, 9, 2, 4], reload: 'pistol', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.0273, -0.0317, 0.0447, 28.7, 22.3, 76.3], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
-  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.15, fov: [62, 52], adsCut: [[-0.06, -0.2, -0.4, 0.06, 0.2, -0.085]], magAnchor: { off: [0.016, -0.09, 0.002], rot: [-90, 0, 90] }, pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
+  revolver: { hip: [0.11, -0.18, -0.41], hipRot: [1, 3, -3], relief: 0.42, fov: [62, 52], adsRot: [Math.atan2(.0012, .2071) / DEG, 0, 0], adsSight: [0, .10015857, -.06], pose: 'pose_revolver', poseAlt: 'pose_pistol', support: [0.0273, -0.0317, 0.0447, 28.7, 22.3, 76.3], rec: [0.075, 16, 3, 6], reload: 'revolver', blade: -0.25, sh: [0.0, -0.235, 0.02], lRot: [0, 0, 0], rRot: [0, 0, 0] },
+  smg: { hip: [0.16, -0.25, -0.33], hipRot: [0, 2.5, -3], relief: 0.15, fov: [62, 52], adsRot: [-Math.atan2(.0045, .353) / DEG, 0, 0], adsSight: [0, .10585269, -.15], adsCut: [[-0.06, -0.2, -0.4, 0.06, 0.2, -0.085]], magAnchor: { off: [0.016, -0.09, 0.002], rot: [-90, 0, 90] }, pose: 'pose_smg', rec: [0.022, 2.3, 1.2, 2.0], reload: 'mag', blade: -0.42, sh: [0.02, -0.24, 0.04] },
   // The rear aperture sits 11.5 mm above the front fibre. Follow that sight line,
   // including its height behind the receiver, rather than levelling the barrel.
   shotgun: { hip: [0.165, -0.26, -0.31], hipRot: [0, 2, -3], relief: 0.11, fov: [62, 58], adsRot: [Math.atan2(0.0115, 0.6485) / DEG, 0, 0], adsSight: [0, 0.09227, -0.12], adsCut: [[-0.025, -0.08, -0.33, 0.025, 0.0825, 0.002]], pose: 'pose_shotgun', rec: [0.09, 11, 2, 4], reload: 'shotgun', blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rifle: { hip: [0.165, -0.27, -0.34], hipRot: [0, 2, -3], relief: 0.07, fov: [62, 50], pose: 'pose_rifle', rackR: true, rec: [0.032, 3.0, 1.0, 2.0], reload: 'mag', blade: -0.45, sh: [0.02, -0.24, 0.04], reticle: 0.14 },
-  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], pose: 'pose_lmg', rec: [0.032, 2.7, 1.4, 2.6], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
+  lmg: { hip: [0.17, -0.28, -0.32], hipRot: [0, 2, -3], relief: 0.10, fov: [62, 54], adsRot: [Math.atan2(.006, .6125) / DEG, 0, 0], adsSight: [0, .14756245, -.17], pose: 'pose_lmg', rec: [0.032, 2.7, 1.4, 2.6], reload: 'lmg', blade: -0.45, sh: [0.02, -0.245, 0.04] },
   sniper: { hip: [0.165, -0.27, -0.31], hipRot: [0, 2, -3], relief: 0.02, fov: [62, 50], pose: 'pose_sniper', rec: [0.10, 9, 1.5, 4], reload: 'mag', bolt: true, blade: -0.45, sh: [0.02, -0.24, 0.04] },
   rpg: { hip: [0.16, -0.24, -0.28], hipRot: [0, 2, -2], relief: 0.02, fov: [62, 50], pose: 'pose_launcher', rec: [0.10, 6, 1.5, 3], reload: 'rpg', blade: -0.45, sh: [0.02, -0.24, 0.04] },
 };
@@ -150,7 +150,8 @@ export const ANCH = {
   rocket: { off: [0.0, 0.0, -0.12], rot: [0, 0, 0] },       // hand round the motor section, 12 cm behind the rocket's origin
   rocketLoad: { off: [0.0, 0.09, 0.625 + 0.42 * 0.55 - 0.12], rot: [0, 0, 0] },   // the same grip, rocket lined up ~23 cm out of the mouth
   pocket: { off: [0.10, -0.42, -0.05], rot: [40, 0, 40] },
-  bolt: { off: [0.0, 0.0, 0.0], rot: [0, 0, 0] },
+  // The bolt node is its hinge on the bore axis; the grasp is on the knob.
+  bolt: { off: [-0.063, -0.026, -0.004], rot: [0, 0, 0] },
   grenade: { off: [0, 0, 0], rot: [0, 0, 0] },
 };
 
@@ -358,6 +359,7 @@ void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(uCol * t.rgb * t
 let FLASH_TEX = null;
 const ANCHOR_NODE = { chargeR: 'charging_handle', charge: 'charging_handle', slide: 'slide', cover: 'feed_cover', tray: 'belt', rocket: 'rocket', bolt: 'bolt_handle' };
 const FLASH_SIZE = { pistol: 0.8, revolver: 1.3, smg: 0.75, shotgun: 1.6, rifle: 1.0, lmg: 1.15, sniper: 1.6, rpg: 1.8 };
+const REACH_ANCHORS = new Set(['pocket', 'cover', 'charge', 'slide', 'port', 'cyl', 'tray']);
 const FLASH_CELLS = [[0, 0.5], [0.25, 0.5], [0.5, 0.5], [0.5, 0]];   // star cells of muzzle_flash_sheet.png (u, v of the cell)
 function flashTexture() {
   if (!FLASH_TEX) {
@@ -524,7 +526,9 @@ export class ViewModel {
     });
     w.root.visible = false; this.root.add(w.root);
     // static socket transforms in weapon-root space
-    w.root.updateMatrixWorld(true); _m.copy(w.root.matrixWorld).invert();
+    // The first prebuilt loadout can attach to an already moving camera. Refresh
+    // ancestors before capturing the inverse used by every authored socket.
+    w.root.updateWorldMatrix(true, true); _m.copy(w.root.matrixWorld).invert();
     w.loc = {};
     for (const [n, s] of Object.entries(w.sockets)) { s.updateWorldMatrix(true, false); const mm = new THREE.Matrix4().multiplyMatrices(_m, s.matrixWorld); w.loc[n] = { p: new THREE.Vector3().setFromMatrixPosition(mm), q: new THREE.Quaternion().setFromRotationMatrix(mm) }; }
     // Parts hidden while aiming: the shoulder stock passes through the eye at
@@ -547,6 +551,16 @@ export class ViewModel {
         const s = splitIslands(o, boxes); if (s) w.adsCut.push({ mesh: o, ...s, on: false });
       });
     }
+    // Compose the optical bore with the existing eye/stock cutaway. Geometry is
+    // immutable and cached; hip fire, reload and external models keep the full asset.
+    for (const entry of w.adsCut) entry.mesh.geometry = entry.keep;
+    try {
+      for (const entry of w.prepareSightBores()) {
+        const existing = w.adsCut.find(c => c.mesh === entry.mesh);
+        if (existing) existing.keep = entry.keep;
+        else w.adsCut.push(entry);
+      }
+    } finally { for (const entry of w.adsCut) entry.mesh.geometry = entry.full; }
     this.guns.set(id, w);
     return w;
   }
@@ -626,6 +640,7 @@ export class ViewModel {
     const speed = s.vel ? Math.hypot(s.vel.x, s.vel.z) : 0, spd01 = clamp(speed / 55, 0, 1);
     // ---------------------------------------------------------------- ADS
     const ads = sstep(0, 1, clamp(L.adsK || 0, 0, 1)) * (cur ? 1 : 0);
+    this.adsBlend = ads;
     const adsE = ads;
     // ---------------------------------------------------------------- recoil impulses
     if (this.lastShots < 0) this.lastShots = G.shots;
@@ -742,6 +757,14 @@ export class ViewModel {
     if (this.gun && W.mode !== 'bolt' && W.mode !== 'pump') this.gun.fire(W.rate || W.rpm / 60);
   }
 
+  /** A deferred shot changes flash/mechanical timers now, and springs on the next pose update. */
+  notifyShot(G) {
+    if (this.disposed || !this.gun || this.shownId !== G.weaponId || this.lastShots < 0 || G.shots <= this.lastShots) return;
+    const n = Math.min(3, G.shots - this.lastShots); this.lastShots = G.shots;
+    for (let i = 0; i < n; i++) this._kick(this.T, this.adsBlend || 0, G.weapon);
+    this._flash(0, G.weapon, this.adsBlend || 0);
+  }
+
   /** Pump (shotgun) / bolt (sniper) cycling after a shot: returns gun offsets + part params. */
   _action(G, W, T) {
     const o = this._act || (this._act = { rx: 0, rz: 0, py: 0 }); o.rx = o.rz = o.py = 0; o.pump = o.bolt = o.boltHand = undefined;
@@ -768,17 +791,48 @@ export class ViewModel {
     P.mag = P.magVisible = P.magOff = P.rack = P.cover = P.crane = P.rocket = P.rocketVisible = P.rocketOff = P.pump = P.bolt = P.shell = undefined;
     R.lh.a = 'grip'; R.lh.b = 'grip'; R.lh.w = 0; R.lh.arc = 0; R.rh = null; R.rhA = 'bolt'; R.rocketHand = false; R.hideMag = false; R.showShell = false;
     const kind = T.reload, rel = cur && G.reloading;
+    if (this._reloadId !== this.shownId) {
+      this._reloadId = this.shownId; this.reloadPrev = false; this._relOn = false;
+      this.pumpAfter = 0; this._shotExitT = undefined; this._shotTilt = 0; this._shR = undefined; this.relAmt = 0;
+    }
     // shotgun: a pump when the reload finishes (chambers a round)
     if (kind === 'shotgun') {
-      if (this.reloadPrev && !G.reloading && cur) this.pumpAfter = 0.45;
-      this.reloadPrev = G.reloading;
+      if (this.reloadPrev && !rel && cur) {
+        this.pumpAfter = 0.45; this._shotExitT = 0;
+        // Preserve the last contact in weapon space, including a partly
+        // inserted shell, so finishing or cancelling does not teleport a hand.
+        const a = this._shotExitAnchor || (this._shotExitAnchor = { p: new THREE.Vector3(), q: new THREE.Quaternion() });
+        if (this._aL && this.gun) {
+          _q3.copy(this.gun.root.quaternion).invert();
+          a.p.copy(this._aL.p).sub(this.gun.root.position).applyQuaternion(_q3);
+          a.q.copy(_q3).multiply(this._aL.q);
+        } else {
+          const grip = this.gun?.loc.grip_L || this.gun?.loc.grip_R;
+          if (grip) { a.p.copy(grip.p); a.q.copy(grip.q); }
+        }
+      }
+      this.reloadPrev = rel;
       if (this.pumpAfter > 0) { this.pumpAfter -= dt; const k = 1 - this.pumpAfter / 0.45; P.pump = sstep(0.05, 0.4, k) * (1 - sstep(0.5, 0.95, k)); R.r[0] += P.pump * 3; }
-    } else this.reloadPrev = G.reloading;
-    if (!rel) { this.relAmt = damp(this.relAmt || 0, 0, 10, dt); this._relOn = false; return R; }
+    } else { this.reloadPrev = rel; this._shotExitT = undefined; this._shotTilt = 0; }
+    if (!rel) {
+      this.relAmt = damp(this.relAmt || 0, 0, 10, dt); this._relOn = false;
+      if (kind === 'shotgun' && cur && this._shotExitT !== undefined) {
+        this._shotExitT += dt;
+        const out = sstep(0, 0.24, this._shotExitT), tilt = (this._shotTilt || 0) * (1 - out);
+        R.r[2] = -tilt * 34; R.r[0] += tilt * 12; R.r[1] = -tilt * 6;
+        R.p[0] = -tilt * 0.07; R.p[1] = tilt * 0.08; R.p[2] = tilt * 0.02;
+        R.lh.a = 'shotExit'; R.lh.b = 'grip'; R.lh.w = out;
+        if (out >= 1) this._shotExitT = undefined;
+      }
+      return R;
+    }
     const r = clamp(G.reloadT / Math.max(0.05, W.reload), 0, 1);
     _RR = r;
     // reload start: remember whether the gun ran dry (pistol slide lock) and re-arm the contact jolts
-    if (!this._relOn || r < (this._relR ?? 0) - 0.2) { this._relOn = true; this._fired.clear(); this._dry = G.magNow <= 0; }
+    if (!this._relOn || r < (this._relR ?? 0) - 0.2) {
+      if (!this._relOn && kind === 'shotgun') { this._shotFirstShell = true; this._shotExitT = undefined; this._shR = undefined; }
+      this._relOn = true; this._fired.clear(); this._dry = G.magNow <= 0;
+    }
     this._relR = r;
     const lh = R.lh;
     // snappy timing: fast moves (6-8 % of the reload each) with contact jolts, the gun comes back to ready before the reload ends
@@ -844,10 +898,12 @@ export class ViewModel {
       }
       case 'shotgun': {                  // per shell: reloadT runs 0..W.reload for every shell
         const t2 = sstep(0, 0.3, (this.relAmt = damp(this.relAmt || 0, 1, 8, dt)));
+        this._shotTilt = t2;
         R.r[2] = -t2 * 34; R.r[0] = t2 * 12; R.r[1] = -t2 * 6; R.p[0] = -t2 * 0.07; R.p[1] = t2 * 0.08; R.p[2] = t2 * 0.02;
         // hand: pocket (0..0.35) -> port (0.35..0.75) -> push (0.75..0.9) -> back
         lh.a = 'pocket'; lh.b = 'port'; lh.w = sstep(0.25, 0.7, r) * (1 - sstep(0.9, 1.0, r)); lh.arc = 0.03;
-        if (G.reloadT < 0.02 && this.shellCycle === 0) { lh.a = 'grip'; lh.b = 'pocket'; lh.w = 1; }
+        if (r < (this._shR ?? 0) - 0.3) this._shotFirstShell = false;
+        if (this._shotFirstShell && r < 0.25) { lh.a = 'grip'; lh.b = 'pocket'; lh.w = sstep(0, 0.25, r); lh.arc = 0.02; }
         P.shell = sstep(0.7, 0.88, r);
         if (r < (this._shR ?? 0) - 0.3) this._joltAt = null;   // next shell
         this._shR = r;
@@ -869,7 +925,9 @@ export class ViewModel {
       case 'rpg': {
         // the loader tips the mouth down and back toward himself so the left hand can reach it
         const low = backOut(seg(0.0, 0.12)) * (1 - seg(0.84, 0.96));
-        const RP = T.relPose || [-0.04, 0.07, 0.08, -6, 18, -8];
+        // Bring the mouth toward the support shoulder. Keeping the launcher
+        // nearly forward puts the loading grip over 20 cm beyond arm reach.
+        const RP = T.relPose || [0.03, 0.14, 0.15, -26, 46, 4];
         R.p[0] = low * RP[0]; R.p[1] = low * RP[1]; R.p[2] = low * RP[2]; R.r[0] = low * RP[3]; R.r[1] = low * RP[4]; R.r[2] = low * RP[5];
         // fresh rocket from the pack (it rides in the closed left hand), lined up at the mouth, pushed home, hand back on the grip
         P.rocket = (r < 0.5 ? 1 : 1 - seg(0.52, 0.78)) * RLOAD; P.rocketVisible = r > 0.26;
@@ -895,7 +953,9 @@ export class ViewModel {
     // out: {p: Vector3 camera space, q: Quaternion camera space}
     const W = gun, root = W.root, A = ANCH[name];
     const P = out.p, Q = out.q;
-    if (name === 'support') {        // pistols: the support hand wraps the gun hand (relation from the hero's two-handed pose_pistol)
+    if (name === 'shotExit' && this._shotExitAnchor) {
+      P.copy(this._shotExitAnchor.p); Q.copy(this._shotExitAnchor.q);
+    } else if (name === 'support') {        // pistols: the support hand wraps the gun hand (relation from the hero's two-handed pose_pistol)
       const s = W.loc.grip_R, S = this.T.support;     // [x, y, z (m, grip_R frame), rx, ry, rz (deg, XYZ)]
       P.set(S[0], S[1], S[2]).applyQuaternion(s.q).add(s.p); Q.copy(s.q).multiply(_q3.setFromEuler(_e.set(S[3] * DEG, S[4] * DEG, S[5] * DEG)));
     } else if (name === 'grip') {    // live socket (the shotgun's grip_L rides the pump)
@@ -913,14 +973,25 @@ export class ViewModel {
     } else if (name === 'charge' || name === 'chargeR' || name === 'slide' || name === 'cover' || name === 'tray' || name === 'rocket' || name === 'bolt') {
       const nodeName = ANCHOR_NODE[name];
       const n = W.nodes[nodeName] || W.nodes.bolt || W.nodes.body;
-      if (n) { n.getWorldPosition(P); root.worldToLocal(P); } else P.set(0, 0.1, 0);
-      const a = ANCH[name] || ANCH.charge; Q.setFromEuler(_e.set(a.rot[0] * DEG, a.rot[1] * DEG, a.rot[2] * DEG)); P.add(_v.fromArray(a.off));
+      if (n) {
+        n.getWorldPosition(P); root.worldToLocal(P);
+        n.getWorldQuaternion(Q); Q.premultiply(root.getWorldQuaternion(_q3).invert());
+      } else { P.set(0, 0.1, 0); Q.identity(); }
+      // Grasp offsets are in the moving part's frame. A cover or bolt handle
+      // rotates about its hinge, so both the contact and wrist must follow it.
+      const a = ANCH[name] || ANCH.charge; P.add(_v.fromArray(a.off).applyQuaternion(Q));
+      Q.multiply(_q3.setFromEuler(_e.set(a.rot[0] * DEG, a.rot[1] * DEG, a.rot[2] * DEG)));
     } else if (name === 'rocketLoad') {
       P.fromArray(A.off); Q.identity();
     } else if (name === 'port' || name === 'cyl') {
       const s = W.loc.mag_well; if (s) P.copy(s.p); else P.set(0, 0, 0.15);
-      if (name === 'cyl' && W.nodes.crane) { const sk = W.sockets.mag_well; if (sk) { sk.getWorldPosition(P); root.worldToLocal(P); } }
-      Q.setFromEuler(_e.set(A.rot[0] * DEG, A.rot[1] * DEG, A.rot[2] * DEG)); P.add(_v.fromArray(A.off));
+      Q.identity();
+      if (name === 'cyl' && W.nodes.crane) {
+        const sk = W.sockets.mag_well;
+        if (sk) { sk.getWorldPosition(P); root.worldToLocal(P); sk.getWorldQuaternion(Q); Q.premultiply(root.getWorldQuaternion(_q3).invert()); }
+      }
+      P.add(_v.fromArray(A.off).applyQuaternion(Q));
+      Q.multiply(_q3.setFromEuler(_e.set(A.rot[0] * DEG, A.rot[1] * DEG, A.rot[2] * DEG)));
     } else {       // pocket and others: fixed point in weapon space
       P.fromArray(A.off); Q.setFromEuler(_e.set(A.rot[0] * DEG, A.rot[1] * DEG, A.rot[2] * DEG));
     }
@@ -932,9 +1003,9 @@ export class ViewModel {
   _arms(dt, gun, T, R, act, ads, thr) {
     const B = this.B;
     for (const b of this.armBones) b.quaternion.identity();
-    const lh = R.lh, REACH = lh.b === 'pocket' || lh.b === 'cover' || lh.b === 'charge' || lh.b === 'slide' || lh.b === 'port' || lh.b === 'cyl' || lh.b === 'tray';
+    const lh = R.lh;
     let openL = lh.a !== lh.b ? Math.sin(Math.PI * lh.w) * 0.9 : 0;
-    if (REACH) openL = Math.max(openL, 0.55 * lh.w);
+    openL = Math.max(openL, 0.55 * ((REACH_ANCHORS.has(lh.a) ? 1 - lh.w : 0) + (REACH_ANCHORS.has(lh.b) ? lh.w : 0)));
     if (R.rocketHand || lh.a === 'rocket') openL = 0;              // holding the rocket: fist closed round it
     if (thr > 0) openL = Math.max(openL, sstep(0.0, 0.1, thr) * (1 - sstep(0.6, 0.9, thr)));
     this._setPoses(T, openL);
@@ -1047,10 +1118,13 @@ export class ViewModel {
   // ---------------------------------------------------------------- world-space hooks for FX (apparent positions)
   _apparent(pc, out) {
     const cam = this.cam; if (!cam) return false;
-    const k = this.k;
-    out.set(pc.x * k, pc.y * k, pc.z).applyQuaternion(cam.quaternion).add(this.eye || cam.position);
+    // The camera can move/change FOV after the VM pose update. Use its current
+    // transform and projection, so a world FX origin lands on the rendered barrel.
+    cam.updateWorldMatrix(true, false);
+    const k = VMU.vmProj.value.elements[5] / cam.projectionMatrix.elements[5];
+    out.set(pc.x * k, pc.y * k, pc.z).applyMatrix4(cam.matrixWorld);
     return true;
   }
   muzzleWorld(out) { return this._apparent(this.muzzleCam, out); }
-  ejectWorld(out, dirOut) { if (dirOut && this.cam) dirOut.copy(this.ejectDirCam).applyQuaternion(this.cam.quaternion); return this._apparent(this.ejectCam, out); }
+  ejectWorld(out, dirOut) { if (dirOut && this.cam) dirOut.copy(this.ejectDirCam).applyQuaternion(this.cam.getWorldQuaternion(_q)); return this._apparent(this.ejectCam, out); }
 }

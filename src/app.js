@@ -1,10 +1,12 @@
 // App: screen flow. TITLE -> (SOLO | HOST/JOIN -> LOBBY) -> GARAGE -> RUN -> RESULTS -> GARAGE ...
-// In co-op the host owns the save (profile) and the shop; the driver's machine runs the simulation.
+// In co-op the host owns the shared campaign/shop and each person keeps their own cash.
+// The driver's machine runs the simulation.
 import { Ui } from './ui/ui.js';
 import { Session } from './net/session.js';
 import { loadProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from './meta/profile.js';
 
 import { TRUCK_COLORS, UPGRADE_BY_ID } from './data/upgrades.js';
+import { normalizeUnits } from './ui/units.js';
 const DAM_CHECKPOINT_S = 52500, DAM_CHECKPOINT_UNLOCK = 59000; // start past the last warlord's window (city ~49.5 km + 2.5 km)
 
 const APP_MSGS = new Set(['toGarage', 'garageReady', 'backToLobby', 'abort']);
@@ -48,7 +50,9 @@ export class App {
     this.game.post?.setFeatures?.({ mb: s.motionBlur !== false, ca: s.chromatic !== false, grain: s.grain !== false });
     // read live by the cameras / run: first-person FOV, shake amount, gamepad aim assist
     const g = this.game;
-    g.fovBase = s.fov ?? 75; g.shakeMul = s.shake ?? 1; g.aimAssist = s.aimAssist !== false;
+    g.fovBase = s.fov ?? 80; g.driverFovBase = s.driverFov ?? 85;
+    g.units = normalizeUnits(s.units); g.hud?.setUnits?.(g.units); g.run?.cockpit?.setUnits?.(g.units);
+    g.shakeMul = s.shake ?? 1; g.aimAssist = s.aimAssist !== false;
     this.shake = s.shake ?? 1;
   }
 
@@ -75,6 +79,7 @@ export class App {
   // ------------------------------------------------------------------------------------------ title
   title() {
     this.mode = 'title'; this.screen = 'title';
+    this._pendingResults = null;
     if (this.session) { const guest = !this.session.isHost; this.session.leave(); this.session = null; if (guest) this.profile = this.personalProfile; }
     this._pendingRunMsgs = []; this._pendingFast = null;
     this._stage('title');
@@ -108,7 +113,15 @@ export class App {
     s.me.name = this.ui.settings.name || (s.isHost ? 'Host' : 'Player');
     s.on({
       lobby: () => this._lobbyRefresh(),
-      profile: (p) => { this.profile = p; if (this.screen === 'garage') this._garageRefresh(); },
+      profile: (p) => {
+        if (this.session !== s) return;
+        this.profile = p;
+        if (this.screen === 'garage') this._garageRefresh();
+        const pending = this._pendingResults;
+        if (pending && this.screen === 'run' && this.game.run === pending && s.hasCreditedResult((pending.summary || pending.remoteSummary)?.id)) {
+          this._pendingResults = null; this._results(pending);
+        }
+      },
       buyDenied: () => { this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); },
       start: (cfg) => this._startRun(cfg),
       run: (m) => this._onRunMsg(m),
@@ -172,6 +185,8 @@ export class App {
   garage(open) {
     const fromRun = !!this.game.run || this.screen === 'results';
     this.screen = 'garage';
+    this._pendingResults = null;
+    if (this.session) this.session.activeRunId = null;
     this.readyMine = false; this.readyOther = false;
     this._pendingRunMsgs = []; this._pendingFast = null;
     this._stage('garage');
@@ -206,9 +221,9 @@ export class App {
   }
   _garageCb() {
     const act = (kind, id, extra) => {
-      if (this.session && !this.session.isHost) { this.session.buy(kind, id, extra); return; }
       const p = this.profile; let r;
-      if (kind === 'truck') r = buyTruck(p, id);
+      if (this.session) { r = this.session.buy(kind, id, extra); if (r.pending) return; }
+      else if (kind === 'truck') r = buyTruck(p, id);
       else if (kind === 'select') r = selectTruck(p, id);
       else if (kind === 'upgrade') r = buyUpgrade(p, id);
       else if (kind === 'weapon') r = buyWeapon(p, id);
@@ -216,7 +231,7 @@ export class App {
       else if (kind === 'equip') r = equipWeapon(p, id, extra);
       else if (kind === 'color' && Number.isInteger(id) && id >= 0 && id < TRUCK_COLORS.length) { p.truckColor = id; r = { ok: true }; }
       if (r && r.ok) {
-        saveProfile(p); this.session?.broadcastProfile();
+        if (!this.session) saveProfile(p);
         if (/truck|upgrade|weapon/.test(kind)) { this.sound('buy'); this.game.garage?.celebrate(/weapon/.test(kind) ? 'weapon' : kind === 'upgrade' && UPGRADE_BY_ID[id]?.role !== 'driver' ? 'gunner' : 'truck'); }
       }
       else if (r && r.reason === 'cash') { this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); }
@@ -269,6 +284,7 @@ export class App {
   async _startRun(cfg) {
     this.ui.hideAll();
     this.screen = 'run';
+    this._pendingResults = null;
     this._pendingRunMsgs = []; this._pendingFast = null;
     this.input.reset();
     this.game.garage?.release?.();
@@ -336,14 +352,19 @@ export class App {
   _results(run) {
     if (this.screen === 'results') return;
     const sm = run.summary || run.remoteSummary;
+    // The host authorizes both payouts. A guest may finish rendering the crash
+    // first, so resume this transition from the profile callback when paid.
+    if (sm && this.session && !this.session.isHost && !this.session.hasCreditedResult(sm.id)) { this._pendingResults = run; return; }
+    this._pendingResults = null;
     this.game.paused = false; this._releasing = true; this.input.releaseLock();
     if (!sm) { this.garage(); return; }
     this.screen = 'results';
     this.game.hud?.setVisible(false);
-    const owner = !this.session || this.session.isHost;
-    const before = { ...this.profile.best };
-    const cashBefore = this.profile.cash;
-    if (owner) { creditRun(this.profile, sm); saveProfile(this.profile); this.session?.broadcastProfile(); }
+    const beforeProfile = this.session && !this.session.isHost ? (run.cfg?.profile || this.profile) : this.profile;
+    const before = { ...beforeProfile.best };
+    const cashBefore = beforeProfile.cash;
+    if (this.session) this.session.creditResult(sm);
+    else { creditRun(this.profile, sm); saveProfile(this.profile); }
     const newBest = { distance: sm.distance > (before.distance || 0), time: sm.time > (before.time || 0), kills: sm.kills > (before.kills || 0) };
     this.game.audio?.music?.setState?.(sm.won ? 'victory' : 'garage');
     this.sound('whoosh_transition');

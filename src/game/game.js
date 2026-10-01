@@ -229,7 +229,7 @@ export class Game {
     this.hud.setVisible(true); this.hud.show({ driver: run.humanDriver, gunner: run.humanGunner });
     const pad = this.input.lastDevice === 'pad';
     const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>LB</b> LOOK BACK &nbsp; <b>Y</b> FLIP &nbsp; <b>R3</b> VIEW' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>B</b> LOOK BACK &nbsp; <b>R</b> FLIP &nbsp; <b>C</b> VIEW',
-      gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>B</b> DUCK &nbsp; <b>BACK</b> VIEW' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>CTRL</b> DUCK &nbsp; <b>V</b> VIEW',
+      gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>BACK</b> VIEW' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>V</b> VIEW',
       solo: pad ? '<b>LS</b> STEER &nbsp; <b>RT/LT</b> GAS/BRAKE &nbsp; <b>A</b> DRIFT &nbsp; <b>LB</b> NITRO &nbsp; <b>Y</b> FLIP &nbsp;|&nbsp; <b>RS</b> AIM &nbsp; <b>RB</b> FIRE &nbsp; <b>X</b> RELOAD &nbsp; <b>B</b> GRENADE &nbsp; <b>D-PAD DOWN</b> MEDKIT' : '<b>WASD</b> DRIVE &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>T</b> FLIP &nbsp;|&nbsp; <b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>X</b> MEDKIT' };
     this.hud.hints([run.role === 'solo' ? H.solo : run.role === 'driver' ? H.driver : H.gunner, 'SHOOT THE DRIVERS &middot; SHOOT THE FUEL TANKS &middot; DON\'T CRASH']);
     return run;
@@ -293,12 +293,13 @@ export class Game {
     if (this.post && p) {
       const vmax = run.spec.engine.vmax;
       this.post.setParams({ speed01: clamp(p.speed / vmax, 0, 1), boost: p.boosting ? 1 : 0, damage01: 1 - (run.hud2?.hp01 ?? 1), night01: this.look.night, dof: this.paused ? 0.8 : 0, slowmo: run.slowmo ? 1 - run.slowmo : 0, anchor: run.wv.cars.get(1)?.view.root });
-      for (const e of run.allEvents || []) {
+      for (const e of frozen ? [] : run.allEvents || []) {
         if (e.t === 'explode' || e.t === 'boom') this.post.shockwave?.(new THREE.Vector3(...e.pos), e.size || (e.radius || 8) / 10);
         if (e.t === 'crewHit' && e.id === 1) this.post.hit?.(0.8);
       }
     }
     const t2 = performance.now();
+    this.fx?.flushEmits?.();
     run.cockpit?.renderMirrors(this.renderer, this.scene, run.wv.cars.get(1)?.view.root);
     if (this.post) this.post.render(dt); else this.renderer.render(this.scene, this.camera);
     const t3 = performance.now();

@@ -55,12 +55,13 @@ function qRot(q, x, y, z, out = [0, 0, 0]) { // rotate (x,y,z) by quaternion q {
   return out;
 }
 const arr3 = (p) => (Array.isArray(p) ? p : [p.x, p.y, p.z]);
+const failedPendingVoice = h => h.src === null && h.def?.urls?.length > 0 && h.def.urls.every((_, i) => h.def.failed[i] && !h.def.loading[i] && !h.def.bufs[i]);
 
 export class AudioBridge {
   /** opts: { playerId, localRole: 'solo'|'gunner'|'driver', autoDanger: true } */
   constructor(audio, opts = {}) {
     this.audio = audio; this.playerId = opts.playerId ?? -1; this.localRole = opts.localRole || 'solo'; this.autoDanger = opts.autoDanger !== false;
-    this.cars = new Map(); this.rockets = []; this.recent = []; this.reloadH = []; this.lastCrash = new Map(); this.lastFlesh = new Map(); this.enemyShotT = new Map();
+    this.cars = new Map(); this.rockets = []; this.recent = []; this.reloadH = []; this.foleyPending = []; this.foleyCancelable = new WeakSet(); this.lastCrash = new Map(); this.lastFlesh = new Map(); this.enemyShotT = new Map();
     this.gunnerPos = null; this.crewDanger = 0; this.counts = { events: 0, sounds: 0 };
     audio.expect(EXPECTED_NAMES);
   }
@@ -107,6 +108,7 @@ export class AudioBridge {
       case 'spikeHit': this._play('impacts/car_scrape_hit', { pos: e.pos, gain: 0.9, pitch: 1.1 + A.rand() * 0.15 }); break;
       case 'whizz': this._play('impacts/bullet_whizz', { pos: e.pos, gain: clamp(1.15 - (e.dist || 1) * 0.3, 0.45, 1), pitch: 0.92 + A.rand() * 0.2, refDist: 2.5 }); break;
       case 'crash': this._crash(e, ctx); break;
+      case 'windshieldBreak': this._play('impacts/glass_shatter', { pos: e.pos, gain: 0.9, refDist: 3 }); break;
       case 'explode': this._explode(e, ctx); break;
       case 'boom': this._boom(e); break;
       case 'crewHit': this._crewHit(e, ctx); break;
@@ -125,6 +127,7 @@ export class AudioBridge {
       // gunner-side (local) events
       case 'weaponSwap': this._cancelFoley(); this._foley('guns/weapon_swap', 0, ctx, { gain: 0.9 }); break;
       case 'reloadStart': this._reloadStart(e, ctx); break;
+      case 'reloadCancel': this._cancelFoley(); break;
       case 'reloadEnd': if (e.weapon === 'shotgun') this._foley('guns/shotgun_pump', 0.02, ctx, { gain: 1 }); break;
       case 'shellIn': this._foley('guns/shotgun_shell_in', 0, ctx, { gain: 0.75 }); break;
       case 'dryClick': this._foley('guns/dry_click', 0, ctx, { gain: 1 }); break;
@@ -326,15 +329,33 @@ export class AudioBridge {
 
   // ---- gunner foley
   _foley(name, delay, ctx, o = {}) {
+    // A solo pause freezes gun/hand animation while the AudioContext keeps
+    // running. Schedule these cues on the same game clock, not native time.
+    if (delay > 0) {
+      this.foleyPending.push({ name, remaining: delay, o });
+      if (this.foleyPending.length > 24) this.foleyPending.shift();
+      return;
+    }
+    return this._playFoley(name, ctx, o);
+  }
+  _playFoley(name, ctx, o, cancelable = false) {
     const A = this.audio, st = ctx?.states?.get?.(this.playerId);
     const p = st ? [st.pos.x, st.pos.y + 1.1, st.pos.z] : this.gunnerPos;
     const pos = p && A.listener.distTo(p) > 3 ? p : undefined;
-    const h = this._play(name, { pos, gain: o.gain ?? 0.9, pitch: o.pitch ?? 1, pitchVar: 0.03, delay, refDist: 3 });
-    if (delay > 0.02) this.reloadH.push(h);
-    if (this.reloadH.length > 24) this.reloadH.splice(0, this.reloadH.length - 24);
+    const h = this._play(name, { pos, vel: pos ? st?.vel : undefined, dynamic: !!pos, gain: o.gain ?? 0.9, pitch: o.pitch ?? 1, pitchVar: 0.03, refDist: 3 });
+    if (!h.isNull) { this.reloadH.push(h); if (cancelable) this.foleyCancelable.add(h); }
+    if (this.reloadH.length > 24) this.reloadH.shift().stop(0.02);
     return h;
   }
-  _cancelFoley() { for (const h of this.reloadH) h.stop(0.02); this.reloadH.length = 0; }
+  _cancelFoley(all = false) {
+    for (let i = this.reloadH.length - 1; i >= 0; i--) {
+      const h = this.reloadH[i];
+      // The empty-mag click precedes reloadStart in the same frame. Keep it,
+      // and other immediate feedback, while cancelling obsolete hand cues.
+      if (all || this.foleyCancelable.has(h)) { h.stop(0.02); this.reloadH.splice(i, 1); }
+    }
+    this.foleyPending.length = 0;
+  }
   _reloadStart(e, ctx) {
     this._cancelFoley();
     const seq = RELOAD[e.weapon] || RELOAD.pistol, T = e.time || WEAPONS[e.weapon]?.reload || 2;
@@ -401,19 +422,45 @@ export class AudioBridge {
     const A = this.audio, now = A.now;
     const burning = st.burning || c.burning || (st.exploded && now < c.wreckUntil);
     const near = A.listener.distTo(st.pos) < 140;
-    if (burning && near && !c.fire && now >= (c.fireRetry || 0)) {
-      const o = { pos: st.pos, vel: st.vel, loop: true, refDist: 6, randomOffset: true, pitchVar: 0.08 };
-      c.fire = this._play('explosions/fire_loop', { ...o, gain: 0.85 });
-      c.crackle = this._play('explosions/fire_crackle_loop', { ...o, gain: 0.5, refDist: 5 });
-      if (c.fire.isNull) { c.fire = c.crackle = null; c.fireRetry = now + 0.5; } // context not running yet / missing: retry later
-    } else if ((!burning || !near) && c.fire) { c.fire.stop(0.8); c.crackle?.stop(0.8); c.fire = c.crackle = null; }
-    else if (c.fire) { c.fire.setPos(st.pos, st.vel); c.crackle?.setPos(st.pos, st.vel); }
+    if (c.fire && (!c.fire.playing || failedPendingVoice(c.fire))) { c.fire.stop(0.02); c.fire = null; }
+    if (c.crackle && (!c.crackle.playing || failedPendingVoice(c.crackle))) { c.crackle.stop(0.02); c.crackle = null; }
+    if (burning && near) {
+      const fire = !c.fire && now >= (c.fireRetry || 0), crackle = !c.crackle && now >= (c.crackleRetry || 0);
+      if (fire || crackle) {
+        const o = { pos: st.pos, vel: st.vel, loop: true, refDist: 6, randomOffset: true, pitchVar: 0.08 };
+        if (fire) {
+          const h = this._play('explosions/fire_loop', { ...o, gain: 0.85 });
+          c.fire = h.isNull ? null : h; c.fireRetry = now + 0.5;
+        }
+        if (crackle) {
+          const h = this._play('explosions/fire_crackle_loop', { ...o, gain: 0.5, refDist: 5 });
+          c.crackle = h.isNull ? null : h; c.crackleRetry = now + 0.5;
+        }
+      }
+      c.fire?.setPos(st.pos, st.vel); c.crackle?.setPos(st.pos, st.vel);
+    } else {
+      c.fire?.stop(0.8); c.crackle?.stop(0.8); c.fire = c.crackle = null;
+    }
     if (st.exploded && now >= c.wreckUntil && c.wreckUntil > 0) c.burning = false;
     void player;
   }
   /** Per frame, once: rocket flight loops, housekeeping of cars that vanished. */
   update(dt, ctx = {}) {
     const A = this.audio, now = A.now;
+    // Retain only live cues, and keep external-camera reload sounds attached to
+    // the moving truck instead of their original world position.
+    const st = this.reloadH.length ? ctx.states?.get?.(this.playerId) : null, p = st ? [st.pos.x, st.pos.y + 1.1, st.pos.z] : this.gunnerPos;
+    for (let i = this.reloadH.length - 1; i >= 0; i--) {
+      const h = this.reloadH[i];
+      if (!h.playing) this.reloadH.splice(i, 1);
+      else if (p) h.setPos(p, st?.vel);
+    }
+    const step = Math.max(0, dt);
+    for (let i = 0; i < this.foleyPending.length;) {
+      const cue = this.foleyPending[i]; cue.remaining -= step;
+      if (cue.remaining <= 1e-9) { this.foleyPending.splice(i, 1); this._playFoley(cue.name, ctx, cue.o, true); }
+      else i++;
+    }
     for (let i = this.rockets.length - 1; i >= 0; i--) {
       const r = this.rockets[i]; r.t += dt;
       const sp = Math.min(r.speed, 25 + r.speed * 1.6 * r.t);
@@ -430,14 +477,14 @@ export class AudioBridge {
   _removeCar(id) {
     const c = this.cars.get(id); if (!c) return;
     if (c.engine) c.engine.dispose(0.2);
-    if (c.fire) { c.fire.stop(0.5); c.crackle?.stop(0.5); }
+    c.fire?.stop(0.5); c.crackle?.stop(0.5);
     this.cars.delete(id); this.lastCrash.delete(id); this.lastFlesh.delete(id); this.enemyShotT.delete(id);
   }
   /** New run / back to the garage: drop every car sound. */
   reset() {
     for (const id of [...this.cars.keys()]) this._removeCar(id);
     for (const r of this.rockets) r.h.stop(0.05);
-    this.rockets.length = 0; this._cancelFoley(); this.audio.setDanger(0); this.crewDanger = 0;
+    this.rockets.length = 0; this._cancelFoley(true); this.audio.setDanger(0); this.crewDanger = 0;
     this.audio.ambience.stopWind(0.4);
   }
 

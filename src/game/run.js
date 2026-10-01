@@ -1,7 +1,7 @@
 // A single RUN (one life). Roles: 'solo' (sim + gunner + driver on one machine), 'driver' (sim peer), 'gunner' (viewer peer).
 // The frame loop is owned by Game; Run only advances its own systems and exposes what the renderer needs.
 import * as THREE from 'three';
-import { RAPIER, initPhysics, createWorld, RAY_SHOT } from '../sim/physics.js';
+import { RAPIER, initPhysics, createWorld, RAY_SHOT, getColliderLabel } from '../sim/physics.js';
 import { Sim, DT } from '../sim/sim.js';
 import { RoadQuery } from '../sim/road_query.js';
 import { SyncGround } from '../sim/sync_ground.js';
@@ -143,16 +143,21 @@ export class Run {
     const world = this.sim ? this.sim.world : this.qworld; if (!world) return null;
     if (!this._ray) this._ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
     const r = this._ray; r.origin.x = o.x; r.origin.y = o.y; r.origin.z = o.z; r.dir.x = d.x; r.dir.y = d.y; r.dir.z = d.z;
-    const h = world.castRayAndGetNormal(r, max, true, undefined, RAY_SHOT);
+    let h = world.castRayAndGetNormal(r, max, true, undefined, RAY_SHOT);
+    const rock = this.structures?.raycastRocks(o, d, h ? Math.min(max, h.timeOfImpact) : max);
+    if (rock && (!h || rock.timeOfImpact < h.timeOfImpact)) h = rock;
     if (!h) return null;
     const px = o.x + d.x * h.timeOfImpact, pz = o.z + d.z * h.timeOfImpact;
-    return { t: h.timeOfImpact, normal: new V3(h.normal.x, h.normal.y, h.normal.z), kind: this._surfaceKind(px, pz) };
+    const kind = h.kind || (h.collider && getColliderLabel(world, h.collider.handle) === 'scatter-rocks' ? 'rock' : this._surfaceKind(px, pz));
+    return { t: h.timeOfImpact, normal: new V3(h.normal.x, h.normal.y, h.normal.z), kind };
   }
   _groundY(x, y, z) {
     const world = this.sim ? this.sim.world : this.qworld; if (!world) return null;
     if (!this._gray) this._gray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
     const r = this._gray; r.origin.x = x; r.origin.y = y + 4; r.origin.z = z;
-    const h = world.castRay(r, 60, true, undefined, RAY_SHOT);
+    let h = world.castRay(r, 60, true, undefined, RAY_SHOT);
+    const rock = this.structures?.raycastRocks(r.origin, r.dir, h ? Math.min(60, h.timeOfImpact) : 60);
+    if (rock && (!h || rock.timeOfImpact < h.timeOfImpact)) h = rock;
     return h ? y + 4 - h.timeOfImpact : null;
   }
   _surfaceKind(x, z) {
@@ -172,6 +177,7 @@ export class Run {
   /** Advance sim/net and produce this frame's render data. */
   update(dt, cmds, now) {
     const g = this.g; this.time += dt; this.streakT = Math.max(0, (this.streakT || 0) - dt);
+    if (this.gunner) { this.gunner.crouch = 0; this.gunner.pos.x = 0; this.gunner.pos.z = 0; }
     const P = this.sim ? this.player : null;
     if (this.sim) {
       // countdown -> start once the ground under the truck exists
@@ -206,9 +212,9 @@ export class Run {
       // gunner state onto the sim car (from the local controller or from the remote gunner)
       const gs = P.crew.gunner;
       if (this.gunner) {
-        gs.aimYaw = this.gunner.yaw; gs.aimPitch = this.gunner.pitch; gs.fire = this.gunner.trigger && this.gunner.magNow > 0; gs.crouch = this.gunner.crouch > 0.5; gs.ads = this.gunner.ads > 0.5;
+        gs.aimYaw = this.gunner.yaw; gs.aimPitch = this.gunner.pitch; gs.fire = this.gunner.trigger && this.gunner.magNow > 0; gs.crouch = false; gs.ads = this.gunner.ads > 0.5;
         gs.weapon = this.gunner.cur; gs.reloading = this.gunner.reloading; gs.x = this.gunner.pos.x; gs.z = this.gunner.pos.z;
-      } else { const r = this.gunnerRemote; gs.aimYaw = r.yaw; gs.aimPitch = r.pitch; gs.fire = r.fire; gs.crouch = r.crouch; gs.ads = r.ads; gs.weapon = r.weapon; gs.reloading = r.reloading; gs.x = r.x; gs.z = r.z; }
+      } else { const r = this.gunnerRemote; gs.aimYaw = r.yaw; gs.aimPitch = r.pitch; gs.fire = r.fire; gs.crouch = false; gs.ads = r.ads; gs.weapon = r.weapon; gs.reloading = r.reloading; gs.x = 0; gs.z = 0; }
       const B = this.sim.boss;
       // adrenaline pulse: a heartbeat of slow motion on big close explosions / triple kills
       if (this.pulseT > 0) this.pulseT -= dt; else this.pulseK = 0;
@@ -229,7 +235,6 @@ export class Run {
       }
       for (const id of this.states.keys()) if (!this.sim.cars.has(id)) this.states.delete(id);
       this.events = this.sim.drainEvents();
-      if (this.role === 'driver' && this.net) this._sendNet(dt);
       this.playerS = P.s;
       this._simEventsToRun();
       const Bs = this.sim.boss;
@@ -250,7 +255,10 @@ export class Run {
       this.events = this.netEvents || []; this.netEvents = [];
       for (const st of this.states.values()) st.hitFlash = 0;
       if (this.localFlash) for (const [id, t] of this.localFlash) { const st = this.states.get(id); if (st) st.hitFlash = t; const nt = t - dt; if (nt <= 0) this.localFlash.delete(id); else this.localFlash.set(id, nt); }
-      for (const [id, st] of this.states) { let gh = this.ghosts.get(id); if (!gh) { gh = new GhostCar(st); this.ghosts.set(id, gh); } gh.sync(st); }
+      for (const [id, st] of this.states) {
+        if (st.kind === 'player') for (const gs of [st.gunner, st.gunner2]) if (gs) { gs.crouch = false; gs.x = 0; gs.z = 0; }
+        let gh = this.ghosts.get(id); if (!gh) { gh = new GhostCar(st); this.ghosts.set(id, gh); } gh.sync(st);
+      }
       for (const id of this.ghosts.keys()) if (!this.states.has(id)) this.ghosts.delete(id);
       if (this.simState === 'over' && !this.over) { this.over = true; }
     }
@@ -276,24 +284,35 @@ export class Run {
         cmds.gunner.fire = true; cmds.gunner.firePressed = true;
       } else cmds.gunner.fire = false;
     }
-    // gunner update needs the previous frame's camera (aim ray) and the truck heading
+    // Advance controls first; firing waits for this frame's camera and posed gun.
     if (this.gunner && pst) {
       const carYaw = Math.atan2(_f.set(0, 0, 1).applyQuaternion(pst.quat).x, _f.z);
       this.gunner.crewAlive = pst.gunnerAlive;
       if (!pst.gunnerAlive || (this.sim ? this.sim.state : this.simState) !== 'run') { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
-      this.wv.muzzlePos(pst, this.gunner.muzzle);
       if (this.humanGunner && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
         this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, this._assistTargets(), pst.vel);
       }
       // the AI gunner aims from its own eye along its own aim; a human aims through the camera
       const aimCam = this.aiGunner ? { position: this.eye, dir: _aiDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch)) } : { position: g.camera.position, dir: this.camDir };
-      this.gunner.update(dt, cmds.gunner, aimCam, carYaw, { carVel: pst.vel });
+      this.gunner.update(dt, cmds.gunner, aimCam, carYaw, { carVel: pst.vel, deferFire: true });
+    }
+    // The gunner's projection must precede its viewmodel. The driver's cockpit
+    // eye instead queries the current crew/head pose, so resolve it after views.
+    const cameraBeforeViews = this.role !== 'driver';
+    if (cameraBeforeViews) this._camera(dt, cmds, pst);
+    else {
+      // Choose the driver's mode before crew visibility/cutaways, while keeping
+      // the eye query after the current head pose. A late toggle flashes the
+      // external body in the cockpit (or hides it in chase) for one frame.
+      if (cmds.driver.cameraToggle) this.chase.toggle();
+      this.cockpit?.setActive?.(this.chase.firstPerson && !cmds.driver.lookBack && !this.introOutside);
     }
     // world view
     const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5 && !this.introOutside, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
     const evs = this.sim || !this.localEvents.length ? this.events : this.events.concat(this.localEvents); // local sim events already went through sim.emit
     this.localEvents.length = 0;
     { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) (window.__spikes || (window.__spikes = [])).push({ what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
+    this.structures?.updateRocks(this.sim ? this.sim.cars.values() : this.states.values());
     this.wv.updateBoss(this.bossState, dt);
     // roadblock telegraphing (signs, flares, breakable barricades) + cinematic banners (warlord intro, roadblock countdown)
     (this.hazMarks || (this.hazMarks = new HazardMarks(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)))))).update(dt, this.playerS || 0);
@@ -302,11 +321,30 @@ export class Run {
     if (this.bossState || this.bossMarks) { const Bs = this.sim?.boss; (this.bossMarks || (this.bossMarks = new BossMarks(g.scene))).update(dt, this.bossState, (n) => Bs ? Bs.hp[n] / BOSS_PARTS[n].hp : this.bossState?.hp?.[n] ?? 1, g.camera, { suppressLabel: !!g.hud.gh && (g.hud.gh.partLabelOn ?? g.hud.gh.bpT > 0) }); }   // one part name on screen: the gunner HUD's readout wins
     this._updateFrustum();
     const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside, cockpit: this.cockpit, gear: this.player ? this.player.veh.gear : 1 } : null;   // cockpit + gear: first-person driver arms
-    this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[0], localGunner, proj: this.proj });
+    this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[this.gunnerRemote.weapon] || this.effects.weapons[0], localGunner, proj: this.proj });
+    if (!cameraBeforeViews) this._camera(dt, cmds, pst);
+    if (this.gunner && pst) {
+      if (!this.wv.muzzlePos(pst, this.gunner.muzzle)) this.gunner.muzzle.set(0, 0, 0);
+      const aimCam = this.aiGunner ? { position: this.eye, dir: _aiDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch)) } : { position: g.camera.position, dir: this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion) };
+      if (this.gunner.finishFire(aimCam, { carVel: pst.vel })) this.wv.notifyLocalShot(pst, this.gunner);
+    }
+    // The local shot (and damage it caused) must reach views/FX/net exactly once
+    // in the frame that supplied its muzzle, rather than next frame's moved gun.
+    const late = this.sim ? this.sim.drainEvents() : this.localEvents;
+    if (late.length) {
+      if (this.sim) this._simEventsToRun(late);
+      for (const e of late) { this.wv.handleEvent(e, this.states); evs.push(e); }
+      if (!this.sim) this.localEvents.length = 0;
+    }
     this.allEvents = evs;
     // first-person cockpit (local human driver): mirrors, gauges, windshield damage
     if (this.role === 'driver' && !this.cockpit) { const v = this.wv.viewMap.get(1); if (v && v.model) { this.cockpit = new Cockpit(v); g.warmMeshes?.(this.cockpit.meshes); } }
-    if (this.cockpit) for (const e of evs) this.cockpit.onEvent(e);
+    if (this.cockpit) {
+      // Cockpit-only feedback (e.g. the local windshield breaking) fans out to
+      // this peer's FX/audio once, without feeding back into cockpit or net.
+      const count = evs.length;
+      for (let i = 0; i < count; i++) { const e = this.cockpit.onEvent(evs[i]); if (e) evs.push({ ...e, time: this.time, localOnly: true }); }
+    }
     for (const e of evs) {
       if (e.t === 'minibossSpawn') { this.banner.miniboss(e); g.audio?.stinger('danger_riser'); }
       else if (e.t === 'minibossLost') g.hud.message(`${e.name} FELL BEHIND`, 2200, '#bbbbbb');
@@ -328,7 +366,9 @@ export class Run {
     }
     const fx = g.fx;
     if (fx) {
-      const ctx = this._fxCtx || (this._fxCtx = { carViews: this.wv.viewMap, states: null, playerId: 1, cameraPos: g.camera.position, shake: (a) => { const k = a * (g.shakeMul ?? 1); this.chase.shake.add(k); this.gcam.shake.add(k); } });
+      const ctx = this._fxCtx || (this._fxCtx = { carViews: this.wv.viewMap, states: null, playerId: 1, cameraPos: g.camera.position,
+        playerMuzzle: (out) => { const st = this.states.get(this.playerId); return !!st && this.wv.muzzlePos(st, out); },
+        shake: (a) => { const k = a * (g.shakeMul ?? 1); this.chase.shake.add(k); this.gcam.shake.add(k); } });
       ctx.states = this.states;
       for (const e of evs) fx.handleEvent(e, ctx);
       const sc = this._surfCache || (this._surfCache = new Map());
@@ -357,8 +397,6 @@ export class Run {
       A.music.setIntensity(this.threat);
       A.setDanger(pst.hp01 < 0.3 ? 1 - pst.hp01 / 0.3 : 0);
     }
-    // cameras
-    this._camera(dt, cmds, pst);
     // off-screen threat chevrons (first person can't see behind)
     if (!this.threatHud && (this.humanDriver || this.humanGunner)) this.threatHud = new ThreatHUD();
     if (this.threatHud) {
@@ -369,6 +407,7 @@ export class Run {
     }
     // HUD data
     this.hud2 = this._hudData(pst);
+    if (this.role === 'driver' && this.net) this._sendNet(dt);
     if (this.role === 'gunner' && this.net) this._sendGunner(dt);
     this._outcome(dt);
   }
@@ -431,11 +470,13 @@ export class Run {
     if (d.horn) sim.emit({ t: 'horn', id: P.id });
   }
   _unflip(free = false) {
-    const P = this.player, b = P.veh.body, q = P.veh.quat;
+    const P = this.player, v = P.veh, b = v.body;
     const yaw = Math.atan2(P.veh.fwd.x, P.veh.fwd.z);
     b.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
     b.setTranslation({ x: P.veh.pos.x, y: P.veh.pos.y + 1.8, z: P.veh.pos.z }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat);
+    if (P._groundHold) P._groundHold.angularVelocity = { x: 0, y: 0, z: 0 };
     if (!free) this.sim.damageCar(P, P.maxHp * 0.04, { cause: 'flip' });
     this.sim.emit({ t: 'unflip', id: P.id });
   }
@@ -445,8 +486,8 @@ export class Run {
     if (this.sim.useMedkit()) { this.medkits--; this.g.hud.message('MEDKIT', 900, '#7fdc7f'); }
   }
 
-  _simEventsToRun() {
-    for (const e of this.events) {
+  _simEventsToRun(events = this.events) {
+    for (const e of events) {
       if (e.t === 'minibossDown') {
         const b = Math.round((ECONOMY.minibossBounty[e.index] || 5000) * this.effects.cashMul);
         this.minibossCash = (this.minibossCash || 0) + b; (this.minibossesKilled || (this.minibossesKilled = [])).push(e.index);
@@ -519,9 +560,9 @@ export class Run {
     if (this.role === 'driver') {
       const cockpitEye = this._cockpitEye(dt, pst, _t2);
       const ck = this.cockpit, lookBackEye = ck && cmds.driver.lookBack && this.chase.mode === 0 ? ck.lookBackWorld(_t3) : null;
-      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, fovBase: g.fovBase, lookBack: !!lookBackEye, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
-      if (cmds.driver.cameraToggle) this.chase.toggle();
+      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, fovBase: g.driverFovBase ?? 85, lookBack: !!cmds.driver.lookBack, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
       if (ck) {
+        ck.setUnits?.(g.units);
         ck.setActive(this.chase.mode === 0 && !lookBackEye && !this.introOutside); ck.update(dt, this.hud2, g.look?.night ?? 0);
         let behind = false; for (const st of this.states.values()) if (st.kind === 'enemy' && !st.exploded) { _v.copy(st.pos).sub(pst.pos); if (_v.lengthSq() < 170 * 170 && _v.dot(_f.set(0, 0, 1).applyQuaternion(pst.quat)) < 5) { behind = true; break; } }
         ck.threatBehind = behind;
@@ -589,12 +630,10 @@ export class Run {
     return out.set(loc.x, loc.y - pst.ride.restComHeight, loc.z).applyQuaternion(pst.quat).add(pst.pos);
   }
 
-  /** The local gunner's eye: attached to the truck frame (seat + standing/crouch height + position in the bed), render-interpolated. */
+  /** The player's standing gunner eye in the render-interpolated truck frame. */
   _gunnerEye(pst, out) {
     const seat = pst.spec.seats.gunner || [0, 1, -1];
-    const g = this.gunner;
-    const crouch = g ? g.crouch : 0, bx = g ? g.pos.x : 0, bz = g ? g.pos.z : 0;
-    out.set(seat[0] + bx, seat[1] + lerp(1.66, 1.14, crouch) - pst.ride.restComHeight, seat[2] + bz + 0.08).applyQuaternion(pst.quat).add(pst.pos);
+    out.set(seat[0], seat[1] + 1.66 - pst.ride.restComHeight, seat[2] + 0.08).applyQuaternion(pst.quat).add(pst.pos);
     return out;
   }
 
@@ -683,7 +722,7 @@ export class Run {
       const bossHud = this._bossHud(); const hud = { bossId: bossHud.id, bossHp01: bossHud.hp01, hp01: P.hp / P.maxHp, dhp01: P.crew.driver.hp / P.crew.driver.max, ghp01: P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1, nitro01: P.veh.nitro / Math.max(0.001, P.veh.nitroMax), cash: this.cash, kills: this.sim.stats.kills, streak: this.sim.stats.streak, level: this.sim.director.level, dist: P.s, medkits: this.medkits };
       this.net.sendFast(encodeSnapshot(this.sim, this.sim.tick, hud));
     }
-    const out = this.events.filter((e) => !e.remote);
+    const out = this.events.filter((e) => !e.remote && !e.localOnly);
     if (out.length) this.net.sendJSON({ t: 'events', e: out });
   }
   _sendGunner(dt) {
@@ -691,7 +730,7 @@ export class Run {
     if (this.gunnerSendAcc >= 1 / 30 && this.gunner) {
       this.gunnerSendAcc = 0;
       const gn = this.gunner;
-      this.net.sendJSON({ t: 'g', y: +gn.yaw.toFixed(4), p: +gn.pitch.toFixed(4), f: gn.trigger && gn.magNow > 0 ? 1 : 0, c: gn.crouch > 0.5 ? 1 : 0, a: gn.ads > 0.5 ? 1 : 0, w: gn.cur, r: gn.reloading ? 1 : 0, x: +gn.pos.x.toFixed(2), z: +gn.pos.z.toFixed(2) }, true);
+      this.net.sendJSON({ t: 'g', y: +gn.yaw.toFixed(4), p: +gn.pitch.toFixed(4), f: gn.trigger && gn.magNow > 0 ? 1 : 0, c: 0, a: gn.ads > 0.5 ? 1 : 0, w: gn.cur, r: gn.reloading ? 1 : 0, x: 0, z: 0 }, true);
     }
     if (this.outEvents.length) { this.net.sendJSON({ t: 'shotfx', e: this.outEvents }); this.outEvents = []; }
   }
@@ -704,7 +743,7 @@ export class Run {
     if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; return; }
     if (m.t === 'go') { this.goSeen = true; this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }
     if (this.sim) {
-      if (m.t === 'g') { const r = this.gunnerRemote; r.yaw = m.y; r.pitch = m.p; r.fire = !!m.f; r.crouch = !!m.c; r.ads = !!m.a; r.weapon = m.w; r.reloading = !!m.r; r.x = m.x; r.z = m.z; }
+      if (m.t === 'g') { const r = this.gunnerRemote; r.yaw = m.y; r.pitch = m.p; r.fire = !!m.f; r.crouch = false; r.ads = !!m.a; r.weapon = m.w; r.reloading = !!m.r; r.x = 0; r.z = 0; }
       else if (m.t === 'hit') this.sim.applyHit(m.h);
       else if (m.t === 'rocket') this.sim.projectiles.addRocket(new V3(...m.o), new V3(...m.d), m.cfg, 1);
       else if (m.t === 'grenade') this.sim.projectiles.addGrenade(this.sim, new V3(...m.o), new V3(...m.v), m.cfg, 1);

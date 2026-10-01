@@ -410,6 +410,12 @@ export class Fx {
   }
 
   // ------------------------------------------------------------------------------------------------ main update
+  /** New Run emits must be visible at birth, before this frame's draw. */
+  flushEmits() {
+    if (!this.loaded) return;
+    this.pa.flush(); this.pf.flush();
+  }
+
   update(dt) {
     if (!this.loaded) return;
     const t0 = performance.now();
@@ -564,7 +570,12 @@ export class Fx {
 
   _shot(evt, ctx) {
     let o = evt.origin; if (!o) return;
+    const physicalOrigin = o;
     const wid = evt.weapon, player = evt.src === 'player';
+    // A remote gunner's physical origin came from its own camera/viewmodel.
+    // On this peer its interpolated third-person barrel supplies visual launch
+    // only; the event, hit endpoints and impact clock remain authoritative.
+    if (player && evt.remote && ctx.playerMuzzle?.(_v)) { _o3[0] = _v.x; _o3[1] = _v.y; _o3[2] = _v.z; o = _o3; }
     const boss = evt.src === BOSS_ID;
     if (boss) { this.boss.view = this.boss._findView(); this.boss.root = this.boss.view ? this.boss.view.root : null; }
     const sst = boss ? null : ctx.states && ctx.states.get(player ? ctx.playerId : evt.src);
@@ -588,7 +599,7 @@ export class Fx {
       if (rays) for (let i = 0; i < rays.length; i++) {
         const ry = rays[i], e = ry && ry.end; if (!e) continue;
         R.tracerHit(this, wid, o[0], o[1], o[2], e[0], e[1], e[2]);
-        if (ry.surface) this._queueImpact(ry, Math.hypot(e[0] - o[0], e[1] - o[1], e[2] - o[2]) / 620);   // the sim emits no 'hit' for hitscan rays
+        if (ry.surface) this._queueImpact(ry, Math.hypot(e[0] - physicalOrigin[0], e[1] - physicalOrigin[1], e[2] - physicalOrigin[2]) / 620);   // the sim emits no 'hit' for hitscan rays
       }
       this._eject(wid, o, dx, dy, dz, ctx, fp ? evt : null);
     } else if (rays) {
