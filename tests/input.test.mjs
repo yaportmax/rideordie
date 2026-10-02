@@ -13,6 +13,27 @@ function setup() {
 }
 const pad = (buttons = []) => ({ index: 0, id: 'pad', connected: true, axes: [0, 0, 0, 0], buttons: Array.from({ length: 20 }, (_, i) => ({ pressed: buttons.includes(i), value: buttons.includes(i) ? 1 : 0 })) });
 
+test('captured mouse turns reclaim aim ownership after controller input without a click', () => {
+  const s = setup(), i = s.input;
+  s.pads([pad([7])]); i.poll();
+  assert.equal(i.lastDevice, 'pad');
+  s.pads([pad()]); i.locked = true;
+  s.emit('mousemove', { movementX: 28, movementY: -3 });
+  i.poll();
+  assert.equal(i.lastDevice, 'kbm', 'mouse aim must disable controller-only target snapping');
+  const cmd = i.gunner(1 / 60);
+  assert.equal(cmd.dYaw, -28 * i.sens.mouse);
+  assert.equal(cmd.dPitch, 3 * i.sens.mouse);
+});
+
+test('uncaptured and stationary mouse events do not steal controller ownership', () => {
+  const s = setup(), i = s.input; i.lastDevice = 'pad';
+  s.emit('mousemove', { movementX: 50, movementY: 5 });
+  assert.equal(i.lastDevice, 'pad'); assert.equal(i.mouseDX, 0);
+  i.locked = true; s.emit('mousemove', { movementX: 0, movementY: 0 });
+  assert.equal(i.lastDevice, 'pad');
+});
+
 test('typing a room code never holds driving keys or eats spaces', () => {
   const s = setup(); let prevented = false;
   s.emit('keydown', { code: 'KeyW', target: { tagName: 'INPUT' }, preventDefault: () => { prevented = true; } });

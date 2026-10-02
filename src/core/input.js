@@ -46,7 +46,13 @@ export class Input {
     });
     addEventListener('mouseup', (e) => { if (e.button === 0) this.mouse.left = false; if (e.button === 2) this.mouse.right = false; if (e.button === 1) this.mouse.middle = false; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    addEventListener('mousemove', (e) => { if (this.locked) { this.mouseDX += e.movementX; this.mouseDY += e.movementY; } });
+    addEventListener('mousemove', (e) => {
+      if (!this.locked) return;
+      this.mouseDX += e.movementX; this.mouseDY += e.movementY;
+      // A mouse turn must leave controller-only target snapping behind, even
+      // when the player switches devices without clicking or pressing a key.
+      if (e.movementX || e.movementY) this.lastDevice = 'kbm';
+    });
     addEventListener('wheel', (e) => { if (this.locked) this.wheel += Math.sign(e.deltaY); }, { passive: true });
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; if (!this.locked) this.reset(); });
     addEventListener('gamepadconnected', (e) => { this.padConnected = true; this.padName = e.gamepad.id; });

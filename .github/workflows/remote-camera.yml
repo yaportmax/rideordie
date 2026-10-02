@@ -5,6 +5,9 @@ on:
     paths:
       - src/view/camera_rig.js
       - tests/camera_rotation.test.mjs
+      - src/core/input.js
+      - tests/input.test.mjs
+      - tools/test/gunner_rotation_browser.mjs
       - .github/workflows/remote-camera.yml
   workflow_dispatch:
 permissions:
@@ -24,7 +27,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: node node_modules/playwright-core/cli.js install --with-deps chromium
-      - run: npm run test:browser
+      - run: node tools/test/gunner_rotation_browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -32,5 +35,6 @@ jobs:
           path: |
             dist/
             shots/quality/
+            shots/gunner-rotation/
           if-no-files-found: error
           retention-days: 14
