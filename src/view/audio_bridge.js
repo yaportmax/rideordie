@@ -21,6 +21,8 @@ const RELOAD = {
   smg: [['guns/smg_mag_out', 0.14], ['guns/smg_mag_in', 0.58], ['guns/smg_bolt', 0.84]],
   rifle: [['guns/rifle_mag_out', 0.13], ['guns/rifle_mag_in', 0.55], ['guns/rifle_bolt', 0.82]],
   lmg: [['guns/lmg_cover_open', 0.06], ['guns/lmg_belt_in', 0.42], ['guns/lmg_belt_in', 0.58, { pitch: 1.06, gain: 0.8 }], ['guns/lmg_cover_close', 0.78], ['guns/lmg_rack', 0.93]],
+  // Mounted feed drum uses existing heavy belt/cover foley at its own 5.2 s cadence.
+  minigun: [['guns/lmg_cover_open', 0.06, { pitch: .85 }], ['guns/lmg_belt_in', 0.36, { pitch: .88 }], ['guns/lmg_belt_in', 0.56, { pitch: .94, gain: .8 }], ['guns/lmg_cover_close', 0.8, { pitch: .85 }], ['guns/lmg_rack', 0.94, { pitch: .9 }]],
   sniper: [['guns/sniper_bolt_open', 0.08], ['guns/sniper_mag', 0.45], ['guns/sniper_bolt_close', 0.8]],
   rpg: [['guns/rpg_reload', 0.04]],
   shotgun: [],

@@ -22,7 +22,7 @@ export class TitleScreen {
       <div class="safe">
         <div class="tt-left">
           <div class="logo stg" style="--i:0"><span class="ln l1">RIDE OR</span><span class="ln l2">DIE</span><i class="logo-bar"></i></div>
-          <div class="tagline stg" style="--i:1"><span>TWO PLAYERS</span><b></b><span>ONE TRUCK</span><b></b><span>NO BRAKES</span></div>
+          <div class="tagline stg" style="--i:1"><span>TWO PLAYERS</span><b></b><span>ONE RIDE</span><b></b><span>NO BRAKES</span></div>
           <div class="tt-view"></div>
         </div>
         <div class="tt-ver stg" style="--i:6">v0.9 &middot; DESERT-PUNK CO-OP ROAD COMBAT</div>

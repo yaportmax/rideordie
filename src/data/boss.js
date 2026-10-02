@@ -70,7 +70,9 @@ export const BOSS = {
 //   behavior: the brain role (sim/ai.js); pattern: {summon: s, summonKinds, crush}; enter: 'ahead' (up the road) | 'park' (waiting on
 //   the shoulders ahead, peel out as you pass) | 'behind'.
 export const MINIBOSSES = [
-  { s: 9300, name: 'SCRAPJAW', title: 'KING OF THE SCRAPYARD', spec: 'e_technical', massMul: 1.2, hpMul: 5.5, armor: 0.3, gun: 'mg_warlord', behavior: 'leader', enter: 'ahead',
+  // A real larger chassis: its mesh, six-wheel suspension, seats and hull agree
+  // on both peers. Retain the original technical-based HP and single-MG crew.
+  { s: 9300, name: 'SCRAPJAW', title: 'KING OF THE SCRAPYARD', spec: 'e_heavy', massMul: 1, hpBase: 150, hpMul: 5.5, gunners: 1, driverHp: 45, gunnerHp: 50, armor: 0.3, gun: 'mg_warlord', behavior: 'leader', enter: 'ahead',
     pattern: { summon: 24, summonKinds: ['e_buggy', 'e_buggy'], summonCap: 3 }, escorts: [],
     weak: { zone: 'fuel', mul: 5, label: 'AMMO CRATE — REAR' }, look: { kit: 'scrapjaw', paint: 0xd6a01c, paint2: 0x1b1a18, glow: 0xff8a1a },
     tip: 'Stays ahead and hoses you with his machine gun. Calls in buggies.' },
@@ -91,4 +93,27 @@ export const MINIBOSSES = [
     weak: { zone: 'engine', mul: 5, label: 'FURNACE GRILLE — FRONT' }, look: { kit: 'priest', paint: 0x3a3c40, paint2: 0xb8902e, glow: 0xff4a1a },
     tip: 'Armoured rocket van. Summons the faithful until you break his furnace.' },
 ];
-export const BOSS_NAMES = ['', ...MINIBOSSES.map((m) => m.name), 'THE LEVIATHAN'];
+
+// Stable wire/view identities: the original five slots remain unchanged.
+// Campaign chapter order is separate because the city chief precedes Priest.
+export const ELITE_BOSSES = [
+  ...MINIBOSSES,
+  { s: 36700, name: 'THE OVERSEER', title: 'WARDEN OF THE RUINED CITY', spec: 'e_double_bus', massMul: 1, hpBase: 600, hpMul: 6.5, armor: 0.35,
+    gun: 'hmg_warlord', gun2: 'hmg_warlord', behavior: 'heavy', enter: 'ahead', escorts: ['e_muscle'],
+    weak: { zone: 'engine', mul: 5, label: 'REAR ENGINE GRILLE' }, look: { kit: 'mother', paint: 0x314b53, paint2: 0xd8bc54, glow: 0xffc44a },
+    tip: 'The double-decker blocks the road. Silence its upper-deck gunners and break the rear engine grille.' },
+  { s: 53200, name: 'DEEPWARDEN', title: 'KEEPER OF THE UNDERWORLD', spec: 'e_heavy', massMul: 1.15, hpMul: 7, armor: 0.38,
+    gun: 'hmg_warlord', gunners: 1, behavior: 'rammer', enter: 'ahead', pattern: { summon: 22, summonKinds: ['e_muscle'], summonCap: 3 }, escorts: [],
+    weak: { zone: 'engine', mul: 5, label: 'DRILL DRIVE — FRONT' }, look: { kit: 'priest', paint: 0x635645, paint2: 0x242624, glow: 0xffa649 },
+    tip: 'The tunnel rig charges your rear corners. Break its drill drive and avoid its reinforcements.' },
+  { s: 61500, name: 'STORM TALON', title: 'CAPTAIN OF THE SKYWAY', spec: 'e_technical', count: 2, massMul: 1.15, hpMul: 11, armor: 0.3,
+    gun: 'mg_warlord', behavior: 'flanker', enter: 'ahead', pattern: { crush: true }, escorts: [],
+    weak: { zone: 'engine', mul: 5, label: 'TURBINE INTAKE — FRONT' }, look: { kit: 'mother', paint: 0x667c96, paint2: 0xd6e4ee, glow: 0x71d9ff },
+    tip: 'Two skyway crews flank the truck. Break their turbine intakes before their coordinated charge.' },
+  { s: 69750, name: 'HELLHOUND', title: 'HERALD OF THE INFERNO', spec: 'e_tanker', massMul: 1.1, hpMul: 8, armor: 0.35,
+    gun: 'rpg', behavior: 'dropper', enter: 'ahead', pattern: { summon: 24, summonKinds: ['e_buggy'], summonCap: 3 }, escorts: [],
+    weak: { zone: 'fuel', mul: 5, label: 'INFERNAL PRESSURE VALVE — REAR' }, look: { kit: 'blaze', paint: 0x551414, paint2: 0x17100e, glow: 0xff4924 },
+    tip: 'The infernal tanker lays burning barrels. Reach its rear valve while clearing the summoned crew.' },
+];
+export const CAMPAIGN_BOSSES = [0, 1, 2, 3, 5, 4, 6, 7, 8].map(index => ({ ...ELITE_BOSSES[index], eliteIndex: index }));
+export const BOSS_NAMES = ['', ...ELITE_BOSSES.map(m => m.name), 'THE LEVIATHAN'];

@@ -3,6 +3,8 @@
 // landing throws sparks (metal on asphalt) and a puff of dust. Effects go through the Fx instance registered in
 // DebrisSystem.fx (set by Fx.load), so there is no dependency the other way round.
 import * as THREE from 'three';
+import { disposeUpgradeNode } from './car_upgrade_kit.js';
+import { disposeCarViewNode } from './car_view_resources.js';
 
 const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3(), _b = new THREE.Box3();
 const G = 17.5;
@@ -20,7 +22,7 @@ export class DebrisSystem {
     _b.setFromObject(node); const r = Math.max(0.12, Math.min(0.6, _b.getSize(_s).length() * 0.15));
     const hot = vel.lengthSq() > 64 ? 2.2 + Math.random() * 1.5 : 0;   // thrown by a blast: it burns for a moment
     this.items.push({ node, vel: vel.clone(), spin: spin.clone(), life, age: 0, r, rest: false, hot, trailT: 0 });
-    if (this.items.length > this.max) { const o = this.items.shift(); o.node.removeFromParent(); }
+    if (this.items.length > this.max) { const o = this.items.shift(); disposeUpgradeNode(o.node); disposeCarViewNode(o.node); o.node.removeFromParent(); }
     return node;
   }
 
@@ -28,7 +30,7 @@ export class DebrisSystem {
     const fx = DebrisSystem.fx && DebrisSystem.fx.loaded ? DebrisSystem.fx : null;
     for (let i = this.items.length - 1; i >= 0; i--) {
       const d = this.items[i]; d.age += dt;
-      if (d.age > d.life) { d.node.removeFromParent(); this.items.splice(i, 1); continue; }
+      if (d.age > d.life) { disposeUpgradeNode(d.node); disposeCarViewNode(d.node); d.node.removeFromParent(); this.items.splice(i, 1); continue; }
       const n = d.node;
       if (!d.rest) {
         d.vel.y -= G * dt;
@@ -53,6 +55,6 @@ export class DebrisSystem {
       if (fade < 1) n.scale.setScalar(Math.max(0.01, fade));
     }
   }
-  clear() { for (const d of this.items) d.node.removeFromParent(); this.items.length = 0; }
+  clear() { for (const d of this.items) { disposeUpgradeNode(d.node); disposeCarViewNode(d.node); d.node.removeFromParent(); } this.items.length = 0; }
 }
 DebrisSystem.fx = null;

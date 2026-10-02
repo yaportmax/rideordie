@@ -5,7 +5,7 @@
 // valley for the dam. Slopes facing the sun are lit, the others fall into shadow (derivative of the silhouette), so ranges read as 3D.
 // The road ahead leads into a notch/valley in the mountain biomes. Drawn before the sky so the sky only fills what the ranges leave open.
 import * as THREE from 'three';
-import { biomeAt } from '../../data/biomes.js';
+import { roadBiomeAt } from '../biome_context.js';
 import { lookAt } from '../look.js';
 import { lerp } from '../../core/util.js';
 
@@ -18,6 +18,10 @@ const PROFILE = {
   mountain: { shape: 3, amp: 1150, col: [0.33, 0.37, 0.45], band: [0.42, 0.44, 0.5], snow: 1, sea: 0, notch: 0.55 },
   city:     { shape: 4, amp: 280, col: [0.2, 0.2, 0.25], band: [0.26, 0.25, 0.3], snow: 0, sea: 0, notch: 0 },
   dam:      { shape: 5, amp: 700, col: [0.36, 0.38, 0.44], band: [0.44, 0.45, 0.5], snow: 0.45, sea: 0.6, notch: 0.7 },
+  underground: { shape: 1, amp: 0, col: [0.1, 0.18, 0.22], band: [0.2, 0.3, 0.34], snow: 0, sea: 0, notch: 0 },
+  sky:      { shape: 2, amp: 0, col: [0.62, 0.7, 0.88], band: [0.72, 0.8, 0.96], snow: 0, sea: 0, notch: 0 },
+  hell:     { shape: 3, amp: 950, col: [0.2, 0.11, 0.12], band: [0.34, 0.18, 0.14], snow: 0, sea: 0, notch: 0.35 },
+  space:    { shape: 2, amp: 0, col: [0.025, 0.035, 0.07], band: [0.04, 0.05, 0.09], snow: 0, sea: 0, notch: 0 },
 };
 const LAYERS = [
   { r: 3300, k: 1.0, mix: 0.84, seed: 1.3 },
@@ -166,8 +170,8 @@ export class Backdrop {
 
   update(dt, cam, s, road) {
     this.group.position.set(cam.x, cam.y, cam.z);
-    const b = biomeAt(s), A = PROFILE[b.a], B = PROFILE[b.b], w = b.w;
-    const look = lookAt(s);
+    const b = roadBiomeAt(road, s), A = PROFILE[b.a], B = PROFILE[b.b], w = b.w;
+    const look = lookAt(s, undefined, road);
     // sea side: coast = left of the road heading, dam = right; heading = direction of the road ahead (for the valley notch)
     let sx = 0, sz = 1, head = 0;
     if (road) {

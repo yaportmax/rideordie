@@ -2,12 +2,13 @@
 // curve-warning signs (placed from the road curvature), ranch / chain-link fences. Deterministic slot schedules per biome.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { biomeAt } from '../../data/biomes.js';
+import { roadBiomeAt } from '../biome_context.js';
 import { hash2, lerp } from '../../core/util.js';
 import { roadFrame, groundAt, CHUNK_LEN, rngOf } from './util.js';
 import { terrainPoint, EDGE } from '../terrain_gen.js';
 import { GLOW } from './pool.js';
 import { instanceMaterial } from './assets.js';
+import { drivingFootprintRadius } from '../driving_plan.js';
 
 /** Furniture density per biome (0..1 activity). */
 const CFG = {
@@ -17,8 +18,12 @@ const CFG = {
   mountain: { poles: 0.30, signs: 1.0, board: 0.2, mile: 1, lamps: 0, delin: 1, ranch: 0, chain: 0 },
   city:     { poles: 0.35, signs: 0.7, board: 1.0, mile: 1, lamps: 1, delin: 0, ranch: 0, chain: 0.55 },
   dam:      { poles: 0.0, signs: 0.35, board: 0.0, mile: 0, lamps: 0, delin: 1, ranch: 0.4, chain: 0.35 },
+  underground: { poles: 0, signs: 0.4, board: 0, mile: 1, lamps: 0.8, delin: 1, ranch: 0, chain: 0 },
+  sky:      { poles: 0, signs: 0.35, board: 0, mile: 1, lamps: 0, delin: 1, ranch: 0, chain: 0 },
+  hell:     { poles: 0, signs: 0.3, board: 0, mile: 1, lamps: 0, delin: 1, ranch: 0, chain: 0 },
+  space:    { poles: 0, signs: 0.35, board: 0, mile: 1, lamps: 0, delin: 1, ranch: 0, chain: 0 },
 };
-function cfg(s, key) { const b = biomeAt(s); return lerp(CFG[b.a][key], CFG[b.b][key], b.w); }
+function cfg(road, s, key) { const b = roadBiomeAt(road, s); return lerp(CFG[b.a][key], CFG[b.b][key], b.w); }
 
 const WRECK_SPEC = { far: 520, shadow: true, behind: true, mergeNear: 28 };   // same spec as the city's wrecks (first registration wins)
 export const FURNITURE_SPECS = {
@@ -96,7 +101,8 @@ function guardrails(ctx, chunk) {
   }
   const list = chunk.list('guardrail_4m');
   for (const sd of [1, -1]) {
-    const runs = subtract(mergeIntervals(per[sd]), cuts);
+    const branchCuts = road.ensureDrivingBranches().filter(b => b.side === sd).map(b => [b.s0 - 12, b.s1 + 12]);
+    const runs = subtract(mergeIntervals(per[sd]), [...cuts, ...branchCuts]);
     for (const [a, b] of runs) {
       const lo = Math.max(a, s0), hi = Math.min(b, s1);
       if (hi - lo < 3) continue;
@@ -127,12 +133,13 @@ const _railCache = new Map(); let _railRoad = null;
 const _rp = {}, _rsm = {};
 function railCond(road, seed, b, side) {
   const s0 = b * RAIL_BLOCK, s1 = s0 + RAIL_BLOCK;
-  const bio = biomeAt(s0 + RAIL_BLOCK / 2);
+  const bio = roadBiomeAt(road, s0 + RAIL_BLOCK / 2);
   if (bio.a === 'city' || bio.b === 'city' || s0 < 400) return false;
   for (const f of road.featuresIn(s0 - 25, s1 + 25)) if (f.type !== 'boost') return false;   // any road feature nearby: leave it clear
   let curve = 0, drop = 0;
   for (let k = 0; k < 4; k++) {
     const s = s0 + 6 + k * 12, sm = road.sample(s, _rsm);
+    if (road.corridorBlocked(sm.x + sm.nx * side * RAIL_D, sm.z + sm.nz * side * RAIL_D, 3, s)) return false;
     curve += sm.k * side;
     terrainPoint(road, seed, s, side * (EDGE + 4), _rp);
     if (road.surfaceY(sm, side * EDGE) - _rp.y > 1.8) drop++;
@@ -198,7 +205,7 @@ function poles(ctx, chunk) {
   const inMajor = (s) => cutsF.some((f) => (f.type === 'bridge' || f.type === 'tunnel') && s > f.s0 - 12 && s < f.s1 + 12);
   const activeAt = (s) => {
     const blk = Math.floor(s / 1500);
-    if (hash2(blk, 11, seed) > cfg(blk * 1500 + 750, 'poles')) return 0;
+    if (hash2(blk, 11, seed) > cfg(road, blk * 1500 + 750, 'poles')) return 0;
     return hash2(blk, 12, seed) < 0.5 ? 1 : -1;
   };
   const lp = chunk.list('utility_pole'), lw = chunk.list('wire_span');
@@ -208,11 +215,13 @@ function poles(ctx, chunk) {
     if (!side || inMajor(s)) continue;
     const d = side * 14.2;
     const g = chunk.ground.sample(s, d, P0);
+    if (road.corridorBlocked(g.x, g.z, drivingFootprintRadius(pole) + 1, s)) continue;
     const sm = road.sample(s, {});
     const jit = (hash2(k, 13, seed) - 0.5) * 0.12;
     lp.push(g.x, g.y - 0.15, g.z, sm.th + jit, 1, 1, 1, 0, 1, 0, 0, 6);
     if (wire && activeAt(s + 40) === side && !inMajor(s + 40)) {
       const g1 = groundAt(road, seed, s + 40, d, P1);
+      if (road.corridorBlocked(g1.x, g1.z, drivingFootprintRadius(pole) + 1, s + 40)) continue;
       const ax = g.x, ay = g.y - 0.15, az = g.z, bx = g1.x, by = g1.y - 0.15, bz = g1.z;
       let fx = bx - ax, fy = by - ay, fz = bz - az; const len = Math.hypot(fx, fy, fz); fx /= len; fy /= len; fz /= len;
       // lateral from world-up x f, up = f x lateral
@@ -230,17 +239,18 @@ function lamps(ctx, chunk) {
   if (lamp === undefined) return false;
   if (!lamp) return true;
   const { road, seed } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
-  if (cfg(s0 + 48, 'lamps') < 0.05 && cfg(s0, 'lamps') < 0.05 && cfg(s1, 'lamps') < 0.05) return true;
+  if (cfg(road, s0 + 48, 'lamps') < 0.05 && cfg(road, s0, 'lamps') < 0.05 && cfg(road, s1, 'lamps') < 0.05) return true;
   useSpec(ctx, 'street_lamp'); useSpec(ctx, 'lamp_pool', { far: 330 }); useSpec(ctx, 'lamp_cone', { far: 330 });
   const cutsF = road.featuresIn(s0 - 30, s1 + 30);
   const list = chunk.list('street_lamp'), P = {};
   const PITCH = 34;
   for (let k = Math.ceil(s0 / PITCH); k * PITCH < s1; k++) {
     const s = k * PITCH;
-    if (hash2(k, 21, seed) > cfg(s, 'lamps')) continue;
+    if (hash2(k, 21, seed) > cfg(road, s, 'lamps')) continue;
     if (cutsF.some((f) => (f.type === 'bridge' || f.type === 'tunnel' || f.type === 'overpass') && s > f.s0 - 8 && s < f.s1 + 8)) continue;
     const side = k % 2 ? 1 : -1;
     const g = chunk.ground.sample(s, side * 11.2, P);
+    if (road.corridorBlocked(g.x, g.z, drivingFootprintRadius(lamp) + 1, s)) continue;
     const sm = road.sample(s, {});
     // arm extends along local +X (left); on the left shoulder turn the lamp around so the arm reaches over the road
     list.push(g.x, g.y - 0.05, g.z, sm.th + (side > 0 ? Math.PI : 0), 1, 1, 1, 0, 1, 0, 0, 6);
@@ -267,13 +277,14 @@ function signs(ctx, chunk) {
   const put = (name, s, side, dist, ang, sc = 1) => {
     const asset = ctx.kit.get(name); if (!asset) return;
     const g = chunk.ground.sample(s, side * dist, P);
+    if (road.corridorBlocked(g.x, g.z, Math.max(asset.sphere.radius, drivingFootprintRadius(asset)) * sc, s)) return;
     chunk.list(name).push(g.x, g.y - 0.03, g.z, faceYaw(road, s, side, ang), sc, sc, sc, 0, 1, 0, 0, asset.sphere.radius * sc);
   };
   const SP = 380;
   for (let k = Math.ceil((s0 - 60) / SP); ; k++) {
     const s = k * SP + (hash2(k, 31, seed) - 0.5) * 140;
     if (s >= s1) break; if (s < s0) continue;
-    if (hash2(k, 32, seed) > cfg(s, 'signs') || blocked(s)) continue;
+    if (hash2(k, 32, seed) > cfg(road, s, 'signs') || blocked(s)) continue;
     const r = hash2(k, 33, seed);
     const side = hash2(k, 34, seed) < 0.6 ? -1 : 1;
     if (r < 0.78) put('sign_speed', s, side, 11.4, 0.08);          // curve warnings are placed from the road curvature (curveSigns)
@@ -282,7 +293,7 @@ function signs(ctx, chunk) {
   // mile markers every 500 m on the right
   for (let k = Math.ceil(s0 / 500); k * 500 < s1; k++) {
     const s = k * 500 + 30;
-    if (s < s0 || s >= s1 || cfg(s, 'mile') < 0.5 || blocked(s)) continue;
+    if (s < s0 || s >= s1 || cfg(road, s, 'mile') < 0.5 || blocked(s)) continue;
     put('mile_marker', s, -1, 11.0, 0.15);
   }
   // billboards ~ every 1.9 km
@@ -290,7 +301,7 @@ function signs(ctx, chunk) {
   for (let k = Math.ceil((s0 - 500) / BP); ; k++) {
     const s = k * BP + 400 + (hash2(k, 41, seed) - 0.5) * 900;
     if (s >= s1) break; if (s < s0) continue;
-    if (hash2(k, 42, seed) > cfg(s, 'board') || blocked(s)) continue;
+    if (hash2(k, 42, seed) > cfg(road, s, 'board') || blocked(s)) continue;
     const side = hash2(k, 43, seed) < 0.5 ? -1 : 1;
     put('billboard', s, side, 26 + hash2(k, 44, seed) * 14, 0.42 + hash2(k, 45, seed) * 0.15, 1);
   }
@@ -435,17 +446,18 @@ function blockedBy(feats, s, pad = 10) {
 // ------------------------------------------------------------------------------------------------ delineators (every 25 m, both sides)
 function delineators(ctx, chunk) {
   const { road } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
-  if (cfg(s0, 'delin') < 0.5 && cfg(s1, 'delin') < 0.5) return true;
+  if (cfg(road, s0, 'delin') < 0.5 && cfg(road, s1, 'delin') < 0.5) return true;
   useSpec(ctx, 'delineator', PROC_SPECS.delineator);
   const feats = road.featuresIn(s0 - 30, s1 + 30);
   const guards = feats.filter((f) => f.type === 'guard');
   for (let k = Math.ceil(s0 / 25); k * 25 < s1; k++) {
     const s = k * 25;
-    if (cfg(s, 'delin') < 0.5 || blockedBy(feats, s, 6)) continue;
+    if (cfg(road, s, 'delin') < 0.5 || blockedBy(feats, s, 6)) continue;
     for (const side of [1, -1]) {
       if (guards.some((f) => s > f.s0 - 4 && s < f.s1 + 4 && (f.side === 'both' || (f.side === 'L') === (side > 0)))) continue;
       if (railAt(road, ctx.seed, s, side)) continue;
       const p = road.pointAt(s, side * 9.15, _pa);
+      if (road.corridorBlocked(p.x, p.z, 1.2, s)) continue;
       chunk.list('delineator').push(p.x, p.y - 0.02, p.z, faceYaw(road, s, side, 0.05) + (side > 0 ? Math.PI : 0), 1, 1, 1, 0, 1, 0, 0, 1.2);
     }
   }
@@ -465,6 +477,7 @@ function curveSigns(ctx, chunk) {
     if (Math.abs(sm.k) < K_CHEV || blockedBy(feats, s, 8)) continue;
     const side = sm.k > 0 ? -1 : 1;                                // k > 0 turns left: the outside is the right-hand side
     const pg = chunk.ground.sample(s, side * 10.8, g);
+    if (road.corridorBlocked(pg.x, pg.z, 2.2, s)) continue;
     chunk.list(sm.k > 0 ? 'chevron_l' : 'chevron_r').push(pg.x, pg.y - 0.05, pg.z, faceYaw(road, s, side, 0.12), 1, 1, 1, 0, 1, 0, 0, 2.2);
   }
   // one warning sign ~140 m before each curve onset, on the right
@@ -474,6 +487,7 @@ function curveSigns(ctx, chunk) {
     let kmax = 0; for (let t = 140; t <= 260; t += 20) kmax = Math.max(kmax, Math.abs(road.sample(s + t, {}).k));
     if (kmax < 1 / 220 || blockedBy(feats, s, 12)) continue;
     const pg = chunk.ground.sample(s, -11.4, g);
+    if (road.corridorBlocked(pg.x, pg.z, 2.8, s)) continue;
     chunk.list(ka > 0 ? 'warn_curve_l' : 'warn_curve_r').push(pg.x, pg.y - 0.05, pg.z, faceYaw(road, s, -1, 0.1), 1, 1, 1, 0, 1, 0, 0, 2.8);
   }
   return true;
@@ -484,7 +498,7 @@ function curveSigns(ctx, chunk) {
 export function buildFences(ctx, chunk) {
   registerFurnitureAssets(ctx.kit);
   const { road, seed } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
-  if (Math.max(cfg(s0, 'ranch'), cfg(s1, 'ranch'), cfg(s0, 'chain'), cfg(s1, 'chain')) < 0.01) return true;
+  if (Math.max(cfg(road, s0, 'ranch'), cfg(road, s1, 'ranch'), cfg(road, s0, 'chain'), cfg(road, s1, 'chain')) < 0.01) return true;
   const chain = need(ctx, 'fence_chainlink_4m');
   if (chain === undefined) return false;
   const excl = ctx.exclusions(s0 - 20, s1 + 20);
@@ -497,7 +511,7 @@ export function buildFences(ctx, chunk) {
       const h = hash2(b, side > 0 ? 51 : 52, seed);
       const st0 = b * BL + hash2(b, 53 + side, seed) * 200, len = 150 + hash2(b, 55 + side, seed) * 300, st1 = st0 + len;
       if (st1 < s0 || st0 > s1) continue;
-      const bio = biomeAt(st0 + len / 2), id = bio.w > 0.5 ? bio.b : bio.a;
+      const bio = roadBiomeAt(road, st0 + len / 2), id = bio.w > 0.5 ? bio.b : bio.a;
       const isChain = CFG[id].chain > 0;
       if (h > (isChain ? CFG[id].chain : CFG[id].ranch)) continue;
       if (isChain && !chain) continue;
@@ -508,6 +522,7 @@ export function buildFences(ctx, chunk) {
         if (blockedBy(feats, s, 14) || railAt(road, seed, s, side)) continue;
         const d = side * dist;
         const a = chunk.ground.sample(s, d, g0), c = chunk.ground.sample(Math.min(s + 4, s1), d, g1);   // both ends from the chunk grid (cheap)
+        if (road.corridorBlocked((a.x + c.x) / 2, (a.z + c.z) / 2, 3, s + 2)) continue;
         const ry = road.sample(s, sm).y;
         if (Math.abs(a.y - ry) > 6 || a.ny < 0.8) continue;
         let bad = false;
@@ -527,13 +542,13 @@ export function buildFences(ctx, chunk) {
 // ------------------------------------------------------------------------------------------------ roadside wrecks, barrels, tyres
 // A burnt-out car every few hundred metres just off the verge (never on the road), often with a couple of barrels / a tyre stack next to
 // it, plus loose barrel / tyre groups. Wrecks get a static collider (like landmarks) so the truck can't drive through them.
-const WRECK_P = { desert: 0.75, canyon: 0.55, coast: 0.4, mountain: 0.35, city: 0, dam: 0.45 };
+const WRECK_P = { desert: 0.75, canyon: 0.55, coast: 0.4, mountain: 0.35, city: 0, dam: 0.45, underground: 0, sky: 0, hell: 0, space: 0 };
 const WRECK_NAMES = [['wreck_sedan', 3], ['wreck_pickup', 2], ['wreck_flipped', 1.2], ['skeleton_car_frame', 2.5]];
 const _wg = {}, _wsm = {};
 /** Runs with the far scatter tier (needs the landmark plan for exclusions; must not hold up road features). */
 export function buildWrecks(ctx, chunk) {
   const { road, seed } = ctx, s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
-  const b0 = biomeAt(s0), b1 = biomeAt(s1);
+  const b0 = roadBiomeAt(road, s0), b1 = roadBiomeAt(road, s1);
   if (Math.max(WRECK_P[b0.a], WRECK_P[b0.b], WRECK_P[b1.a], WRECK_P[b1.b]) <= 0) return true;
   const names = ['wreck_sedan', 'wreck_pickup', 'wreck_flipped', 'skeleton_car_frame', 'barrel', 'tire_stack'];
   const A = names.map((n) => need(ctx, n));
@@ -544,7 +559,7 @@ export function buildWrecks(ctx, chunk) {
   const BL = 320;
   for (let b = Math.floor(s0 / BL); b * BL < s1; b++) {
     for (const side of [1, -1]) {
-      const h = hash2(b, side > 0 ? 71 : 72, seed), bio = biomeAt(b * BL + BL / 2), id = bio.w > 0.5 ? bio.b : bio.a;
+      const h = hash2(b, side > 0 ? 71 : 72, seed), bio = roadBiomeAt(road, b * BL + BL / 2), id = bio.w > 0.5 ? bio.b : bio.a;
       const s = b * BL + 20 + hash2(b, side > 0 ? 73 : 74, seed) * (BL - 40);
       if (s < s0 || s >= s1 || blockedBy(feats, s, 25) || feats.some((f) => f.type === 'guard' && s > f.s0 - 5 && s < f.s1 + 5)) continue;
       if (railAt(road, seed, s, side) || railAt(road, seed, s - 12, side) || railAt(road, seed, s + 12, side)) continue;
@@ -566,6 +581,7 @@ export function buildWrecks(ctx, chunk) {
         const ext = Math.abs(Math.sin(psi)) * a.size.z / 2 + Math.abs(Math.cos(psi)) * a.size.x / 2;
         const d = side * Math.max(Math.abs(d0), 10.4 + ext);
         const gw = chunk.ground.sample(s, d, _wg);
+        if (road.corridorBlocked(gw.x, gw.z, Math.max(a.sphere.radius, drivingFootprintRadius(a)), s)) continue;
         const tt = 0.7 + r() * 0.45;
         useSpec(ctx, name);
         chunk.list(name).push(gw.x, gw.y - 0.06, gw.z, yaw, 1, 1, 1, gw.nx, gw.ny, gw.nz, 0.7, a.sphere.radius, tt, tt * (0.9 + r() * 0.12), tt * (0.84 + r() * 0.18));
@@ -583,6 +599,7 @@ export function buildWrecks(ctx, chunk) {
         const a = ctx.kit.get(name); if (!a) { r(); r(); r(); continue; }
         const ss = s + (wreck ? (r() < 0.5 ? -1 : 1) * (3.4 + r() * 2) : (r() - 0.5) * 3), dd = side * (Math.abs(d0) + (r() - 0.3) * 1.6);
         const gb = chunk.ground.sample(Math.min(s1, Math.max(s0, ss)), dd, _wg);
+        if (road.corridorBlocked(gb.x, gb.z, Math.max(a.sphere.radius, drivingFootprintRadius(a)), ss)) continue;
         const k = 0.6 + r() * 0.5;
         useSpec(ctx, name, name === 'barrel' ? { far: 220, shadow: false, lite: true } : FURNITURE_SPECS.tire_stack);
         const lying = !tyre && r() < 0.25;

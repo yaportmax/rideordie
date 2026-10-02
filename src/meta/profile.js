@@ -1,6 +1,13 @@
 // Save/load and host-owned campaign purchases.
-import { DEFAULT_PROFILE, TRUCKS, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, ownedWeapons, TRUCK_COLORS } from '../data/upgrades.js';
+import { DEFAULT_PROFILE, TRUCKS, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, ownedWeapons, TRUCK_COLORS, upgradeLevel, upgradeLimit } from '../data/upgrades.js';
 import { WEAPONS } from '../data/weapons.js';
+import { familyOf, normalizeFamilyUpgrades, stagePurchaseAllowed } from '../data/vehicle_families.js';
+import { normalizeWeaponOptics } from '../data/weapon_optics.js';
+import { defaultCampaignProgress, normalizeCampaignProgress, normalizeJourney } from '../data/campaign.js';
+export { campaignJourney, selectCampaignLevel, creditCampaignLevel } from '../data/campaign.js';
+
+export { upgradeLevel, upgradeLimit };
+export { buyWeaponOptic, equipWeaponOptic } from './weapon_optics.js';
 
 const KEY = 'rideordie.profile.v1';
 const record = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
@@ -8,13 +15,28 @@ const natural = (v, max = Number.MAX_SAFE_INTEGER) => Number.isFinite(v) ? Math.
 const positive = (v) => Number.isFinite(v) ? Math.max(0, v) : 0;
 const validTruck = (id) => TRUCKS.some((t) => t.id === id);
 const validWeapon = (id) => Object.hasOwn(WEAPONS, id);
+const bestRecord = value => { const b=record(value); return {distance:positive(b.distance),furthestS:Math.max(positive(b.furthestS),positive(b.distance)),time:positive(b.time),kills:natural(b.kills)}; };
+export function normalizeCampaignRecords(value) {
+  const records={};
+  for(const [key,best] of Object.entries(record(value))) if(/^(?:[1-9]|10)$/.test(key))records[key]=bestRecord(best);
+  return records;
+}
+export function bestForJourney(profile, journey) {
+  const j=normalizeJourney(journey);
+  return bestRecord(j.mode==='campaign'?record(profile?.campaignRecords)[j.level]:j.mode==='marathon'?profile?.marathonBest:profile?.best);
+}
 
 /** Repair incomplete/old saves without allowing malformed levels or loadouts to break a run. */
 export function normalizeProfile(value) {
   const p = record(value), d = DEFAULT_PROFILE();
-  const trucks = [...new Set(['truck_t1', ...(Array.isArray(p.trucks) ? p.trucks.filter(validTruck) : [])])];
+  const owned = Array.isArray(p.trucks) ? p.trucks.filter(validTruck) : [];
+  // Legacy campaigns retain their selected pickup even when the old ownership
+  // array was incomplete. New schema saves must actually own their selection.
+  if (p.vehicleUpgradeSchema !== 2 && /^truck_t[1-4]$/.test(p.truck) && !owned.includes(p.truck)) owned.push(p.truck);
+  const trucks = [...new Set([...d.trucks, ...owned])];
   const upgrades = {};
   for (const [id, u] of Object.entries(UPGRADE_BY_ID)) upgrades[id] = natural(record(p.upgrades)[id], u.costs.length);
+  const familyUpgrades = normalizeFamilyUpgrades({ ...p, upgrades });
   const weapons = { pistol: { dmg: 0, mag: 0, rel: 0, hnd: 0 } };
   for (const [id, levels] of Object.entries(record(p.weapons))) {
     if (!validWeapon(id)) continue;
@@ -27,10 +49,12 @@ export function normalizeProfile(value) {
     campaignId: typeof p.campaignId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) ? p.campaignId : d.campaignId,
     revision: natural(p.revision), cash: natural(p.cash), totalCash: natural(p.totalCash), runs: natural(p.runs), wins: natural(p.wins),
     best: { distance: positive(best.distance), furthestS: Math.max(positive(best.furthestS), positive(best.distance)), time: positive(best.time), kills: natural(best.kills) },
-    trucks, truck: trucks.includes(p.truck) ? p.truck : 'truck_t1', upgrades, weapons, loadout: loadout.length ? loadout : ['pistol'],
+    trucks, truck: trucks.includes(p.truck) ? p.truck : d.truck, ...familyUpgrades, weapons, weaponOptics: normalizeWeaponOptics({ weapons, weaponOptics: p.weaponOptics }), loadout: loadout.length ? loadout : ['pistol'],
     truckColor: natural(p.truckColor, TRUCK_COLORS.length - 1),
     minibosses: Object.fromEntries(Object.entries(record(p.minibosses)).filter(([id, done]) => /^[0-4]$/.test(id) && done === true)),
     bossKilled: p.bossKilled === true,
+    campaignProgress: normalizeCampaignProgress(p.campaignProgress),
+    campaignRecords: normalizeCampaignRecords(p.campaignRecords), marathonBest: bestRecord(p.marathonBest),
     lastRunId: typeof p.lastRunId === 'string' ? p.lastRunId : null,
     coopLastRunId: typeof p.coopLastRunId === 'string' && p.coopLastRunId.length > 0 && p.coopLastRunId.length <= 128 ? p.coopLastRunId : null,
   };
@@ -41,7 +65,7 @@ export function loadProfile(campaignId) {
     const raw = localStorage.getItem(campaignId ? `${KEY}.${campaignId}` : KEY);
     if (raw) return normalizeProfile(JSON.parse(raw));
   } catch { /* blocked or damaged storage */ }
-  return DEFAULT_PROFILE();
+  return { ...DEFAULT_PROFILE(), campaignProgress: defaultCampaignProgress(), campaignRecords:{}, marathonBest:bestRecord() };
 }
 export function saveProfile(p) {
   p.revision = natural(p.revision) + 1;
@@ -59,20 +83,27 @@ export function buyTruck(p, id) {
   if (!t) return { ok: false, reason: 'invalid' };
   if (p.trucks.includes(id)) return { ok: false, reason: 'owned' };
   if (p.cash < t.cost) return { ok: false, reason: 'cash' };
+  if (!stagePurchaseAllowed(p, id)) return { ok: false, reason: 'locked' };
   p.cash -= t.cost; p.trucks.push(id); p.truck = id; return { ok: true };
 }
 export function selectTruck(p, id) { if (validTruck(id) && p.trucks.includes(id)) { p.truck = id; return { ok: true }; } return { ok: false, reason: 'locked' }; }
 export function upgradeCost(p, id) {
   if (!Object.hasOwn(UPGRADE_BY_ID, id)) return null;
-  const u = UPGRADE_BY_ID[id], l = p.upgrades[id] || 0;
-  return l >= u.costs.length ? null : u.costs[l];
+  const u = UPGRADE_BY_ID[id], l = upgradeLevel(p, id);
+  return l >= upgradeLimit(p, id) ? null : u.costs[l];
 }
 export function buyUpgrade(p, id) {
   if (!Object.hasOwn(UPGRADE_BY_ID, id)) return { ok: false, reason: 'invalid' };
   const c = upgradeCost(p, id);
   if (c === null) return { ok: false, reason: 'max' };
   if (p.cash < c) return { ok: false, reason: 'cash' };
-  p.cash -= c; p.upgrades[id] = (p.upgrades[id] || 0) + 1; return { ok: true };
+  const u = UPGRADE_BY_ID[id], next = upgradeLevel(p, id) + 1;
+  if (u.role === 'driver') {
+    const families = normalizeFamilyUpgrades(p);
+    families.vehicleUpgrades[familyOf(p.truck)][id] = next;
+    Object.assign(p, families);
+  } else p.upgrades[id] = next;
+  p.cash -= c; return { ok: true };
 }
 export function buyWeapon(p, id) {
   if (!validWeapon(id)) return { ok: false, reason: 'invalid' };
@@ -80,6 +111,7 @@ export function buyWeapon(p, id) {
   if (Object.hasOwn(p.weapons, id)) return { ok: false, reason: 'owned' };
   if (p.cash < w.cost) return { ok: false, reason: 'cash' };
   p.cash -= w.cost; p.weapons[id] = { dmg: 0, mag: 0, rel: 0, hnd: 0 };
+  p.weaponOptics = normalizeWeaponOptics(p);
   if (p.loadout.length < 3) p.loadout.push(id);
   return { ok: true };
 }
@@ -109,12 +141,17 @@ export function creditRun(p, run) {
   if (!run || (run.id && p.lastRunId === run.id)) return p;
   const cash = natural(run.cash);
   p.cash = natural(p.cash + cash); p.totalCash = natural(p.totalCash + cash); p.runs++;
-  // Route progress is an absolute road coordinate; checkpoint payouts and the
-  // distance record continue to count only metres travelled during that life.
-  p.best.furthestS = Math.max(positive(p.best.furthestS), positive(p.best.distance), positive(run.furthestS), positive(run.distance));
-  p.best.distance = Math.max(p.best.distance, positive(run.distance)); p.best.time = Math.max(p.best.time, positive(run.time)); p.best.kills = Math.max(p.best.kills, natural(run.kills));
-  if (run.won) { p.wins++; p.bossKilled = true; }
-  for (const id of Array.isArray(run.minibosses) ? run.minibosses : []) if (/^[0-4]$/.test(String(id))) p.minibosses[id] = true;
+  const journey=normalizeJourney(run.journey), best=bestForJourney(p,journey);
+  // Chapters use their own local coordinates; only legacy road results alter
+  // the old absolute 60km checkpoint record.
+  best.furthestS=Math.max(best.furthestS,positive(run.furthestS),positive(run.distance));
+  best.distance=Math.max(best.distance,positive(run.distance));best.time=Math.max(best.time,positive(run.time));best.kills=Math.max(best.kills,natural(run.kills));
+  if(journey.mode==='campaign') { p.campaignRecords=normalizeCampaignRecords(p.campaignRecords);p.campaignRecords[journey.level]=best; }
+  else if(journey.mode==='marathon')p.marathonBest=best;
+  else p.best=best;
+  const finale=journey.mode!=='campaign'||(journey.level===10&&run.levelCleared===true);
+  if (run.won&&finale) { p.wins++; p.bossKilled = true; }
+  if(journey.mode==='legacy')for (const id of Array.isArray(run.minibosses) ? run.minibosses : []) if (/^[0-4]$/.test(String(id))) p.minibosses[id] = true;
   if (run.id) p.lastRunId = run.id;
   return p;
 }

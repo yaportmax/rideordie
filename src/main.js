@@ -1,6 +1,7 @@
 import { Game } from './game/game.js';
 import { App } from './app.js';
-import { DEFAULT_PROFILE, UPGRADES } from './data/upgrades.js';
+import { DEFAULT_PROFILE, UPGRADES, upgradeLimit } from './data/upgrades.js';
+import { familyOf } from './data/vehicle_families.js';
 import { Session } from './net/session.js';
 import { Transport } from './net/transport.js';
 import { loadSettings } from './ui/settings_store.js';
@@ -27,7 +28,7 @@ if (q.has('solo') || q.get('devnet')) document.getElementById('boot')?.remove();
 const devProfile = () => {
   const p = DEFAULT_PROFILE();
   if (q.get('truck')) { p.truck = q.get('truck'); p.trucks.push(p.truck); }
-  if (q.has('maxed')) { p.truck = 'truck_t4'; p.trucks = ['truck_t1', 'truck_t2', 'truck_t3', 'truck_t4']; for (const u of UPGRADES) p.upgrades[u.id] = u.costs.length; p.weapons = { lmg: { dmg: 3, mag: 3, rel: 3, hnd: 3 }, rpg: { dmg: 3, mag: 3, rel: 3, hnd: 3 }, sniper: { dmg: 3, mag: 3, rel: 3, hnd: 3 } }; p.loadout = ['lmg', 'rpg', 'sniper']; }
+  if (q.has('maxed')) { p.truck = 'truck_t4'; p.trucks = ['truck_t1', 'truck_t2', 'truck_t3', 'truck_t4']; for (const u of UPGRADES) { const bucket = u.role === 'driver' ? p.vehicleUpgrades[familyOf(p.truck)] : p.upgrades; bucket[u.id] = upgradeLimit(p, u.id); } p.weapons = { lmg: { dmg: 3, mag: 3, rel: 3, hnd: 3 }, rpg: { dmg: 3, mag: 3, rel: 3, hnd: 3 }, sniper: { dmg: 3, mag: 3, rel: 3, hnd: 3 } }; p.loadout = ['lmg', 'rpg', 'sniper']; }
   if (q.get('weapons')) for (const id of q.get('weapons').split(',')) { p.weapons[id] = { dmg: 0, mag: 0, rel: 0, hnd: 0 }; if (!p.loadout.includes(id)) p.loadout.push(id); }
   return p;
 };

@@ -1,6 +1,7 @@
 // Stat previews for the garage: "before -> after" rows computed from effects() / weaponStats() / the vehicle tables.
-import { effects, UPGRADE_BY_ID, TRUCKS } from '../data/upgrades.js';
+import { effects, UPGRADE_BY_ID, TRUCKS, upgradeLevel, upgradeLimit } from '../data/upgrades.js';
 import { VEHICLES } from '../data/vehicles.js';
+import { familyOf, normalizeFamilyUpgrades, stagePurchaseAllowed } from '../data/vehicle_families.js';
 import { WEAPONS, WEAPON_ORDER, weaponStats } from '../data/weapons.js';
 import { speedValue, speedLabel } from './units.js';
 
@@ -10,7 +11,7 @@ const r2 = (v) => (Math.round(v * 100) / 100).toFixed(2);
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v)}%`;
 const pctPlain = (v) => `${Math.round(v)}%`;
 export const hullHp = (spec) => spec.hp ?? Math.round(spec.mass * 0.3);
-const specOf = (p) => VEHICLES[p.truck] || VEHICLES.truck_t1;
+const specOf = (p) => VEHICLES[p.truck]?.kind === 'player' ? VEHICLES[p.truck] : VEHICLES.player_sedan_t1;
 
 /** Per-upgrade stat definitions: (spec, max levels) -> [{label, get(effects), max, unit, fmt, lowerBetter}]. */
 const level = (n, label = 'LEVEL') => ({ label, get: (_e, lv) => lv, max: n, fmt: (v) => (v === 0 ? 'NONE' : `LV ${v}`), byLevel: true });
@@ -20,7 +21,7 @@ const UP_STATS = {
     { label: 'ACCELERATION', get: (e) => spec.engine.accel0 * (1 + (e.engineMul - 1) * 1.1), max: 10, unit: 'M/S²', fmt: r1 },
   ],
   armor: (spec) => [
-    { label: 'TRUCK HP', get: (e) => hullHp(spec) * e.hpMul, max: 1800, fmt: r0 },
+    { label: 'CAR HP', get: (e) => hullHp(spec) * e.hpMul, max: 1800, fmt: r0 },
     { label: 'BULLET RESIST', get: (e) => (1 - e.bulletResist) * 100, max: 45, fmt: pctPlain },
   ],
   tires: () => [
@@ -52,10 +53,15 @@ const UP_STATS = {
 /** Rows for a leveled upgrade: current level and (if not maxed) the level you would get. */
 export function upgradeStats(profile, id, units = 'mi') {
   const u = UPGRADE_BY_ID[id]; if (!u) return [];
-  const lv = profile.upgrades[id] || 0, n = u.costs.length;
+  const lv = upgradeLevel(profile, id), n = upgradeLimit(profile, id);
   const spec = specOf(profile);
   const e0 = effects(profile);
-  const e1 = lv < n ? effects({ ...profile, upgrades: { ...profile.upgrades, [id]: lv + 1 } }) : null;
+  let next;
+  if (u.role === 'driver') {
+    const normalized = normalizeFamilyUpgrades(profile), family = familyOf(profile.truck);
+    next = { ...profile, ...normalized, vehicleUpgrades: { ...normalized.vehicleUpgrades, [family]: { ...normalized.vehicleUpgrades[family], [id]: lv + 1 } } };
+  } else next = { ...profile, upgrades: { ...profile.upgrades, [id]: lv + 1 } };
+  const e1 = lv < n ? effects(next) : null;
   return (UP_STATS[id] ? UP_STATS[id](spec, n, units) : [level(n)]).map((d) => {
     // "invertBar" rows are negative numbers (less damage taken): show the magnitude as a growing bar, text keeps the sign.
     const before = d.get(e0, lv), after = e1 ? d.get(e1, lv + 1) : null;
@@ -67,13 +73,15 @@ export function upgradeStats(profile, id, units = 'mi') {
 /** Rows comparing truck `id` with the currently selected truck (upgrades included). */
 export function truckStats(profile, id, units = 'mi') {
   const cur = specOf(profile), tgt = VEHICLES[id] || cur;
-  const e = effects(profile);
-  const f = (spec) => ({
+  const f = (spec) => {
+    const e = effects({ ...profile, truck: spec.id });
+    return {
     speed: speedValue(spec.engine.vmax * e.engineMul, units),
     accel: spec.engine.accel0 * (1 + (e.engineMul - 1) * 1.1),
     hp: hullHp(spec) * e.hpMul, mass: spec.mass,
     size: spec.length * spec.width,
-  });
+    };
+  };
   const a = f(cur), b = f(tgt), same = cur.id === tgt.id;
   const row = (label, k, max, fmt, unit, lowerBetter) => ({ label, before: a[k], after: same ? null : b[k], max, fmt, unit, lowerBetter });
   return [
@@ -87,11 +95,12 @@ export function truckStats(profile, id, units = 'mi') {
  * thing worth saving for. -> {tab, id, name, kind, cost, need, why} | null
  */
 export function suggestNext(profile, cause = '') {
-  const p = profile, cash = p.cash || 0, lv = (id) => p.upgrades[id] || 0;
-  const up = (id, why) => { const u = UPGRADE_BY_ID[id]; if (!u || lv(id) >= u.costs.length) return null; return { tab: u.role === 'driver' ? 'upgrades' : 'gunner', id, name: `${u.name}${u.costs.length > 1 ? ' LV ' + (lv(id) + 1) : ''}`, kind: u.role === 'driver' ? 'TRUCK UPGRADE' : 'GUNNER GEAR', cost: u.costs[lv(id)], why }; };
-  const tierNow = +String(p.truck || 'truck_t1').slice(-1);
-  const nextTruck = TRUCKS.find((t) => t.tier > tierNow && !p.trucks.includes(t.id));
-  const truck = nextTruck ? { tab: 'truck', id: nextTruck.id, name: nextTruck.name, kind: `TIER ${nextTruck.tier} TRUCK`, cost: nextTruck.cost, why: 'MORE ARMOUR, MORE SPEED, MORE ROOM TO FIGHT' } : null;
+  const p = profile, cash = p.cash || 0, lv = (id) => upgradeLevel(p, id);
+  const up = (id, why) => { const u = UPGRADE_BY_ID[id]; if (!u || lv(id) >= upgradeLimit(p, id)) return null; return { tab: u.role === 'driver' ? 'upgrades' : 'gunner', id, name: `${u.name}${u.costs.length > 1 ? ' LV ' + (lv(id) + 1) : ''}`, kind: u.role === 'driver' ? 'CAR UPGRADE' : 'GUNNER GEAR', cost: u.costs[lv(id)], why }; };
+  const family = familyOf(p.truck);
+  const candidates = TRUCKS.filter(t => !p.trucks.includes(t.id) && stagePurchaseAllowed(p, t.id));
+  const nextTruck = candidates.find(t => t.family === family) || candidates.find(t => t.tier === 1);
+  const truck = nextTruck ? { tab: 'truck', id: nextTruck.id, name: nextTruck.name, kind: `STAGE ${nextTruck.tier} CHASSIS`, cost: nextTruck.cost, why: nextTruck.family === family ? 'A STRONGER CHASSIS FOR YOUR CURRENT BUILD' : 'A DIFFERENT CHASSIS WITH ITS OWN UPGRADE PATH' } : null;
   const bestOwnedIdx = Math.max(...WEAPON_ORDER.map((id, i) => (p.weapons[id] ? i : -1)));
   const nextGunId = WEAPON_ORDER.find((id, i) => i > bestOwnedIdx && !p.weapons[id] && id !== 'revolver');
   const gun = nextGunId ? { tab: 'weapons', id: nextGunId, name: WEAPONS[nextGunId].name, kind: 'WEAPON', cost: WEAPONS[nextGunId].cost, why: 'BIGGER GUN, FASTER KILLS, MORE CASH' } : null;

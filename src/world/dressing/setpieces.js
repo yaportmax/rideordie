@@ -2,7 +2,8 @@
 // along the road; its generator is run in small time slices (no frame spikes) when the player gets close, its meshes are warmed
 // (shader compile + texture upload, see Game.warmMeshes) while hidden and shown together; everything is dropped again far away.
 import * as THREE from 'three';
-import { DAM, buildDam } from './dam.js';
+import { DAM, buildDam, damDefinition } from './dam.js';
+import { contextualRoad, biomeRange } from '../biome_context.js';
 
 const PIECES = [
   { id: 'dam', sA: DAM.sA - 4800, sB: DAM.sB + 4500, build: buildDam },
@@ -11,6 +12,11 @@ const PIECES = [
 export class SetPieces {
   constructor(dress) {
     this.dress = dress; this.scene = dress.scene;
+    const dam = damDefinition(dress.road);
+    const span = biomeRange(dress.road, 'dam');
+    this.pieces = !contextualRoad(dress.road) ? PIECES : dam ? [
+      { id: 'dam', sA: Math.max(span.start, dam.sA - 1800), sB: Math.min(span.end, dam.sB + 2400), build: buildDam },
+    ] : [];
     this.group = new THREE.Group(); this.group.name = 'set-pieces'; this.scene.add(this.group);
     this.live = new Map();   // id -> {gen, group, meshes, state}
     this.stats = { ms: 0, max: 0, slice: 0, sliceAt: -1 };
@@ -19,7 +25,7 @@ export class SetPieces {
   terrainMat() { for (const ch of this.dress.chunks.values()) { const m = ch.rec && ch.rec.mesh && ch.rec.mesh.material; if (m) return m; } return null; }
 
   update(s, budgetMs = 2) {
-    for (const p of PIECES) {
+    for (const p of this.pieces) {
       const want = s > p.sA && s < p.sB, L = this.live.get(p.id);
       if (want && !L) {
         const g = new THREE.Group(); g.name = 'set:' + p.id; g.visible = false; this.group.add(g);

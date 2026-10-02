@@ -19,8 +19,22 @@ export function buildZones(spec) {
     z.push({ kind: key + '_legs', role: key, shape: 'box', c: [g[0], g[1] + 0.35, g[2]], h: [0.3, 0.35, 0.22], lowerBody: true });
   }
   const L = spec.length, W = spec.width;
-  z.push({ kind: 'engine', shape: 'box', c: [0, 0.95, L / 2 - 0.85], h: [W * 0.36, 0.28, 0.78] });
-  z.push({ kind: 'fuel', shape: 'box', c: [0, 0.62, -L / 2 + 0.55], h: [W * 0.34, 0.24, 0.5] });
+  // New chassis can place their engine behind the seats. Use authored model-
+  // frame bounds in both simulation and client ghosts rather than treating
+  // every vehicle as a front-engine pickup. Keep zone arrays instance-owned.
+  const engineZone = spec.hitZones?.engine;
+  z.push({ kind: 'engine', shape: 'box',
+    c: engineZone ? [...engineZone.c] : [0, 0.95, L / 2 - 0.85],
+    h: engineZone ? [...engineZone.h] : [W * 0.36, 0.28, 0.78] });
+  // The heavy GLB is asymmetric around its origin. Rear-mounted weak-point
+  // art uses its actual rear face, not -length/2. Both Car and GhostCar build
+  // these zones from the same static metadata, so co-op aim/hits agree.
+  const fuel = spec.id === 'e_heavy' && spec.model?.bbox
+    ? [0, 1.0, spec.model.bbox.min[2] + 0.3]
+    : [0, 0.62, -L / 2 + 0.55];
+  const fuelZone = spec.hitZones?.fuel;
+  z.push({ kind: 'fuel', shape: 'box', c: fuelZone ? [...fuelZone.c] : fuel,
+    h: fuelZone ? [...fuelZone.h] : [W * 0.34, 0.24, 0.5] });
   spec.wheels.forEach((w, i) => z.push({ kind: 'tire', index: i, shape: 'sphere', c: [w.x, spec.wheelRadius, w.z], r: spec.wheelRadius * 0.95 }));
   for (const b of spec.colliders) z.push({ kind: 'body', shape: 'box', c: b.center, h: b.half });
   return z;
@@ -122,7 +136,7 @@ export function raycastZones(carLike, origin, dir, maxDist, ignoreRoles) {
   let bodyZone = null, partZone = null, bodyT = Infinity, partT = Infinity;
   for (const zn of carLike.zones) {
     const cr = zn.role ? carLike.crew[zn.role] : null;
-    if (cr && !cr.alive) continue;
+    if (zn.role && (!cr || !cr.alive)) continue;
     if (zn.role && ignoreRoles && ignoreRoles.has(zn.role)) continue;
     let c = zn.c;
     if (cr && (cr.crouch || cr.x || cr.z)) { // the gunner moves about / ducks: shift the zone

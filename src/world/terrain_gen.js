@@ -1,9 +1,11 @@
 // Terrain strip generation (pure functions; runs in a Web Worker or in Node).
 // The world around the road is parameterised by (s, d): s = distance along the road, d = lateral offset (left +).
 // Terrain height = road elevation + biome profile(s, d). Chunks are CHUNK_LEN long along s and span both sides.
-import { BIOMES, biomeAt, HALF_ROAD, SHOULDER } from '../data/biomes.js';
+import { BIOMES, HALF_ROAD, SHOULDER } from '../data/biomes.js';
 import { clamp, clamp01, lerp, smoothstep, fbm2, fbm1, ridged2, vnoise2, hash2 } from '../core/util.js';
+import { CAMPAIGN_THEMES } from '../data/campaign_themes.js';
 import { DS } from './road.js';
+import { drivingCorridorAt, drivingBranchRibbon, branchSample } from './driving_plan.js';
 
 export const CHUNK_LEN = 96;
 export const EDGE = HALF_ROAD + SHOULDER;             // 9.5 m: road strip / terrain seam
@@ -22,14 +24,13 @@ export const TEX_WRAP = 720;
 export const ROAD_WRAP = 768;
 const wrapOff = (v) => v - TEX_WRAP * Math.floor(v / TEX_WRAP);
 
-const NB = { desert: 0, canyon: 1, coast: 2, mountain: 3, city: 4, dam: 5 };
 /** Biome weight of `id` in a biomeAt() result. */
 const bw = (bio, id) => (bio.a === id ? 1 - bio.w : 0) + (bio.b === id ? bio.w : 0);
 
 // ------------------------------------------------------------------------------------------------ profile
 /** Terrain offset above the road-edge plane for one biome. a = distance beyond the shoulder edge (>=0), side = +1 left / -1 right. */
 function profile(id, seed, s, a, side, sm) {
-  const T = BIOMES[id].terrain;
+  const T = (CAMPAIGN_THEMES[id] || BIOMES[id]).terrain;
   const ramp = smoothstep(0, 6, a); // continuity with the road edge
   // far ridges: peaks and saddles (two scales) that crest 550-750 m out and fall away toward the 900 m edge, so the skyline is a
   // ragged ridgeline instead of the straight cut of the terrain boundary
@@ -121,6 +122,30 @@ function profile(id, seed, s, a, side, sm) {
       if (!up) h -= 55 * smoothstep(6, 55, a) * (0.6 + 0.4 * fbm1(s / 300, 2, seed + 54)); // valley side drops away
       break;
     }
+    case 'vault': {
+      const wall = smoothstep(T.flat, T.flat + 28, a);
+      h = wall * T.wall + (fbm2(s / 110, a / 80, 3, seed + 301) - .5) * T.amp;
+      break;
+    }
+    case 'skyway':
+    case 'orbital': {
+      // Supported service deck; the void begins beyond its authored safe edge.
+      const edge = T.deckHalfWidth - EDGE;
+      h = -T.deckDepth * smoothstep(edge, edge + 3, a)
+        - T.voidDrop * smoothstep(T.voidStart - EDGE, T.voidStart - EDGE + 45, a);
+      break;
+    }
+    case 'volcanic': {
+      const ridge = ridged2(s / 180, a / 100, 4, seed + 311);
+      // The authored molten channels span |d|=30..110 at road-centre Y-24.
+      // Keep their real collision floor below the liquid; high basalt starts
+      // after the channel instead of burying it under a positive ridge.
+      const river = smoothstep(T.lavaStart, 20.5, a) * (1 - smoothstep(T.lavaEnd, T.lavaEnd + 30, a));
+      h = T.mass * ridge * smoothstep(T.lavaEnd, T.lavaEnd + 85, a)
+        + T.amp * (fbm2(s / 75, a / 55, 3, seed + 319) - .5) * (1 - river)
+        - T.lavaDrop * river;
+      break;
+    }
     case 'plain':
     default: {
       const n = fbm2(s / 180, (a + side * 200) / 150, 3, seed + 61) * 2 - 1;
@@ -208,7 +233,7 @@ const _smL = {}, _nB = {}, _smB = {};
 function rawHeight(road, seed, s, d) {
   const sm = road.sample(s, _smB), side = d >= 0 ? 1 : -1, a = Math.max(0, Math.abs(d) - EDGE);
   const yPlane = road.surfaceY(sm, side * EDGE) - side * a * Math.tan(sm.bank) * (1 - smoothstep(0, 30, a));
-  return yPlane + biomeProfile(seed, s, a, side, sm, biomeAt(s));
+  return yPlane + biomeProfile(seed, s, a, side, sm, road.biomeAt(s));
 }
 
 /** World position of terrain at (s, d). Writes into out {x,y,z}. d beyond +-EDGE. */
@@ -226,7 +251,7 @@ export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   if (ad0 > u0) ad = u0 + (dLim - u0) * (1 - Math.exp(-(ad0 - u0) / (dLim - u0)));
   const dd = side * ad;
   const a = ad - EDGE;
-  const bio = biomeAt(s);
+  const bio = road.biomeAt(s);
   // road-plane height at the seam, banked plane fading outward
   const yEdge = road.surfaceY(sm, side * EDGE);
   const bankFade = 1 - smoothstep(0, 30, a);
@@ -243,9 +268,12 @@ export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
       if (Math.abs(nb.d) > EDGE + 1) { const yB = rawHeight(road, seed, nb.s, nb.d); out.y += w * 0.5 * (yB - out.y); off = out.y - yPlane; }
     }
   }
+  const corridor = drivingCorridorAt(road, road.ensureDrivingBranches(), out.x, out.z, s, _corridor);
+  if (corridor.weight > 0) { out.y = lerp(out.y, corridor.y, corridor.weight); off = out.y - yPlane; }
   out.s = s; out.a = a; out.side = side; out.off = off; out.bio = bio;
   return out;
 }
+const _corridor = {};
 
 // ------------------------------------------------------------------------------------------------ splat
 function splatWeights(w, bioId, seed, s, a, side, slope, wy, wx, wz, seaY) {
@@ -285,6 +313,22 @@ function splatWeights(w, bioId, seed, s, a, side, slope, wy, wx, wz, seaY) {
       w[L.gravel] += shoulder * 0.7 + (1 - steep) * smoothstep(0.4, 0.7, n2) * 0.45; w[L.rock_grey] += steep; w[L.dry_grass] += smoothstep(0.62, 0.8, n1) * 0.4 * (1 - steep);
       break;
     }
+    case 'underground': {
+      w[L.rock_grey] += .65 + steep; w[L.concrete_cracked] += (1 - steep) * .55;
+      w[L.gravel] += shoulder * .9; w[L.cliff] += vsteep;
+      break;
+    }
+    case 'sky':
+    case 'space': {
+      w[L.concrete] += (1 - steep) * .85; w[L.rock_grey] += steep * .8;
+      w[L.concrete_cracked] += (1 - steep) * n1 * .25; w[L.cliff] += vsteep;
+      break;
+    }
+    case 'hell': {
+      w[L.rock_grey] += .6 + steep; w[L.rock_red] += (1 - steep) * (.25 + n1 * .4);
+      w[L.gravel] += shoulder * .8; w[L.cliff] += vsteep;
+      break;
+    }
     case 'dam':
     default: {
       w[L.gravel] += (1 - steep) * (0.35 + 0.3 * n1) + shoulder * 0.8; w[L.dry_grass] += (1 - steep) * smoothstep(0.45, 0.7, n2) * 0.8;
@@ -315,8 +359,11 @@ export function splatAt(w, seed, s, a, side, slope, wx, wy, wz, seaY, bio) {
  * @returns {{anchor:number[], positions:Float32Array, normals:Float32Array, splat:Float32Array[], macro:Float32Array, indices:Uint16Array|Uint32Array, colPositions?:Float32Array, colIndices?:Uint32Array, nx:number, rows:number}}
  */
 export function genTerrainChunk(road, seed, chunk, lod) {
-  const stride = LOD_STRIDE[lod];
   const s0 = chunk * CHUNK_LEN, s1 = s0 + CHUNK_LEN;
+  const branchNear = road.ensureDrivingBranches().some(b => b.s1 + 16 >= s0 && b.s0 - 16 <= s1);
+  // Corridor terrain remains fine on its first distant reply as well. Coarse
+  // long rows must never fill the carved lane or rise through its road strip.
+  const stride = branchNear ? 1 : LOD_STRIDE[lod];
   road.extendTo(s1 + 200);
   const rowsN = CHUNK_LEN / (DS * stride) + 1;
   const anchorSm = road.sample(s0);
@@ -340,9 +387,9 @@ export function genTerrainChunk(road, seed, chunk, lod) {
   let vi = 0;
   const colPos = []; // lod0 only: collision positions (same grid without skirts), separate index list
   const colIdx = [];
-  const collide = lod === 0;
+  const collide = lod === 0 || branchNear;
   const seaY = (() => { // sea level for coast/lake: fixed world height under the road of that biome
-    const bio = biomeAt((s0 + s1) / 2);
+    const bio = road.biomeAt((s0 + s1) / 2);
     return bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : bio.a === 'dam' || bio.b === 'dam' ? seaLevel(road, 'dam') : -1e9;
   })();
   for (const side of sides) {
@@ -401,7 +448,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
     };
     const rowMin = (r) => { let m = 1e9; for (let c = 0; c < nCol; c++) m = Math.min(m, positions[gridIndex(r, c) * 3 + 1]); return m; };
     const smA = road.sample(s0), smB = road.sample(s1);
-    const rockA = capRock(biomeAt(s0)), rockB = capRock(biomeAt(s1));
+    const rockA = capRock(road.biomeAt(s0)), rockB = capRock(road.biomeAt(s1));
     const rowFirst = [], rowLast = [];
     const yA = rowMin(0) - 40, yB = rowMin(rowsN - 1) - 40;
     for (let c = 0; c < nCol; c++) rowFirst.push(skirt(0, c, yA, -smA.fx, -smA.fz, rockA));
@@ -412,7 +459,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
     const colSk = [];
     for (let r = 0; r < rowsN; r++) {
       const sm = road.sample(s0 + r * DS * stride, _smC), src = gridIndex(r, nCol - 1);
-      colSk.push(skirt(r, nCol - 1, positions[src * 3 + 1] - 250, sm.nx * side, sm.nz * side, capRock(biomeAt(sm.s))));
+      colSk.push(skirt(r, nCol - 1, positions[src * 3 + 1] - 250, sm.nx * side, sm.nz * side, capRock(road.biomeAt(sm.s))));
     }
     for (let r = 0; r < rowsN - 1; r++) {
       const g0 = gridIndex(r, nCol - 1), g1 = gridIndex(r + 1, nCol - 1), k0 = colSk[r], k1 = colSk[r + 1];
@@ -464,13 +511,13 @@ export function genRoadChunk(road, seed, chunk) {
   const splat = [new Float32Array(nv * 4), new Float32Array(nv * 4), new Float32Array(nv * 4)];
   const seg = Math.floor(s0 / ROAD_WRAP), sBase = seg * ROAD_WRAP;
   const offX = wrapOff(ax), offZ = wrapOff(az);
-  const bio0 = biomeAt((s0 + s1) / 2);
+  const bio0 = road.biomeAt((s0 + s1) / 2);
   const seaY = bio0.a === 'coast' || bio0.b === 'coast' ? seaLevel(road, 'coast') : bio0.a === 'dam' || bio0.b === 'dam' ? seaLevel(road, 'dam') : -1e4;
   const sm = {}, w = new Float32Array(12);
   for (let r = 0; r < rows; r++) {
     const s = s0 + r * DS;
     road.sample(s, sm);
-    const bio = biomeAt(s);
+    const bio = road.biomeAt(s);
     const snow = bw(bio, 'mountain') * smoothstep(95, 140, sm.y);
     for (let c = 0; c < cols; c++) {
       const d = ROAD_COLS[c];
@@ -506,6 +553,44 @@ export function genRoadChunk(road, seed, chunk) {
   return { anchor: [ax, ay, az], positions, normals, uvs, roadA, roadB, splat, aux, indices: new Uint16Array(idx), rows, cols, colPositions: positions.slice(), colIndices: new Uint32Array(idx) };
 }
 
+/** Always-fine optional route strips, with the same banked triangles for view and collision. */
+export function genDrivingBranchChunk(road, seed, chunk) {
+  const s0 = chunk * CHUNK_LEN, s1 = s0 + CHUNK_LEN, result = [];
+  const anchor = road.sample(s0, {}), w = new Float32Array(12);
+  for (const branch of road.ensureDrivingBranches()) {
+    const ribbon = drivingBranchRibbon(road, branch, s0, s1);
+    if (!ribbon) continue;
+    const nv = ribbon.pos.length / 3, rows = nv / 2;
+    const positions = new Float32Array(ribbon.pos.length), normals = new Float32Array(ribbon.pos.length), uvs = new Float32Array(nv * 2);
+    const roadA = new Float32Array(nv * 4), roadB = new Float32Array(nv * 4), aux = new Float32Array(nv * 4);
+    const splat = [new Float32Array(nv * 4), new Float32Array(nv * 4), new Float32Array(nv * 4)];
+    const seg = Math.floor(s0 / ROAD_WRAP), sBase = seg * ROAD_WRAP;
+    const seaY = branch.biome === 'coast' || branch.biome === 'dam' ? seaLevel(road, branch.biome) : -1e4;
+    for (let r = 0; r < rows; r++) {
+      const s = ribbon.s0 + (ribbon.s1 - ribbon.s0) * r / (rows - 1), p = branchSample(road, branch, s, {});
+      const a = branchSample(road, branch, s - 1.5, {}), b = branchSample(road, branch, s + 1.5, {});
+      const dx = b.x - a.x, dz = b.z - a.z, dl = Math.hypot(dx, dz), nx = dz / dl, nz = -dx / dl;
+      const fx = dx / dl, fy = (b.y - a.y) / dl, fz = dz / dl, ly = -Math.tan(p.bank);
+      let ux = fy * nz - fz * ly, uy = fz * nx - fx * nz, uz = fx * ly - fy * nx;
+      const ul = Math.hypot(ux, uy, uz); ux /= ul; uy /= ul; uz /= ul;
+      const bio = road.biomeAt(s);
+      const snow = bw(bio, 'mountain') * smoothstep(95, 140, p.y);
+      splatAt(w, seed, s, 0, branch.side, 0.02, p.x, p.y, p.z, seaY, bio);
+      for (let c = 0; c < 2; c++) {
+        const i = r * 2 + c, o = i * 3;
+        positions[o] = ribbon.pos[o] - anchor.x; positions[o + 1] = ribbon.pos[o + 1] - anchor.y; positions[o + 2] = ribbon.pos[o + 2] - anchor.z;
+        normals.set([ux, uy, uz], o); uvs.set([(c ? -1 : 1) * branch.width / 2, s - sBase], i * 2);
+        roadA.set([bw(bio, 'desert'), bw(bio, 'canyon'), bw(bio, 'coast'), bw(bio, 'mountain')], i * 4);
+        roadB.set([bw(bio, 'city'), bw(bio, 'dam'), snow, seg], i * 4);
+        aux.set([wrapOff(anchor.x), wrapOff(anchor.z), 0, seaY], i * 4);
+        for (let k = 0; k < 12; k++) splat[(k / 4) | 0][i * 4 + k % 4] = w[k];
+      }
+    }
+    result.push({ route: branch.id, s0: ribbon.s0, s1: ribbon.s1, anchor: [anchor.x, anchor.y, anchor.z], positions, normals, uvs, roadA, roadB, splat, aux, indices: ribbon.idx });
+  }
+  return result;
+}
+
 /** World sea level (y) for a biome that has water: fixed under the middle of that biome's road. */
 const _seaCache = new WeakMap();
 export function seaLevel(road, biomeId) {
@@ -513,9 +598,10 @@ export function seaLevel(road, biomeId) {
   if (m[biomeId] === undefined) {
     const T = BIOMES[biomeId].terrain;
     // lowest road elevation seen across the biome, minus the cliff height so cliffs always reach the water
-    const mid = biomeId === 'coast' ? 25000 : 55000;
+    const levelIndex = road.journey.mode === 'marathon' ? (biomeId === 'coast' ? 2 : 5) : 0;
+    const mid = road.journey.mode === 'legacy' ? (biomeId === 'coast' ? 25000 : 55000) : (road.levelStarts[levelIndex] || 0) + 4000;
     road.extendTo(mid + 4000);
-    let minY = 1e9; for (let s = mid - 5000; s <= mid + 5000; s += 30) minY = Math.min(minY, road.sample(s).y);
+    let minY = 1e9; for (let s = Math.max(0, mid - 5000); s <= mid + 5000; s += 30) minY = Math.min(minY, road.sample(s).y);
     m[biomeId] = minY - (T.cliff ?? 40) * 0.55;
   }
   return m[biomeId];

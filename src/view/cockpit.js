@@ -206,17 +206,26 @@ export class Cockpit {
   _mirrors() {
     const S = this.shield;
     // preferred: the model's explicit mirror-glass sockets (+Z faces back into the cab; door ones ride on the door panels)
-    const GLASS = { truck_t1: [0.09, 0.14], truck_t2: [0.13, 0.23], truck_t3: [0.12, 0.19], truck_t4: [0.14, 0.21] }[this.cv.spec.id] || [0.12, 0.19];
+    const modelID = this.cv.spec.modelId || this.cv.spec.id;
+    const GLASS = { truck_t1: [0.09, 0.14], truck_t2: [0.13, 0.23], truck_t3: [0.12, 0.19], truck_t4: [0.14, 0.21] }[modelID] || [0.12, 0.19];
+    // New chassis keep their authored mirror shapes rather than inheriting the
+    // tall pickup glass, which protrudes through the compact housings.
+    const layout = modelID === 'player_buggy_t1'
+      ? { C: [.23, .07, .025], L: [.12, .10, .018], R: [.12, .10, .018] }
+      : modelID === 'player_sedan_t1' ? { C: [.25, .08, .026], L: [.028, .17, .009], R: [.104, .104, .052] } : null;
     const sC = this.model.getObjectByName('mirror_C'), sL = this.model.getObjectByName('mirror_L'), sR = this.model.getObjectByName('mirror_R');
     if (sC) {
-      const W = 0.25 * 0.97, H = 0.07 * 0.92, uw = 0.4, vh = (uw * RT_W) / (W / H) / RT_H;
-      const g = this._mirrorGlass(W, H, 0.5 + uw / 2, 0.5 - uw / 2, 0.56 - vh / 2, 0.56 + vh / 2, .026 * .92); g.name = 'mirror_centre'; g.position.z = 0.002;
+      const dims = layout?.C || [.25, .07, .026];
+      const W = dims[0] * 0.97, H = dims[1] * 0.92, uw = 0.4, vh = (uw * RT_W) / (W / H) / RT_H;
+      const g = this._mirrorGlass(W, H, 0.5 + uw / 2, 0.5 - uw / 2, 0.56 - vh / 2, 0.56 + vh / 2, dims[2] * .92); g.name = 'mirror_centre'; g.position.z = 0.002;
       sC.add(g); (this.sideGlass || (this.sideGlass = [])).push(g);
     }
     for (const [side, sk] of [['L', sL], ['R', sR]]) {
       if (!sk) continue;
-      const w = GLASS[0] * 0.96, h = GLASS[1] * 0.96, vh2 = 0.52, uw2 = (w / h) * vh2 * RT_H / RT_W;
-      const mg = side === 'L' ? this._mirrorGlass(w, h, 0.86, 0.86 - uw2, 0.5 - vh2 / 2, 0.5 + vh2 / 2) : this._mirrorGlass(w, h, 0.14 + uw2, 0.14, 0.5 - vh2 / 2, 0.5 + vh2 / 2);
+      const dims = layout?.[side] || GLASS;
+      const w = dims[0] * 0.96, h = dims[1] * 0.96, vh2 = 0.52, uw2 = (w / h) * vh2 * RT_H / RT_W;
+      const radius = dims[2] == null ? 0 : dims[2] * .96;
+      const mg = side === 'L' ? this._mirrorGlass(w, h, 0.86, 0.86 - uw2, 0.5 - vh2 / 2, 0.5 + vh2 / 2, radius) : this._mirrorGlass(w, h, 0.14 + uw2, 0.14, 0.5 - vh2 / 2, 0.5 + vh2 / 2, radius);
       mg.name = 'mirror_' + side; mg.position.z = 0.002; sk.add(mg); (this.sideGlass || (this.sideGlass = [])).push(mg);
     }
     if (sC || sL || sR) { this._mirrorsFromSockets = true; }

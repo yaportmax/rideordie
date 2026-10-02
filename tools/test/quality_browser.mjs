@@ -349,7 +349,8 @@ async function appCoopFlow(hostRole) {
   await host.locator('.garage [data-tab="upgrades"]').click();
   await host.locator('.garage [data-row="engine"]').click();
   await host.locator('.garage [data-buy="1"]').click();
-  await Promise.all([until(host, () => window.__app.profile.upgrades.engine === 1), until(guest, () => window.__app.profile.upgrades.engine === 1)]);
+  await Promise.all([until(host, () => (window.__app._garageLoadout?.().upgradeLevels?.engine ?? window.__app.profile.upgrades.engine) === 1),
+    until(guest, () => (window.__app._garageLoadout?.().upgradeLevels?.engine ?? window.__app.profile.upgrades.engine) === 1)]);
   const cashBefore = await host.evaluate(() => window.__app.profile.cash);
   assert.ok(cashBefore < 7000);
   assert.equal(await guest.evaluate(() => window.__app.profile.cash), guestCashBefore, 'host truck upgrade must not spend guest cash');

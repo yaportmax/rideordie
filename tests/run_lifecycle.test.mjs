@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Run } from '../src/game/run.js';
+import { Road } from '../src/world/road.js';
+import { TEN_LEVELS } from '../src/data/campaign.js';
 
 function outcome(won, remote = false) {
   const run = Object.create(Run.prototype);
@@ -29,6 +31,23 @@ test('checkpoint summaries preserve absolute furthest progress separately from p
   assert.equal(summary.startS, 52500);
   assert.equal(summary.furthestS, 60000);
   assert.equal(summary.breakdown.find(line => line.label.startsWith('DISTANCE')).amount, 975);
+});
+
+test('results name the actual held campaign chapter and current marathon world', () => {
+  for (const [journey, distance, expected] of [
+    [{ mode: 'campaign', level: 2 }, 65000, TEN_LEVELS[1].name],
+    [{ mode: 'campaign', level: 10 }, 65000, TEN_LEVELS[9].name],
+    [{ mode: 'marathon', level: 7 }, 40, TEN_LEVELS[0].name],
+    [{ mode: 'marathon', level: 1 }, 73000, TEN_LEVELS[9].name],
+  ]) {
+    const run = Object.create(Run.prototype);
+    Object.assign(run, { id: 'chapter-name', journey, cfg: { startS: 40 }, cash: 0, effects: { cashMul: 1 }, shots: 0,
+      sim: { road: new Road(7, journey), stats: { distance, kills: 0, hits: 0 }, time: 10, director: { level: 0 } } });
+    const summary = run.buildSummary(false);
+    assert.equal(summary.biome, expected);
+    assert.equal(summary.won, false);
+    assert.equal(summary.levelCleared, false);
+  }
 });
 
 test('a failed dressing asset load removes allocated scene resources and installs no callbacks', async t => {

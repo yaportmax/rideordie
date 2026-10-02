@@ -12,6 +12,8 @@ import { Projectiles } from './projectiles.js';
 import { Director } from './director.js';
 import { Hazards } from './hazards.js';
 import { validHitReport, resolveHitPoint } from './hit_contact.js';
+import { planRamTakedown, launchRamTakedown } from './ram_takedown.js';
+import { normalizeJourney } from '../data/campaign.js';
 
 export const DT = 1 / 120;
 const V3 = THREE.Vector3;
@@ -32,11 +34,12 @@ const SURFACE = {
   forest_floor: { grip: 0.8, drag: 0.07, kind: 'dirt' },
   concrete: { grip: 0.95, drag: 0.02, kind: 'concrete' },
 };
-const OFFROAD_BY_BIOME = { desert: SURFACE.sand, canyon: SURFACE.dirt_red, coast: SURFACE.grass_green, mountain: SURFACE.forest_floor, city: SURFACE.concrete, dam: SURFACE.concrete };
+const OFFROAD_BY_BIOME = { desert: SURFACE.sand, canyon: SURFACE.dirt_red, coast: SURFACE.grass_green, mountain: SURFACE.forest_floor, city: SURFACE.concrete, dam: SURFACE.concrete, underground: SURFACE.gravel, sky: SURFACE.concrete, hell: SURFACE.rock_grey, space: SURFACE.concrete };
 
 export class Sim {
   constructor(opts = {}) {
     this.seed = opts.seed ?? 1;
+    this.journey = normalizeJourney(opts.journey);
     this.world = null; this.road = null;
     this.cars = new Map(); this.nextId = 2; // id 1 = player
     this.colMap = new Map();
@@ -65,7 +68,8 @@ export class Sim {
     await initPhysics();
     this.world = createWorld(DT);
     this.eventQueue = new RAPIER.EventQueue(true);
-    this.road = new Road(this.seed);
+    this.road = new Road(this.seed, this.journey);
+    this.road.ensureDrivingBranches();
     this.roadQuery = new RoadQuery(this.road);
     return this;
   }
@@ -94,7 +98,7 @@ export class Sim {
     const veh = new Vehicle(this.world, sp, { x, y, z, yaw: sm.th + yawOff });
     const cid = id ?? (kind === 'player' ? 1 : this.nextId++);
     const car = new Car(this, cid, sp, veh, kind);
-    car.s = s; car.d = d;
+    car.s = s; car.d = d; car.route = null; car.routeHalfWidth = HALF_ROAD;
     veh.body.setLinvel({ x: Math.sin(sm.th) * speed, y: 0, z: Math.cos(sm.th) * speed }, true);
     for (const c of veh.colliders) this.colMap.set(c.handle, car);
     this.cars.set(cid, car);
@@ -126,11 +130,11 @@ export class Sim {
     const road = this.roadQuery;
     return (x, z) => {
       if (this.hazards.oil.length && this.hazards.oilAt(x, z)) return SURFACE.oil;
-      const n = road.nearest(x, z, car.s, 35, this._near || (this._near = {}));
+      const n = road.projectDriving(x, z, car.s, 35, this._near || (this._near = {}));
       const ad = Math.abs(n.d);
-      if (ad <= HALF_ROAD) return SURFACE.road;
-      if (ad <= HALF_ROAD + 2.5) return SURFACE.shoulder;
-      const b = biomeAt(n.s);
+      if (ad <= n.halfWidth) return SURFACE.road;
+      if (ad <= n.halfWidth + 2.5) return SURFACE.shoulder;
+      const b = this.road.biomeAt(n.s);
       return OFFROAD_BY_BIOME[b.w > 0.5 ? b.b : b.a] || SURFACE.dirt_red;
     };
   }
@@ -144,7 +148,7 @@ export class Sim {
     // ground colliders near the action
     if (this.ground) {
       if (this.tick % 12 === 0) this.ground.update(P ? P.s : 0);
-      if (P && P.held && (this.state === 'run' || P._groundHold) && this.ground.groundReady && this.ground.groundReady(P.s)) { this.releaseCar(P); }
+      if (P && P.held && (this.state === 'run' || P._groundHold) && this.ground.groundReady && this.ground.groundReady(P.s, P.route)) { this.releaseCar(P); }
       if (this.state === 'run' && P && !P.dead && !P.held) this._protectGround(P);
     }
     for (const sys of this.systems) sys.update(dt, this);
@@ -163,8 +167,8 @@ export class Sim {
 
     // road coordinates + progress
     for (const car of this.cars.values()) {
-      const n = this.roadQuery.nearest(car.veh.pos.x, car.veh.pos.z, car.s, 60, this._near || (this._near = {}));
-      car.s = n.s; car.d = n.d;
+      const n = this.roadQuery.projectDriving(car.veh.pos.x, car.veh.pos.z, car.s, 60, this._near || (this._near = {}));
+      car.s = n.s; car.d = n.d; car.route = n.route; car.routeHalfWidth = n.halfWidth;
       if (car.crashCooldown > 0) car.crashCooldown -= dt;
       if (car.hitFlash > 0) car.hitFlash -= dt;
     }
@@ -182,8 +186,8 @@ export class Sim {
 
   /** A late worker must delay landing/driving rather than let the car pass through an unbuilt tile. */
   _protectGround(car) {
-    if (!this.ground?.groundReady || this.ground.groundReady(car.s) || Math.abs(car.d) > HALF_ROAD + 1) return;
-    const v = car.veh, sm = this.road.sample(car.s), roadY = this.road.surfaceY(sm, car.d);
+    if (!this.ground?.groundReady || this.ground.groundReady(car.s, car.route) || Math.abs(car.d) > (car.routeHalfWidth ?? HALF_ROAD) + 1) return;
+    const v = car.veh, roadY = this.road.drivingPointAt(car.s, car.d, car.route).y;
     const velocity = v.body.linvel();
     // Keep real airborne travel free; pause only on the road or immediately at its landing plane.
     if (v.pos.y < roadY - 2 || velocity.y > 1 || (v.grounded === 0 && v.pos.y > roadY + v.restComHeight + 1)) return;
@@ -196,14 +200,14 @@ export class Sim {
   /** Recover an on-road streaming fall, using actual road collision rather than terrain/roof height. */
   _recoverRoadFall(car) {
     const v = car.veh;
-    if (Math.abs(car.d) > HALF_ROAD + 2) { car._roadGrounded = false; return; }
-    const sm = this.road.sample(car.s), roadY = this.road.surfaceY(sm, car.d);
+    if (Math.abs(car.d) > (car.routeHalfWidth ?? HALF_ROAD) + 2) { car._roadGrounded = false; return; }
+    const sm = this.road.drivingPointAt(car.s, car.d, car.route), roadY = sm.y;
     if (v.grounded >= 2 && Math.abs(v.pos.y - roadY - v.restComHeight) < 2) {
-      car._roadGrounded = true; car._roadGroundedS = car.s; return;
+      car._roadGrounded = true; car._roadGroundedS = car.s; car._roadGroundedRoute = car.route; return;
     }
     // Leaving the road clears the checkpoint, preserving falls into ravines or travel under bridges.
-    if (!car._roadGrounded || Math.abs(car.s - car._roadGroundedS) > 500 || v.pos.y >= roadY - 6) return;
-    const groundY = this.ground?.roadHeightAt?.(car.s, v.pos.x, v.pos.z, roadY + 2);
+    if (!car._roadGrounded || car.route !== car._roadGroundedRoute || Math.abs(car.s - car._roadGroundedS) > 500 || v.pos.y >= roadY - 6) return;
+    const groundY = this.ground?.roadHeightAt?.(car.s, v.pos.x, v.pos.z, roadY + 2, car.route);
     if (groundY == null || v.pos.y >= groundY - 6) return;
     const velocity = v.body.linvel();
     v.body.setTranslation({ x: v.pos.x, y: groundY + v.restComHeight + 0.15, z: v.pos.z }, true);
@@ -219,7 +223,7 @@ export class Sim {
   /** Water and the space below every terrain triangle are terminal driving areas, never playable underpasses. */
   _recoverOffroadFall(car) {
     if (this.state !== 'run') return;
-    const v = car.veh, bounds = this.ground?.recoveryBoundsAt?.(car.s), bio = biomeAt(car.s);
+    const v = car.veh, bounds = this.ground?.recoveryBoundsAt?.(car.s), bio = this.road.biomeAt ? this.road.biomeAt(car.s) : biomeAt(car.s);
     const waterSide = ['coast', 'dam'].find(id => (bio.a === id || bio.b === id) && car.d * BIOMES[id].terrain.seaSide > HALF_ROAD + 6);
     const submerged = waterSide && bounds?.waterY != null && v.pos.y < bounds.waterY - 2;
     const roadY = this.road.sample(car.s).y;
@@ -238,7 +242,7 @@ export class Sim {
     const v = car.veh, q = v.quat.clone(), local = new V3();
     for (const ds of [0, -18, 18, -36, 36, -60, 60]) for (const d of [0, -2.7, 2.7]) {
       const s = Math.max(8, targetS + ds), sm = this.road.sample(s);
-      if (this.road.featuresIn(s - car.spec.length / 2 - 8, s + car.spec.length / 2 + 8).some(f => f.type === 'roadblock' || f.type === 'ramp')) continue;
+      if (this.road.featuresIn(s - car.spec.length / 2 - 8, s + car.spec.length / 2 + 8).some(f => f.type === 'roadblock' || f.type === 'ramp' || f.type === 'stage_challenge')) continue;
       const x = sm.x + sm.nx * d, z = sm.z + sm.nz * d;
       const gy = this.ground.roadHeightAt(s, x, z, this.road.surfaceY(sm, d) + 2);
       if (gy == null) continue;
@@ -263,7 +267,7 @@ export class Sim {
       v.poseRevision = ((v.poseRevision || 0) + 1) & 0xffff;
       v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat); v.airTime = 0; v.grounded = 0;
       for (let i = 0; i < v.wheels.length; i++) v.wheels[i].L = v.wheels[i].Lprev = v.prevL[i] = v.restLen;
-      car.s = s; car.d = d; car._roadGrounded = false;
+      car.s = s; car.d = d; car.route = null; car.routeHalfWidth = HALF_ROAD; car._roadGrounded = false;
       if (car.ai) { car.ai.stuckT = 0; car.ai.dTs = car.ai._lastDT = d; }
       return true;
     }
@@ -322,7 +326,8 @@ export class Sim {
     // blame: a car the player crippled (dead driver, recent hits) that plows into others earns the player a crash kill
     const blame = (c) => c && c.kind === 'enemy' && (c.driverless || (c.lastHitBy === 1 && this.time - c.lastHitT < 8));
     const src = other ? (car.kind === 'enemy' && blame(other) ? 1 : other.id) : (car.kind === 'enemy' && blame(car) ? 1 : -1);
-    this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src, point: car.veh.pos });
+    const ramTakedown = planRamTakedown(this, car, other, dmg, dv);
+    this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src, point: car.veh.pos, ramTakedown });
     if (car.crashCooldown <= 0 && dv > 1.2) {
       car.crashCooldown = 0.25;
       _a.set(dir.x, dir.y, dir.z);
@@ -353,7 +358,7 @@ export class Sim {
   /** Arcade air steer: a flying truck's path bends gently back along the road (and away from the verge), so a ramp taken
    *  flat out lands on the road instead of in a building. Small enough to feel like your own correction. */
   _airSteer(car, dt) {
-    const b = car.veh.body, v = b.linvel(), sm = this.road.sample(car.s);
+    const b = car.veh.body, v = b.linvel(), sm = this.road.drivingPointAt(car.s, 0, car.route);
     const tx = Math.sin(sm.th), tz = Math.cos(sm.th);
     const hs = Math.hypot(v.x, v.z); if (hs < 8) return;
     const along = (v.x * tx + v.z * tz) / hs; if (along < 0.7) return;           // only when roughly following the road
@@ -362,7 +367,7 @@ export class Sim {
     const turn = clamp(da, -0.4 * dt, 0.4 * dt), a = cur + turn;
     let vx = Math.sin(a) * hs, vz = Math.cos(a) * hs;
     // drifting off the edge: nudge back toward the tarmac
-    const edge = Math.abs(car.d) - (HALF_ROAD - 1.5);
+    const edge = Math.abs(car.d) - ((car.routeHalfWidth ?? HALF_ROAD) - 1.5);
     if (edge > 0) { const out = Math.sign(car.d), nx = Math.cos(sm.th) * out, nz = -Math.sin(sm.th) * out, k = Math.min(edge, 3) * 2.5 * dt; vx -= nx * k; vz -= nz * k; }
     b.setLinvel({ x: vx, y: v.y, z: vz }, true);
   }
@@ -372,7 +377,7 @@ export class Sim {
     car.hp -= dmg; car.hitFlash = 0.12;
     if (car.kind === 'player') { this.stats.damageTaken += dmg; const k = info.cause || '?'; (this.stats.damageBy || (this.stats.damageBy = {}))[k] = ((this.stats.damageBy[k]) || 0) + dmg; }
     if (info.src !== undefined && info.src >= 0) { car.lastHitBy = info.src; car.lastHitT = this.time; }
-    if (car.hp <= 0 && !car.exploded) this.explodeCar(car, info.cause || 'damage', info.src ?? -1);
+    if (car.hp <= 0 && !car.exploded) this.explodeCar(car, info.cause || 'damage', info.src ?? -1, info.ramTakedown);
   }
 
   damageCrew(car, role, dmg, info = {}) {
@@ -439,7 +444,7 @@ export class Sim {
     }
   }
 
-  explodeCar(car, cause, src) {
+  explodeCar(car, cause, src, ramTakedown = null) {
     if (car.exploded) return;
     // A waiting live car becomes a dynamic wreck before its launch impulses.
     if (car._groundHold) this.releaseCar(car);
@@ -447,12 +452,19 @@ export class Sim {
     car.veh.driverAlive = false; car.driverless = true; car.veh.input.throttle = 0; car.veh.input.brake = 0;
     for (const r of Object.keys(car.crew)) { const c = car.crew[r]; if (c.alive) { c.alive = false; c.hp = 0; this.emit({ t: 'crewDead', id: car.id, role: r, cause: 'explosion', src }); } }
     const p = car.veh.pos, big = car.spec.explosive ? 2.4 : 1;
-    this.emit({ t: 'explode', id: car.id, pos: [p.x, p.y, p.z], size: (car.spec.mass > 4000 ? 1.8 : 1) * big, cause, src, spec: car.spec.id, vel: [car.veh.vel.x, car.veh.vel.y, car.veh.vel.z] });
+    const explosion = { t: 'explode', id: car.id, pos: [p.x, p.y, p.z], size: (car.spec.mass > 4000 ? 1.8 : 1) * big, cause, src, spec: car.spec.id, vel: [car.veh.vel.x, car.veh.vel.y, car.veh.vel.z] };
+    this.emit(explosion);
     // launch the wreck a little
-    car.veh.body.applyImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 2, y: car.veh.mass * (3 + Math.random() * 3) * big, z: (Math.random() - 0.5) * car.veh.mass * 2 }, true);
-    car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 3, y: 0, z: (Math.random() - 0.5) * car.veh.mass * 3 }, true);
+    if (!ramTakedown) {
+      car.veh.body.applyImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 2, y: car.veh.mass * (3 + Math.random() * 3) * big, z: (Math.random() - 0.5) * car.veh.mass * 2 }, true);
+      car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 3, y: 0, z: (Math.random() - 0.5) * car.veh.mass * 3 }, true);
+    }
     this.blast(p, (car.spec.explosive ? 26 : 11), (car.spec.explosive ? 260 : 110), (car.spec.explosive ? 1.0 : 0.6), car);
-    this.director.onExplode?.(this, car); // neighbours cook off, wrecks tumble
+    this.director.onExplode?.(this, car, { launchWreck: !ramTakedown }); // neighbours cook off, wrecks tumble
+    if (ramTakedown && launchRamTakedown(car, ramTakedown)) {
+      explosion.takedown = true;
+      explosion.vel = [car.veh.vel.x, car.veh.vel.y, car.veh.vel.z];
+    }
     if (car.kind === 'enemy') {
       this.stats.kills++;
       if (src === 1 || (car.lastHitBy === 1 && this.time - car.lastHitT < 6)) {
@@ -553,7 +565,9 @@ export class Sim {
     const P = this.player;
     if (!P) return;
     if (this.state === 'countdown') return;
-    if (this.state === 'run' && this.boss && this.boss.exploded) {
+    const finiteClear = this.journey?.mode === 'campaign' && this.journey.level < 10 && this.director.campaignComplete;
+    const finaleClear = this.boss?.exploded && (this.journey?.mode !== 'marathon' || this.director.marathonComplete);
+    if (this.state === 'run' && (finiteClear || finaleClear)) {
       this.wonT = (this.wonT || 0) + dt;
       if (this.wonT > 3) { this.won = true; this.state = 'over'; this.result = { why: 'victory' }; this.emit({ t: 'runOver', why: 'victory' }); }
       return;

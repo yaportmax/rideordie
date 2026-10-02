@@ -5,7 +5,7 @@
 //  - the gunner wind-up glint (screen-space flare at the muzzle while a raider shoulders his gun = your cue to jink)
 // Model frame: ground origin, +Z forward, +X left. Everything is parented to the CarView root (visible in the far LOD too).
 import * as THREE from 'three';
-import { MINIBOSSES } from '../data/boss.js';
+import { ELITE_BOSSES as MINIBOSSES } from '../data/boss.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -126,16 +126,18 @@ const KITS = {
     for (let i = 0; i < 7; i++) { const x = (i / 6 - 0.5) * f.W * 1.0; add(g, CONE, M.bone(), [x, 0.3, z + 0.14], [0.16, 0.42, 0.16], [Math.PI, 0, 0], false); add(g, CONE, M.bone(), [x + 0.08, 0.84, z + 0.12], [0.13, 0.34, 0.13], [0, 0, 0], false); }
     // roll cage over the bed + a war-flag
     const sz = f.S.seat_gunner ? f.S.seat_gunner[2] : f.rear * 0.5;
-    for (const x of [-0.46, 0.46]) { add(g, CYL, M.steel(), [x * f.W, 1.75, sz + 0.55], [0.08, 1.6, 0.08]); add(g, CYL, M.steel(), [x * f.W, 1.75, sz - 0.8], [0.08, 1.6, 0.08]); add(g, CYL, M.steel(), [x * f.W, 2.55, sz - 0.12], [0.07, 1.4, 0.07], [Math.PI / 2, 0, 0]); }
-    add(g, CYL, M.steel(), [0, 2.55, sz + 0.55], [0.07, f.W * 0.92, 0.07], [0, 0, Math.PI / 2]);
-    const flags = [flag(g, -0.46 * f.W, sz - 0.8, 2.5, 1.9, emblem('scrap', '#141414', '#f0b418', skull), 1.1, 0.7)];
+    const deckY = f.S.seat_gunner?.[1] ?? 0.95, cageY = deckY + 1.85;
+    for (const x of [-0.46, 0.46]) { add(g, CYL, M.steel(), [x * f.W, deckY + 0.85, sz + 0.55], [0.08, 2.0, 0.08]); add(g, CYL, M.steel(), [x * f.W, deckY + 0.85, sz - 0.8], [0.08, 2.0, 0.08]); add(g, CYL, M.steel(), [x * f.W, cageY, sz - 0.12], [0.07, 1.4, 0.07], [Math.PI / 2, 0, 0]); }
+    add(g, CYL, M.steel(), [0, cageY, sz + 0.55], [0.07, f.W * 0.92, 0.07], [0, 0, Math.PI / 2]);
+    const flags = [flag(g, -0.46 * f.W, sz - 0.8, cageY - 0.05, 1.9, emblem('scrap', '#141414', '#f0b418', skull), 1.1, 0.7)];
     // rotating beacon on the cab roof
     const bz = f.roof[2] + 0.2;
     add(g, CYL, M.dark(), [0, f.roof[1] + 0.06, bz], [0.3, 0.12, 0.3]);
     const spin = new THREE.Group(); spin.position.set(0, f.roof[1] + 0.26, bz); g.add(spin);
     add(spin, BOX, glow, [0.12, 0, 0], [0.18, 0.22, 0.26], null, false); add(spin, BOX, M.dark(), [-0.12, 0, 0], [0.18, 0.22, 0.26], null, false);
     // weak point: the glowing ammo crates bolted over the tailgate
-    const weak = new THREE.Group(); weak.position.set(0, 1.05, f.rear + 0.25); g.add(weak);
+    // Match buildZones(spec)'s heavy rear fuel box and Mother Trucker's marker.
+    const weak = new THREE.Group(); weak.position.set(0, 1.0, f.rear + 0.3); g.add(weak);
     add(weak, BOX, M.rust(), [0, 0, 0], [f.W * 0.8, 0.5, 0.42]);
     for (const x of [-0.3, 0, 0.3]) add(weak, BOX, glow, [x * f.W, 0.02, -0.22], [f.W * 0.22, 0.2, 0.04], null, false);
     add(weak, BOX, glow, [0, 0.27, 0], [f.W * 0.78, 0.04, 0.4], null, false);

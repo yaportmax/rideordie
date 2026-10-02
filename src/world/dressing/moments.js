@@ -5,7 +5,7 @@
 // Positions are searched deterministically around nominal distances (skipping road features); the chunk containing the anchor
 // builds the whole set into one facade-material mesh (+ collider boxes near the road).
 import * as THREE from 'three';
-import { biomeAt } from '../../data/biomes.js';
+import { roadBiomeAt, biomeDistance } from '../biome_context.js';
 import { hash2 } from '../../core/util.js';
 import { CHUNK_LEN, groundAt, rngOf } from './util.js';
 import { MB, frameYaw, frameBasis } from './mbuild.js';
@@ -18,14 +18,14 @@ const WANT = [
   [32300, 'mountain', 'cablecar'], [36200, 'mountain', 'cablecar'], [38800, 'mountain', 'cablecar'],
 ];
 const _G = {};
-const bid = (s) => { const b = biomeAt(s); return b.w > 0.5 ? b.b : b.a; };
+const bid = (road, s) => { const b = roadBiomeAt(road, s); return b.w > 0.5 ? b.b : b.a; };
 
 function plan(ctx, want, biome, kind) {
   const { road, seed } = ctx;
   road.extendTo(want + 1500);
   for (let k = 0; k < 30; k++) {
     const s = want + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 40;
-    if (bid(s - 150) !== biome || bid(s + 150) !== biome) continue;
+    if (bid(road, s - 150) !== biome || bid(road, s + 150) !== biome) continue;
     if (road.featuresIn(s - 150, s + 150).some((f) => f.type !== 'guard' && f.type !== 'boost')) continue;
     if (kind === 'village') {
       // land side (right, -d) must be gentle enough for houses; sea side (left) must drop to the water within 60 m
@@ -41,7 +41,7 @@ function plan(ctx, want, biome, kind) {
       // both sides must rise: towers on the slopes at +-60..110 m, >= 25 m above the road
       const ry = road.sample(s, {}).y;
       const L = groundAt(road, seed, s, 85, _G).y - ry, R = groundAt(road, seed, s, -85, _G).y - ry;
-      if (L > -40 && R > -40 && Math.max(L, R) > 10) return { s, kind };
+      if (L > -40 && R > -40 && Math.max(L, R) > 10 && cablecarTowers(road, seed, s)) return { s, kind };
     }
   }
   return null;
@@ -53,7 +53,9 @@ export function wreckNear(ctx, s, d) {
 }
 export function momentsNear(ctx, sA, sB) {
   const cache = ctx.momentCache || (ctx.momentCache = new Map()), out = [];
-  for (const [want, biome, kind] of WANT) {
+  for (const [legacyWant, biome, kind] of WANT) {
+    const want = biomeDistance(ctx.road, biome, legacyWant);
+    if (want === null) continue;
     if (want > sB + 1500 || want < sA - 1500) continue;
     if (!cache.has(want)) cache.set(want, plan(ctx, want, biome, kind));
     const m = cache.get(want);
@@ -107,6 +109,7 @@ function village(ctx, mb, cols, m) {
     const W = 6 + r() * 4, D = 5 + r() * 3, H = 3.2 + (r() < 0.35 ? 3 : 0) + r() * 0.8;
     let gy = 1e9; for (const [ds, dd] of [[0, 0], [W / 2, D / 2], [-W / 2, D / 2], [W / 2, -D / 2], [-W / 2, -D / 2]]) gy = Math.min(gy, groundAt(road, seed, s + ds, d + dd, _G).y);
     road.pointAt(s, d, P);
+    if (road.corridorBlocked(P.x, P.z, Math.hypot(W, D) / 2 + 2, s)) continue;
     const th = road.sample(s, {}).th, yaw = th + Math.PI / 2 + (r() - 0.5) * 0.5;   // fronts face the sea (the road)
     const F = frameYaw(P.x, gy, P.z, yaw, {});
     house(mb, F, W, D, H, r, lit);
@@ -114,7 +117,7 @@ function village(ctx, mb, cols, m) {
   }
   // chapel with a bell tower (the landmark of the village)
   { const s = m.s + 20, d = -72; let gy = 1e9; for (const [ds, dd] of [[0, 0], [6, 4], [-6, 4], [6, -4], [-6, -4]]) gy = Math.min(gy, groundAt(road, seed, s + ds, d + dd, _G).y);
-    road.pointAt(s, d, P); const F = frameYaw(P.x, gy, P.z, road.sample(s, {}).th + Math.PI / 2, {});
+    road.pointAt(s, d, P); if (!road.corridorBlocked(P.x, P.z, 11, s)) { const F = frameYaw(P.x, gy, P.z, road.sample(s, {}).th + Math.PI / 2, {});
     house(mb, F, 12, 8, 6.5, () => 0.3, 0.2);
     mb.col(0.7, 0.68, 0.62).setFac(ST.PUNCHED, 3, 4, 0.9).setFac2(0.1, 0, 0.1, 0);
     mb.box(F, 4.5, 8, -1.5, 16, -2, 1.5, { vBase: 8 });
@@ -126,18 +129,21 @@ function village(ctx, mb, cols, m) {
       const mx = (P4[0].x + P4[1].x) / 2 - apex.x, mz = (P4[0].z + P4[1].z) / 2 - apex.z;
       mb.quadOut(P4[0], P4[1], apex, apex, mx, 0.5, mz);
     }
+    }
   }
   // boats pulled up on the shoulder / hanging on racks + drying frames (sea side, beyond the guard rail)
   for (let i = 0; i < 5; i++) {
     const s = m.s + (r() - 0.5) * 120, d = 12.5 + r() * 3;
     const g = groundAt(road, seed, s, d, _G); if (g.y < seaLevel(road, 'coast') + 2) continue;
     road.pointAt(s, d, P);
+    if (road.corridorBlocked(P.x, P.z, 4.2, s)) continue;
     const F = frameYaw(P.x, g.y + 0.35, P.z, road.sample(s, {}).th + (r() - 0.5) * 0.4, {});
     boat(mb, F, 5 + r() * 2, r);
   }
   for (let i = 0; i < 3; i++) {
     const s = m.s + (r() - 0.5) * 140, d = -(12 + r() * 5), g = groundAt(road, seed, s, d, _G);
     road.pointAt(s, d, P); const F = frameYaw(P.x, g.y, P.z, road.sample(s, {}).th, {});
+    if (road.corridorBlocked(P.x, P.z, 3.4, s)) continue;
     mb.col(0.35, 0.27, 0.2).setFac(ST.PLAIN, 1, 1, 0.4);
     for (const z of [-3, 3]) { mb.box(F, -0.1, 0.1, 0, 2.4, z - 0.1, z + 0.1); }
     mb.box(F, -0.08, 0.08, 2.3, 2.45, -3.2, 3.2);
@@ -218,20 +224,34 @@ function wreck(ctx, mb, m) {
 }
 
 /** Cable-car line crossing over the road: lattice towers on both slopes, cables, a stranded cabin and a counterweight. */
-function cablecar(ctx, mb, cols, m) {
-  const { road, seed } = ctx, r = rngOf(seed, Math.round(m.s), 9201), P = {};
-  const sm = road.sample(m.s, {}), cross = 0.35 + r() * 0.3;       // the line crosses at an angle
-  const tops = [];
+function cablecarTowers(road, seed, s0) {
+  const r = rngOf(seed, Math.round(s0), 9201), sm = road.sample(s0, {}), cross = .35 + r() * .3, towers = [];
   for (const sd of [1, -1]) {
     let best = null;
     for (let a = 40; a <= 140; a += 5) {
-      const g = groundAt(road, seed, m.s + sd * a * cross, sd * a, _G), h = g.y - sm.y;
+      const g = groundAt(road, seed, s0 + sd * a * cross, sd * a, _G), h = g.y - sm.y;
       if (h > 6 && h < 40) { best = { a, y: g.y }; break; }
       if (!best || Math.abs(h - 20) < Math.abs(best.y - sm.y - 20)) best = { a, y: g.y };
     }
-    const s = m.s + sd * best.a * cross, d = sd * best.a; road.pointAt(s, d, P);
+    const s = s0 + sd * best.a * cross, d = sd * best.a, p = road.pointAt(s, d, {});
+    // Move the complete line to another authored candidate rather than leaving
+    // cables pointing at a deleted tower or invisible foundation on the fork.
+    if (road.corridorBlocked(p.x, p.z, 5.8, s)) return null;
+    towers.push({ sd, s, d, a: best.a, y: best.y, x: p.x, z: p.z });
+  }
+  return towers;
+}
+
+function cablecar(ctx, mb, cols, m) {
+  const { road, seed } = ctx, r = rngOf(seed, Math.round(m.s), 9201);
+  r(); // The first draw authored the crossing angle in cablecarTowers.
+  const sm = road.sample(m.s, {}), towers = cablecarTowers(road, seed, m.s);
+  if (!towers) return;
+  const tops = [];
+  for (const tower of towers) {
+    const { sd } = tower, best = tower;
     const H = Math.max(16, sm.y + 50 - best.y);
-    const F = frameBasis(P.x, best.y - 1, P.z, [0, 1, 0], [-sd * sm.nx, 0, -sd * sm.nz], {});   // local z toward the road
+    const F = frameBasis(tower.x, best.y - 1, tower.z, [0, 1, 0], [-sd * sm.nx, 0, -sd * sm.nz], {});   // local z toward the road
     mb.col(0.3, 0.32, 0.34).setFac(ST.PLAIN, 1, 1, 0.3).setFac2(0, 0, 0, 0);
     lattice(mb, F, H, 2.4, 1.1, 7);
     mb.box(F, -4.5, 4.5, H, H + 1.6, -1.6, 1.6, {});                 // head frame with sheaves

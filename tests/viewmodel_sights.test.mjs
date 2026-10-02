@@ -120,7 +120,10 @@ test('optional sight preparation preserves unsupported meshes while still openin
   for (const mesh of added) { mesh.position.set(0, .1585, -.04); gun.root.add(mesh); }
   t.after(() => { for (const mesh of added) mesh.removeFromParent(); grouped.dispose(); unindexed.dispose(); material.dispose(); });
   const cuts = gun.prepareSightBores();
-  assert.ok(cuts.some(cut => cut.mesh.name === 'Scene_merged_gun_black'), 'the real indexed merged optic still receives its exact bore');
+  assert.ok(cuts.some(cut => {
+    for (let node = cut.mesh; node; node = node.parent) if (node.name === 'optic') return true;
+    return false;
+  }), 'the real indexed authored optic still receives its exact bore after preserving its replacement boundary');
   for (const mesh of added) assert.ok(!cuts.some(cut => cut.mesh === mesh), 'unsupported groups or nonindexed data retain their original geometry');
   assert.equal(added[0].geometry, grouped); assert.equal(added[1].geometry, unindexed);
   for (const cut of cuts) cut.mesh.geometry = cut.keep;

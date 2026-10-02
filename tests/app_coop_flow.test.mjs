@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { DEFAULT_PROFILE } from '../src/data/upgrades.js';
 import { NET_PROTOCOL } from '../src/net/run_packet.js';
+import { GarageSeatSwap } from '../src/net/garage_seats.js';
+import { buyWeapon, buyWeaponOptic } from '../src/meta/profile.js';
+import { normalizeJourney, creditCampaignLevel } from '../src/data/campaign.js';
 
 const css = registerHooks({ load(url, context, nextLoad) {
   if (/\.css(?:\?.*)?$/.test(url)) return { format: 'module', source: 'export default "";', shortCircuit: true };
@@ -11,6 +14,7 @@ const css = registerHooks({ load(url, context, nextLoad) {
 } });
 let App;
 try { ({ App } = await import('../src/app.js')); } finally { css.deregister(); }
+const { Session } = await import('../src/net/session.js');
 
 function deferred() {
   let resolve, reject;
@@ -18,8 +22,10 @@ function deferred() {
   return { promise, resolve, reject };
 }
 const settle = async () => { await Promise.resolve(); await Promise.resolve(); };
+const flush = () => new Promise(resolve => setImmediate(resolve));
+const gameplaySent = f => f.sent.filter(message => message.t !== 'seatSwapState');
 
-function fixture(t, mode = 'coop') {
+function fixture(t, mode = 'coop', legacy = true) {
   const oldWindow = globalThis.window, oldRaf = globalThis.requestAnimationFrame;
   globalThis.window = {}; globalThis.requestAnimationFrame = () => 1;
   t.after(() => { if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow; if (oldRaf === undefined) delete globalThis.requestAnimationFrame; else globalThis.requestAnimationFrame = oldRaf; });
@@ -49,6 +55,7 @@ function fixture(t, mode = 'coop') {
     audio: { music: { setState() {} } },
   };
   const profile = DEFAULT_PROFILE(); profile.best.furthestS = 60000;
+  if(legacy)delete profile.campaignProgress; // Old lifecycle/checkpoint contract.
   const app = Object.assign(Object.create(App.prototype), {
     profile, personalProfile: profile, mode, screen: 'garage', session, ui, game,
     input: { lastDevice: 'kbm', reset() {}, requestLock() {}, releaseLock() {} },
@@ -58,6 +65,19 @@ function fixture(t, mode = 'coop') {
     sound() {}, _watchEnd() {},
   });
   const started = []; app._startRun = (cfg) => { started.push(cfg); };
+  if (session) {
+    session.tp = { send(message) { sent.push(message); } };
+    session.swap = new GarageSeatSwap(session, { onState: (state) => {
+      if (app.screen !== 'garage') return;
+      const selection = app._startSelection;
+      if (selection && (state.epoch !== selection.seatEpoch || state.revision !== selection.seatRevision || state.intent !== selection.seatIntent)) app._cancelStartSelection();
+      app.readyMine = state.ready.host; app.readyOther = state.ready.guest;
+      app._maybeStart();
+    } });
+    session.swap.localPhase = 'garage';
+    Object.assign(session.swap.state, { phase: 'garage', epoch: 1, revision: 1, roles: { host: 'driver', guest: 'gunner' }, presence: { host: true, guest: true }, ready: { host: true, guest: true } });
+    session.me.ready = session.other.ready = true;
+  }
   return { app, session, ui, game, profile, sent, starts, started, toasts, fades, modals };
 }
 
@@ -66,7 +86,7 @@ test('one checkpoint choice starts one run, and BACK returns both crews to an ac
   await f.app._maybeStart(); assert.equal(f.modals.length, 1);
   f.modals[0].resolve(null); await a;
   assert.equal(f.started.length, 0); assert.equal(f.app.readyMine, false);
-  assert.deepEqual(f.sent.at(-1), { t: 'garageReady', epoch: 3, ready: false });
+  assert.equal(f.sent.at(-1).t, 'seatSwapState'); assert.equal(f.sent.at(-1).state.ready.host, false);
   await f.app._garageCb().onReady();
   assert.equal(f.modals.length, 2);
   f.modals[1].resolve('dam'); await settle();
@@ -107,8 +127,57 @@ test('a profile change invalidates readiness rather than launching with an unrev
   const f = fixture(t), pending = f.app._maybeStart();
   f.profile.revision++; f.modals[0].resolve('dam'); await pending;
   assert.equal(f.starts.length, 0); assert.equal(f.app.readyMine, false);
-  assert.deepEqual(f.sent.at(-1), { t: 'garageReady', epoch: 3, ready: false });
+  assert.equal(f.sent.at(-1).t, 'seatSwapState'); assert.equal(f.sent.at(-1).state.ready.host, false);
   assert.match(f.toasts.at(-1).text, /Ready up again/);
+});
+
+test('a seat proposal and its explicit acceptance cancel a pending checkpoint choice', async (t) => {
+  const f = fixture(t), pending = f.app._maybeStart();
+  const requested = f.session.swap.request(); assert.equal(requested.ok, true);
+  const state = f.session.swap.snapshot();
+  f.session.swap.onMessage({ t: 'seatSwapResponse', phase: 'garage', epoch: state.epoch, revision: state.revision, id: state.pending.id, accept: true });
+  assert.equal(f.session.me.role, 'gunner'); assert.equal(f.session.other.role, 'driver');
+  f.modals[0].resolve('dam'); await pending;
+  assert.equal(f.started.length, 0); assert.equal(f.app.readyMine, false); assert.equal(f.app.readyOther, false);
+});
+
+test('gunner gear preview shows owned armor instead of displaying an unpurchased tier', (t) => {
+  const f = fixture(t, 'solo'), previews = [];
+  f.game.garage.setPreview = value => previews.push(value);
+  for (const tier of [0, 1, 2, 3]) {
+    f.profile.upgrades.vest = tier; f.app._garageView('gunner', 'vest');
+    assert.equal(previews.at(-1).armorTier, tier);
+  }
+});
+
+test('garage chassis and next-upgrade previews use each family inventory without copying purchases', (t) => {
+  const f = fixture(t, 'solo'), previews = [];
+  f.profile.vehicleUpgradeSchema = 2;
+  f.profile.vehicleUpgrades = { sedan: { engine: 2, ram: 1 }, rustbucket: { engine: 5, ram: 3 }, buggy: { engine: 1, ram: 1 } };
+  f.profile.truck = 'player_sedan_t1';
+  f.game.garage.setPreview = value => previews.push(value);
+  const before = structuredClone(f.profile.vehicleUpgrades);
+  assert.equal(f.app._garageLoadout().upgradeLevels.engine, 2);
+  f.app._garageView('truck', 'truck_t3'); assert.equal(previews.at(-1).upgradeLevels.engine, 5);
+  f.app._garageView('truck', 'player_buggy_t1'); assert.equal(previews.at(-1).upgradeLevels.engine, 1);
+  f.app._garageView('upgrades', 'engine'); assert.equal(previews.at(-1).upgradeLevels.engine, 3);
+  f.profile.truck = 'player_buggy_t1';
+  f.app._garageView('upgrades', 'ram'); assert.equal(previews.at(-1).upgradeLevels.ram, 1, 'a maxed buggy ram cannot preview an unavailable pickup tier');
+  assert.deepEqual(f.profile.vehicleUpgrades, before, 'previews never alter saved purchases');
+});
+
+test('owned sight reaches the garage loadout while a selected bench preview does not alter its equipment', (t) => {
+  const f = fixture(t, 'solo'), previews = [];
+  f.profile.cash = 100000; buyWeapon(f.profile, 'smg'); buyWeaponOptic(f.profile, 'smg', 'wide_reflex');
+  f.profile.loadout = ['smg', 'pistol'];
+  assert.equal(f.app._garageLoadout().opticId, 'wide_reflex');
+  f.game.garage.setPreview = value => previews.push(value);
+  f.app._garageView('weapons', 'smg', 'standard');
+  assert.equal(previews.at(-1).opticId, 'standard');
+  assert.equal(f.profile.weaponOptics.smg.equipped, 'wide_reflex');
+  f.app._garageView('weapons', 'pistol', 'wide_reflex');
+  assert.equal(previews.at(-1).opticId, 'wide_reflex');
+  assert.deepEqual(f.profile.weaponOptics.pistol.owned, ['standard']);
 });
 
 test('solo checkpoint choice is singleflight and cannot start after entering co-op', async (t) => {
@@ -119,20 +188,23 @@ test('solo checkpoint choice is singleflight and cannot start after entering co-
   assert.equal(f.started.length, 0);
 });
 
-test('guest READY received while host is on results is restored on entering the matching garage epoch', async (t) => {
+test('legacy or prior-visit READY received on results cannot ready a new garage visit', async (t) => {
   const f = fixture(t); f.app.screen = 'results'; f.app.readyMine = f.app.readyOther = false;
   f.app._onRunMsg({ t: 'garageReady', epoch: 3, ready: true });
   assert.equal(f.app.readyOther, false);
-  f.app.garage(); assert.equal(f.app.readyOther, true); assert.equal(f.app.readyMine, false);
-  await f.app._garageCb().onReady();
-  f.modals[0].resolve('start'); await settle(); assert.equal(f.started.length, 1);
+  f.app.garage(); assert.equal(f.app.readyOther, false); assert.equal(f.app.readyMine, false);
+  await f.app._garageCb().onReady(); assert.equal(f.modals.length, 0);
 });
 
-test('host-first return accepts current READY while old or malformed readiness cannot overwrite it', async (t) => {
-  const f = fixture(t); f.app.garage(); f.app.readyMine = true;
+test('host-first return requires partner presence and versioned current readiness', async (t) => {
+  const f = fixture(t); f.app.garage();
   for (const epoch of [2, undefined, '3', 4, -1]) f.app._onRunMsg({ t: 'garageReady', epoch, ready: true });
   assert.equal(f.app.readyOther, false); assert.equal(f.modals.length, 0);
-  f.app._onRunMsg({ t: 'garageReady', epoch: 3, ready: true });
+  f.app._onRunMsg({ t: 'garageReady', epoch: 3, ready: true }); assert.equal(f.modals.length, 0);
+  const state = f.session.swap.snapshot(), context = { phase: 'garage', epoch: state.epoch, revision: state.revision };
+  f.session.swap.onMessage({ t: 'seatSwapPresence', ...context, inGarage: true, commandSequence: 1 });
+  f.session.swap.onMessage({ t: 'seatSwapReady', ...context, ready: true, commandSequence: 1 });
+  await f.app._garageCb().onReady();
   assert.equal(f.modals.length, 1);
   f.modals[0].resolve('start'); await settle(); assert.equal(f.started.length, 1);
 });
@@ -168,11 +240,12 @@ test('canceling current startup restores visible garage; late failure cannot aba
   const f = fixture(t), s = startup(f);
   assert.equal(s.loading.options.title, 'GETTING READY'); s.loading.resolve('cancel'); await settle();
   assert.equal(f.app.screen, 'garage'); assert.deepEqual(f.fades.at(-1), [0, 0]);
-  assert.deepEqual(f.sent, [{ t: 'abort' }]);
+  assert.deepEqual(gameplaySent(f), [{ t: 'abort' }]);
+  assert.equal(f.sent.findLast(m => m.t === 'seatSwapState').state.phase, 'garage');
   const old = f.session; f.app._newSession(); const fresh = f.app.session;
   f.app.screen = 'lobby'; s.pending.reject(new Error('old initializer failed')); await s.promise;
   assert.equal(f.app.session, fresh); assert.equal(f.app.screen, 'lobby'); assert.equal(f.toasts.length, 0);
-  assert.equal(f.sent.length, 1); assert.equal(old.connected, false);
+  assert.equal(gameplaySent(f).length, 1); assert.equal(old.connected, false);
 });
 
 test('a replaced startup result cannot install callbacks, send readiness, or drain messages into a new run', async (t) => {
@@ -182,7 +255,8 @@ test('a replaced startup result cannot install callbacks, send readiness, or dra
   const oldRun = { onNet() { assert.fail('old run must not receive queue'); }, onFast() { assert.fail('old run must not receive packet'); } };
   s.pending.resolve(oldRun); await s.promise;
   assert.equal(f.game.run, freshRun); assert.equal(f.game.onRunEnd, null);
-  assert.equal(f.sent.length, 0); assert.equal(globalThis.window.__run, undefined);
+  assert.equal(gameplaySent(f).length, 0); assert.equal(globalThis.window.__run, undefined);
+  assert.equal(f.sent.findLast(m => m.t === 'seatSwapState').state.phase, 'garage');
   assert.equal(f.app._pendingRunMsgs.length, 1);
 });
 
@@ -194,7 +268,8 @@ test('current startup success drains delayed readiness and latest controls once 
   const run = { onNet(m) { received.push(m); }, onFast() {} }; f.game.run = run;
   s.pending.resolve(run); await s.promise;
   assert.deepEqual(received.map((m) => m.t), ['runReady', 'g']); assert.equal(received[1].y, 299);
-  assert.deepEqual(f.sent, [{ t: 'runReady' }]); assert.equal(lockRequests, 1);
+  assert.deepEqual(gameplaySent(f), [{ t: 'runReady' }]); assert.equal(lockRequests, 1);
+  assert.equal(f.sent.findLast(m => m.t === 'seatSwapState').state.phase, 'run');
   assert.equal(f.ui.current, null); assert.equal(f.app._pendingRunMsgs.length, 0); assert.equal(window.__run, run);
 });
 
@@ -203,7 +278,7 @@ test('disconnect during startup keeps its recovery dialog after late initializer
   f.app._lost(f.session); const lost = f.modals.at(-1);
   assert.equal(lost.options.title, 'CONNECTION LOST'); assert.deepEqual(f.fades.at(-1), [0, 0]);
   s.pending.reject(new Error('late failure')); await s.promise;
-  assert.equal(f.ui.current, lost); assert.equal(f.toasts.length, 0); assert.equal(f.sent.length, 0);
+  assert.equal(f.ui.current, lost); assert.equal(f.toasts.length, 0); assert.equal(gameplaySent(f).length, 0);
   lost.resolve(0); f.app._newSession(); const fresh = f.app.session; f.app.screen = 'lobby';
   await settle(); assert.equal(f.app.session, fresh); assert.equal(f.app.screen, 'lobby');
 });
@@ -221,16 +296,27 @@ test('obsolete session callbacks cannot mutate the replacement room, and current
   assert.match(f.toasts.at(-1).text, /Both players should reload/); assert.equal(f.app.session, current);
 });
 
-test('actual Session can start the next life after cached guest readiness reaches the host garage', async (t) => {
+test('actual Sessions start the next life when guest enters garage before host and announces presence for its new visit', async (t) => {
   const f = fixture(t), session = f.app._newSession();
-  session.isHost = true; session.connected = true; session._runSeq = 4; session._peerProtocol = NET_PROTOCOL;
+  session.isHost = true; session._runSeq = 4;
   session.me.role = 'gunner'; session.other = { role: 'driver', name: 'Friend', ready: false };
-  session.profile = f.profile; session.peerWallet = { playerId: 'friend', cash: 1000 };
-  session.tp.send = (m) => f.sent.push(m);
-  f.app.screen = 'results'; f.app._onRunMsg({ t: 'garageReady', epoch: 4, ready: true });
-  f.app.garage(); await f.app._garageCb().onReady(); f.modals[0].resolve('dam'); await settle();
+  session.profile = session.personalProfile = f.profile;
+  const guest = new Session({ send(message) { queueMicrotask(() => session._onMsg(structuredClone(message))); }, destroy() {} });
+  guest.profile = guest.personalProfile = DEFAULT_PROFILE(); guest.personalProfile.campaignId = 'friend'; guest.personalProfile.cash = 1000;
+  guest.me.role = 'driver'; guest.other = { role: 'gunner', name: 'Host', ready: false };
+  session.tp.send = (message) => { f.sent.push(structuredClone(message)); queueMicrotask(() => guest._onMsg(structuredClone(message))); };
+  session.tp.onOpen(); guest.tp.onOpen(); await flush();
+  f.app.screen = 'results'; guest.swap.enterGarage();
+  assert.equal(guest.swap.canRequest(), false, 'guest cannot ready against a host still on results');
+  f.app.garage(); await flush();
+  assert.equal(session.swap.canRequest(), true); assert.equal(guest.swap.canRequest(), true);
+  guest.swap.ready(true); await flush();
+  assert.equal(f.app.readyOther, true); await f.app._garageCb().onReady();
+  f.modals[0].resolve('dam'); await flush();
   assert.equal(f.started.length, 1); assert.equal(f.started[0].runSeq, 5); assert.equal(f.started[0].role, 'gunner');
   assert.equal(f.sent.filter((m) => m.t === 'start').length, 1);
+  assert.equal(session.swap.localPhase, 'run'); assert.equal(guest.swap.localPhase, 'run');
+  assert.equal(session.profile.cash, f.profile.cash); assert.equal(guest.profile.cash, 1000);
 });
 
 test('leave and victory modal choices resolved just before a transition cannot navigate the fresh session', async (t) => {
@@ -251,7 +337,8 @@ test('loading cancel records intent before a queued successful initializer conti
   s.loading.resolve('cancel'); s.loading.options.buttons[0].onClick();
   await s.promise;
   assert.equal(f.app.screen, 'garage'); assert.equal(f.game.run, null);
-  assert.deepEqual(f.sent, [{ t: 'abort' }]); assert.equal(window.__run, undefined);
+  assert.deepEqual(gameplaySent(f), [{ t: 'abort' }]); assert.equal(window.__run, undefined);
+  assert.equal(f.sent.findLast(m => m.t === 'seatSwapState').state.phase, 'garage');
 });
 
 test('co-op Results closes old pause confirmation and stale pause callbacks cannot abort or resume it', (t) => {
@@ -266,6 +353,43 @@ test('co-op Results closes old pause confirmation and stale pause callbacks cann
   f.app._results(run);
   assert.equal(f.app.screen, 'results'); assert.equal(f.ui.current, null); assert.equal(resultsShown, 1);
   pauseCallbacks.onQuit(); pauseCallbacks.onResume();
-  assert.equal(f.app.screen, 'results'); assert.equal(f.game.run, run); assert.equal(f.sent.length, 0);
+  assert.equal(f.app.screen, 'results'); assert.equal(f.game.run, run); assert.equal(gameplaySent(f).length, 0);
+  assert.equal(f.sent.findLast(m => m.t === 'seatSwapState').state.phase, 'results');
   return quitDialog.then((value) => assert.equal(value, null));
+});
+
+test('actual App selector blocks host-ready guest-ready autostart until explicit host selection and fresh readiness',async t=>{
+  const f=fixture(t,'coop',false);creditCampaignLevel(f.profile,{runId:'previous-clear',level:1,mode:'campaign',won:true});
+  f.app.readyOther=false;f.session.other.ready=false;f.session.swap.state.ready.guest=false;
+  let campaignCallbacks,canSelect;
+  f.ui.showCampaign=(profile,cb,extra)=>{campaignCallbacks=cb;canSelect=extra.canSelect;};
+  f.session.profile=f.session.personalProfile=f.profile;f.session.h={};
+  f.session.broadcastProfile=Session.prototype.broadcastProfile;f.session.selectJourney=Session.prototype.selectJourney;
+  const kit=structuredClone({cash:f.profile.cash,trucks:f.profile.trucks,weapons:f.profile.weapons,vehicleUpgrades:f.profile.vehicleUpgrades});
+  f.app._showCampaign();assert.equal(canSelect,true);assert.equal(f.app._campaignOpen,true);assert.equal(f.app.readyMine,false,'opening the selector revokes old host readiness');
+  const st=f.session.swap.snapshot();f.session.swap.onMessage({t:'seatSwapReady',phase:'garage',epoch:st.epoch,revision:st.revision,commandSequence:1,ready:true});
+  await flush();assert.equal(f.app.readyMine,false);assert.equal(f.app.readyOther,true);assert.equal(f.started.length,0,'guest readiness cannot auto-start behind the open selector');
+  campaignCallbacks.onSelect(2,'campaign');await flush();
+  assert.equal(f.app._campaignOpen,false);assert.equal(f.profile.campaignProgress.selectedLevel,2);assert.equal(f.app.readyMine,false);assert.equal(f.app.readyOther,false);
+  assert.deepEqual({cash:f.profile.cash,trucks:f.profile.trucks,weapons:f.profile.weapons,vehicleUpgrades:f.profile.vehicleUpgrades},kit);
+  f.session.swap.ready(true);const fresh=f.session.swap.snapshot();f.session.swap.onMessage({t:'seatSwapReady',phase:'garage',epoch:fresh.epoch,revision:fresh.revision,commandSequence:2,ready:true});
+  await flush();assert.equal(f.started.length,1);assert.equal(f.started[0].startS,40);assert.deepEqual(f.started[0].journey,normalizeJourney({mode:'campaign',level:2}));assert.equal(f.modals.length,0);
+});
+test('actual App guest selector cannot mutate the host-selected campaign or start a life',async t=>{
+  const f=fixture(t,'coop',false);f.session.isHost=false;let cb,extra;
+  f.ui.showCampaign=(profile,callbacks,options)=>{cb=callbacks;extra=options;};
+  const before=structuredClone(f.profile);f.app._showCampaign();assert.equal(extra.canSelect,false);
+  cb.onSelect(2,'campaign');await flush();assert.deepEqual(f.profile,before);assert.equal(f.started.length,0);
+  cb.onBack();assert.equal(f.app._campaignOpen,false);
+});
+test('actual App finite clear credits the chapter once, shows chapter best and advances to next selection',t=>{
+  const f=fixture(t,'solo',false);let shown,callbacks;
+  f.ui.showResults=(summary,profile,cb)=>{shown=summary;callbacks=cb;};
+  f.app.screen='run';f.profile.cash=70;
+  const summary={id:'actual-level1-clear',journey:normalizeJourney({mode:'campaign',level:1}),won:true,levelCleared:true,cash:25,distance:3600,furthestS:3640,time:90,kills:4};
+  const run={summary,cfg:{journey:summary.journey}};f.game.run=run;f.app._results(run);f.app._results(run);
+  assert.equal(f.profile.cash,95);assert.equal(f.profile.runs,1);assert.equal(f.profile.wins,0);assert.equal(f.profile.bossKilled,false);
+  assert.deepEqual(f.profile.campaignProgress.cleared,[1]);assert.equal(f.profile.campaignProgress.selectedLevel,2);assert.equal(f.profile.campaignRecords[1].distance,3600);
+  assert.equal(f.profile.best.furthestS,60000);assert.equal(shown.bestBefore.distance,0);assert.equal(shown.newBest.distance,true);
+  let garages=0;f.app.garage=()=>garages++;callbacks.onContinue();assert.equal(garages,1);assert.equal(f.modals.length,0,'ordinary level clear has no final-campaign victory modal');
 });

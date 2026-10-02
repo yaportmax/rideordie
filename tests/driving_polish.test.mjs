@@ -4,6 +4,7 @@ import { initPhysics, createWorld, addStaticBox, GRAVITY } from '../src/sim/phys
 import { Vehicle } from '../src/sim/vehicle.js';
 import { VEHICLES } from '../src/data/vehicles.js';
 import { DEFAULT_PROFILE, effects } from '../src/data/upgrades.js';
+import { familyOf } from '../src/data/vehicle_families.js';
 import { buildPlayerSpec } from '../src/game/run_setup.js';
 import { Sim } from '../src/sim/sim.js';
 import { StructureColliders } from '../src/sim/structure_colliders.js';
@@ -14,6 +15,12 @@ import { SCATTER, tierOf } from '../src/world/dressing/types.js';
 
 const DT = 1 / 120;
 const trucks = ['truck_t1', 'truck_t2', 'truck_t3', 'truck_t4'];
+function upgradedProfile(id, levels) {
+  const p = DEFAULT_PROFILE(); p.truck = id;
+  if (!p.trucks.includes(id)) p.trucks.push(id);
+  Object.assign(p.vehicleUpgrades[familyOf(id)], levels);
+  return p;
+}
 async function withCar(id, check, spec = VEHICLES[id]) {
   await initPhysics();
   const world = createWorld(DT), ground = addStaticBox(world, [0, -1, 0], [10000, 1, 10000]);
@@ -36,7 +43,11 @@ async function withCar(id, check, spec = VEHICLES[id]) {
 test('every chassis reaches its greater cruising speed gradually on a real straight road', async () => {
   for (const id of Object.keys(VEHICLES)) await withCar(id, (car, step) => {
     let t90 = null; const speeds = [];
-    for (let sec = 1; sec <= 80; sec++) {
+    // The slow ten-ton bus has a longer velocity/acceleration time scale.
+    // Let every chassis settle for seven of its own time scales, retaining
+    // the original minimum interval and the same strict terminal tolerance.
+    const settleSeconds = Math.max(80, Math.ceil(7 * car.spec.engine.vmax / car.spec.engine.accel0));
+    for (let sec = 1; sec <= settleSeconds; sec++) {
       step({ throttle: 1 }, 120); speeds.push(car.speed);
       assert.equal(car.poseRevision, 0, 'ordinary physics never marks a teleport');
       assert.equal(car.grounded, car.wheels.length, id + ' stays supported on asphalt');
@@ -47,7 +58,8 @@ test('every chassis reaches its greater cruising speed gradually on a real strai
     assert.ok(cruise > car.spec.engine.vmax * .84 && cruise < car.spec.engine.vmax, id + ' settles near its stated limit');
     assert.ok(t90 >= 13, id + ' higher cruising speed needs a sustained straight');
     assert.ok(speeds[4] < cruise * .65 && speeds[29] > cruise * .95, id + ' early and late acceleration differ');
-    assert.ok(Math.abs(speeds[79] - speeds[69]) < .003, id + ' reaches a stable eventual cruise');
+    assert.ok(Math.abs(speeds.at(-1) - speeds.at(-11)) < .003,
+      id + ' reaches a stable eventual cruise within ' + settleSeconds + 's');
   });
 });
 
@@ -135,7 +147,7 @@ test('all truck tiers retain strong brakes, capped reverse and stable alternatin
 test('runtime and garage effects preserve each chassis tank while retaining existing upgrade bonuses', () => {
   const specsBefore = JSON.stringify(VEHICLES);
   for (const id of trucks) for (let level = 0; level <= 5; level++) {
-    const profile = { ...DEFAULT_PROFILE(), truck: id, upgrades: { nitro: level } }, original = JSON.stringify(profile);
+    const profile = upgradedProfile(id, { nitro: level }), original = JSON.stringify(profile);
     const e = effects(profile), { spec } = buildPlayerSpec(profile), base = VEHICLES[id].nitro;
     const extraCapacity = level ? .4 + .8 * level : 0, extraRefill = (level ? .03 : 0) + .03 * level;
     assert.equal(e.nitroCap, base.capacity + extraCapacity);
@@ -148,7 +160,7 @@ test('runtime and garage effects preserve each chassis tank while retaining exis
 
 test('actual profile-built tier tanks burn once under a held press, then wait for release', async () => {
   for (const id of trucks) {
-    const { spec } = buildPlayerSpec({ ...DEFAULT_PROFILE(), truck: id, upgrades: { nitro: 2 } });
+    const { spec } = buildPlayerSpec(upgradedProfile(id, { nitro: 2 }));
     await withCar(id, (car, step) => {
       let starts = 0, previous = false, boosted = 0;
       for (let i = 0; i < 15 * 120; i++) {
@@ -181,7 +193,7 @@ test('new upgraded/boost speed ceilings retain CCD crash response against an act
       addStaticBox(sim.world, [0, -.5, 25], [70, .5, 90]);
       for (const request of requests) structures.hook(request);
       sim.structures = structures;
-      const { spec } = buildPlayerSpec({ ...DEFAULT_PROFILE(), truck: id, upgrades: { engine: 5 } });
+      const { spec } = buildPlayerSpec(upgradedProfile(id, { engine: 5 }));
       const player = sim.spawnCar(id, { kind: 'player', spec }), veh = player.veh;
       veh.body.setTranslation({ x: 12, y: veh.restComHeight + .05, z: 0 }, true);
       veh.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);

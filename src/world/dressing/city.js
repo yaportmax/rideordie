@@ -9,11 +9,26 @@ import { hash2, smoothstep, fbm1 } from '../../core/util.js';
 import { rngOf, CHUNK_LEN } from './util.js';
 import { MB, frameYaw, frameBasis } from './mbuild.js';
 import { facadeMaterial, neonRect, ST, NEON_H, NEON_V, NEON_DOT } from './city_mat.js';
+import { drivingFootprintRadius } from '../driving_plan.js';
+import { contextualRoad, biomeRange, biomeWeight, biomeDistance } from '../biome_context.js';
 
 export const CITY_A = 40350, CITY_B = 50250;
 /** 0..1 city density along the road (suburbs ramp in/out) and the downtown core weight. */
-export const cityDens = (s) => smoothstep(40450, 41400, s) * (1 - smoothstep(49300, 50150, s));
-export const cityCore = (s) => smoothstep(41900, 43400, s) * (1 - smoothstep(47600, 49000, s));
+export const cityDens = (s, road) => {
+  if (!contextualRoad(road)) return smoothstep(40450, 41400, s) * (1 - smoothstep(49300, 50150, s));
+  const span = biomeRange(road, 'city');
+  return span ? biomeWeight(road, s, 'city') * smoothstep(span.start + 120, span.start + 700, s) : 0;
+};
+export const cityCore = (s, road) => {
+  if (!contextualRoad(road)) return smoothstep(41900, 43400, s) * (1 - smoothstep(47600, 49000, s));
+  const span = biomeRange(road, 'city');
+  return span ? biomeWeight(road, s, 'city') * smoothstep(span.start + 1200, span.start + 2300, s) * (0.55 + 0.45 * fbm1((s - span.start) / 1700, 2, 71)) : 0;
+};
+function cityTouches(road, sA, sB) {
+  if (!contextualRoad(road)) return sB >= CITY_A && sA <= CITY_B;
+  const span = biomeRange(road, 'city');
+  return !!span && sB >= span.start - 400 && sA <= span.end + 400;
+}
 
 const BLOCK = 118;
 const PAL = {
@@ -25,16 +40,16 @@ const PAL = {
 };
 const AWN = [[0.45, 0.1, 0.08], [0.1, 0.25, 0.35], [0.25, 0.35, 0.15], [0.5, 0.4, 0.12], [0.3, 0.3, 0.32]];
 
-function district(seed, s) {
-  const core = cityCore(s), n = fbm1(s / 950 + 3.3, 2, seed + 41);
+function district(seed, s, road) {
+  const core = cityCore(s, road), n = fbm1(s / 950 + 3.3, 2, seed + 41);
   if (core > 0.55) return n < 0.25 ? 'commercial' : 'downtown';
-  if (cityDens(s) < 0.5) return n < 0.5 ? 'industrial' : 'residential';
+  if (cityDens(s, road) < 0.5) return n < 0.5 ? 'industrial' : 'residential';
   return n < 0.42 ? 'residential' : n < 0.78 ? 'commercial' : 'industrial';
 }
 
 /** Street-side building descriptor from a random stream. row: 'A' | 'B' | 'C'. */
-export function makeBuilding(r, dist, row, s, side, dFront, W, D, seed) {
-  const core = cityCore(s);
+export function makeBuilding(r, dist, row, s, side, dFront, W, D, seed, road) {
+  const core = cityCore(s, road);
   let floors, style, flh, bay, gh = 0, col;
   const u = r();
   if (dist === 'downtown') {
@@ -78,7 +93,7 @@ function planBlock(ctx, k, side) {
   if (p) return p;
   const seed = ctx.seed, r = rngOf(seed, k * 2 + (side > 0 ? 1 : 0), 7311);
   const e0 = blockEdge(seed, k, side), e1 = blockEdge(seed, k + 1, side);
-  const sMid = (e0 + e1) / 2, dens = cityDens(sMid), dist = district(seed, sMid);
+  const sMid = (e0 + e1) / 2, dens = cityDens(sMid, ctx.road), dist = district(seed, sMid, ctx.road);
   p = { k, side, street: null, lots: [], back: [], sky: [] };
   cache.set(key, p);
   if (dens < 0.08) return p;
@@ -91,7 +106,7 @@ function planBlock(ctx, k, side) {
   while (s < e1 - 5) {
     let w = wRange[0] + r() * (wRange[1] - wRange[0]);
     if (e1 - (s + w) < wRange[0] * 0.6) w = e1 - s;
-    const sc = s + w / 2, dHere = cityDens(sc);
+    const sc = s + w / 2, dHere = cityDens(sc, ctx.road);
     const kind = r();
     const skip = r() > 0.25 + 0.75 * dHere || heroClear(ctx, sc, w / 2);   // suburbs: sparse; hero areas stay free
     if (!skip) {
@@ -99,7 +114,7 @@ function planBlock(ctx, k, side) {
       const D = dist === 'industrial' ? 18 + r() * 14 : 13 + r() * 12;
       if (kind < 0.075 * (0.5 + dHere)) p.lots.push({ rubble: true, s: sc, side, dFront: dF, W: w - 1.2, D, seed: r(), row: 'A' });
       else if (kind < 0.12) { /* empty lot */ }
-      else p.lots.push(makeBuilding(r, dist, 'A', sc, side, dF, w - (r() < 0.5 ? 0.3 : 1.5), D, r()));
+      else p.lots.push(makeBuilding(r, dist, 'A', sc, side, dF, w - (r() < 0.5 ? 0.3 : 1.5), D, r(), ctx.road));
     }
     s += w;
   }
@@ -107,23 +122,23 @@ function planBlock(ctx, k, side) {
   s = e0 + (hasStreet ? streetW : 0) + 2;
   while (s < e1 - 8) {
     const w = 20 + r() * 26, sc = s + Math.min(w, e1 - s) / 2;
-    if (r() < 0.2 + 0.8 * cityDens(sc)) {
+    if (r() < 0.2 + 0.8 * cityDens(sc, ctx.road)) {
       const ww = Math.min(w, e1 - s) - 3;
       if (ww > 12 && !heroClear(ctx, sc, ww / 2)) {
         const glb = r() < 0.22;
         const dF = 44 + r() * 45, D = 18 + r() * 22;
         if (glb) p.back.push({ glb: true, s: sc, side, dFront: dF, W: ww, D, seed: r(), row: 'B' });
-        else p.back.push(makeBuilding(r, dist, 'B', sc, side, dF, ww, D, r()));
+        else p.back.push(makeBuilding(r, dist, 'B', sc, side, dF, ww, D, r(), ctx.road));
       }
     }
     s += w + 2 + r() * 8;
   }
   // ---- row C: skyline towers
-  const nSky = Math.round((0.6 + 1.8 * cityCore(sMid)) * dens * (0.6 + r()));
+  const nSky = Math.round((0.6 + 1.8 * cityCore(sMid, ctx.road)) * dens * (0.6 + r()));
   for (let i = 0; i < nSky; i++) {
     const sc = e0 + r() * (e1 - e0), dF = 130 + r() * (160 + 230 * r());
-    const b = makeBuilding(r, dist === 'residential' && r() < 0.5 ? 'residential' : 'downtown', 'C', sc, side, dF, 20 + r() * 26, 20 + r() * 22, r());
-    if (cityCore(sc) > 0.3 && r() < 0.08) { b.fire = Math.max(3, b.floors - 3 - Math.floor(r() * 6)); b.smoke = true; }
+    const b = makeBuilding(r, dist === 'residential' && r() < 0.5 ? 'residential' : 'downtown', 'C', sc, side, dF, 20 + r() * 26, 20 + r() * 22, r(), ctx.road);
+    if (cityCore(sc, ctx.road) > 0.3 && r() < 0.08) { b.fire = Math.max(3, b.floors - 3 - Math.floor(r() * 6)); b.smoke = true; }
     p.sky.push(b);
   }
   return p;
@@ -132,7 +147,7 @@ function planBlock(ctx, k, side) {
 /** All planned items (row A, B, C, streets) with centre s in [sA, sB). */
 export function cityItems(ctx, sA, sB) {
   const out = { b: [], streets: [] };
-  if (sB < CITY_A || sA > CITY_B) return out;
+  if (!cityTouches(ctx.road, sA, sB)) return out;
   const k0 = Math.floor(sA / BLOCK) - 1, k1 = Math.floor(sB / BLOCK) + 1;
   for (let k = k0; k <= k1; k++) for (const side of [1, -1]) {
     const p = planBlock(ctx, k, side);
@@ -141,6 +156,13 @@ export function cityItems(ctx, sA, sB) {
   }
   // hero pieces
   for (const h of heroes(ctx)) if (h.s >= sA && h.s < sB) out.b.push(h);
+  // Reserve complete visible buildings and colliders together. A main-road
+  // skyline descriptor must not leave a foundation across an alley shortcut.
+  out.b = out.b.filter(b => {
+    const d = b.arch ? 0 : b.side * (b.dFront + b.D / 2), p = ctx.road.pointAt(b.s, d, {});
+    const radius = b.arch ? 85 : Math.hypot(b.W, b.D) / 2 + 6;
+    return !ctx.road.corridorBlocked(p.x, p.z, radius, b.s);
+  });
   return out;
 }
 
@@ -159,13 +181,15 @@ function heroes(ctx) {
   if (ctx.cityHeroes) return ctx.cityHeroes;
   const r = rngOf(ctx.seed, 991, 17);
   const list = [];
-  for (const [s, side, dF] of [[44650, 1, 70], [46900, -1, 95], [48350, 1, 150]]) {
-    const b = makeBuilding(r, 'downtown', 'B', s, side, dF, 30, 26, r());
+  const at = s => biomeDistance(ctx.road, 'city', s);
+  if (at(44650) === null) return (ctx.cityHeroes = list);
+  for (const [legacyS, side, dF] of [[44650, 1, 70], [46900, -1, 95], [48350, 1, 150]]) {
+    const s = at(legacyS), b = makeBuilding(r, 'downtown', 'B', s, side, dF, 30, 26, r(), ctx.road);
     b.floors = 26 + Math.floor(r() * 10); b.tall = b.floors * b.flh + b.gh; b.fire = b.floors - 7; b.smoke = true; b.setback = false; b.top = 1; b.lit = 0.05; b.hero = true;
     list.push(b);
   }
-  ctx.road.extendTo(47000);
-  const sArch = clearSpot(ctx.road, 45700, 46700, 46100, 90);
+  ctx.road.extendTo(at(47000));
+  const sArch = clearSpot(ctx.road, at(45700), at(46700), at(46100), 90);
   if (sArch !== null) list.push({ arch: true, s: sArch, side: 1, dFront: 30, W: 26, D: 26, row: 'A', seed: r() });
   ctx.cityHeroes = list;
   return list;
@@ -179,12 +203,12 @@ function heroClear(ctx, s, halfW) {
 /** Exclusion circles [x, z, r] of the city buildings with centre s in [sA, sB) (for scatter / ground cover). */
 export function cityExclusions(ctx, sA, sB) {
   const out = [];
-  if (sB < CITY_A || sA > CITY_B) return out;
+  if (!cityTouches(ctx.road, sA, sB)) return out;
   const { b } = cityItems(ctx, sA - 60, sB + 60);
   const road = ctx.road, P = {};
   // sidewalks (9.55..14 m): nothing grows on the paving
   for (let s = Math.ceil(sA / 5) * 5; s < sB; s += 5) {
-    if (cityDens(s) < 0.35) continue;
+    if (cityDens(s, road) < 0.35) continue;
     for (const sd of [1, -1]) { road.pointAt(s, sd * 11.9, P); out.push([P.x, P.z, 3.1]); }
   }
   for (const q of b) {
@@ -454,9 +478,9 @@ function emitArch(ctx, chunk, mb, nb, cols, h) {
   const { road, seed } = ctx, r = rngOf(seed, Math.round(h.s), 4242);
   const P = {};
   // stump (left) and support (right) buildings
-  const stump = makeBuilding(r, 'downtown', 'A', h.s, 1, 30, 26, 26, r());
+  const stump = makeBuilding(r, 'downtown', 'A', h.s, 1, 30, 26, 26, r(), ctx.road);
   Object.assign(stump, { floors: 5, flh: 3.9, gh: 4.8, style: ST.CURTAIN, top: 1, setback: false, tank: false, antenna: false, beacon: false, lit: 0.1, dmg: 0.8 });
-  const sup = makeBuilding(r, 'downtown', 'A', h.s + 16, -1, 32, 28, 26, r());
+  const sup = makeBuilding(r, 'downtown', 'A', h.s + 16, -1, 32, 28, 26, r(), ctx.road);
   Object.assign(sup, { floors: 7, flh: 3.9, gh: 4.8, style: ST.RIBBON, top: 0, setback: false, tank: false, antenna: false, beacon: false, lit: 0.12, dmg: 0.6 });
   const tops = [];
   for (const b of [stump, sup]) {
@@ -541,7 +565,9 @@ function emitStreetLevel(mb, chunk, road, streets) {
     mb.setFac(ST.PAVING, 1, 1, 0.3).setFac2(0, 0, 0, 0);
     for (let s = s0; s < s0 + CHUNK_LEN - 0.01; s += 3) {
       const sa = s, sb = s + 3, sm = (sa + sb) / 2;
-      if (cityDens(sm) < 0.35 || inStreet(sm, side) || road.featureAt(sm, 'bridge') || road.featureAt(sm, 'overpass')) continue;
+      if (cityDens(sm, road) < 0.35 || inStreet(sm, side) || road.featureAt(sm, 'bridge') || road.featureAt(sm, 'overpass')) continue;
+      const centre = road.pointAt(sm, side * 11.775, {});
+      if (road.corridorBlocked(centre.x, centre.z, 3, sm)) continue;
       const ya0 = chunk.ground.sample(sa, d0, G).y, yb0 = chunk.ground.sample(sb, d0, G).y;
       const ya1 = chunk.ground.sample(sa, d1, G).y, yb1 = chunk.ground.sample(sb, d1, G).y;
       const top = 0.16;
@@ -570,6 +596,9 @@ function emitStreetLevel(mb, chunk, road, streets) {
         const g = chunk.ground.sample(Math.min(chunk.s0 + CHUNK_LEN, Math.max(chunk.s0, sc + ds)), d, G);
         pts.push({ x, y: g.y + 0.1, z, u: ds, v: dd });
       }
+      const cx = pts.reduce((sum, p) => sum + p.x, 0) / 4, cz = pts.reduce((sum, p) => sum + p.z, 0) / 4;
+      const radius = Math.max(...pts.map(p => Math.hypot(p.x - cx, p.z - cz)));
+      if (road.corridorBlocked(cx, cz, radius, sc)) continue;
       const [p0, p1, p2, p3] = q.side > 0 ? pts : [pts[1], pts[0], pts[3], pts[2]];
       mb.quadW(p0, p1, p2, p3, p0.u, p0.v, p1.u, p1.v, p2.u, p2.v, p3.u, p3.v);
     }
@@ -588,6 +617,7 @@ function putWreck(ctx, chunk, cols, name, s, d, psi, r) {
   const L = a.size.z, W = a.size.x, ext = Math.abs(Math.sin(psi)) * L / 2 + Math.abs(Math.cos(psi)) * W / 2;
   if (Math.abs(d) - ext < 10.3) d = Math.sign(d) * (10.3 + ext);
   const g = chunk.ground.sample(Math.min(chunk.s0 + CHUNK_LEN, Math.max(chunk.s0, s)), d, _G);
+  if (ctx.road.corridorBlocked(g.x, g.z, drivingFootprintRadius(a), s)) return false;
   const th = ctx.road.sample(s, _smp).th, yaw = th + psi;
   const t = 0.7 + r() * 0.5;
   ctx.pool.register(name, PROP_SPEC);
@@ -603,7 +633,7 @@ function putWreck(ctx, chunk, cols, name, s, d, psi, r) {
 function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
   const { road, seed } = ctx, s0 = chunk.s0;
   const r = rngOf(seed, chunk.c, 6161);
-  const dens = cityDens(s0 + 48), core = cityCore(s0 + 48);
+  const dens = cityDens(s0 + 48, road), core = cityCore(s0 + 48, road);
   if (dens < 0.25) return;
   const blocked = (s) => road.featuresIn(s - 45, s + 25).some((f) => f.type !== 'guard' && s > f.s0 - 45 && s < f.s1 + 25);
   const inStreet = (s, side) => items.streets.some((q) => q.side === side && s > q.s0 - 3 && s < q.s1 + 3);
@@ -629,16 +659,18 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
     const s = s0 + r() * CHUNK_LEN, side = r() < 0.5 ? 1 : -1, d = side * (10.9 + r() * 2.4);
     if (blocked(s)) continue;
     const g = chunk.ground.sample(s, d, _G);
+    if (road.corridorBlocked(g.x, g.z, drivingFootprintRadius(barrel, 1.05) + .5, s)) continue;
     ctx.pool.register('barrel', { far: 320, shadow: false, lite: true });
     chunk.list('barrel').push(g.x, g.y + 0.1, g.z, r() * 6.28, 1.05, 1.05, 1.05, 0, 1, 0, 0, 0.7, 0.55, 0.42, 0.36);
     ctx.pool.register('fx_flame', { far: 450, shadow: false });
     chunk.list('fx_flame').push(g.x, g.y + 0.1 + 0.86, g.z, r() * 3, 0.95, 1.5, 0.95, 0, 1, 0, 0, 1.5);
-    if (r() < 0.5) { const d2 = d + side * (0.6 + r() * 0.6), s2 = s + (r() - 0.5) * 2.5, g2 = chunk.ground.sample(s2, d2, _G); chunk.list('barrel').push(g2.x, g2.y + 0.1, g2.z, r() * 6.28, 1, 1, 1, 0, 1, 0, 0, 0.7, 0.4, 0.3, 0.26); }
+    if (r() < 0.5) { const d2 = d + side * (0.6 + r() * 0.6), s2 = s + (r() - 0.5) * 2.5, g2 = chunk.ground.sample(s2, d2, _G); if (!road.corridorBlocked(g2.x, g2.z, drivingFootprintRadius(barrel), s2)) chunk.list('barrel').push(g2.x, g2.y + 0.1, g2.z, r() * 6.28, 1, 1, 1, 0, 1, 0, 0, 0.7, 0.4, 0.3, 0.26); }
   }
   // ---- traffic lights at the side streets: pole + arm over the shoulder, dead signal heads blinking amber
   for (const q of items.streets) {
     const s = q.s1 + 1.2; if (s < s0 || s >= s0 + CHUNK_LEN || blocked(s)) continue;
     const side = q.side, sm = road.sample(s, _smp), d = side * 10.7;
+    const centre = road.pointAt(s, d, {}); if (road.corridorBlocked(centre.x, centre.z, 4.5, s)) continue;
     const F = frameYaw(sm.x + sm.nx * d, chunk.ground.sample(s, d, _G).y - 0.1, sm.z + sm.nz * d, side > 0 ? sm.th - Math.PI / 2 : sm.th + Math.PI / 2, {});
     mb.col(0.16, 0.17, 0.18).setFac(ST.PLAIN, 1, 1, 0.2).setFac2(0, 0, 0, 0);
     mb.box(F, -0.12, 0.12, 0, 6.3, -0.12, 0.12, { skip: 'd' });
@@ -652,7 +684,8 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
   // ---- bus stops: shelter (roof, back + side panes, lit ad panel), bench, sign pole; one every ~2-3 chunks
   if (hash2(chunk.c, 881, seed) < 0.42 && dens > 0.5) {
     const s = s0 + 20 + r() * 56, side = hash2(chunk.c, 882, seed) < 0.5 ? 1 : -1;
-    if (!blocked(s) && !inStreet(s, side)) {
+    const centre = road.pointAt(s, side * 12.2, {});
+    if (!blocked(s) && !inStreet(s, side) && !road.corridorBlocked(centre.x, centre.z, 4.2, s)) {
       const sm = road.sample(s, _smp), d = side * 12.2, gy = chunk.ground.sample(s, d, _G).y + 0.16;
       const F = frameYaw(sm.x + sm.nx * d, gy, sm.z + sm.nz * d, side > 0 ? sm.th - Math.PI / 2 : sm.th + Math.PI / 2, {});   // local +z toward the road
       mb.col(0.16, 0.17, 0.18).setFac(ST.PLAIN, 1, 1, 0.3).setFac2(0, 0, 0, 0);
@@ -679,6 +712,7 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
       for (let s = s0 + 4 + r() * 10; s < s0 + CHUNK_LEN; s += 13 + r() * 9) {
         if (blocked(s) || inStreet(s, side)) continue;
         const d = side * 13.1, g = chunk.ground.sample(s, d, _G), sc = 0.7 + r() * 0.45;
+        if (road.corridorBlocked(g.x, g.z, drivingFootprintRadius(tree, sc), s)) continue;
         chunk.list('dead_tree_c').push(g.x, g.y, g.z, r() * 6.28, sc, sc, sc, 0, 1, 0, 0, 3 * sc, 0.75, 0.72, 0.7);
       }
     }
@@ -692,14 +726,14 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
  */
 export function buildCity(ctx, chunk) {
   const s0 = chunk.s0, s1 = s0 + CHUNK_LEN;
-  if (s1 < CITY_A || s0 > CITY_B || chunk.done.has('city')) return true;
+  if (!cityTouches(ctx.road, s0, s1) || chunk.done.has('city')) return true;
   const { road, seed } = ctx;
   let J = chunk.cityJob;
   if (!J) {
     for (const n of [...GLB_RUINS, ...CITY_PROPS]) { const st = ctx.kit.state(n); if (st === 'idle') ctx.kit.request(n); if (st === 'idle' || st === 'loading') return false; }
     road.extendTo(s1 + 600);
     const items = cityItems(ctx, s0, s1);
-    if (!items.b.length && !items.streets.length && cityDens(s0 + 48) < 0.3) { chunk.done.add('city'); return true; }
+    if (!items.b.length && !items.streets.length && cityDens(s0 + 48, ctx.road) < 0.3) { chunk.done.add('city'); return true; }
     const anchor = road.sample(s0, {});
     const mb0 = new MB(anchor, { uvName: 'aUvF', cap: 8192 });
     J = chunk.cityJob = { items, i: 0, anchor, mb: mb0, nb: mb0, cols: { pos: [], idx: [] }, phase: 0 };   // neon signs share the facade mesh (style NEON)
@@ -755,5 +789,6 @@ function placeGlbRuin(ctx, chunk, b, fr, g0, r) {
   const a = ctx.kit.get(name); if (!a) return;
   ctx.pool.register(name, { far: 1700, shadow: true, behind: true, mergeNear: 75 });
   const sc = 0.95 + r() * 0.15, sy = 0.9 + r() * 0.45, t = 0.85 + r() * 0.25;
+  if (ctx.road.corridorBlocked(fr.x, fr.z, drivingFootprintRadius(a, sc), b.s)) return;
   chunk.list(name).push(fr.x, g0 - 0.4, fr.z, fr.yaw + (r() - 0.5) * 0.12, sc, sy, sc, 0, 1, 0, 0, a.sphere.radius * Math.max(sc, sy) * 1.1, t, t, t);
 }

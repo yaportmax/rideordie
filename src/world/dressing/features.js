@@ -1,7 +1,7 @@
 // Road feature structures built from road.features: ramp, boost pad, roadblock, bridge, tunnel, overpass.
 // Instanced structure pieces go through the shared pool (chunk lists); one-off procedural meshes (boost pad, bridge piers, tunnel hill cap) are chunk extras.
 import * as THREE from 'three';
-import { biomeAt } from '../../data/biomes.js';
+import { roadBiomeAt } from '../biome_context.js';
 import { terrainPoint, EDGE } from '../terrain_gen.js';
 import { fbm2, smoothstep, clamp } from '../../core/util.js';
 import { roadFrame, groundAt, CHUNK_LEN, seedOf } from './util.js';
@@ -9,6 +9,7 @@ import { need, useSpec } from './furniture.js';
 import { makePierGeometry } from './procedural.js';
 import { rbGapD, RB_SOFT } from '../../sim/hazards.js';
 import { cityDens } from './city.js';
+import { buildStageWarning, buildStageChallenge, buildDrivingBranches } from './driving.js';
 
 export const FEATURE_SPECS = {
   jump_ramp: { far: 650, shadow: true, behind: true, showRoad: true },
@@ -207,7 +208,7 @@ function roadblockFlank(ctx, chunk, f, dGap, fires, cols) {
     return { g, a, yaw };
   };
   const th = road.sample(f.s0 + 4, {}).th;
-  const city = cityDens(f.s0) > 0.25;                                       // the street wall of the city frames it already
+  const city = cityDens(f.s0, road) > 0.25;                                       // the street wall of the city frames it already
   // container stacks: a wall on both sides just past the shoulders, long axis along the road
   if (!city) for (const side of [1, -1]) glbAt('shipping_container_stack3', f.s0 + 3 + rnd(side + 2) * 6, side * (14.2 + rnd(side + 4) * 2), th + (rnd(side + 6) - 0.5) * 0.3, 1, 0.8 + rnd(side + 8) * 0.3);
   // raider war banners at the line
@@ -346,8 +347,8 @@ function buildBridge(ctx, chunk, f) {
 }
 
 // ------------------------------------------------------------------------------------------------ tunnel
-function tunnelKit(f, s) {
-  const b = biomeAt(s), id = b.w > 0.5 ? b.b : b.a;
+function tunnelKit(road, f, s) {
+  const b = roadBiomeAt(road, s), id = b.w > 0.5 ? b.b : b.a;
   if (!f.rock) return { pin: 'tunnel_portal_concrete', pout: 'tunnel_exit_concrete', rockKind: null };
   if (id === 'canyon' || id === 'desert') return { pin: 'tunnel_portal_rock', pout: 'tunnel_exit', rockKind: 'red' };
   return { pin: 'tunnel_portal_rock_grey', pout: 'tunnel_exit_grey', rockKind: 'grey' };
@@ -450,7 +451,7 @@ function buildRavineFloor(ctx, chunk, f) {
   const bridges = [f];
   const sA = f.s0 - 45, sB = f.s1 + 45, ROWS = Math.max(3, Math.round((sB - sA) / 8) + 1);
   const P = {}, grid = [];
-  const bio = biomeAt((f.s0 + f.s1) / 2), id = bio.w > 0.5 ? bio.b : bio.a;
+  const bio = roadBiomeAt(road, (f.s0 + f.s1) / 2), id = bio.w > 0.5 ? bio.b : bio.a;
   for (let r = 0; r < ROWS; r++) {
     const s = sA + (sB - sA) * r / (ROWS - 1), sm = road.sample(s, {});
     const yl = terrainPoint(road, seed, s, EDGE + 0.02, P, bridges).y, yr = terrainPoint(road, seed, s, -(EDGE + 0.02), P, bridges).y;
@@ -468,7 +469,7 @@ function buildRavineFloor(ctx, chunk, f) {
 }
 
 function buildTunnel(ctx, chunk, f) {
-  const kit = tunnelKit(f, (f.s0 + f.s1) / 2);
+  const kit = tunnelKit(ctx.road, f, (f.s0 + f.s1) / 2);
   const names = [kit.pin, kit.pout, 'tunnel_mid_10m'];
   const A = names.map((n) => need(ctx, n));
   if (A.some((x) => x === undefined)) return false;
@@ -512,6 +513,8 @@ export function buildFeatures(ctx, chunk, deadline = Infinity) {
       case 'ramp': r = buildRamp(ctx, chunk, f); break;
       case 'boost': r = buildBoost(ctx, chunk, f); break;
       case 'roadblock': r = buildRoadblock(ctx, chunk, f); break;
+      case 'stage_warning': r = buildStageWarning(ctx, chunk, f); break;
+      case 'stage_challenge': r = buildStageChallenge(ctx, chunk, f); break;
       case 'bridge': r = buildBridge(ctx, chunk, f); break;
       case 'tunnel': r = buildTunnel(ctx, chunk, f); break;
       case 'overpass': r = buildOverpass(ctx, chunk, f); break;
@@ -519,6 +522,7 @@ export function buildFeatures(ctx, chunk, deadline = Infinity) {
     }
     if (r) chunk.done.add(tag); else ok = false;
   }
+  if (!buildDrivingBranches(ctx, chunk)) ok = false;
   chunk.dirty = true;
   return ok;
 }

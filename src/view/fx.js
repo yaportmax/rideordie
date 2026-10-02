@@ -30,7 +30,7 @@ import * as R from './fx/recipes.js';
 import { CarRec, updateCarFx, ownBurst } from './fx/carfx.js';
 import { paintHexOf, patchPaint, makeWreckUniforms } from './fx/wreck.js';
 import * as Assets from '../core/assets.js';
-import { VEHICLES } from '../data/vehicles.js';
+import { vehicleModelURLs } from '../data/vehicles.js';
 import { BossFx } from './fx/boss.js';
 import { HazardFx } from './fx/hazards.js';
 import { BOSS_ID } from '../data/boss.js';
@@ -601,7 +601,12 @@ export class Fx {
         R.tracerHit(this, wid, o[0], o[1], o[2], e[0], e[1], e[2]);
         if (ry.surface) this._queueImpact(ry, Math.hypot(e[0] - physicalOrigin[0], e[1] - physicalOrigin[1], e[2] - physicalOrigin[2]) / 620);   // the sim emits no 'hit' for hitscan rays
       }
-      this._eject(wid, o, dx, dy, dz, ctx, fp ? evt : null);
+      let ejectEvent = fp || evt.mounted ? evt : null;
+      if (wid === 'minigun' && (!ejectEvent?.ej || evt.remote) && ctx.playerEject?.(_v, _v2)) {
+        const port = this._mountedEjectEvent ??= { mounted: true, ej: [0, 0, 0], ejd: [0, 0, 0] };
+        _v.toArray(port.ej); _v2.toArray(port.ejd); ejectEvent = port;
+      }
+      this._eject(wid, o, dx, dy, dz, ctx, ejectEvent);
     } else if (rays) {
       const sp = evt.speed || 120;
       for (let i = 0; i < rays.length; i++) {
@@ -652,7 +657,8 @@ export class Fx {
     const seat = cv.spec.seats && cv.spec.seats.gunner; const floorY = seat ? seat[1] : 0.9;
     const ax = r.sym(30), ay = r.sym(30), az = r.sym(40);
     if (fpEvt && fpEvt.ej) {
-      // first person: out of the viewmodel's ejection port, up-right and a little back toward the shooter, tumbling
+      // The viewmodel or actual mounted port supplies a world position and
+      // outward direction; neither casing starts from the barrel muzzle.
       const e = fpEvt.ej, ed = fpEvt.ejd;
       _v.set(e[0] - root.position.x, e[1] - root.position.y, e[2] - root.position.z).applyQuaternion(_q);
       _v2.set(ed[0], ed[1], ed[2]).applyQuaternion(_q);
@@ -750,15 +756,14 @@ export class Fx {
     this.prewarmDone();
     const g = new THREE.Group(); g.name = 'fx_prewarm'; g.position.set(0, -5000, 0);
     const u = makeWreckUniforms();
-    for (const id of [...Object.keys(VEHICLES), 'boss_warrig']) {
-      const url = `/models/vehicles/${id}.glb`;
+    for (const url of [...vehicleModelURLs(), '/models/vehicles/boss_warrig.glb']) {
       const root = Assets.has(url) ? Assets.clone(url) : null;
       if (!root) continue;
       const seen = new Map();
       root.traverse((o) => {
         if (!o.isMesh) return;
         const mats = [].concat(o.material);
-        if (!mats.some((m) => m && /^paint/.test(m.name)) || id === 'boss_warrig') {          // base materials as-is: first spawn of a car type won't compile either
+        if (!mats.some((m) => m && /^paint/.test(m.name)) || url.endsWith('/boss_warrig.glb')) {          // base materials as-is: first spawn of a car type won't compile either
           const mesh = new THREE.Mesh(o.geometry, o.material); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.matrixAutoUpdate = false; g.add(mesh);
           return;
         }

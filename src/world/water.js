@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { seaLevel, COLS, EDGE } from './terrain_gen.js';
 import { smoothstep, lerp } from '../core/util.js';
 import { lookAt } from './look.js';
+import { contextualRoad, biomeWeight } from './biome_context.js';
 import { ATMO_GLSL, KEY, noiseTexture } from './atmosphere.js';
 
 // Gerstner-like swell as analytic slopes. Each wave fades out once it drops below ~4 pixels of screen footprint `fw` (metres
@@ -207,8 +208,9 @@ export class Water {
   update(dt, cam, s) {
     this.s = s;
     this.uniforms.uTime.value += dt;
-    const coastFade = smoothstep(19100, 19700, s) * (1 - smoothstep(30300, 30900, s));
-    const damFade = smoothstep(49100, 49700, s);
+    const contextual = contextualRoad(this.road);
+    const coastFade = contextual ? biomeWeight(this.road, s, 'coast') : smoothstep(19100, 19700, s) * (1 - smoothstep(30300, 30900, s));
+    const damFade = contextual ? biomeWeight(this.road, s, 'dam') : smoothstep(49100, 49700, s);
     const fade = Math.max(coastFade, damFade);
     this.uniforms.uFade.value = fade;
     this.mesh.visible = fade > 0.003; this.group.visible = this.mesh.visible;
@@ -216,7 +218,7 @@ export class Water {
     const id = damFade > coastFade ? 'dam' : 'coast';
     this.mesh.position.set(cam.x, this.levelOf(id), cam.z);
     // water body lit by the key light + sky of the moment (albedo * irradiance / pi)
-    const look = lookAt(s), key = KEY.uKeyCol.value, kd = KEY.uKeyDir.value;
+    const look = lookAt(s, undefined, this.road), key = KEY.uKeyCol.value, kd = KEY.uKeyDir.value;
     const E = (0.2126 * key.r + 0.7152 * key.g + 0.0722 * key.b) * Math.max(0.05, kd.y) + Math.PI * 0.5 * (lum(look.zen) + lum(look.hor));
     const B = BODY[id], k = E / Math.PI;
     this.uniforms.uDeep.value.copy(B.deep).multiplyScalar(k).lerp(_c.copy(look.zen).multiplyScalar(0.05), 0.15);

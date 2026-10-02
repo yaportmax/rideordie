@@ -4,8 +4,10 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { CarView } from '../view/car_view.js';
+import { sanitizeVisualLevels, visualKey } from '../view/car_upgrade_plan.js';
 import { makeCarState } from '../view/car_state.js';
 import { CrewView } from '../view/crew_view.js';
+import { sanitizeOpticId, weaponOpticKey } from '../data/weapon_optics.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { PuffSystem, Tracers, MuzzleFlash, fxTex } from './menu_fx.js';
 import { warmScene, warmGroup } from './menu_post.js';
@@ -88,7 +90,6 @@ function tex(set, n, srgb, repX, repY) {
 
 const PROPS = ['cactus_saguaro', 'cactus_prickly_pear', 'cactus_barrel', 'shrub_desert_scrub', 'shrub_dry_bush', 'rock_05', 'rock_06', 'rock_03', 'boulder_01', 'boulder_02', 'boulder_03', 'dead_tree_a', 'dead_tree_c', 'utility_pole', 'sign_speed', 'sign_warning', 'mile_marker', 'skeleton_car_frame'];
 const STRUCTS = [];
-const HERO_GUNS = ['smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'];
 
 export class TitleScene {
   constructor(renderer) {
@@ -205,16 +206,18 @@ float paint(vec2 r) {
     for (const [k, x, z] of [['sign_speed', -5.6, -60], ['sign_warning', 5.8, -250], ['mile_marker', -5.2, -140], ['skeleton_car_frame', -16, -330]]) { const m = put(k, x, z, k === 'skeleton_car_frame' ? 0.7 : Math.PI, 1, true); if (m) this.props.push({ m, span }); }
   }
 
-  /** Current player truck + paint + primary weapon (rebuilds the hero car only when they change). */
-  setHero(truckId, paint, weapon) {
-    const key = `${truckId}:${paint}:${weapon}`;
+  /** Current chassis, owned modifiers and crew equipment in the title chase. */
+  setHero(truckId, paint, weapon, loadout = {}) {
+    const upgradeLevels = sanitizeVisualLevels(loadout.upgradeLevels), armorTier = loadout.armorTier || 0;
+    const opticId = sanitizeOpticId(weapon || 'pistol', loadout.opticId);
+    const key = `${truckId}:${paint}:${weaponOpticKey(weapon || 'pistol', opticId)}:${armorTier}:${visualKey(upgradeLevels)}`;
     if (key === this.heroKey) return;
     this.heroKey = key;
     for (const c of this.cars) { c.view.dispose(); for (const cr of c.crew) cr.dispose(); }
     this.cars = [];
-    const spec = VEHICLES[truckId] || VEHICLES.truck_t1;
-    const heroGun = HERO_GUNS.includes(weapon) ? weapon : 'rifle';   // key art: never a pea-shooter
-    this.hero = this._car(spec, { paint, x: 1.85, z: 0, weave: 0.45, wf: 0.31, crew: { gunner: 'hero_gunner', driver: 'hero_driver', weapon: heroGun }, sand: 0.25 });
+    const spec = VEHICLES[truckId] || VEHICLES.player_sedan_t1;
+    const heroGun = weapon || 'pistol';
+    this.hero = this._car(spec, { paint, upgradeLevels, x: 1.85, z: 0, weave: 0.45, wf: 0.31, crew: { gunner: 'hero_gunner', driver: 'hero_driver', weapon: heroGun, opticId, armorTier }, sand: 0.25 });
     this._car(VEHICLES.e_technical, { paint: 0x6a2a1c, x: -2.2, z: -14, weave: 1.4, wf: 0.43, ph: 1.2, crew: { gunner: 'raider_a', driver: 'raider_driver', enemyGun: 'smg' }, sand: 0.4 });
     this._car(VEHICLES.e_buggy, { paint: 0x3a3a34, x: 7.2, z: -24, weave: 1.8, wf: 0.37, ph: 2.6, crew: { gunner: 'raider_b', driver: 'raider_driver', enemyGun: 'rifle' }, sand: 1 });
     // the two far chasers: far LOD body, no crew, no shadow (silhouettes in the dust; keeps the menu cheap)
@@ -225,14 +228,14 @@ float paint(vec2 r) {
   }
 
   _car(spec, o) {
-    const view = new CarView(spec, { paint: o.paint, paint2: 0x2a2826, lod: !!o.far });
+    const view = new CarView(spec, { paint: o.paint, paint2: 0x2a2826, lod: !!o.far, upgradeLevels: o.upgradeLevels });
     if (o.far) { view.setLod(true); view.root.traverse((m) => { if (m.isMesh) m.castShadow = false; }); }
     const st = makeCarState(this.cars.length, spec.id, spec.kind);
     for (let i = 0; i < st.L.length; i++) st.L[i] = st.ride.restLen;
     const c = { spec, view, st, crew: [], gunner: null, x0: o.x, z0: o.z, weave: o.weave, wf: o.wf, ph: o.ph || 0, sand: o.sand, yaw: 0, vx: 0, ax: 0, bump: Math.random() * 10, emit: 0 };
     this.scene.add(view.root);
     if (o.crew.gunner && spec.seats.gunner) {
-      const g = new CrewView(o.crew.gunner, o.crew.enemyGun ? { role: 'gunner', weapon: 'enemy', enemyGun: o.crew.enemyGun } : { role: 'gunner', weapon: o.crew.weapon, armorTier: 1 });
+      const g = new CrewView(o.crew.gunner, o.crew.enemyGun ? { role: 'gunner', weapon: 'enemy', enemyGun: o.crew.enemyGun } : { role: 'gunner', weapon: o.crew.weapon, opticId: o.crew.opticId, armorTier: o.crew.armorTier || 0 });
       view.root.add(g.root); g.attach(view, spec.seats.gunner); c.crew.push(g); c.gunner = g;
     }
     if (o.crew.driver && spec.seats.driver) { const d = new CrewView(o.crew.driver, { role: 'driver' }); view.root.add(d.root); d.attach(view, spec.seats.driver); c.crew.push(d); }

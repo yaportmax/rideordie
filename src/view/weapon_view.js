@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { sightBoreGeometry, supportsSightBoreGeometry } from './sight_geometry.js';
+import { REFLEX_GUNS, sanitizeOpticId } from '../data/weapon_optics.js';
+import { attachReflexOptic } from './reflex_optic.js';
 
 const MM = 0.001, DEG = Math.PI / 180;
 const bore = (part, centerX, centerY, radius, minZ, maxZ) => ({ part, centerX, centerY, radius, minZ, maxZ });
@@ -55,8 +57,20 @@ export function configureWeaponShadows(root) {
 }
 
 export class WeaponView {
-  constructor(id) {
+  /** Temporary boot group uploads each mounted variant; its material owner keeps warmed shader references alive. */
+  static warmReflexObjects(registerCleanup, retainMaterials) {
+    const group = new THREE.Group(); group.name = 'warm_reflex_optics';
+    for (const id of REFLEX_GUNS) {
+      const weapon = new WeaponView(id, { opticId: 'wide_reflex' }); group.add(weapon.root);
+      registerCleanup?.(() => weapon.dispose(retainMaterials));
+    }
+    return group;
+  }
+
+  constructor(id, opts = {}) {
     this.id = id;
+    this.opticId = sanitizeOpticId(id, opts.opticId);
+    this._ownedResources = [];
     this.root = new THREE.Group(); this.root.name = 'weapon_' + id;
     const m = Assets.clone(`/models/weapons/${id}.glb`);
     this.model = m;
@@ -70,10 +84,13 @@ export class WeaponView {
       });
     } else {
       const box = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.09, 0.6), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.7 }));
+      this._ownedResources.push(box.geometry, box.material);
       box.castShadow = true;
       box.position.z = 0.25; this.root.add(box);
       const mz = new THREE.Object3D(); mz.name = 'muzzle'; mz.position.set(0, 0.03, 0.56); this.root.add(mz); this.sockets.muzzle = mz;
     }
+    this.optic = this.opticId === 'wide_reflex' ? attachReflexOptic(this) : null;
+    if (this.optic) { this.sockets.optic_sight = this.optic.aim; configureWeaponShadows(this.root); }
     this.mech = MECH[id] || {};
     this.cycleT = 1; this.cycleLen = 0.08; this.actionT = 1; this.actionLen = 0.5; this.trig = 0; this.spin = 0; this.reload = 0; this.reloading = false;
   }
@@ -178,6 +195,10 @@ export class WeaponView {
     }
     return cuts;
   }
-  dispose() { this.root.removeFromParent(); }
+  dispose(retainMaterials = null) {
+    if (this.disposed) return; this.disposed = true;
+    this.root.removeFromParent(); this.optic?.dispose(retainMaterials);
+    for (const resource of this._ownedResources) resource.dispose(); this._ownedResources.length = 0;
+  }
 }
 const _q = new THREE.Quaternion(), _ax = new THREE.Vector3();

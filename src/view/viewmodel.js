@@ -19,6 +19,9 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { WeaponView } from './weapon_view.js';
 import { splitIslands } from './fp_cutaway.js';
 import { ownClonedSkeletons, disposeOwnedSkeletons, disposeOwnedSkeletonsIn } from './owned_skeletons.js';
+import { REFLEX_GUNS, sanitizeOpticId, weaponOpticKey } from '../data/weapon_optics.js';
+import { configureReflexProjection } from './reflex_optic.js';
+import { prepareLocalSkinning } from './local_skinning.js';
 
 export const FP_ARMS_URL = '/models/characters/fp_arms.glb';
 /** Set by driver_arms.js (avoids a circular import): builds the driver arms' warm-up object. */
@@ -213,6 +216,37 @@ export function twoBoneIK(upper, lower, end, target, pole, la, lb) {
 // ------------------------------------------------------------------------------------------------ arms geometry (cut once)
 let ARMS_GEO = null;
 const ARM_BONE = /^(Left|Right)(Arm|ForeArm|Hand)/;
+const MOUNTED_ARMS_GEOMETRY = new WeakMap();
+/** Deck-mounted weapons use the real scene projection. Share the crew's driven
+ * skeleton while drawing only its arms, so the camera cannot see the torso or
+ * shoulders through the sight and no second, camera-parented gun is needed. */
+export function createMountedFirstPersonArms(body) {
+  if (!body?.isSkinnedMesh || !body.geometry?.index || !body.skeleton) return null;
+  let geometry = MOUNTED_ARMS_GEOMETRY.get(body.geometry);
+  if (!geometry) {
+    const source = body.geometry, names = body.skeleton.bones.map(bone => bone.name);
+    const skinIndex = source.attributes.skinIndex, skinWeight = source.attributes.skinWeight;
+    if (!skinIndex || !skinWeight) return null;
+    const armWeight = new Float32Array(skinIndex.count), indices = [];
+    for (let i = 0; i < skinIndex.count; i++) for (let k = 0; k < 4; k++) {
+      if (ARM_BONE.test(names[skinIndex.getComponent(i, k)] || '')) armWeight[i] += skinWeight.getComponent(i, k);
+    }
+    const original = source.index.array;
+    for (let i = 0; i < original.length; i += 3) {
+      const a = original[i], b = original[i + 1], c = original[i + 2];
+      if (Math.min(armWeight[a], armWeight[b], armWeight[c]) >= .8) indices.push(a, b, c);
+    }
+    geometry = new THREE.BufferGeometry();
+    for (const [name, attribute] of Object.entries(source.attributes)) geometry.setAttribute(name, attribute);
+    geometry.setIndex(indices); geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 10);
+    MOUNTED_ARMS_GEOMETRY.set(source, geometry);
+  }
+  const arms = new THREE.SkinnedMesh(geometry, body.userData.mat0 || body.material);
+  arms.name = 'mounted_fp_arms'; arms.userData.fpArms = true;
+  arms.position.copy(body.position); arms.quaternion.copy(body.quaternion); arms.scale.copy(body.scale);
+  arms.frustumCulled = false; arms.castShadow = false; arms.receiveShadow = true; arms.visible = false;
+  body.parent?.add(arms); arms.bind(body.skeleton, body.bindMatrix); return arms;
+}
 /** 'wrap': real forearms (tattoos), the wrap shells drawn as clean dark tape; 'sleeve': fitted fabric tubes over the forearms. */
 export const ARM_STYLE = { v: 'sleeve' };
 const WRAP_UV = (u, v) => (u < 0.19 && v > 0.74 && v < 0.88) || (u > 0.93 && v > 0.3 && v < 0.38) || (u < 0.07 && v < 0.32);
@@ -370,7 +404,9 @@ function flashTexture() {
 }
 function flashMaterial(cone) {
   return new THREE.ShaderMaterial({
-    vertexShader: FLASH_VS, fragmentShader: FLASH_FS, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    // Flash and firearm share the VM depth band: opaque receiver/sight parts
+    // must occlude a flash behind them, while non-writing glass stays clear.
+    vertexShader: FLASH_VS, fragmentShader: FLASH_FS, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending,
     uniforms: { vmProj: VMU.vmProj, map: { value: flashTexture() }, uSize: { value: 0.2 }, uRot: { value: 0 }, uLen: { value: 0.3 }, uCone: { value: cone ? 1 : 0 }, uCell: { value: new THREE.Vector4(0, 0.5, 0.25, 0.5) }, uCol: { value: new THREE.Color(1, 0.75, 0.4) }, uI: { value: 0 } },
   });
 }
@@ -437,22 +473,32 @@ export class ViewModel {
    *  characters), otherwise the arms cut out of hero_gunner.glb. */
   _buildArms(fpModel = null, fpClips = null) {
     const url = '/models/characters/hero_gunner.glb';
-    const model = ownClonedSkeletons(fpModel || Assets.clone(url));
+    const model = fpModel || Assets.clone(url);
     this.rigged = !!model;
     if (!model) return;
     if (this.bodyG) { this.bodyG.removeFromParent(); this.mixer?.stopAllAction(); disposeOwnedSkeletons(this.model); }
     let arms = null, body = null;
     if (fpModel) {
       model.traverse((o) => { if (o.isMesh) { o.material = vmMaterial(o.material); o.frustumCulled = false; o.castShadow = false; o.receiveShadow = true; if (o.isSkinnedMesh && !arms) arms = o; } });
-      if (!arms) { this.rigged = false; disposeOwnedSkeletons(model); return; }
+      if (!arms) { this.rigged = false; ownClonedSkeletons(model); disposeOwnedSkeletons(model); return; }
+      // The camera travels tens of kilometres during later levels/marathon.
+      // Cancel its world translation before the bone palette is cast to float,
+      // keeping adjacent skin/cuff vertices together. Install after vmMaterial
+      // so the native viewmodel projection and depth band stay in the chain,
+      // and before ownership records any palette split on a fresh clone.
+      prepareLocalSkinning(model);
     } else {
+      // The fallback removes the full body's sibling meshes. Capture every
+      // original skeleton first so their palettes still have an owner.
+      ownClonedSkeletons(model);
       model.traverse((o) => { if (o.isSkinnedMesh && o.name === 'body') body = o; });
-      if (!body) { this.rigged = false; disposeOwnedSkeletons(model); return; }
+      if (!body) { this.rigged = false; ownClonedSkeletons(model); disposeOwnedSkeletons(model); return; }
       arms = new THREE.SkinnedMesh(armsGeometry(body), armsMaterial(body.material));
       arms.name = 'vm_arms'; arms.frustumCulled = false; arms.castShadow = false; arms.receiveShadow = true;
       body.parent.add(arms); arms.bind(body.skeleton, body.bindMatrix);
       const drop = []; model.traverse((o) => { if (o.isMesh && o !== arms) drop.push(o); }); for (const o of drop) o.removeFromParent();
     }
+    ownClonedSkeletons(model);
     this.model = model; this.arms = arms; this.dedicatedArms = !!fpModel;
     this.bodyG = new THREE.Group(); this.bodyG.add(model); this.root.add(this.bodyG);
     const B = this.B = {}; model.traverse((o) => { if (o.isBone || /^socket_/.test(o.name)) B[o.name] = o; });
@@ -503,27 +549,34 @@ export class ViewModel {
   /** Swap in the dedicated first-person arms asset once it has loaded (no-op when the file does not exist). */
   _tryFpArms() { fpArmsLoad().then((g) => { if (g && !this.disposed) this._fpFrom(g); }).catch(() => {}); }
   _fpFrom(g) {
-    const m = ownClonedSkeletons(SkeletonUtils.clone(g.scene));
+    const m = SkeletonUtils.clone(g.scene);
     const need = ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand', 'socket_hand_R', 'socket_hand_L'];
-    if (need.some((n) => !m.getObjectByName(n))) { console.warn('fp_arms.glb: missing bones/sockets, keeping the cut arms'); disposeOwnedSkeletons(m); return false; }
+    if (need.some((n) => !m.getObjectByName(n))) { console.warn('fp_arms.glb: missing bones/sockets, keeping the cut arms'); ownClonedSkeletons(m); disposeOwnedSkeletons(m); return false; }
     this._buildArms(m, g.animations);
     return true;
   }
 
   /** Viewmodel copy of a weapon (patched materials, own mechanics). */
-  _gunFor(id) {
-    let g = this.guns.get(id);
+  _gunFor(id, opticId = 'standard') {
+    // A deck-mounted gun has moving world sockets and must never be copied into
+    // the projected hand-held rig, including loadout prewarming on camera attach.
+    if (id === 'minigun') return null;
+    opticId = sanitizeOpticId(id, opticId);
+    const key = weaponOpticKey(id, opticId);
+    let g = this.guns.get(key);
     if (g) return g;
-    const w = new WeaponView(id);
+    const w = new WeaponView(id, { opticId });
     ownClonedSkeletons(w.model);
     w.lenses = [];
     w.root.traverse((o) => {
       if (!o.isMesh) return;
+      if (o === w.optic?.reticle) { o.castShadow = false; o.receiveShadow = false; return; }
       const lens = /glass|lens/.test(o.material.name || '');
       o.material = lens ? vmLensMaterial(o.material) : vmMaterial(o.material);
       if (lens) { w.lenses.push(o); o.renderOrder = 5; }
       o.castShadow = false; o.receiveShadow = true; o.frustumCulled = false;
     });
+    configureReflexProjection(w.optic, VMU.vmProj, BAND);
     w.root.visible = false; this.root.add(w.root);
     // static socket transforms in weapon-root space
     // The first prebuilt loadout can attach to an already moving camera. Refresh
@@ -531,6 +584,8 @@ export class ViewModel {
     w.root.updateWorldMatrix(true, true); _m.copy(w.root.matrixWorld).invert();
     w.loc = {};
     for (const [n, s] of Object.entries(w.sockets)) { s.updateWorldMatrix(true, false); const mm = new THREE.Matrix4().multiplyMatrices(_m, s.matrixWorld); w.loc[n] = { p: new THREE.Vector3().setFromMatrixPosition(mm), q: new THREE.Quaternion().setFromRotationMatrix(mm) }; }
+    w.tune = w.optic ? { ...TUNE[id], adsSight: w.loc.optic_sight.p.toArray(), adsRot: [0, 0, 0],
+      relief: w.optic.mount.relief, fov: [TUNE[id].fov[0], 52], reticle: null } : TUNE[id];
     // Parts hidden while aiming: the shoulder stock passes through the eye at
     // iron-sight eye relief. Include static body children and express weapon-root
     // cut boxes in each mesh's geometry space; moving mechanics keep their parts.
@@ -555,13 +610,13 @@ export class ViewModel {
     // immutable and cached; hip fire, reload and external models keep the full asset.
     for (const entry of w.adsCut) entry.mesh.geometry = entry.keep;
     try {
-      for (const entry of w.prepareSightBores()) {
+      for (const entry of w.prepareSightBores(w.optic ? [] : undefined)) {
         const existing = w.adsCut.find(c => c.mesh === entry.mesh);
         if (existing) existing.keep = entry.keep;
         else w.adsCut.push(entry);
       }
     } finally { for (const entry of w.adsCut) entry.mesh.geometry = entry.full; }
-    this.guns.set(id, w);
+    this.guns.set(key, w);
     return w;
   }
 
@@ -572,9 +627,15 @@ export class ViewModel {
       // Disposing the last warm material would release its compiled programs.
       // Transfer only these exact allocations to Game's bounded boot owner.
       if (retainMaterials) { for (const material of vm._ownedMaterials) retainMaterials.add(material); vm._ownedMaterials.clear(); }
-      vm.dispose(); disposeOwnedSkeletonsIn(vm.root);
+      vm.dispose(retainMaterials); disposeOwnedSkeletonsIn(vm.root);
     });
     for (const id of Object.keys(TUNE)) { const g = vm._gunFor(id); g.root.visible = true; }
+    // Temporary boot exemplars upload all mounted geometry variants. Run VMs
+    // still construct only their selected three weapon/optic pairs.
+    for (const id of REFLEX_GUNS) {
+      const reflex = vm._gunFor(id, 'wide_reflex'); reflex.root.visible = true;
+      if (reflex.optic) reflex.optic.reticle.visible = true;
+    }
     for (const f of [vm.flashStar, vm.flashCone, vm.reticle]) { f.visible = true; vm.root.add(f); }
     vm.shell.visible = true; vm.root.add(vm.shell);
     // the thrown grenade / fired rocket meshes (WorldView: plain MeshStandardMaterial, default shadow flags) share this program
@@ -586,11 +647,11 @@ export class ViewModel {
   }
 
   setVisible(v) { this.visible = v; this.root.visible = v; }
-  dispose() {
+  dispose(retainMaterials = null) {
     if (this.disposed) return; this.disposed = true;
     this.root.removeFromParent(); this.mixer?.stopAllAction();
     disposeOwnedSkeletons(this.model);
-    for (const gun of this.guns.values()) disposeOwnedSkeletons(gun.model);
+    for (const gun of this.guns.values()) { disposeOwnedSkeletons(gun.model); gun.dispose(retainMaterials); }
     for (const geometry of this._ownedGeometries) geometry.dispose();
     for (const material of this._ownedMaterials) material.dispose();
     this._ownedGeometries.clear(); this._ownedMaterials.clear();
@@ -602,7 +663,8 @@ export class ViewModel {
   update(dt, s, show) {
     const L = s.local, cam = L.camera, G = L.gunner;
     if (!cam || !G) return;
-    if (this.root.parent !== cam) { cam.add(this.root); for (const id of G.slots) this._gunFor(id); }   // build the loadout up front (no hitch on swap)
+    if (G.weaponId === 'minigun') { this.setVisible(false); return; }
+    if (this.root.parent !== cam) { cam.add(this.root); for (const id of G.slots) this._gunFor(id, G.optics?.[id]); }   // build only the equipped loadout up front (no hitch on swap)
     this.setVisible(show); this.scopedNow = !!L.scoped;
     dt = Math.min(dt, 0.05);
     this.t += dt;
@@ -612,10 +674,12 @@ export class ViewModel {
     if (id !== this.id) { this.prevId = this.id; this.id = id; }
     const sw = G.swapT > 0 ? G.swapT / 0.42 : 0;                     // 1 -> 0
     const showId = sw > 0.5 && this.prevId ? this.prevId : id;
+    const opticId = sanitizeOpticId(showId, G.optics?.[showId] || (showId === id ? W.opticId : 'standard'));
+    const showKey = weaponOpticKey(showId, opticId);
     const lower = sw > 0.5 ? (1 - sw) * 2 : sw * 2;                  // 0..1..0
-    if (showId !== this.shownId) {
+    if (showKey !== this.shownKey) {
       if (this.gun) this.gun.root.visible = false;
-      this.gun = this._gunFor(showId); this.shownId = showId; this.T = TUNE[showId] || TUNE.rifle;
+      this.gun = this._gunFor(showId, opticId); this.shownId = showId; this.shownKey = showKey; this.T = this.gun.tune || TUNE.rifle;
       for (const f of [this.flashStar, this.flashCone, this.flashStar2]) this.gun.sockets.muzzle ? this.gun.sockets.muzzle.add(f) : null;
       if (this.T.reticle && this.gun.sockets.sight) this.gun.sockets.sight.add(this.reticle); else this.reticle.removeFromParent();
       this.reticle.position.set(0, 0, this.T.reticle || 0.1);
@@ -725,11 +789,15 @@ export class ViewModel {
     if (this.rigged) this._arms(dt, gun, T, R, act, ads, thr);
     // ---------------------------------------------------------------- muzzle flash + reticle
     this._flash(dt, W, ads);
-    for (const l of gun.lenses) l.material.opacity = 0.14 * (1 - 0.75 * ads);
+    for (const l of gun.lenses) l.material.opacity = l === gun.optic?.glass ? .035 * (1 - .45 * ads) : 0.14 * (1 - 0.75 * ads);
     for (const c of gun.adsCut) { const on = ads > 0.55; if (on !== c.on) { c.on = on; c.mesh.geometry = on ? c.keep : c.full; } }
     this.reticle.visible = !!T.reticle && cur && show && ads > 0.35;
     this.reticle.material.uniforms.uI.value = sstep(0.35, 0.9, ads);
     this.reticle.material.uniforms.uSize.value = 0.0065;
+    if (gun.optic) {
+      gun.optic.reticle.visible = cur && show && ads > .35;
+      gun.optic.reticle.material.uniforms.uI.value = sstep(.35, .9, ads);
+    }
     // apparent muzzle / eject (camera space) for world FX
     if (gun.loc.muzzle) this.muzzleCam.copy(gun.loc.muzzle.p).applyQuaternion(this.quat).add(this.pos);
     if (gun.loc.eject) { this.ejectCam.copy(gun.loc.eject.p).applyQuaternion(this.quat).add(this.pos); this.ejectDirCam.set(1, 0, 0).applyQuaternion(gun.loc.eject.q).applyQuaternion(this.quat); }

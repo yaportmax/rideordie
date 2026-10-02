@@ -11,6 +11,7 @@ const _v = new THREE.Vector3(), _inv = new THREE.Matrix4(), _mw = new THREE.Matr
  */
 export function measureCabin(cv) {
   const root = cv.root, M = cv.model || root;
+  const spec = cv.spec || {}, enginePanel = spec.enginePanel || 'panel_hood';
   root.updateMatrixWorld(true);
   _inv.copy(root.matrixWorld).invert();
   const interior = new THREE.Box3(), glass = new THREE.Box3(), hood = new THREE.Box3();
@@ -20,7 +21,7 @@ export function measureCabin(cv) {
   M.traverse((o) => {
     if (!o.isMesh || !o.geometry?.attributes?.position) return;
     let door = false, isHood = false;
-    for (let p = o; p && p !== M; p = p.parent) { if (/^panel_(?:door|armor)_/.test(p.name)) door = true; if (/^panel_hood/.test(p.name)) isHood = true; }
+    for (let p = o; p && p !== M; p = p.parent) { if (/^panel_(?:door|armor)_/.test(p.name)) door = true; if (p.name === enginePanel) isHood = true; }
     const mats = [].concat(o.material), pos = o.geometry.attributes.position, idx = o.geometry.index;
     _mw.multiplyMatrices(_inv, o.matrixWorld);
     const groups = o.geometry.groups.length ? o.geometry.groups : [{ start: 0, count: idx ? idx.count : pos.count, materialIndex: 0 }];
@@ -38,7 +39,6 @@ export function measureCabin(cv) {
       }
     }
   });
-  const spec = cv.spec || {};
   const L = spec.length || 5, Wd = spec.width || 2, H = spec.height || 1.8;
   if (glass.isEmpty()) glass.set(new THREE.Vector3(-Wd * 0.4, H * 0.62, -0.5), new THREE.Vector3(Wd * 0.4, H * 0.9, 1.0));
   if (interior.isEmpty()) interior.set(new THREE.Vector3(glass.min.x, H * 0.3, glass.min.z), new THREE.Vector3(glass.max.x, glass.max.y, glass.max.z));
@@ -57,7 +57,8 @@ export function measureCabin(cv) {
   const max = new THREE.Vector3(Math.max(interior.max.x, glass.max.x) - 0.02, glass.max.y + 0.02, zb + 0.25);
   if (hood.isEmpty()) {
     const e = s.smoke_engine ? s.smoke_engine.getWorldPosition(new THREE.Vector3()).applyMatrix4(_inv) : new THREE.Vector3(0, H * 0.55, L / 2 - 0.9);
-    hood.set(new THREE.Vector3(-Wd * 0.33, e.y, zb + 0.05), new THREE.Vector3(Wd * 0.33, e.y + 0.3, L / 2 - 0.15));
+    if (spec.engineLayout === 'rear') hood.set(new THREE.Vector3(e.x - Wd * .2, e.y, e.z - .3), new THREE.Vector3(e.x + Wd * .2, e.y + .2, e.z + .3));
+    else hood.set(new THREE.Vector3(-Wd * 0.33, e.y, zb + 0.05), new THREE.Vector3(Wd * 0.33, e.y + 0.3, L / 2 - 0.15));
   }
-  return { min, max, plane, hood, shieldBot: bot, shieldZ: zb, shieldTop: top, shieldTopZ: zt };
+  return { min, max, plane, hood, rearEngine: spec.engineLayout === 'rear', shieldBot: bot, shieldZ: zb, shieldTop: top, shieldTopZ: zt };
 }

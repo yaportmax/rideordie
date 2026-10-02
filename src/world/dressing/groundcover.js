@@ -10,7 +10,7 @@
 // exclusions, tunnels, bridges, water, steep slopes and the asphalt.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { biomeAt } from '../../data/biomes.js';
+import { roadBiomeAt } from '../biome_context.js';
 import { vnoise2, smoothstep } from '../../core/util.js';
 import { WIND } from './assets.js';
 import { rngOf, strId, CHUNK_LEN, EDGE } from './util.js';
@@ -29,6 +29,11 @@ const COVER = {
   mountain: { tyre: 0.001, debris: 0.011, tumble: 0, grass: 0.9, scrub: 0.06, flower: 0.06, pebble: 0.35, dry: 0.45, g: [[1.0, 1.05, 0.78], [1.08, 1.0, 0.74]], s: [[1.4, 1.55, 1.15], [1.6, 1.5, 1.15]], f: [0xb89ae0, 0xf2efe4], p: [0x8a8886, 0x646260] },
   city:     { tyre: 0.0045, debris: 0.042, tumble: 1 / 260, grass: 0.35, scrub: 0.04, flower: 0.0, pebble: 0.75, dry: 0.75, g: [[0.85, 0.85, 0.72], [0.95, 0.9, 0.74]], s: [[1.45, 1.45, 1.15], [1.55, 1.45, 1.15]], f: [0xe8e0c0, 0xe0c060], p: [0x9a958e, 0x94604a] },
   dam:      { tyre: 0.0018, debris: 0.013, tumble: 1 / 200, grass: 0.6, scrub: 0.05, flower: 0.03, pebble: 0.3, dry: 0.65, g: [[0.98, 0.96, 0.82], [1.05, 0.96, 0.78]], s: [[1.55, 1.55, 1.2], [1.65, 1.55, 1.2]], f: [0xf2efe4, 0xf0cc48], p: [0x97948e, 0x72706a] },
+};
+// These worlds own their procedural detail. Complete zero-density records
+// also make a mixed boundary safe without introducing desert vegetation.
+for (const id of ['underground', 'sky', 'hell', 'space']) COVER[id] = {
+  ...COVER.city, tyre: 0, debris: 0, tumble: 0, grass: 0, scrub: 0, flower: 0, pebble: 0,
 };
 const HEX = (h) => new THREE.Color().setHex(h);
 const LIN = {};
@@ -54,6 +59,9 @@ const LITTER_W = {
   city:     [0.12, 0.12, 0.16, 0.12, 0.1, 0.08, 0.02, 0, 0.24, 0, 0, 0.04, 0],
   dam:      [0.16, 0.14, 0.14, 0.06, 0.08, 0.08, 0.02, 0, 0.1, 0.06, 0.04, 0.12, 0],
 };
+// Residual debris during a blend uses a defined industrial mix rather than
+// the default last variant (a mountain snow pole).
+for (const id of ['underground', 'sky', 'hell', 'space']) LITTER_W[id] = LITTER_W.city;
 const TUMBLE_L = 36;                               // metres a tumbleweed rolls (centred on the road) before it loops
 const CELL = { dry: 0, green: 1, stalks: 2, bush: 3 };
 
@@ -364,7 +372,7 @@ function buildCover2(ctx, chunk, deadline) {
   if (!st) {
     const excl = ctx.exclusions(s0 - 40, s0 + CHUNK_LEN + 40);
     if (!excl) return null;                                    // landmark plan not ready yet
-    const bios = [biomeAt(s0), biomeAt(s0 + 48), biomeAt(s0 + CHUNK_LEN)];
+    const bios = [roadBiomeAt(road, s0), roadBiomeAt(road, s0 + 48), roadBiomeAt(road, s0 + CHUNK_LEN)];
     const feats = road.featuresIn(s0 - 40, s0 + CHUNK_LEN + 40).filter((f) => f.type === 'tunnel' || f.type === 'bridge' || f.type === 'overpass');
     st = chunk._cover = { k: 0, i: 0, excl, bios, feats, anchor: road.sample(s0), data: null, n: 0 };
   }
@@ -390,7 +398,7 @@ function buildCover2(ctx, chunk, deadline) {
       if (kind === 'tumble') { if (placeTumble(ctx, chunk, st, uS, uAcc, uSc, uCol, uV, side)) st.n++; continue; }
       const a = A0 + (A1 - A0) * (kind === 'pebble' ? uA * uA : VARIANTS[kind] ? uA * uA * uA * 0.4 : Math.pow(uA, 1.35));
       const s = s0 + uS * CHUNK_LEN;
-      const bio = biomeAt(s);
+      const bio = roadBiomeAt(road, s);
       let dens = bdens(bio, kind);
       if (dens <= 0) continue;
       // lateral profile: sparse weeds on the gravel shoulder, full just past it, thinning out with distance
@@ -402,6 +410,7 @@ function buildCover2(ctx, chunk, deadline) {
       let gx, gy, gz, nx = 0, nz = 0;
       if (a < 0) { const p = road.pointAt(s, d, _rs); gx = p.x; gy = p.y; gz = p.z; }
       else { const g = chunk.ground.sample(s, d, _g); gx = g.x; gy = g.y; gz = g.z; nx = g.nx; nz = g.nz; if (1 - g.ny > (kind === 'pebble' ? 0.55 : 0.42)) continue; }
+      if (road.corridorBlocked(gx, gz, kind === 'tumble' ? 1 : .8, s)) continue;
       // composition (ecology.js): grass / scrub / flowers grow in groves, along washes and at the feet of rocks and cacti, open ground
       // stays bare; a thin line of verge weeds hugs the shoulder; pebbles collect in washes; litter is loosely clumped
       const cn = vnoise2(gx / 7.5, gz / 7.5, seed + 71) * 0.65 + vnoise2(gx / 23, gz / 23, seed + 72) * 0.35;
@@ -456,7 +465,7 @@ function buildCover2(ctx, chunk, deadline) {
 /** One tumbleweed rolling across the road at s (path centred on the road, only where the verges are level with the road). */
 const _tg = {}, _tsm = {};
 function placeTumble(ctx, chunk, st, uS, uAcc, uSc, uCol, uV, side) {
-  const { road } = ctx, s = chunk.s0 + uS * CHUNK_LEN, bio = biomeAt(s);
+  const { road } = ctx, s = chunk.s0 + uS * CHUNK_LEN, bio = roadBiomeAt(road, s);
   if (uAcc * st.D > bdens(bio, 'tumble')) return false;
   for (const f of st.feats) if (s > f.s0 - 30 && s < f.s1 + 30) return false;
   const sm = road.sample(s, _tsm), half = TUMBLE_L / 2;

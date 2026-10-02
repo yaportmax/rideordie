@@ -112,7 +112,8 @@ function ownDamage(fx, rec, state, dt) {
     const nt = rate(fx, acc, o + 3, (burning ? 30 : 12 * dark) * q, dt, 3), v = state.vel;
     for (let k = 0; k < nt; k++) {
       const side = rng.next() < 0.5 ? -1 : 1, cab = rec.cab;
-      if (rng.next() < 0.6) _v.set(rng.sym((cab.max.x - cab.min.x) * 0.35), cab.max.y + 0.2, cab.min.z + rng.range(-0.2, 0.4));
+      if (cab.rearEngine) _v.set(rng.range(hood.min.x, hood.max.x), hood.max.y + rng.range(.15, .5), hood.min.z - rng.range(.1, .5));
+      else if (rng.next() < 0.6) _v.set(rng.sym((cab.max.x - cab.min.x) * 0.35), cab.max.y + 0.2, cab.min.z + rng.range(-0.2, 0.4));
       else _v.set(side * ((cab.max.x - cab.min.x) * 0.5 + 0.25), rng.range(hood.max.y, cab.max.y), cab.min.z + rng.range(0, 0.6));
       rec.toWorld(_v, _w);
       const c = burning ? rng.range(0.045, 0.07) : 0.3 - 0.22 * dark;
@@ -149,7 +150,7 @@ export function ownBurst(fx, rec, state, kind) {
     for (let i = 0; i < 16; i++) ownFlame(fx, rng, hood, 1.5, 1.35);
     for (let i = 0; i < 10; i++) ownSmoke(fx, rng, hood, 1, 0.7, 1.6, 1.2);
     for (let i = 0; i < 3; i++) { hoodSeam(rng, hood, 1); glow(fx, _r.x, _r.y + 0.1, _r.z, 1.4, 0.25, 3, 1.3, 0.35, true, 1.4, ATT); }
-    rec.toWorld(_v.set(0, hood.max.y + 0.3, hood.max.z * 0.8), _w); fx.flashLight(_w.x, _w.y, _w.z, 1.0, 0.55, 0.22, 160, 14, 0.4, 0.6);
+    rec.toWorld(_v.set(0, hood.max.y + 0.3, (hood.min.z + hood.max.z) * .5), _w); fx.flashLight(_w.x, _w.y, _w.z, 1.0, 0.55, 0.22, 160, 14, 0.4, 0.6);
   } else {
     for (let i = 0; i < 8; i++) ownSmoke(fx, rng, hood, kind === 'engineDead' ? 0.9 : 0.4, 0.55, 0, 1.1);
     if (kind === 'engineDead') for (let i = 0; i < 10; i++) { hoodSeam(rng, hood); spark(fx, _r.x, _r.y, _r.z, rng.sym(4), rng.range(1, 5), rng.range(-2, 2), rng.range(0.2, 0.5), -1e4, 0.9, 0.035, 0.6, ATT); }

@@ -8,8 +8,9 @@ import { Ui } from './ui/ui.js';
 import { Input } from './core/input.js';
 import * as Assets from './core/assets.js';
 import { CarView } from './view/car_view.js';
-import { VEHICLES } from './data/vehicles.js';
-import { DEFAULT_PROFILE, TRUCK_COLORS } from './data/upgrades.js';
+import { VEHICLES, vehicleModelURL } from './data/vehicles.js';
+import { DEFAULT_PROFILE, TRUCK_COLORS, TRUCKS, effectiveUpgrades } from './data/upgrades.js';
+import { familyOf } from './data/vehicle_families.js';
 import { buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck } from './meta/profile.js';
 
 const q = new URLSearchParams(location.search);
@@ -41,8 +42,10 @@ if (q.get('bg') !== 'none') view3d = await make3d();
 function makeProfile() {
   const p = DEFAULT_PROFILE();
   p.campaignId = 'devprofile'; p.cash = +(q.get('cash') ?? 12450); p.runs = 6; p.best = { distance: 31200, time: 1080, kills: 88 };
-  p.trucks = ['truck_t1', 'truck_t2']; p.truck = q.get('truck') || 'truck_t2';
-  p.upgrades = { engine: 2, armor: 1, tires: 3, nitro: 1, ram: 1, vest: 1, grenades: 2, scavenger: 1, medkit: 1 };
+  p.trucks = ['player_sedan_t1', 'truck_t1', 'truck_t2']; p.truck = VEHICLES[q.get('truck')]?.kind === 'player' ? q.get('truck') : 'truck_t2';
+  if (!p.trucks.includes(p.truck)) p.trucks.push(p.truck);
+  p.vehicleUpgrades[familyOf(p.truck)] = { engine: 2, armor: 1, tires: 3, nitro: 1, ram: 1 };
+  p.upgrades = { vest: 1, grenades: 2, scavenger: 1, medkit: 1 };
   p.weapons = { pistol: { dmg: 1, mag: 0, rel: 2, hnd: 0 }, revolver: { dmg: 0, mag: 0, rel: 0, hnd: 0 }, smg: { dmg: 2, mag: 1, rel: 0, hnd: 1 } };
   p.loadout = ['smg', 'revolver', 'pistol']; p.truckColor = 1; p.wins = 0;
   if (q.get('rich')) { p.cash = 999999; }
@@ -61,12 +64,12 @@ async function make3d() {
     const key = new THREE.DirectionalLight(0xffc28a, 3.2); key.position.set(5, 8, 4); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); scene.add(key);
     const rim = new THREE.DirectionalLight(0x7aa8ff, 1.4); rim.position.set(-6, 3, -5); scene.add(rim);
     const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ color: 0x2a2320, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-    await Assets.preload([`/models/vehicles/${profile.truck}.glb`]).catch(() => {});
+    await Assets.preload([...new Set(TRUCKS.map(t => vehicleModelURL(t.id)))]).catch(() => {});
     const st = { renderer, scene, camera, car: null, ang: 0.6 };
     st.rebuild = () => {
-      if (st.car) scene.remove(st.car.root);
+      st.car?.dispose();
       const spec = VEHICLES[profile.truck];
-      st.car = new CarView(spec, { paint: TRUCK_COLORS[profile.truckColor] });
+      st.car = new CarView(spec, { paint: TRUCK_COLORS[profile.truckColor], upgradeLevels: effectiveUpgrades(profile) });
       scene.add(st.car.root);
     };
     st.rebuild();

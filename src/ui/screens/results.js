@@ -6,6 +6,17 @@ import { esc, money, fmtNum, icon, hints, weaponIcon } from '../glyphs.js';
 import { BIOME_PLAN, MINIBOSS_S, BOSS_S } from '../../data/biomes.js';
 import { suggestNext } from '../garage_stats.js';
 import { distanceValue, distanceLabel, formatDistance } from '../units.js';
+import { TEN_LEVELS, MARATHON_LEVEL_LENGTH, marathonLevelAt, normalizeJourney, normalizeCampaignProgress } from '../../data/campaign.js';
+
+export function resultJourneyStatus(run={},profile) {
+  const journey=normalizeJourney(run.journey), level=TEN_LEVELS[journey.level-1], progress=normalizeCampaignProgress(profile?.campaignProgress);
+  if(journey.mode==='legacy')return {journey,title:run.won?'VICTORY':'WRECKED',eyebrow:run.won?'THE LEVIATHAN IS DEAD':null,winCause:'THE ROAD IS YOURS'};
+  if(journey.mode==='marathon')return {journey,title:run.won?'MARATHON VICTORY':'WRECKED',eyebrow:'MARATHON · TEN WORLDS',winCause:'THE LEVIATHAN IS DEFEATED',status:run.won?'TEN-WORLD MARATHON COMPLETE':'TEN-WORLD MARATHON'};
+  const final=level.number===10, verified=progress.cleared.includes(level.number), next=TEN_LEVELS[Math.min(9,level.number)];
+  return {journey,level,title:run.won?'LEVEL CLEARED':'WRECKED',eyebrow:`LEVEL ${level.number}/10 · ${level.name}`,winCause:`${level.bossName} DEFEATED`,
+    badge:final&&progress.marathonUnlocked?'MARATHON UNLOCKED':final?'FINALE CLEARED':'LEVEL CLEARED',
+    status:final?progress.marathonUnlocked?'ALL TEN LEVELS CLEARED · MARATHON IS READY':'CLEAR ALL TEN LEVELS TO UNLOCK MARATHON':verified&&progress.unlockedLevel>=next.number?`NEXT · LEVEL ${next.number} · ${next.name}`:'RETURN TO GARAGE TO REVIEW LEVEL PROGRESS'};
+}
 
 const fmtTime = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const BIOME_SHORT = { desert: 'SCORCHED HWY', canyon: 'RED CANYON', coast: 'COASTAL CLIFFS', mountain: 'IRON PEAKS', city: 'ASHEN CITY', dam: 'THE DAM' };
@@ -45,9 +56,9 @@ export class ResultsScreen {
     ];
     this.tiles = tiles;
     const { ls, total } = this.lines(); this.ls = ls; this.total = total;
-    const title = this.win ? 'VICTORY' : 'WRECKED';
-    const eyebrow = this.win ? 'THE LEVIATHAN IS DEAD' : `RUN #${p ? p.runs : ''} ${r.biome ? '&middot; ' + esc(String(r.biome).toUpperCase()) : ''}`;
-    const cause = r.cause ? `<div class="rs-cause">${this.win ? icon('flag') : icon('skull')}<span>${this.win ? 'THE ROAD IS YOURS' : 'CAUSE OF DEATH &nbsp;&middot;&nbsp; '}<b>${this.win ? '' : esc(r.cause).toUpperCase()}</b></span></div>` : '';
+    const journeyStatus=resultJourneyStatus(r,p), title=journeyStatus.title;
+    const eyebrow = journeyStatus.eyebrow?esc(journeyStatus.eyebrow):`RUN #${p ? p.runs : ''} ${r.biome ? '&middot; ' + esc(String(r.biome).toUpperCase()) : ''}`;
+    const cause = r.cause||this.win ? `<div class="rs-cause">${this.win ? icon('flag') : icon('skull')}<span>${this.win ? esc(journeyStatus.winCause) : 'CAUSE OF DEATH &nbsp;&middot;&nbsp; '}<b>${this.win ? '' : esc(r.cause).toUpperCase()}</b></span></div>` : '';
     const confetti = this.win ? `<div class="confetti">${Array.from({ length: 34 }, (_, i) => `<i style="left:${(i * 29.7) % 100}%;animation-delay:${(i % 11) * 0.37}s;animation-duration:${3.4 + (i % 5) * 0.55}s;--h:${i % 3}"></i>`).join('')}</div>` : '';
     const tileHtml = tiles.map((t, i) => `<div class="tile stg" style="--i:${i + 3}" data-t="${t.k}"><span class="ti">${icon(t.ic)}</span><div class="tb"><label>${t.label}${t.nb ? '<em class="nb">NEW BEST</em>' : ''}</label><b class="tv num">${t.fmt(0)}</b>${t.unit ? `<small>${t.unit}</small>` : ''}${t.sub ? `<span class="tsub">${t.sub}</span>` : ''}</div></div>`).join('');
     const lineHtml = ls.map((l, i) => `<div class="rs-l" data-i="${i}"><span class="rs-ln">${esc(l.label)}</span><span class="rs-ld"></span><b class="rs-la num">$0</b></div>`).join('');
@@ -67,6 +78,8 @@ export class ResultsScreen {
     this.q = { total: this.safe.querySelector('[data-total]'), cont: this.safe.querySelector('.cont'), fill: this.safe.querySelector('.rt-fill') };
   }
   routeHtml() {
+    const journey=normalizeJourney(this.run.journey);
+    if(journey.mode!=='legacy')return this.journeyRouteHtml(journey);
     const r = this.run, total = BOSS_S, reached = r.furthestS ?? r.distance ?? 0;
     const record = this.profile?.best, best = Math.max(record?.furthestS ?? record?.distance ?? 0, reached);
     let acc = 0;
@@ -79,6 +92,15 @@ export class ResultsScreen {
     const left = Math.max(0, total - reached);
     return `<div class="rt-head"><span>ROUTE TO THE LEVIATHAN</span><em>${this.win ? 'CONVOY BROKEN' : `<b>${formatDistance(left, this.ui.settings?.units)}</b> TO GO`}</em></div>
       <div class="rt-bar"><div class="rt-segs">${seg}</div><div class="rt-fill" style="width:0"></div>${mini}${best > reached + 50 ? `<i class="rt-best" style="left:${bestPct}%"><span>BEST</span></i>` : ''}<i class="rt-boss">${icon('skull')}</i><i class="rt-you" style="left:0"></i></div>`;
+  }
+  journeyRouteHtml(journey) {
+    const r=this.run, level=TEN_LEVELS[journey.level-1], reached=Math.max(0,r.furthestS??r.distance??0), marathon=journey.mode==='marathon';
+    const total=marathon?MARATHON_LEVEL_LENGTH*10:level.bossDistance;
+    this.routePct=Math.min(100,reached/total*100);
+    const active=TEN_LEVELS[marathonLevelAt(reached)], colors={...BIOME_COL,underground:'#62605b',sky:'#6d9cac',hell:'#ae3928',space:'#6254a1'};
+    const seg=marathon?TEN_LEVELS.map(v=>`<span class="rt-seg" title="${esc(v.name)}" style="width:10%;--bc:${colors[v.id]}"><b>${String(v.number).padStart(2,'0')}</b></span>`).join(''):`<span class="rt-seg" style="width:100%;--bc:${colors[level.id]}"><b>${esc(level.name)}</b></span>`;
+    const status=marathon?reached>=total?'ENDLESS SPACE':`LEVEL ${active.number}/10`:this.win?'BOSS DEFEATED':reached>=total?'BOSS ARENA':'BOSS APPROACH';
+    return `<div class="rt-head"><span>${marathon?'TEN-WORLD MARATHON':`LEVEL ${level.number} · BOSS APPROACH`}</span><em>${status}</em></div><div class="rt-bar"><div class="rt-segs">${seg}</div><div class="rt-fill" style="width:0"></div><i class="rt-boss">${icon('skull')}</i><i class="rt-you" style="left:0"></i></div>`;
   }
   nextHtml() {
     const p = this.profile; if (!p) return '';
@@ -94,6 +116,9 @@ export class ResultsScreen {
   }
   campaignHtml() {
     const p = this.profile; if (!p) return '';
+    const status=resultJourneyStatus(this.run,p);
+    if(status.journey.mode==='campaign')return `<div class="nextup afford campaign"><span class="nu-k">${esc(status.badge)}</span><span class="nu-art">${icon('medal')}</span><span class="nu-main"><em>LEVEL ${status.level.number}/10 · ${esc(status.level.name)}</em><b>${esc(status.level.bossName)} DEFEATED</b><small>${esc(status.status)}</small></span></div>`;
+    if(status.journey.mode==='marathon')return `<div class="nextup afford campaign"><span class="nu-k">MARATHON</span><span class="nu-art">${icon('medal')}</span><span class="nu-main"><em>TEN-WORLD ROUTE</em><b>THE LEVIATHAN DEFEATED</b><small>${esc(status.status)}</small></span></div>`;
     return `<div class="nextup afford campaign"><span class="nu-k">CAMPAIGN COMPLETE</span><span class="nu-art">${icon('medal')}</span>
       <span class="nu-main"><em>${p.runs} RUNS &middot; ${money(p.totalCash || 0)} EARNED</em><b>THE HIGHWAY IS YOURS</b><small>KEEP RIDING FOR THE HIGH SCORE</small></span></div>`;
   }

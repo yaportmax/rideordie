@@ -37,6 +37,18 @@ test('world-view pose caches stay independent and refresh weapon, crew and local
   assert.equal(records.get(2).crewEntries.length, 3);
 });
 
+test('cached optic poses follow the selected weapon and safely restore standard without an optional map', () => {
+  const { world, updates, states } = setup();
+  world.playerWeaponOptics = Object.freeze({ smg: 'wide_reflex', shotgun: 'standard', sniper: 'wide_reflex' });
+  const pose = () => updates.filter(update => update.id === 1 && update.role === 'gunner').at(-1).values;
+  world.update(1 / 60, states, [], { playerWeaponId: 'smg' }); assert.equal(pose().opticId, 'wide_reflex');
+  world.update(1 / 60, states, [], { playerWeaponId: 'shotgun' }); assert.equal(pose().opticId, 'standard');
+  world.update(1 / 60, states, [], { playerWeaponId: 'sniper' }); assert.equal(pose().opticId, 'standard', 'incompatible optics cannot enter a cached pose');
+  delete world.playerWeaponOptics;
+  world.update(1 / 60, states, [], { playerWeaponId: 'smg' }); assert.equal(pose().opticId, 'standard');
+  for (const enemy of updates.filter(update => update.id === 2)) assert.equal(enemy.values.opticId, 'standard');
+});
+
 test('distance caching preserves LOD hysteresis, visibility and detached-body updates', () => {
   const { world, records, updates, states } = setup(), ctx = { cameraPos: new THREE.Vector3() }, enemy = states.get(2);
   for (const [distance, lod] of [[46, false], [46.01, true], [40.01, true], [40, false]]) {

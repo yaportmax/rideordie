@@ -7,6 +7,8 @@ import { rng, clamp } from '../core/util.js';
 import { RAMP, ROADBLOCK } from '../data/features.js';
 
 const AHEAD = 420, BEHIND = 180;
+// Match buildBoost's visible main-road strip, including its outer two lanes.
+const BOOST_LANE_SPACING = 3.5, BOOST_HALF_WIDTH = 1.62;
 export const WARN_AT = 265; // metres: roadblocks are announced this far ahead
 /** Roadblock gap (same formula as the dressing's wreck line): lateral centre + width of the drivable gap. */
 export const RB_GAP_W = 4.4;
@@ -33,11 +35,13 @@ export class Hazards {
     this.oil = []; this.mines = []; this.enemyMines = [];
     this.pending = []; this._t = 0;
     this.warned = new Set();   // roadblocks already announced
+    this._mainProjections = new WeakMap(); this._projectionPass = 0;
   }
 
   update(dt, sim) {
     this.sim = sim;
     const P = sim.player; if (!P) return;
+    this._projectionPass++;
     this._t += dt;
     if (sim.tick % 30 === 0) this._sync(sim, P.s);
     // roadblock ahead: announce it ~260 m out (HUD countdown with the side of the gap; signs/flares are drawn by the view)
@@ -55,8 +59,11 @@ export class Hazards {
         if (b.broken) continue;
         for (const car of sim.cars.values()) {
           if (car.held || car.exploded) continue;
-          const ds = car.s - b.s, half = car.spec.length / 2;
-          if (ds < -half - 0.6 || ds > half + 0.6 || Math.abs(car.d - b.d) > b.hw + car.spec.width / 2 - 0.1) continue;
+          // These barricades are authored on the main road. Branch-local d
+          // cannot be compared to their main-road lane, even at the same s.
+          const near = car.route ? this._mainProjection(sim, car) : car;
+          const ds = near.s - b.s, half = car.spec.length / 2;
+          if (ds < -half - 0.6 || ds > half + 0.6 || Math.abs(near.d - b.d) > b.hw + car.spec.width / 2 - 0.1) continue;
           b.broken = true;
           const v = car.veh.vel, m = car.veh.mass, k = car.kind === 'player' ? 0.15 : 0.22;
           car.veh.body.applyImpulse({ x: -v.x * m * k, y: m * 0.6, z: -v.z * m * k }, true);
@@ -74,7 +81,14 @@ export class Hazards {
       if (sim.tick % 2) continue;
       for (const [f, rec] of this.active) {
         if (f.type !== 'boost') continue;
-        if (car.s >= f.s0 && car.s <= f.s1 && Math.abs(car.d - rec.d) < 2.0 && car.veh.grounded >= 2) {
+        if (car.veh.grounded < 2) continue;
+        // Query the actual world position in the pad's main-road frame. A
+        // separated branch cannot grant a remote boost; a join that physically
+        // overlaps the drawn strip remains eligible regardless of route ID.
+        const near = this._mainProjection(sim, car);
+        if (near.s >= f.s0 && near.s <= f.s1 && Math.abs(near.d - rec.d) < rec.halfWidth) {
+          const roadY = sim.road.pointAt(near.s, near.d, this._padPoint || (this._padPoint = {})).y;
+          if (Math.abs(car.veh.pos.y - car.veh.restComHeight - roadY) > 1) continue;
           if ((car.boostPadT ?? -9) < sim.time - 1.2) {
             car.boostPadT = sim.time;
             const fwd = car.veh.fwd; const m = car.veh.mass;
@@ -127,6 +141,18 @@ export class Hazards {
     return false;
   }
 
+  /** At most one accelerated main projection per car in this update pass. */
+  _mainProjection(sim, car) {
+    let rec = this._mainProjections.get(car);
+    if (!rec) { rec = { pass: -1, near: {} }; this._mainProjections.set(car, rec); }
+    if (rec.pass !== this._projectionPass) {
+      const p = car.veh.pos;
+      (sim.roadQuery || sim.road).nearest(p.x, p.z, car.s, 90, rec.near);
+      rec.pass = this._projectionPass;
+    }
+    return rec.near;
+  }
+
   _sync(sim, s) {
     const road = sim.road;
     const feats = road.featuresIn(s - BEHIND, s + AHEAD);
@@ -148,7 +174,7 @@ export class Hazards {
 
   _build(sim, f) {
     const road = sim.road, bodies = [];
-    if (f.type === 'boost') { return { bodies, d: f.lane * 2.0 }; }
+    if (f.type === 'boost') { return { bodies, d: f.lane * BOOST_LANE_SPACING, halfWidth: BOOST_HALF_WIDTH }; }
     if (f.type === 'ramp') {
       // wedge across the road: rows every 1 m, 3 columns; height h(t) = H * t^1.35 ; drops sharply after the lip
       const H = f.big ? RAMP.bigH : RAMP.smallH, L = RAMP.len, W = HALF_ROAD - 0.3;

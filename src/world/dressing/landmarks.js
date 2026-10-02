@@ -1,7 +1,9 @@
 // Roadside set pieces: gas stations, diners, water towers, radio towers, wind farms, raider camps, oil derricks, canyon hoodoos/mesas, the ruined
 // city skyline, coastal lighthouse / sea stacks / wharf, the dam gate + control tower + arena. Deterministic slot schedule per biome:
 // plan(sA, sB) is a PURE function of (seed, s-range) and is cached, so scatter can query footprints of neighbouring chunks.
-import { biomeAt, DAM_START, BOSS_S } from '../../data/biomes.js';
+import { DAM_START, BOSS_S } from '../../data/biomes.js';
+import { roadBiomeAt, contextualRoad, biomeRange } from '../biome_context.js';
+import { TEN_LEVELS } from '../../data/campaign.js';
 import { hash2, clamp, smoothstep } from '../../core/util.js';
 import { terrainPoint, EDGE } from '../terrain_gen.js';
 import { groundAt, rngOf, strId, CHUNK_LEN } from './util.js';
@@ -11,6 +13,7 @@ import { cityDens, cityExclusions, CITY_PROPS } from './city.js';
 import { rockExclusions } from './rocks.js';
 import { momentExclusions } from './moments.js';
 import { GAUNTLET_ASSETS } from './damroad.js';
+import { drivingFootprintRadius } from '../driving_plan.js';
 import { rbFlankExclusions } from './features.js';
 
 // ------------------------------------------------------------------------------------------------ tables
@@ -139,7 +142,7 @@ export class LandmarkPlanner {
         for (let k = kA; k <= kB; k++) {
           const sc = k * T.pitch + (hash2(k, 71 + salt, this.ctx.seed) - 0.5) * T.pitch * 0.7;
           if (sc < sA || sc >= sB) continue;
-          const bio = biomeAt(sc), bid = bio.w > 0.5 ? bio.b : bio.a;
+          const bio = roadBiomeAt(this.ctx.road, sc), bid = bio.w > 0.5 ? bio.b : bio.a;
           if (bid !== id) continue;
           const key = `${tableName}:${id}:${k}`;
           if (steps.has(key)) continue; steps.add(key);
@@ -152,7 +155,12 @@ export class LandmarkPlanner {
     const sp = specials(this.ctx, sA, sB);
     if (sp === null) return null;
     for (const p of sp) out.push(p);
-    return out;
+    // Remove a full placement before either its visual, foundation or collider
+    // is emitted. A corridor cannot hide a solid landmark under new pavement.
+    return out.filter(p => {
+      const asset = this.ctx.kit.get(p.asset), radius = asset ? Math.max(p.r, drivingFootprintRadius(asset, p.sc)) : p.r;
+      return !this.ctx.road.corridorBlocked(p.x, p.z, radius + 3, p.s);
+    });
   }
 
   _slot(tableName, T, biomeId, k, sc) {
@@ -164,7 +172,7 @@ export class LandmarkPlanner {
     const sm = road.sample(sc, {}), th = sm.th;
     const seaY = biomeId === 'coast' ? seaLevel(road, 'coast') : biomeId === 'dam' ? seaLevel(road, 'dam') : -1e9;
     // the dense city has its own procedural street wall (city.js): industrial set pieces only on the outskirts
-    if (biomeId === 'city' && cityDens(sc) > 0.22) return [];
+    if (biomeId === 'city' && cityDens(sc, road) > 0.22) return [];
     // avoid road features
     for (const f of road.featuresIn(sc - 90, sc + 90)) if ((f.type === 'bridge' || f.type === 'tunnel' || f.type === 'overpass') && sc > f.s0 - 90 && sc < f.s1 + 90) return [];
     const placements = [];
@@ -271,10 +279,11 @@ function specials(ctx, sA, sB) {
     }
     return res;
   };
-  const inBiome = (s, id) => { const b = biomeAt(s); return (b.w > 0.5 ? b.b : b.a) === id; };
+  const inBiome = (s, id) => { const b = roadBiomeAt(road, s); return (b.w > 0.5 ? b.b : b.a) === id; };
 
   // ---- coast: sea stacks, lighthouse, wharf
-  if (sB > 19500 && sA < 30500) {
+  const coast = biomeRange(road, 'coast');
+  if (coast && (contextualRoad(road) ? sB > coast.start - 500 && sA < coast.end + 500 : sB > 19500 && sA < 30500)) {
     const names = ['lighthouse', 'wharf_ruin'];
     if (!assetReady(ctx, names)) return null;
     for (const [k, s] of slots(2600, 502)) {
@@ -306,13 +315,16 @@ function specials(ctx, sA, sB) {
     }
   }
   // ---- the dam: gate, control tower, floodlights, banners, boss arena
-  if (sB > DAM_START - 200) {
+  const dam = biomeRange(road, 'dam');
+  const damStart = contextualRoad(road) && dam ? dam.start : DAM_START;
+  const bossS = contextualRoad(road) && dam ? dam.start + TEN_LEVELS.find(level => level.id === 'dam').bossDistance : BOSS_S;
+  if (dam && sB > damStart - 200 && sA < dam.end) {
     const names = ['dam_gate_big', 'dam_control_tower', 'floodlight_tower', 'banner_skull', 'spike_wall', 'boss_arena_lights'];
     if (!assetReady(ctx, names)) return null;
     if (!push(cached('dam:gate', () => {
-      road.extendTo(DAM_START + 800);
+      road.extendTo(damStart + 800);
       const res = [], at = (s, d) => { const p = road.pointAt(s, d, {}); return p; };
-      const gs = DAM_START + 60, gp = at(gs, 0), th = road.sample(gs, {}).th;
+      const gs = damStart + 60, gp = at(gs, 0), th = road.sample(gs, {}).th;
       res.push({ asset: 'dam_gate_big', x: gp.x, y: gp.y - 0.02, z: gp.z, yaw: th, sc: 1, r: 26, s: gs, found: null });
       const tp = groundAt(road, seed, gs + 45, 24, {});
       res.push({ asset: 'dam_control_tower', x: tp.x, y: tp.y - 0.2, z: tp.z, yaw: facingYaw(road.sample(gs + 45, {}).th, 1), sc: 1, r: 18, s: gs + 45, found: { ymin: tp.y - 6, ytop: tp.y - 0.14, box: kit.get('dam_control_tower').box, sc: 1 } });
@@ -322,20 +334,20 @@ function specials(ctx, sA, sB) {
         void t2;
       }
       for (let i = 0; i < 12; i++) {
-        const s = DAM_START + 130 + i * 55, side = i % 2 ? 1 : -1, d = side * 14.5;
+        const s = damStart + 130 + i * 55, side = i % 2 ? 1 : -1, d = side * 14.5;
         const g = groundAt(road, seed, s, d, {}), t2 = road.sample(s, {}).th;
         res.push({ asset: 'banner_skull', x: g.x, y: g.y - 0.1, z: g.z, yaw: t2 + Math.PI + side * 0.3, sc: 1, r: 3, s, found: null });
       }
       return res;
     }))) return null;
-    if (sB > BOSS_S - 400) {
+    if (sB > bossS - 400) {
       if (!push(cached('dam:arena', () => {
-        road.extendTo(BOSS_S + 800);
+        road.extendTo(bossS + 800);
         const res = [];
         for (const [ds, d] of [[-34, 15.5], [-34, -14], [34, 15.5], [34, -14]]) {
-          const g = groundAt(road, seed, BOSS_S + ds, d, {}), t2 = road.sample(BOSS_S + ds, {}).th;
-          const c = road.pointAt(BOSS_S, 0, {});
-          res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: Math.atan2(c.x - g.x, c.z - g.z), sc: 1, r: 4, s: BOSS_S + ds, found: null });
+          const g = groundAt(road, seed, bossS + ds, d, {}), t2 = road.sample(bossS + ds, {}).th;
+          const c = road.pointAt(bossS, 0, {});
+          res.push({ asset: 'floodlight_tower', x: g.x, y: g.y - 0.1, z: g.z, yaw: Math.atan2(c.x - g.x, c.z - g.z), sc: 1, r: 4, s: bossS + ds, found: null });
           void t2;
         }
         return res;

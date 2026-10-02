@@ -103,13 +103,14 @@ test('empty-mag click and immediate weapon-swap feedback survive same-frame relo
   f.bridge.reset(); assert.ok(f.sounds.every(s => !s.voice.playing), 'reset releases immediate cues too');
 });
 
-test('all eight reload families preserve their cue order and scaling without native future starts', () => {
+test('all nine reload families preserve their cue order and scaling without native future starts', () => {
   const expected = {
     pistol: ['pistol_mag_out', 'pistol_mag_in', 'pistol_slide'],
     revolver: ['pistol_mag_out', 'shell_drop_brass', 'shotgun_shell_in', 'shotgun_shell_in', 'pistol_slide'],
     smg: ['smg_mag_out', 'smg_mag_in', 'smg_bolt'], shotgun: [],
     rifle: ['rifle_mag_out', 'rifle_mag_in', 'rifle_bolt'],
     lmg: ['lmg_cover_open', 'lmg_belt_in', 'lmg_belt_in', 'lmg_cover_close', 'lmg_rack'],
+    minigun: ['lmg_cover_open', 'lmg_belt_in', 'lmg_belt_in', 'lmg_cover_close', 'lmg_rack'],
     sniper: ['sniper_bolt_open', 'sniper_mag', 'sniper_bolt_close'], rpg: ['rpg_reload'],
   };
   for (const weapon of WEAPON_ORDER) {
@@ -139,4 +140,17 @@ test('shotgun pump, sniper bolt and grenade throw cues also freeze with hand ani
   assert.deepEqual(f.sounds.map(s => s.name), ['guns/grenade_pin']);
   f.audio.now += 10; f.tick(.22);
   assert.deepEqual(f.sounds.map(s => s.name), ['guns/grenade_pin', 'guns/grenade_throw']);
+});
+
+
+test('mounted minigun reload uses its full 5.2 second feed-drum sequence and pauses with game time',()=>{
+  const f=fixture();assert.equal(WEAPONS.minigun.reload,5.2);
+  f.bridge.handleEvent({t:'reloadStart',weapon:'minigun'},f.ctx);
+  const expected=[['guns/lmg_cover_open',.312],['guns/lmg_belt_in',1.872],['guns/lmg_belt_in',2.912],['guns/lmg_cover_close',4.16],['guns/lmg_rack',4.888]];
+  assert.equal(f.bridge.foleyPending.length,5);
+  f.bridge.foleyPending.forEach((cue,i)=>{assert.equal(cue.name,expected[i][0]);assert.ok(Math.abs(cue.remaining-expected[i][1])<1e-12);});
+  f.audio.now+=50;f.tick(0);assert.equal(f.sounds.length,0);
+  f.tick(.313);assert.equal(f.sounds.at(-1).name,expected[0][0]);assert.equal(f.sounds.at(-1).options.pitch,.85);
+  f.bridge.handleEvent({t:'reloadCancel'},f.ctx);f.tick(5.2);
+  assert.equal(f.sounds.length,1);assert.equal(f.bridge.foleyPending.length,0);assert.equal(f.sounds[0].voice.playing,false);
 });

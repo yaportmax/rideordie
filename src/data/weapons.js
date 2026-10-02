@@ -40,11 +40,20 @@ export const WEAPONS = {
     spread: { hip: 0.6, ads: 0.1, bloom: 0, bloomMax: 0, recover: 6 }, recoil: { pitch: 7, yaw: 1.2, kick: 0.25 }, range: 600, falloff: [1, 2, 1],
     head: 1, tracer: 0xffffff, tracerLen: 0, adsZoom: 1.5, scope: true, scopeFov: 30, sound: 'rpg', crosshair: 1, rocket: { launchSpeed: 90, speed: 180, blast: 11, blastDmg: 240, trail: 0xffaa66 }, desc: 'Turns cars into fireballs.',
   },
+  minigun: {
+    id: 'minigun', name: 'TEMPEST MINIGUN', slot: 0, cost: 14400, mode: 'auto', mounted: true,
+    model: 'mounted_minigun', rpm: 1200, dmg: 23, pellets: 1, mag: 240, reload: 5.2,
+    spread: { hip: 1.4, ads: 0.38, bloom: 0.10, bloomMax: 2.8, recover: 4.5 },
+    recoil: { pitch: 0.55, yaw: 0.35, kick: 0.022 }, range: 300, falloff: [140, 300, 0.65],
+    head: 2, tracer: 0xffc15a, tracerLen: 5.5, adsZoom: 1.4, sound: 'lmg', soundPitch: 0.82,
+    shell: 'shell_rifle', crosshair: 2, pierce: 1,
+    desc: 'Deck-mounted rotary gun. Traverse on the pedestal, aim through the open reflex, and feed it a fresh ammo drum.',
+  },
 };
 // purchase prices follow the shop's COST_SCALE (1.25, see upgrades.js); baseCost drives upgrade-track prices
 for (const w of Object.values(WEAPONS)) { w.baseCost = w.cost; w.cost = Math.round(w.cost * 1.25); }
 
-export const WEAPON_ORDER = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'];
+export const WEAPON_ORDER = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg', 'minigun'];
 
 export const GRENADE = { name: 'FRAG', fuse: 2.1, blast: 9.5, dmg: 190, speed: 24, cooldown: 7, count: 2, upgrades: 4 };
 

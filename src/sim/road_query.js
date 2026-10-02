@@ -3,9 +3,15 @@
 // at the query's Z and stop only when the distance bound cannot beat the result.
 // Unusual/non-monotonic roads retain the full reference search.
 import { BLOCK, DS } from '../world/road.js';
+import { projectDrivingRoute } from '../world/driving_plan.js';
 
 export class RoadQuery {
   constructor(road) { this.road = road; this.checked = 0; this.monotonic = true; }
+
+  /** Route-aware cars keep this query's accepted accelerated main projection. */
+  projectDriving(x, z, hint = 0, window = 90, out = {}) {
+    return projectDrivingRoute(this.road, this.road.ensureDrivingBranches(), x, z, hint, window, out, this, this._drivingScratch || (this._drivingScratch = {}));
+  }
 
   nearest(x, z, hint = 0, window = 90, out = {}) {
     const road = this.road;

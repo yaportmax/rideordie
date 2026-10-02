@@ -17,8 +17,10 @@ finally { css.deregister(); }
 
 function app(best, choice = 'dam', normalized = true) {
   let prompts = 0;
+  const profile=normalized ? normalizeProfile({best}) : {best};
+  delete profile.campaignProgress; // Explicit old highway/checkpoint fixture.
   const value = Object.assign(Object.create(App.prototype), {
-    profile: normalized ? normalizeProfile({ best }) : { best },
+    profile,
     ui: { async modal() { prompts++; return choice; } },
   });
   return { value, prompts: () => prompts };
@@ -31,6 +33,11 @@ test('Dam checkpoint unlock uses absolute route progress at 59000 metres and sta
   const short = app({ furthestS: 58999, distance: 58959 });
   assert.equal(await short.value._pickStart(), 40);
   assert.equal(short.prompts(), 0);
+});
+test('a normal finite campaign never offers the historical dam checkpoint despite a legacy best',async()=>{
+  const f=app({furthestS:60000,distance:60000});
+  f.value.profile.campaignProgress={version:1,unlockedLevel:1,selectedLevel:1,selectedMode:'campaign',cleared:[],marathonUnlocked:false};
+  assert.equal(await f.value._pickStart(),40);assert.equal(f.prompts(),0);
 });
 
 test('legacy and sanitized damaged saves preserve checkpoint options and cancellation', async () => {

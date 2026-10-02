@@ -4,14 +4,21 @@ import { SPEC_IDS, makeCarState } from '../view/car_state.js';
 import { PART_NAMES, BOSS_PARTS } from '../data/boss.js';
 
 const QN = 32767;
-const GUNS = ['pistol', 'smg', 'rifle', 'shotgun', 'mg', 'hmg', 'rpg'];
+const GUNS = ['pistol', 'smg', 'rifle', 'shotgun', 'mg', 'hmg', 'rpg', 'minigun'];
 const INTENTS = [null, 'shoot', 'ram', 'block'];
+const MAX_ELITE = 9; // Nine chapter bosses; the Leviathan uses its separate boss body.
 const F = { dead: 1, exploded: 2, burning: 4, smoking: 8, driverAlive: 16, gunnerAlive: 32, gunner2Alive: 64, braking: 128, boosting: 256, drifting: 512, airborne: 1024, flatAny: 2048 };
 const clamp16 = (v) => (v > 32767 ? 32767 : v < -32768 ? -32768 : v | 0);
 
 /** Encode the current sim state. hud: {hp01,dhp01,ghp01,nitro01,cash,kills,streak,level,bossHp01,bossId,medkits,state,time,dist} */
 export function encodeSnapshot(sim, tick, hud, buf) {
   const cars = [...sim.cars.values()];
+  // Never wrap an unknown catalogue entry into a different weapon or boss.
+  for (const c of cars) {
+    if (c.gunName != null && !GUNS.includes(c.gunName)) return null;
+    if (c.elite && (!Number.isInteger(c.elite.index) || c.elite.index < 0 || c.elite.index >= MAX_ELITE)) return null;
+    if (!INTENTS.includes(c.ai?.intent ?? null)) return null;
+  }
   let size = 64;
   for (const c of cars) size += 64 + c.veh.wheels.length * 2;
   const p = sim.projectiles;
@@ -20,7 +27,7 @@ export function encodeSnapshot(sim, tick, hud, buf) {
   const ab = buf && buf.byteLength >= size ? buf : new ArrayBuffer(size + 256);
   const dv = new DataView(ab);
   let o = 0;
-  dv.setUint8(o, 2); o += 1;
+  dv.setUint8(o, 3); o += 1;
   dv.setUint32(o, tick, true); o += 4;
   dv.setFloat32(o, sim.time, true); o += 4;
   dv.setFloat32(o, hud.dist || 0, true); o += 4;
@@ -63,8 +70,10 @@ export function encodeSnapshot(sim, tick, hud, buf) {
     dv.setInt8(o, Math.round((g?.x || 0) * 100)); dv.setInt8(o + 1, Math.round((g?.z || 0) * 100)); o += 2;
     dv.setInt16(o, clamp16((g2 ? g2.aimYaw : 0) * 5000), true); dv.setInt16(o + 2, clamp16((g2 ? g2.aimPitch : 0) * 10000), true); o += 4;
     dv.setUint8(o, g2 ? (g2.fire ? 1 : 0) : 0); o += 1;
-    // tag byte: bits 0-2 enemy gun, bits 3-5 miniboss index + 1, bits 6-7 raider intent (none/shoot/ram/block)
-    dv.setUint8(o, (GUNS.indexOf(c.gunName || '') + 1) | ((c.elite ? c.elite.index + 1 : 0) << 3) | ((INTENTS.indexOf(c.ai?.intent ?? null) & 3) << 6)); o += 1;
+    // v3 tag: bits 0-3 gun, bits 4-5 intent, bits 6-7 reserved. A separate
+    // byte carries 0 (ordinary) or 1-9 (chapter boss), without intent overlap.
+    dv.setUint8(o, (GUNS.indexOf(c.gunName || '') + 1) | (INTENTS.indexOf(c.ai?.intent ?? null) << 4)); o += 1;
+    dv.setUint8(o, c.elite ? c.elite.index + 1 : 0); o += 1;
     dv.setUint8(o, v.wheels.length); o += 1;
     for (const w of v.wheels) { dv.setUint8(o, Math.round(clamp01((w.L - 0.1) / 0.6) * 255)); dv.setUint8(o + 1, Math.round(clamp01(w.slip) * 127) | (w.grounded ? 128 : 0) | 0); o += 2; }
   }
@@ -93,7 +102,7 @@ export function decodeSnapshot(ab) {
 
 function readSnapshot(dv) {
   let o = 0;
-  const version = dv.getUint8(o); if (version !== 1 && version !== 2) return null; o += 1;
+  const version = dv.getUint8(o); if (version !== 1 && version !== 2 && version !== 3) return null; o += 1;
   const s = { cars: [], proj: [] };
   s.tick = dv.getUint32(o, true); o += 4; s.time = dv.getFloat32(o, true); o += 4; s.dist = dv.getFloat32(o, true); o += 4;
   s.state = ['countdown', 'run', 'dying', 'over'][dv.getUint8(o)]; o += 1;
@@ -118,7 +127,18 @@ function readSnapshot(dv) {
     const gf = dv.getUint8(o); o += 1; c.gfire = !!(gf & 1); c.gcrouch = !!(gf & 2); c.gads = !!(gf & 4); c.greload = !!(gf & 8); c.gweapon = gf >> 4;
     c.gx = dv.getInt8(o) / 100; c.gz = dv.getInt8(o + 1) / 100; o += 2;
     c.g2yaw = dv.getInt16(o, true) / 5000; c.g2pitch = dv.getInt16(o + 2, true) / 10000; o += 4; c.g2fire = !!dv.getUint8(o); o += 1;
-    { const tb = dv.getUint8(o); c.tagIdx = tb & 7; c.elite = (tb >> 3) & 7; c.intent = INTENTS[tb >> 6]; } o += 1;
+    {
+      const tb = dv.getUint8(o++);
+      if (version >= 3) {
+        if (tb & 192) return null;
+        c.tagIdx = tb & 15; c.intent = INTENTS[(tb >> 4) & 3]; c.elite = dv.getUint8(o++);
+        if (c.tagIdx > GUNS.length || c.elite > MAX_ELITE) return null;
+      } else {
+        c.tagIdx = tb & 7; c.elite = (tb >> 3) & 7; c.intent = INTENTS[tb >> 6];
+        // Version 1/2 had five elites and seven enemy weapon models.
+        if (c.elite > 5) return null;
+      }
+    }
     const nw = dv.getUint8(o); o += 1;
     if (nw < 1 || nw > 12) return null;
     c.L = new Float32Array(nw); c.slip = new Float32Array(nw); c.gr = new Uint8Array(nw);

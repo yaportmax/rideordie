@@ -163,7 +163,7 @@ test('driver firing phases retain real30Hz snapshots with current pose, HUD and 
   assert.equal(f.fastPackets.length, 3, 'Six real Run.update frames carry three fresh30Hz snapshots');
   let tick = -1, time = -1;
   for (const bytes of f.fastPackets) {
-    assert.equal(bytes[0], 2, 'The current snapshot wire version is actually encoded');
+    assert.equal(bytes[0], 3, 'The current expanded snapshot wire version is actually encoded');
     const snapshot = decodeSnapshot(bytes); assert(snapshot, 'Captured binary bytes decode using the production receiver');
     assert(snapshot.tick > tick && snapshot.time > time); tick = snapshot.tick; time = snapshot.time;
     assert.equal(snapshot.cars.length, 2); assert.equal(snapshot.hp01, 1); assert.equal(snapshot.dhp01, 1); assert.equal(snapshot.ghp01, 1);

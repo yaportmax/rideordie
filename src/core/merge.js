@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-const GROUP_RE = /^(wheel_|panel_|part_|weak_|ramp_|gun_mount|gun_mg|turret_\d|turret_main|slide|bolt|pump|mag$|trigger|hammer|cylinder|crane|charging_handle|feed_cover|belt|rocket$|scope|bipod|selector|stock_fold|bolt_handle|pin$|lever$|steering)/;
+const GROUP_RE = /^(wheel_|panel_|part_|weak_|ramp_|gun_mount|gun_mg|turret_\d|turret_main|slide|bolt|pump|mag$|trigger|hammer|cylinder|crane|charging_handle|feed_cover|belt|rocket$|scope|optic$|bipod|selector|stock_fold|bolt_handle|pin$|lever$|steering)/;
 
 const KEEP_ATTRIBUTES = new Set(['position', 'normal', 'uv', 'uv1', 'color', 'tangent']);
 function attrsKey(g) {

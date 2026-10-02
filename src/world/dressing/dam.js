@@ -11,23 +11,38 @@ import { seaLevel } from '../terrain_gen.js';
 import { rng, fbm2, smoothstep } from '../../core/util.js';
 import { gridMesh } from './features.js';
 import { makeBuilding, emitBuilding } from './city.js';
+import { contextualRoad, biomeRange } from '../biome_context.js';
+import { TEN_LEVELS } from '../../data/campaign.js';
 
 export const DAM = { sA: 58650, sB: 60500, off: 85, sag: 170, crest: 118 };
+const contextualDams = new WeakMap();
+/** Authored dam belongs only to this road's dam chapter. No global remapping. */
+export function damDefinition(road) {
+  if (!contextualRoad(road)) return DAM;
+  if (contextualDams.has(road)) return contextualDams.get(road);
+  const span = biomeRange(road, 'dam');
+  const bossS = span && span.start + TEN_LEVELS.find(level => level.id === 'dam').bossDistance;
+  const value = span ? Object.freeze({ ...DAM, sA: bossS - 1350, sB: bossS + 500 }) : null;
+  contextualDams.set(road, value);
+  return value;
+}
 
 /** Arc of the dam axis (downstream crest edge) in world xz; n = unit normal toward the road (downstream). */
 export function damArc(road) {
-  road.extendTo(DAM.sB + 1200);
-  const a = road.sample(DAM.sA, {}), b = road.sample(DAM.sB, {});
-  const E0 = { x: a.x - a.nx * DAM.off, z: a.z - a.nz * DAM.off }, E1 = { x: b.x - b.nx * DAM.off, z: b.z - b.nz * DAM.off };
+  const dam = damDefinition(road);
+  if (!dam) return null;
+  road.extendTo(dam.sB + 1200);
+  const a = road.sample(dam.sA, {}), b = road.sample(dam.sB, {});
+  const E0 = { x: a.x - a.nx * dam.off, z: a.z - a.nz * dam.off }, E1 = { x: b.x - b.nx * dam.off, z: b.z - b.nz * dam.off };
   let tx = E1.x - E0.x, tz = E1.z - E0.z; const c = Math.hypot(tx, tz); tx /= c; tz /= c;
   // away-from-road direction w: perpendicular to the chord, on the side of the dam (right of the road)
-  const mid = road.sample((DAM.sA + DAM.sB) / 2, {});
+  const mid = road.sample((dam.sA + dam.sB) / 2, {});
   let wx = -tz, wz = tx; if (wx * -mid.nx + wz * -mid.nz < 0) { wx = -wx; wz = -wz; }
-  const h = DAM.sag, R = (c * c / 4 + h * h) / (2 * h), phi0 = Math.asin(c / 2 / R);
+  const h = dam.sag, R = (c * c / 4 + h * h) / (2 * h), phi0 = Math.asin(c / 2 / R);
   const M = { x: (E0.x + E1.x) / 2, z: (E0.z + E1.z) / 2 }, O = { x: M.x + wx * (h - R), z: M.z + wz * (h - R) };
-  let yRoad = 0; for (let s = DAM.sA; s <= DAM.sB; s += 50) yRoad += road.sample(s, {}).y; yRoad /= Math.floor((DAM.sB - DAM.sA) / 50) + 1;
+  let yRoad = 0; for (let s = dam.sA; s <= dam.sB; s += 50) yRoad += road.sample(s, {}).y; yRoad /= Math.floor((dam.sB - dam.sA) / 50) + 1;
   const arc = {
-    R, phi0, O, wx, wz, tx, tz, L: 2 * phi0 * R, yRoad, Yc: yRoad + DAM.crest, water: seaLevel(road, 'dam'),
+    dam, R, phi0, O, wx, wz, tx, tz, L: 2 * phi0 * R, yRoad, Yc: yRoad + dam.crest, water: seaLevel(road, 'dam'),
     at(t, out = {}) {
       const ph = -phi0 + 2 * phi0 * t, cs = Math.cos(ph), sn = Math.sin(ph);
       const ux = wx * cs + tx * sn, uz = wz * cs + tz * sn;           // radial (away from the road)
@@ -47,6 +62,7 @@ const faceSlope = (D) => (D <= 12 ? 0 : 0.2 + 0.0022 * (D - 12));
 /** Generator: builds the dam, yielding between parts. add(mesh) receives finished meshes (world-anchored). */
 export function* buildDam(ctx, add, getTerrainMat) {
   const road = ctx.road, arc = damArc(road), r = rng(ctx.seed * 31 + 7);
+  if (!arc) return;
   const { Yc, water, L } = arc;
   const anchor = arc.at(0.5, {}); anchor.y = 0;
   const mb = new MB(anchor, { uvName: 'aUvF', cap: 16384 }), nb = mb;   // lamps / beacons share the facade mesh (style NEON)
@@ -405,7 +421,7 @@ function* abutment(ctx, add, arc, end, mat) {
   const ux = C.tx * sgn, uz = C.tz * sgn, vx = C.nx, vz = C.nz;  // u outward, v toward the road
   // distance to the road on the RIGHT (lake) side; anything on or left of the road counts as "at the road" (the rock must not cross it)
   // the road is nearly straight around the dam ends: project onto its direction for a good hint, then a short exact search
-  const sE = end ? DAM.sB : DAM.sA, rE = road.sample(sE, {});
+  const sE = end ? arc.dam.sB : arc.dam.sA, rE = road.sample(sE, {});
   const roadDist = (x, z) => { const hint = sE + (x - rE.x) * rE.fx + (z - rE.z) * rE.fz; const q = road.nearest(x, z, hint, 120, _n); return q.d > 0 ? 0 : q.dist; };
   const us = [], vs = [];
   for (let u = -70; u <= 520; u += 14) us.push(u);

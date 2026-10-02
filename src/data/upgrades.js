@@ -2,17 +2,17 @@
 // COST_SCALE is the master economy knob (campaign target ~2-3 h across all runs).
 import { WEAPON_ORDER, WEAPONS } from './weapons.js';
 import { VEHICLES } from './vehicles.js';
+import { equippedWeaponOptics } from './weapon_optics.js';
+import { defaultCampaignProgress } from './campaign.js';
+import { DRIVER_UPGRADE_IDS, PLAYER_VEHICLE_CATALOGUE, VEHICLE_FAMILIES, effectiveUpgrades, familyOf, upgradeCap, upgradeLevel } from './vehicle_families.js';
+
+export { effectiveUpgrades, upgradeLevel };
 
 export const COST_SCALE = 1.25;
 const C = (arr) => arr.map((c) => Math.round(c * COST_SCALE));
 
-/** Truck purchases (tier 1 owned from the start). */
-export const TRUCKS = [
-  { id: 'truck_t1', tier: 1, name: 'RUSTBUCKET', cost: 0, blurb: 'Rusted-out compact pickup. It runs. Mostly.' },
-  { id: 'truck_t2', tier: 2, name: 'HAULER', cost: C([6500])[0], blurb: '3/4-ton workhorse: tougher, faster, roll bar + bull bar.' },
-  { id: 'truck_t3', tier: 3, name: 'BRUISER', cost: C([17000])[0], blurb: 'Armor plated. Slit windows. Ram bumper. Mean.' },
-  { id: 'truck_t4', tier: 4, name: 'JUGGERNAUT', cost: C([36000])[0], blurb: 'A war truck. Spikes, supercharger, nest for a gunner.' },
-];
+/** Vehicle purchases. The chopped-roof sedan is the free new-campaign starter. */
+export const TRUCKS = PLAYER_VEHICLE_CATALOGUE;
 
 /** Leveled upgrades: {id, role, name, desc, costs[], per-level text}. */
 export const UPGRADES = [
@@ -38,6 +38,13 @@ export const UPGRADES = [
 ];
 export const UPGRADE_BY_ID = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 
+/** Driver tracks belong to the selected family; crew/shared tracks are global. */
+export function upgradeLimit(profile, id, vehicleId = profile?.truck) {
+  if (!Object.hasOwn(UPGRADE_BY_ID, id)) return 0;
+  const u = UPGRADE_BY_ID[id];
+  return u.role === 'driver' ? Math.min(u.costs.length, upgradeCap(familyOf(vehicleId), id)) : u.costs.length;
+}
+
 /** Weapon upgrade tracks (3 levels each) — names shown in the shop. */
 export const WEAPON_TRACKS = [
   { id: 'dmg', name: 'DAMAGE', costMul: [0.16, 0.3, 0.55] },
@@ -54,11 +61,15 @@ export const WEAPON_TRACK_MAX = 3;
 export const DEFAULT_PROFILE = () => ({
   v: 1, campaignId: Math.random().toString(36).slice(2, 10), revision: 0,
   cash: 0, totalCash: 0, best: { distance: 0, time: 0, kills: 0 }, runs: 0, wins: 0,
-  trucks: ['truck_t1'], truck: 'truck_t1',
-  upgrades: {},                       // id -> level
+  trucks: ['player_sedan_t1'], truck: 'player_sedan_t1',
+  vehicleUpgradeSchema: 2,
+  vehicleUpgrades: Object.fromEntries(Object.keys(VEHICLE_FAMILIES).map(id => [id, {}])),
+  upgrades: {},                       // crew/shared id -> level
   weapons: { pistol: { dmg: 0, mag: 0, rel: 0, hnd: 0 } }, loadout: ['pistol'],
+  weaponOptics: { pistol: { owned: ['standard'], equipped: 'standard' } },
   truckColor: 0, seen: {}, settings: {},
-  bossKilled: false, minibosses: {},
+  bossKilled: false, minibosses: {}, campaignProgress: defaultCampaignProgress(),
+  campaignRecords: {}, marathonBest: { distance: 0, furthestS: 0, time: 0, kills: 0 },
 });
 
 const TRUCK_COLORS = [0x8f6a3d, 0xa33a2c, 0x3d5c8f, 0x4c6b3a, 0x2b2b2b, 0xc99a2e, 0x7a4a8a, 0xd8d2c4];
@@ -66,13 +77,15 @@ export { TRUCK_COLORS };
 
 /** Fold the profile into the numbers the run needs. */
 export function effects(profile) {
-  const lv = (id) => profile.upgrades[id] || 0;
-  const truck = profile.truck;
-  const tier = +truck.slice(-1);
-  const nitro = VEHICLES[truck]?.nitro ?? VEHICLES.truck_t1.nitro;
+  const truck = VEHICLES[profile.truck]?.kind === 'player' ? profile.truck : 'player_sedan_t1';
+  const spec = VEHICLES[truck], levels = effectiveUpgrades(profile, truck);
+  const lv = id => Number.isFinite(levels[id]) ? Math.max(0, Math.min(upgradeLimit(profile, id, truck), Math.trunc(levels[id]))) : 0;
+  const tier = spec.familyStage ?? spec.tier;
+  const nitro = spec.nitro;
+  const vehicleUpgradeLevels = Object.freeze(Object.fromEntries(DRIVER_UPGRADE_IDS.map(id => [id, lv(id)])));
   const vestT = lv('vest');
   const e = {
-    truck, tier,
+    truck, tier, family: spec.family, stage: tier, vehicleUpgradeLevels,
     engineMul: 1 + 0.07 * lv('engine'), hpMul: 1 + 0.16 * lv('armor'), bulletResist: Math.max(0.55, 1 - 0.04 * lv('armor')),
     gripMul: 1 + 0.04 * lv('tires'), runFlat: lv('tires') >= 3,
     // Tank upgrades add to the selected chassis, rather than replacing every
@@ -84,7 +97,7 @@ export function effects(profile) {
     driverArmor: 0.3 * lv('glass') > 0 ? 0.3 * lv('glass') : 0,
     grenades: 2 + lv('grenades'), grenadeLv: lv('grenadeDmg'), medkits: lv('medkit'),
     reloadMul: 1 - 0.12 * lv('pouches'), handling: lv('steady'), cashMul: 1 + 0.1 * lv('scavenger'),
-    weapons: profile.loadout.slice(), weaponLevels: profile.weapons,
+    weapons: profile.loadout.slice(), weaponLevels: profile.weapons, weaponOptics: equippedWeaponOptics(profile),
   };
   return e;
 }

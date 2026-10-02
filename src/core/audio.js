@@ -370,7 +370,7 @@ class LoopBed {
 export class MusicSys {
   constructor(A) {
     this.A = A; this.tracks = new Map(); this.state = null; this.cur = null; this.fading = [];
-    this.intensity = 0; this.log = []; this._req = 0; this.pinned = new Set(); this._pendLayer = null; this.biome = null; this.layerTau = 0.4; this.want = null;
+    this.intensity = 0; this._requestedIntensity = 0; this.log = []; this._req = 0; this.pinned = new Set(); this._pendLayer = null; this.biome = null; this.layerTau = 0.4; this.want = null;
     this.successor = null; this._loadPending = false; this._retryAt = Infinity; this._disposed = false;
   }
   _rebuild() {
@@ -399,16 +399,19 @@ export class MusicSys {
     if (!ids.length) return null;
     if (kind === 'run') {
       const b = this.biome === 'forest' ? 'mountain' : this.biome;
-      const hit = ids.find((id) => this.tracks.get(id).biomes && this.tracks.get(id).biomes.includes(b));
+      const route = BIOME_AUDIO[b];
+      if (route && this.tracks.has(route.track)) return route.track;
+      const hit = ids.find((id) => this.tracks.get(id).biomes && (this.tracks.get(id).biomes.includes(b) || (route && this.tracks.get(id).biomes.includes(route.track.split('_').at(-1)))));
       if (hit) return hit;
       if (b === 'dam') return ids[ids.length - 1];
-      const i = Math.max(0, BIOME_ORDER.indexOf(b)); return ids[i % ids.length];
+      const i = Math.max(0, BIOME_ORDER.indexOf(route?.track.split('_').at(-1) || b)); return ids[i % ids.length];
     }
     return ids[0];
   }
   /** Music follows the biome: each biome maps to one of the run tracks (crossfades at the next bar while in the run state). */
   setBiome(id) {
     if (this.biome === id) return; this.biome = id;
+    this.setIntensity(this._requestedIntensity);
     if (this.state === 'run') this.setState('run', {});
   }
   layerLevels(track, v) {
@@ -502,7 +505,11 @@ export class MusicSys {
     this.successor = null;
     if (cur && !cur.dead && cur.track.kind === 'run' && this.wantTrack === cur.track.id) {
       const index = stages.indexOf(cur.track.id);
-      this.successor = stages[index + 1] || this.trackIds('boss')[0] || null;
+      const chapter = BIOME_ORDER.indexOf(this.biome);
+      if (chapter >= 6) {
+        const next = BIOME_AUDIO[BIOME_ORDER[chapter + 1]]?.track;
+        this.successor = next === cur.track.id ? null : next && this.tracks.has(next) ? next : this.trackIds('boss')[0] || null;
+      } else this.successor = stages[index + 1] || this.trackIds('boss')[0] || null;
       if (this.successor) this.A.load(this.tracks.get(this.successor).stems.map((s) => s.def), 3);
     }
     this._releaseUnused();
@@ -515,7 +522,8 @@ export class MusicSys {
     }
   }
   setIntensity(v, o = {}) {
-    const level = clamp01(v), changed = Math.abs(level - this.intensity) > 1e-6;
+    this._requestedIntensity = clamp01(v);
+    const level = Math.max(this._requestedIntensity, BIOME_AUDIO[this.biome]?.pressureFloor || 0), changed = Math.abs(level - this.intensity) > 1e-6;
     this.intensity = level;
     const A = this.A, now = A.ctx.currentTime, cur = this.cur;
     if (!cur || cur.dead || (!changed && !o.immediate && o.quantize !== false)) return;
@@ -780,9 +788,26 @@ const ZERO = { x: 0, y: 0, z: 0 };
 const EMPTY = {};
 
 // ------------------------------------------------------------------------------------------------------------ Ambience
-export const BIOME_ORDER = ['desert', 'canyon', 'coast', 'mountain', 'city', 'dam'];
+export const BIOME_ORDER = Object.freeze(['desert', 'canyon', 'coast', 'mountain', 'city', 'dam', 'underground', 'sky', 'hell', 'space']);
+/** Intentional reuse of existing mature DnB tracks; no extra decoded stem budget.
+ * New chapters use increasingly present pressure stems, never a desert index fallback.
+ * Ambience entries are exact existing manifest names, interpreted as machinery/wind beds.
+ */
+export const BIOME_AUDIO = Object.freeze(Object.fromEntries([
+  ['desert','run_01_desert',0,['desert_wind_loop'],.7],
+  ['canyon','run_02_canyon',0,['canyon_wind_loop'],1.4],
+  ['coast','run_03_coast',0,['coast_waves_loop'],.9],
+  ['mountain','run_04_mountain',0,['forest_wind_loop'],.9],
+  ['city','run_05_city',0,['city_ruins_loop'],1.1],
+  ['dam','run_06_dam',0,['dam_rumble_loop'],1.5],
+  ['underground','run_05_city',.55,['dam_rumble_loop','city_ruins_loop'],1.7],
+  ['sky','run_03_coast',.65,['desert_wind_loop','canyon_wind_loop'],.3],
+  ['hell','run_06_dam',.78,['dam_rumble_loop','canyon_wind_loop'],1.2],
+  ['space','run_06_dam',.9,['city_ruins_loop'],.4],
+].map(([id,track,pressureFloor,ambience,reverb])=>[id,Object.freeze({track,pressureFloor,ambience:Object.freeze(ambience),reverb})])));
+
 const BIOME_ALIAS = { mountain: ['mountain', 'forest', 'pine'], forest: ['forest', 'mountain', 'pine'], city: ['city', 'ruins'], coast: ['coast', 'sea', 'beach'] };
-const BIOME_REVERB = { desert: 0.7, canyon: 1.4, coast: 0.9, mountain: 0.9, forest: 0.9, city: 1.1, dam: 1.5 };
+const BIOME_REVERB = { ...Object.fromEntries(Object.entries(BIOME_AUDIO).map(([id,route])=>[id,route.reverb])), forest: .9 };
 
 export class AmbienceSys {
   constructor(A) {
@@ -791,10 +816,10 @@ export class AmbienceSys {
     this.windLayer = null; this.windLP = null; this.tyres = null; this.want = null;
   }
   _resolveBed(biome) {
-    const ids = BIOME_ALIAS[biome] || [biome], out = [];
+    const ids = BIOME_ALIAS[biome] || [biome], out = [], exact = BIOME_ORDER.indexOf(biome) >= 6 ? BIOME_AUDIO[biome]?.ambience : null;
     for (const d of this.A.defs.values()) {
       if (d.group !== 'ambience' && d.category !== 'ambience') continue;
-      if (ids.some((id) => d.name.startsWith(id) || d.meta.biome === id)) out.push(d);
+      if (exact ? exact.includes(d.name) : ids.some((id) => d.name.startsWith(id) || d.meta.biome === id)) out.push(d);
     }
     return out;
   }

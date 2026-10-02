@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Director } from '../src/sim/director.js';
 import { SET_PIECES, ENCOUNTERS } from '../src/data/enemies.js';
 import { VEHICLES } from '../src/data/vehicles.js';
+import { Road } from '../src/world/road.js';
 
 const DT = 1 / 120;
 
@@ -16,13 +17,17 @@ function fixture(piece) {
   director._pickEncounter = () => null;
   director.lastEngaged = 20;
   const spawned = [], events = [];
+  const road = new Road(7);
+  // Scheduling isolation retains the flat crest profile; biome identity uses
+  // the real legacy Road contract rather than an incomplete shape stub.
+  road.sample = () => ({ y: 0 });
   let canSpawn = false;
   director.spawn = (_sim, _key, _level, options) => {
     spawned.push(options);
     return canSpawn ? { id: spawned.length, ai: {} } : false;
   };
   const sim = { state: 'run', seed: 7, tick: 1, time: 20, cars: new Map(),
-    road: { sample: () => ({ y: 0 }) },
+    road,
     player: { s: piece.s, maxHp: 400, fuelHp: 60, engineHp: 100, spec: VEHICLES.truck_t1, veh: { vf: 30 } },
     emit: event => events.push(event) };
   const update = time => { sim.time = time; director.update(DT, sim); };

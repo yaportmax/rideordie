@@ -2,25 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE, UPGRADES, TRUCKS, WEAPON_TRACK_MAX } from '../src/data/upgrades.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { normalizeProfile, loadProfile, saveProfile, buyUpgrade, buyTruck, buyWeapon, buyWeaponTrack, equipWeapon, creditRun } from '../src/meta/profile.js';
+import { normalizeProfile, loadProfile, saveProfile, buyUpgrade, buyTruck, selectTruck, buyWeapon, buyWeaponTrack, equipWeapon, creditRun } from '../src/meta/profile.js';
 
 test('old or damaged saves recover a playable owned truck, weapon and finite stats', () => {
   for (const value of [null, [], {}, { cash: NaN, upgrades: [], weapons: null, trucks: ['missing'], truck: 'missing', loadout: ['missing'], best: null }]) {
     const p = normalizeProfile(value);
-    assert.equal(p.truck, 'truck_t1'); assert.deepEqual(p.loadout, ['pistol']); assert.ok(p.weapons.pistol); assert.ok(Number.isFinite(p.cash));
+    assert.equal(p.truck, 'player_sedan_t1'); assert.deepEqual(p.loadout, ['pistol']); assert.ok(p.weapons.pistol); assert.ok(Number.isFinite(p.cash));
   }
   const p = normalizeProfile({ cash: 8000, truck: 'truck_t2', trucks: ['truck_t2'], upgrades: { engine: 100, armor: -2 }, weapons: { rifle: { dmg: 99, rel: -2 } }, loadout: ['rifle', 'rifle'], best: { time: Infinity } });
-  assert.equal(p.cash, 8000); assert.equal(p.truck, 'truck_t2'); assert.equal(p.upgrades.engine, 5);
+  assert.equal(p.cash, 8000); assert.equal(p.truck, 'truck_t2'); assert.equal(p.vehicleUpgrades.rustbucket.engine, 5);
+  assert.equal(p.vehicleUpgrades.rustbucket.armor, 0); assert.equal(p.vehicleUpgrades.sedan.engine, 0);
+  assert.equal(Object.hasOwn(p.upgrades, 'engine'), false, 'schema-less old driver purchases migrate out of the global crew inventory');
   assert.equal(p.weapons.rifle.dmg, WEAPON_TRACK_MAX); assert.equal(p.weapons.rifle.rel, 0); assert.deepEqual(p.loadout, ['rifle']); assert.equal(p.best.time, 0);
 });
 
 test('save/load roundtrip retains progression and blocked storage never breaks purchases', () => {
   const data = new Map();
   globalThis.localStorage = { getItem: (k) => data.get(k), setItem: (k, v) => data.set(k, v) };
-  const p = DEFAULT_PROFILE(); p.cash = 1234; p.best.distance = 7500; p.best.furthestS = 60000; saveProfile(p);
+  const p = DEFAULT_PROFILE(); p.cash = 1234; p.best.distance = 7500; p.best.furthestS = 60000;
+  p.vehicleUpgrades.sedan.engine = 2; p.upgrades.vest = 1; saveProfile(p);
   assert.equal(loadProfile().cash, 1234); assert.equal(loadProfile(p.campaignId).campaignId, p.campaignId);
   assert.equal(loadProfile().best.furthestS, 60000); assert.equal(loadProfile().best.distance, 7500);
-  data.set('rideordie.profile.v1', '{bad'); assert.equal(loadProfile().truck, 'truck_t1');
+  assert.equal(loadProfile().vehicleUpgrades.sedan.engine, 2); assert.equal(loadProfile().vehicleUpgrades.rustbucket.engine, 0);
+  assert.equal(loadProfile().upgrades.vest, 1); assert.equal(Object.hasOwn(loadProfile().upgrades, 'engine'), false);
+  data.set('rideordie.profile.v1', '{bad'); assert.equal(loadProfile().truck, 'player_sedan_t1');
   globalThis.localStorage = { getItem: () => { throw Error('blocked'); }, setItem: () => { throw Error('blocked'); } };
   assert.doesNotThrow(() => saveProfile(p)); assert.equal(loadProfile().loadout[0], 'pistol');
 });
@@ -40,6 +45,10 @@ test('old saves migrate route progress while damaged absolute coordinates retain
 test('every truck and upgrade charges its catalog price exactly and stops at its maximum', () => {
   const p = DEFAULT_PROFILE(); p.cash = 1000000;
   for (const t of TRUCKS.slice(1)) { const before = p.cash; assert.equal(buyTruck(p, t.id).ok, true); assert.equal(p.cash, before - t.cost); }
+  // This test checks every published upgrade price through its full global
+  // catalogue length. Rustbucket keeps those full limits; lighter families'
+  // separate caps/isolation have dedicated vehicle_families coverage.
+  assert.equal(selectTruck(p, 'truck_t4').ok, true);
   for (const u of UPGRADES) {
     for (const cost of u.costs) { const before = p.cash; assert.equal(buyUpgrade(p, u.id).ok, true); assert.equal(p.cash, before - cost); }
     assert.equal(buyUpgrade(p, u.id).reason, 'max');

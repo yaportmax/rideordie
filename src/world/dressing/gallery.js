@@ -4,7 +4,7 @@
 // ramp / roadblock / bridge / tunnel / overpass. Chunk-streamed: every chunk builds its slice (one facade mesh, one neon mesh,
 // one collider set). Clearances: roof >= 7.2 m above the asphalt, pillars / wall >= 11 m from the centre line (shoulder ends at 9.5 m).
 import * as THREE from 'three';
-import { biomeAt } from '../../data/biomes.js';
+import { roadBiomeAt, biomeDistance } from '../biome_context.js';
 import { hash2 } from '../../core/util.js';
 import { CHUNK_LEN, groundAt } from './util.js';
 import { MB, frameBasis } from './mbuild.js';
@@ -20,7 +20,10 @@ function planGallery(ctx, want, biome) {
   const len = 160 + Math.round(hash2(Math.round(want), 5, seed) * 4) * 40;
   for (let k = 0; k < 24; k++) {
     const s0 = want + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 45, s1 = s0 + len;
-    const b = biomeAt((s0 + s1) / 2); if ((b.w > 0.5 ? b.b : b.a) !== biome) continue;
+    const b = roadBiomeAt(road, (s0 + s1) / 2); if ((b.w > 0.5 ? b.b : b.a) !== biome) continue;
+    // Keep the complete authored gallery clear of a fork and rejoin. Removing
+    // only its wall collider would leave an opaque concrete wall on the route.
+    if (road.ensureDrivingBranches().some(branch => s1 > branch.s0 - 80 && s0 < branch.s1 + 80)) continue;
     if (road.featuresIn(s0 - 60, s1 + 60).some((f) => f.type !== 'guard' && f.type !== 'boost')) continue;
     // the hill side: terrain at 36 m and 55 m must stand well above the road over the whole span
     for (const side of [1, -1]) {
@@ -37,7 +40,9 @@ function planGallery(ctx, want, biome) {
 /** Galleries that can touch [sA, sB) (plans only the wanted spots within 2.5 km). */
 export function galleriesNear(ctx, sA, sB) {
   const cache = ctx.galleryCache || (ctx.galleryCache = new Map()), out = [];
-  for (const [want, biome] of WANT) {
+  for (const [legacyWant, biome] of WANT) {
+    const want = biomeDistance(ctx.road, biome, legacyWant);
+    if (want === null) continue;
     if (want > sB + 2500 || want < sA - 2500) continue;
     if (!cache.has(want)) cache.set(want, planGallery(ctx, want, biome));
     const g = cache.get(want);

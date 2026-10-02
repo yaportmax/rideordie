@@ -2,8 +2,11 @@
 //  - samples every DS meters: position, heading, curvature, bank, elevation
 //  - road features (ramps, boost pads, bridges, tunnels, roadblocks, guard rails...) chosen per block
 // No DOM / WebGL: usable in Node tests and Web Workers.
-import { BIOMES, biomeAt, BIOME_START, ROAD_WIDTH, HALF_ROAD } from '../data/biomes.js';
+import { BIOMES, biomeAt, BIOME_START, TRANSITION, ROAD_WIDTH, HALF_ROAD } from '../data/biomes.js';
+import { TEN_LEVELS, normalizeJourney, MARATHON_LEVEL_STARTS, MARATHON_LEVEL_LENGTH, marathonLevelAt } from '../data/campaign.js';
+import { CAMPAIGN_THEMES } from '../data/campaign_themes.js';
 import { rng, clamp, lerp, smoothstep, fbm1, hash2, wrapAngle } from '../core/util.js';
+import { stageChallenges, drivingReserved, DRIVING_ROUTE_VERSION, planDrivingBranches, projectDrivingRoute, intersectsDrivingCorridor, branchPointAt } from './driving_plan.js';
 
 export const DS = 3;        // sample spacing (m)
 export const BLOCK = 96;    // generation block length (m)
@@ -12,13 +15,19 @@ export { ROAD_WIDTH, HALF_ROAD };
 const MAJOR = new Set(['bridge', 'tunnel', 'overpass', 'gate']);
 
 export class Road {
-  constructor(seed = 1) {
+  constructor(seed = 1, journey) {
+    this.journey = normalizeJourney(journey);
+    this.levelStarts = this.journey.mode === 'marathon' ? MARATHON_LEVEL_STARTS : this.journey.mode === 'campaign' ? Object.freeze([0]) : BIOME_START;
     this.seed = seed | 0;
     this.cap = 8192;
     this.n = 0;
     this.x = new Float64Array(this.cap); this.y = new Float64Array(this.cap); this.z = new Float64Array(this.cap);
     this.th = new Float64Array(this.cap); this.k = new Float64Array(this.cap); this.bank = new Float64Array(this.cap);
     this.features = [];
+    this.routeVersion = DRIVING_ROUTE_VERSION;
+    this.drivingPlan = stageChallenges(this.seed, this.journey);
+    this.drivingBranches = null;
+    this._drivingNext = 0;
     this._featEnd = 0; // s up to which features have been decided
     this._lastMajorEnd = -1e9;
     this.st = { x: 0, z: 0, th: 0, y: this._elevTarget(0), slope: 0, kPrev: 0, block: 0 };
@@ -37,9 +46,30 @@ export class Road {
     this.n = Math.max(this.n, i + 1);
   }
 
+  /** Context is immutable and shared with authority, viewer and terrain workers. */
+  biomeDefinition(id) { return CAMPAIGN_THEMES[id] || BIOMES[id]; }
+  journeyLevelAt(s) {
+    return this.journey.mode === 'campaign' ? this.journey.level : this.journey.mode === 'marathon' ? marathonLevelAt(s) + 1 : biomeAt(s).index + 1;
+  }
+  biomeAt(s) {
+    if (this.journey.mode === 'legacy') return biomeAt(s);
+    const index = this.journeyLevelAt(s) - 1, id = TEN_LEVELS[index].id;
+    if (this.journey.mode === 'campaign') return { a: id, b: id, w: 0, index };
+    const start = MARATHON_LEVEL_STARTS[index];
+    if (index > 0 && s < start + TRANSITION / 2) {
+      const t = clamp(0.5 + (s - start) / TRANSITION, 0, 1);
+      return { a: TEN_LEVELS[index - 1].id, b: id, w: t * t * (3 - 2 * t), index };
+    }
+    if (index < 9 && s > start + MARATHON_LEVEL_LENGTH - TRANSITION / 2) {
+      const t = clamp((s - (start + MARATHON_LEVEL_LENGTH - TRANSITION / 2)) / TRANSITION, 0, 1);
+      return { a: id, b: TEN_LEVELS[index + 1].id, w: t * t * (3 - 2 * t), index };
+    }
+    return { a: id, b: id, w: 0, index };
+  }
+
   /** Blended numeric road parameters at s. */
   params(s) {
-    const b = biomeAt(s), A = BIOMES[b.a].road, B = BIOMES[b.b].road;
+    const b = this.biomeAt(s), A = this.biomeDefinition(b.a).road, B = this.biomeDefinition(b.b).road;
     const o = {};
     for (const key of Object.keys(A)) o[key] = lerp(A[key], B[key], b.w);
     return o;
@@ -52,6 +82,31 @@ export class Road {
   }
 
   extendTo(s) { while (this.sEnd < s) this._genBlock(); }
+
+  /** One bounded deterministic plan, shared by the authoritative road and workers. */
+  ensureDrivingBranches() {
+    if (this.drivingBranches === null) {
+      this.drivingBranches = []; // guard planning's ordinary road sampling
+      this.drivingBranches = planDrivingBranches(this);
+    }
+    return this.drivingBranches;
+  }
+
+  /** Car route coordinates; nearest() remains the unchanged main-road reference. */
+  projectDriving(x, z, hint = 0, window = 90, out = {}) {
+    return projectDrivingRoute(this, this.ensureDrivingBranches(), x, z, hint, window, out, this, this._drivingScratch || (this._drivingScratch = {}));
+  }
+
+  drivingBranch(route) { return this.ensureDrivingBranches().find(b => b.id === route) || null; }
+
+  drivingPointAt(s, d = 0, route = null, out = {}) {
+    const branch = route && this.drivingBranch(route);
+    return branch ? branchPointAt(this, branch, s, d, out) : this.pointAt(s, d, out);
+  }
+
+  corridorBlocked(x, z, radius = 0, hint = 0) {
+    return intersectsDrivingCorridor(this.ensureDrivingBranches(), x, z, radius, hint);
+  }
 
   _genBlock() {
     const st = this.st, b = st.block++;
@@ -92,19 +147,23 @@ export class Road {
 
   // ---------------------------------------------------------------------------------------- features
   _genFeatures(s0, s1, r, P) {
-    const bio = biomeAt((s0 + s1) / 2);
+    const bio = this.biomeAt((s0 + s1) / 2);
     const id = bio.w > 0.5 ? bio.b : bio.a;
-    const B = BIOMES[id];
+    const B = this.biomeDefinition(id);
     const add = (f) => { this.features.push(f); if (MAJOR.has(f.type)) this._lastMajorEnd = f.s1; };
-    const canMajor = s0 > 600 && s0 - this._lastMajorEnd > 500;
+    while (this._drivingNext < this.drivingPlan.length && this.drivingPlan[this._drivingNext].s0 < s1) {
+      add(this.drivingPlan[this._drivingNext++]);
+    }
+    const reserved = drivingReserved(this.drivingPlan, s0, s1, 80);
+    const canMajor = s0 > 600 && s0 - this._lastMajorEnd > 500 && !drivingReserved(this.drivingPlan, s0, s1 + 450, 120);
     const at = () => s0 + r.range(8, BLOCK - 8);
     // ramps / boost pads / roadblocks in most biomes
     if (s0 > 300) {
       const rampP = { desert: 0.05, canyon: 0.04, coast: 0.02, mountain: 0.02, city: 0.04, dam: 0.0 }[id] ?? 0;
-      if (r.chance(rampP)) { const s = at(); add({ type: 'ramp', s0: s, s1: s + 14, lane: r.pick([-1, 0, 1]), big: r.chance(0.4) }); }
-      if (r.chance(0.04)) { const s = at(); add({ type: 'boost', s0: s, s1: s + 6, lane: r.pick([-1.5, -0.5, 0.5, 1.5]) }); }
+      if (r.chance(rampP) && !reserved) { const s = at(); add({ type: 'ramp', s0: s, s1: s + 14, lane: r.pick([-1, 0, 1]), big: r.chance(0.4) }); }
+      if (r.chance(0.04) && !reserved) { const s = at(); add({ type: 'boost', s0: s, s1: s + 6, lane: r.pick([-1.5, -0.5, 0.5, 1.5]) }); }
       const blockP = { desert: 0.012, canyon: 0.02, coast: 0.02, mountain: 0.025, city: 0.05, dam: 0.0 }[id] ?? 0;
-      if (r.chance(blockP)) { const s = at(); add({ type: 'roadblock', s0: s, s1: s + 12, gap: r.pick([-2, -1, 0, 1, 2]), seed: (r() * 1e9) | 0 }); }
+      if (r.chance(blockP) && !reserved) { const s = at(); add({ type: 'roadblock', s0: s, s1: s + 12, gap: r.pick([-2, -1, 0, 1, 2]), seed: (r() * 1e9) | 0 }); }
     }
     if (canMajor) {
       const bridgeP = { desert: 0.006, canyon: 0.02, coast: 0.02, mountain: 0.015, city: 0.008, dam: 0.0 }[id] ?? 0;

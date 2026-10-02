@@ -23,6 +23,7 @@ export const ENEMIES = {
   e_van:       { spec: 'e_van',       cost: 3.2, minLevel: 0.34, weight: 3,  behaviors: ['blocker', 'leader'],           guns: ['rpg'],              gunLate: 'rpg',   skill: 0.55, label: 'BOXER' },
   e_heavy:     { spec: 'e_heavy',     cost: 5.0, minLevel: 0.5,  weight: 2,  behaviors: ['heavy'],                       guns: ['mg', 'rifle'],      gunLate: 'hmg',   skill: 0.6, label: 'HAULER' },
   e_tanker:    { spec: 'e_tanker',    cost: 4.5, minLevel: 0.42, weight: 2,  behaviors: ['heavy', 'leader'],             guns: ['rifle'],            gunLate: 'hmg',   skill: 0.55, label: 'FUEL BOMB' },
+  e_double_bus: { spec: 'e_double_bus', cost: 5.5, minLevel: 0.30, weight: 2, behaviors: ['heavy'], guns: ['hmg'], gunLate: 'hmg', skill: .60, label: 'DOUBLE DECKER', biomes: ['city'], maxActive: 1 },
 };
 export const ENEMY_KEYS = Object.keys(ENEMIES);
 
@@ -34,6 +35,7 @@ export const ENEMY_KEYS = Object.keys(ENEMIES);
  * The director picks by weight among the unlocked + affordable ones; `max` caps how often a pattern repeats in a row.
  */
 export const ENCOUNTERS = {
+  citybus: { minLevel: .30, weight: 2, biomes: ['city'], cars: [{ k: 'e_double_bus', role: 'heavy', at: 'ahead' }] },
   // two bandits waiting on the shoulder ahead: they pull out as you arrive, one leads, one rides your flank
   ambush:   { minLevel: 0, weight: 6, cars: [{ k: ['e_sedan', 'e_buggy', 'e_technical'], role: 'leader', at: 'park', side: 1 }, { k: ['e_sedan', 'e_buggy'], role: 'flanker', at: 'park', side: -1 }] },
   // a car tails you, then overtakes and cuts in front; its partner hangs back as the gunner's target

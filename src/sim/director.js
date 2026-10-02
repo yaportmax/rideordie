@@ -7,13 +7,26 @@ import { clamp, lerp, rng } from '../core/util.js';
 import { ENEMIES, ENEMY_GUNS, ENCOUNTERS, SET_PIECES } from '../data/enemies.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { BOSS_S, HALF_ROAD } from '../data/biomes.js';
-import { MINIBOSSES } from '../data/boss.js';
+import { MINIBOSSES, CAMPAIGN_BOSSES } from '../data/boss.js';
+import { TEN_LEVELS, normalizeJourney } from '../data/campaign.js';
 import { Leviathan } from './boss.js';
 import { EnemyBrain } from './ai.js';
-import { RAPIER, RAY_WORLD } from './physics.js';
+import { RAPIER, RAY_WORLD, G, groups } from './physics.js';
 
 const LANES = [-5.0, -1.7, 1.7, 5.0];
 const _v = new THREE.Vector3();
+// A complete squad may not fit the last slot. These use existing low-cost rigs
+// without raising the live-enemy cap or bypassing encounter pacing/budget.
+const REINFORCEMENTS = {
+  fill_bandit: { cars: [{ k: 'e_sedan', role: 'chaser', at: 'behind' }] },
+  fill_rammer: { cars: [{ k: 'e_muscle', role: 'rammer', at: 'behind' }] },
+};
+const CHAPTER_SET_PIECES = ['gauntlet', 'stampede', 'fuelrun', 'blockade', 'cityswarm', 'blockade', 'stampede', 'gauntlet', 'fuelrun', 'cityswarm'];
+const CHAPTER_SCRIPTED = Object.fromEntries(['campaign', 'marathon'].map(mode => [mode, TEN_LEVELS.map((level, index) => [{
+  ...SET_PIECES.find(sp => sp.key === CHAPTER_SET_PIECES[index]),
+  s: (mode === 'campaign' ? 0 : index * 8000) + level.bossDistance * 0.55,
+  chapterKey: `chapter-${index + 1}`,
+}])]));
 
 export function levelAt(s, t) { return clamp(0.86 * (s / BOSS_S) + 0.14 * Math.min(1, t / 1500), 0, 1.25); }
 
@@ -27,7 +40,12 @@ export class Director {
     this.minibossDone = new Set();
     this.disabled = new Set();
     this.lastEngaged = 0; this.encounters = 0; this.lastEnc = null; this.history = [];
+    this.journey = normalizeJourney(opts.journey);
+    this.campaignComplete = false;
+    this.chapterBossDone = new Set();
   }
+
+  get marathonComplete() { return this.chapterBossDone.size === 9 && this.campaignComplete; }
 
   update(dt, sim) {
     const P = sim.player;
@@ -38,7 +56,13 @@ export class Director {
       // death on a 1800-HP truck. Scale them with the truck: a tank fire is a threat you see coming, not a coin flip.
       P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4);
     }
-    const L = this.level = levelAt(P.s, sim.time); this.simTime = sim.time;
+    const journey = sim.journey || this.journey;
+    const biome = sim.road.biomeAt(P.s);
+    this.currentBiome = biome.w > 0.5 ? biome.b : biome.a;
+    const chapter = journey.mode === 'campaign' ? journey.level : sim.road.journeyLevelAt?.(P.s) ?? Math.min(10, Math.floor(P.s / 8000) + 1);
+    const L = this.level = journey.mode === 'legacy' ? levelAt(P.s, sim.time)
+      : clamp(0.08 + (chapter - 1) * 0.075 + 0.22 * Math.min(1, (journey.mode === 'campaign' ? P.s : P.s % 8000) / TEN_LEVELS[chapter - 1].bossDistance), 0, 1);
+    this.simTime = sim.time;
     this._runQueue(sim);
     if ((sim.tick & 3) === 0) this._nearMiss(sim, P);
     this._bosses(sim, P, L);
@@ -65,8 +89,10 @@ export class Director {
     this.timeSinceSpawn += dt;
     this.cooldown -= dt;
     let alive = 0, engaged = false;
+    this.currentBusCount = 0;
     for (const c of sim.cars.values()) {
       if (c.kind !== 'enemy' || c.exploded) continue;
+      if (c.spec.id === 'e_double_bus') this.currentBusCount++;
       alive++;
       if (!c.driverless && Math.abs(c.s - P.s) < 55) engaged = true;
     }
@@ -78,10 +104,12 @@ export class Director {
     const pressure = idle > lerp(9, 4, clamp(L * 1.5, 0, 1)) && sim.time > 2;
     if (this.activeElite) return;   // a warlord fight is its own encounter (the warlord calls its own help)
     // biome set piece: once per run, regardless of budget / cap
-    for (const sp of SET_PIECES) {
-      if (this.setDone?.has(sp.key) || P.s < sp.s - 260 || P.s > sp.s + 900 || (this.failT?.[sp.key] ?? 0) > sim.time) continue;
+    const scripted = journey.mode === 'legacy' ? SET_PIECES : CHAPTER_SCRIPTED[journey.mode][chapter - 1];
+    for (const sp of scripted) {
+      const onceKey = sp.chapterKey || sp.key;
+      if (this.setDone?.has(onceKey) || P.s < sp.s - 260 || P.s > sp.s + 900 || (this.failT?.[sp.key] ?? 0) > sim.time) continue;
       if (this.spawnEncounter(sim, sp.key, Math.max(L, 0.05))) {
-        (this.setDone || (this.setDone = new Set())).add(sp.key);
+        (this.setDone || (this.setDone = new Set())).add(onceKey);
         sim.emit({ t: 'setPiece', key: sp.key, title: sp.title, sub: sp.sub });
         this.cooldown = Math.max(this.cooldown, 10); this.encounters++;
         return;
@@ -123,15 +151,23 @@ export class Director {
     const opts = [];
     let total = 0;
     for (const [key, E] of Object.entries(ENCOUNTERS)) {
+      if (E.biomes && !E.biomes.includes(this.currentBiome)) continue;
       if (E.minLevel > L || this.disabled.has(key) || (this.failT?.[key] ?? 0) > this.simTime) continue;
       if (first && key !== 'ambush') continue;
       const cars = E.cars.filter((c) => (c.minLevel ?? 0) <= L);
+      if (cars.some(c => c.k === 'e_double_bus' && this.currentBusCount >= ENEMIES.e_double_bus.maxActive)) continue;
       if (cars.length > room) continue;
       const cost = cars.reduce((a, c) => a + ENEMIES[this._carKey(c, L, true)].cost, 0) * 0.85;
       if (cost > this.budget + (pressure ? 1.5 : 0)) continue;
       const rep = this.history.filter((h) => h === key).length;
       const w = E.weight * (1 + (L - E.minLevel) * 0.8) / (1 + rep * 1.5);
       total += w; opts.push({ key, cost, w });
+    }
+    if (!opts.length && room === 1 && !first) {
+      const enemy = L >= 0.1 ? 'e_muscle' : 'e_sedan';
+      const key = L >= 0.1 ? 'fill_rammer' : 'fill_bandit';
+      const cost = ENEMIES[enemy].cost * 0.85;
+      if (!this.disabled.has(key) && cost <= this.budget + (pressure ? 1.5 : 0) && (this.failT?.[key] ?? 0) <= this.simTime) return { key, cost };
     }
     if (!opts.length) return null;
     let pick = this.r() * total;
@@ -153,7 +189,9 @@ export class Director {
 
   /** Spawn a squad. Returns the number of cars that made it onto the road. */
   spawnEncounter(sim, key, L) {
-    const E = ENCOUNTERS[key], P = sim.player, r = this.r;
+    const E = ENCOUNTERS[key] || REINFORCEMENTS[key], P = sim.player, r = this.r;
+    const biome = sim.road.biomeAt(P.s), theme = biome.w > 0.5 ? biome.b : biome.a;
+    if (E.biomes && !E.biomes.includes(theme)) return 0;
     const pv = Math.max(10, P.veh.vf);
     // the opening squad of a run waits closer: raiders peel out in front of you within ~12 s of GO
     // (far enough that nobody pops into view: the haze and the mirrors are kind at 250+ m ahead / 140+ m behind)
@@ -248,7 +286,7 @@ export class Director {
     for (const c of [...sim.cars.values()]) {
       if (c.kind !== 'enemy') continue;
       const behind = P.s - c.s;
-      if (c.elite && !c.exploded && behind < 700) continue; // bosses stay while the fight is on
+      if (c.elite && !c.exploded && ((sim.journey || this.journey).mode !== 'legacy' || behind < 700)) continue; // campaign bosses cannot be outrun/despawned
       // stragglers that can't keep up just clog the cap: cull them (the next squad will come)
       const straggler = !c.exploded && ((behind > 170 && c.veh.vf < P.veh.vf - 3 && P.veh.vf > 30) || (c.bossClear && behind > 90));
       if ((c.exploded && c.wreckT > 14 && behind > 30) || behind > 300 || straggler || c.s - P.s > 640 || (c.veh.pos.y < -80)) sim.removeCar(c, 'cleanup');
@@ -257,18 +295,25 @@ export class Director {
 
   // --------------------------------------------------------------------------------------------- chain reactions
   /** sim hook: a car just exploded. Neighbours cook off (staggered), runaway wrecks tumble. */
-  onExplode(sim, car) {
+  onExplode(sim, car, { launchWreck = true } = {}) {
     const p = car.veh.pos;
     const R = car.spec.explosive ? 22 : 12.5;
     const credit = car.kind === 'enemy' && (car.lastHitBy === 1 && sim.time - car.lastHitT < 12);
-    // wrecks keep their momentum and roll instead of hopping in place
-    const m = car.veh.mass, s = (this.r ? this.r() : Math.random()) < 0.5 ? 1 : -1;
-    _v.copy(car.veh.fwd).multiplyScalar(m * (2.5 + Math.min(4, car.veh.speed * 0.12)) * s);
-    car.veh.body.applyTorqueImpulse({ x: _v.x, y: _v.y, z: _v.z }, true);
-    // ... and get flung toward the nearer roadside instead of stopping dead in a lane
-    // (harder the faster it was going: at 200 km/h a wreck left in the lane is a wall you meet a second later)
-    const sm = sim.road.sample(car.s), side = car.d >= 0 ? 1 : -1, push = m * (4 + (this.r ? this.r() : 0.5) * 3 + Math.min(8, car.veh.speed * 0.14));
-    car.veh.body.applyImpulse({ x: sm.nx * side * push, y: 0, z: sm.nz * side * push }, true);
+    if (launchWreck) {
+      // wrecks keep their momentum and roll instead of hopping in place
+      const m = car.veh.mass, s = (this.r ? this.r() : Math.random()) < 0.5 ? 1 : -1;
+      _v.copy(car.veh.fwd).multiplyScalar(m * (2.5 + Math.min(4, car.veh.speed * 0.12)) * s);
+      car.veh.body.applyTorqueImpulse({ x: _v.x, y: _v.y, z: _v.z }, true);
+      // ... and get flung toward the nearer roadside instead of stopping dead in a lane
+      // (harder the faster it was going: at 200 km/h a wreck left in the lane is a wall you meet a second later)
+      // car.d is local to its occupied strip. Use that strip's tangent/normal
+      // too, while keeping ordinary main-road launch math and RNG order exact.
+      const sm = car.route && sim.road.drivingPointAt
+        ? sim.road.drivingPointAt(car.s, 0, car.route, this._wreckRoad || (this._wreckRoad = {}))
+        : sim.road.sample(car.s);
+      const side = car.d >= 0 ? 1 : -1, push = m * (4 + (this.r ? this.r() : 0.5) * 3 + Math.min(8, car.veh.speed * 0.14));
+      car.veh.body.applyImpulse({ x: sm.nx * side * push, y: 0, z: sm.nz * side * push }, true);
+    }
     for (const o of sim.cars.values()) {
       if (o === car || o.exploded || o.kind !== 'enemy') continue;
       const d = o.veh.pos.distanceTo(p);
@@ -318,6 +363,7 @@ export class Director {
 
   // --------------------------------------------------------------------------------------------- minibosses + boss
   _bosses(sim, P, L) {
+    if ((sim.journey || this.journey).mode !== 'legacy') { this._journeyBosses(sim, P, L); return; }
     // minibosses: one per biome, just before the biome ends
     for (let i = 0; i < MINIBOSSES.length; i++) {
       const M = MINIBOSSES[i];
@@ -351,6 +397,97 @@ export class Director {
     }
   }
 
+  /** A finite chapter only completes after every retained boss identity explodes. */
+  _journeyBosses(sim, P, L) {
+    const journey = sim.journey || this.journey;
+    if (this.activeElite) {
+      const E = this.activeElite;
+      if (E.cars.length && E.cars.every(c => c.exploded)) {
+        this.chapterBossDone.add(E.chapter);
+        sim.emit({ t: 'minibossDown', index: E.index, name: E.name });
+        sim.emit({ t: 'campaignBossDown', level: E.chapter, index: E.index, name: E.name });
+        this.activeElite = null;
+        if (journey.mode === 'campaign') { this.campaignComplete = true; return; }
+      } else {
+        E.hp01 = E.cars.reduce((sum, c) => sum + Math.max(0, c.hp), 0) / E.maxHp;
+        for (let i = 0; i < E.cars.length; i++) {
+          const c = E.cars[i];
+          if (c.exploded) continue;
+          if (c.driverless && c.fuseT < 0 && !c.eliteDoom) { c.eliteDoom = true; c.fuseT = 2.2; c.lastHitBy = 1; c.lastHitT = sim.time; sim.emit({ t: 'fuelLeak', id: c.id }); }
+          const missing = !sim.cars.has(c.id);
+          if ((missing || Math.abs(P.s - c.s) > 450) && sim.time >= (c.bossRejoinAt || 0)) {
+            c.bossRejoinAt = sim.time + 1;
+            this._rejoinChapterBoss(sim, E, c, i, P, L, missing);
+          }
+        }
+        return;
+      }
+    }
+    if (this.campaignComplete) return;
+    const lastChapter = journey.mode === 'campaign' ? journey.level : 10;
+    for (let chapter = journey.mode === 'campaign' ? journey.level : 1; chapter <= Math.min(9, lastChapter); chapter++) {
+      if (this.chapterBossDone.has(chapter)) continue;
+      const start = journey.mode === 'campaign' ? 0 : (chapter - 1) * 8000;
+      if (P.s < start + TEN_LEVELS[chapter - 1].bossDistance) return;
+      const M = CAMPAIGN_BOSSES[chapter - 1];
+      this.spawnElite(sim, M.eliteIndex, M, L);
+      if (this.activeElite) this.activeElite.chapter = chapter;
+      return;
+    }
+    const finaleAt = (journey.mode === 'campaign' ? 0 : 72000) + TEN_LEVELS[9].bossDistance;
+    if (lastChapter === 10 && P.s >= finaleAt) {
+      if (sim.boss?.exploded) {
+        if (!this.campaignComplete) { this.campaignComplete = true; sim.emit({ t: 'campaignBossDown', level: 10, index: null, name: 'THE LEVIATHAN' }); }
+        return;
+      }
+      if (!sim.boss && !this.bossSpawned && (!sim.ground?.hasColliderAt || sim.ground.hasColliderAt(P.s + 300))) {
+        this.bossSpawned = true; sim.boss = new Leviathan(sim, P.s + 320, 0);
+        sim.emit({ t: 'bossSpawn', id: sim.boss.id });
+        for (const c of sim.cars.values()) if (c.kind === 'enemy' && !c.exploded && !c.elite) c.bossClear = true;
+        const before = P.hp; P.hp = P.maxHp;
+        for (const crew of Object.values(P.crew)) if (crew?.alive) crew.hp = crew.max;
+        P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4); P.veh.engineDamage = 0;
+        sim.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: true, supply: true });
+      }
+    }
+  }
+
+  _rejoinChapterBoss(sim, E, car, slot, P, L, missing) {
+    const targetS = P.s + 120 + slot * 28;
+    if (!missing) {
+      if (sim._placeOnClearRoad?.(car, targetS)) sim.emit({ t: 'bossRejoined', id: car.id, index: E.index, level: E.chapter, reason: 'distance' });
+      return;
+    }
+    // Keep the original reference as the death authority. A removed living
+    // body is not a win. Replacement preserves its existing damage/crew/fuse.
+    const M = CAMPAIGN_BOSSES[E.chapter - 1];
+    if (!M || !sim._placeOnClearRoad) return;
+    // A registry-only loss must not duplicate a still-valid Rapier body.
+    if (car.veh.body.isValid?.()) {
+      if (!sim._placeOnClearRoad(car, targetS)) return;
+      sim.cars.set(car.id, car);
+      for (const collider of car.veh.colliders || []) sim.colMap?.set(collider.handle, car);
+      sim.emit({ t: 'bossRejoined', id: car.id, index: E.index, level: E.chapter, reason: 'registry' });
+      return;
+    }
+    const replacement = this.spawn(sim, M.spec, Math.max(L, 0.3), { behavior: M.behavior, elite: { ...car.elite }, pattern: { ...(M.pattern || {}) },
+      at: { s: targetS, d: 0, speed: Math.max(12, P.veh.vf) } });
+    if (!replacement) return;
+    if (!sim._placeOnClearRoad(replacement, targetS)) { sim.removeCar(replacement, 'boss rejoin unsupported'); return; }
+    for (const key of ['hp', 'maxHp', 'fuelHp', 'engineHp', 'burning', 'fuseT', 'driverless', 'eliteDoom', 'lastHitBy', 'lastHitT']) replacement[key] = car[key];
+    for (const role of Object.keys(replacement.crew)) if (car.crew[role]) Object.assign(replacement.crew[role], car.crew[role]);
+    replacement.tireHp = car.tireHp?.slice() || replacement.tireHp;
+    for (const key of ['engineDamage', 'nitro', 'nitroNeedsRelease']) replacement.veh[key] = car.veh[key];
+    for (let i = 0; i < replacement.veh.wheels.length; i++) if (car.veh.wheels[i]) {
+      replacement.veh.wheels[i].grip = car.veh.wheels[i].grip;
+      replacement.veh.wheels[i].flat = car.veh.wheels[i].flat;
+    }
+    replacement.veh.driverAlive = replacement.crew.driver.alive;
+    E.cars[slot] = replacement;
+    if (E.cars.length === 2) { E.cars[0].ai.pattern.partner = E.cars[1]; E.cars[1].ai.pattern.partner = E.cars[0]; }
+    sim.emit({ t: 'bossRejoined', id: replacement.id, previousId: car.id, index: E.index, level: E.chapter, reason: 'missing-body' });
+  }
+
   spawnElite(sim, index, M, L) {
     const cars = [];
     const P = sim.player, pv = Math.max(12, P.veh.vf);
@@ -363,13 +500,19 @@ export class Director {
       let c = null;
       for (const shift of [0, 40, -40, 80]) {
         const at = park ? { s: P.s + 210 + k * 26 + shift, d: side * (HALF_ROAD - 1.7), speed: pv * 0.45 } : ahead ? { s: P.s + 250 + k * 18 + shift, d: side * 1.7, speed: pv * 0.75 } : { s: P.s - 120 - k * 10 - Math.abs(shift) * 0.5, d: side * 4.6, speed: pv + 12 };
-        c = this.spawn(sim, M.spec, Le, { behavior: M.behavior, side, at, mode: park ? 'ambush' : undefined, next: park ? M.behavior : undefined, elite: { index, name: M.name, hpMul: M.hpMul, massMul: M.massMul, armor: M.armor, gun: M.gun, gun2: M.gun2, weak: M.weak }, pattern: { ...(M.pattern || {}) } });
+        c = this.spawn(sim, M.spec, Le, { behavior: M.behavior, side, at, mode: park ? 'ambush' : undefined, next: park ? M.behavior : undefined, elite: { index, name: M.name, hpMul: M.hpMul, hpBase: M.hpBase, massMul: M.massMul, armor: M.armor, gun: M.gun, gun2: M.gun2, weak: M.weak, gunners: M.gunners, driverHp: M.driverHp, gunnerHp: M.gunnerHp }, pattern: { ...(M.pattern || {}) } });
         if (c) { if (park) c.ai.parkD = at.d; break; }
       }
       if (c) cars.push(c);
     }
     // nobody made it onto the road: try again next tick (and do NOT spawn the escorts, or they pile up every frame)
     if (!cars.length) { this.minibossDone.delete(index); return; }
+    // Finite chapters require every authored boss member. A half-spawned twin
+    // encounter must retry safely rather than becoming a one-car victory.
+    if ((sim.journey || this.journey).mode !== 'legacy' && cars.length !== (M.count || 1)) {
+      for (const car of cars) sim.removeCar(car, 'incomplete chapter boss spawn');
+      return;
+    }
     if (cars.length === 2) { cars[0].ai.pattern.partner = cars[1]; cars[1].ai.pattern.partner = cars[0]; }
     (M.escorts || []).forEach((e, i) => this.queue(() => { const Pn = sim.player; return this.spawn(sim, e, L, { behavior: i % 2 ? 'flanker' : 'chaser', side: i % 2 ? 1 : -1, at: { s: Pn.s - 150 - i * 14, d: (i % 2 ? 1 : -1) * 3.4, speed: Math.max(12, Pn.veh.vf) + 10 } }); }));
     this.activeElite = { index, name: M.name, cars, maxHp: cars.reduce((a, c) => a + c.maxHp, 0), hp01: 1 };
@@ -382,16 +525,22 @@ export class Director {
   /** Spawn an enemy. o: {behavior, side, mode, next, gap, at:{s,d,speed}, elite, pattern} */
   spawn(sim, key, L, o = {}) {
     const P = sim.player, def = ENEMIES[key], r = this.r || (this.r = rng(sim.seed * 31 + 5));
+    if (!o.elite && def.biomes) {
+      const biome = sim.road.biomeAt(P.s), theme = biome.w > 0.5 ? biome.b : biome.a;
+      if (!def.biomes.includes(theme)) return false;
+    }
+    if (!o.elite && def.maxActive && [...sim.cars.values()].filter(c => !c.exploded && c.spec.id === def.spec).length >= def.maxActive) return false;
     const behavior = o.behavior || r.pick(def.behaviors);
     const ahead = behavior === 'blocker' || behavior === 'dropper';
     const s = o.at ? o.at.s : P.s + (ahead ? r.range(240, 330) : -r.range(120, 190));
     if (sim.ground && sim.ground.hasColliderAt && !sim.ground.hasColliderAt(s)) return false;
     // never drop a car into a roadblock / onto a ramp
-    if (sim.road.featuresIn(s - 22, s + 22).some((f) => f.type === 'roadblock' || f.type === 'ramp')) return false;
+    if (sim.road.featuresIn(s - 22, s + 22).some((f) => f.type === 'roadblock' || f.type === 'ramp' || f.type === 'stage_challenge')) return false;
     const lane = o.at ? o.at.d : o.lane ?? r.pick(LANES);
     const pv = Math.max(8, P.veh.vf);
     // tune the enemy so it can actually keep up with the player's truck as the game goes on
     const base = VEHICLES[def.spec];
+    if (key === 'e_double_bus' && !this._busSpawnClear(sim, base, s, lane)) return false;
     // raiders are always a little faster than the player's truck: you can't just outrun them, you have to fight
     // (a clear margin: leaders and flankers have to be able to hold a slot AHEAD of a truck that is flat out)
     const want = Math.max(base.engine.vmax, this.playerVmax * (1.12 + 0.06 * L) + (behavior === 'rammer' ? 3 : 0));
@@ -401,6 +550,9 @@ export class Director {
     const grip = { ...base.grip, front: gm(base.grip.front, pg.front), rear: gm(base.grip.rear, pg.rear) };
     const spec = { ...base, grip, engine: { ...base.engine, vmax: base.engine.vmax * k, accel0: base.engine.accel0 * Math.pow(k, 0.85) * 1.12 }, susp: base.susp, nitro: { capacity: 3, regen: 0.35, mul: 1.75, vmaxMul: 1.22 } };   // (passes, peel-outs and rams all run on it)
     if (o.elite) spec.mass = base.mass * (o.elite.massMul ?? 1.5); // warlords are armour-plated: they shove you around
+    if (o.elite?.gunners !== undefined) spec.gunners = o.elite.gunners;
+    if (o.elite?.driverHp !== undefined) spec.driverHp = o.elite.driverHp;
+    if (o.elite?.gunnerHp !== undefined) spec.gunnerHp = o.elite.gunnerHp;
     let yawOff = 0, groundY = null;
     if (o.at?.burst) {
       // off-road entry: only where the ground out there is roughly level with the road (no cliffs / canyon walls / structures)
@@ -411,6 +563,13 @@ export class Director {
       yawOff = -Math.sign(lane) * 0.55;   // angled in toward the road (+X is left: a car on the left turns right)
     }
     const car = sim.spawnCar(def.spec, { spec, s, d: lane, speed: o.at ? o.at.speed : ahead ? pv * 0.7 : pv * 0.95 + 5, kind: 'enemy', yawOff });
+    if (key === 'e_double_bus') {
+      // Check actual physical hull volume, including nearby traffic/props.
+      for (const collider of car.veh.colliders) if (sim.world.intersectionWithShape(collider.translation(), collider.rotation(), collider.shape,
+        undefined, groups(0xffff, G.WORLD | G.CAR | G.PROP), undefined, car.veh.body)) {
+        sim.removeCar(car, 'bus spawn blocked'); return false;
+      }
+    }
     if (groundY !== null) {
       const t = car.veh.body.translation(), th = sim.road.sample(s).th + yawOff, sp = o.at.speed;
       car.veh.body.setTranslation({ x: t.x, y: groundY + car.veh.restComHeight + 0.35, z: t.z }, true);
@@ -420,7 +579,7 @@ export class Director {
     car.tag = def.label; car.maxHp = car.hp = Math.round(base.hp * hpMul); car.armor = clamp(0.08 * L * 2, 0, 0.35);
     const el = o.elite;
     if (el) {
-      car.elite = el; car.maxHp = car.hp = Math.round(base.hp * hpMul * el.hpMul); car.armor = el.armor ?? car.armor; car.tag = el.name;
+      car.elite = el; car.maxHp = car.hp = Math.round((el.hpBase ?? base.hp) * hpMul * el.hpMul); car.armor = el.armor ?? car.armor; car.tag = el.name;
       car.fuelHp = car.engineHp = 1e9; // no instant cook-off: the weak point is how you kill a warlord
       spec.crashMul = 0.3;              // armoured: rams and pile-ups barely dent it
       if (el.weak) {
@@ -443,5 +602,20 @@ export class Director {
     this.spawned++;
     sim.emit({ t: 'enemySpawn', id: car.id, spec: def.spec, label: def.label, behavior, elite: el ? el.index + 1 : 0 });
     return car;
+  }
+
+  _busSpawnClear(sim, base, s, d) {
+    if (!sim.ground?.hasColliderAt?.(s) || !sim.ground.roadHeightAt) return false;
+    for (const ds of [-base.length / 2, 0, base.length / 2]) {
+      const sm = sim.road.sample(s + ds);
+      for (const lateral of [-base.width / 2, 0, base.width / 2]) {
+        const lane = d + lateral, x = sm.x + sm.nx * lane, z = sm.z + sm.nz * lane;
+        const y = sim.ground.roadHeightAt(s + ds, x, z, sim.road.surfaceY(sm, lane) + 2);
+        if (y == null || !sim.ground.hasColliderAt(s + ds)) return false;
+        const ray = new RAPIER.Ray({ x, y: y + 0.25, z }, { x: 0, y: 1, z: 0 });
+        if (sim.world.castRay(ray, 4.4, true, undefined, RAY_WORLD)) return false;
+      }
+    }
+    return true;
   }
 }

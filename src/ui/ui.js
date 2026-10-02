@@ -36,6 +36,7 @@ import garageCss from './css/garage.css?inline';
 import lobbyCss from './css/lobby.css?inline';
 import resultsCss from './css/results.css?inline';
 import settingsCss from './css/settings.css?inline';
+import campaignCss from './css/campaign.css?inline';
 import { Nav } from './nav.js';
 import { esc, icon } from './glyphs.js';
 import { loadSettings, saveSettings, applySettings, wrapRumble, loadBindings, defaultBindings } from './settings_store.js';
@@ -47,8 +48,9 @@ import { ResultsScreen } from './screens/results.js';
 import { PauseScreen } from './screens/pause.js';
 import { SettingsScreen } from './screens/settings.js';
 import { ControlsScreen } from './screens/controls.js';
+import { CampaignScreen } from './screens/campaign.js';
 
-const cssText = [baseCss, garageCss, lobbyCss, resultsCss, settingsCss].join('\n');
+const cssText = [baseCss, garageCss, lobbyCss, resultsCss, settingsCss, campaignCss].join('\n');
 
 // Texture overlays are generated ONCE as small raster PNGs (tileable value noise). They used to be SVG feTurbulence filters, which
 // Chrome re-rasterizes per element and per size on the main thread: every screen with many plates/keys hitched by 100s of ms.
@@ -239,6 +241,8 @@ export class Ui {
     return this._mount(new SettingsScreen(this, cb), {});
   }
   showControls(role = 'driver') { return this._mount(new ControlsScreen(this, role), {}); }
+  showCampaign(profile, cb = {}, extra = {}) { return this._mount(new CampaignScreen(this, profile, cb, extra), {}); }
+  updateCampaign(profile, extra = {}) { const screen=this.screen(); if(screen?.kind==='campaign')screen.update(profile,extra); }
   hideAll() {
     this._closeModal(null, true); this._clearStack(); this._refresh();
   }

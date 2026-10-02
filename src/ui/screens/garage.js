@@ -3,13 +3,24 @@
 // calls ui.updateGarage(profile) after every purchase and gets cb.onView(tab, selectedId) to drive the 3D camera + live previews.
 import { h, tween, pips, statRow } from '../comp.js';
 import { esc, money, icon, weaponIcon, hints } from '../glyphs.js';
-import { TRUCKS, UPGRADES, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, TRUCK_COLORS } from '../../data/upgrades.js';
+import { TRUCKS, UPGRADES, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, TRUCK_COLORS, effectiveUpgrades, upgradeLevel, upgradeLimit } from '../../data/upgrades.js';
+import { VEHICLE_FAMILIES, familyOf, stagePurchaseAllowed } from '../../data/vehicle_families.js';
 import { WEAPONS, WEAPON_ORDER } from '../../data/weapons.js';
 import { upgradeStats, truckStats, weaponRows } from '../garage_stats.js';
 import { formatDistance } from '../units.js';
+import { seatSwapMarkup } from './garage_seats.js';
+import { WEAPON_OPTICS, compatibleWeaponOptic, normalizeWeaponOptics } from '../../data/weapon_optics.js';
+import { weaponOpticState } from '../../meta/weapon_optics.js';
+import { TEN_LEVELS, campaignJourney, normalizeJourney, normalizeCampaignProgress } from '../../data/campaign.js';
+
+export function garageJourneyStatus(profile, extra={}) {
+  const journey=extra.journey?normalizeJourney(extra.journey):campaignJourney(profile), level=TEN_LEVELS[journey.level-1];
+  const progress=normalizeCampaignProgress(profile?.campaignProgress);
+  return {journey,label:journey.mode==='marathon'?'MARATHON · TEN WORLDS':journey.mode==='legacy'?'LEGACY HIGHWAY':`LEVEL ${level.number}/10 · ${level.name}`,boss:journey.mode==='marathon'?'FINALE · THE LEVIATHAN':journey.mode==='legacy'?'THE LEVIATHAN':level.bossName,unlockedLevel:progress.unlockedLevel};
+}
 
 const TABS = [
-  { id: 'truck', name: 'TRUCK', icon: 'truck' }, { id: 'upgrades', name: 'UPGRADES', icon: 'wrench' }, { id: 'weapons', name: 'WEAPONS', icon: 'gun' },
+  { id: 'truck', name: 'VEHICLES', icon: 'truck' }, { id: 'upgrades', name: 'UPGRADES', icon: 'wrench' }, { id: 'weapons', name: 'WEAPONS', icon: 'gun' },
   { id: 'gunner', name: 'GUNNER', icon: 'vest' }, { id: 'paint', name: 'PAINT', icon: 'paint' },
 ];
 const TAB_IDS = TABS.map((t) => t.id);
@@ -27,15 +38,17 @@ export class GarageScreen {
     this.tab = TAB_IDS.includes(extra.tab) ? extra.tab : 'truck';
     this.selId = { truck: profile.truck, upgrades: 'engine', weapons: profile.loadout[0] || 'pistol', gunner: 'vest', paint: String(profile.truckColor) };
     if (extra.select != null) this.selId[this.tab] = String(extra.select);
-    this.trackPrev = null;
+    this.trackPrev = null; this.opticPrev = null;
     this.snap = this.snapshot(profile);
     this.fresh = {};
     this.cashShown = profile.cash;
     const kq = '<span class="hk"><kbd>Q</kbd></span><span class="hg"><span class="pb pb-bump"><i class="xb">LB</i><i class="ps">L1</i></span></span>';
     const ke = '<span class="hk"><kbd>E</kbd></span><span class="hg"><span class="pb pb-bump"><i class="xb">RB</i><i class="ps">R1</i></span></span>';
     this.el = h(`<div class="screen garage"><div class="safe">
-      <div class="g-title stg" style="--i:0"><div class="eyebrow">BETWEEN RUNS</div><h1>GARAGE</h1><div class="g-sub"></div></div>
+      <div class="g-title stg" style="--i:0"><div class="eyebrow">UPGRADE &amp; REARM</div><h1>GARAGE</h1><div class="g-sub"></div></div>
       <div class="g-loadout stg" style="--i:1"></div>
+      <div class="g-seat-panel stg" style="--i:1"></div>
+      <div class="g-campaign stg" style="--i:1"></div>
       <div class="g-cash plate trans stg" style="--i:1"><span class="cl">CASH</span><span class="cv num"></span></div><span class="cf g-cf"></span>
       <div class="g-party stg" style="--i:2"></div>
       <div class="g-left stg" style="--i:2">
@@ -47,11 +60,12 @@ export class GarageScreen {
       <div class="hints" data-hints></div>
     </div></div>`);
     const q = (s) => this.el.querySelector(s);
-    this.q = { sub: q('.g-sub'), cv: q('.cv'), cf: q('.cf'), tabs: q('.tabs'), rows: q('.g-rows'), list: q('.g-list'), lhead: q('.lhead h2'), lcount: q('.lcount'), det: q('.d-scroll'), foot: q('.d-foot'), detail: q('.g-detail'), left: q('.g-left'), load: q('.g-loadout'), party: q('.g-party'), ready: q('.g-ready'), hints: q('[data-hints]'), mdown: q('.m-down span') };
+    this.q = { sub: q('.g-sub'), cv: q('.cv'), cf: q('.cf'), tabs: q('.tabs'), rows: q('.g-rows'), list: q('.g-list'), lhead: q('.lhead h2'), lcount: q('.lcount'), det: q('.d-scroll'), foot: q('.d-foot'), detail: q('.g-detail'), left: q('.g-left'), load: q('.g-loadout'), seats: q('.g-seat-panel'), party: q('.g-party'), ready: q('.g-ready'), hints: q('[data-hints]'), mdown: q('.m-down span') };
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('navfocus', (e) => this.onNavFocus(e));
     this.q.rows.addEventListener('scroll', () => this.updateMore(), { passive: true });
     this.q.det.addEventListener('scroll', () => this.updateMore(), { passive: true });
+    this.q.campaign=q('.g-campaign');
     this.renderAll();
   }
   mounted() { requestAnimationFrame(() => { this.updateMore(); this.notifyView(); }); }
@@ -59,7 +73,7 @@ export class GarageScreen {
 
   // ---------------------------------------------------------------- data helpers
   snapshot(p) {
-    return { cash: p.cash, up: { ...p.upgrades }, trucks: p.trucks.slice(), weapons: JSON.parse(JSON.stringify(p.weapons)), truck: p.truck };
+    return { cash: p.cash, up: effectiveUpgrades(p), trucks: p.trucks.slice(), weapons: JSON.parse(JSON.stringify(p.weapons)), optics: normalizeWeaponOptics(p), truck: p.truck };
   }
   items(tab = this.tab) {
     switch (tab) {
@@ -72,14 +86,14 @@ export class GarageScreen {
   }
   sel() { return this.selId[this.tab]; }
   upState(id) {
-    const u = UPGRADE_BY_ID[id], lv = this.p.upgrades[id] || 0, max = u.costs.length;
+    const u = UPGRADE_BY_ID[id], lv = upgradeLevel(this.p, id), max = upgradeLimit(this.p, id);
     if (lv >= max) return { u, lv, max, cost: null, state: 'max' };
     const cost = u.costs[lv];
     return { u, lv, max, cost, state: this.p.cash >= cost ? 'ok' : 'no' };
   }
   truckState(t) {
     const owned = this.p.trucks.includes(t.id), cur = this.p.truck === t.id;
-    return { owned, cur, cost: t.cost, state: cur ? 'active' : owned ? 'owned' : this.p.cash >= t.cost ? 'ok' : 'no' };
+    return { owned, cur, cost: t.cost, state: cur ? 'active' : owned ? 'owned' : !stagePurchaseAllowed(this.p, t.id) ? 'locked' : this.p.cash >= t.cost ? 'ok' : 'no' };
   }
   weaponState(id) {
     const w = WEAPONS[id], owned = !!this.p.weapons[id];
@@ -92,11 +106,13 @@ export class GarageScreen {
     const cost = weaponTrackCost(id, tr, lv);
     return { lv, cost, state: this.p.cash >= cost ? 'ok' : 'no' };
   }
+  selectedOptic(id = this.sel()) { return this.opticPrev || normalizeWeaponOptics(this.p)[id]?.equipped || 'standard'; }
+  opticChoices(id) { return Object.values(WEAPON_OPTICS).filter(optic => compatibleWeaponOptic(id, optic.id)); }
   affordable(tab) {
     let n = 0;
     if (tab === 'truck') n = TRUCKS.filter((t) => this.truckState(t).state === 'ok').length;
     else if (tab === 'upgrades' || tab === 'gunner') n = this.items(tab).filter((id) => this.upState(id).state === 'ok').length;
-    else if (tab === 'weapons') n = WEAPON_ORDER.filter((id) => this.weaponState(id).state === 'ok' || (this.p.weapons[id] && WEAPON_TRACKS.some((t) => this.trackState(id, t.id).state === 'ok'))).length;
+    else if (tab === 'weapons') n = WEAPON_ORDER.filter((id) => this.weaponState(id).state === 'ok' || (this.p.weapons[id] && (WEAPON_TRACKS.some((t) => this.trackState(id, t.id).state === 'ok') || this.opticChoices(id).some(optic => { const s = weaponOpticState(this.p, id, optic.id); return s.ok && !s.owned && this.p.cash >= s.cost; })))).length;
     return n;
   }
 
@@ -112,12 +128,14 @@ export class GarageScreen {
   }
   renderHeader() {
     const p = this.p, best = p.best || {};
-    const parts = [];
+    const parts = [], campaign=garageJourneyStatus(p,this.extra);
+    if(campaign.journey.mode!=='legacy')parts.push(campaign.label);
     if (this.extra.runNo || p.runs != null) parts.push(`RUN #${this.extra.runNo || p.runs + 1}`);
     if (best.distance) parts.push(`BEST ${formatDistance(best.distance, this.ui.settings?.units)}`);
     if (best.kills) parts.push(`${best.kills} KILLS`);
     if (p.wins) parts.push(`${p.wins} VICTOR${p.wins > 1 ? 'IES' : 'Y'}`);
     this.q.sub.textContent = parts.join('  ·  ');
+    if(this.q.campaign)this.q.campaign.innerHTML=`<div class="f btn campaign-choose" role="button" data-campaign="1" data-k="campaign"><span><b>${esc(campaign.label)}</b><small>${esc(campaign.boss)} · ${campaign.unlockedLevel}/10 LEVELS UNLOCKED</small><em>${this.extra.solo||this.extra.isHost?'CHOOSE LEVEL':'VIEW LEVELS · HOST CHOOSES'}</em></span></div>`;
   }
   renderTabs() {
     this.q.tabs.innerHTML = TABS.map((t) => {
@@ -135,8 +153,9 @@ export class GarageScreen {
     } else if (t === 'truck') {
       html = ids.map((id) => {
         const tr = TRUCKS.find((x) => x.id === id), s = this.truckState(tr);
-        const price = s.cur ? '<em class="chip on">ACTIVE</em>' : s.owned ? '<em class="chip">OWNED</em>' : `<span class="pc ${s.state}">${money(s.cost)}</span>`;
-        return `<div class="f row trow ${id === sel ? 'sel' : ''} st-${s.state}" role="button" data-row="${id}" data-k="row:${id}"><span class="ricon">${icon('truck')}</span><span class="rmain"><b class="rn">${esc(tr.name)}</b><span class="rsub">${pips(tr.tier, 4, this.fresh['truck:' + id] ? tr.tier - 1 : -1, 'tier')}<i class="lv">TIER ${tr.tier}</i></span></span><span class="rprice">${price}</span></div>`;
+        const family = VEHICLE_FAMILIES[familyOf(id)];
+        const price = s.cur ? '<em class="chip on">ACTIVE</em>' : s.owned ? '<em class="chip">OWNED</em>' : s.state === 'locked' ? '<em class="chip">LOCKED</em>' : `<span class="pc ${s.state}">${money(s.cost)}</span>`;
+        return `<div class="f row trow ${id === sel ? 'sel' : ''} st-${s.state}" role="button" data-row="${id}" data-k="row:${id}"><span class="ricon">${icon('truck')}</span><span class="rmain"><b class="rn">${esc(tr.name)}</b><span class="rsub">${pips(tr.tier, family.stageIDs.length, this.fresh['truck:' + id] ? tr.tier - 1 : -1, 'tier')}<i class="lv">STAGE ${tr.tier}/${family.stageIDs.length}</i></span></span><span class="rprice">${price}</span></div>`;
       }).join('');
     } else if (t === 'weapons') {
       html = ids.map((id) => {
@@ -184,9 +203,11 @@ export class GarageScreen {
     let body = '', buy = '';
     if (t === 'truck') {
       const tr = TRUCKS.find((x) => x.id === id) || TRUCKS[0], s = this.truckState(tr);
-      body = `<div class="d-head"><div class="eyebrow">${s.cur ? 'CURRENT TRUCK' : s.owned ? 'OWNED' : 'FOR SALE'}</div><h2>${esc(tr.name)}</h2><div class="d-tier">${pips(tr.tier, 4, -1, 'tier')} TIER ${tr.tier}</div></div>
-        <p class="d-desc">${esc(tr.blurb)}</p><div class="d-sec">${s.cur ? 'STATS' : 'VS CURRENT TRUCK'}</div><div class="stats">${truckStats(this.p, tr.id, this.ui.settings?.units).map(statRow).join('')}</div>`;
-      buy = s.owned ? this.buyBtn(s.cur ? 'active' : 'select', 0, 'SELECT') : this.buyBtn(s.state, tr.cost, 'BUY TRUCK');
+      const family = VEHICLE_FAMILIES[familyOf(tr.id)], previous = TRUCKS.find(x => x.id === family.stageIDs[tr.tier - 2]);
+      const unlock = s.state === 'locked' ? `Own ${previous?.name || 'the previous model'} first to unlock this stage.` : '';
+      body = `<div class="d-head"><div class="eyebrow">${s.cur ? 'CURRENT RIDE' : s.owned ? 'OWNED' : s.state === 'locked' ? 'LOCKED' : 'FOR SALE'}</div><h2>${esc(tr.name)}</h2><div class="d-tier">${pips(tr.tier, family.stageIDs.length, -1, 'tier')} STAGE ${tr.tier}/${family.stageIDs.length}</div></div>
+        <p class="d-desc">${esc(tr.blurb)}</p><p class="d-desc">${esc(family.emphasis)}. Driver upgrades stay with this family.</p>${unlock ? `<p class="d-desc">${esc(unlock)}</p>` : ''}<div class="d-sec">${s.cur ? 'STATS' : 'VS CURRENT RIDE'}</div><div class="stats">${truckStats(this.p, tr.id, this.ui.settings?.units).map(statRow).join('')}</div>`;
+      buy = s.owned ? this.buyBtn(s.cur ? 'active' : 'select', 0, 'SELECT') : s.state === 'locked' ? '<div class="buy max dis" role="button" aria-disabled="true"><span class="bl">PREVIOUS STAGE REQUIRED</span></div>' : this.buyBtn(s.state, tr.cost, 'BUY RIDE');
     } else if (t === 'weapons') {
       const w = WEAPONS[id], s = this.weaponState(id);
       const slots = s.owned ? `<div class="d-sec">LOADOUT SLOT</div><div class="slots">${[0, 1, 2].map((i) => { const occ = this.p.loadout[i]; return `<div class="f slot pressable ${s.slot === i ? 'on' : ''}" role="button" data-slot="${i}" data-k="slot:${i}"><b>${i + 1}</b><span>${occ ? esc(WEAPONS[occ].name) : 'EMPTY'}</span></div>`; }).join('')}</div>` : '';
@@ -195,10 +216,21 @@ export class GarageScreen {
         const price = ts.state === 'max' ? '<em class="chip max">MAX</em>' : ts.state === 'locked' ? icon('lock', 'lk') : `<span class="pc ${ts.state}">${money(ts.cost)}</span>`;
         return `<div class="f trk st-${ts.state} ${this.trackPrev === tr.id ? 'prev' : ''}" role="button" data-trk="${tr.id}" data-k="trk:${tr.id}" data-snd="none"><b>${tr.name}</b><span class="tp">${price}</span>${pips(ts.lv, 3, this.fresh['trk:' + id + ':' + tr.id] ?? -1)}</div>`;
       }).join('')}</div>`;
+      const chosenOptic = this.selectedOptic(id);
+      const optics = `<div class="d-sec">SIGHTS</div><div class="optic-choices">${this.opticChoices(id).map(optic => {
+        const os = weaponOpticState(this.p, id, optic.id);
+        const status = !s.owned ? 'BUY WEAPON FIRST' : os.equipped ? 'EQUIPPED' : os.owned ? 'OWNED' : money(os.cost);
+        return `<div class="f optic-choice ${chosenOptic === optic.id ? 'sel' : ''}" role="button" data-optic="${optic.id}" data-k="optic:${optic.id}"><b>${esc(optic.name)}</b><span>${status}</span></div>`;
+      }).join('')}</div><p class="optic-help">${esc(WEAPON_OPTICS[chosenOptic]?.desc || '')} Previewing a sight does not equip it.</p>`;
       body = `<div class="d-head"><div class="eyebrow">${MODE_NAME[w.mode] || 'WEAPON'}${s.slot >= 0 ? ` · SLOT ${s.slot + 1}` : s.owned ? ' · OWNED' : ''}</div><h2>${esc(w.name)}</h2></div>
         <p class="d-desc">${esc(w.desc || '')}</p>${slots}
-        <div class="d-sec">${this.trackPrev ? 'UPGRADE PREVIEW' : 'STATS'}</div><div class="stats compact">${weaponRows(this.p, id, s.owned ? this.trackPrev : null).map(statRow).join('')}</div>${tracks}`;
-      buy = s.owned ? '' : this.buyBtn(s.state, w.cost, 'BUY WEAPON');
+        <div class="d-sec">${this.trackPrev ? 'UPGRADE PREVIEW' : 'STATS'}</div><div class="stats compact">${weaponRows(this.p, id, s.owned ? this.trackPrev : null).map(statRow).join('')}</div>${tracks}${optics}`;
+      if (!s.owned) buy = this.buyBtn(s.state, w.cost, 'BUY WEAPON');
+      else {
+        const os = weaponOpticState(this.p, id, chosenOptic);
+        if (os.equipped) buy = '<div class="buy max dis" role="button" aria-disabled="true"><span class="bl">SIGHT EQUIPPED</span></div>';
+        else buy = `<div class="f buy ${os.owned || this.p.cash >= os.cost ? 'ok pressable' : 'no'}" role="button" data-optic-buy="${chosenOptic}" data-k="optic-buy" data-snd="none"><span class="bl">${os.owned ? 'EQUIP SIGHT' : this.p.cash >= os.cost ? 'BUY SIGHT' : 'NOT ENOUGH CASH'}</span><span class="bp">${os.owned ? 'FREE' : money(os.cost)}</span></div>`;
+      }
     } else if (t === 'paint') {
       const i = +id;
       body = `<div class="d-head"><div class="eyebrow">PAINT SHOP</div><h2>${PAINT_NAMES[i] || 'COLOUR'}</h2></div>
@@ -208,7 +240,7 @@ export class GarageScreen {
     } else {
       const s = this.upState(id);
       const rows = upgradeStats(this.p, id, this.ui.settings?.units);
-      const role = s.u.role === 'driver' ? 'DRIVER UPGRADE' : s.u.role === 'gunner' ? 'GUNNER GEAR' : 'SHARED PERK';
+      const role = s.u.role === 'driver' ? `${VEHICLE_FAMILIES[familyOf(this.p.truck)].name} UPGRADE` : s.u.role === 'gunner' ? 'GUNNER GEAR' : 'SHARED PERK';
       body = `<div class="d-head"><div class="eyebrow">${role}</div><h2>${esc(s.u.name)}</h2></div>
         <p class="d-desc">${esc(s.u.desc)}</p>
         <div class="d-lv"><span>LEVEL <b>${s.lv}</b> / ${s.max}</span>${pips(s.lv, s.max, this.fresh['up:' + id] ?? -1, 'big')}</div>
@@ -239,9 +271,14 @@ export class GarageScreen {
       if (pt && pt.connected !== false) party = `<div class="party ${pt.ready ? 'on' : ''}"><i></i><span>${esc((pt.role || 'PARTNER').toUpperCase())} &middot; ${esc(pt.name || '')}</span><b>${pt.ready ? 'READY' : 'NOT READY'}</b></div>`;
       else party = '<div class="party off"><i></i><span>WAITING FOR PLAYER&hellip;</span></div>';
     }
-    const label = e.solo ? 'START RUN' : e.ready ? 'READY' : 'READY UP';
+    const mode = garageJourneyStatus(this.p, e).journey.mode;
+    const label = e.solo ? mode === 'campaign' ? 'START LEVEL' : mode === 'marathon' ? 'START MARATHON' : 'START RUN' : e.ready ? 'READY' : 'READY UP';
+    this.q.seats.hidden = !!e.solo;
+    this.q.seats.innerHTML = seatSwapMarkup({ solo: e.solo, ...e.seatSwap });
     this.q.party.innerHTML = party;
-    this.q.ready.innerHTML = `<div class="f btn ready primary ${e.ready ? 'is-ready' : ''}" role="button" data-ready="1" data-k="ready" data-snd="none"><span>${e.ready ? icon('check') : ''}${label}${!e.solo && e.ready ? '<small>WAITING FOR PARTNER &middot; PRESS TO CANCEL</small>' : ''}</span></div>`;
+    const blocked = !e.solo && e.readyBlocked;
+    const help = blocked ? e.seatSwap?.state?.pending ? 'RESOLVE SEAT SWAP FIRST' : 'WAITING FOR PARTNER IN GARAGE' : !e.solo && e.ready ? 'WAITING FOR PARTNER &middot; PRESS TO CANCEL' : '';
+    this.q.ready.innerHTML = `<div class="${blocked ? 'dis' : 'f'} btn ready primary ${e.ready ? 'is-ready' : ''}" role="button" aria-disabled="${blocked}" data-ready="1" data-k="ready" data-snd="none"><span>${e.ready ? icon('check') : ''}${label}${help ? `<small>${help}</small>` : ''}</span></div>`;
   }
   renderHints() {
     const list = [['confirm', 'SELECT'], ['tabs', 'TAB']];
@@ -263,11 +300,11 @@ export class GarageScreen {
   }
   /** Screen-space rect (CSS px) left free for the 3D subject: between the list and detail columns, below the loadout bar. */
   frameRect() {
-    const L = this.q.left.getBoundingClientRect(), D = this.q.detail.getBoundingClientRect(), B = this.q.load.getBoundingClientRect();
+    const L = this.q.left.getBoundingClientRect(), D = this.q.detail.getBoundingClientRect(), B = (!this.q.seats.hidden && this.q.seats.firstElementChild ? this.q.seats : this.q.load).getBoundingClientRect();
     if (!L.width || !D.width) return null;
     return { l: L.right + 8, r: D.left - 8, t: L.top, b: B.top - 6 };
   }
-  notifyView() { if (this.cb.onView) this.cb.onView(this.tab, this.sel()); }
+  notifyView() { if (this.cb.onView) this.cb.onView(this.tab, this.sel(), this.tab === 'weapons' ? this.selectedOptic() : undefined); }
 
   // ---------------------------------------------------------------- updates from the integrator
   update(profile, extra) {
@@ -277,12 +314,17 @@ export class GarageScreen {
     const after = this.snapshot(profile);
     this.fresh = {};
     let bought = false;
-    for (const k of Object.keys(after.up)) if ((after.up[k] || 0) > (before.up[k] || 0)) { this.fresh['up:' + k] = after.up[k] - 1; bought = true; }
+    for (const k of Object.keys(after.up)) {
+      // Switching to another family's saved kit is not a new purchase.
+      if (UPGRADE_BY_ID[k]?.role === 'driver' && familyOf(after.truck) !== familyOf(before.truck)) continue;
+      if ((after.up[k] || 0) > (before.up[k] || 0)) { this.fresh['up:' + k] = after.up[k] - 1; bought = true; }
+    }
     for (const id of after.trucks) if (!before.trucks.includes(id)) { this.fresh['truck:' + id] = true; bought = true; }
     for (const id of Object.keys(after.weapons)) {
       if (!before.weapons[id]) { this.fresh['weapon:' + id] = true; bought = true; continue; }
       for (const tr of WEAPON_TRACKS) if ((after.weapons[id][tr.id] || 0) > (before.weapons[id][tr.id] || 0)) { this.fresh[`trk:${id}:${tr.id}`] = after.weapons[id][tr.id] - 1; bought = true; }
     }
+    for (const [id, row] of Object.entries(after.optics)) if (row.owned.some(optic => optic !== 'standard' && !before.optics?.[id]?.owned.includes(optic))) bought = true;
     this.snap = after;
     if (bought) this.ui.snd('upgrade_unlock');
     if (after.cash !== before.cash) this.renderCash(false);
@@ -306,7 +348,7 @@ export class GarageScreen {
   // ---------------------------------------------------------------- interaction
   switchTab(id, opts = {}) {
     if (!TAB_IDS.includes(id) || id === this.tab) return;
-    this.tab = id; this.trackPrev = null;
+    this.tab = id; this.trackPrev = null; this.opticPrev = null;
     this.renderTabs(); this.renderList(); this.renderDetail(); this.renderHints();
     this.q.rows.scrollTop = 0;
     this.q.rows.animate([{ opacity: 0, transform: 'translateX(-14px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
@@ -324,7 +366,7 @@ export class GarageScreen {
   }
   select(id) {
     if (this.sel() === id) return;
-    this.selId[this.tab] = id; this.trackPrev = null;
+    this.selId[this.tab] = id; this.trackPrev = null; this.opticPrev = null;
     this.q.rows.querySelectorAll('.row.sel, .sw.sel').forEach((n) => n.classList.remove('sel'));
     const n = this.q.rows.querySelector(`[data-row="${id}"]`); if (n) n.classList.add('sel');
     this.renderDetail();
@@ -336,6 +378,7 @@ export class GarageScreen {
     // keyboard / pad focus on a tab switches to it (mouse hover only highlights; click switches)
     if (el.dataset.tab && !e.detail.hover && el.dataset.tab !== this.tab) { this.switchTab(el.dataset.tab, { focusTab: true }); return; }
     if (el.dataset.trk) { if (this.trackPrev !== el.dataset.trk) { this.trackPrev = el.dataset.trk; this.refreshStatsOnly(); } return; }
+    if (el.dataset.optic) { this.selectOptic(el.dataset.optic); return; }
     if (this.trackPrev) { this.trackPrev = null; this.refreshStatsOnly(); }
   }
   refreshStatsOnly() {
@@ -349,6 +392,10 @@ export class GarageScreen {
   onClick(e) {
     const t = e.target.closest('.f'); if (!t) return;
     const ui = this.ui, cb = this.cb;
+    if(t.dataset.campaign){ui.snd('click');cb.onCampaign?.();return;}
+    if (t.dataset.optic) return this.selectOptic(t.dataset.optic);
+    if (t.dataset.opticBuy) return this.doOptic(t);
+    if (t.dataset.seatAction) { ui.snd('click'); cb.onSeatSwap?.(t.dataset.seatAction, t.dataset.proposal); return; }
     if (t.dataset.tab) { if (t.dataset.tab !== this.tab) this.switchTab(t.dataset.tab, { focusTab: true }); return; }
     if (t.dataset.row != null) {
       // select (hover already did); on pad/keyboard, confirm moves focus to the action button for a quick repeat-buy
@@ -367,6 +414,18 @@ export class GarageScreen {
     if (String(this.p.truckColor) === this.sel()) return;
     this.ui.snd('click'); if (btn) this.ui.pressFx(btn);
     this.cb.onPaint && this.cb.onPaint(+this.sel());
+  }
+  selectOptic(opticId) {
+    if (this.tab !== 'weapons' || !compatibleWeaponOptic(this.sel(), opticId) || this.selectedOptic() === opticId) return;
+    const scroll = this.q.det.scrollTop;
+    this.opticPrev = opticId; this.keepFocus(() => this.renderDetail()); this.q.det.scrollTop = scroll; this.notifyView();
+  }
+  doOptic(btn) {
+    const id = this.sel(), opticId = btn.dataset.opticBuy, s = weaponOpticState(this.p, id, opticId);
+    if (this.tab !== 'weapons' || !s.ok || s.equipped) return;
+    if (!s.owned && this.p.cash < s.cost) return this.denied(btn, s.cost - this.p.cash);
+    this.ui.snd(s.owned ? 'click' : 'buy'); this.ui.pressFx(btn);
+    this.cb.onBuy?.(s.owned ? 'equipWeaponOptic' : 'weaponOptic', id, opticId);
   }
   denied(el, need) {
     this.ui.snd('error');
@@ -404,6 +463,7 @@ export class GarageScreen {
     this.cb.onBuy && this.cb.onBuy('weaponTrack', id, tr);
   }
   doReady() {
+    if (!this.extra.solo && this.extra.readyBlocked) return;
     const btn = this.q.ready.querySelector('.ready');
     this.ui.snd(this.extra.solo ? 'go' : 'ready'); this.ui.pressFx(btn);
     this.cb.onReady && this.cb.onReady();
@@ -416,6 +476,9 @@ export class GarageScreen {
     const selRow = () => this.q.rows.querySelector('.row.sel, .sw.sel') || this.q.rows.querySelector('.f');
     const inDetail = this.q.det.contains(el) || this.q.foot.contains(el);
     const inRows = !!el.closest('.g-rows');
+    if (el.dataset.seatAction && dir === 'up') return selRow();
+    if (el.dataset.seatAction && dir === 'down') return this.q.ready.querySelector('.f') || selRow();
+    if (el.dataset.ready && dir === 'left') return this.q.seats.querySelector('.f') || selRow();
     if (el.dataset.tab && dir === 'down') return selRow();
     if (el.dataset.tab && dir === 'up') return false;
     if (el.dataset.tab && dir === 'right' && el.dataset.tab === TAB_IDS[TAB_IDS.length - 1]) return false;

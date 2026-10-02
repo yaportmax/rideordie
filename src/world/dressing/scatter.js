@@ -3,7 +3,8 @@
 // Composition (dressing/ecology.js): rocks and cacti come in GROUPS (one big piece + smaller ones around it) on crests and in outcrop
 // patches; shrubs / grass / small cacti grow in groves, along washes and at the feet of those anchors; open ground between vignettes stays
 // bare (negative space) instead of an even sprinkle.
-import { BIOMES, biomeAt } from '../../data/biomes.js';
+import { BIOMES } from '../../data/biomes.js';
+import { roadBiomeAt } from '../biome_context.js';
 import { fbm2, smoothstep } from '../../core/util.js';
 import { SCATTER, TINTS, tierOf, specOfEntry } from './types.js';
 import { rngOf, strId, CHUNK_LEN, EDGE } from './util.js';
@@ -11,6 +12,7 @@ import { buildCover } from './groundcover.js';
 import { buildFences, buildWrecks } from './furniture.js';
 import { vegFactor, rockFactor, addAnchor, VEG_MAX } from './ecology.js';
 import { isSolidRock, RockCollisionBatch } from './rock_collisions.js';
+import { drivingFootprintRadius } from '../driving_plan.js';
 
 const QKEEP = [0.26, 0.5, 0.74, 1.0];
 const scat = (id, key) => (key ? (BIOMES[id].scatter[key] ?? 0) : 1);
@@ -39,7 +41,8 @@ function resolve(ctx, e) {
 const _g = {}, _rs = {}, _fr = {};
 
 /** Shared placement checks (slope, cliff drop, water, custom rule, landmark exclusions, tunnels). */
-function placeable(ctx, chunk, e, s, d, a, side, g, rr, excl, tun, uAux) {
+function placeable(ctx, chunk, e, s, d, a, side, g, rr, excl, tun, uAux, footprint) {
+  if (ctx.road.corridorBlocked(g.x, g.z, Math.max(rr, footprint), s)) return false;
   const slope = 1 - g.ny;
   if (slope > e.slope) return false;
   const roadY = ctx.road.sample(s, _rs).y;
@@ -55,7 +58,7 @@ function placeable(ctx, chunk, e, s, d, a, side, g, rr, excl, tun, uAux) {
 export function runScatter(ctx, chunk, tier, deadline = Infinity) {
   const { road, seed, kit, pool } = ctx;
   const s0 = chunk.s0;
-  const bios = [biomeAt(s0), biomeAt(s0 + 48), biomeAt(s0 + CHUNK_LEN)];
+  const bios = [roadBiomeAt(road, s0), roadBiomeAt(road, s0 + 48), roadBiomeAt(road, s0 + CHUNK_LEN)];
   const q = ctx.quality, qkeep = QKEEP[Math.max(0, Math.min(3, q))];
   const excl = ctx.exclusions(s0 - 40, s0 + CHUNK_LEN + 40);
   if (!excl) return false;
@@ -111,7 +114,7 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
       const side = uSide < 0.5 ? 1 : -1;
       const a = e.a[0] + (e.a[1] - e.a[0]) * uA;
       const s = s0 + uS * CHUNK_LEN;
-      const bio = biomeAt(s);
+      const bio = roadBiomeAt(road, s);
       const dHere = entryDens(e, bio);
       if (uAcc * wmax > dHere) continue;
       const d = side * (EDGE + a);
@@ -124,7 +127,7 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
       // composition: vegetation follows groves / washes / anchors; rock and cactus groups follow their own outcrop field
       if (e.role === 'veg' && uAux * VEG_MAX > vegFactor(seed, chunk, s, d, g, e.open ?? 0.08)) continue;
       if (e.role === 'rock' && uAux * 1.3 > rockFactor(seed, chunk, s, d, g)) continue;
-      if (!placeable(ctx, chunk, e, s, d, a, side, g, rad0 * scC, excl, tun, uAux)) continue;
+      if (!placeable(ctx, chunk, e, s, d, a, side, g, rad0 * scC, excl, tun, uAux, drivingFootprintRadius(asset, scC))) continue;
       put(g, scC, uYaw, uTint, bio);
       if (!G) continue;
       // group members: smaller pieces around the centre piece (own RNG stream -> the main stream keeps fixed draws)
@@ -138,7 +141,7 @@ export function runScatter(ctx, chunk, tier, deadline = Infinity) {
         const sc = Math.max(e.sc[0] * 0.5, scC * (0.35 + 0.4 * mr())), yaw = mr(), tint = mr();
         if (Math.abs(dm) < EDGE + e.a[0] || Math.sign(dm) !== side) continue;
         const gm = chunk.ground.sample(sm, dm, _g);
-        if (!placeable(ctx, chunk, e, sm, dm, Math.abs(dm) - EDGE, side, gm, rad0 * sc, excl, tun, 0.5)) continue;
+        if (!placeable(ctx, chunk, e, sm, dm, Math.abs(dm) - EDGE, side, gm, rad0 * sc, excl, tun, 0.5, drivingFootprintRadius(asset, sc))) continue;
         put(gm, sc, yaw, tint, bio);
       }
     }

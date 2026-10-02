@@ -1,5 +1,6 @@
 // Biome tables: road character, terrain profile parameters, look (fog/sky/light), scatter densities.
 // The run is a single road; biome is a function of distance along it (s, meters).
+import { CAMPAIGN_THEMES } from './campaign_themes.js';
 
 export const ROAD_WIDTH = 14;     // asphalt edge to edge
 export const SHOULDER = 2.5;      // gravel shoulder each side (drivable)
@@ -24,6 +25,7 @@ export const BIOME_ORDER = BIOME_PLAN.map((b) => b.id);
 export const BIOME_START = (() => { let s = 0; return BIOME_PLAN.map((b) => { const o = s; s += b.len; return o; }); })();
 
 export const BIOMES = {
+  ...CAMPAIGN_THEMES,
   desert: {
     name: 'Scorched Highway',
     road: { kmax: 1 / 380, straight: 0.35, sigma: 0.7, slopeMax: 0.05, elevBase: 0, elevAmp: 7, elevScale: 500, bank: 55 },

@@ -30,12 +30,14 @@ import { Dressing } from '../world/dressing.js';
 import { StructureColliders } from '../sim/structure_colliders.js';
 import { BOSS_ID, BOSS_NAMES, MINIBOSSES, BOSS_PARTS } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
+import { TEN_LEVELS, MARATHON_LEVEL_LENGTH, normalizeJourney } from '../data/campaign.js';
 import { clamp, damp, lerp, wrapAngle } from '../core/util.js';
 import { runPhase, defeatReason, isDefeated, rememberDefeat } from './run_status.js';
 
 const V3 = THREE.Vector3;
 
 export class Run {
+  get road() { return this.sim?.road || this._road || (this._road = new Road(this.seed, this.journey)); }
   get phase() { return runPhase(this); }
   get defeated() { return isDefeated(this); }
   get defeatReason() { return defeatReason(this); }
@@ -44,7 +46,7 @@ export class Run {
    * @param cfg {role, seed, profile, net?, startS?}
    */
   constructor(g, cfg) {
-    this.g = g; this.cfg = cfg; this.role = cfg.role; this.seed = cfg.seed; this.net = cfg.net || null;
+    this.g = g; this.journey = normalizeJourney(cfg.journey); this.cfg = { ...cfg, journey: this.journey }; this.role = cfg.role; this.seed = cfg.seed; this.net = cfg.net || null;
     this.id = cfg.runId || globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     this.partnerReady = !this.net;
     // single player with an AI partner: cfg.ai = 'gunner' (you drive) | 'driver' (you shoot); the sim then runs locally
@@ -74,10 +76,10 @@ export class Run {
     const { spec, effects } = buildPlayerSpec(cfg.profile);
     this.spec = spec; this.effects = effects; this.medkits = effects.medkits;
     if (this.simPeer) {
-      this.sim = new Sim({ seed: this.seed });
+      this.sim = new Sim({ seed: this.seed, journey: this.journey });
       await this.sim.init();
       if (this.disposed) { this.sim.dispose(); return this; }
-      this.streamer = new TerrainStreamer({ scene: g.scene, world: this.sim.world, seed: this.seed, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
+      this.streamer = new TerrainStreamer({ scene: g.scene, world: this.sim.world, seed: this.seed, journey: this.journey, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
       this.sim.setGround(this.streamer);
       const startS = cfg.startS ?? 40;
       this.player = this.sim.spawnCar(spec.id, { spec, s: startS, d: 0, kind: 'player', hold: true });
@@ -86,24 +88,24 @@ export class Run {
     } else {
       // viewer peer: a static Rapier world purely for bullet raycasts against terrain
       this.qworld = createWorld();
-      this.streamer = new TerrainStreamer({ scene: g.scene, world: this.qworld, seed: this.seed, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
+      this.streamer = new TerrainStreamer({ scene: g.scene, world: this.qworld, seed: this.seed, journey: this.journey, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
     }
     // world dressing (props, structures, water) + their colliders
     const world = this.sim ? this.sim.world : this.qworld;
     this.structures = new StructureColliders(world);
     if (this.sim) this.sim.structures = this.structures;
     try {
-      this.dressing = new Dressing(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed))), this.seed, { quality: g.quality, physicsHook: (r) => this.structures.hook(r) });
+      this.dressing = new Dressing(g.scene, this.road, this.seed, { quality: g.quality, physicsHook: (r) => this.structures.hook(r) });
       await this._loadDressing(cfg.startS ?? 40);
     } catch (e) { console.warn('dressing disabled', e); this.dressing = null; }
     if (this.disposed) return this;
-    this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
+    this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, playerUpgradeLevels: effects.vehicleUpgradeLevels, playerWeaponOptics: effects.weaponOptics, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
     if (this.ai === 'driver') this.aiDriver = new AIDriver(this);
     if (this.ai === 'gunner') this.aiGunner = new AIGunner(this);
     if (g.audio) {
-      const b = biomeAt(cfg.startS ?? 40);
+      const b = this.road.biomeAt(cfg.startS ?? 40);
       g.audio.music.setBiome(b.w > 0.5 ? b.b : b.a);
       this.abridge = new AudioBridge(g.audio, { playerId: 1, localRole: this.role }); this.abridge.preload({ weapons: effects.weapons, truck: spec.id });
     }
@@ -170,11 +172,17 @@ export class Run {
     return h ? y + 4 - h.timeOfImpact : null;
   }
   _surfaceKind(x, z) {
-    const road = this.sim ? this.sim.roadQuery : (this._roadQuery || (this._roadQuery = new RoadQuery(this._road || (this._road = new Road(this.seed)))));
-    const n = road.nearest(x, z, this.playerS || 0, 80, this._nn || (this._nn = {}));
-    if (Math.abs(n.d) < 7.2) return 'asphalt';
-    const b = biomeAt(n.s); const id = b.w > 0.5 ? b.b : b.a;
-    return { desert: 'sand', canyon: 'rock', coast: 'grass', mountain: 'dirt', city: 'concrete', dam: 'concrete' }[id] || 'dirt';
+    return this._surfaceAt(x, z, this.playerS || 0, 80, this._nn || (this._nn = {})).kind;
+  }
+  _surfaceAt(x, z, hint, window, out, shoulder = false) {
+    const road = this.sim ? this.sim.roadQuery : (this._roadQuery || (this._roadQuery = new RoadQuery(this.road)));
+    const n = road.projectDriving(x, z, hint, window, out);
+    const width = n.halfWidth ?? 7;
+    if (Math.abs(n.d) < width + .2) { n.kind = 'asphalt'; return n; }
+    if (shoulder && Math.abs(n.d) < width + 2.7) { n.kind = 'gravel'; return n; }
+    const b = this.road.biomeAt(n.s); const id = b.w > 0.5 ? b.b : b.a;
+    n.kind = { desert: 'sand', canyon: 'rock', coast: 'grass', mountain: 'dirt', city: 'concrete', dam: 'concrete' }[id] || 'dirt';
+    return n;
   }
   _localEvent(e) {
     e.time = this.time; if (e.t === 'shot') this.shots++;
@@ -308,9 +316,9 @@ export class Run {
     }
     // The gunner's projection must precede its viewmodel. The driver's cockpit
     // eye instead queries the current crew/head pose, so resolve it after views.
-    const cameraBeforeViews = this.role !== 'driver' || isDefeated(this);
+    const cameraBeforeViews = (this.role !== 'driver' && !this.gunner?.weapon.mounted) || isDefeated(this);
     if (cameraBeforeViews) this._camera(dt, cmds, pst);
-    else {
+    else if (this.role === 'driver') {
       // Choose the driver's mode before crew visibility/cutaways, while keeping
       // the eye query after the current head pose. A late toggle flashes the
       // external body in the cockpit (or hides it in chase) for one frame.
@@ -325,7 +333,7 @@ export class Run {
     this.structures?.updateRocks(this.sim ? this.sim.cars.values() : this.states.values());
     this.wv.updateBoss(this.bossState, dt);
     // roadblock telegraphing (signs, flares, breakable barricades) + cinematic banners (warlord intro, roadblock countdown)
-    (this.hazMarks || (this.hazMarks = new HazardMarks(g.scene, this.sim ? this.sim.road : (this._road || (this._road = new Road(this.seed)))))).update(dt, this.playerS || 0);
+    (this.hazMarks || (this.hazMarks = new HazardMarks(g.scene, this.road))).update(dt, this.playerS || 0);
     (this.banner || (this.banner = new Banner(g.hud.el))).update(dt, this.playerS || 0, this.bossState);
     // Leviathan per-part health markers (sim peer reads the boss directly, the gunner peer the snapshot's per-part hp)
     if (this.bossState || this.bossMarks) { const Bs = this.sim?.boss; (this.bossMarks || (this.bossMarks = new BossMarks(g.scene))).update(dt, this.bossState, (n) => Bs ? Bs.hp[n] / BOSS_PARTS[n].hp : this.bossState?.hp?.[n] ?? 1, g.camera, { suppressLabel: !!g.hud.gh && (g.hud.gh.partLabelOn ?? g.hud.gh.bpT > 0) }); }   // one part name on screen: the gunner HUD's readout wins
@@ -378,15 +386,15 @@ export class Run {
     if (fx) {
       const ctx = this._fxCtx || (this._fxCtx = { carViews: this.wv.viewMap, states: null, playerId: 1, cameraPos: g.camera.position,
         playerMuzzle: (out) => { const st = this.states.get(this.playerId); return !!st && this.wv.muzzlePos(st, out); },
+        playerEject: (out, direction) => { const st = this.states.get(this.playerId); return !!st && !!this.wv.mountedWeapon(st)?.ejectWorld(out, direction); },
         shake: (a) => { const k = a * (g.shakeMul ?? 1); this.chase.shake.add(k); this.gcam.shake.add(k); } });
       ctx.states = this.states;
       for (const e of evs) fx.handleEvent(e, ctx);
       const sc = this._surfCache || (this._surfCache = new Map());
-      const road = this.sim ? this.sim.roadQuery : (this._roadQuery || (this._roadQuery = new RoadQuery(this._road || (this._road = new Road(this.seed)))));
       for (const st of this.states.values()) {
         const v = this.wv.viewMap.get(st.id); if (!v) continue;
         let c = sc.get(st.id);
-        if (!c || (this.fxTick + st.id) % 8 === 0) { const n = road.nearest(st.pos.x, st.pos.z, c ? c.s : (this.playerS || 0), c ? 60 : 400, this._fxn || (this._fxn = {})); c = { s: n.s, kind: Math.abs(n.d) < 7.2 ? 'asphalt' : Math.abs(n.d) < 9.7 ? 'gravel' : this._surfaceKind(st.pos.x, st.pos.z) }; sc.set(st.id, c); }
+        if (!c || (this.fxTick + st.id) % 8 === 0) { const n = this._surfaceAt(st.pos.x, st.pos.z, c ? c.s : (this.playerS || 0), c ? 60 : 400, this._fxn || (this._fxn = {}), true); c = { s: n.s, kind: n.kind }; sc.set(st.id, c); }
         fx.updateCar(st, v, dt, c.kind);
       }
       for (const id of sc.keys()) if (!this.states.has(id)) sc.delete(id);
@@ -401,7 +409,7 @@ export class Run {
       for (const st of this.states.values()) ab.updateCar(st, dt, { surface: sc?.get(st.id)?.kind || 'asphalt', throttle: st.id === 1 && this.sim ? this.player.veh.throttleApplied : undefined });
       for (const e of evs) ab.handleEvent(e, ctx);
       ab.update(dt, ctx);
-      const b = biomeAt(this.playerS || 0); A.ambience.setBiome(b.w > 0.5 ? b.b : b.a);
+      const b = this.road.biomeAt(this.playerS || 0); A.ambience.setBiome(b.w > 0.5 ? b.b : b.a);
       let threat = 0; for (const st of this.states.values()) if (st.kind === 'enemy' && !st.exploded) { const d = st.pos.distanceTo(pst.pos); if (d < 120) threat += 1 - d / 120; }
       this.threat = (this.threat || 0) * 0.97 + Math.min(1, 0.22 + threat / 4 + (this.sim ? this.sim.director.level * 0.4 : 0)) * 0.03;
       A.music.setIntensity(this.threat);
@@ -481,9 +489,10 @@ export class Run {
   }
   _unflip(free = false) {
     const P = this.player, v = P.veh, b = v.body;
-    const yaw = Math.atan2(P.veh.fwd.x, P.veh.fwd.z);
+    const routePoint = P.route ? this.sim.road.drivingPointAt(P.s, P.d, P.route) : null;
+    const yaw = routePoint ? routePoint.th : Math.atan2(P.veh.fwd.x, P.veh.fwd.z);
     b.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
-    b.setTranslation({ x: P.veh.pos.x, y: P.veh.pos.y + 1.8, z: P.veh.pos.z }, true);
+    b.setTranslation({ x: P.veh.pos.x, y: routePoint ? Math.max(P.veh.pos.y + 1.8, routePoint.y + v.restComHeight + .15) : P.veh.pos.y + 1.8, z: P.veh.pos.z }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
     v.poseRevision = ((v.poseRevision || 0) + 1) & 0xffff;
     v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat);
@@ -620,8 +629,34 @@ export class Run {
     } else if (this.gunner) {
       g.audio?.setCabin?.(0); if (this.abridge) this.abridge.windGain = this.gcam.firstPerson ? 1.3 : 1; // standing in the open bed: the wind roars
       const w = this.gunner.weapon;
+      if (w.mounted) {
+        _mountedDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch));
+        this.wv.aimMountedWeapon(pst, _mountedDir, this.gunner.weaponId);
+        const rig = this.wv.mountedWeapon(pst, this.gunner.weaponId);
+        if (rig?.eyeWorld(_mountedEye, .60)) {
+          this.eye.copy(_mountedEye); this.eye.y += .12;
+          if (rig.eyeWorld(_mountedEye)) this.eye.lerp(_mountedEye, this.gunner.ads);
+        }
+      }
+      if (w.mounted) _mountedBaseEye.copy(this.eye);
       const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, fovBase: g.fovBase, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
       this.camDir.copy(dir);
+      if (w.mounted) {
+        const rig = this.wv.mountedWeapon(pst, this.gunner.weaponId);
+        if (rig?.aimWorld(dir) && rig.eyeWorld(_mountedEye, .60)) {
+          // Recoil turns the cradle with the view. Move its physical eye by the
+          // same delta, retaining continuous shoulder/third-person/shake offsets.
+          this.eye.copy(_mountedEye); this.eye.y += .12;
+          if (rig.eyeWorld(_mountedEye)) this.eye.lerp(_mountedEye, this.gunner.ads);
+          g.camera.position.add(_mountedEye.subVectors(this.eye, _mountedBaseEye));
+          rig.pitchJoint.getWorldQuaternion(_q2);
+          _mountedDir.set(0, 0, 1).applyQuaternion(_q2);
+          _mountedAimQuat.setFromUnitVectors(this.camDir, _mountedDir);
+          g.camera.quaternion.premultiply(_mountedAimQuat);
+          this.camDir.copy(_mountedDir);
+          this.wv.syncMountedHands?.(pst, this.gunner.reloading);
+        }
+      }
     }
     if (intro < 1) this._introCam(intro, pst);
   }
@@ -688,10 +723,12 @@ export class Run {
       if (B && !B.exploded) boss = { name: 'THE LEVIATHAN', hp01: B.coreHp01() };
       else if (E) boss = { name: E.name, hp01: E.hp01 };
     } else if (this.hud && this.hud.bossId) boss = { name: BOSS_NAMES[this.hud.bossId] || '', hp01: this.hud.bossHp01 };
-    const b = biomeAt(s);
+    const b = this.road.biomeAt(s);
+    const chapter = TEN_LEVELS[(this.journey.mode === 'campaign' ? this.journey.level : this.road.journeyLevelAt(s)) - 1];
+    const progressTotal = this.journey.mode === 'campaign' ? chapter.bossDistance : this.journey.mode === 'marathon' ? TEN_LEVELS.length * MARATHON_LEVEL_LENGTH : BOSS_S;
     const d = {
       speed: pst ? pst.speed : 0, rpm01: pst ? pst.rpm01 : 0, nitro01: 0, nitroMax: this.spec.nitro?.capacity || 0,
-      hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : (this.hud?.time || 0), biome: BIOMES[b.w > 0.5 ? b.b : b.a].name, prog01: s / BOSS_S, boss,
+      hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : (this.hud?.time || 0), biome: this.journey.mode === 'legacy' ? BIOMES[b.w > 0.5 ? b.b : b.a].name : chapter.name, prog01: s / progressTotal, boss,
       spreadPx: this.gunner ? (this.gunner.spreadNow() * Math.PI / 180) / (this.g.camera.fov * Math.PI / 180) * innerHeight : undefined,
       scoped: this.gunner && this.humanGunner && this.role !== 'driver' ? !!this.gunner.weapon.scope && this.gunner.ads > 0.85 : false, // never the AI gunner's scope on the driver's screen
       hideCross: this.gunner ? this.gcam.firstPerson && this.gcam.adsK > 0.6 : false,
@@ -736,6 +773,7 @@ export class Run {
   /** Sim peer: final results + cash breakdown (the profile owner credits it). */
   buildSummary(won = false) {
     const sim = this.sim, st = sim.stats, E = ECONOMY;
+    const journey = this.journey || normalizeJourney(this.cfg?.journey);
     const L = sim.director.level;
     const dist = Math.max(0, st.distance - (this.cfg.startS ?? 40));
     const lines = [];
@@ -745,13 +783,16 @@ export class Run {
     const timeCash = Math.round(sim.time * E.perSecond * this.effects.cashMul);
     lines.push({ label: 'TIME SURVIVED', amount: timeCash });
     if (this.minibossCash) lines.push({ label: 'WARLORD BOUNTIES', amount: this.minibossCash });
-    if (won) lines.push({ label: 'THE LEVIATHAN', amount: E.bossBounty });
+    const finiteLevel = journey.mode === 'campaign' ? TEN_LEVELS[journey.level - 1] : null;
+    const levelCleared = !!(won && finiteLevel && (journey.level === 10 ? sim.boss?.exploded : sim.director.campaignComplete));
+    if (won && (!finiteLevel || journey.level === 10)) lines.push({ label: 'THE LEVIATHAN', amount: E.bossBounty });
+    if (levelCleared && journey.level < 10) lines.push({ label: `${finiteLevel.name} CLEARED`, amount: Math.round(finiteLevel.bounty * this.effects.cashMul) });
     const total = lines.reduce((a, l) => a + l.amount, 0);
     const why = sim.result?.why;
     return {
-      id: this.id, won, cash: total, breakdown: lines, distance: dist, startS: this.cfg.startS ?? 40, furthestS: st.distance, time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
+      id: this.id, won, journey, levelCleared, cash: total, breakdown: lines, distance: dist, startS: this.cfg.startS ?? 40, furthestS: st.distance, time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
       bestStreak: this.bestMulti || 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
-      biome: BIOMES[biomeAt(st.distance).a].name, minibosses: this.minibossesKilled || [],
+      biome: journey.mode === 'legacy' ? BIOMES[(sim.road || this.road)?.biomeAt?.(st.distance)?.a || biomeAt(st.distance).a].name : TEN_LEVELS[((sim.road || this.road)?.journeyLevelAt?.(st.distance) ?? journey.level) - 1].name, minibosses: this.minibossesKilled || [],
     };
   }
 
@@ -823,6 +864,8 @@ export class Run {
 }
 
 const _f = new V3(), _v = new V3(), _t2 = new V3(), _t3 = new V3(), _aiDir = new V3(), _q2 = new THREE.Quaternion();
+const _mountedDir = new V3(), _mountedEye = new V3(), _mountedBaseEye = new V3();
+const _mountedAimQuat = new THREE.Quaternion();
 const _deathDesired = new V3(), _deathBest = new V3(), _deathStep = new V3(), _deathDelta = new V3();
 function deathCameraExterior(run, pst, position) {
   return Math.hypot(position.x - pst.pos.x, position.z - pst.pos.z) >= run.deathFrom.minRadius - 0.05;

@@ -104,6 +104,7 @@ export class Vehicle {
     this.driverAlive = true;
 
     // ---- telemetry
+    this.preImpactVx = 0; this.preImpactVz = 0;
     this.speed = 0; this.vf = 0; this.vl = 0; this.yawRate = 0; this.slipAngle = 0;
     this.grounded = 0; this.airTime = 0; this.rpm01 = 0.2; this.gear = 1; this.drifting = false; this.driftTime = 0;
     this.throttleApplied = 0; this.brakeApplied = 0; this.reversing = false; this.lastLandImpact = 0;
@@ -138,6 +139,8 @@ export class Vehicle {
     for (let i = 0; i < this.wheels.length; i++) this.prevL[i] = this.wheels[i].L;
     this.readState();
     const p = this.pos, q = this.quat, v = this.vel, up = this.up, fwd = this.fwd, left = this.left;
+    // Preserve approach velocity before Rapier resolves the contact this step.
+    this.preImpactVx = v.x; this.preImpactVz = v.z;
 
     const speed = v.length();
     const vfBody = v.dot(fwd);

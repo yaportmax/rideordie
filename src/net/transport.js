@@ -17,7 +17,7 @@ export class Transport {
     this.isHost = false; this.code = ''; this.open = false;
     this.onMessage = () => {}; this.onFast = () => {}; this.onOpen = () => {}; this.onClose = () => {}; this.onError = () => {}; this.onState = () => {};
     this.rtt = 0; this.stats = { bytesIn: 0, bytesOut: 0, msgIn: 0, fastIn: 0, fastOut: 0 };
-    this._pingT = null; this._cancelPending = null;
+    this._pingT = null; this._cancelPending = null; this._pcCleanup = null;
     this._seatT = null; this._reconnectT = null; this._reconnectDeadline = null; this._reconnectPeer = null; this._reconnectAttempt = 0;
     this._signallingState = 'closed'; this._lastState = '';
   }
@@ -184,6 +184,8 @@ export class Transport {
     const ready = () => {
       if (this.conn !== conn || this.open) return;
       clearTimeout(this._seatT); this._seatT = null;
+      this._watchConnectionState(conn);
+      if (this.conn !== conn) return;
       this.open = true; this._openFast(conn); this._startPing(); this.onOpen();
       this._emitState();
     };
@@ -210,6 +212,8 @@ export class Transport {
       if (!this.open) this.closeConnection(e);
       this.onError(e);
     });
+    this._watchConnectionState(conn);
+    if (this.conn !== conn) return;
     if (conn.open) ready(); else {
       conn.on('open', ready);
       this._seatT = setTimeout(() => {
@@ -221,10 +225,32 @@ export class Transport {
     }
   }
 
+  _watchConnectionState(conn) {
+    const pc = conn.peerConnection;
+    if (!pc?.addEventListener || this._pcCleanup?.pc === pc) return;
+    this._pcCleanup?.();
+    const changed = () => {
+      if (this.conn !== conn) return;
+      // Aggregate DTLS/data-channel failure can be terminal while ICE still
+      // reports disconnected. PeerJS only watches ICE, so its close may never
+      // arrive. A transient disconnected state remains eligible to recover.
+      if (!['failed', 'closed'].includes(pc.connectionState) && !['failed', 'closed'].includes(pc.iceConnectionState)) return;
+      this.closeConnection(new Error('The multiplayer connection closed.'));
+    };
+    pc.addEventListener('connectionstatechange', changed);
+    pc.addEventListener('iceconnectionstatechange', changed);
+    const cleanup = () => {
+      pc.removeEventListener('connectionstatechange', changed);
+      pc.removeEventListener('iceconnectionstatechange', changed);
+      if (this._pcCleanup === cleanup) this._pcCleanup = null;
+    };
+    cleanup.pc = pc; this._pcCleanup = cleanup;
+    changed();
+  }
   /** Release a failed or rejected player without destroying the host's room. */
   closeConnection(error = null) {
     const conn = this.conn; if (!conn) return;
-    const wasOpen = this.open;
+    const wasOpen = this.open; this._pcCleanup?.();
     this.open = false; this.conn = null;
     clearTimeout(this._seatT); this._seatT = null;
     clearInterval(this._pingT); this._pingT = null;
@@ -276,6 +302,7 @@ export class Transport {
   get ready() { return this.open; }
 
   destroy() {
+    this._pcCleanup?.();
     this._stopRecovery(); clearTimeout(this._seatT); this._seatT = null;
     clearInterval(this._pingT); this._pingT = null;
     const cancel = this._cancelPending; this._cancelPending = null;

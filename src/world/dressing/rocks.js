@@ -8,7 +8,7 @@
 //   arch    - natural arch spanning the road (swept noisy cross-section; >= 15 m over the road strip)
 // Placement is a pure, cached function of (seed, slot); each chunk merges the formations anchored in it into ONE mesh.
 import * as THREE from 'three';
-import { biomeAt } from '../../data/biomes.js';
+import { roadBiomeAt } from '../biome_context.js';
 import { fbm2, hash2, smoothstep, clamp } from '../../core/util.js';
 import { CHUNK_LEN, groundAt, rngOf } from './util.js';
 import { seaLevel, EDGE } from '../terrain_gen.js';
@@ -186,7 +186,7 @@ const PLAN = {
   desert: { pitch: 700, chance: 0.6 },
   coast: { pitch: 260, chance: 0.75 },
 };
-function bid(s) { const b = biomeAt(s); return b.w > 0.5 ? b.b : b.a; }
+function bid(road, s) { const b = roadBiomeAt(road, s); return b.w > 0.5 ? b.b : b.a; }
 
 /**
  * Find a seat for a formation of radius R on one side, scanning the gap to the road (dA..dB m beyond 13 m from the centre line): a patch of ground that is fairly flat
@@ -214,11 +214,14 @@ function planSlot(ctx, id, k) {
   const T = PLAN[id], { road, seed } = ctx, out = [];
   cache.set(key, out);
   const sc = k * T.pitch + (hash2(k, 401, seed) - 0.5) * T.pitch * 0.6;
-  if (bid(sc) !== id) return out;
+  if (bid(road, sc) !== id) return out;
   const r = rngOf(seed, k, 4000 + id.length);
   if (r() > T.chance) return out;
   road.extendTo(sc + 800);
-  const clear = (s, d, rad) => !road.featuresIn(s - rad - 30, s + rad + 30).some((f) => (f.type === 'bridge' || f.type === 'tunnel' || f.type === 'overpass') && Math.abs(d) - rad < 40);
+  const clear = (s, d, rad) => {
+    const p = road.pointAt(s, d, {});
+    return !road.corridorBlocked(p.x, p.z, rad * 2.2 + 6, s) && !road.featuresIn(s - rad - 30, s + rad + 30).some((f) => (f.type === 'bridge' || f.type === 'tunnel' || f.type === 'overpass') && Math.abs(d) - rad < 40);
+  };
   if (id === 'canyon' || id === 'desert') {
     const u = r();
     const side = r() < 0.5 ? 1 : -1;
@@ -268,7 +271,7 @@ function planMesa(ctx, id, k) {
   const T = MESA[id], { road, seed } = ctx, out = [];
   cache.set(key, out);
   const sc = k * T.pitch + (hash2(k, 431, seed) - 0.5) * T.pitch * 0.6;
-  if (bid(sc) !== id) return out;
+  if (bid(road, sc) !== id) return out;
   const r = rngOf(seed, k, 4300 + id.length);
   if (r() > T.chance) return out;
   road.extendTo(sc + 1200);
@@ -284,7 +287,10 @@ export function rocksIn(ctx, sA, sB) {
   const out = [];
   for (const id of Object.keys(MESA)) {
     const T = MESA[id];
-    for (let k = Math.floor(sA / T.pitch) - 1; k <= Math.ceil(sB / T.pitch) + 1; k++) for (const f of planMesa(ctx, id, k)) if (f.s >= sA && f.s < sB) out.push(f);
+    for (let k = Math.floor(sA / T.pitch) - 1; k <= Math.ceil(sB / T.pitch) + 1; k++) for (const f of planMesa(ctx, id, k)) if (f.s >= sA && f.s < sB) {
+      const p = ctx.road.pointAt(f.s, f.d, {});
+      if (!ctx.road.corridorBlocked(p.x, p.z, f.R * 2.2 + 6, f.s)) out.push(f);
+    }
   }
   for (const id of Object.keys(PLAN)) {
     const T = PLAN[id];
@@ -302,7 +308,7 @@ export function archesIn(ctx, sA, sB) {
       q = null;
       const s = k * pitch + (hash2(k, 511, seed) - 0.5) * pitch * 0.9;
       const rnd = rngOf(seed, k, 511);
-      if (bid(s) === 'canyon' && rnd() < 0.92) {
+      if (bid(road, s) === 'canyon' && rnd() < 0.92) {
         road.extendTo(s + 400);
         let best = null, bestScore = -3;
         for (let t = 0; t < 12; t++) {
@@ -317,7 +323,10 @@ export function archesIn(ctx, sA, sB) {
       }
       cache.set(k, q);
     }
-    if (q && q.s >= sA && q.s < sB) out.push(q);
+    if (q && q.s >= sA && q.s < sB) {
+      const legs = [-1, 1].map(sd => road.pointAt(q.s, sd * q.span, {}));
+      if (!legs.some(p => road.corridorBlocked(p.x, p.z, q.R * 2.5 + 6, q.s))) out.push(q);
+    }
   }
   return out;
 }
@@ -341,7 +350,7 @@ export function buildRocks(ctx, chunk) {
   if (!J) {
     const items = [...rocksIn(ctx, s0, s1).map((f) => ({ f })), ...archesIn(ctx, s0, s1).map((q) => ({ q }))];
     if (!items.length) { chunk.done.add('rocks'); return true; }
-    const a = road.sample(s0, {}), bio = biomeAt(s0 + 48);
+    const a = road.sample(s0, {}), bio = roadBiomeAt(road, s0 + 48);
     J = chunk.rockJob = { items, i: 0, a, rm: null, pending: [], n: 0,
       desert: (bio.a === 'desert' || bio.a === 'canyon' ? 1 - bio.w : 0) + (bio.b === 'desert' || bio.b === 'canyon' ? bio.w : 0),
       seaY: bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : undefined };

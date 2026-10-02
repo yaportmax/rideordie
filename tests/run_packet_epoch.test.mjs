@@ -5,6 +5,10 @@ import * as THREE from 'three';
 import { DEFAULT_PROFILE } from '../src/data/upgrades.js';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../src/net/snapshot.js';
 import { NET_PROTOCOL, RUN_JSON_TYPES, createRunHeader, encodeRunPacket, decodeRunPacket } from '../src/net/run_packet.js';
+import { GARAGE_SEAT_PROTOCOL } from '../src/net/garage_seats.js';
+import { PLAYER_VEHICLE_PROTOCOL } from '../src/data/vehicle_families.js';
+import { DRIVING_ROUTE_VERSION } from '../src/world/driving_plan.js';
+import { CAMPAIGN_PROTOCOL } from '../src/data/campaign.js';
 const { Session } = await import('../src/net/session.js');
 const { Run } = await import('../src/game/run.js');
 
@@ -27,7 +31,9 @@ async function pair(hostRole = 'driver') {
   return { host, guest };
 }
 async function start(host, guest) {
-  host.setReady(true); guest.setReady(true); await flush();
+  host.activeRunId = guest.activeRunId = null;
+  host.swap.enterGarage(); guest.swap.enterGarage(); await flush();
+  host.swap.ready(true); guest.swap.ready(true); await flush();
   let remote; guest.on({ start: cfg => { remote = cfg; } });
   const cfg = host.startRun({ seed: 17 }); assert.ok(cfg); await flush();
   return { cfg, remote };
@@ -69,7 +75,9 @@ test('every gameplay JSON type is current-life scoped before any handler or star
       assert.equal(queued.length + results.length + over.length, 0, `${type} rejected without current identity`);
     }
     for (const type of RUN_JSON_TYPES) host.sendJSON({ t: type, runId: 'forged-old', e: [], s: { id: cfg.runId } });
-    await flush(); assert.equal(queued.length + results.length + over.length, RUN_JSON_TYPES.size);
+    // Only the driver's simulation can send a summary. A host-gunner summary
+    // is deliberately refused by the guest-driver authority.
+    await flush(); assert.equal(queued.length + results.length + over.length, RUN_JSON_TYPES.size - (hostRole === 'gunner' ? 1 : 0));
     for (const m of [...queued, ...results, ...over]) assert.equal(m.runId, cfg.runId);
     const before = host.tp.sent.length; host.activeRunId = null;
     for (const type of RUN_JSON_TYPES) assert.equal(host.sendJSON({ t: type }), false);
@@ -142,11 +150,11 @@ test('garage, leave and physical disconnect revoke the current fast header and g
 });
 
 test('missing or mismatching hello version blocks a run and closes only the data connection', async () => {
-  for (const protocol of [undefined, 1, NET_PROTOCOL + 1, '2']) {
+  for (const protocol of [undefined, 1, 3, NET_PROTOCOL + 1, '4']) {
     const tp = new Memory(), s = new Session(tp); await s.host(DEFAULT_PROFILE());
     const errors = []; let disconnects = 0;
     s.on({ error: e => errors.push(e), disconnect: () => disconnects++ }); tp.onOpen();
-    s._onMsg({ t: 'hello', protocol, wallet: { playerId: 'guest', cash: 100, totalCash: 100 } });
+    s._onMsg({ t: 'hello', protocol, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, wallet: { playerId: 'guest', cash: 100, totalCash: 100 } });
     s.me.role = 'driver'; s.me.ready = true;
     assert.equal(s.canStart(), false); assert.equal(s.startRun(), null);
     assert.equal(tp.closedConnections, 1); assert.equal(tp.destroyed, undefined);
@@ -155,9 +163,47 @@ test('missing or mismatching hello version blocks a run and closes only the data
   }
 });
 
+test('missing or incompatible vehicle families rejects mixed catalogues before receiving a campaign', async () => {
+  for (const familyVehicles of [undefined, 0, PLAYER_VEHICLE_PROTOCOL + 1, '1']) {
+    const tp = new Memory(), session = new Session(tp); await session.host(DEFAULT_PROFILE());
+    const initial = structuredClone(session.profile), errors = [];
+    session.on({ error: error => errors.push(error) }); tp.onOpen();
+    session._onMsg({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, familyVehicles,
+      wallet: { playerId: 'guest', cash: 100, totalCash: 100 } });
+    assert.equal(session.connected, false); assert.equal(session.other, null); assert.equal(session.peerWallet, null);
+    assert.equal(session.canStart(), false); assert.equal(session.startRun(), null);
+    assert.deepEqual(session.profile, initial); assert.equal(tp.closedConnections, 1);
+    assert.equal(errors.length, 1); assert.equal(errors[0].type, 'protocol-mismatch');
+    assert.match(errors[0].message, /Both players should reload/);
+  }
+});
+
+test('missing or incompatible garage consent support rejects mixed builds before lobby readiness', async () => {
+  for (const garageSeats of [undefined, 0, GARAGE_SEAT_PROTOCOL + 1, '1']) {
+    const tp = new Memory(), s = new Session(tp); await s.host(DEFAULT_PROFILE());
+    const errors = []; s.on({ error: e => errors.push(e) }); tp.onOpen();
+    s._onMsg({ t: 'hello', protocol: NET_PROTOCOL, garageSeats, familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, wallet: { playerId: 'guest', cash: 100, totalCash: 100 } });
+    assert.equal(s.connected, false); assert.equal(s.other, null); assert.equal(s.peerWallet, null);
+    assert.equal(s.canStart(), false); assert.equal(tp.closedConnections, 1);
+    assert.equal(errors.length, 1); assert.equal(errors[0].type, 'protocol-mismatch');
+    assert.match(errors[0].message, /Both players should reload/);
+  }
+});
+
+test('mixed driving route versions reject before lobby or campaign changes', async () => {
+  for (const drivingRoutes of [undefined, 0, DRIVING_ROUTE_VERSION + 1, String(DRIVING_ROUTE_VERSION)]) {
+    const tp = new Memory(), s = new Session(tp); await s.host(DEFAULT_PROFILE());
+    const profile = structuredClone(s.profile), errors = []; s.on({ error: e => errors.push(e) }); tp.onOpen();
+    s._onMsg({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes, campaignProtocol: CAMPAIGN_PROTOCOL, wallet: { playerId: 'guest', cash: 100, totalCash: 100 } });
+    assert.equal(s.connected, false); assert.equal(s.canStart(), false); assert.equal(s.startRun(), null);
+    assert.equal(s.peerWallet, null); assert.equal(s.other, null); assert.deepEqual(s.profile, profile);
+    assert.equal(tp.closedConnections, 1); assert.equal(errors.length, 1); assert.equal(errors[0].type, 'protocol-mismatch');
+  }
+});
+
 test('valid hello before local open survives and transport status is forwarded', async () => {
   const tp = new Memory(), s = new Session(tp); await s.host(DEFAULT_PROFILE());
-  s._onMsg({ t: 'hello', protocol: NET_PROTOCOL, wallet: { playerId: 'guest', cash: 100, totalCash: 100 } });
+  s._onMsg({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, wallet: { playerId: 'guest', cash: 100, totalCash: 100 } });
   tp.onOpen(); s.me.role = 'driver'; s.other.role = 'gunner'; s.me.ready = s.other.ready = true;
   assert.equal(s.canStart(), true); assert.equal(s.status, 'connected'); assert.equal(s.signallingState, 'unknown');
   let state; s.on({ state: (...args) => { state = args; } });

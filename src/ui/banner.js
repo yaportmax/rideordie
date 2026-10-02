@@ -1,11 +1,11 @@
 // Cinematic banners over the HUD: the WARLORD intro (name, title, weak point, how it fights) and hazard warnings that count
 // down the distance to a roadblock with the side of the gap. Driven from run.js by sim events:
 //   banner.miniboss({name, title, weak, tip, color})   banner.event({title, sub})   banner.hazard({s0, gapD})   banner.update(dt, playerS, bossState)
-import { MINIBOSSES } from '../data/boss.js';
+import { ELITE_BOSSES as MINIBOSSES } from '../data/boss.js';
 
 const CSS = `
 #bnr{position:absolute;inset:0;pointer-events:none;font-family:'Bahnschrift','Segoe UI Semibold','Arial Narrow',Impact,sans-serif;color:#fff}
-#bnr .bn-boss{position:absolute;left:0;right:0;top:19%;height:132px;display:none;align-items:center;justify-content:center;flex-direction:column;
+#bnr .bn-boss{position:absolute;left:0;right:0;top:19%;height:auto;min-height:132px;box-sizing:border-box;padding:10px 16px;text-align:center;display:none;align-items:center;justify-content:center;flex-direction:column;
   background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(10,4,2,.78) 18%,rgba(10,4,2,.86) 50%,rgba(10,4,2,.78) 82%,rgba(0,0,0,0) 100%);
   border-top:2px solid var(--ac);border-bottom:2px solid var(--ac);transform-origin:center;text-shadow:0 2px 6px #000}
 #bnr .bn-boss .k{font-size:15px;letter-spacing:9px;color:var(--ac);font-weight:700}
@@ -13,7 +13,7 @@ const CSS = `
 #bnr .bn-boss .t{font-size:16px;letter-spacing:6px;opacity:.85}
 #bnr .bn-boss .w{margin-top:8px;font-size:15px;letter-spacing:3px;color:#ffe08a}
 #bnr .bn-boss .w b{color:var(--ac);font-weight:800}
-#bnr .bn-boss .tip{font-size:13px;letter-spacing:2px;opacity:.75;margin-top:3px}
+#bnr .bn-boss .tip{font-size:13px;line-height:1.35;letter-spacing:2px;opacity:.75;margin-top:3px}
 #bnr .bn-strip{position:absolute;left:50%;top:206px;transform:translateX(-50%);display:none;align-items:baseline;gap:12px;padding:5px 22px;white-space:nowrap;
   background:linear-gradient(90deg,rgba(10,4,2,0),rgba(10,4,2,.72) 12%,rgba(10,4,2,.72) 88%,rgba(10,4,2,0));border-top:1px solid var(--ac);border-bottom:1px solid var(--ac);text-shadow:0 1px 4px #000}
 #bnr .bn-strip .k{font-size:11px;letter-spacing:5px;color:var(--ac);font-weight:700}

@@ -1,14 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadCrewAssets, THREE, CrewView } from './helpers/crew-assets.mjs';
+import { loadWeaponAssets } from './helpers/weapon-assets.mjs';
 import * as Assets from '../src/core/assets.js';
 import { DriverArms } from '../src/view/driver_arms.js';
 import { ViewModel, FP_ARMS_URL } from '../src/view/viewmodel.js';
+import { WeaponView } from '../src/view/weapon_view.js';
 import { Game } from '../src/game/game.js';
 import { WorldView } from '../src/game/world_view.js';
 import { ownClonedSkeletons, disposeOwnedSkeletons, disposeOwnedSkeletonsIn } from '../src/view/owned_skeletons.js';
 
 await loadCrewAssets();
+await loadWeaponAssets(); // All five actual mounted optic variants are present during boot ownership proof.
 
 function skeletons(root) {
   const out = new Set(); root.traverse(o => { if (o.isSkinnedMesh) out.add(o.skeleton); }); return out;
@@ -72,21 +75,29 @@ test('real cloned rigs release exact owned skeletons once, including offgraph al
 
 test('CrewView disposes separate camera viewmodel, driver arms and cached offgraph cloned models idempotently', t => {
   mockImages(t);
-  const crew = new CrewView('hero_gunner', { role: 'gunner', weapon: 'smg' });
+  const crew = new CrewView('hero_gunner', { role: 'gunner', weapon: 'smg', opticId: 'wide_reflex' });
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(); scene.add(crew.root, camera);
   crew.vm = new ViewModel(); camera.add(crew.vm.root);
-  crew.vm._gunFor('pistol'); crew.vm._gunFor('smg');
+  crew.vm._gunFor('pistol', 'wide_reflex'); crew.vm._gunFor('smg', 'wide_reflex');
   crew.drvArms = new DriverArms(crew); assert.equal(crew.drvArms.ok, true);
   // A cached loadout model may no longer be under the visible VM graph. Real
   // shipped rig data ensures that cleanup is not merely an empty weapon case.
   const offgraph = ownClonedSkeletons(Assets.clone('/models/characters/raider_a.glb'));
-  crew.vm.guns.set('offgraph', { model: offgraph, root: new THREE.Group() });
+  const offgraphGun = new WeaponView('pistol', { opticId: 'wide_reflex' });
+  offgraphGun.model.removeFromParent(); offgraphGun.model = offgraph; offgraphGun.root.add(offgraph);
+  crew.vm.guns.set('offgraph', offgraphGun);
   const all = new Set([...skeletons(crew.model), ...skeletons(crew.vm.model), ...skeletons(offgraph)]);
   assert.equal(all.size, 11); // hero 6 + driver arms 1 + viewmodel 1 + raider 3
   const records = upload(all);
+  const opticMaterials = resourceEvents([crew.weapon.optic.reticle.material,
+    ...[...crew.vm.guns.values()].map(gun => gun.optic.reticle.material)]);
+  const sharedOptics = resourceEvents([crew.weapon.optic.housing.geometry, crew.weapon.optic.housing.material,
+    crew.weapon.optic.glass.geometry, crew.weapon.optic.glass.material]);
   crew.dispose(); crew.dispose(); crew.vm.dispose(); crew.drvArms.dispose();
   assertFreed(records, 'whole crew ownership');
+  assertResourceEvents(opticMaterials, 1); assertResourceEvents(sharedOptics, 0);
   assert.equal(crew.root.parent, null); assert.equal(crew.vm.root.parent, null); assert.equal(crew.drvArms.model.parent, null);
+  stopResourceEvents(opticMaterials); stopResourceEvents(sharedOptics);
 });
 
 test('replacing fallback arms releases all cloned skeletons, including removed body/armor meshes, while new arms remain live', t => {
@@ -126,6 +137,9 @@ function resourceEvents(resources) {
     const rec = { resource, disposed: 0 }; rec.listener = () => rec.disposed++;
     resource.addEventListener('dispose', rec.listener); return rec;
   });
+}
+function warmMaterialResources(vm) {
+  return new Set([...vm._ownedMaterials, ...[...vm.guns.values()].filter(gun => gun.optic).map(gun => gun.optic.reticle.material)]);
 }
 function assertResourceEvents(records, count) { for (const rec of records) assert.equal(rec.disposed, count, rec.resource.type); }
 function stopResourceEvents(records) { for (const rec of records) rec.resource.removeEventListener('dispose', rec.listener); }
@@ -181,7 +195,7 @@ test('temporary warm owners release real rig textures on failure/retry and canno
   mockImages(t); t.mock.method(console, 'warn', () => {});
   const originalGunFor = ViewModel.prototype._gunFor, originalFpFrom = ViewModel.prototype._fpFrom;
   let owner, lateCalls = 0;
-  t.mock.method(ViewModel.prototype, '_gunFor', function (id) { owner = this; return originalGunFor.call(this, id); });
+  t.mock.method(ViewModel.prototype, '_gunFor', function (...args) { owner = this; return originalGunFor.apply(this, args); });
   t.mock.method(ViewModel.prototype, '_fpFrom', function (g) { lateCalls++; return originalFpFrom.call(this, g); });
   const { game, previous, getTarget } = warmFixture();
   const live = ownClonedSkeletons(Assets.clone('/models/characters/raider_a.glb')); game.scene.add(live);
@@ -210,17 +224,18 @@ test('temporary warm owners release real rig textures on failure/retry and canno
   disposeOwnedSkeletons(live);
 });
 
-test('successful warm-up transfers five material owners to Game, frees temporary geometry and keeps runtime uniforms independent', async t => {
+test('successful warm-up transfers five legacy and five optic material owners to Game and keeps runtime uniforms independent', async t => {
   mockImages(t);
   let owner; const originalGunFor = ViewModel.prototype._gunFor;
-  t.mock.method(ViewModel.prototype, '_gunFor', function (id) { owner = this; return originalGunFor.call(this, id); });
+  t.mock.method(ViewModel.prototype, '_gunFor', function (...args) { owner = this; return originalGunFor.apply(this, args); });
   const { game } = warmFixture(), cleanup = []; game._warmMaterials = new Set();
   const group = ViewModel.warmObject(dispose => cleanup.push(dispose), game._warmMaterials);
-  const materials = resourceEvents(owner._ownedMaterials), geometry = resourceEvents(owner._ownedGeometries);
-  assert.equal(materials.length, 5); assert.equal(geometry.length, 4);
+  const materials = resourceEvents(warmMaterialResources(owner)), geometry = resourceEvents(owner._ownedGeometries);
+  assert.equal(owner._ownedMaterials.size, 5); assert.equal(materials.length, 10); assert.equal(geometry.length, 4);
+  assert.equal([...owner.guns.values()].filter(gun => gun.optic).length, 5);
   const warmFlash = owner.flashStar.material;
   await game._warmScene(group, cleanup);
-  assert.equal(owner.disposed, true); assert.equal(game._warmMaterials.size, 5);
+  assert.equal(owner.disposed, true); assert.equal(game._warmMaterials.size, 10);
   assertResourceEvents(materials, 0); assertResourceEvents(geometry, 1);
   const runtime = new ViewModel(), runtimeMaterials = resourceEvents(runtime._ownedMaterials);
   assert.notEqual(runtime.flashStar.material, warmFlash);
@@ -237,9 +252,9 @@ test('failed prewarm frees its retained material owners before retry without dis
   mockImages(t);
   const { game } = warmFixture(), cleanup = []; game._warmMaterials = new Set();
   let owner; const originalGunFor = ViewModel.prototype._gunFor;
-  t.mock.method(ViewModel.prototype, '_gunFor', function (id) { owner = this; return originalGunFor.call(this, id); });
+  t.mock.method(ViewModel.prototype, '_gunFor', function (...args) { owner = this; return originalGunFor.apply(this, args); });
   const group = ViewModel.warmObject(dispose => cleanup.push(dispose), game._warmMaterials);
-  const materials = resourceEvents(owner._ownedMaterials);
+  const materials = resourceEvents(warmMaterialResources(owner)); assert.equal(materials.length, 10);
   const shared = resourceEvents([owner.arms.geometry, owner.arms.material, owner.shell.children[0].material, owner.flashStar.material.uniforms.map.value]);
   game.sky.setLook = () => { throw new Error('warm environment failed'); };
   game._prewarmAssets = () => game._warmScene(group, cleanup);
@@ -249,9 +264,9 @@ test('failed prewarm frees its retained material owners before retry without dis
   // A successful retry can own a fresh bounded set, rather than accumulating
   // the failed instance's shaders in the successful boot cache.
   const retryCleanup = [], retry = ViewModel.warmObject(dispose => retryCleanup.push(dispose), game._warmMaterials);
-  const retryMaterials = resourceEvents(owner._ownedMaterials);
+  const retryMaterials = resourceEvents(warmMaterialResources(owner)); assert.equal(retryMaterials.length, 10);
   game.sky.setLook = () => {}; game._prewarmAssets = () => game._warmScene(retry, retryCleanup);
-  await game.prewarm(); assert.equal(game._warmMaterials.size, 5);
+  await game.prewarm(); assert.equal(game._warmMaterials.size, 10);
   assertResourceEvents(retryMaterials, 0); assertResourceEvents(materials, 1); assertResourceEvents(shared, 0);
   for (const material of game._warmMaterials) material.dispose(); game._warmMaterials.clear();
   for (const records of [materials, retryMaterials, shared]) stopResourceEvents(records);

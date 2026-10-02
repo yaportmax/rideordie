@@ -9,6 +9,8 @@ import { DebrisSystem } from '../view/debris.js';
 import { BossView } from '../view/boss_view.js';
 import { BOSS_ID } from '../data/boss.js';
 import { WEAPONS } from '../data/weapons.js';
+import { sanitizeVisualLevels } from '../view/car_upgrade_plan.js';
+import { sanitizeOpticId } from '../data/weapon_optics.js';
 
 const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f, 0x6a2f2f, 0x91856a];
 const _sph = new THREE.Sphere();
@@ -17,10 +19,29 @@ const DEAD = { alive: false };
 const DAMAGE_PANELS = [[0.72, ['bumper_F', 'fender_L']], [0.55, ['door_L', 'door_R2', 'fender_R']], [0.4, ['hood']], [0.28, ['trunk', 'tailgate', 'bumper_R', 'door_R']], [0.14, ['roof', 'door_L2', 'armor_1']]];
 const NO_PROJECTILES = [];
 
+/** A tall/long enemy's upper crew can remain on screen after its COM has left
+ * the frustum. Bound the real spec and standing crew in its model frame; sphere
+ * radius is invariant under vehicle roll/pitch. Player culling keeps its policy. */
+export function crewFrustumRadius(spec, restComHeight = 0, kind = 'enemy') {
+  if (kind === 'player') return 5;
+  const safe = value => Number.isFinite(value) ? Math.max(0, value) : 0;
+  let x = safe(spec?.width) / 2 + .2, z = safe(spec?.length) / 2 + .2, top = safe(spec?.height);
+  for (const [role, seat] of Object.entries(spec?.seats || {})) {
+    if (!Array.isArray(seat)) continue;
+    x = Math.max(x, Math.abs(Number(seat[0]) || 0) + 1.2);
+    z = Math.max(z, Math.abs(Number(seat[2]) || 0) + 1.2);
+    top = Math.max(top, (Number(seat[1]) || 0) + (role === 'driver' ? 1.25 : 1.85));
+  }
+  const com = Number.isFinite(restComHeight) ? restComHeight : 0;
+  return Math.max(5, Math.hypot(x, z, Math.max(Math.abs(com), Math.abs(top - com))));
+}
+
 export class WorldView {
-  /** opts: {scene, playerPaint, fx?, audio?} */
+  /** opts: {scene, playerPaint, playerUpgradeLevels?, fx?, audio?} */
   constructor(opts) {
     this.scene = opts.scene; this.playerPaint = opts.playerPaint ?? 0x8f6a3d;
+    this.playerUpgradeLevels = Object.freeze(sanitizeVisualLevels(opts.playerUpgradeLevels));
+    this.playerWeaponOptics = Object.freeze(Object.fromEntries(Object.entries(opts.playerWeaponOptics || {}).map(([id, optic]) => [id, sanitizeOpticId(id, optic)])));
     this.fx = opts.fx || null; this.audio = opts.audio || null;
     this.cars = new Map(); // id -> {view, crew:{gunner?,driver?}, state}
     this.viewMap = new Map(); // id -> CarView (for Fx)
@@ -46,13 +67,14 @@ export class WorldView {
     let rec = this.cars.get(st.id);
     if (rec && rec.specId !== st.specId) { this.remove(st.id); rec = null; }
     if (rec) return rec;
-    const view = new CarView(st.spec, { paint: this.paintFor(st), paint2: 0x30302e, shadowProxy: true });
+    const view = new CarView(st.spec, { paint: this.paintFor(st), paint2: 0x30302e, shadowProxy: true, upgradeLevels: st.kind === 'player' ? this.playerUpgradeLevels : undefined });
     view.root.userData.carId = st.id;
     this.group.add(view.root);
-    rec = { view, specId: st.specId, crew: {}, state: st, wreck: false, id: st.id };
+    rec = { view, specId: st.specId, crew: {}, state: st, wreck: false, id: st.id,
+      crewRadius: crewFrustumRadius(st.spec, st.ride?.restComHeight, st.kind) };
     // crew figures
     const s = st.spec;
-    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunName, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
+    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunName, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
     // raider faces: 4 gunner types x 2 variants (+ 2 driver variants), picked deterministically from the car id
     const v2 = (n) => (((st.id * 2654435761) >>> (n + 3)) & 1 ? '2' : '');
     if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver' + v2(0), s.seats.driver);
@@ -91,7 +113,7 @@ export class WorldView {
       const camPos = ctx.cameraPos, frustum = ctx.frustum;
       const distanceSq = camPos ? st.pos.distanceToSquared(camPos) : 0;
       const far = camPos ? distanceSq > (st.kind === 'player' ? 1e18 : 130 * 130) : false;
-      const off = frustum && st.kind !== 'player' ? !frustum.intersectsSphere(_sph.set(st.pos, 5)) && !(ctx.frustum2 && ctx.frustum2.intersectsSphere(_sph)) : false;
+      const off = frustum && st.kind !== 'player' ? !frustum.intersectsSphere(_sph.set(st.pos, rec.crewRadius || 5)) && !(ctx.frustum2 && ctx.frustum2.intersectsSphere(_sph)) : false;
       const hideCrew = far || off;
       let farCrew = false;
       if (camPos && st.kind !== 'player') { rec.view.setLod(rec.view.lodOn ? distanceSq > 40 * 40 : distanceSq > 46 * 46); farCrew = distanceSq > 40 * 40; } // (LOD: 5 draws instead of 35-60 past ~45 m)
@@ -108,6 +130,7 @@ export class WorldView {
         pose.alive = alive; pose.aimYaw = gs ? gs.yaw : 0; pose.aimPitch = gs ? gs.pitch : 0; pose.fire = gs ? gs.fire : false;
         pose.crouch = st.kind === 'player' ? false : gs ? gs.crouch : false; pose.ads = gs ? gs.ads : false; pose.reloading = gs ? gs.reloading : false;
         pose.weaponId = st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null;
+        pose.opticId = st.kind === 'player' ? sanitizeOpticId(pose.weaponId, this.playerWeaponOptics?.[pose.weaponId]) : 'standard';
         pose.steer = st.steer; pose.speed = st.speed; pose.quat = st.quat; pose.vel = st.vel;
         pose.local = st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null;
         if (st.kind === 'player' && role === 'gunner' && ctx.localGunner) {
@@ -183,7 +206,14 @@ export class WorldView {
   _charCar(rec) {
     rec.view.root.traverse((o) => {
       if (!o.isMesh) return;
-      for (const m of [].concat(o.material)) { if (m.name && /^paint/.test(m.name)) m.color.multiplyScalar(0.12); else if (m.color && !/glass|light/.test(m.name || '')) m.color.multiplyScalar(0.35); if (/light/.test(m.name || '')) m.emissiveIntensity = 0; }
+      if (o.userData.ownedVehicleUpgradeGeometry) {
+        const colors = o.geometry.attributes.color;
+        if (colors) { for (let i = 0; i < colors.array.length; i++) colors.array[i] *= .35; colors.needsUpdate = true; }
+      }
+      for (const m of [].concat(o.material)) {
+        if (m.userData.sharedVehicleUpgrade) continue;
+        if (m.name && /^paint/.test(m.name)) m.color.multiplyScalar(0.12); else if (m.color && !/glass|light/.test(m.name || '')) m.color.multiplyScalar(0.35); if (/light/.test(m.name || '')) m.emissiveIntensity = 0;
+      }
     });
   }
 
@@ -211,6 +241,21 @@ export class WorldView {
     const rec = this.cars.get(st.id);
     if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
     return false;
+  }
+  /** Resolve the physical deck rig before camera/shot sampling on a weapon swap.
+   * Its sockets remain world-space and also serve the remote driver's view. */
+  mountedWeapon(st, weaponId = null) {
+    const record = this.cars.get(st?.id) || (st && weaponId === 'minigun' ? this.ensure(st) : null);
+    const crew = record?.crew.gunner;
+    if (!crew) return null;
+    if (weaponId && crew.weaponId !== weaponId) crew.setWeapon(weaponId, this.playerWeaponOptics?.[weaponId]);
+    return crew.weapon?.mounted ? crew.weapon : null;
+  }
+  aimMountedWeapon(st, direction, weaponId = null) {
+    return this.mountedWeapon(st, weaponId)?.aimWorld(direction) || false;
+  }
+  syncMountedHands(st, reloading = undefined) {
+    return this.cars.get(st?.id)?.crew.gunner?.syncMountedHands(reloading) || false;
   }
   /** Notify the local viewmodel after the current pose was used to fire. */
   notifyLocalShot(st, gunner) {

@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { BIOME_PLAN, BIOME_START } from '../data/biomes.js';
 import { smoothstep, lerp } from '../core/util.js';
+import { contextualRoad, roadBiomeAt } from './biome_context.js';
 
 const K = (h, i = 1) => new THREE.Color(h).multiplyScalar(i);
 // field reference
@@ -68,6 +69,35 @@ export const LOOKS = {
     exp: 1.05, night: 0.15, grade: { con: 0.3, sat: 1.28, shT: [-0.008, 0.0, 0.02], hiT: [1.07, 0.99, 0.92] },
   },
 };
+// Complete look records keep every atmosphere, IBL, fog and grading consumer
+// defined. The new worlds share an authored base, then replace their identity.
+LOOKS.underground = {
+  ...LOOKS.city, sun: -12, moonEl: -20, moonI: 0, night: 0.7, exp: 1.15,
+  zen: K(0x112a36, 0.4), hor: K(0x305662, 0.45), glow: K(0x124556, 0.12), stars: 0,
+  cloudCov: 0, cloudOp: 0, fogD: 0.0008, fogH: 0.0004, fogClear: 35,
+  haze: K(0x35515b, 0.3), hemiSky: K(0x91c9dc), hemiGnd: K(0x65564b), hemiI: 0.5,
+  envI: 0.85, gnd: K(0x4a5259), shafts: 0,
+};
+LOOKS.sky = {
+  ...LOOKS.coast, sun: 30, az: 160, sunCol: K(0xffe9fa), sunI: 3, night: 0,
+  zen: K(0x5b80e5, 1.4), hor: K(0xbecdf5, 1.15), glow: K(0xffd8f5, 0.45),
+  cloudCov: 0.42, fogD: 0.00018, fogH: 0.00008, fogBase: -110, fogClear: 35,
+  haze: K(0xaebfed, 0.75), hemiSky: K(0xbccaff), hemiGnd: K(0x6b749c), exp: 0.98,
+};
+LOOKS.hell = {
+  ...LOOKS.canyon, sun: 8, az: 290, sunCol: K(0xff7b37), sunI: 2, night: 0.18,
+  zen: K(0x48191d, 0.8), hor: K(0x84382b, 0.85), glow: K(0xff541a, 0.8),
+  cloudLit: K(0xd7744c, 0.8), cloudShade: K(0x46272b, 0.5), cloudCov: 0.7,
+  fogD: 0.00055, fogH: 0.0008, fogClear: 30, haze: K(0x6f211d, 0.55),
+  hemiSky: K(0xb84931), hemiGnd: K(0x692716), hemiI: 0.3, exp: 1, gnd: K(0x47332e),
+};
+LOOKS.space = {
+  ...LOOKS.city, sun: 25, az: 80, sunCol: K(0xe2eaff), sunI: 3.7, moonEl: -30, moonI: 0,
+  zen: K(0x030617, 0.12), hor: K(0x101730, 0.2), glow: K(0x203c7a, 0.04),
+  stars: 1, cloudCov: 0, cloudOp: 0, disc: 18, night: 0.55,
+  fogD: 0.0001, fogH: 0, fogClear: 40, haze: K(0x090d23, 0.2),
+  hemiSky: K(0x6985bf), hemiGnd: K(0x333650), hemiI: 0.3, envI: 0.85, exp: 1.05,
+};
 const ANCHORS = BIOME_PLAN.map((b, i) => ({ id: b.id, s: BIOME_START[i] + (i === BIOME_PLAN.length - 1 ? 1500 : b.len / 2) }));
 
 const NUM = ['sun', 'az', 'moonEl', 'moonAz', 'sunI', 'moonI', 'zenExp', 'horSharp', 'glowSpread', 'haloExp', 'disc', 'cloudCov', 'cloudOp', 'stars',
@@ -84,12 +114,18 @@ function makeOut() {
 const _out = makeOut();
 
 /** Smoothly interpolated look at road distance s. Returns a shared object (copy if you keep it). */
-export function lookAt(s, out = _out) {
-  let i = 0;
-  while (i < ANCHORS.length - 1 && s > ANCHORS[i + 1].s) i++;
-  const A = ANCHORS[i], B = ANCHORS[Math.min(i + 1, ANCHORS.length - 1)];
-  const t = A === B ? 0 : smoothstep(A.s, B.s, s);
-  const la = LOOKS[A.id], lb = LOOKS[B.id];
+export function lookAt(s, out = _out, road) {
+  let a, b, t;
+  if (contextualRoad(road)) {
+    const bio = roadBiomeAt(road, s);
+    a = bio.a; b = bio.b; t = bio.w;
+  } else {
+    let i = 0;
+    while (i < ANCHORS.length - 1 && s > ANCHORS[i + 1].s) i++;
+    const A = ANCHORS[i], B = ANCHORS[Math.min(i + 1, ANCHORS.length - 1)];
+    a = A.id; b = B.id; t = A === B ? 0 : smoothstep(A.s, B.s, s);
+  }
+  const la = LOOKS[a], lb = LOOKS[b];
   for (const k of NUM) out[k] = lerp(la[k], lb[k], t);
   for (const k of COL) out[k].copy(la[k]).lerp(lb[k], t);
   // azimuths: shortest way round

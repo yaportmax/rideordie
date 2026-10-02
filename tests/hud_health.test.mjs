@@ -65,12 +65,12 @@ function withHud(check) {
   }
 }
 
-function assertOnlyTruck(hud) {
+function assertOnlyCar(hud) {
   const box = hud.el.querySelector('.hpbox');
   assert.equal(box, hud.q.hpbox);
   assert.equal(box.querySelectorAll('.row').length, 1);
   assert.equal(box.querySelectorAll('.bar').length, 1);
-  assert.deepEqual(box.querySelectorAll('span').map(node => node.textContent.trim()), ['TRUCK']);
+  assert.deepEqual(box.querySelectorAll('span').map(node => node.textContent.trim()), ['CAR']);
   assert.equal(box.querySelector('.hp i'), hud.q.hp);
   assert.equal(hud.el.querySelector('.dhpbar'), null);
   assert.equal(hud.el.querySelector('.ghpbar'), null);
@@ -80,10 +80,10 @@ function assertOnlyTruck(hud) {
 
 const state = extra => ({ speed: 12, rpm01: .4, nitro01: .6, nitroMax: 1, hp01: .75, biome: 'Scorched Highway', ...extra });
 
-test('actual HUD constructor creates only a TRUCK health row and retains separate weapon/boss indicators', () => {
+test('actual HUD constructor creates only a CAR health row and retains separate weapon/boss indicators', () => {
   withHud((hud, doc) => {
     assert.equal(doc.body.querySelector('#hud'), hud.el);
-    assertOnlyTruck(hud);
+    assertOnlyCar(hud);
     assert.ok(hud.gh.q.bpi, 'boss part health remains in the gunner layer');
     assert.ok(hud.gh.q.bar, 'weapon reload progress remains in the gunner layer');
     assert.notEqual(hud.gh.q.bpi, hud.q.hp);
@@ -105,7 +105,7 @@ test('driver, gunner and shared co-op views keep one clamped truck bar independe
           hud.update(1 / 60, data);
           assert.equal(hud.q.hp.style.transform, `scaleX(${expected})`);
           assert.deepEqual(data, before, 'presentation cannot change truck or crew combat health');
-          assertOnlyTruck(hud);
+          assertOnlyCar(hud);
         }
       }
     }
@@ -122,7 +122,7 @@ test('missing-player fallback works without crew HP and keeps finite truck and v
       assert.ok(Number.isFinite(Number(hud.q.vig.style.opacity)));
       assert.equal(Object.hasOwn(fallback, 'dhp01'), false);
       assert.equal(Object.hasOwn(fallback, 'ghp01'), false);
-      assertOnlyTruck(hud);
+      assertOnlyCar(hud);
     }
   });
 });
@@ -135,7 +135,7 @@ test('hiding crew bars preserves the gunner low-health vignette without changing
     hud.show({ driver: false, gunner: true }); hud.update(1 / 60, data);
     assert.ok(Number(hud.q.vig.style.opacity) > 0);
     assert.equal(hud.q.hp.style.transform, 'scaleX(0.75)');
-    assertOnlyTruck(hud);
+    assertOnlyCar(hud);
   });
 });
 
@@ -149,14 +149,14 @@ test('persistent defeat status survives transient messages and resets for the ne
       hud.setDefeat(why); assert.equal(status.textContent, `RUN ENDED · ${text}`); assert.equal(status.style.display, 'block');
       assert.equal(hud.q.boss.style.display, 'none', 'terminal transition hides the overlapping boss immediately');
       hud.message('OTHER COMBAT EVENT', 20); hud.update(1, state({ hp01: .6, boss: activeBoss }), false);
-      assert.equal(status.textContent, `RUN ENDED · ${text}`); assert.equal(status.style.display, 'block'); assertOnlyTruck(hud);
+      assert.equal(status.textContent, `RUN ENDED · ${text}`); assert.equal(status.style.display, 'block'); assertOnlyCar(hud);
       assert.equal(hud.q.boss.style.display, 'none', 'later boss snapshots cannot cover the terminal notice');
     }
     hud.setDefeat(null); assert.equal(status.style.display, 'none'); assert.equal(status.textContent, '');
     hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block');
     assert.equal(hud.q.bossbar.style.transform, 'scaleX(0.5)', 'live boss presentation restores through normal updates');
     hud.setDefeat('gunner'); hud.show({ driver: false, gunner: true });
-    assert.equal(status.style.display, 'none'); assert.equal(status.textContent, ''); assertOnlyTruck(hud);
+    assert.equal(status.style.display, 'none'); assert.equal(status.textContent, ''); assertOnlyCar(hud);
     hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block', 'fresh run restores normal boss HUD');
   });
 });

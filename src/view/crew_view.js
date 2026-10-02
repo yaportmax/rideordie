@@ -15,11 +15,13 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { WeaponView } from './weapon_view.js';
-import { ViewModel, inCinematic } from './viewmodel.js';
+import { MountedGun } from './mounted_gun.js';
+import { ViewModel, inCinematic, createMountedFirstPersonArms } from './viewmodel.js';
 import { setCutaway, prepareCutaway } from './fp_cutaway.js';
 import { DriverArms } from './driver_arms.js';
 import { clamp } from '../core/util.js';
 import { WEAPONS } from '../data/weapons.js';
+import { sanitizeOpticId } from '../data/weapon_optics.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
 import { patchCrewMaterials } from './crew_material.js';
 import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
@@ -153,7 +155,7 @@ export class CrewView {
     this.gun = new THREE.Group(); this.gun.name = 'gunframe';
     if (model) this._setupRig(model); else this._placeholder();
     this.weapon = null; this.weaponId = null;
-    if (this.role !== 'driver') this.setWeapon(opts.weapon === 'enemy' ? ENEMY_GUN_MODEL[opts.enemyGun] || 'rifle' : opts.weapon || 'pistol');
+    if (this.role !== 'driver') this.setWeapon(opts.weapon === 'enemy' ? ENEMY_GUN_MODEL[opts.enemyGun] || 'rifle' : opts.weapon || 'pistol', opts.opticId);
     this.aimYawL = 0; this.bodyYaw = 0; this.pitch = 0; this.crouch = 0; this.kick = 0; this.flinchT = 0; this.throwT = 0; this.steer = 0;
     this.deadT = -1; this.fallVel = V(); this.fallSpin = V(); this.detached = false; this.leave = null; this.y0 = 0; this.yGround = null;
     configureCrewShadows(this.root, this.weapon?.root);
@@ -235,11 +237,13 @@ export class CrewView {
     this.head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), skin); this.head.position.y = 1.55; this.body.add(this.head);
   }
 
-  setWeapon(id) {
-    if (!id || id === this.weaponId || this.role === 'driver') return;
+  setWeapon(id, opticId = this.opts?.weaponOptics?.[id] || 'standard') {
+    opticId = sanitizeOpticId(id, opticId);
+    if (!id || (id === this.weaponId && opticId === this.opticId) || this.role === 'driver') return;
     this.weaponId = id;
+    this.opticId = opticId;
     if (this.weapon) { disposeOwnedSkeletons(this.weapon.model); this.weapon.dispose(); }
-    this.weapon = new WeaponView(id);
+    this.weapon = id === 'minigun' ? new MountedGun(id) : new WeaponView(id, { opticId });
     ownClonedSkeletons(this.weapon.model);
     this._shadowOnlyOn = undefined;   // re-apply to the new weapon's meshes
     if (!this.gun.parent) this.body.add(this.gun);
@@ -251,12 +255,17 @@ export class CrewView {
     this.gripDelta = new THREE.Vector3(this.gripL.x - g[0], this.gripL.y - g[1], this.gripL.z - g[2]);
     if (!gL || this.gripDelta.lengthSq() < 0.02 * 0.02) this.gripDelta = null;
     this._setClass(cls);
-    this.mountAt = null; this._mount(this.bones && this.lastMode === 'clip' ? 'R' : 'gun');
+    this.mountAt = null;
+    this._mount(this.weapon.mounted ? 'deck' : this.bones && this.lastMode === 'clip' ? 'R' : 'gun');
   }
 
   /** Parent the weapon: 'gun' (procedural first-person frame), 'R' / 'L' (hand sockets; L at -grip_L so that hand holds the handguard). */
   _mount(where) {
     if (!this.weapon || this.mountAt === where) return;
+    if (this.weapon.mounted) {
+      if (this.car && this.seat) { this.weapon.attachToDeck(this.car.root, this.seat); this.mountAt = 'deck'; }
+      return;
+    }
     const r = this.weapon.root;
     if (where === 'gun' || !this.bones) { this.gun.add(r); r.position.set(0, 0, 0); r.quaternion.identity(); this.mountAt = 'gun'; return; }
     const s = this.bones['socket_hand_' + where]; if (!s) { this._mount('gun'); return; }
@@ -276,7 +285,10 @@ export class CrewView {
     }
     if (this.ov && (this.ov.kind === 'taunt' || (this.ai && this.ov.kind === 'reload'))) this._endOv(0.1);
   }
-  attach(carView, seat) { this.car = carView; this.seat = seat; this.root.position.set(seat[0], seat[1], seat[2]); this.root.rotation.order = 'YXZ'; }
+  attach(carView, seat) {
+    this.car = carView; this.seat = seat; this.root.position.set(seat[0], seat[1], seat[2]); this.root.rotation.order = 'YXZ';
+    if (this.weapon?.mounted) this._mount('deck');
+  }
 
   // ---- full-body one-shot overrides --------------------------------------------------------------------------------------
   _play(name, kind, { fin = 0.12, fout = 0.18, scale = 1, start = 0 } = {}) {
@@ -300,13 +312,25 @@ export class CrewView {
   update(dt, s) {
     if (this.deadT >= 0) { this._dead(dt, s); return; }
     if (!s.alive) { this.die({}); return; }
+    if (s.weaponId) this.setWeapon(s.weaponId, s.opticId);
+    const mounted = !!this.weapon?.mounted;
     this.lastSpeed = s.speed || 0;
     // scripted cameras (intro fly-by, finale orbit, death cam) see our crew from outside: never first person there
     const fp = !!(s.local && s.local.firstPerson) && !(s.local && inCinematic());
     // local first-person gunner: the viewmodel draws arms + gun; this body stays in the scene as an invisible shadow caster
-    const useVm = fp && this.role !== 'driver' && this.hero && !!(s.local.camera && s.local.gunner);
-    if (useVm && !this.vm) { this.vm = new ViewModel(); s.local.gunner.vm = this.vm; }
+    const useVm = fp && !mounted && this.role !== 'driver' && this.hero && !!(s.local.camera && s.local.gunner);
+    if (useVm) { if (!this.vm) this.vm = new ViewModel(); s.local.gunner.vm = this.vm; }
     this.useVm = useVm;
+    const mountedFp = mounted && fp && this.hero;
+    if (mountedFp && !this.mountedArms) {
+      const skin = this.model?.getObjectByName('body');
+      this.mountedArms = createMountedFirstPersonArms(skin);
+    }
+    if (this.mountedArms) this.mountedArms.visible = mountedFp;
+    if (s.local?.gunner) {
+      s.local.gunner.mountedRig = mounted ? this.weapon : null;
+      if (mounted) { s.local.gunner.vm = null; s.local.gunner.fp = false; }
+    }
     // local first-person driver in the cockpit: fp arms on the wheel; this body only casts its shadow (its skeleton still drives
     // the cockpit eye through the Head bone)
     const cockpitFp = fp && this.role === 'driver' && this.hero && !!(s.local && s.local.cockpit && s.local.cockpit.active);
@@ -316,10 +340,10 @@ export class CrewView {
       if (!this._cutPrepared) { this._cutPrepared = true; prepareCutaway(this.car, 'driver'); }
       setCutaway(this.car, cockpitFp, 'driver');
     }
-    this._setShadowOnly(useVm || useArms);
+    this._setShadowOnly(useVm || useArms || mountedFp);
     if (this.role !== 'driver' && s.local) {   // clear sight lines: cut truck parts in the gunner's eye line (split on the first frame)
       if (!this._cutPrepared) { this._cutPrepared = true; prepareCutaway(this.car, 'gunner'); }
-      setCutaway(this.car, useVm, 'gunner');
+      setCutaway(this.car, useVm || mountedFp, 'gunner');
     }
     this.body.visible = useVm || !(fp && s.local.scoped);
     // first person: collapse our own head (face, hair, eyes are skinned to it) so it never blocks the camera
@@ -327,12 +351,16 @@ export class CrewView {
     if (this.seat && this.role !== 'driver') this.root.position.set(this.seat[0] + (s.local ? s.local.bedX : s.bedX || 0), this.seat[1], this.seat[2] + (s.local ? s.local.bedZ : s.bedZ || 0));
     if (this.role === 'driver') { this._driver(dt, s, fp); return; }
     // ---------------- gunner: aim is world space; convert to the vehicle frame
-    const clipMode = !fp && !!this.bones;
+    const clipMode = !fp && !mounted && !!this.bones;
     this.lastMode = clipMode ? 'clip' : 'fp';
-    if (s.weaponId) this.setWeapon(s.weaponId);
-    this._mount(clipMode ? this._handMount() : 'gun');
+    this._mount(mounted ? 'deck' : clipMode ? this._handMount() : 'gun');
     _eul.setFromQuaternion(s.quat, 'YXZ');
     let yawL = s.aimYaw - _eul.y; yawL = Math.atan2(Math.sin(yawL), Math.cos(yawL));
+    if (mounted) {
+      const cp = Math.cos(s.aimPitch);
+      _d.set(Math.sin(s.aimYaw) * cp, Math.sin(s.aimPitch), Math.cos(s.aimYaw) * cp);
+      this.weapon.aimWorld(_d); yawL = this.weapon.yawJoint.rotation.y; this.bodyYaw = yawL;
+    }
     this.crouch += ((s.crouch ? 1 : 0) - this.crouch) * Math.min(1, dt * 10);
     this.sinceShot += dt;
     const wo = this._gunnerLayers(dt, s, clipMode);
@@ -342,7 +370,7 @@ export class CrewView {
     const lim = 0.85;
     if (Math.abs(diff) > lim) this.bodyYaw += diff - Math.sign(diff) * lim;
     this.bodyYaw += diff * Math.min(1, dt * 3);
-    if (fp) this.bodyYaw = yawL - 0.15; // first person: the body sits under the camera (slightly bladed)
+    if (fp) this.bodyYaw = yawL - (mounted ? 0 : .15); // hand-held first person stays slightly bladed
     this.body.rotation.y = this.bodyYaw;
     if (this.bones) {
       // Spine/reaction edits below use local poses only; the model pass then
@@ -352,7 +380,10 @@ export class CrewView {
       if (clipMode && this.mountAt === 'gun') this.body.updateMatrixWorld(true);
       else this.body.updateWorldMatrix(false, false, true);
       diff = Math.atan2(Math.sin(yawL - this.bodyYaw), Math.cos(yawL - this.bodyYaw));
-      const pitch = s.aimPitch;
+      // A deck turret's rear grips drop when its barrels rise. Its operator
+      // braces toward those grips in the deck frame; the handheld lean moves
+      // the shoulders the opposite way and can put both grips beyond reach.
+      const pitch = mounted ? Math.min(0, this.weapon.pitchJoint.rotation.x) : s.aimPitch;
       const n = this.spine.length || 1;
       for (const b of this.spine) { _q.setFromEuler(_eul.set(-pitch * 0.55 / n, diff / n, 0, 'YXZ')); b.quaternion.premultiply(_q); }
       if (clipMode) { this.flinchT = 0; this._react(dt, s, 1); }   // clip hits + procedural whip / inertia sway (see flinch())
@@ -361,7 +392,8 @@ export class CrewView {
     }
     const cp = Math.cos(s.aimPitch);
     _d.set(Math.sin(s.aimYaw) * cp, Math.sin(s.aimPitch), Math.cos(s.aimYaw) * cp); // world aim dir
-    if (clipMode) { if (!s.far) this._clipWeapon(s, wo); else if (this.nade) this.nade.visible = false; }
+    if (mounted) this._mountedWeapon(s, _d);
+    else if (clipMode) { if (!s.far) this._clipWeapon(s, wo); else if (this.nade) this.nade.visible = false; }
     else this._fpWeapon(dt, s, fp, useVm);
     if (this.weapon) {
       const ovReload = !!(this.ov && this.ov.kind === 'reload');
@@ -373,6 +405,40 @@ export class CrewView {
       if (useVm) this.vm.update(dt, s, !s.local.scoped);
       else { this.vm.setVisible(false); if (s.local && s.local.gunner) s.local.gunner.fp = false; }
     }
+  }
+
+  /** The pedestal stays rigidly on the deck. The operator follows its yaw around
+   * the base, and both real hands reach its spade grips rather than carrying it. */
+  _mountedWeapon(s, direction) {
+    const weapon = this.weapon;
+    if (!weapon?.mounted || !this.car || !this.seat) return;
+    weapon.aimWorld(direction);
+    const yaw = weapon.yawJoint.rotation.y;
+    this.bodyYaw = yaw; this.body.rotation.y = yaw;
+    // Step into the rear cradle at steep elevation rather than stretching the
+    // forearms. The neutral deck stance stays put; feet remain on the deck.
+    const back = .58 - .12 * Math.sin(weapon.pitchJoint.rotation.x) ** 2;
+    this.root.position.set(weapon.root.position.x - Math.sin(yaw) * back, this.seat[1], weapon.root.position.z - Math.cos(yaw) * back);
+    this.syncMountedHands(!!s.reloading);
+  }
+
+  /** Reconcile two wrists after the camera's recoil has turned the real cradle.
+   * This never advances clips, body position, gun mechanics or simulation. */
+  syncMountedHands(reloading = this.wasReloading) {
+    const weapon = this.weapon;
+    if (!weapon?.mounted || !this.alive || !this.car) return false;
+    this.body.updateWorldMatrix(true, true);
+    const right = _u.set(-1, 0, 0).applyQuaternion(weapon.pitchJoint.getWorldQuaternion(_q));
+    for (const side of ['Right', 'Left']) {
+      const arm = this.arm?.[side], grip = weapon.sockets[side === 'Right' ? 'grip_R' : 'grip_L'];
+      if (!arm || !grip) continue;
+      const socket = side === 'Left' && reloading ? weapon.sockets.mag_well || grip : grip;
+      socket.getWorldPosition(_t); arm.u.getWorldPosition(_p);
+      _e.copy(_p).addScaledVector(_up, -.55).addScaledVector(right, side === 'Right' ? .3 : -.3);
+      twoBoneIK(arm.u, arm.l, arm.h, _t, _e, arm.lens); this._handTo(arm.h, grip);
+    }
+    this.body.updateWorldMatrix(false, true);
+    return true;
   }
 
   /** Mixer update; far crews (> 40 m, s.far from world_view) tick at half rate (the pose holds a frame). */
@@ -547,6 +613,9 @@ export class CrewView {
     }
     this.root.traverse((o) => {
       if (!o.isMesh || o.userData.fpArms) return;
+      // Per-attachment reticle materials are owned and disposed with the gun.
+      // They cast no shadow, so do not retain them in the shared shadow cache.
+      if (o.userData.opticReticle) { o.visible = !on; return; }
       if (!o.userData.mat0) o.userData.mat0 = o.material;
       o.material = on ? (Array.isArray(o.userData.mat0) ? o.userData.mat0.map(shadowOnly) : shadowOnly(o.userData.mat0)) : o.userData.mat0;
     });
@@ -776,6 +845,7 @@ export class CrewView {
     if (this.deadT >= 0) return;
     this.alive = false; this.deadT = 0;
     this._setShadowOnly(false); // restore body detail even before first-person helpers exist
+    if (this.mountedArms) this.mountedArms.visible = false;
     if (this.vm) { this.vm.setVisible(false); this.useVm = false; }
     if (this.drvArms) { this.drvArms.setVisible(false); this.useArms = false; }
     if (this.car) setCutaway(this.car, false, this.role === 'driver' ? 'driver' : 'gunner');   // the death camera sees the whole truck
@@ -793,7 +863,10 @@ export class CrewView {
       this.whipV.x -= 8; this.whipV.y += rnd(-4, 4);          // the shot snaps the head back before the slump
     } else {
       const moving = this.lastSpeed > 6, r = Math.random(), hd = this.lastHitDir;
-      if (this.weapon) this.weapon.root.visible = false;
+      if (this.weapon) {
+        if (this.weapon.mounted) { this.weapon.shotHold = 0; this.weapon.spinSpeed = 0; this.weapon.update(0, { trigger: false }); }
+        else this.weapon.root.visible = false;
+      }
       // thrown clear: a real ballistic flight with a tumble, then the ground impact clips (the big, readable death)
       const canFly = this.car && this.bones.Hips && this._act('fall_flail') && this._act('land_back') && this._act('land_front');
       if (canFly && (e.cause === 'explosion' || (moving && r < 0.72))) { this._flyStart(e); return; }
@@ -943,5 +1016,6 @@ export class CrewView {
     this.root.removeFromParent(); this.mixer?.stopAllAction();
     this.vm?.dispose(); this.drvArms?.dispose();
     disposeOwnedSkeletons(this.model); disposeOwnedSkeletons(this.weapon?.model);
+    this.weapon?.dispose();
   }
 }

@@ -3,9 +3,13 @@ import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { buildCarLod, makeLodMaterial } from './car_lod.js';
 import { buildEliteKit, ramBar, makeGlint } from './elite_kits.js';
-import { MINIBOSSES } from '../data/boss.js';
-import { VEHICLES } from '../data/vehicles.js';
+import { ELITE_BOSSES as MINIBOSSES } from '../data/boss.js';
+import { VEHICLES, vehicleModelURL } from '../data/vehicles.js';
 import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
+import { buildStageTrimPlan, buildUpgradePlan, sanitizeVisualLevels, visualKey } from './car_upgrade_plan.js';
+import { UpgradeKit } from './car_upgrade_kit.js';
+import { vehicleUpgradeMounts } from './car_upgrade_mounts.js';
+import { CarViewResources } from './car_view_resources.js';
 
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
@@ -13,7 +17,7 @@ const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
 export class CarView {
   /**
    * @param spec vehicle spec (data/vehicles.js)
-   * @param opts {paint:number, paint2:number, modelUrl?:string}
+   * @param opts {paint:number, paint2:number, modelUrl?:string, upgradeLevels?:object, warmMaterials?:Set}
    */
   constructor(spec, opts = {}) {
     this.spec = spec;
@@ -23,7 +27,8 @@ export class CarView {
     this.sockets = {};
     this.taillights = []; this.headlights = [];
     this.model = null;
-    const url = opts.modelUrl ?? `/models/vehicles/${spec.id}.glb`;
+    this.ownedResources = new CarViewResources(opts.warmMaterials);
+    const url = opts.modelUrl ?? vehicleModelURL(spec);
     const model = Assets.clone(url);
     if (model) this._adoptModel(model, opts); else this._placeholder(opts);
     this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -35,8 +40,9 @@ export class CarView {
         const mat = makeLodMaterial(opts.paint, opts.paint2 ?? 0x30302e);
         const g = skipHiddenMatrixTraversal(new THREE.Group()); g.name = 'lod'; g.visible = false;
         const body = new THREE.Mesh(L.body, mat); body.castShadow = true; body.receiveShadow = true; g.add(body);
+        this.ownedResources.own(mat, body);
         this.lodWheels = [];
-        for (const [name, geo] of L.wheels) { const w = new THREE.Mesh(geo, mat); w.castShadow = true; w.rotation.order = 'YXZ'; g.add(w); this.lodWheels.push([name, w]); }
+        for (const [name, geo] of L.wheels) { const w = new THREE.Mesh(geo, mat); w.castShadow = true; w.rotation.order = 'YXZ'; g.add(w); this.ownedResources.own(mat, w); this.lodWheels.push([name, w]); }
         this.root.add(g); this.lod = g; this.lodMat = mat;
         // shadow proxy (raiders): the merged body casts the car's shadow in ONE draw instead of one per material
         // (the full model stops casting); in the main pass it is a zero-alpha blend (no colour, no depth)
@@ -58,6 +64,13 @@ export class CarView {
     // the gunless rammer always wears a spiked ram bar: "that one will ram you" reads at a glance
     if (spec.id === 'e_muscle') { const g = new THREE.Group(); g.name = 'ram_bar'; this.root.add(g); ramBar(g, spec, false); }
     this.kit = null; this.glint = null; this.intent = null; this.intentT = 0;
+    this.upgradeKit = null; this.stageTrim = null; this.upgradeLevels = {}; this.upgradeKey = null;
+    if (spec.kind === 'player' && model) {
+      this.upgradeMounts = vehicleUpgradeMounts(spec);
+      const trim = buildStageTrimPlan(this.upgradeMounts, spec.family, spec.familyStage ?? 1);
+      if (trim.parts.length) this.stageTrim = new UpgradeKit(this.root, trim, name => this._upgradeAnchor(name));
+      this.setUpgradeLevels(opts.upgradeLevels);
+    }
   }
 
   _adoptModel(model, opts) {
@@ -69,10 +82,11 @@ export class CarView {
       const n = o.name;
       if (/^wheel_[A-Za-z0-9]+$/.test(n)) this.wheelNodes.set(n.slice(6), o);
       else if (/^panel_/.test(n) && !/^panel_/.test(o.parent?.name || '')) this.panels.set(n.slice(6), o); // (not the per-material sub-meshes)
-      else if (/^(seat_|steering_wheel|gun_mount|light_head_|light_tail_|exhaust|smoke_engine|fuel_cap|nitro_|camera_hood|roof_top|turret|rocket_pod|flame_|muzzle|floodlight|smoke_stack)/.test(n)) this.sockets[n] = o;
+      else if (/^(seat_|steering_wheel|gun_mount|light_head_|light_tail_|exhaust|smoke_engine|fuel_cap|nitro_|camera_hood|roof_top|mirror_|turret|rocket_pod|flame_|muzzle|floodlight|smoke_stack)/.test(n)) this.sockets[n] = o;
       if (o.isMesh) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         for (const m of mats) {
+          if (/^(paint|paint2|light_.*)$/.test(m.name)) this.ownedResources.own(m, o);
           if (m.name === 'paint' || m.name === 'paint2') paintMats.add(m);
           if (m.name === 'paint' && opts.paint !== undefined) m.color.setHex(opts.paint);
           if (m.name === 'paint2' && opts.paint2 !== undefined) m.color.setHex(opts.paint2);
@@ -116,6 +130,11 @@ export class CarView {
     // nose marker so orientation is unmistakable
     const nose = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.3), new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0x554400 }));
     nose.position.set(0, 0.6, s.length / 2 - 0.05); g.add(nose);
+    g.traverse(o => {
+      if (!o.isMesh) return;
+      this.ownedResources.own(o.geometry, o);
+      for (const m of [].concat(o.material)) this.ownedResources.own(m, o);
+    });
     this.root.add(g); this.model = skipHiddenMatrixTraversal(g);
   }
 
@@ -186,19 +205,42 @@ export class CarView {
     if (this.lodMat) { this.lodMat.userData.uPaint.value.setHex(hex); if (hex2 !== undefined) this.lodMat.userData.uPaint2.value.setHex(hex2); }
     for (const m of this.paintMats || []) { if (m.name === 'paint') m.color.setHex(hex); if (m.name === 'paint2' && hex2 !== undefined) m.color.setHex(hex2); }
   }
-  dispose() { this.kit?.dispose(); this.glint?.material.dispose(); this.root.removeFromParent(); }
+  _upgradeAnchor(name) {
+    if (name === 'body') return this.model;
+    if (name.startsWith('wheel_')) return this.wheelNodes.get(name.slice(6));
+    if (name.startsWith('panel_')) return this.panels.get(name.slice(6));
+    return this.model?.getObjectByName(name);
+  }
+  /** One immutable appearance map per vehicle configuration. No geometry or
+   * shader work is done by update(), and modifiers follow their actual panels. */
+  setUpgradeLevels(levels = {}) {
+    if (!this.upgradeMounts) return false;
+    const next = sanitizeVisualLevels(levels), key = visualKey(next);
+    if (key === this.upgradeKey) return false;
+    const plan = buildUpgradePlan(this.upgradeMounts, next);
+    const kit = plan.parts.length ? new UpgradeKit(this.root, plan, name => this._upgradeAnchor(name)) : null;
+    this.upgradeKit?.dispose(); this.upgradeKit = kit;
+    this.upgradeLevels = next; this.upgradeKey = key;
+    return true;
+  }
+  dispose() {
+    if (this.disposed) return; this.disposed = true;
+    this.upgradeKit?.dispose(); this.stageTrim?.dispose(); this.kit?.dispose(); this.glint?.material.dispose();
+    this.ownedResources.dispose(this.root); this.root.removeFromParent();
+  }
 }
 const _up = new THREE.Vector3(), _fw = new THREE.Vector3(), _qi = new THREE.Quaternion();
 
 /** Prewarm (Game.prewarm): one car per warlord with its kit, nameplate, flags and a visible wind-up glint, so the first warlord /
  *  raider wind-up compiles no shader programs and uploads no canvas textures mid-run. */
-export function warmRaiderViews() {
+export function warmRaiderViews({ onDispose, warmMaterials } = {}) {
   const out = [];
   MINIBOSSES.forEach((M, i) => {
-    const v = new CarView(VEHICLES[M.spec], { paint: 0x888888, paint2: 0x333333 });
+    const v = new CarView(VEHICLES[M.spec], { paint: 0x888888, paint2: 0x333333, warmMaterials });
     v.kit = buildEliteKit(v, v.spec, i + 1, i + 1);
     v.glint = makeGlint(); v.glint.visible = true; v.glint.material.opacity = 1; v.root.add(v.glint);
     out.push(v.root);
+    onDispose?.(() => v.dispose());
   });
   return out;
 }

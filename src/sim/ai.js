@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { clamp, lerp, wrapAngle, rng } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
+import { drivingLaneTarget } from '../world/driving_plan.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _t = new THREE.Vector3(), _f = new THREE.Vector3(), _m = new THREE.Vector3(), _q = new THREE.Quaternion();
 const _pt = {};
@@ -17,6 +18,23 @@ export function carPoint(car, local, out) {
 }
 
 const LANE_LIMIT = HALF_ROAD - 1.6;
+
+/** Lateral offsets belong to a route, never to another route's centreline. */
+export function enemyDrivingContext(road, car, player, out = {}) {
+  const branch = car.route && road.drivingBranch?.(car.route);
+  out.branch = branch || null; out.route = branch?.id || null;
+  out.halfWidth = branch ? branch.width / 2 : HALF_ROAD;
+  out.carD = car.d;
+  out.crossRoute = (car.route || null) !== (player?.route || null);
+  out.playerD = player?.d ?? 0;
+  if (out.crossRoute && player) {
+    const p = road.drivingPointAt
+      ? road.drivingPointAt(player.s, 0, out.route, out.point || (out.point = {}))
+      : road.pointAt(player.s, 0, out.point || (out.point = {}));
+    out.playerD = (player.veh.pos.x - p.x) * Math.cos(p.th) - (player.veh.pos.z - p.z) * Math.sin(p.th);
+  }
+  return out;
+}
 // gap = player.s - car.s  (> 0: the car is BEHIND the player)
 const SLOT = {
   chaser: (r) => ({ gap: r.range(12, 26), lat: r.range(-2.6, 2.6) }),
@@ -86,13 +104,19 @@ export class EnemyBrain {
   update(dt) {
     const car = this.car, sim = this.sim, veh = car.veh, P = sim.player;
     this.t += dt;
+    this.drivingSlice = false;
     if (car.exploded) return;
     if (car.driverless || !car.crew.driver.alive) { this._deadDriver(dt); this.gunnery(dt); return; }
     if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
     if (sim.boss?.dead) { veh.input.throttle = 0; veh.input.brake = 0.6; veh.input.nitro = false; this.gunnery(dt); return; }   // scatter
+    const path = enemyDrivingContext(sim.road, car, P, this._routeContext || (this._routeContext = {}));
+    const pd = path.playerD, cd = path.carD, half = path.halfWidth;
+    if (path.crossRoute && this.atk) this._endAttack(2);
     if (car.bossClear) {   // the war-train is here: the road pack peels off and drops back (the Leviathan brings its own escort)
-      const side = car.d >= 0 ? 1 : -1, want = side * 6.2;
-      const tp = sim.road.pointAt(car.s + 20 + veh.speed * 0.4, want, this._rp || (this._rp = {}));
+      const side = cd >= 0 ? 1 : -1, want = side * (path.branch ? Math.max(0, half - car.spec.width / 2 - 0.35) : 6.2);
+      const tp = sim.road.drivingPointAt
+        ? sim.road.drivingPointAt(car.s + 20 + veh.speed * 0.4, want, path.route, this._rp || (this._rp = {}))
+        : sim.road.pointAt(car.s + 20 + veh.speed * 0.4, want, this._rp || (this._rp = {}));
       const err = Math.atan2(tp.x - veh.pos.x, tp.z - veh.pos.z) - Math.atan2(veh.fwd.x, veh.fwd.z);
       veh.input.steer = Math.max(-1, Math.min(1, Math.atan2(Math.sin(err), Math.cos(err)) * 2)); veh.input.throttle = 0; veh.input.brake = 0.35; veh.input.nitro = false;
       return;
@@ -113,7 +137,7 @@ export class EnemyBrain {
     let dT, vDes, brake = 0, nitro = false, horn = false;
     // ---------------- mode: ambush — idling along the shoulder ahead, floors it as you arrive (ends up in your windshield)
     if (this.mode === 'ambush') {
-      dT = this.parkD ?? car.d;
+      dT = this.parkD ?? cd;
       vDes = pv * 0.5; 
       if (gap > -62) { this.mode = 'engage'; this.setBehavior(this.next || this.behavior); this._tell('peelOut'); horn = true; this.launchT = this.t; }
       this._drive(dt, dT, vDes, 0, false, horn, true);
@@ -130,7 +154,7 @@ export class EnemyBrain {
         // weave between the player's lane and the lanes either side of it: the gunner gets an angle, the driver has to watch it
         if (this.laneT <= 0) { this.laneT = this.r.range(3, 6.5); this.laneOff = this.r.pick(this.behavior === 'heavy' ? [0, 0, -2, 2] : [0, -3.4, 3.4, 0]); }
         // he's closing on us fast in our lane and we're not brake-checking: get out of the way (no free rear-end damage)
-        if (!this.atk && gap > -12 && gap < 2 && Math.abs(car.d - P.d) < 2.4 && pv > speed + 2 && this.behavior === 'leader') { this.laneOff = car.d >= P.d ? 3.6 : -3.6; this.laneT = 1.5; }
+        if (!this.atk && gap > -12 && gap < 2 && Math.abs(cd - pd) < 2.4 && pv > speed + 2 && this.behavior === 'leader') { this.laneOff = cd >= pd ? 3.6 : -3.6; this.laneT = 1.5; }
         slotLat = this.laneOff; break;
       }
       case 'blocker': slotLat = 0; break;
@@ -147,25 +171,25 @@ export class EnemyBrain {
     }
     // a slot ahead of the player is reached by PASSING in the next lane (not by tailgating him)
     if (slotGap < -2 && gap > -9 && this.mode !== 'overtake') {
-      if (gap > 12 || this.passSide === undefined) this.passSide = car.d - P.d >= 0 ? 1 : -1;
-      if (Math.abs(P.d + this.passSide * 4.6) > HALF_ROAD + 0.8 && gap > 8) this.passSide = -this.passSide;
+      if (gap > 12 || this.passSide === undefined) this.passSide = cd - pd >= 0 ? 1 : -1;
+      if (Math.abs(pd + this.passSide * 4.6) > half + 0.8 && gap > 8) this.passSide = -this.passSide;
       if (this.behavior !== 'flanker' || Math.sign(slotLat) !== this.passSide) slotLat = this.passSide * 4.6;
     }
-    if (this.mode === 'overtake' && Math.abs(P.d + slotLat) > HALF_ROAD + 0.8 && gap > 8) { this.side = -this.side; slotLat = -slotLat; }
+    if (this.mode === 'overtake' && Math.abs(pd + slotLat) > half + 0.8 && gap > 8) { this.side = -this.side; slotLat = -slotLat; }
     // a slot BEHIND the player while we're in front of him (e.g. a gunner-less raider turned rammer): fall back through the
     // next lane, never by braking in his face
     let dropBack = false;
-    if (slotGap > 2 && gap < 3 && this.mode !== 'overtake') { const sd = car.d - P.d >= 0 ? 1 : -1; if (Math.abs(P.d + sd * 4.6) > HALF_ROAD + 0.8) slotLat = -sd * 4.6; else slotLat = sd * 4.6; dropBack = true; }
+    if (slotGap > 2 && gap < 3 && this.mode !== 'overtake') { const sd = cd - pd >= 0 ? 1 : -1; if (Math.abs(pd + sd * 4.6) > half + 0.8) slotLat = -sd * 4.6; else slotLat = sd * 4.6; dropBack = true; }
     // flank slots may use the shoulder; if the player hugs that edge, go round to the other side
-    if ((this.behavior === 'flanker' || this.behavior === 'summoner') && Math.abs(P.d + slotLat) > HALF_ROAD + 1.2 && gap > 7) { this.side = -this.side; slotLat = -slotLat; }
+    if ((this.behavior === 'flanker' || this.behavior === 'summoner') && Math.abs(pd + slotLat) > half + 1.2 && gap > 7) { this.side = -this.side; slotLat = -slotLat; }
     // a roadblock is coming up for the player: raiders ahead run for the gap well in front, the rest drop back — the gap is his
-    const rbP = road.featuresIn(P.s + 5, P.s + 190, 'roadblock')[0];
+    const rbP = !path.branch && !path.crossRoute ? road.featuresIn(P.s + 5, P.s + 190, 'roadblock')[0] : null;
     if (rbP && rbP.s0 > car.s) {
       if (gap < -45) slotGap = Math.min(slotGap, -70);
       else { slotGap = Math.max(slotGap, 18); if (this.mode === 'overtake') this.mode = 'engage'; }
       this.atkCd = Math.max(this.atkCd, 1.5);
     }
-    dT = P.d + slotLat;
+    dT = pd + slotLat;
     // speed: close on the slot; the approach from far away is quick, the final metres are gentle
     // (the closing speed shrinks with the pace: at 200 km/h a +24 m/s lunge ends in the desert)
     vDes = pv + clamp((gap - slotGap) * 0.45, -12, lerp(26, 15, clamp(pv / 60, 0, 1)));
@@ -173,48 +197,48 @@ export class EnemyBrain {
       if (gap > -10 && gap < 28) { vDes = Math.max(vDes, pv + (this.passV || (this.passV = this.r.range(10.5, 15)))); nitro = true; }   // the pass itself: ~40-55 km/h faster, no braking into it
       else if (this.cutT) vDes = pv + 5;
     }
-    if (dropBack) vDes = Math.max(vDes, pv - (Math.abs(car.d - P.d) > 3 ? 8 : 2));
+    if (dropBack) vDes = Math.max(vDes, pv - (Math.abs(cd - pd) > 3 ? 8 : 2));
     if (this.launchT !== undefined && this.t - this.launchT < 3) nitro = true;   // peel-out
     // chasers get bored and come forward (they are the gunner's problem at first, the driver's next)
     if (this.behavior === 'chaser' && this.mode === 'engage' && this.atkCd <= 0 && gap < 45) {
-      if (this.guns.gunner && this.r() < 0.6 + 0.3 * L) { this.mode = 'overtake'; this.next = this.r() < 0.55 ? 'leader' : 'flanker'; this.side = P.d > 0 ? -1 : 1; this._tell('overtake'); }
+      if (this.guns.gunner && this.r() < 0.6 + 0.3 * L) { this.mode = 'overtake'; this.next = this.r() < 0.55 ? 'leader' : 'flanker'; this.side = pd > 0 ? -1 : 1; this._tell('overtake'); }
       else { this.setBehavior('rammer'); }
       this.atkCd = this._cooldown(6);
     }
     // ---------------- attacks
-    const relLat = car.d - P.d;
-    if (!this.atk && this.atkCd <= 0 && this.mode === 'engage' && this._canAttack(gap, relLat)) this._startAttack(gap, relLat);
+    const relLat = cd - pd;
+    if (!path.crossRoute && !this.atk && this.atkCd <= 0 && this.mode === 'engage' && this._canAttack(gap, relLat)) this._startAttack(gap, relLat);
     if (this.atk) {
       const a = this.atk; a.t += dt;
       switch (a.kind) {
         case 'swipe': {
           // tell: swing out ~1.5 m for a beat, then slam the flank
-          if (a.phase === 'wind') { dT = P.d + a.side * 5.8; vDes = pv + clamp((gap + 1.5) * 0.5, -6, 8); if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
-          else if (a.phase === 'hit') { dT = P.d + a.side * 0.6; vDes = pv + clamp((gap + 0.5) * 0.6, -5, 6) + 1; if (a.t > 0.9 || Math.abs(relLat) < 2.1) { a.phase = 'recover'; a.t = 0; } }
-          else { dT = P.d + a.side * 4.6; if (a.t > 1.0) this._endAttack(5.5); }
+          if (a.phase === 'wind') { dT = pd + a.side * 5.8; vDes = pv + clamp((gap + 1.5) * 0.5, -6, 8); if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
+          else if (a.phase === 'hit') { dT = pd + a.side * 0.6; vDes = pv + clamp((gap + 0.5) * 0.6, -5, 6) + 1; if (a.t > 0.9 || Math.abs(relLat) < 2.1) { a.phase = 'recover'; a.t = 0; } }
+          else { dT = pd + a.side * 4.6; if (a.t > 1.0) this._endAttack(5.5); }
           break;
         }
         case 'brake': {
-          dT = P.d + clamp(relLat, -1.2, 1.2);
+          dT = pd + clamp(relLat, -1.2, 1.2);
           if (a.phase === 'wind') { vDes = pv - 1; brake = 0.2; if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; a.v0 = pv; } }
           else if (a.phase === 'hit') { vDes = a.v0 * 0.72; brake = this.behavior === 'heavy' ? 0.4 : 0.5; if (a.t > a.hold || gap > 1) { a.phase = 'recover'; a.t = 0; } }
-          else { vDes = pv + 12; nitro = a.t < 0.8; dT = P.d + (relLat >= 0 ? 3.8 : -3.8); if (a.t > 1.4) this._endAttack(6.5); }
+          else { vDes = pv + 12; nitro = a.t < 0.8; dT = pd + (relLat >= 0 ? 3.8 : -3.8); if (a.t > 1.4) this._endAttack(6.5); }
           break;
         }
         case 'ram': {
           // line up behind a rear corner, hoot, then charge (nitro) into it — a PIT attempt
-          const corner = P.d + a.side * 0.9;
+          const corner = pd + a.side * 0.9;
           if (a.phase === 'line') { dT = corner; vDes = pv + clamp((gap - 11) * 0.5, -8, 12); if (Math.abs(gap - 11) < 5 && Math.abs(relLat - a.side * 0.9) < 1.4) { a.phase = 'wind'; a.t = 0; horn = true; this._tell('ram'); } if (a.t > 7) this._endAttack(3); }
           else if (a.phase === 'wind') { dT = corner; vDes = pv; if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
           else if (a.phase === 'hit') { dT = corner + clamp(P.veh.vl * 0.2, -1, 1); vDes = this.maxSpeed + 10; nitro = true; if (gap < -3 || a.t > 2.4 || a.contact) { a.phase = 'recover'; a.t = 0; } }
-          else { dT = P.d + a.side * 5; vDes = pv - 6; if (a.t > 1.4) this._endAttack(4.5); }
+          else { dT = pd + a.side * 5; vDes = pv - 6; if (a.t > 1.4) this._endAttack(4.5); }
           break;
         }
         case 'crush': {
           // twin miniboss: both slam in from opposite flanks at once
-          if (a.phase === 'wind') { dT = P.d + a.side * 6.2; vDes = pv + clamp((gap + 0.5) * 0.6, -6, 8); if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
-          else if (a.phase === 'hit') { dT = P.d + a.side * 0.2; vDes = pv + clamp(gap * 0.6, -5, 6) + 2; nitro = true; if (a.t > 1.1) { a.phase = 'recover'; a.t = 0; } }
-          else { dT = P.d + a.side * 5; if (a.t > 1.2) this._endAttack(9); }
+          if (a.phase === 'wind') { dT = pd + a.side * 6.2; vDes = pv + clamp((gap + 0.5) * 0.6, -6, 8); if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
+          else if (a.phase === 'hit') { dT = pd + a.side * 0.2; vDes = pv + clamp(gap * 0.6, -5, 6) + 2; nitro = true; if (a.t > 1.1) { a.phase = 'recover'; a.t = 0; } }
+          else { dT = pd + a.side * 5; if (a.t > 1.2) this._endAttack(9); }
           break;
         }
       }
@@ -239,8 +263,14 @@ export class EnemyBrain {
       }
     }
     // ---------------- raiders know where their own roadblocks are: thread the gap
-    const rb = road.featuresIn(car.s + 5, car.s + 120, 'roadblock')[0];
+    const rb = !path.branch ? road.featuresIn(car.s + 5, car.s + 120, 'roadblock')[0] : null;
     if (rb) { dT = clamp(rb.gap * 2.2, -4.6, 4.6); if (this.atk) this._endAttack(2); vDes = Math.min(vDes, 36); }
+    const stage = !path.branch && drivingLaneTarget(road, car.s, car.spec.length, 220, this._stage || (this._stage = {}));
+    if (stage) {
+      dT = stage.d; vDes = Math.min(vDes, stage.speed); nitro = false;
+      this.drivingSlice = stage.distance < 160;
+      if (this.atk) this._endAttack(2);
+    }
     this._drive(dt, dT, vDes, brake, nitro, horn);
     if (veh.up.y < 0.3) { this.stuckT += dt; if (this.stuckT > 3.5 && !car.exploded && car.burning <= 0) { car.burning = 0.001; sim.emit({ t: 'fire', id: car.id }); } } else this.stuckT = 0;
     this.gunnery(dt);
@@ -279,22 +309,31 @@ export class EnemyBrain {
 
   _drive(dt, dT, vDes, brakeIn, nitro, horn, shoulder = false) {
     const car = this.car, sim = this.sim, veh = car.veh, road = sim.road, speed = veh.vf, P = sim.player;
-    const lim = shoulder || this.behavior === 'flanker' || this.behavior === 'summoner' || this.mode === 'overtake' ? HALF_ROAD + 0.3 : LANE_LIMIT;
+    const path = enemyDrivingContext(road, car, P, this._routeContext || (this._routeContext = {}));
+    const constrained = !!path.branch || path.crossRoute;
+    const lim = constrained ? Math.max(0, path.halfWidth - car.spec.width / 2 - 0.35)
+      : shoulder || this.behavior === 'flanker' || this.behavior === 'summoner' || this.mode === 'overtake' ? HALF_ROAD + 0.3 : LANE_LIMIT;
     dT = clamp(dT, -lim, lim);
     vDes = Math.min(vDes, this.maxSpeed + (nitro ? 8 : 0));
     // curve caution: slow down for tight corners
     const look = clamp(speed * 0.6 + 8, 10, 64);
-    const smK = Math.max(Math.abs(road.sample(car.s + look * 1.8, _pt).k), Math.abs(road.sample(car.s + look * 0.9, _pt).k), Math.abs(road.sample(car.s + 10, _pt).k));
+    const smK = path.branch ? path.branch.maxCurvature
+      : Math.max(Math.abs(road.sample(car.s + look * 1.8, _pt).k), Math.abs(road.sample(car.s + look * 0.9, _pt).k), Math.abs(road.sample(car.s + 10, _pt).k));
     vDes = Math.min(vDes, Math.sqrt(Math.max(400, 15.5 / Math.max(smK, 1 / 1500))));   // ~15 m/s² of cornering grip (like the AI driver)
     // off the asphalt: slow down and get back on it
-    const off = Math.abs(car.d) - (HALF_ROAD + 1.5);
+    const off = Math.abs(path.carD) - (constrained ? lim : HALF_ROAD + 1.5);
     if (off > 0) vDes = Math.min(vDes, Math.max(18, 45 - off * 4));
     // pure pursuit toward a point on the road ahead at the target lateral offset
     // lane target moves at most ~8 m/s sideways: no twitchy full-lock swerves at 200 km/h when a slot flips sides
     const rate = this.atk && this.atk.phase === 'hit' ? 12 : 8;
-    this.dTs = this.dTs === undefined ? car.d : this.dTs + clamp(dT - this.dTs, -rate * dt, rate * dt);
+    this.dTs = this.dTs === undefined ? path.carD : this.dTs + clamp(dT - this.dTs, -rate * dt, rate * dt);
+    // Route changes and an old wide-road attack target cannot retain a point
+    // outside a narrower strip while the lateral slew catches up.
+    if (constrained) this.dTs = clamp(this.dTs, -lim, lim);
     dT = this.dTs; this._lastDT = dT;
-    const tp = road.pointAt(car.s + look, dT, this._tp || (this._tp = {}));
+    const tp = path.branch && road.drivingPointAt
+      ? road.drivingPointAt(car.s + look, dT, path.route, this._tp || (this._tp = {}))
+      : road.pointAt(car.s + look, dT, this._tp || (this._tp = {}));
     const desired = Math.atan2(tp.x - veh.pos.x, tp.z - veh.pos.z);
     const heading = Math.atan2(veh.fwd.x, veh.fwd.z);
     // proper pure pursuit: the yaw rate that arcs onto the target point, as a fraction of what the tyres allow at this speed
@@ -313,7 +352,8 @@ export class EnemyBrain {
       const chaos = o.exploded || o.driverless;
       const range = chaos ? 7 + speed * 0.12 : 16 + speed * 0.3;
       if (ahead > 0 && ahead < range && Math.abs(lat) < 3.4) {
-        steer += clamp((lat >= 0 ? -1 : 1) * (1 - ahead / range) * (chaos ? 0.9 : 1.6), -1, 1);
+        if (!this.drivingSlice && !constrained) steer += clamp((lat >= 0 ? -1 : 1) * (1 - ahead / range) * (chaos ? 0.9 : 1.6), -1, 1);
+        else if (o.veh.vf < speed + 2) brakeAvoid = Math.max(brakeAvoid, .6);
         // (an overtaker steers round the truck instead of braking behind it: the pass stays fast)
         if (o.veh.vf < speed - 2 && ahead < 10 + speed * 0.2 && !(o === P && this.mode === 'overtake' && Math.abs(lat) > 1.6)) brakeAvoid = Math.max(brakeAvoid, chaos ? 0.3 : 0.6);
       }
@@ -344,7 +384,10 @@ export class EnemyBrain {
       }
       if (best) { _v.copy(best.veh.pos).sub(veh.pos); this.deadSteer = (_v.dot(veh.left) >= 0 ? 1 : -1) * this.r.range(0.75, 1); this.deadVictim = best; }
       else { // nobody to take along: veer away from the player, toward the roadside (scenery / a tumble)
-        const P = sim.player, away = P ? (car.d - P.d >= 0 ? 1 : -1) : (car.d >= 0 ? 1 : -1);
+        const P = sim.player;
+        const away = P ? ((car.route || null) === (P.route || null)
+          ? (car.d - P.d >= 0 ? 1 : -1)
+          : (_v.copy(P.veh.pos).sub(veh.pos).dot(veh.left) <= 0 ? 1 : -1)) : (car.d >= 0 ? 1 : -1);
         this.deadSteer = away * this.r.range(0.6, 1);
       }
       this.deadSpin = !best && this.r() < 0.35;

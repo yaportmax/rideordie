@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { mergeRigid, unifyAtlasMaterials } from '../src/core/merge.js';
 import { CarView } from '../src/view/car_view.js';
+import { CarViewResources, disposeCarViewNode } from '../src/view/car_view_resources.js';
 import { InstancePool } from '../src/world/dressing/pool.js';
 import { configureWeaponShadows } from '../src/view/weapon_view.js';
 import { configureCrewShadows } from '../src/view/crew_view.js';
@@ -39,6 +40,7 @@ test('atlas material sharing keeps roughness and tint differences', () => {
 test('car shared materials update once and rigid primitives follow moving/detached parents', () => {
   const car = Object.assign(Object.create(CarView.prototype), {
     root: new THREE.Group(), wheelNodes: new Map(), panels: new Map(), sockets: {}, taillights: [], headlights: [],
+    ownedResources: new CarViewResources(),
   });
   const model = new THREE.Group(), paint = new THREE.MeshStandardMaterial(); paint.name = 'paint';
   const wheel = new THREE.Group(); wheel.name = 'wheel_FL';
@@ -47,6 +49,9 @@ test('car shared materials update once and rigid primitives follow moving/detach
   const tyre = new THREE.Mesh(panel.geometry, new THREE.MeshStandardMaterial()); tyre.name = 'wheel_FL_merged_rubber'; wheel.add(tyre);
   model.add(body, other, panel, wheel); car._adoptModel(model, {});
   assert.equal(car.paintMats.length, 1);
+  assert.equal(car.ownedResources.users.size, 1, 'one per-instance paint clone is shared by all rigid primitives');
+  assert.equal(car.ownedResources.users.get(car.paintMats[0]).size, 3);
+  assert.notEqual(car.paintMats[0], paint, 'shared cached template paint is not mutated');
   assert.equal(car.wheelNodes.size, 1);
   assert.equal(body.matrixAutoUpdate, false); assert.equal(tyre.matrixAutoUpdate, false);
   assert.equal(panel.matrixAutoUpdate, true); assert.equal(wheel.matrixAutoUpdate, true);
@@ -55,6 +60,12 @@ test('car shared materials update once and rigid primitives follow moving/detach
   const scene = new THREE.Scene(); scene.add(car.root); scene.attach(panel);
   panel.position.x = 10; scene.updateMatrixWorld(true);
   assert.equal(panel.matrixWorld.elements[12], 10);
+  let instanceReleased = 0, templateReleased = 0;
+  car.paintMats[0].addEventListener('dispose', () => instanceReleased++);
+  paint.addEventListener('dispose', () => templateReleased++);
+  car.dispose(); assert.equal(instanceReleased, 0, 'the detached panel still uses its instance paint');
+  disposeCarViewNode(panel); panel.removeFromParent();
+  assert.equal(instanceReleased, 1); assert.equal(templateReleased, 0);
 });
 
 function list(points) {

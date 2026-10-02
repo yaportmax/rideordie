@@ -11,11 +11,13 @@ import { lookAt } from '../world/look.js';
 import { Hud } from '../ui/hud.js';
 import { Run } from './run.js';
 import { GarageScene } from './garage_scene.js';
-import { VEHICLES } from '../data/vehicles.js';
+import { VEHICLES, vehicleModelURL, vehicleModelURLs } from '../data/vehicles.js';
+import { DRIVER_UPGRADE_MAX } from '../data/vehicle_families.js';
 import { Post } from '../view/post.js';
 import { Fx } from '../view/fx.js';
 import { AudioSys } from '../core/audio.js';
 import { CarView, warmRaiderViews } from '../view/car_view.js';
+import { MountedGun } from '../view/mounted_gun.js';
 import { HazardMarks } from '../view/hazard_marks.js';
 import { BossMarks } from '../view/boss_marks.js';
 import { BossView } from '../view/boss_view.js';
@@ -68,7 +70,7 @@ export class Game {
   async boot(onProgress) {
     const tl = new THREE.TextureLoader();
     const tex = (n, srgb) => { const t = tl.load(`/textures/asphalt/${n}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8; return t; };
-    const urls = [...Object.keys(VEHICLES).map((k) => `/models/vehicles/${k}.glb`), '/models/vehicles/boss_warrig.glb', ...['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'].map((w) => `/models/weapons/${w}.glb`),
+    const urls = [...vehicleModelURLs(), '/models/vehicles/boss_warrig.glb', ...['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg', 'mounted_minigun'].map((w) => `/models/weapons/${w}.glb`),
       ...['hero_gunner', 'hero_driver', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_driver', 'raider_a2', 'raider_b2', 'raider_c2', 'raider_d2', 'raider_driver2', 'fp_arms'].map((c) => `/models/characters/${c}.glb`)];   // fp_arms: first-person gunner + driver arms
     await Assets.preload(urls, onProgress);
     const arrays = await loadGroundArrays();
@@ -147,10 +149,19 @@ export class Game {
     const warmMaterials = this._warmMaterials ??= new Set();
     try {
       // build the real view objects (same shadow/transparency flags => same shader programs as in play)
-      for (const k of Object.keys(VEHICLES)) { const v = new CarView(VEHICLES[k], { paint: 0x888888, paint2: 0x333333, shadowProxy: true }); g.add(v.root); }
-      for (const r of warmRaiderViews()) g.add(r); g.add(HazardMarks.warmGroup()); g.add(BossMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
+      const warmedVehicleModels = new Set();
+      for (const spec of Object.values(VEHICLES)) {
+        const modelURL = vehicleModelURL(spec);
+        if (warmedVehicleModels.has(modelURL)) continue;
+        warmedVehicleModels.add(modelURL);
+        const v = new CarView(spec, { paint: 0x888888, paint2: 0x333333, shadowProxy: true, upgradeLevels: spec.kind === 'player' ? DRIVER_UPGRADE_MAX : undefined, warmMaterials });
+        g.add(v.root); cleanup.push(() => v.dispose());
+      }
+      for (const r of warmRaiderViews({ onDispose: dispose => cleanup.push(dispose), warmMaterials })) g.add(r); g.add(HazardMarks.warmGroup()); g.add(BossMarks.warmGroup());   // warlord kits / nameplates / glints + roadblock telegraph
       g.add(new BossView(null).root);
       for (const w of ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg']) g.add(new WeaponView(w).root);
+      const mounted = new MountedGun(); g.add(mounted.root); cleanup.push(() => mounted.dispose(warmMaterials));
+      g.add(WeaponView.warmReflexObjects(dispose => cleanup.push(dispose), warmMaterials));
       for (const c of ['hero_gunner', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_a2', 'raider_b2', 'raider_c2', 'raider_d2']) g.add(new CrewView(c, { role: 'gunner', weapon: 'rifle' }).root);
       for (const c of ['hero_driver', 'raider_driver', 'raider_driver2']) g.add(new CrewView(c, { role: 'driver' }).root);
       g.add(ViewModel.warmObject(dispose => cleanup.push(dispose), warmMaterials));   // first-person viewmodel programs (patched projection) + its flash / reticle
@@ -279,7 +290,7 @@ export class Game {
     const t0 = performance.now();
     if (!frozen) run.update(dt, cmds, now / 1000);
     const t1 = performance.now();
-    this.look = lookAt(run.playerS || 0);
+    this.look = lookAt(run.playerS || 0, undefined, run.road);
     this.sky.setLook(this.look, this.frames === 0);
     const p = run.states.get(1);
     this.sky.update(dt, this.camera, p ? p.pos : this.camera.position);

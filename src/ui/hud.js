@@ -66,7 +66,7 @@ export class Hud {
       <div class="abs bar rpm"><i class="rpmbar"></i></div>
       <div class="abs bar nitro"><i class="nitrobar"></i></div>
       <div class="abs hpbox">
-        <div class="row"><span>TRUCK</span><div class="bar hp"><i class="hpbar"></i></div></div>
+        <div class="row"><span>CAR</span><div class="bar hp"><i class="hpbar"></i></div></div>
       </div>
       <div class="abs ammo" style="display:none"><span class="wname"></span><b class="mag">0</b><small> / ∞</small></div>`;
     document.body.appendChild(el);

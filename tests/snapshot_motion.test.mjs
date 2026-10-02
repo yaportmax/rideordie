@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../src/net/snapshot.js';
 import { VEHICLES } from '../src/data/vehicles.js';
+import { legacySnapshotPacket } from './helpers/legacy_snapshot.mjs';
 
 function packet(tick, time, { x = time * 40, y = 1, z = 0, vx = 40, vy = 0, vz = 0, poseRevision = 0, quat = { x: 0, y: 0, z: 0, w: 1 }, count = 1 } = {}) {
   const spec = VEHICLES.truck_t1;
@@ -29,15 +30,16 @@ function replay({ drop = () => false, poseAt = time => ({ x: time * 40 }) } = {}
   return { buffer, rows };
 }
 
-test('wire v2 persists uint16 pose revisions; historical v1 decodes with revision zero', () => {
+test('wire v3 persists uint16 pose revisions; independent historical v2/v1 packets retain old revision semantics', () => {
   const { bytes, decoded } = packet(120, 1, { poseRevision: 65535 });
-  assert.equal(new DataView(bytes).getUint8(0), 2); assert.equal(decoded.cars[0].poseRevision, 65535);
-  // The independent v1 layout is exactly v2 with its two-byte car revision removed.
-  const modern = new Uint8Array(bytes), legacy = new Uint8Array(modern.length - 2);
-  legacy.set(modern.subarray(0, 40)); legacy.set(modern.subarray(42), 40); legacy[0] = 1;
-  const old = decodeSnapshot(legacy); assert(old); assert.equal(old.cars[0].poseRevision, 0);
-  assert.equal(old.cars[0].x, decoded.cars[0].x); assert.equal(old.cars[0].L.length, 4);
-  const invalid = bytes.slice(0); new DataView(invalid).setUint8(0, 3); assert.equal(decodeSnapshot(invalid), null);
+  assert.equal(new DataView(bytes).getUint8(0), 3); assert.equal(decoded.cars[0].poseRevision, 65535);
+  for (const version of [1, 2]) {
+    const old = decodeSnapshot(legacySnapshotPacket(version, { tick: 120, time: 1, x: decoded.cars[0].x, z: 0, poseRevision: 65535 }));
+    assert(old); assert.equal(old.cars[0].poseRevision, version === 1 ? 0 : 65535);
+    assert.equal(old.cars[0].x, decoded.cars[0].x); assert.equal(old.cars[0].L.length, 4);
+    assert.equal(old.cars[0].elite, 5); assert.equal(old.cars[0].intent, 'block'); assert.equal(old.cars[0].tagIdx, 7);
+  }
+  const invalid = bytes.slice(0); new DataView(invalid).setUint8(0, 4); assert.equal(decodeSnapshot(invalid), null);
   const wrapped = packet(124, 1 + 1 / 30, { poseRevision: 65536 }).decoded; assert.equal(wrapped.cars[0].poseRevision, 0);
 });
 

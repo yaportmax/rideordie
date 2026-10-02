@@ -1,0 +1,17 @@
+.rod-ui .campaign-safe{padding:70px 110px 110px}
+.rod-ui .campaign-heading h1{font-size:72px;margin:8px 0 22px}
+.rod-ui .campaign-body{max-height:740px;overflow-y:auto;padding:4px 8px 8px;overscroll-behavior:contain}
+.rod-ui .campaign-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.rod-ui .campaign-card{min-height:100px;display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px 20px;background:rgba(20,16,13,.94);border:2px solid #65503a;color:var(--bone)}
+.rod-ui .campaign-number{font:42px var(--disp);color:var(--haz)}
+.rod-ui .campaign-card b{display:block;font-size:24px;letter-spacing:.06em;line-height:1.2;overflow-wrap:break-word}
+.rod-ui .campaign-card small{display:block;font-size:14px;letter-spacing:.08em;color:var(--bone-d);margin-top:7px;line-height:1.3}
+.rod-ui .campaign-status{font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--bone-d)}
+.rod-ui .campaign-card.locked{opacity:.5}
+.rod-ui .campaign-card.selected,.rod-ui .campaign-marathon.selected{border-color:var(--haz);background:rgba(68,45,15,.94)}
+.rod-ui .campaign-card.is-f,.rod-ui .campaign-marathon.is-f{outline:4px solid var(--haz);outline-offset:1px}
+.rod-ui .campaign-marathon{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin-top:16px;min-height:80px;padding:18px 22px;background:rgba(20,16,13,.94);border:2px solid #65503a}
+.rod-ui .campaign-marathon b{font-size:28px;color:var(--haz)}
+.rod-ui .campaign-marathon span,.rod-ui .campaign-authority{font-size:16px;line-height:1.4;color:var(--bone-d)}
+.rod-ui .campaign-authority{margin:14px 0 0}
+.rod-ui .btn.campaign-back{position:absolute;right:120px;bottom:74px;width:360px;height:62px;font-size:22px}

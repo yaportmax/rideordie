@@ -5,6 +5,7 @@ import { WEAPONS, weaponStats, GRENADE } from '../data/weapons.js';
 import { clamp, damp, lerp, wrapAngle, D2R } from '../core/util.js';
 import { BOSS_PARTS } from '../data/boss.js';
 import { localHitPoint } from '../sim/hit_contact.js';
+import { sanitizeOpticId } from '../data/weapon_optics.js';
 
 const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _m = new THREE.Vector3();
 
@@ -17,8 +18,10 @@ export class GunnerController {
     this.ctx = ctx;
     this.slots = loadout.weapons.slice(0, 3);
     this.levels = loadout.levels || {};
+    this.optics = Object.freeze(Object.fromEntries(this.slots.map(id => [id, sanitizeOpticId(id, loadout.optics?.[id])])));
     this.stats = this.slots.map((id) => {
       const s = weaponStats(id, this.levels[id]);
+      s.opticId = this.optics[id];
       const steady = Math.max(0.1, 1 - 0.1 * (loadout.handling || 0));
       s.reload *= loadout.reloadMul ?? 1;
       s.spreadMul *= steady; s.recoilMul *= steady;
@@ -280,6 +283,7 @@ export class GunnerController {
   /** First-person shots: the viewmodel draws its own muzzle flash; casings leave its (apparent) ejection port. */
   _fpTag(e) {
     if (this.fp && this.vm) { e.fp = this.vm.scopedNow ? 2 : 1; if (this.vm.ejectWorld(_e, _r)) { e.ej = _e.toArray(); e.ejd = _r.toArray(); } }
+    else if (this.weapon.mounted && this.mountedRig?.ejectWorld(_e, _r)) { e.mounted = true; e.ej = _e.toArray(); e.ejd = _r.toArray(); }
     return e;
   }
 

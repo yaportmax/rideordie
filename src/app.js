@@ -3,9 +3,11 @@
 // The driver's machine runs the simulation.
 import { Ui } from './ui/ui.js';
 import { Session } from './net/session.js';
-import { loadProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from './meta/profile.js';
+import { loadProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, buyWeaponOptic, equipWeaponOptic, equipWeapon, selectTruck, creditRun, bestForJourney } from './meta/profile.js';
+import { equippedWeaponOptics, sanitizeOpticId } from './data/weapon_optics.js';
+import { campaignJourney, normalizeJourney, selectCampaignLevel, creditCampaignLevel } from './data/campaign.js';
 
-import { TRUCK_COLORS, UPGRADE_BY_ID } from './data/upgrades.js';
+import { TRUCK_COLORS, UPGRADE_BY_ID, effectiveUpgrades, upgradeLevel, upgradeLimit } from './data/upgrades.js';
 import { normalizeUnits } from './ui/units.js';
 import { canCaptureRun, isDefeated } from './game/run_status.js';
 const DAM_CHECKPOINT_S = 52500, DAM_CHECKPOINT_UNLOCK = 59000; // start past the last warlord's window (city ~49.5 km + 2.5 km)
@@ -47,6 +49,7 @@ export class App {
 
   sound(name) { this.game.audio?.ui(name); }
   _transition() {
+    this._campaignOpen = false;
     this._flowId = (this._flowId || 0) + 1;
     this._cancelStartSelection(); this._startup = this._lostTransition = null;
     return this._flowId;
@@ -136,12 +139,21 @@ export class App {
         this._lobbyRefresh();
       },
       state: () => { if (this.session === s) this._lobbyRefresh(); },
+      garageSeats: (state, event) => {
+        if (this.session !== s || this.screen !== 'garage') return;
+        const selection = this._startSelection;
+        if (selection && (state.epoch !== selection.seatEpoch || state.revision !== selection.seatRevision || state.intent !== selection.seatIntent)) this._cancelStartSelection();
+        this.readyMine = state.ready[s.isHost ? 'host' : 'guest'];
+        this.readyOther = state.ready[s.isHost ? 'guest' : 'host'];
+        if (event.type === 'accepted') this.ui.toast(`You are now the ${s.me.role}. Equipment stays with its seat.`, 'info');
+        this._garageRefresh(); this._maybeStart();
+      },
       profile: (p) => {
         if (this.session !== s) return;
         const selection = this._startSelection;
         if (selection && (p !== selection.profile || p.revision !== selection.revision)) {
           this._cancelStartSelection(); this.readyMine = false;
-          s.sendJSON({ t: 'garageReady', epoch: this._garageEpoch, ready: false });
+          s.swap.ready(false);
           this.ui.toast('Loadout changed. Ready up again.', 'info');
         }
         this.profile = p;
@@ -230,13 +242,9 @@ export class App {
       return;
     }
     if (m.t === 'toGarage' && !this.session?.isHost) { this.garage(); }
-    else if (m.t === 'garageReady') {
-      const s = this.session;
-      if (!s || this.mode !== 'coop' || !Number.isSafeInteger(m.epoch) || m.epoch !== this._sessionEpoch(s)) return;
-      if (!m.ready) this._cancelStartSelection();
-      this._peerGarageReady = { session: s, epoch: m.epoch, ready: !!m.ready };
-      if (this.screen === 'garage' && this._garageEpoch === m.epoch) { this.readyOther = !!m.ready; this._garageRefresh(); this._maybeStart(); }
-    }
+    // Garage consent/readiness is consumed by Session with a visit epoch and
+    // monotonic command sequence. Legacy readiness cannot bypass a seat swap.
+    else if (m.t === 'garageReady') return;
     else if (m.t === 'abort') { this.game.endRun(); this.garage(); this.ui.toast('Run abandoned', 'warn'); }
   }
 
@@ -251,8 +259,7 @@ export class App {
     this._pendingResults = null;
     if (this.session) this.session.activeRunId = null;
     this.readyMine = false;
-    const peer = this._peerGarageReady;
-    this.readyOther = !!(peer && peer.session === this.session && peer.epoch === this._garageEpoch && peer.ready);
+    this.readyOther = false;
     this._pendingRunMsgs = []; this._pendingFast = null;
     this._stage('garage');
     const G = this.game.garage;
@@ -260,28 +267,63 @@ export class App {
     G.setPreview({}); G.setTab('truck');
     this.game.audio?.music?.setState?.('garage');
     this.ui.showGarage(this.profile, this._garageCb(), { ...this._garageExtra(), ...(open || {}) });
+    this.session?.swap.enterGarage();
     requestAnimationFrame(() => this._frameRect());
   }
-  _garageLoadout() { return { weapon: this.profile.loadout[0] || 'pistol', armorTier: this.profile.upgrades.vest || 0 }; }
+  _garageLoadout() { const weapon = this.profile.loadout[0] || 'pistol'; return { weapon, opticId: equippedWeaponOptics(this.profile)[weapon] || 'standard', armorTier: this.profile.upgrades.vest || 0, upgradeLevels: effectiveUpgrades(this.profile) }; }
+  _selectedJourney() { return this.profile.campaignProgress ? campaignJourney(this.profile) : normalizeJourney(); }
+  _showCampaign() {
+    if (this.screen !== 'garage') return;
+    this._cancelStartSelection();
+    const flow = this._flowId, session = this.session, generation = this._garageGeneration;
+    const current = () => this.screen === 'garage' && this._flowId === flow && this.session === session && this._garageGeneration === generation;
+    this._campaignOpen = true;
+    if (session?.isHost && this.readyMine) session.swap.ready(false);
+    this.ui.showCampaign(this.profile, {
+      onSelect: (level, mode) => {
+        if (!current() || (session && !session.isHost)) return;
+        const result = session ? session.selectJourney(level, mode) : selectCampaignLevel(this.profile, level, mode);
+        if (!result.ok) { this.ui.toast('That level is still locked.', 'warn'); return; }
+        if (!session) saveProfile(this.profile);
+        this._campaignOpen = false;
+        this.ui.showGarage(this.profile, this._garageCb(), this._garageExtra());
+        requestAnimationFrame(() => this._frameRect());
+      },
+      onBack: () => {
+        if (!current()) return;
+        this._campaignOpen = false;
+        this.ui.showGarage(this.profile, this._garageCb(), this._garageExtra());
+        requestAnimationFrame(() => this._frameRect());
+      },
+    }, { canSelect: !session || session.isHost });
+  }
   _garageExtra() {
     const s = this.session;
-    return { solo: this.mode === 'solo', ready: this.readyMine, isHost: !s || s.isHost, runNo: this.profile.runs + 1,
+    return { solo: this.mode === 'solo', ready: this.readyMine, isHost: !s || s.isHost, runNo: this.profile.runs + 1, journey: this._selectedJourney(),
+      seatSwap: s ? { role: s.me.role, actor: s.isHost ? 'host' : 'guest', state: s.swap.snapshot(), available: s.swap.canRequest(), partnerName: s.other?.name || 'Partner' } : undefined,
+      readyBlocked: !!s && !s.swap.canRequest(),
       partner: s ? { name: s.other?.name || 'Partner', ready: this.readyOther, connected: s.connected, role: s.other?.role } : undefined };
   }
   _garageRefresh() {
     if (this.screen !== 'garage') return;
+    if (this._campaignOpen) { this.ui.updateCampaign(this.profile, { canSelect: !this.session || this.session.isHost }); return; }
     this.game.garage.setTruck(this.profile.truck, TRUCK_COLORS[this.profile.truckColor] ?? TRUCK_COLORS[0], this._garageLoadout());
     this.ui.updateGarage(this.profile, this._garageExtra());
   }
-  /** Shop tab / hovered item -> 3D framing + live previews (truck model, paint, weapon on the bench, next armour tier). */
-  _garageView(tab, sel) {
+  /** Preview the selected chassis with its family's own modifications. Driver
+   * upgrade previews match the next purchase; crew armor shows the owned tier. */
+  _garageView(tab, sel, opticId) {
     const G = this.game.garage; if (!G) return;
     G.setTab(tab);
     const p = this.profile, pv = {};
-    if (tab === 'truck' && sel) pv.truck = sel;
+    if (tab === 'truck' && sel) { pv.truck = sel; pv.upgradeLevels = effectiveUpgrades(p, sel); }
+    if (tab === 'upgrades' && UPGRADE_BY_ID[sel]?.role === 'driver') {
+      const level = upgradeLevel(p, sel), limit = upgradeLimit(p, sel);
+      pv.upgradeLevels = { ...effectiveUpgrades(p), [sel]: Math.min(limit, level + 1) };
+    }
     if (tab === 'paint' && sel != null) pv.paint = TRUCK_COLORS[+sel];
-    if (tab === 'weapons' && sel) pv.weapon = sel;
-    if (tab === 'gunner' && sel === 'vest') pv.armorTier = Math.min(3, (p.upgrades.vest || 0) + 1);
+    if (tab === 'weapons' && sel) { pv.weapon = sel; pv.opticId = sanitizeOpticId(sel, opticId ?? equippedWeaponOptics(p)[sel]); }
+    if (tab === 'gunner' && sel === 'vest') pv.armorTier = p.upgrades.vest || 0;
     G.setPreview(pv);
   }
   _garageCb() {
@@ -293,6 +335,8 @@ export class App {
       else if (kind === 'upgrade') r = buyUpgrade(p, id);
       else if (kind === 'weapon') r = buyWeapon(p, id);
       else if (kind === 'weaponTrack' || kind === 'track') r = buyWeaponTrack(p, id, extra);
+      else if (kind === 'weaponOptic') r = buyWeaponOptic(p, id, extra);
+      else if (kind === 'equipWeaponOptic') r = equipWeaponOptic(p, id, extra);
       else if (kind === 'equip') r = equipWeapon(p, id, extra);
       else if (kind === 'color' && Number.isInteger(id) && id >= 0 && id < TRUCK_COLORS.length) { p.truckColor = id; r = { ok: true }; }
       if (r && r.ok) {
@@ -303,11 +347,20 @@ export class App {
       this._garageRefresh();
     };
     return {
+      onCampaign: () => this._showCampaign(),
       onBuy: (kind, id, track) => act(kind, id, track),
       onSelectTruck: (id) => act('select', id),
       onPaint: (i) => act('color', i),
       onEquip: (w, slot) => act('equip', w, slot),
-      onView: (tab, sel) => this._garageView(tab, sel),
+      onView: (tab, sel, opticId) => this._garageView(tab, sel, opticId),
+      onSeatSwap: (action, id) => {
+        const s = this.session;
+        if (this.mode !== 'coop' || this.screen !== 'garage' || !s) return;
+        this._cancelStartSelection();
+        if (action === 'request') s.swap.request();
+        else if (action === 'accept' || action === 'decline') s.swap.respond(id, action === 'accept');
+        else if (action === 'cancel') s.swap.cancel(id);
+      },
       onReady: async () => {
         if (this.screen !== 'garage') return;
         if (this.mode === 'solo') {
@@ -317,14 +370,12 @@ export class App {
             const startS = await this._pickStart(token);
             if (startS === null || this._startSelection !== token || this._flowId !== token.flow || this._garageGeneration !== token.garage || this.screen !== 'garage' || this.mode !== 'solo' || this.session || this.profile !== token.profile || this.profile.revision !== token.revision) return;
             const r = this.soloRole || 'both';
-            return this._startRun({ role: r === 'both' ? 'solo' : r, ai: r === 'driver' ? 'gunner' : r === 'gunner' ? 'driver' : null, seed: (Math.random() * 1e9) | 0, profile: this.profile, startS });
+            return this._startRun({ role: r === 'both' ? 'solo' : r, ai: r === 'driver' ? 'gunner' : r === 'gunner' ? 'driver' : null, seed: (Math.random() * 1e9) | 0, profile: this.profile, startS, journey: this._selectedJourney() });
           } finally { if (this._startSelection === token) this._startSelection = null; }
         }
         if (this.mode !== 'coop' || !this.session) return;
         this._cancelStartSelection();
-        this.readyMine = !this.readyMine;
-        this.session.sendJSON({ t: 'garageReady', epoch: this._garageEpoch, ready: this.readyMine });
-        this._garageRefresh(); this._maybeStart();
+        this.session.swap.ready(!this.readyMine);
       },
       onMenu: async () => {
         const flow = this._flowId, session = this.session;
@@ -339,23 +390,25 @@ export class App {
   }
   async _maybeStart() {
     const s = this.session;
-    if (this._startSelection || this.screen !== 'garage' || this.mode !== 'coop' || !s?.isHost || !s.connected || !s.other || !this.readyMine || !this.readyOther || !s.me.role || !s.other.role || s.me.role === s.other.role) return;
-    const token = this._startSelection = { session: s, flow: this._flowId, garage: this._garageGeneration, epoch: this._garageEpoch, profile: this.profile, revision: this.profile.revision, mine: s.me.role, other: s.other.role };
+    if (this._campaignOpen || this._startSelection || this.screen !== 'garage' || this.mode !== 'coop' || !s?.isHost || !this.readyMine || !this.readyOther || !s.swap.canStart()) return;
+    const seats = s.swap.snapshot();
+    const token = this._startSelection = { session: s, flow: this._flowId, garage: this._garageGeneration, epoch: this._garageEpoch, profile: this.profile, revision: this.profile.revision, mine: s.me.role, other: s.other.role, seatEpoch: seats.epoch, seatRevision: seats.revision, seatIntent: seats.intent };
     try {
       const startS = await this._pickStart(token);
-      if (this._startSelection !== token || this._flowId !== token.flow || this._garageGeneration !== token.garage || this._garageEpoch !== token.epoch || this._sessionEpoch(s) !== token.epoch || this.session !== s || this.mode !== 'coop' || this.screen !== 'garage' || !s.connected || !s.other || !this.readyMine || !this.readyOther || s.me.role !== token.mine || s.other.role !== token.other) return;
-      if (startS === null) { this.readyMine = false; s.sendJSON({ t: 'garageReady', epoch: token.epoch, ready: false }); this._garageRefresh(); return; }
+      const currentSeats = s.swap.snapshot();
+      if (this._campaignOpen || this._startSelection !== token || this._flowId !== token.flow || this._garageGeneration !== token.garage || this._garageEpoch !== token.epoch || this._sessionEpoch(s) !== token.epoch || this.session !== s || this.mode !== 'coop' || this.screen !== 'garage' || !this.readyMine || !this.readyOther || !s.swap.canStart() || currentSeats.epoch !== token.seatEpoch || currentSeats.revision !== token.seatRevision || currentSeats.intent !== token.seatIntent || s.me.role !== token.mine || s.other.role !== token.other) return;
+      if (startS === null) { this.readyMine = false; s.swap.ready(false); this._garageRefresh(); return; }
       if (this.profile !== token.profile || this.profile.revision !== token.revision) {
-        this.readyMine = false; s.sendJSON({ t: 'garageReady', epoch: token.epoch, ready: false }); this._garageRefresh();
+        this.readyMine = false; s.swap.ready(false); this._garageRefresh();
         this.ui.toast('Loadout changed. Ready up again.', 'info'); return;
       }
-      s.me.ready = s.other.ready = true;
-      const cfg = s.startRun({ seed: (Math.random() * 1e9) | 0, startS });
+      const cfg = s.startRun({ seed: (Math.random() * 1e9) | 0, startS, journey: this._selectedJourney() });
       if (cfg) this._startRun(cfg);
     } finally { if (this._startSelection === token) this._startSelection = null; }
   }
   /** Once the crew has reached the Leviathan, a run can roll out from the dam road (past the warlords) for another shot at it. */
   async _pickStart(selection) {
+    if (this._selectedJourney().mode !== 'legacy') return 40;
     const reached = (this.profile.best?.furthestS ?? this.profile.best?.distance ?? 0) >= DAM_CHECKPOINT_UNLOCK;
     if (!reached) return 40;
     const choice = this.ui.modal({ title: 'ROLL OUT FROM', text: 'You have reached the Leviathan. Start at the dam road for another shot at it (distance pays from where you start), or run the whole highway.', buttons: [
@@ -373,6 +426,7 @@ export class App {
     this._peerGarageReady = null;
     this.ui.hideAll();
     this.screen = 'run';
+    if (session?.swap.localPhase === 'garage') session.swap.leaveGarage('run');
     this._pendingResults = null;
     this._pendingRunMsgs = []; this._pendingFast = null;
     this.input.reset();
@@ -463,23 +517,31 @@ export class App {
     this.game.paused = false; this._releasing = true; this.input.releaseLock();
     if (!sm) { this.garage(); return; }
     this.screen = 'results';
+    this.session?.swap.leaveGarage('results');
     this.game.hud?.setVisible(false);
     const beforeProfile = this.session && !this.session.isHost ? (run.cfg?.profile || this.profile) : this.profile;
-    const before = { ...beforeProfile.best };
+    const before = bestForJourney(beforeProfile, sm.journey);
     const cashBefore = beforeProfile.cash;
     if (this.session) this.session.creditResult(sm);
-    else { creditRun(this.profile, sm); saveProfile(this.profile); }
+    else {
+      creditRun(this.profile, sm);
+      if (sm.levelCleared && creditCampaignLevel(this.profile, { runId: sm.id, level: sm.journey?.level, mode: sm.journey?.mode, won: sm.won })) {
+        this.profile.campaignProgress.selectedLevel = Math.min(10, sm.journey.level + 1);
+      }
+      saveProfile(this.profile);
+    }
     const newBest = { distance: sm.distance > (before.distance || 0), time: sm.time > (before.time || 0), kills: sm.kills > (before.kills || 0) };
     this.game.audio?.music?.setState?.(sm.won ? 'victory' : 'garage');
     this.sound('whoosh_transition');
     this.ui.showResults({ ...sm, newBest, bestBefore: before, cashBefore }, this.profile, {
-      onContinue: () => (sm.won ? this._victoryModal() : this.garage()), onTick: () => this.sound('coin'),
+      onContinue: () => (sm.won && (sm.journey?.mode !== 'campaign' || sm.journey.level === 10) ? this._victoryModal() : this.garage()), onTick: () => this.sound('coin'),
       onShop: (tab, id) => this.garage({ tab, select: id }),
     });
   }
   async _victoryModal() {
     const p = this.profile, flow = this._flowId, run = this.game.run, session = this.session;
-    const result = await this.ui.modal({ title: 'THE ROAD IS YOURS', text: `The Leviathan is scrap and the Warlord's convoy is broken. ${p.runs} runs, $${p.totalCash.toLocaleString()} earned. The highway still has raiders on it... keep riding for the high score, or start a new campaign from the title screen.`, buttons: [{ label: 'BACK TO THE GARAGE', id: 'garage', kind: 'primary' }] });
+    const campaign = run?.cfg?.journey?.mode === 'campaign';
+    const result = await this.ui.modal({ title: campaign ? 'TEN LEVELS. ONE CREW.' : 'THE ROAD IS YOURS', text: campaign ? 'The Leviathan is scrap. You have unlocked ONE RUN TO RULE THEM ALL: every level on one continuous highway, with your existing vehicles and gear. Choose it in the garage level selector.' : `The Leviathan is scrap and the convoy is broken. ${p.runs} attempts, $${p.totalCash.toLocaleString()} earned. Return to the garage to choose your next ride.`, buttons: [{ label: 'BACK TO THE GARAGE', id: 'garage', kind: 'primary' }] });
     if (result !== 'garage' || this._flowId !== flow || this.screen !== 'results' || this.game.run !== run || this.session !== session) return;
     this.garage();
   }
