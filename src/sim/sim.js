@@ -12,7 +12,7 @@ import { Projectiles } from './projectiles.js';
 import { Director } from './director.js';
 import { Hazards } from './hazards.js';
 import { validHitReport, resolveHitPoint } from './hit_contact.js';
-import { planRamTakedown, launchRamTakedown } from './ram_takedown.js';
+import { planRamTakedown, launchRamTakedown, planRearRamBonk, launchRearRamBonk, updateRearRamContact } from './ram_takedown.js';
 import { normalizeJourney } from '../data/campaign.js';
 
 export const DT = 1 / 120;
@@ -276,6 +276,7 @@ export class Sim {
 
   // ------------------------------------------------------------------------------------------ damage
   _contacts(dt) {
+    for (const car of this.cars.values()) if (car._rearRamLocked) updateRearRamContact(this, car);
     this.eventQueue.drainContactForceEvents((ev) => {
       const A = this.colMap.get(ev.collider1()), B = this.colMap.get(ev.collider2());
       this._lastOther = getColliderLabel(this.world, A ? ev.collider2() : ev.collider1()) || (this.boss && (A ? ev.collider2() : ev.collider1()) ? 'boss?' : 'unknown');
@@ -294,6 +295,7 @@ export class Sim {
     if (car.dead && car.exploded) return;
     const dv = force * dt / car.veh.mass; // velocity change contributed this step
     if (dv < 0.35) return;
+    const rearBonk = planRearRamBonk(this, car, other, dv, dir);
     car.crashAccum = (car.crashAccum || 0) + dv;
     car.crashT = this.time;
     const speedRel = other ? car.veh.vel.distanceTo(other.veh.vel) : car.veh.vel.length();
@@ -317,21 +319,24 @@ export class Sim {
       else if (Math.abs(dir.y) > 0.6) dmg *= 0.3;
       else if (this.hazards.roadblockNear(car.veh.pos)) dmg *= 0.5; // wreck lines are meant to be survivable
     }
-    if (dmg <= 0) return;
+    if (dmg <= 0 && !rearBonk) return;
     // one impact (0.5 s window) can take at most 30% of the truck: a big crash is brutal, but survivable once
     const win = car.crashWin || (car.crashWin = { t0: -9, dmg: 0 });
     if (this.time - win.t0 > 0.5) { win.t0 = this.time; win.dmg = 0; }
     dmg = Math.min(dmg, Math.max(0, car.maxHp * (car.kind === 'player' ? 0.3 : 0.6) - win.dmg)); win.dmg += dmg;
-    if (dmg <= 0) return;
+    if (dmg <= 0 && !rearBonk) return;
     // blame: a car the player crippled (dead driver, recent hits) that plows into others earns the player a crash kill
     const blame = (c) => c && c.kind === 'enemy' && (c.driverless || (c.lastHitBy === 1 && this.time - c.lastHitT < 8));
     const src = other ? (car.kind === 'enemy' && blame(other) ? 1 : other.id) : (car.kind === 'enemy' && blame(car) ? 1 : -1);
     const ramTakedown = planRamTakedown(this, car, other, dmg, dv);
-    this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src, point: car.veh.pos, ramTakedown });
-    if (car.crashCooldown <= 0 && dv > 1.2) {
-      car.crashCooldown = 0.25;
+    if (dmg > 0) this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src, point: car.veh.pos, ramTakedown });
+    const bonked = rearBonk && !ramTakedown && !car.dead && launchRearRamBonk(car, rearBonk, this.time);
+    if (bonked || (car.crashCooldown <= 0 && dv > 1.2)) {
+      car.crashCooldown = Math.max(car.crashCooldown, 0.25);
       _a.set(dir.x, dir.y, dir.z);
-      this.emit({ t: 'crash', id: car.id, other: other ? other.id : -1, dv, speed: speedRel, pos: [car.veh.pos.x, car.veh.pos.y, car.veh.pos.z] });
+      const crash = { t: 'crash', id: car.id, other: other ? other.id : -1, dv, speed: speedRel, pos: [car.veh.pos.x, car.veh.pos.y, car.veh.pos.z] };
+      if (bonked) { crash.rearBonk = true; crash.closing = rearBonk.closing; crash.vel = car.veh.vel.toArray(); }
+      this.emit(crash);
       this.director.onCrash?.(this, car, other, dv); // chain reactions (runaway cars) live in the director
       // rams shake the driver's crew a bit
       const c = car.crew.driver; if (dv > 4 && car.kind === 'enemy' && c.alive) this.damageCrew(car, 'driver', dv * 3, { cause: 'crash' });
