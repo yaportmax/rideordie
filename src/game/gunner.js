@@ -31,7 +31,8 @@ export class GunnerController {
     this.grenades = loadout.grenades ?? GRENADE.count; this.grenadeCd = 0; this.grenadeLv = loadout.grenadeLv || 0;
     this.pos = new THREE.Vector3(); // offset inside the bed (x,z), y unused
     this.muzzle = new THREE.Vector3(); this.aimPoint = new THREE.Vector3(); this.aimHit = false;
-    this.lastCarYaw = null; this.lastPoseRevision = null; this.trigger = false; this.hitMarker = 0;
+    this.lastCarYaw = null; this.lastPoseRevision = null; this._hasCarQuat = false;
+    this._lastCarQuat = new THREE.Quaternion(); this._carQuat = new THREE.Quaternion(); this._carDeltaQuat = new THREE.Quaternion(); this.trigger = false; this.hitMarker = 0;
     this._autoFireContinuous = false;
     this.shellQueue = [];
     this.dryClickT = 0;
@@ -70,7 +71,31 @@ export class GunnerController {
     const carrierRecovered = hasPoseRevision && this.lastPoseRevision !== null && extra.poseRevision !== this.lastPoseRevision;
     // Recovery/unflip explicitly changes the truck pose. Keep world aim on its
     // target instead of inheriting that teleport as a physical steering turn.
-    if (this.lastCarYaw !== null && !carrierRecovered) this.yaw += wrapAngle(carYaw - this.lastCarYaw) * 0.55;
+    // Projected forward heading flips by PI when the chassis pitches through
+    // vertical. Inherit incremental world-Y twist instead, without that Euler
+    // singularity. Scratch quaternions belong to this controller, not a view.
+    const q = extra.carQuat;
+    const qNormSq = q && q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+    const validCarQuat = q && Number.isFinite(q.x) && Number.isFinite(q.y) && Number.isFinite(q.z) && Number.isFinite(q.w) && Number.isFinite(qNormSq) && qNormSq > 1e-20;
+    let carrierTurn = 0;
+    if (validCarQuat) {
+      this._carQuat.copy(q).normalize();
+      if (this._hasCarQuat && !carrierRecovered) {
+        this._carDeltaQuat.copy(this._lastCarQuat).conjugate().premultiply(this._carQuat);
+        const d = this._carDeltaQuat;
+        // An exact 180-degree swing around a horizontal axis has no defined
+        // Y twist. Ignore only its numerically degenerate projection; finite
+        // player input and ordinary steering are never rate-clamped.
+        if (Math.hypot(d.y, d.w) > 1e-12) carrierTurn = wrapAngle(2 * Math.atan2(d.y, d.w));
+      }
+      this._lastCarQuat.copy(this._carQuat); this._hasCarQuat = true;
+    } else {
+      this._hasCarQuat = false;
+      // Standalone/legacy callers without a valid carrier quaternion retain
+      // their existing heading-based behavior, never reuse a stale pose.
+      if (this.lastCarYaw !== null && !carrierRecovered) carrierTurn = wrapAngle(carYaw - this.lastCarYaw);
+    }
+    this.yaw += carrierTurn * 0.55;
     this.lastCarYaw = carYaw;
     if (hasPoseRevision) this.lastPoseRevision = extra.poseRevision;
     const adsMul = this.ads > 0.5 ? (w.scope ? 0.28 : 0.6) : 1;

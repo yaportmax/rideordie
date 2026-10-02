@@ -147,7 +147,11 @@ export class GunnerCam {
     cam.position.copy(eye).addScaledVector(fwd, -dist).addScaledVector(right, shoulder).add(so); cam.position.y += up;
     cam.lookAt(cam.position.x + fwd.x, cam.position.y + fwd.y, cam.position.z + fwd.z);
     // a share of the truck's roll reaches the gunner's head (you are standing on it)
-    if (opts.truckQuat) { _e.setFromQuaternion(opts.truckQuat, 'YXZ'); this.roll = damp(this.roll, _e.z * 0.3, 10, dt); }
+    if (opts.truckQuat) {
+      // Pure chassis pitch must not become a PI roll as it crosses vertical.
+      const lateralTilt = Math.asin(clamp(_v2.set(1, 0, 0).applyQuaternion(opts.truckQuat).y, -1, 1));
+      this.roll = damp(this.roll, lateralTilt * 0.3, 10, dt);
+    }
     cam.rotateZ(this.roll + so.x * 0.03);
     const baseFov = (this.firstPerson ? (opts.fovBase ?? 80) - 4 : 62) + (opts.speed01 || 0) * 8;
     const adsFov = opts.scoped ? (opts.scopeFov || 18) : (this.firstPerson ? 52 : 42);
