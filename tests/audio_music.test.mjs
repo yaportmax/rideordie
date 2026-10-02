@@ -187,16 +187,11 @@ test('AudioSys disposal prevents pending decodes from restoring released music m
   assert.equal(f.def.bufs.length, 0); assert.equal(closed, 1); assert.equal(music.music._disposed, true);
 });
 
-test('production soundtrack contains exactly six stage and one boss pairs with aligned metadata', () => {
+test('production soundtrack registers complete streamed songs without layering old synthesis stems', () => {
   const manifest = JSON.parse(fs.readFileSync(new URL('../public/audio/manifest.json', import.meta.url)));
-  const combat = Object.values(manifest.sounds).filter((m) => m.kind === 'run' || m.kind === 'boss');
-  assert.equal(combat.length, 14);
-  for (const biome of MUSIC_BIOMES) {
-    const stems = combat.filter((m) => m.track === musicTrack(biome)); assert.equal(stems.length, 2);
-    assert.deepEqual(stems.map((m) => m.stem).sort(), ['base', 'extra']);
-    assert.ok(stems.every((m) => m.loop && m.gain === .5 && m.channels === 2 && m.bars === 32 && m.samples === 1946483 && m.biomes[0] === biome));
-    assert.equal(stems[0].duration, stems[1].duration); assert.equal(stems[0].samples, stems[1].samples);
-    for (const stem of stems) assert.ok(fs.statSync(new URL('../public/audio/' + stem.file, import.meta.url)).size > 100000);
-  }
-  for (const kind of ['title', 'garage', 'victory']) assert.ok(Object.values(manifest.sounds).some((m) => m.track === kind));
+  const registered = Object.entries(manifest.sounds).filter(([key]) => key.startsWith('music/'));
+  assert.ok(registered.length >= 15);
+  assert.ok(registered.every(([, def]) => def.streaming && def.stem === 'base' && def.intensity === 0));
+  assert.equal(new Set(registered.map(([, def]) => def.track)).size, registered.length);
+  assert.ok(!registered.some(([key]) => /_(?:extra|drums|lead)$/.test(key)));
 });

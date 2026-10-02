@@ -65,6 +65,7 @@ export class AudioBridge {
     this.audio = audio; this.playerId = opts.playerId ?? -1; this.localRole = opts.localRole || 'solo'; this.autoDanger = opts.autoDanger !== false;
     this.cars = new Map(); this.rockets = []; this.recent = []; this.reloadH = []; this.foleyPending = []; this.foleyCancelable = new WeakSet(); this.lastCrash = new Map(); this.lastFlesh = new Map(); this.enemyShotT = new Map();
     this.gunnerPos = null; this.crewDanger = 0; this.counts = { events: 0, sounds: 0 };
+    this.musicElites = new Set(); this.musicFinalBoss = false; this.musicFlowClosed = false;
     audio.expect(EXPECTED_NAMES);
   }
   setPlayer(id) { this.playerId = id; }
@@ -121,8 +122,10 @@ export class AudioBridge {
       case 'fire': { const c = this._car(e.id); c.burning = true; this._play('explosions/fuel_ignite', { pos: this._carPos(e.id, ctx), gain: 0.6, pitch: 1.1 }); break; }
       case 'smoke': break;
       case 'kill': if (this.localRole !== 'driver') this._play('impacts/hit_marker_kill', { gain: 0.8, pitchVar: 0.02 }); break;
+      case 'minibossSpawn': this._eliteMusicStart(e); break;
+      case 'minibossDown': case 'minibossLost': case 'campaignBossDown': this._eliteMusicEnd(e); break;
       case 'playerDown': this._playerDown(e); break;
-      case 'runOver': A.setDanger(0); break;
+      case 'runOver': this._closeMusicFlow(); A.setDanger(0); break;
       case 'nitro': { const en = A.engines.get(e.id); if (!en) this._play(e.on === false ? 'vehicles/nitro_end' : 'vehicles/nitro_ignite', { pos: this._carPos(e.id, ctx) }); break; }
       case 'land': this._land(e.id, e.pos || this._carPos(e.id, ctx), e.impact ?? e.dv ?? e.vy ?? e.airTime ?? 0.6, ctx); break;
       case 'drift': break;
@@ -318,6 +321,7 @@ export class AudioBridge {
   }
   _playerDown(e) {
     const A = this.audio;
+    this._closeMusicFlow();
     A.stinger('game_over'); A.setDanger(0); A.concussion(0.5);
     void e;
   }
@@ -488,13 +492,40 @@ export class AudioBridge {
     for (const r of this.rockets) r.h.stop(0.05);
     this.rockets.length = 0; this._cancelFoley(true); this.audio.setDanger(0); this.crewDanger = 0;
     this.audio.ambience.stopWind(0.4);
+    this._closeMusicFlow();
   }
 
   // ------------------------------------------------------------------------------------------------ run flow helpers
-  runStart() { const A = this.audio; A.stinger('run_start'); A.music.setState('run'); A.music.setIntensity(0.1); }
-  bossIntro() { const A = this.audio; A.stinger('boss_intro'); A.music.setState('boss'); A.music.setIntensity(0.7); }
+  _eliteMusicKey(e) {
+    // Index zero is Scrapjaw. Use encounter identity, never an individual
+    // vehicle id: the Twin's first explosion is not the end of their fight.
+    if (Number.isInteger(e.index) && e.index >= 0) return `index:${e.index}`;
+    return typeof e.name === 'string' && e.name.trim() ? `name:${e.name}` : null;
+  }
+  _eliteMusicStart(e) {
+    if (this.musicFlowClosed) return;
+    const key = this._eliteMusicKey(e);
+    if (key === null || this.musicElites.has(key)) return;
+    const alreadyBoss = this.musicFinalBoss || this.musicElites.size > 0;
+    this.musicElites.add(key);
+    if (!alreadyBoss) { this.audio.music.setState('boss'); this.audio.music.setIntensity(0.7); }
+    // Run already plays danger_riser for this spawn. Leviathan's authored
+    // boss_intro remains owned by bossIntro(), so neither is doubled here.
+  }
+  _eliteMusicEnd(e) {
+    if (this.musicFlowClosed) return;
+    const key = this._eliteMusicKey(e);
+    if (key === null || !this.musicElites.delete(key)) return;
+    // The director emits Down/Lost for the entire encounter. Campaign also
+    // emits campaignBossDown as a completion alias; deleting once makes that
+    // pair idempotent, including consecutive Marathon encounters.
+    if (!this.musicElites.size && !this.musicFinalBoss) { this.audio.music.setState('run'); this.audio.music.setIntensity(0.3); }
+  }
+  _closeMusicFlow() { this.musicElites.clear(); this.musicFinalBoss = false; this.musicFlowClosed = true; }
+  runStart() { const A = this.audio; this.musicElites.clear(); this.musicFinalBoss = false; this.musicFlowClosed = false; A.stinger('run_start'); A.music.setState('run'); A.music.setIntensity(0.1); }
+  bossIntro() { if (this.musicFlowClosed) return; const A = this.audio; this.musicFinalBoss = true; A.stinger('boss_intro'); A.music.setState('boss'); A.music.setIntensity(0.7); }
   bossDefeated() { const A = this.audio; A.stinger('boss_defeated'); A.music.setIntensity(0.3); }
-  victory() { const A = this.audio; A.stinger('victory'); A.music.setState('victory'); }
+  victory() { const A = this.audio; this._closeMusicFlow(); A.stinger('victory'); A.music.setState('victory'); }
   /** Ignition sound (garage -> countdown). */
   engineStart() { this._play('vehicles/engine_start', { gain: 0.8, pitchVar: 0.01 }); }
   /** Optional: the local crew's health (0..1 each) drives the heartbeat / alarm as well as the car's HP. */

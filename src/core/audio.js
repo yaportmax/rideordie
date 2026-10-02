@@ -12,6 +12,7 @@
 // All parameter changes use setTargetAtTime / ramps (no gain discontinuities); every dynamic node goes through the counted
 // factories (_gain/_src/_filter/_panner) so audio.graphStats() can prove that nothing leaks.
 import { clamp, lerp, smoothstep } from './util.js';
+import { StreamingMusicBed } from './music_stream.js';
 
 const C_SOUND = 343;
 const PI = Math.PI;
@@ -372,6 +373,7 @@ export class MusicSys {
     this.A = A; this.tracks = new Map(); this.state = null; this.cur = null; this.fading = [];
     this.intensity = 0; this._requestedIntensity = 0; this.log = []; this._req = 0; this.pinned = new Set(); this._pendLayer = null; this.biome = null; this.layerTau = 0.4; this.want = null;
     this.successor = null; this._loadPending = false; this._retryAt = Infinity; this._disposed = false;
+    this._streamPending = null; this._streamStarting = false; this._mediaPaused = false; this._resumeAt = 0;
   }
   _rebuild() {
     const A = this.A; this.tracks.clear();
@@ -381,7 +383,8 @@ export class MusicSys {
       let id = m.track, stem = m.stem;
       if (!id) { const r = /^(.*?)(?:_(base|drums|lead|extra))?$/.exec(def.name); id = r[1]; stem = r[2]; }
       let t = this.tracks.get(id);
-      if (!t) { t = { id, kind: m.kind || (/^run/.test(id) ? 'run' : /^boss/.test(id) ? 'boss' : /^garage/.test(id) ? 'garage' : /^title/.test(id) ? 'title' : /^victory/.test(id) ? 'victory' : 'other'), stems: [], bpm: m.bpm, bars: m.bars, secPerBar: m.secPerBar, loop: def.loop, biomes: null }; this.tracks.set(id, t); }
+      if (!t) { t = { id, kind: m.kind || (/^run/.test(id) ? 'run' : /^boss/.test(id) ? 'boss' : /^garage/.test(id) ? 'garage' : /^title/.test(id) ? 'title' : /^victory/.test(id) ? 'victory' : 'other'), stems: [], bpm: m.bpm, bars: m.bars, secPerBar: m.secPerBar, loop: def.loop, biomes: null, streaming: !!m.streaming }; this.tracks.set(id, t); }
+      if (m.streaming) t.streaming = true;
       if (!t.biomes && t.kind === 'run') {
         if (Array.isArray(m.biomes)) t.biomes = m.biomes.map((b) => String(b).toLowerCase());
         else { const bm = /\(([a-z/ ]+)\)/i.exec(m.notes || ''); if (bm) t.biomes = bm[1].toLowerCase().split('/').map((x) => x.trim()); }
@@ -395,6 +398,9 @@ export class MusicSys {
   trackIds(kind) { return [...this.tracks.values()].filter((t) => !kind || t.kind === kind).map((t) => t.id).sort(); }
   _pick(kind, o) {
     if (o.track && this.tracks.has(o.track)) return o.track;
+    const routes = this.A.manifest?.musicRoutes, route = routes?.[kind];
+    const exact = typeof route === 'string' ? route : route?.[this.biome === 'forest' ? 'mountain' : this.biome] || route?.default;
+    if (exact && this.tracks.has(exact) && this.tracks.get(exact).kind === kind) return exact;
     const ids = this.trackIds(kind);
     if (!ids.length) return null;
     if (kind === 'run') {
@@ -412,7 +418,7 @@ export class MusicSys {
   setBiome(id) {
     if (this.biome === id) return; this.biome = id;
     this.setIntensity(this._requestedIntensity);
-    if (this.state === 'run') this.setState('run', {});
+    if (this.state === 'run' || this.state === 'boss') this.setState(this.state, {});
   }
   layerLevels(track, v) {
     const n = track.stems.length, p = clamp01(v) * Math.max(0, n - 1);
@@ -422,6 +428,7 @@ export class MusicSys {
   setState(state, o = {}) {
     if (this._disposed) return null;
     const A = this.A, req = ++this._req;
+    this._cancelStreamRequest();
     this.state = state; this.want = state; this._wantOpts = o;
     this._loadPending = false; this._retryAt = Infinity;
     const tid = this._pick(state, o);
@@ -435,6 +442,7 @@ export class MusicSys {
   }
   _requestTrack(track, o, req = this._req) {
     if (this._disposed || req !== this._req || this._loadPending) return;
+    if (track?.streaming) { this._requestStream(track, o, req); return; }
     this._loadPending = true;
     this.A.whenReady(track.stems.map((s) => s.def), 2, () => {
       if (this._disposed || req !== this._req) return;
@@ -444,6 +452,60 @@ export class MusicSys {
       this._retryAt = this.A.ctx.currentTime + 2;
       if (track.stems.every((s) => s.def.bufs[0])) this._start(track, o);
       this._releaseUnused();
+    });
+  }
+  _cancelStreamRequest() {
+    if (this._streamPending) this._streamPending.dispose();
+    this._streamPending = null; this._streamStarting = false;
+  }
+  _requestStream(track, o, req) {
+    // Pending media counts as the second bed. Wait for an audible fade to retire
+    // before creating another element, including during rapid level changes.
+    if (this._streamPending) return;
+    if (this.fading.length) { this._retryAt = Math.max(...this.fading.map(p => p.endAt)) + .001; return; }
+    this._loadPending = true;
+    let bed;
+    try { bed = new StreamingMusicBed(this.A, track, this.A.busIn.music, Fader); }
+    catch (error) { this._streamFailure(error, req); return; }
+    this._streamPending = bed;
+    bed.prepare().then(() => {
+      if (this._disposed || req !== this._req || this._streamPending !== bed) { bed.dispose(); return; }
+      this._activateStream(bed, o, req);
+    }, error => {
+      if (req !== this._req || this._streamPending !== bed) return;
+      this._streamPending = null; bed.dispose(); this._streamFailure(error, req);
+    });
+  }
+  _streamFailure(error, req) {
+    if (this._disposed || req !== this._req) return;
+    this._loadPending = false; this._streamStarting = false; this._retryAt = this.A.ctx.currentTime + 2;
+    this._log({ type: 'stream_error', track: this.wantTrack, message: String(error?.message || error).slice(0, 180), t: this.A.ctx.currentTime });
+  }
+  _activateStream(bed, o = this._wantOpts || {}, req = this._req) {
+    if (!bed.ready || bed.dead || bed.ended || this._disposed || req !== this._req || this._streamPending !== bed || this._streamStarting || this.A.ctx.currentTime < bed.retryAt) return;
+    if (this._mediaPaused || this.A._paused || (this.A.ctx.state && this.A.ctx.state !== 'running')) return;
+    this._streamStarting = true; bed.setPaused(false);
+    bed.play().then(playing => {
+      if (this._disposed || req !== this._req || this._streamPending !== bed) { bed.dispose(); return; }
+      this._streamStarting = false;
+      if (bed.failed || bed.ended) {
+        this._streamPending = null; bed.dispose(); this._streamFailure(bed.error || new Error('Music media ended before activation'), req); return;
+      }
+      if (!playing || this._mediaPaused || this.A._paused || (this.A.ctx.state && this.A.ctx.state !== 'running')) { bed.setPaused(true); return; }
+      const now = this.A.ctx.currentTime, prev = this.cur, xf = o.xfade ?? 1.2;
+      this._streamPending = null; this._loadPending = false; this._retryAt = Infinity; this._pendLayer = null;
+      bed.prev = prev; bed.begin(prev ? xf : .25);
+      if (prev && !prev.dead) { prev.fadeOut(xf, now); this.fading.push(prev); }
+      this.cur = bed; this.successor = null;
+      this._log({ type: 'start', track: bed.track.id, when: now, now, xfade: prev ? xf : .25, bar: null, streaming: true, prev: prev?.track.id || null });
+      this._releaseUnused();
+    }, error => {
+      if (req !== this._req || this._streamPending !== bed) return;
+      if (error?.name === 'NotAllowedError') {
+        this._streamStarting = false; bed.retryAt = this.A.ctx.currentTime + 2;
+        this._log({ type: 'stream_blocked', track: bed.track.id, t: this.A.ctx.currentTime }); return;
+      }
+      this._streamPending = null; bed.dispose(); this._streamFailure(error, req);
     });
   }
   _start(track, o) {
@@ -480,7 +542,8 @@ export class MusicSys {
     let tb = now + 0.06, xf = 0.05;
     if (prev && !prev.dead && !prev.ended) {
       xf = o.xfade ?? clamp(Math.min(prev.spb, spb), 0.4, 2.5);
-      if (o.immediate) { tb = now + 0.04; xf = o.xfade ?? 0.3; } else if (prev.loop) tb = prev.nextBoundary(now + 0.1);
+      if (prev.streaming) { tb = now + .04; xf = o.xfade ?? 1.2; }
+      else if (o.immediate) { tb = now + 0.04; xf = o.xfade ?? 0.3; } else if (prev.loop) tb = prev.nextBoundary(now + 0.1);
     }
     const play = new LoopBed(A, items, A.busIn.music, tb, xf, { loop: track.loop !== false });
     play.track = track; play.spb = play.dur / (track.bars || Math.max(1, Math.round(play.dur / spb)));
@@ -488,7 +551,7 @@ export class MusicSys {
     play.prev = prev;
     if (prev && !prev.dead) { prev.fadeOut(xf, tb); this.fading.push(prev); }
     this.cur = play;
-    this._log({ type: 'start', track: track.id, when: tb, now, xfade: xf, bar: prev ? Math.round((tb - prev.t0) / prev.spb * 1000) / 1000 : 0, prev: prev ? prev.track.id : null });
+    this._log({ type: 'start', track: track.id, when: tb, now, xfade: xf, bar: prev && !prev.streaming ? Math.round((tb - prev.t0) / prev.spb * 1000) / 1000 : null, prev: prev ? prev.track.id : null });
     this._prefetchNext(); this._releaseUnused();
   }
   _retire(p) { p.dead || p.dispose(); this.fading = this.fading.filter((f) => f !== p); if (this.cur === p) this.cur = null; }
@@ -497,12 +560,13 @@ export class MusicSys {
   pin(...ids) { for (const i of ids) this.pinned.add(i); }
   preload(kinds = ['run', 'boss'], prio = 3) {
     // Kinds select the appropriate current stage, never all six large themes.
-    const ids = new Set(kinds.map((k) => this.tracks.has(k) ? k : this._pick(k, {})).filter(Boolean));
-    return this.A.load([...ids].flatMap((id) => this.tracks.get(id).stems.map((s) => s.def)), prio);
+    const ids = new Set(kinds.map((k) => this.A.manifest?.musicRoutes?.[k] ? this._pick(k, {}) : this.tracks.has(k) ? k : this._pick(k, {})).filter(Boolean));
+    return this.A.load([...ids].filter(id => !this.tracks.get(id).streaming).flatMap((id) => this.tracks.get(id).stems.map((s) => s.def)), prio);
   }
   _prefetchNext() {
     const cur = this.cur, stages = this.trackIds('run');
     this.successor = null;
+    if (cur?.streaming) { this._releaseUnused(); return; }
     if (cur && !cur.dead && cur.track.kind === 'run' && this.wantTrack === cur.track.id) {
       const index = stages.indexOf(cur.track.id);
       const chapter = BIOME_ORDER.indexOf(this.biome);
@@ -526,7 +590,7 @@ export class MusicSys {
     const level = Math.max(this._requestedIntensity, BIOME_AUDIO[this.biome]?.pressureFloor || 0), changed = Math.abs(level - this.intensity) > 1e-6;
     this.intensity = level;
     const A = this.A, now = A.ctx.currentTime, cur = this.cur;
-    if (!cur || cur.dead || (!changed && !o.immediate && o.quantize !== false)) return;
+    if (!cur || cur.dead || cur.streaming || (!changed && !o.immediate && o.quantize !== false)) return;
     const lv = this.layerLevels(cur.track, this.intensity);
     cur.stems.forEach((s, i) => { s.target = lv[i] * s.def.gain; });
     if (o.immediate || o.quantize === false) { this._applyLayers(cur, now); return; }
@@ -539,6 +603,7 @@ export class MusicSys {
   }
   stop(fade = 1.0) {
     this._req++; this.want = null; this.state = null; this._loadPending = false; this._retryAt = Infinity; this._pendLayer = null;
+    this._cancelStreamRequest();
     const p = this.cur; if (p && !p.dead) { p.fadeOut(fade); this.fading.push(p); }
     this.cur = null; this.wantTrack = null; this.successor = null; this._releaseUnused();
   }
@@ -549,6 +614,8 @@ export class MusicSys {
     this.fading.length = 0; this.pinned.clear(); this._releaseUnused();
   }
   tick(now) {
+    if (this._streamPending?.ready && !this._streamStarting) this._activateStream(this._streamPending);
+    if (!this._mediaPaused && !this.A._paused && (!this.A.ctx.state || this.A.ctx.state === 'running') && now >= this._resumeAt) this._resumeStreams();
     if (this._pendLayer && this.cur && !this.cur.dead && now + 0.12 >= this._pendLayer.time) { this._applyLayers(this.cur, this._pendLayer.time); this._pendLayer = null; } else if (this._pendLayer && (!this.cur || this.cur.dead)) this._pendLayer = null;
     let retired = false;
     for (let i = this.fading.length - 1; i >= 0; i--) {
@@ -559,7 +626,11 @@ export class MusicSys {
       }
     }
     const c = this.cur;
-    if (c && !c.loop && now > c.endAt) {
+    if (c?.streaming && c.failed) {
+      const error = c.error; this._retire(c);
+      if (!this._streamPending) this._streamFailure(error, this._req);
+      retired = true;
+    } else if (c && !c.loop && (c.streaming ? c.ended : now > c.endAt)) {
       c.dispose(); this.cur = null;
       if (this.wantTrack === c.track.id) { this.wantTrack = null; this._retryAt = Infinity; }
       this._log({ type: 'ended', t: now }); retired = true;
@@ -567,9 +638,35 @@ export class MusicSys {
     if (retired) this._releaseUnused();
     if (!this._disposed && this.wantTrack && !this._loadPending && now >= this._retryAt) this._requestTrack(this.tracks.get(this.wantTrack), this._wantOpts || {});
   }
+  setPaused(paused) {
+    this._mediaPaused = !!paused;
+    if (paused) {
+      for (const bed of [this.cur, ...this.fading, this._streamPending]) if (bed?.streaming) bed.setPaused(true);
+    } else this.unlock();
+  }
+  setContextSuspended(paused) {
+    if (paused) {
+      for (const bed of [this.cur, ...this.fading, this._streamPending]) if (bed?.streaming) bed.setPaused(true);
+    } else this.unlock();
+  }
+  unlock() {
+    if (this._disposed || this._mediaPaused || this.A._paused || (this.A.ctx.state && this.A.ctx.state !== 'running')) return;
+    this._resumeAt = 0; this._resumeStreams();
+    if (this._streamPending?.ready) { this._streamPending.retryAt = 0; this._activateStream(this._streamPending); }
+  }
+  _resumeStreams() {
+    this._resumeAt = this.A.ctx.currentTime + 2;
+    for (const bed of [this.cur, ...this.fading]) {
+      if (!bed?.streaming || bed.dead || bed.failed || bed.ended || (!bed.paused && !bed.media.paused)) continue;
+      bed.setPaused(false); bed.play().catch(error => {
+        if (!bed.dead) this._log({ type: 'stream_resume_error', track: bed.track.id, message: String(error?.message || error).slice(0, 180), t: this.A.ctx.currentTime });
+      });
+    }
+  }
   info() {
     const c = this.cur, now = this.A.ctx.currentTime;
     if (!c || c.dead) return { state: this.state, track: null, intensity: this.intensity };
+    if (c.streaming) return { state: this.state, track: c.track.id, intensity: this.intensity, streaming: true, mediaState: c.status, t0: c.t0, spb: null, bar: null, bars: null, beat: null, loopPos: c.media.currentTime || 0, dur: c.dur, layers: c.stems.map(s => ({ name: s.name, target: s.target })), fading: this.fading.length };
     const el = Math.max(0, now - c.t0), pos = c.loop ? el % c.dur : Math.min(el, c.dur);
     const bar = Math.floor(pos / c.spb), beat = Math.floor(((pos % c.spb) / c.spb) * 4);
     return { state: this.state, track: c.track.id, intensity: this.intensity, t0: c.t0, spb: c.spb, bar: bar + 1, bars: c.track.bars, beat: beat + 1, loopPos: pos, dur: c.dur, layers: c.stems.map((s) => ({ name: s.name, target: +s.target.toFixed(3) })), fading: this.fading.length };
@@ -895,7 +992,7 @@ export class AudioSys {
     this.fetchCache = opts.fetchCache || 'no-cache';
     this.voices = new Set(); this._dyn = new Set(); this.maxVoices = opts.maxVoices || 64;
     this.maxEngines = opts.maxEngines || 10; this.engineCull = opts.engineCull || 180;
-    this._cnt = { gain: 0, src: 0, filter: 0, panner: 0 }; this._relc = { gain: 0, src: 0, filter: 0, panner: 0 };
+    this._cnt = { gain: 0, src: 0, media: 0, filter: 0, panner: 0 }; this._relc = { gain: 0, src: 0, media: 0, filter: 0, panner: 0 };
     this.stats = { played: 0, culled: 0, stolen: 0, notLoaded: 0, dropped: 0, fetched: 0, failed: 0, fetchedBytes: 0 };
     this._queue = []; this._active = 0; this._maxActive = opts.maxConcurrent || 4; this._seq = 0;
     this._timers = []; this._ducks = []; this._conc = 0; this._concHold = 0; this._danger = 0; this._dangerT = 0;
@@ -906,14 +1003,23 @@ export class AudioSys {
     this.listener = new Listener(this);
     this.music = new MusicSys(this);
     this.ambience = new AmbienceSys(this);
+    this._contextStateHandler = () => {
+      const running = this.ctx.state === 'running'; this.music.setContextSuspended(!running);
+      if (running && this._unl) { for (const ev of ['pointerdown', 'keydown', 'touchstart', 'mousedown']) window.removeEventListener(ev, this._unl, { capture: true }); this._unl = null; }
+    };
+    this.ctx.addEventListener?.('statechange', this._contextStateHandler);
     this._lastUi = new Map();
-    if (!this.offline) { this._timer = setInterval(() => this._tickFast(), 25); if (opts.autoSuspend !== false && typeof document !== 'undefined') document.addEventListener('visibilitychange', () => this.setPaused(document.hidden)); }
+    if (!this.offline) {
+      this._timer = setInterval(() => this._tickFast(), 25);
+      if (opts.autoSuspend !== false && typeof document !== 'undefined') { this._visibilityHandler = () => this.setPaused(document.hidden); document.addEventListener('visibilitychange', this._visibilityHandler); }
+    }
   }
   /** Hard pause (tab hidden / window blurred): fade the master out and suspend the context; false resumes. */
   setPaused(p) {
     const c = this.ctx, now = c.currentTime;
     if (p === this._paused) return; this._paused = p;
-    if (p) { this.masterGain.gain.cancelScheduledValues(now); this.masterGain.gain.setTargetAtTime(0, now, 0.03); setTimeout(() => { if (this._paused && c.state === 'running') c.suspend().catch(() => {}); }, 250); } else { c.resume().catch(() => {}); this.masterGain.gain.cancelScheduledValues(c.currentTime); this.masterGain.gain.setTargetAtTime(this.volumes.master, c.currentTime, 0.05); }
+    this.music?.setPaused(p);
+    if (p) { this.masterGain.gain.cancelScheduledValues(now); this.masterGain.gain.setTargetAtTime(0, now, 0.03); setTimeout(() => { if (this._paused && c.state === 'running') c.suspend().catch(() => {}); }, 250); } else { c.resume().then(() => { if (!this._paused && !this._disposed) this.music?.unlock(); }).catch(() => {}); this.masterGain.gain.cancelScheduledValues(c.currentTime); this.masterGain.gain.setTargetAtTime(this.volumes.master, c.currentTime, 0.05); }
   }
   get now() { return this.ctx.currentTime; }
   get state() { return this.ctx.state; }
@@ -971,6 +1077,7 @@ export class AudioSys {
   // counted node factories
   _gain(v = 1) { const g = this.ctx.createGain(); g.gain.value = v; this._cnt.gain++; return g; }
   _src() { this._cnt.src++; return this.ctx.createBufferSource(); }
+  _media(element) { const src = this.ctx.createMediaElementSource(element); this._cnt.media++; return src; }
   _filter(type, f, q = 0.7) { const b = this.ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; this._cnt.filter++; return b; }
   _panner(ref, roll) {
     const p = this.ctx.createPanner(); p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = ref; p.rolloffFactor = roll; p.maxDistance = 100000;
@@ -1001,7 +1108,7 @@ export class AudioSys {
     for (const [key, m] of Object.entries(sounds)) {
       const files = m.files || (m.file ? [m.file] : []);
       let def = this.defs.get(key);
-      const sig = JSON.stringify([files, m.durations || m.duration, m.peakDb, m.lufs]);
+      const sig = JSON.stringify([files, m.durations || m.duration, m.peakDb, m.lufs, !!m.streaming]);
       if (!def) { def = { key, bufs: [], loading: [], failed: [], voices: [], waiters: [], last: -1, sig }; this.defs.set(key, def); added.push(key); }
       else if (def.sig !== sig && !def.injected) { def.sig = sig; def.bufs = []; def.loading = []; def.failed = []; changed.push(key); }
       const i = key.indexOf('/');
@@ -1086,7 +1193,7 @@ export class AudioSys {
     const list = _isArr(what) ? what : [what], ps = [];
     for (const w of list) {
       const d = typeof w === 'string' ? this.resolve(w) : w;
-      if (!d) continue;
+      if (!d || d.meta?.streaming) continue;
       for (let i = 0; i < d.urls.length; i++) ps.push(this._loadVar(d, i, prio).catch(() => null));
     }
     return Promise.all(ps);
@@ -1115,7 +1222,7 @@ export class AudioSys {
   }
   preloadEngine(engineId, prio = 0) { const t = this.engineTable.get(engineId); return t ? this.load(t.map((s) => s.def), prio) : Promise.resolve([]); }
   _loadVar(def, i, prio = 1) {
-    if (this._disposed) return Promise.resolve(null);
+    if (this._disposed || def.meta?.streaming) return Promise.resolve(null);
     if (def.bufs[i]) return Promise.resolve(def.bufs[i]);
     const cur = def.loading[i];
     if (cur) { if (prio < cur.prio) { cur.prio = prio; const t = this._queue.find((q) => q.rec === cur); if (t) t.prio = prio; } return cur.promise; }
@@ -1188,16 +1295,13 @@ export class AudioSys {
     const h = () => { this.unlock(); };
     this._unl = h;
     for (const ev of ['pointerdown', 'keydown', 'touchstart', 'mousedown']) window.addEventListener(ev, h, { capture: true, passive: true });
-    this.ctx.addEventListener?.('statechange', () => {
-      if (this.ctx.state === 'running' && this._unl) { for (const ev of ['pointerdown', 'keydown', 'touchstart', 'mousedown']) window.removeEventListener(ev, this._unl, { capture: true }); this._unl = null; }
-    });
   }
   /** Resume the context. Call from any click / key handler (also installed automatically on the first gesture). */
   unlock() {
     const c = this.ctx;
-    const p = c.state === 'suspended' && c.resume ? c.resume().catch(() => {}) : Promise.resolve();
+    const p = c.state !== 'running' && c.state !== 'closed' && c.resume ? c.resume().catch(() => {}) : Promise.resolve();
     if (!this._silent && !this.offline) { this._silent = true; try { const s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0); } catch { /* */ } }
-    return p;
+    return p.then(() => { if (!this._paused && !this._disposed) this.music?.unlock(); });
   }
 
   // -------------------------------------------------------------------------------------------------- play
@@ -1219,7 +1323,7 @@ export class AudioSys {
    */
   play(name, o = {}) {
     const def = name && typeof name === 'object' ? name : this.resolve(name);
-    if (!def) return NULL_HANDLE;
+    if (!def || def.meta?.streaming) return NULL_HANDLE;
     if (!this.offline && this.ctx.state !== 'running' && !o.force) return NULL_HANDLE;
     const loop = !!o.loop, cat = def.cat;
     let d = 0;
@@ -1407,11 +1511,16 @@ export class AudioSys {
     const b = this.bufferStats();
     return { ctxState: this.ctx.state, sampleRate: this.ctx.sampleRate, time: +this.ctx.currentTime.toFixed(3), baseLatency: this.ctx.baseLatency ?? null,
       voices: this.voices.size, dynamicVoices: this._dyn.size, created: { ...this._cnt }, released: { ...this._relc }, live, engines: this.engines.size, enginesBuilt: engBuilt, enginesAllowed: engAllowed,
-      buffers: b.count, bufferMB: +(b.bytes / 1048576).toFixed(1), loading: b.queued + b.active, stats: { ...this.stats }, missing: this.reportMissing().length };
+      buffers: b.count, bufferMB: +(b.bytes / 1048576).toFixed(1), loading: b.queued + b.active,
+      musicStreams: [this.music.cur, ...this.music.fading, this.music._streamPending].filter(p => p?.streaming && !p.dead).length,
+      musicStreamPending: !!this.music._streamPending, stats: { ...this.stats }, missing: this.reportMissing().length };
   }
   dispose() {
     if (this._disposed) return; this._disposed = true;
     if (this._timer) clearInterval(this._timer);
+    if (this._visibilityHandler && typeof document !== 'undefined') { document.removeEventListener('visibilitychange', this._visibilityHandler); this._visibilityHandler = null; }
+    if (this._unl && typeof window !== 'undefined') { for (const ev of ['pointerdown', 'keydown', 'touchstart', 'mousedown']) window.removeEventListener(ev, this._unl, { capture: true }); this._unl = null; }
+    if (this._contextStateHandler) { this.ctx.removeEventListener?.('statechange', this._contextStateHandler); this._contextStateHandler = null; }
     for (const v of [...this.voices]) v._cleanup();
     for (const e of [...this.engines.values()]) { e.disposed = true; e._releaseAll(); }
     this.music.dispose();

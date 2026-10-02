@@ -2,15 +2,16 @@
  "version": 1,
  "basePath": "/audio/",
  "sampleRate": 44100,
- "format": "ogg/vorbis q5; mono for positional sfx, stereo for music + ambience",
+ "format": "Ogg Vorbis synthesized SFX/ambience; original stereo MP3 streamed soundtrack",
  "conventions": {
-  "peak": "all files peak <= -1 dBFS (decoded)",
+  "peak": "Synthesized assets follow existing peak convention. Suno original peaks are unchanged; per-cue attenuation targets -16 LUFS and <= -1 dBTP before the music bus.",
   "gain": "'gain' is a linear multiplier <= 1 that balances loudness within and across categories; game master gain on top",
-  "loops": "loop=true files are exact-length seamless loops: loopStart=0, loopEnd=duration; use AudioBufferSourceNode.loop=true",
+  "loops": "Synthesized loops use AudioBuffer loop points. Streamed full songs use native media looping; they are not authored bar-aligned seamless stems.",
   "variations": "files list one file per variation; pick randomly, never same twice in a row, pitch +-4%",
-  "engines": "see 'engines': stage loops recorded at fixed RPM; crossfade neighbours (equal power) and set playbackRate = currentRPM / stageRPM (0.75..1.35)"
+  "engines": "see 'engines': stage loops recorded at fixed RPM; crossfade neighbours (equal power) and set playbackRate = currentRPM / stageRPM (0.75..1.35)",
+  "streaming": "streaming=true music owns at most a current and outgoing media element through WebAudio music/master buses. Crossfade only after playback succeeds; never decode a whole song into the AudioBuffer cache."
  },
- "totalBytes": 25510252,
+ "totalBytes": 77920899,
  "engines": {
   "engine_boss": {
    "stages": [
@@ -20,7 +21,7 @@
      "file": "vehicles/engine_boss_idle.ogg",
      "duration": 2.3077,
      "gain": 0.552,
-     "fireHz": 52.0
+     "fireHz": 52
     },
     {
      "stage": "low",
@@ -28,7 +29,7 @@
      "file": "vehicles/engine_boss_low.ogg",
      "duration": 2.4,
      "gain": 0.546,
-     "fireHz": 90.0
+     "fireHz": 90
     },
     {
      "stage": "mid",
@@ -36,7 +37,7 @@
      "file": "vehicles/engine_boss_mid.ogg",
      "duration": 2.4,
      "gain": 0.541,
-     "fireHz": 140.0
+     "fireHz": 140
     },
     {
      "stage": "high",
@@ -44,7 +45,7 @@
      "file": "vehicles/engine_boss_high.ogg",
      "duration": 2.4,
      "gain": 0.542,
-     "fireHz": 190.0
+     "fireHz": 190
     },
     {
      "stage": "redline",
@@ -52,7 +53,7 @@
      "file": "vehicles/engine_boss_redline.ogg",
      "duration": 2.4,
      "gain": 0.547,
-     "fireHz": 250.0
+     "fireHz": 250
     }
    ],
    "description": "huge turbo-diesel V12 (boss war rig), menacing"
@@ -81,7 +82,7 @@
      "file": "vehicles/engine_buggy_mid.ogg",
      "duration": 2.4,
      "gain": 0.545,
-     "fireHz": 140.0
+     "fireHz": 140
     },
     {
      "stage": "high",
@@ -110,7 +111,7 @@
      "file": "vehicles/engine_diesel_idle.ogg",
      "duration": 2.4,
      "gain": 0.555,
-     "fireHz": 30.0
+     "fireHz": 30
     },
     {
      "stage": "low",
@@ -118,7 +119,7 @@
      "file": "vehicles/engine_diesel_low.ogg",
      "duration": 2.4,
      "gain": 0.546,
-     "fireHz": 50.0
+     "fireHz": 50
     },
     {
      "stage": "mid",
@@ -126,7 +127,7 @@
      "file": "vehicles/engine_diesel_mid.ogg",
      "duration": 2.4,
      "gain": 0.539,
-     "fireHz": 75.0
+     "fireHz": 75
     },
     {
      "stage": "high",
@@ -134,7 +135,7 @@
      "file": "vehicles/engine_diesel_high.ogg",
      "duration": 2.4,
      "gain": 0.54,
-     "fireHz": 100.0
+     "fireHz": 100
     },
     {
      "stage": "redline",
@@ -142,7 +143,7 @@
      "file": "vehicles/engine_diesel_redline.ogg",
      "duration": 2.4,
      "gain": 0.545,
-     "fireHz": 130.0
+     "fireHz": 130
     }
    ],
    "description": "heavy diesel (trucks, vans, tankers)"
@@ -171,7 +172,7 @@
      "file": "vehicles/engine_muscle_mid.ogg",
      "duration": 2.4,
      "gain": 0.545,
-     "fireHz": 220.0
+     "fireHz": 220
     },
     {
      "stage": "high",
@@ -187,7 +188,7 @@
      "file": "vehicles/engine_muscle_redline.ogg",
      "duration": 2.4,
      "gain": 0.548,
-     "fireHz": 420.0
+     "fireHz": 420
     }
    ],
    "description": "loud V8 with lopey idle"
@@ -200,7 +201,7 @@
      "file": "vehicles/engine_player_t1_idle.ogg",
      "duration": 2.4,
      "gain": 0.568,
-     "fireHz": 30.0
+     "fireHz": 30
     },
     {
      "stage": "low",
@@ -216,7 +217,7 @@
      "file": "vehicles/engine_player_t1_mid.ogg",
      "duration": 2.4,
      "gain": 0.546,
-     "fireHz": 120.0
+     "fireHz": 120
     },
     {
      "stage": "high",
@@ -245,7 +246,7 @@
      "file": "vehicles/engine_player_t2_idle.ogg",
      "duration": 2.4,
      "gain": 0.558,
-     "fireHz": 50.0
+     "fireHz": 50
     },
     {
      "stage": "low",
@@ -306,7 +307,7 @@
      "file": "vehicles/engine_player_t3_mid.ogg",
      "duration": 2.4,
      "gain": 0.544,
-     "fireHz": 220.0
+     "fireHz": 220
     },
     {
      "stage": "high",
@@ -322,7 +323,7 @@
      "file": "vehicles/engine_player_t3_redline.ogg",
      "duration": 2.4,
      "gain": 0.548,
-     "fireHz": 400.0
+     "fireHz": 400
     }
    ],
    "description": "big growly V8"
@@ -335,7 +336,7 @@
      "file": "vehicles/engine_player_t4_idle.ogg",
      "duration": 2.4,
      "gain": 0.555,
-     "fireHz": 50.0
+     "fireHz": 50
     },
     {
      "stage": "low",
@@ -388,7 +389,7 @@
      "file": "vehicles/engine_sedan_low.ogg",
      "duration": 2.4,
      "gain": 0.549,
-     "fireHz": 105.0
+     "fireHz": 105
     },
     {
      "stage": "mid",
@@ -396,7 +397,7 @@
      "file": "vehicles/engine_sedan_mid.ogg",
      "duration": 2.4,
      "gain": 0.538,
-     "fireHz": 175.0
+     "fireHz": 175
     },
     {
      "stage": "high",
@@ -404,7 +405,7 @@
      "file": "vehicles/engine_sedan_high.ogg",
      "duration": 2.4,
      "gain": 0.54,
-     "fireHz": 255.0
+     "fireHz": 255
     },
     {
      "stage": "redline",
@@ -412,7 +413,7 @@
      "file": "vehicles/engine_sedan_redline.ogg",
      "duration": 2.4,
      "gain": 0.546,
-     "fireHz": 320.0
+     "fireHz": 320
     }
    ],
    "description": "thin inline-6 (sedan raiders)"
@@ -424,9 +425,9 @@
    "files": [
     "ambience/canyon_wind_loop.ogg"
    ],
-   "duration": 24.0,
+   "duration": 24,
    "durations": [
-    24.0
+    24
    ],
    "loop": true,
    "variations": 1,
@@ -436,12 +437,12 @@
    "notes": "hollow canyon wind: moving formant resonances + long echo, seamless 24 s stereo loop",
    "peakDb": -12.91,
    "lufs": -26.1,
-   "loopStart": 0.0,
-   "loopEnd": 24.0,
+   "loopStart": 0,
+   "loopEnd": 24,
    "loopJumpRatio": 0.38,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "ambience/city_ruins_loop": {
@@ -449,9 +450,9 @@
    "files": [
     "ambience/city_ruins_loop.ogg"
    ],
-   "duration": 24.0,
+   "duration": 24,
    "durations": [
-    24.0
+    24
    ],
    "loop": true,
    "variations": 1,
@@ -461,12 +462,12 @@
    "notes": "ruined city: thin wind, structure howl, distant creaks and debris ticks, seamless 24 s stereo loop",
    "peakDb": -10.52,
    "lufs": -27.1,
-   "loopStart": 0.0,
-   "loopEnd": 24.0,
+   "loopStart": 0,
+   "loopEnd": 24,
    "loopJumpRatio": 0.22,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "ambience/coast_waves_loop": {
@@ -474,9 +475,9 @@
    "files": [
     "ambience/coast_waves_loop.ogg"
    ],
-   "duration": 24.0,
+   "duration": 24,
    "durations": [
-    24.0
+    24
    ],
    "loop": true,
    "variations": 1,
@@ -486,12 +487,12 @@
    "notes": "surf: three irregular waves rolling in and washing out over distant surf, seamless 24 s stereo loop",
    "peakDb": -8.78,
    "lufs": -25.2,
-   "loopStart": 0.0,
-   "loopEnd": 24.0,
+   "loopStart": 0,
+   "loopEnd": 24,
    "loopJumpRatio": 0.06,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "ambience/dam_rumble_loop": {
@@ -499,9 +500,9 @@
    "files": [
     "ambience/dam_rumble_loop.ogg"
    ],
-   "duration": 24.0,
+   "duration": 24,
    "durations": [
-    24.0
+    24
    ],
    "loop": true,
    "variations": 1,
@@ -511,12 +512,12 @@
    "notes": "boss arena at the dam: deep water thunder + turbine hum + spray, seamless 24 s stereo loop",
    "peakDb": -8.67,
    "lufs": -22.2,
-   "loopStart": 0.0,
-   "loopEnd": 24.0,
+   "loopStart": 0,
+   "loopEnd": 24,
    "loopJumpRatio": 0.39,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "ambience/desert_wind_loop": {
@@ -524,9 +525,9 @@
    "files": [
     "ambience/desert_wind_loop.ogg"
    ],
-   "duration": 24.0,
+   "duration": 24,
    "durations": [
-    24.0
+    24
    ],
    "loop": true,
    "variations": 1,
@@ -536,12 +537,12 @@
    "notes": "open desert wind: broad gusts + sand hiss + faint whistles, seamless 24 s stereo loop",
    "peakDb": -12.81,
    "lufs": -26.1,
-   "loopStart": 0.0,
-   "loopEnd": 24.0,
+   "loopStart": 0,
+   "loopEnd": 24,
    "loopJumpRatio": 0.29,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "ambience/forest_wind_loop": {
@@ -549,9 +550,9 @@
    "files": [
     "ambience/forest_wind_loop.ogg"
    ],
-   "duration": 24.0,
+   "duration": 24,
    "durations": [
-    24.0
+    24
    ],
    "loop": true,
    "variations": 1,
@@ -561,12 +562,12 @@
    "notes": "wind through pines: swishing gusts + leaf rustle sparkle, seamless 24 s stereo loop",
    "peakDb": -15.71,
    "lufs": -27.2,
-   "loopStart": 0.0,
-   "loopEnd": 24.0,
+   "loopStart": 0,
+   "loopEnd": 24,
    "loopJumpRatio": 0.04,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "explosions/distant_explosion": {
@@ -611,7 +612,7 @@
    "channels": 1,
    "notes": "boss / tanker mega explosion, 6.5 s; screen shake sync at ~0.0-0.6 s",
    "peakDb": -1.24,
-   "lufs": -8.0,
+   "lufs": -8,
    "pitchRange": [
     0.9,
     1.1
@@ -710,7 +711,7 @@
    "notes": "crackling flames (quieter, more snaps), seamless 3.2 s loop",
    "peakDb": -1.19,
    "lufs": -24.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 3.2,
    "loopJumpRatio": 0.03,
    "pitchRange": [
@@ -735,7 +736,7 @@
    "notes": "burning car: roar + crackle, seamless 2.4 s loop (3D loop on wrecks)",
    "peakDb": -1.5,
    "lufs": -20.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.02,
    "pitchRange": [
@@ -933,7 +934,7 @@
    "channels": 1,
    "notes": "lmg shot with baked outdoor tail (slapback echoes)",
    "peakDb": -1.54,
-   "lufs": -12.0,
+   "lufs": -12,
    "pitchRange": [
     0.95,
     1.05
@@ -1251,7 +1252,7 @@
    "channels": 1,
    "notes": "feed cover lifts open (LMG)",
    "peakDb": -1.71,
-   "lufs": -16.0,
+   "lufs": -16,
    "pitchRange": [
     0.96,
     1.04
@@ -1361,7 +1362,7 @@
    "channels": 1,
    "notes": "bolt cycle (rifle)",
    "peakDb": -2.03,
-   "lufs": -15.0,
+   "lufs": -15,
    "pitchRange": [
     0.96,
     1.04
@@ -1428,7 +1429,7 @@
    "notes": "rocket motor flight loop, 1.6 s seamless; scale gain with distance, pitch 0.9-1.15 (doppler)",
    "peakDb": -13.09,
    "lufs": -20.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 1.6,
    "loopJumpRatio": 0.35,
    "pitchRange": [
@@ -1506,7 +1507,7 @@
    "channels": 1,
    "notes": "ejected shotgun hull (plastic, 3 bounces)",
    "peakDb": -1.34,
-   "lufs": -14.0,
+   "lufs": -14,
    "pitchRange": [
     0.96,
     1.04
@@ -2021,7 +2022,7 @@
    "notes": "metal scraping on asphalt, seamless 1.6 s loop; gain by slide speed, pitch 0.8-1.3",
    "peakDb": -15.05,
    "lufs": -21.3,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 1.6,
    "loopJumpRatio": 0.19,
    "pitchRange": [
@@ -2099,8 +2100,8 @@
    "peakDb": -1.05,
    "lufs": -18.5,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "impacts/hit_marker": {
@@ -2121,8 +2122,8 @@
    "peakDb": -1.83,
    "lufs": -22.6,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "impacts/hit_marker_kill": {
@@ -2136,15 +2137,15 @@
    ],
    "loop": false,
    "variations": 1,
-   "gain": 1.0,
+   "gain": 1,
    "category": "impact_ui",
    "channels": 1,
    "notes": "kill confirmation: double tick + low thock + ping",
    "peakDb": -1.78,
    "lufs": -19.7,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "impacts/metal_tear": {
@@ -2193,7 +2194,7 @@
    "channels": 1,
    "notes": "body panel / bumper ripping off: clang + boing + skitter",
    "peakDb": -1.46,
-   "lufs": -13.0,
+   "lufs": -13,
    "pitchRange": [
     0.9,
     1.1
@@ -2275,967 +2276,6 @@
     1.1
    ]
   },
-  "music/boss_dnb_base": {
-   "file": "music/boss_dnb_base.ogg",
-   "files": [
-    "music/boss_dnb_base.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (boss) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -3.683,
-   "truePeak4xDb": -3.653,
-   "lufs": -16.384,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.1377,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "boss_dnb",
-   "kind": "boss",
-   "stem": "base",
-   "intensity": 0,
-   "biomes": [],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/boss_dnb_extra": {
-   "file": "music/boss_dnb_extra.ogg",
-   "files": [
-    "music/boss_dnb_extra.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (boss) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -8.061,
-   "truePeak4xDb": -8.055,
-   "lufs": -25.481,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0438,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "boss_dnb",
-   "kind": "boss",
-   "stem": "extra",
-   "intensity": 1,
-   "biomes": [],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/garage_loop": {
-   "file": "music/garage_loop.ogg",
-   "files": [
-    "music/garage_loop.ogg"
-   ],
-   "duration": 41.7391,
-   "durations": [
-    41.7391
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music",
-   "channels": 2,
-   "notes": "GARAGE menu loop: G minor 92 BPM, 16 bars, ~-16 LUFS, warm/gritty/hopeful, sits under menus",
-   "peakDb": -4.9,
-   "lufs": -16.0,
-   "loopStart": 0.0,
-   "loopEnd": 41.73913832199546,
-   "loopJumpRatio": 0.47,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "garage",
-   "bpm": 92.0,
-   "bpmNominal": 92,
-   "bars": 16,
-   "beats": 64,
-   "key": "G minor",
-   "loopBars": 16,
-   "samples": 1840696,
-   "secPerBar": 2.6087,
-   "beatSec": 0.65217,
-   "barSec": 2.6087,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "intro arps"
-    },
-    {
-     "bar": 5,
-     "name": "theme"
-    },
-    {
-     "bar": 9,
-     "name": "lift"
-    },
-    {
-     "bar": 13,
-     "name": "resolve"
-    }
-   ]
-  },
-  "music/run_01_desert_base": {
-   "file": "music/run_01_desert_base.ogg",
-   "files": [
-    "music/run_01_desert_base.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (desert) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -3.517,
-   "truePeak4xDb": -3.207,
-   "lufs": -16.465,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.3297,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_01_desert",
-   "kind": "run",
-   "stem": "base",
-   "intensity": 0,
-   "biomes": [
-    "desert"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_01_desert_extra": {
-   "file": "music/run_01_desert_extra.ogg",
-   "files": [
-    "music/run_01_desert_extra.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (desert) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -7.442,
-   "truePeak4xDb": -7.375,
-   "lufs": -25.246,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0356,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_01_desert",
-   "kind": "run",
-   "stem": "extra",
-   "intensity": 1,
-   "biomes": [
-    "desert"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_02_canyon_base": {
-   "file": "music/run_02_canyon_base.ogg",
-   "files": [
-    "music/run_02_canyon_base.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (canyon) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -3.697,
-   "truePeak4xDb": -3.451,
-   "lufs": -16.452,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.1344,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_02_canyon",
-   "kind": "run",
-   "stem": "base",
-   "intensity": 0,
-   "biomes": [
-    "canyon"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_02_canyon_extra": {
-   "file": "music/run_02_canyon_extra.ogg",
-   "files": [
-    "music/run_02_canyon_extra.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (canyon) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -7.281,
-   "truePeak4xDb": -7.276,
-   "lufs": -25.128,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0378,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_02_canyon",
-   "kind": "run",
-   "stem": "extra",
-   "intensity": 1,
-   "biomes": [
-    "canyon"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_03_coast_base": {
-   "file": "music/run_03_coast_base.ogg",
-   "files": [
-    "music/run_03_coast_base.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (coast) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -3.144,
-   "truePeak4xDb": -2.963,
-   "lufs": -16.414,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0597,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_03_coast",
-   "kind": "run",
-   "stem": "base",
-   "intensity": 0,
-   "biomes": [
-    "coast"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_03_coast_extra": {
-   "file": "music/run_03_coast_extra.ogg",
-   "files": [
-    "music/run_03_coast_extra.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (coast) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -8.355,
-   "truePeak4xDb": -8.174,
-   "lufs": -25.307,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0176,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_03_coast",
-   "kind": "run",
-   "stem": "extra",
-   "intensity": 1,
-   "biomes": [
-    "coast"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_04_mountain_base": {
-   "file": "music/run_04_mountain_base.ogg",
-   "files": [
-    "music/run_04_mountain_base.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (mountain) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -3.588,
-   "truePeak4xDb": -3.48,
-   "lufs": -16.429,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.2365,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_04_mountain",
-   "kind": "run",
-   "stem": "base",
-   "intensity": 0,
-   "biomes": [
-    "mountain"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_04_mountain_extra": {
-   "file": "music/run_04_mountain_extra.ogg",
-   "files": [
-    "music/run_04_mountain_extra.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (mountain) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -8.596,
-   "truePeak4xDb": -8.389,
-   "lufs": -25.3,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0239,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_04_mountain",
-   "kind": "run",
-   "stem": "extra",
-   "intensity": 1,
-   "biomes": [
-    "mountain"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_05_city_base": {
-   "file": "music/run_05_city_base.ogg",
-   "files": [
-    "music/run_05_city_base.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (city) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -3.605,
-   "truePeak4xDb": -3.151,
-   "lufs": -16.379,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.1466,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_05_city",
-   "kind": "run",
-   "stem": "base",
-   "intensity": 0,
-   "biomes": [
-    "city"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_05_city_extra": {
-   "file": "music/run_05_city_extra.ogg",
-   "files": [
-    "music/run_05_city_extra.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (city) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -7.445,
-   "truePeak4xDb": -7.38,
-   "lufs": -25.436,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0035,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_05_city",
-   "kind": "run",
-   "stem": "extra",
-   "intensity": 1,
-   "biomes": [
-    "city"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_06_dam_base": {
-   "file": "music/run_06_dam_base.ogg",
-   "files": [
-    "music/run_06_dam_base.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (dam) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -3.6,
-   "truePeak4xDb": -3.445,
-   "lufs": -16.388,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.1799,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_06_dam",
-   "kind": "run",
-   "stem": "base",
-   "intensity": 0,
-   "biomes": [
-    "dam"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/run_06_dam_extra": {
-   "file": "music/run_06_dam_extra.ogg",
-   "files": [
-    "music/run_06_dam_extra.ogg"
-   ],
-   "duration": 44.13793650793651,
-   "durations": [
-    44.13793650793651
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.5,
-   "category": "music_stem",
-   "channels": 2,
-   "notes": "Original dark cinematic DnB (dam) 174 BPM; complete groove in base, adaptive pressure in extra.",
-   "peakDb": -9.464,
-   "truePeak4xDb": -9.452,
-   "lufs": -25.581,
-   "loopStart": 0,
-   "loopEnd": 44.13793650793651,
-   "loopJumpRatio": 0.0075,
-   "pitchRange": [
-    1,
-    1
-   ],
-   "track": "run_06_dam",
-   "kind": "run",
-   "stem": "extra",
-   "intensity": 1,
-   "biomes": [
-    "dam"
-   ],
-   "bpm": 173.99997842262172,
-   "bpmNominal": 174,
-   "bars": 32,
-   "beats": 128,
-   "key": "D minor",
-   "samples": 1946483,
-   "secPerBar": 1.379310515873016,
-   "beatSec": 0.344827628968254,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drive"
-    },
-    {
-     "bar": 9,
-     "name": "variation"
-    },
-    {
-     "bar": 17,
-     "name": "half-time break then return"
-    },
-    {
-     "bar": 25,
-     "name": "pressure"
-    }
-   ]
-  },
-  "music/title_loop": {
-   "file": "music/title_loop.ogg",
-   "files": [
-    "music/title_loop.ogg"
-   ],
-   "duration": 36.9231,
-   "durations": [
-    36.9231
-   ],
-   "loop": true,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music",
-   "channels": 2,
-   "notes": "TITLE screen loop: D minor 104 BPM, 16 bars, ~-16 LUFS, epic/moody horn theme",
-   "peakDb": -5.48,
-   "lufs": -16.0,
-   "loopStart": 0.0,
-   "loopEnd": 36.92308390022676,
-   "loopJumpRatio": 0.34,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "title",
-   "bpm": 104.0,
-   "bpmNominal": 104,
-   "bars": 16,
-   "beats": 64,
-   "key": "D minor",
-   "loopBars": 16,
-   "samples": 1628308,
-   "secPerBar": 2.30769,
-   "beatSec": 0.57692,
-   "barSec": 2.30769,
-   "sections": [
-    {
-     "bar": 1,
-     "name": "drone + horn"
-    },
-    {
-     "bar": 5,
-     "name": "theme + drums"
-    },
-    {
-     "bar": 9,
-     "name": "answer + choir"
-    },
-    {
-     "bar": 13,
-     "name": "peak"
-    }
-   ]
-  },
-  "music/victory": {
-   "file": "music/victory.ogg",
-   "files": [
-    "music/victory.ogg"
-   ],
-   "duration": 11.2029,
-   "durations": [
-    11.2029
-   ],
-   "loop": false,
-   "variations": 1,
-   "gain": 0.4,
-   "category": "music",
-   "channels": 2,
-   "notes": "VICTORY fanfare one-shot, D major 132 BPM, ~11 s, heroic brass + drums + rising arpeggio, natural tail",
-   "peakDb": -4.87,
-   "lufs": -5.7,
-   "pitchRange": [
-    1.0,
-    1.0
-   ],
-   "track": "victory",
-   "bpm": 132.0001,
-   "bpmNominal": 132,
-   "bars": 4,
-   "beats": 16,
-   "key": "D major",
-   "beatSec": 0.45455,
-   "barSec": 1.81818,
-   "oneShot": true
-  },
   "stingers/boss_defeated": {
    "file": "stingers/boss_defeated.ogg",
    "files": [
@@ -3254,8 +2294,8 @@
    "peakDb": -1.68,
    "lufs": -7.2,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "stingers/boss_intro": {
@@ -3276,8 +2316,8 @@
    "peakDb": -1.7,
    "lufs": -7.2,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "stingers/danger_riser": {
@@ -3298,8 +2338,8 @@
    "peakDb": -1.89,
    "lufs": -9.8,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "stingers/game_over": {
@@ -3320,8 +2360,8 @@
    "peakDb": -1.49,
    "lufs": -6.3,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "stingers/low_health_heartbeat_loop": {
@@ -3329,9 +2369,9 @@
    "files": [
     "stingers/low_health_heartbeat_loop.ogg"
    ],
-   "duration": 2.0,
+   "duration": 2,
    "durations": [
-    2.0
+    2
    ],
    "loop": true,
    "variations": 1,
@@ -3340,9 +2380,9 @@
    "channels": 2,
    "notes": "heartbeat lub-dub-lub-dub at 60 BPM (2 beats, slight variation), seamless 2 s loop; loop while HP < 30 %, raise rate via playbackRate",
    "peakDb": -4.38,
-   "lufs": -21.0,
-   "loopStart": 0.0,
-   "loopEnd": 2.0,
+   "lufs": -21,
+   "loopStart": 0,
+   "loopEnd": 2,
    "loopJumpRatio": 0.29,
    "pitchRange": [
     0.9,
@@ -3367,8 +2407,8 @@
    "peakDb": -2.2,
    "lufs": -9.2,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "stingers/victory": {
@@ -3389,8 +2429,8 @@
    "peakDb": -1.93,
    "lufs": -7.2,
    "pitchRange": [
-    1.0,
-    1.0
+    1,
+    1
    ]
   },
   "stingers/warning_alarm_loop": {
@@ -3409,8 +2449,8 @@
    "channels": 2,
    "notes": "two-tone electronic warning siren (960/720 Hz), seamless 1.2 s loop",
    "peakDb": -21.87,
-   "lufs": -22.0,
-   "loopStart": 0.0,
+   "lufs": -22,
+   "loopStart": 0,
    "loopEnd": 1.2,
    "loopJumpRatio": 0.01,
    "pitchRange": [
@@ -3749,7 +2789,7 @@
    "notes": "dying engine: misfires, rod knock, steam hiss; overlay on engine when HP low; seamless 2.4 s loop",
    "peakDb": -3.25,
    "lufs": -22.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4545,
    "loopJumpRatio": 0.29,
    "pitchRange": [
@@ -3774,7 +2814,7 @@
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; high stage recorded at 1900 RPM (fire freq 190.0 Hz); crossfade neighbours, playbackRate = rpm/1900",
    "peakDb": -7.24,
    "lufs": -20.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.28,
    "pitchRange": [
@@ -3784,7 +2824,7 @@
    "engine": "engine_boss",
    "stage": "high",
    "rpm": 1900,
-   "fireHz": 190.0,
+   "fireHz": 190,
    "cylinders": 12,
    "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
   },
@@ -3804,8 +2844,8 @@
    "channels": 1,
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; idle stage recorded at 520 RPM (fire freq 52.0 Hz); crossfade neighbours, playbackRate = rpm/520",
    "peakDb": -6.42,
-   "lufs": -22.0,
-   "loopStart": 0.0,
+   "lufs": -22,
+   "loopStart": 0,
    "loopEnd": 2.3077,
    "loopJumpRatio": 0.05,
    "pitchRange": [
@@ -3815,7 +2855,7 @@
    "engine": "engine_boss",
    "stage": "idle",
    "rpm": 520,
-   "fireHz": 52.0,
+   "fireHz": 52,
    "cylinders": 12,
    "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
   },
@@ -3836,7 +2876,7 @@
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; low stage recorded at 900 RPM (fire freq 90.0 Hz); crossfade neighbours, playbackRate = rpm/900",
    "peakDb": -7.14,
    "lufs": -21.3,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.15,
    "pitchRange": [
@@ -3846,7 +2886,7 @@
    "engine": "engine_boss",
    "stage": "low",
    "rpm": 900,
-   "fireHz": 90.0,
+   "fireHz": 90,
    "cylinders": 12,
    "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
   },
@@ -3867,7 +2907,7 @@
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; mid stage recorded at 1400 RPM (fire freq 140.0 Hz); crossfade neighbours, playbackRate = rpm/1400",
    "peakDb": -7.99,
    "lufs": -20.6,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.38,
    "pitchRange": [
@@ -3877,7 +2917,7 @@
    "engine": "engine_boss",
    "stage": "mid",
    "rpm": 1400,
-   "fireHz": 140.0,
+   "fireHz": 140,
    "cylinders": 12,
    "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
   },
@@ -3898,7 +2938,7 @@
    "notes": "huge turbo-diesel V12 (boss war rig), menacing; redline stage recorded at 2500 RPM (fire freq 250.0 Hz); crossfade neighbours, playbackRate = rpm/2500",
    "peakDb": -7.68,
    "lufs": -19.5,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.31,
    "pitchRange": [
@@ -3908,7 +2948,7 @@
    "engine": "engine_boss",
    "stage": "redline",
    "rpm": 2500,
-   "fireHz": 250.0,
+   "fireHz": 250,
    "cylinders": 12,
    "engine_desc": "huge turbo-diesel V12 (boss war rig), menacing"
   },
@@ -3929,7 +2969,7 @@
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; high stage recorded at 5800 RPM (fire freq 193.3 Hz); crossfade neighbours, playbackRate = rpm/5800",
    "peakDb": -7.4,
    "lufs": -20.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.57,
    "pitchRange": [
@@ -3960,7 +3000,7 @@
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; idle stage recorded at 1100 RPM (fire freq 36.7 Hz); crossfade neighbours, playbackRate = rpm/1100",
    "peakDb": -5.45,
    "lufs": -22.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.1,
    "pitchRange": [
@@ -3991,7 +3031,7 @@
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; low stage recorded at 2600 RPM (fire freq 86.7 Hz); crossfade neighbours, playbackRate = rpm/2600",
    "peakDb": -7.06,
    "lufs": -21.4,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.66,
    "pitchRange": [
@@ -4022,7 +3062,7 @@
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; mid stage recorded at 4200 RPM (fire freq 140.0 Hz); crossfade neighbours, playbackRate = rpm/4200",
    "peakDb": -8.83,
    "lufs": -20.7,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.63,
    "pitchRange": [
@@ -4032,7 +3072,7 @@
    "engine": "engine_buggy",
    "stage": "mid",
    "rpm": 4200,
-   "fireHz": 140.0,
+   "fireHz": 140,
    "cylinders": 4,
    "engine_desc": "raspy air-cooled 4-cylinder / buzzy two-stroke style"
   },
@@ -4053,7 +3093,7 @@
    "notes": "raspy air-cooled 4-cylinder / buzzy two-stroke style; redline stage recorded at 7400 RPM (fire freq 246.7 Hz); crossfade neighbours, playbackRate = rpm/7400",
    "peakDb": -9.01,
    "lufs": -19.6,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.01,
    "pitchRange": [
@@ -4083,8 +3123,8 @@
    "channels": 1,
    "notes": "heavy diesel (trucks, vans, tankers); high stage recorded at 2000 RPM (fire freq 100.0 Hz); crossfade neighbours, playbackRate = rpm/2000",
    "peakDb": -7.4,
-   "lufs": -20.0,
-   "loopStart": 0.0,
+   "lufs": -20,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.13,
    "pitchRange": [
@@ -4094,7 +3134,7 @@
    "engine": "engine_diesel",
    "stage": "high",
    "rpm": 2000,
-   "fireHz": 100.0,
+   "fireHz": 100,
    "cylinders": 6,
    "engine_desc": "heavy diesel (trucks, vans, tankers)"
   },
@@ -4115,7 +3155,7 @@
    "notes": "heavy diesel (trucks, vans, tankers); idle stage recorded at 600 RPM (fire freq 30.0 Hz); crossfade neighbours, playbackRate = rpm/600",
    "peakDb": -2.66,
    "lufs": -22.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.09,
    "pitchRange": [
@@ -4125,7 +3165,7 @@
    "engine": "engine_diesel",
    "stage": "idle",
    "rpm": 600,
-   "fireHz": 30.0,
+   "fireHz": 30,
    "cylinders": 6,
    "engine_desc": "heavy diesel (trucks, vans, tankers)"
   },
@@ -4146,7 +3186,7 @@
    "notes": "heavy diesel (trucks, vans, tankers); low stage recorded at 1000 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/1000",
    "peakDb": -5.96,
    "lufs": -21.3,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.2,
    "pitchRange": [
@@ -4156,7 +3196,7 @@
    "engine": "engine_diesel",
    "stage": "low",
    "rpm": 1000,
-   "fireHz": 50.0,
+   "fireHz": 50,
    "cylinders": 6,
    "engine_desc": "heavy diesel (trucks, vans, tankers)"
   },
@@ -4177,7 +3217,7 @@
    "notes": "heavy diesel (trucks, vans, tankers); mid stage recorded at 1500 RPM (fire freq 75.0 Hz); crossfade neighbours, playbackRate = rpm/1500",
    "peakDb": -7.97,
    "lufs": -20.6,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.24,
    "pitchRange": [
@@ -4187,7 +3227,7 @@
    "engine": "engine_diesel",
    "stage": "mid",
    "rpm": 1500,
-   "fireHz": 75.0,
+   "fireHz": 75,
    "cylinders": 6,
    "engine_desc": "heavy diesel (trucks, vans, tankers)"
   },
@@ -4208,7 +3248,7 @@
    "notes": "heavy diesel (trucks, vans, tankers); redline stage recorded at 2600 RPM (fire freq 130.0 Hz); crossfade neighbours, playbackRate = rpm/2600",
    "peakDb": -8.52,
    "lufs": -19.5,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.22,
    "pitchRange": [
@@ -4218,7 +3258,7 @@
    "engine": "engine_diesel",
    "stage": "redline",
    "rpm": 2600,
-   "fireHz": 130.0,
+   "fireHz": 130,
    "cylinders": 6,
    "engine_desc": "heavy diesel (trucks, vans, tankers)"
   },
@@ -4238,8 +3278,8 @@
    "channels": 1,
    "notes": "loud V8 with lopey idle; high stage recorded at 5000 RPM (fire freq 333.3 Hz); crossfade neighbours, playbackRate = rpm/5000",
    "peakDb": -10.42,
-   "lufs": -20.0,
-   "loopStart": 0.0,
+   "lufs": -20,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.28,
    "pitchRange": [
@@ -4270,7 +3310,7 @@
    "notes": "loud V8 with lopey idle; idle stage recorded at 650 RPM (fire freq 43.3 Hz); crossfade neighbours, playbackRate = rpm/650",
    "peakDb": -7.47,
    "lufs": -22.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.12,
    "pitchRange": [
@@ -4301,7 +3341,7 @@
    "notes": "loud V8 with lopey idle; low stage recorded at 1900 RPM (fire freq 126.7 Hz); crossfade neighbours, playbackRate = rpm/1900",
    "peakDb": -10.04,
    "lufs": -21.4,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.3,
    "pitchRange": [
@@ -4332,7 +3372,7 @@
    "notes": "loud V8 with lopey idle; mid stage recorded at 3300 RPM (fire freq 220.0 Hz); crossfade neighbours, playbackRate = rpm/3300",
    "peakDb": -9.74,
    "lufs": -20.7,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.1,
    "pitchRange": [
@@ -4342,7 +3382,7 @@
    "engine": "engine_muscle",
    "stage": "mid",
    "rpm": 3300,
-   "fireHz": 220.0,
+   "fireHz": 220,
    "cylinders": 8,
    "engine_desc": "loud V8 with lopey idle"
   },
@@ -4363,7 +3403,7 @@
    "notes": "loud V8 with lopey idle; redline stage recorded at 6300 RPM (fire freq 420.0 Hz); crossfade neighbours, playbackRate = rpm/6300",
    "peakDb": -9.97,
    "lufs": -19.5,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 1.07,
    "pitchRange": [
@@ -4373,7 +3413,7 @@
    "engine": "engine_muscle",
    "stage": "redline",
    "rpm": 6300,
-   "fireHz": 420.0,
+   "fireHz": 420,
    "cylinders": 8,
    "engine_desc": "loud V8 with lopey idle"
   },
@@ -4394,7 +3434,7 @@
    "notes": "tired rattly 4-cylinder (starter truck); high stage recorded at 5200 RPM (fire freq 173.3 Hz); crossfade neighbours, playbackRate = rpm/5200",
    "peakDb": -7.74,
    "lufs": -20.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 1.18,
    "pitchRange": [
@@ -4425,7 +3465,7 @@
    "notes": "tired rattly 4-cylinder (starter truck); idle stage recorded at 900 RPM (fire freq 30.0 Hz); crossfade neighbours, playbackRate = rpm/900",
    "peakDb": -1.66,
    "lufs": -22.3,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.21,
    "pitchRange": [
@@ -4435,7 +3475,7 @@
    "engine": "engine_player_t1",
    "stage": "idle",
    "rpm": 900,
-   "fireHz": 30.0,
+   "fireHz": 30,
    "cylinders": 4,
    "engine_desc": "tired rattly 4-cylinder (starter truck)"
   },
@@ -4456,7 +3496,7 @@
    "notes": "tired rattly 4-cylinder (starter truck); low stage recorded at 2200 RPM (fire freq 73.3 Hz); crossfade neighbours, playbackRate = rpm/2200",
    "peakDb": -6.04,
    "lufs": -21.4,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.58,
    "pitchRange": [
@@ -4487,7 +3527,7 @@
    "notes": "tired rattly 4-cylinder (starter truck); mid stage recorded at 3600 RPM (fire freq 120.0 Hz); crossfade neighbours, playbackRate = rpm/3600",
    "peakDb": -5.62,
    "lufs": -20.7,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.06,
    "pitchRange": [
@@ -4497,7 +3537,7 @@
    "engine": "engine_player_t1",
    "stage": "mid",
    "rpm": 3600,
-   "fireHz": 120.0,
+   "fireHz": 120,
    "cylinders": 4,
    "engine_desc": "tired rattly 4-cylinder (starter truck)"
   },
@@ -4518,7 +3558,7 @@
    "notes": "tired rattly 4-cylinder (starter truck); redline stage recorded at 6500 RPM (fire freq 216.7 Hz); crossfade neighbours, playbackRate = rpm/6500",
    "peakDb": -8.97,
    "lufs": -19.6,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.3,
    "pitchRange": [
@@ -4549,7 +3589,7 @@
    "notes": "rough V8; high stage recorded at 5000 RPM (fire freq 333.3 Hz); crossfade neighbours, playbackRate = rpm/5000",
    "peakDb": -7.07,
    "lufs": -20.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.12,
    "pitchRange": [
@@ -4580,7 +3620,7 @@
    "notes": "rough V8; idle stage recorded at 750 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/750",
    "peakDb": -4.75,
    "lufs": -22.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.06,
    "pitchRange": [
@@ -4590,7 +3630,7 @@
    "engine": "engine_player_t2",
    "stage": "idle",
    "rpm": 750,
-   "fireHz": 50.0,
+   "fireHz": 50,
    "cylinders": 8,
    "engine_desc": "rough V8"
   },
@@ -4611,7 +3651,7 @@
    "notes": "rough V8; low stage recorded at 2000 RPM (fire freq 133.3 Hz); crossfade neighbours, playbackRate = rpm/2000",
    "peakDb": -7.14,
    "lufs": -21.4,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.07,
    "pitchRange": [
@@ -4642,7 +3682,7 @@
    "notes": "rough V8; mid stage recorded at 3400 RPM (fire freq 226.7 Hz); crossfade neighbours, playbackRate = rpm/3400",
    "peakDb": -9.07,
    "lufs": -20.7,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.17,
    "pitchRange": [
@@ -4673,7 +3713,7 @@
    "notes": "rough V8; redline stage recorded at 6200 RPM (fire freq 413.3 Hz); crossfade neighbours, playbackRate = rpm/6200",
    "peakDb": -7.8,
    "lufs": -19.6,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.05,
    "pitchRange": [
@@ -4703,8 +3743,8 @@
    "channels": 1,
    "notes": "big growly V8; high stage recorded at 4900 RPM (fire freq 326.7 Hz); crossfade neighbours, playbackRate = rpm/4900",
    "peakDb": -10.37,
-   "lufs": -20.0,
-   "loopStart": 0.0,
+   "lufs": -20,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.48,
    "pitchRange": [
@@ -4734,8 +3774,8 @@
    "channels": 1,
    "notes": "big growly V8; idle stage recorded at 700 RPM (fire freq 46.7 Hz); crossfade neighbours, playbackRate = rpm/700",
    "peakDb": -8.66,
-   "lufs": -22.0,
-   "loopStart": 0.0,
+   "lufs": -22,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.07,
    "pitchRange": [
@@ -4766,7 +3806,7 @@
    "notes": "big growly V8; low stage recorded at 1900 RPM (fire freq 126.7 Hz); crossfade neighbours, playbackRate = rpm/1900",
    "peakDb": -11.59,
    "lufs": -21.4,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.16,
    "pitchRange": [
@@ -4797,7 +3837,7 @@
    "notes": "big growly V8; mid stage recorded at 3300 RPM (fire freq 220.0 Hz); crossfade neighbours, playbackRate = rpm/3300",
    "peakDb": -11.22,
    "lufs": -20.7,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.14,
    "pitchRange": [
@@ -4807,7 +3847,7 @@
    "engine": "engine_player_t3",
    "stage": "mid",
    "rpm": 3300,
-   "fireHz": 220.0,
+   "fireHz": 220,
    "cylinders": 8,
    "engine_desc": "big growly V8"
   },
@@ -4828,7 +3868,7 @@
    "notes": "big growly V8; redline stage recorded at 6000 RPM (fire freq 400.0 Hz); crossfade neighbours, playbackRate = rpm/6000",
    "peakDb": -9.41,
    "lufs": -19.5,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.09,
    "pitchRange": [
@@ -4838,7 +3878,7 @@
    "engine": "engine_player_t3",
    "stage": "redline",
    "rpm": 6000,
-   "fireHz": 400.0,
+   "fireHz": 400,
    "cylinders": 8,
    "engine_desc": "big growly V8"
   },
@@ -4859,7 +3899,7 @@
    "notes": "supercharged V8 with gear/blower whine; high stage recorded at 5500 RPM (fire freq 366.7 Hz); crossfade neighbours, playbackRate = rpm/5500",
    "peakDb": -10.76,
    "lufs": -20.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.93,
    "pitchRange": [
@@ -4890,7 +3930,7 @@
    "notes": "supercharged V8 with gear/blower whine; idle stage recorded at 750 RPM (fire freq 50.0 Hz); crossfade neighbours, playbackRate = rpm/750",
    "peakDb": -8.68,
    "lufs": -22.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.66,
    "pitchRange": [
@@ -4900,7 +3940,7 @@
    "engine": "engine_player_t4",
    "stage": "idle",
    "rpm": 750,
-   "fireHz": 50.0,
+   "fireHz": 50,
    "cylinders": 8,
    "engine_desc": "supercharged V8 with gear/blower whine"
   },
@@ -4921,7 +3961,7 @@
    "notes": "supercharged V8 with gear/blower whine; low stage recorded at 2200 RPM (fire freq 146.7 Hz); crossfade neighbours, playbackRate = rpm/2200",
    "peakDb": -11.37,
    "lufs": -21.4,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.25,
    "pitchRange": [
@@ -4952,7 +3992,7 @@
    "notes": "supercharged V8 with gear/blower whine; mid stage recorded at 3800 RPM (fire freq 253.3 Hz); crossfade neighbours, playbackRate = rpm/3800",
    "peakDb": -11.07,
    "lufs": -20.6,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.33,
    "pitchRange": [
@@ -4983,7 +4023,7 @@
    "notes": "supercharged V8 with gear/blower whine; redline stage recorded at 6800 RPM (fire freq 453.3 Hz); crossfade neighbours, playbackRate = rpm/6800",
    "peakDb": -9.19,
    "lufs": -19.5,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.66,
    "pitchRange": [
@@ -5013,8 +4053,8 @@
    "channels": 1,
    "notes": "thin inline-6 (sedan raiders); high stage recorded at 5100 RPM (fire freq 255.0 Hz); crossfade neighbours, playbackRate = rpm/5100",
    "peakDb": -10.12,
-   "lufs": -20.0,
-   "loopStart": 0.0,
+   "lufs": -20,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.04,
    "pitchRange": [
@@ -5024,7 +4064,7 @@
    "engine": "engine_sedan",
    "stage": "high",
    "rpm": 5100,
-   "fireHz": 255.0,
+   "fireHz": 255,
    "cylinders": 6,
    "engine_desc": "thin inline-6 (sedan raiders)"
   },
@@ -5045,7 +4085,7 @@
    "notes": "thin inline-6 (sedan raiders); idle stage recorded at 850 RPM (fire freq 42.5 Hz); crossfade neighbours, playbackRate = rpm/850",
    "peakDb": -9.36,
    "lufs": -22.1,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.56,
    "pitchRange": [
@@ -5076,7 +4116,7 @@
    "notes": "thin inline-6 (sedan raiders); low stage recorded at 2100 RPM (fire freq 105.0 Hz); crossfade neighbours, playbackRate = rpm/2100",
    "peakDb": -8.21,
    "lufs": -21.4,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.3,
    "pitchRange": [
@@ -5086,7 +4126,7 @@
    "engine": "engine_sedan",
    "stage": "low",
    "rpm": 2100,
-   "fireHz": 105.0,
+   "fireHz": 105,
    "cylinders": 6,
    "engine_desc": "thin inline-6 (sedan raiders)"
   },
@@ -5107,7 +4147,7 @@
    "notes": "thin inline-6 (sedan raiders); mid stage recorded at 3500 RPM (fire freq 175.0 Hz); crossfade neighbours, playbackRate = rpm/3500",
    "peakDb": -11.09,
    "lufs": -20.6,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.16,
    "pitchRange": [
@@ -5117,7 +4157,7 @@
    "engine": "engine_sedan",
    "stage": "mid",
    "rpm": 3500,
-   "fireHz": 175.0,
+   "fireHz": 175,
    "cylinders": 6,
    "engine_desc": "thin inline-6 (sedan raiders)"
   },
@@ -5138,7 +4178,7 @@
    "notes": "thin inline-6 (sedan raiders); redline stage recorded at 6400 RPM (fire freq 320.0 Hz); crossfade neighbours, playbackRate = rpm/6400",
    "peakDb": -8.17,
    "lufs": -19.5,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.4,
    "loopJumpRatio": 0.33,
    "pitchRange": [
@@ -5148,7 +4188,7 @@
    "engine": "engine_sedan",
    "stage": "redline",
    "rpm": 6400,
-   "fireHz": 320.0,
+   "fireHz": 320,
    "cylinders": 6,
    "engine_desc": "thin inline-6 (sedan raiders)"
   },
@@ -5190,7 +4230,7 @@
    "channels": 1,
    "notes": "starter crank -> catch -> rev overshoot -> idle (~800 rpm), 3 s",
    "peakDb": -1.91,
-   "lufs": -14.0,
+   "lufs": -14,
    "pitchRange": [
     0.94,
     1.06
@@ -5308,7 +4348,7 @@
    "channels": 1,
    "notes": "mine dropped: clink + two arming beeps (2.1 kHz), 0.75 s",
    "peakDb": -1.61,
-   "lufs": -14.0,
+   "lufs": -14,
    "pitchRange": [
     0.94,
     1.06
@@ -5352,7 +4392,7 @@
    "channels": 1,
    "notes": "nitro off: fading hiss, pitch-dropping whistle + crackling pops, 1.1 s",
    "peakDb": -1.03,
-   "lufs": -14.0,
+   "lufs": -14,
    "pitchRange": [
     0.94,
     1.06
@@ -5397,7 +4437,7 @@
    "notes": "nitro burn: flame roar + turbine whistle, seamless 1.6 s loop",
    "peakDb": -9.3,
    "lufs": -22.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 1.6,
    "loopJumpRatio": 0.48,
    "pitchRange": [
@@ -5421,7 +4461,7 @@
    "channels": 1,
    "notes": "oil slick deployed: wet splat + bubbles, 0.7 s",
    "peakDb": -1.55,
-   "lufs": -10.0,
+   "lufs": -10,
    "pitchRange": [
     0.94,
     1.06
@@ -5444,7 +4484,7 @@
    "notes": "sliding on gravel / dirt: spray hiss + stone crackle, seamless 1.6 s loop",
    "peakDb": -8.79,
    "lufs": -23.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 1.6,
    "loopJumpRatio": 0.88,
    "pitchRange": [
@@ -5468,8 +4508,8 @@
    "channels": 1,
    "notes": "tyre squeal on asphalt (drift), seamless 1.6 s loop; gain by slip, pitch 0.85-1.25",
    "peakDb": -13.99,
-   "lufs": -23.0,
-   "loopStart": 0.0,
+   "lufs": -23,
+   "loopStart": 0,
    "loopEnd": 1.6,
    "loopJumpRatio": 0.44,
    "pitchRange": [
@@ -5493,8 +4533,8 @@
    "channels": 1,
    "notes": "roots-blower / gear whine, reference 1.5 kHz; playbackRate follows rpm (0.5-1.5)",
    "peakDb": -20.07,
-   "lufs": -27.0,
-   "loopStart": 0.0,
+   "lufs": -27,
+   "loopStart": 0,
    "loopEnd": 1.5,
    "loopJumpRatio": 0.38,
    "pitchRange": [
@@ -5544,8 +4584,8 @@
    "channels": 1,
    "notes": "turbine whistle, reference 3.3 kHz; playbackRate 0.5-1.6 with boost / rpm; layer with engine",
    "peakDb": -20.04,
-   "lufs": -27.0,
-   "loopStart": 0.0,
+   "lufs": -27,
+   "loopStart": 0,
    "loopEnd": 1.5,
    "loopJumpRatio": 0.56,
    "pitchRange": [
@@ -5558,9 +4598,9 @@
    "files": [
     "vehicles/tyre_asphalt_loop.ogg"
    ],
-   "duration": 2.0,
+   "duration": 2,
    "durations": [
-    2.0
+    2
    ],
    "loop": true,
    "variations": 1,
@@ -5570,8 +4610,8 @@
    "notes": "road roar on asphalt; volume ~ speed^1, pitch 0.7-1.6 with speed; seamless 2 s loop",
    "peakDb": -11.84,
    "lufs": -25.2,
-   "loopStart": 0.0,
-   "loopEnd": 2.0,
+   "loopStart": 0,
+   "loopEnd": 2,
    "loopJumpRatio": 0.36,
    "pitchRange": [
     0.7,
@@ -5583,9 +4623,9 @@
    "files": [
     "vehicles/tyre_dirt_loop.ogg"
    ],
-   "duration": 2.0,
+   "duration": 2,
    "durations": [
-    2.0
+    2
    ],
    "loop": true,
    "variations": 1,
@@ -5595,8 +4635,8 @@
    "notes": "tyres on dirt / gravel road: rumble + stone rattle; pitch 0.7-1.5 with speed; 2 s loop",
    "peakDb": -8.03,
    "lufs": -25.2,
-   "loopStart": 0.0,
-   "loopEnd": 2.0,
+   "loopStart": 0,
+   "loopEnd": 2,
    "loopJumpRatio": 0.5,
    "pitchRange": [
     0.7,
@@ -5620,22 +4660,592 @@
    "notes": "wind rush around the truck; volume ~ speed^1.5, pitch 0.7-1.6; 2.5 s loop",
    "peakDb": -9.74,
    "lufs": -25.2,
-   "loopStart": 0.0,
+   "loopStart": 0,
    "loopEnd": 2.5,
    "loopJumpRatio": 0.96,
    "pitchRange": [
     0.7,
     1.6
    ]
+  },
+  "music/run_suno_01": {
+   "file": "music/suno/mudstep-ruins.mp3",
+   "files": [
+    "music/suno/mudstep-ruins.mp3"
+   ],
+   "duration": 233.494,
+   "durations": [
+    233.494
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.691831,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_01",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "desert"
+   ],
+   "displayTitle": "Mudstep Ruins",
+   "sourceFilename": "Mudstep Ruins.mp3",
+   "sha256": "9204ED9010752C913FBD9FFE2C40CE7867B10329ED0F81F15FD37B15EAF41B7B",
+   "peakDb": -1.8,
+   "lufs": -12.8,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_02": {
+   "file": "music/suno/crazy-bongos.mp3",
+   "files": [
+    "music/suno/crazy-bongos.mp3"
+   ],
+   "duration": 174.214,
+   "durations": [
+    174.214
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.74131,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_02",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "canyon"
+   ],
+   "displayTitle": "Bongo Madness",
+   "sourceFilename": "crazy bongos.mp3",
+   "sha256": "CE2D9BFC20E4BAC955E77A6E1B4992436B89475A14ABDAF573446125670D6A73",
+   "peakDb": -0.9,
+   "lufs": -13.4,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_03": {
+   "file": "music/suno/midnight-in-kingston.mp3",
+   "files": [
+    "music/suno/midnight-in-kingston.mp3"
+   ],
+   "duration": 168.014,
+   "durations": [
+    168.014
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.749894,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_03",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "coast"
+   ],
+   "displayTitle": "Midnight in Kingston",
+   "sourceFilename": "Midnight in Kingston.mp3",
+   "sha256": "CD8D5F4E2D8AE72B1877EF7957295AB1951C76EFF28D1592AECAADD3DBE6BC78",
+   "peakDb": -0.2,
+   "lufs": -13.5,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_04": {
+   "file": "music/suno/reel-tape-orbit.mp3",
+   "files": [
+    "music/suno/reel-tape-orbit.mp3"
+   ],
+   "duration": 234.774,
+   "durations": [
+    234.774
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.767361,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_04",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "mountain"
+   ],
+   "displayTitle": "Reel Tape Orbit",
+   "sourceFilename": "anotha one.mp3",
+   "sha256": "8D3F07B6D403D8FE1FE1F309E2CE972F5F8CBF89C85B2F754454D0F3DA687110",
+   "peakDb": -1.2,
+   "lufs": -13.7,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_05": {
+   "file": "music/suno/concrete-jungle-vibes.mp3",
+   "files": [
+    "music/suno/concrete-jungle-vibes.mp3"
+   ],
+   "duration": 240.44,
+   "durations": [
+    240.44
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.724436,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_05",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "city"
+   ],
+   "displayTitle": "Concrete Jungle Vibes",
+   "sourceFilename": "Concrete Jungle Vibes.mp3",
+   "sha256": "572F3ADCE1EB8B6401BC1945D93B805A18FFCF39F6B1871EF22B5BDA660D963D",
+   "peakDb": -1.9,
+   "lufs": -13.2,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_06": {
+   "file": "music/suno/circuit-lattice.mp3",
+   "files": [
+    "music/suno/circuit-lattice.mp3"
+   ],
+   "duration": 175.414,
+   "durations": [
+    175.414
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.653131,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_06",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "dam"
+   ],
+   "displayTitle": "Circuit Lattice",
+   "sourceFilename": "Circuit Lattice.mp3",
+   "sha256": "BBE129EE24184DB1414330073E921BD77D78DA89BE5048A782F1A9A1E1FDDC96",
+   "peakDb": -0.6,
+   "lufs": -12.3,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_07": {
+   "file": "music/suno/subbass-ritual.mp3",
+   "files": [
+    "music/suno/subbass-ritual.mp3"
+   ],
+   "duration": 266.294,
+   "durations": [
+    266.294
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.707946,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_07",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "underground"
+   ],
+   "displayTitle": "Subbass Ritual",
+   "sourceFilename": "Subbass Ritual.mp3",
+   "sha256": "905A66C432F66EECB5F6BE83A58573AB4E51FD62326025477AD5E61973C771E5",
+   "peakDb": -1.5,
+   "lufs": -13,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_08": {
+   "file": "music/suno/amen-drift.mp3",
+   "files": [
+    "music/suno/amen-drift.mp3"
+   ],
+   "duration": 187.974,
+   "durations": [
+    187.974
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.732825,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_08",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "sky"
+   ],
+   "displayTitle": "Amen Drift",
+   "sourceFilename": "Amen Drift.mp3",
+   "sha256": "03031A4B571E418BBB38F9017040D977E793BCF7F1E9E7BBCA681D015B933152",
+   "peakDb": -2.1,
+   "lufs": -13.3,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_09": {
+   "file": "music/suno/chrono-trigger.mp3",
+   "files": [
+    "music/suno/chrono-trigger.mp3"
+   ],
+   "duration": 61.894,
+   "durations": [
+    61.894
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.812831,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_09",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "hell"
+   ],
+   "displayTitle": "Chrono Trigger",
+   "sourceFilename": "Chrono Trigger.mp3",
+   "sha256": "14301AF06AFB90AA97F62022634CD6048176BC60851536E4D2D0E1A05E3776AB",
+   "peakDb": -2.4,
+   "lufs": -14.2,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/run_suno_10": {
+   "file": "music/suno/amen-spiral.mp3",
+   "files": [
+    "music/suno/amen-spiral.mp3"
+   ],
+   "duration": 229.534,
+   "durations": [
+    229.534
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.724436,
+   "category": "music",
+   "channels": 2,
+   "track": "run_suno_10",
+   "kind": "run",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [
+    "space"
+   ],
+   "displayTitle": "Amen Spiral",
+   "sourceFilename": "Amen Spiral.mp3",
+   "sha256": "6310140C310AFCF2E8908BC34147BC5E23E246BD313AC8582FEB95EA8A9E5175",
+   "peakDb": -1.6,
+   "lufs": -13.2,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/boss_suno_early": {
+   "file": "music/suno/ghoul-shredder.mp3",
+   "files": [
+    "music/suno/ghoul-shredder.mp3"
+   ],
+   "duration": 38.494,
+   "durations": [
+    38.494
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.776247,
+   "category": "music",
+   "channels": 2,
+   "track": "boss_suno_early",
+   "kind": "boss",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [],
+   "displayTitle": "Ghoul Shredder",
+   "sourceFilename": "ghoul shredder.mp3",
+   "sha256": "498D7201FEC7626187476D64EB9C7AFA82CC027E5AF18EFA58FBF07DA494EE08",
+   "peakDb": -2.8,
+   "lufs": -13.8,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/boss_suno_mid": {
+   "file": "music/suno/chrono-trigger.mp3",
+   "files": [
+    "music/suno/chrono-trigger.mp3"
+   ],
+   "duration": 61.894,
+   "durations": [
+    61.894
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.812831,
+   "category": "music",
+   "channels": 2,
+   "track": "boss_suno_mid",
+   "kind": "boss",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [],
+   "displayTitle": "Chrono Trigger",
+   "sourceFilename": "Chrono Trigger.mp3",
+   "sha256": "14301AF06AFB90AA97F62022634CD6048176BC60851536E4D2D0E1A05E3776AB",
+   "peakDb": -2.4,
+   "lufs": -14.2,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/boss_suno_late": {
+   "file": "music/suno/final-riff.mp3",
+   "files": [
+    "music/suno/final-riff.mp3"
+   ],
+   "duration": 131.294,
+   "durations": [
+    131.294
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.691831,
+   "category": "music",
+   "channels": 2,
+   "track": "boss_suno_late",
+   "kind": "boss",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [],
+   "displayTitle": "Final Riff",
+   "sourceFilename": "final riff.mp3",
+   "sha256": "21D1CE9306E1298C271B8501A777D249641F0C6CA78307EE599B764D24BE39EE",
+   "peakDb": -1.3,
+   "lufs": -12.8,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/title_suno": {
+   "file": "music/suno/reel-tape-orbit.mp3",
+   "files": [
+    "music/suno/reel-tape-orbit.mp3"
+   ],
+   "duration": 234.774,
+   "durations": [
+    234.774
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.767361,
+   "category": "music",
+   "channels": 2,
+   "track": "title_suno",
+   "kind": "title",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [],
+   "displayTitle": "Reel Tape Orbit",
+   "sourceFilename": "anotha one.mp3",
+   "sha256": "8D3F07B6D403D8FE1FE1F309E2CE972F5F8CBF89C85B2F754454D0F3DA687110",
+   "peakDb": -1.2,
+   "lufs": -13.7,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/garage_suno": {
+   "file": "music/suno/midnight-in-kingston.mp3",
+   "files": [
+    "music/suno/midnight-in-kingston.mp3"
+   ],
+   "duration": 168.014,
+   "durations": [
+    168.014
+   ],
+   "loop": true,
+   "variations": 1,
+   "gain": 0.749894,
+   "category": "music",
+   "channels": 2,
+   "track": "garage_suno",
+   "kind": "garage",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [],
+   "displayTitle": "Midnight in Kingston",
+   "sourceFilename": "Midnight in Kingston.mp3",
+   "sha256": "CD8D5F4E2D8AE72B1877EF7957295AB1951C76EFF28D1592AECAADD3DBE6BC78",
+   "peakDb": -0.2,
+   "lufs": -13.5,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+  },
+  "music/victory_suno": {
+   "file": "music/suno/final-riff.mp3",
+   "files": [
+    "music/suno/final-riff.mp3"
+   ],
+   "duration": 131.294,
+   "durations": [
+    131.294
+   ],
+   "loop": false,
+   "variations": 1,
+   "gain": 0.691831,
+   "category": "music",
+   "channels": 2,
+   "track": "victory_suno",
+   "kind": "victory",
+   "stem": "base",
+   "intensity": 0,
+   "streaming": true,
+   "biomes": [],
+   "displayTitle": "Final Riff",
+   "sourceFilename": "final riff.mp3",
+   "sha256": "21D1CE9306E1298C271B8501A777D249641F0C6CA78307EE599B764D24BE39EE",
+   "peakDb": -1.3,
+   "lufs": -12.8,
+   "playbackLufs": -16,
+   "pitchRange": [
+    1,
+    1
+   ],
+   "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
   }
  },
  "soundtrackProvenance": {
-  "generator": "Original deterministic offline DSP composition",
-  "source": "tools/audio/compose_dnb.py",
-  "copyrightSources": "No external samples, tracks, melodies or artist imitation",
-  "bpm": 174,
-  "runThemes": 6,
-  "bossThemes": 1,
-  "adaptiveStemsPerTheme": 2
+  "artist": "yaportmax",
+  "creationTool": "Suno",
+  "reusedFromGame": "Covenant: Ashfall",
+  "catalog": "/audio/music/suno/catalog.json",
+  "originalBytesPreserved": true,
+  "uniqueTracks": 12,
+  "excludedOriginalFiles": [
+   "Amen Drift (1).mp3",
+   "Deep Horizon.mp3"
+  ]
+ },
+ "musicRoutes": {
+  "run": {
+   "desert": "run_suno_01",
+   "canyon": "run_suno_02",
+   "coast": "run_suno_03",
+   "mountain": "run_suno_04",
+   "city": "run_suno_05",
+   "dam": "run_suno_06",
+   "underground": "run_suno_07",
+   "sky": "run_suno_08",
+   "hell": "run_suno_09",
+   "space": "run_suno_10"
+  },
+  "boss": {
+   "desert": "boss_suno_early",
+   "canyon": "boss_suno_early",
+   "coast": "boss_suno_early",
+   "mountain": "boss_suno_mid",
+   "city": "boss_suno_mid",
+   "dam": "boss_suno_mid",
+   "underground": "boss_suno_mid",
+   "sky": "boss_suno_late",
+   "hell": "boss_suno_late",
+   "space": "boss_suno_late",
+   "default": "boss_suno_early"
+  },
+  "title": "title_suno",
+  "garage": "garage_suno",
+  "victory": "victory_suno"
+ },
+ "totalFiles": 295,
+ "bytesByFormat": {
+  "ogg": 25510252,
+  "mp3": 52410647
  }
 }

@@ -7,12 +7,12 @@ import { musicFixture } from './helpers/music-fixture.mjs';
 const manifest=JSON.parse(fs.readFileSync(new URL('../public/audio/manifest.json',import.meta.url)));
 const late=['underground','sky','hell','space'];
 
-test('all ten explicit audio routes resolve actual existing manifest assets',()=>{
+test('all ten ambience routes and explicit streamed soundtrack routes resolve existing manifest assets',()=>{
   assert.equal(BIOME_ORDER.length,10);
   for(const id of BIOME_ORDER){
     const route=BIOME_AUDIO[id];assert.ok(Object.isFrozen(route));
-    const stems=Object.values(manifest.sounds).filter(d=>d.track===route.track);
-    assert.equal(stems.length,2,id);assert.ok(stems.every(d=>d.kind==='run'));
+    const stems=Object.values(manifest.sounds).filter(d=>d.track===manifest.musicRoutes.run[id]);
+    assert.equal(stems.length,1,id);assert.ok(stems.every(d=>d.kind==='run'&&d.streaming));
     for(const name of route.ambience)assert.ok(manifest.sounds['ambience/'+name],name);
     assert.ok(route.reverb>0);assert.ok(route.pressureFloor>=0&&route.pressureFloor<=1);
   }

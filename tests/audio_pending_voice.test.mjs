@@ -75,7 +75,7 @@ function assertReleased(audio, def, voice) {
   assert.equal(def.voices.length, 0);
   assert.equal(audio.voices.size, 0);
   assert.equal(audio._dyn.size, 0);
-  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, filter: 0, panner: 0 });
+  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, media: 0, filter: 0, panner: 0 });
 }
 
 for (const failure of ['fetch', 'decode']) {
@@ -90,7 +90,7 @@ for (const failure of ['fetch', 'decode']) {
       const voice = playPending(audio, def);
       assert.ok(voice instanceof Voice);
       assert.deepEqual(def.waiters, [voice]);
-      assert.deepEqual(liveNodes(audio), { gain: 1, src: 0, filter: 1, panner: 1 });
+      assert.deepEqual(liveNodes(audio), { gain: 1, src: 0, media: 0, filter: 1, panner: 1 });
       const loaded = audio.load(def);
       if (stopWhen === 'before') { voice.stop(); assertReleased(audio, def, voice); }
       if (failure === 'decode') { await ctx.decodeStarted.promise; gate.reject(new Error('fixture decode failure')); }
@@ -120,7 +120,7 @@ test('per-definition stealing keeps pending waiters and nodes bounded through de
     const count = Math.min(i + 1, 2);
     assert.equal(def.waiters.length, count);
     assert.equal(audio.voices.size, count);
-    assert.deepEqual(liveNodes(audio), { gain: count, src: 0, filter: count, panner: count });
+    assert.deepEqual(liveNodes(audio), { gain: count, src: 0, media: 0, filter: count, panner: count });
   }
   assert.equal(audio.stats.stolen, 98);
   assert.ok(voices.slice(0, -2).every(voice => voice.ended && voice.src === null));
@@ -130,7 +130,7 @@ test('per-definition stealing keeps pending waiters and nodes bounded through de
   assert.equal(def.waiters.length, 0);
   assert.equal(audio._cnt.src, 2, 'only surviving voices may attach');
   for (const voice of voices.slice(-2)) { assert.equal(voice.src.buffer, decoded); voice.src.finish(); }
-  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, filter: 0, panner: 0 });
+  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, media: 0, filter: 0, panner: 0 });
 });
 
 test('global stealing removes pending one-shot waiters from their original definitions', async t => {
@@ -149,7 +149,7 @@ test('global stealing removes pending one-shot waiters from their original defin
   assert.equal(audio._cnt.src, 2);
   assert.ok(voices.slice(0, -2).every(voice => voice.ended && voice.src === null));
   for (const voice of voices.slice(-2)) voice.src.finish();
-  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, filter: 0, panner: 0 });
+  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, media: 0, filter: 0, panner: 0 });
   assert.ok(defs.every(def => def.waiters.length === 0 && def.voices.length === 0));
 });
 
@@ -171,7 +171,7 @@ test('equal-score pending loops preserve their original waiters without stealing
   assert.equal(audio._cnt.src, 2); assert.equal(def.waiters.length, 0);
   assert.equal(first.playing, true); assert.equal(second.playing, true);
   first.src.finish(); second.src.finish();
-  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, filter: 0, panner: 0 });
+  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, media: 0, filter: 0, panner: 0 });
 });
 
 test('delayed attachment preserves start, offset, pitch and pending scheduled-stop behavior', async t => {
@@ -198,5 +198,5 @@ test('delayed attachment preserves start, offset, pitch and pending scheduled-st
   assert.equal(def.waiters.length, 0);
   assert.equal(audio.voices.size, 2);
   future.src.finish(); late.src.finish();
-  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, filter: 0, panner: 0 });
+  assert.deepEqual(liveNodes(audio), { gain: 0, src: 0, media: 0, filter: 0, panner: 0 });
 });

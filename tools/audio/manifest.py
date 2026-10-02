@@ -36,6 +36,33 @@ PITCH_OVERRIDE = {
 }
 
 
+def read_soundtrack_overlay():
+    """Retain imported soundtrack definitions when regenerating the SFX index.
+
+    These masters are streamed complete songs. They deliberately do not pass
+    through the synthesis, loudness matching, or seamless-loop pipeline.
+    """
+    path = os.path.join(os.path.dirname(__file__), "suno_soundtrack.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf8") as f:
+        overlay = json.load(f)
+    sounds = overlay.get("sounds")
+    if not isinstance(sounds, dict) or not sounds:
+        raise ValueError("suno_soundtrack.json requires a nonempty sounds object")
+    for key, sound in sounds.items():
+        if not key.startswith("music/") or sound.get("category") != "music":
+            raise ValueError(f"invalid imported soundtrack entry: {key}")
+        if not sound.get("streaming"):
+            raise ValueError(f"imported full songs must declare streamed playback: {key}")
+        if "loopStart" in sound or "loopEnd" in sound or "loopJumpRatio" in sound:
+            raise ValueError(f"imported full songs cannot declare synthesized loop points: {key}")
+    for key in ("musicRoutes", "soundtrackProvenance"):
+        if key in overlay and not isinstance(overlay[key], dict):
+            raise ValueError(f"{key} must be an object")
+    return overlay
+
+
 def load_all():
     for g, m in R.GROUP_MODULES.items():
         try:
@@ -53,9 +80,12 @@ def read_meta(group, fn):
 
 
 def build_manifest():
+    soundtrack = read_soundtrack_overlay()
     load_all()
     sounds = {}
     for (g, n), e in sorted(R.REG.items()):
+        if soundtrack and (g == "music" or e["category"] in ("music", "music_stem")):
+            continue  # imported songs replace the old synthesized music registry
         metas = []
         for v in range(e["n"]):
             m = read_meta(g, R.fname(e, v))
@@ -100,6 +130,8 @@ def build_manifest():
         d["pitchRange"] = list(pr)
         d.update(e["extra"])
         out[f"{g}/{n}"] = d
+    if soundtrack:
+        out.update(soundtrack["sounds"])
     # engines summary
     engines = {}
     for k, d in out.items():
@@ -111,26 +143,41 @@ def build_manifest():
     for eng in engines.values():
         eng["stages"].sort(key=lambda s: order.index(s["stage"]))
     total = 0
+    total_files = 0
+    bytes_by_format = {}
     for root, _, files in os.walk(R.OUT):
         for f in files:
-            if f.endswith(".ogg"):
-                total += os.path.getsize(os.path.join(root, f))
+            extension = os.path.splitext(f)[1].lower()
+            if extension in (".ogg", ".mp3", ".wav", ".m4a", ".flac", ".opus"):
+                size = os.path.getsize(os.path.join(root, f))
+                total += size
+                total_files += 1
+                bytes_by_format[extension[1:]] = bytes_by_format.get(extension[1:], 0) + size
     man = dict(
         version=1,
         basePath="/audio/",
         sampleRate=R.SR,
-        format="ogg/vorbis q5; mono for positional sfx, stereo for music + ambience",
+        format=("ogg/vorbis q5 generated SFX/ambience; original streamed MP3 soundtrack" if soundtrack else
+                "ogg/vorbis q5; mono for positional sfx, stereo for music + ambience"),
         conventions=dict(
-            peak="all files peak <= -1 dBFS (decoded)",
+            peak=("generated OGG files peak <= -1 dBFS (decoded); imported MP3 masters retain their original levels; use per-track measured metadata when present" if soundtrack else
+                  "all files peak <= -1 dBFS (decoded)"),
             gain="'gain' is a linear multiplier <= 1 that balances loudness within and across categories; game master gain on top",
-            loops="loop=true files are exact-length seamless loops: loopStart=0, loopEnd=duration; use AudioBufferSourceNode.loop=true",
-            variations="files list one file per variation; pick randomly, never same twice in a row, pitch +-4%",
+            loops="generated loop=true files are exact-length seamless loops: loopStart=0, loopEnd=duration; use AudioBufferSourceNode.loop=true; streaming=true music uses whole-song repeat/crossfade when loop=true, not sample-exact looping",
+            variations="files list one file per variation; generated SFX may randomize within pitchRange; full-song music remains at playbackRate=1",
             engines="see 'engines': stage loops recorded at fixed RPM; crossfade neighbours (equal power) and set playbackRate = currentRPM / stageRPM (0.75..1.35)",
         ),
         totalBytes=total,
+        totalFiles=total_files,
+        bytesByFormat=dict(sorted(bytes_by_format.items())),
         engines=engines,
         sounds=dict(sorted(out.items())),
     )
+    if soundtrack:
+        man["conventions"]["sampleRate"] = "sampleRate is the generated OGG default; imported streamed MP3 files retain their own encoding"
+        for key in ("musicRoutes", "soundtrackProvenance"):
+            if key in soundtrack:
+                man[key] = soundtrack[key]
     os.makedirs(R.OUT, exist_ok=True)
     with open(os.path.join(R.OUT, "manifest.json"), "w") as f:
         json.dump(man, f, indent=1)

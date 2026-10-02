@@ -1,0 +1,578 @@
+{
+  "sounds": {
+    "music/run_suno_01": {
+      "file": "music/suno/mudstep-ruins.mp3",
+      "files": [
+        "music/suno/mudstep-ruins.mp3"
+      ],
+      "duration": 233.494,
+      "durations": [
+        233.494
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.691831,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_01",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "desert"
+      ],
+      "displayTitle": "Mudstep Ruins",
+      "sourceFilename": "Mudstep Ruins.mp3",
+      "sha256": "9204ED9010752C913FBD9FFE2C40CE7867B10329ED0F81F15FD37B15EAF41B7B",
+      "peakDb": -1.8,
+      "lufs": -12.8,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_02": {
+      "file": "music/suno/crazy-bongos.mp3",
+      "files": [
+        "music/suno/crazy-bongos.mp3"
+      ],
+      "duration": 174.214,
+      "durations": [
+        174.214
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.74131,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_02",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "canyon"
+      ],
+      "displayTitle": "Bongo Madness",
+      "sourceFilename": "crazy bongos.mp3",
+      "sha256": "CE2D9BFC20E4BAC955E77A6E1B4992436B89475A14ABDAF573446125670D6A73",
+      "peakDb": -0.9,
+      "lufs": -13.4,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_03": {
+      "file": "music/suno/midnight-in-kingston.mp3",
+      "files": [
+        "music/suno/midnight-in-kingston.mp3"
+      ],
+      "duration": 168.014,
+      "durations": [
+        168.014
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.749894,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_03",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "coast"
+      ],
+      "displayTitle": "Midnight in Kingston",
+      "sourceFilename": "Midnight in Kingston.mp3",
+      "sha256": "CD8D5F4E2D8AE72B1877EF7957295AB1951C76EFF28D1592AECAADD3DBE6BC78",
+      "peakDb": -0.2,
+      "lufs": -13.5,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_04": {
+      "file": "music/suno/reel-tape-orbit.mp3",
+      "files": [
+        "music/suno/reel-tape-orbit.mp3"
+      ],
+      "duration": 234.774,
+      "durations": [
+        234.774
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.767361,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_04",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "mountain"
+      ],
+      "displayTitle": "Reel Tape Orbit",
+      "sourceFilename": "anotha one.mp3",
+      "sha256": "8D3F07B6D403D8FE1FE1F309E2CE972F5F8CBF89C85B2F754454D0F3DA687110",
+      "peakDb": -1.2,
+      "lufs": -13.7,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_05": {
+      "file": "music/suno/concrete-jungle-vibes.mp3",
+      "files": [
+        "music/suno/concrete-jungle-vibes.mp3"
+      ],
+      "duration": 240.44,
+      "durations": [
+        240.44
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.724436,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_05",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "city"
+      ],
+      "displayTitle": "Concrete Jungle Vibes",
+      "sourceFilename": "Concrete Jungle Vibes.mp3",
+      "sha256": "572F3ADCE1EB8B6401BC1945D93B805A18FFCF39F6B1871EF22B5BDA660D963D",
+      "peakDb": -1.9,
+      "lufs": -13.2,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_06": {
+      "file": "music/suno/circuit-lattice.mp3",
+      "files": [
+        "music/suno/circuit-lattice.mp3"
+      ],
+      "duration": 175.414,
+      "durations": [
+        175.414
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.653131,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_06",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "dam"
+      ],
+      "displayTitle": "Circuit Lattice",
+      "sourceFilename": "Circuit Lattice.mp3",
+      "sha256": "BBE129EE24184DB1414330073E921BD77D78DA89BE5048A782F1A9A1E1FDDC96",
+      "peakDb": -0.6,
+      "lufs": -12.3,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_07": {
+      "file": "music/suno/subbass-ritual.mp3",
+      "files": [
+        "music/suno/subbass-ritual.mp3"
+      ],
+      "duration": 266.294,
+      "durations": [
+        266.294
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.707946,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_07",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "underground"
+      ],
+      "displayTitle": "Subbass Ritual",
+      "sourceFilename": "Subbass Ritual.mp3",
+      "sha256": "905A66C432F66EECB5F6BE83A58573AB4E51FD62326025477AD5E61973C771E5",
+      "peakDb": -1.5,
+      "lufs": -13,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_08": {
+      "file": "music/suno/amen-drift.mp3",
+      "files": [
+        "music/suno/amen-drift.mp3"
+      ],
+      "duration": 187.974,
+      "durations": [
+        187.974
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.732825,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_08",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "sky"
+      ],
+      "displayTitle": "Amen Drift",
+      "sourceFilename": "Amen Drift.mp3",
+      "sha256": "03031A4B571E418BBB38F9017040D977E793BCF7F1E9E7BBCA681D015B933152",
+      "peakDb": -2.1,
+      "lufs": -13.3,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_09": {
+      "file": "music/suno/chrono-trigger.mp3",
+      "files": [
+        "music/suno/chrono-trigger.mp3"
+      ],
+      "duration": 61.894,
+      "durations": [
+        61.894
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.812831,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_09",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "hell"
+      ],
+      "displayTitle": "Chrono Trigger",
+      "sourceFilename": "Chrono Trigger.mp3",
+      "sha256": "14301AF06AFB90AA97F62022634CD6048176BC60851536E4D2D0E1A05E3776AB",
+      "peakDb": -2.4,
+      "lufs": -14.2,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/run_suno_10": {
+      "file": "music/suno/amen-spiral.mp3",
+      "files": [
+        "music/suno/amen-spiral.mp3"
+      ],
+      "duration": 229.534,
+      "durations": [
+        229.534
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.724436,
+      "category": "music",
+      "channels": 2,
+      "track": "run_suno_10",
+      "kind": "run",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [
+        "space"
+      ],
+      "displayTitle": "Amen Spiral",
+      "sourceFilename": "Amen Spiral.mp3",
+      "sha256": "6310140C310AFCF2E8908BC34147BC5E23E246BD313AC8582FEB95EA8A9E5175",
+      "peakDb": -1.6,
+      "lufs": -13.2,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/boss_suno_early": {
+      "file": "music/suno/ghoul-shredder.mp3",
+      "files": [
+        "music/suno/ghoul-shredder.mp3"
+      ],
+      "duration": 38.494,
+      "durations": [
+        38.494
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.776247,
+      "category": "music",
+      "channels": 2,
+      "track": "boss_suno_early",
+      "kind": "boss",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [],
+      "displayTitle": "Ghoul Shredder",
+      "sourceFilename": "ghoul shredder.mp3",
+      "sha256": "498D7201FEC7626187476D64EB9C7AFA82CC027E5AF18EFA58FBF07DA494EE08",
+      "peakDb": -2.8,
+      "lufs": -13.8,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/boss_suno_mid": {
+      "file": "music/suno/chrono-trigger.mp3",
+      "files": [
+        "music/suno/chrono-trigger.mp3"
+      ],
+      "duration": 61.894,
+      "durations": [
+        61.894
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.812831,
+      "category": "music",
+      "channels": 2,
+      "track": "boss_suno_mid",
+      "kind": "boss",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [],
+      "displayTitle": "Chrono Trigger",
+      "sourceFilename": "Chrono Trigger.mp3",
+      "sha256": "14301AF06AFB90AA97F62022634CD6048176BC60851536E4D2D0E1A05E3776AB",
+      "peakDb": -2.4,
+      "lufs": -14.2,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/boss_suno_late": {
+      "file": "music/suno/final-riff.mp3",
+      "files": [
+        "music/suno/final-riff.mp3"
+      ],
+      "duration": 131.294,
+      "durations": [
+        131.294
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.691831,
+      "category": "music",
+      "channels": 2,
+      "track": "boss_suno_late",
+      "kind": "boss",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [],
+      "displayTitle": "Final Riff",
+      "sourceFilename": "final riff.mp3",
+      "sha256": "21D1CE9306E1298C271B8501A777D249641F0C6CA78307EE599B764D24BE39EE",
+      "peakDb": -1.3,
+      "lufs": -12.8,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/title_suno": {
+      "file": "music/suno/reel-tape-orbit.mp3",
+      "files": [
+        "music/suno/reel-tape-orbit.mp3"
+      ],
+      "duration": 234.774,
+      "durations": [
+        234.774
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.767361,
+      "category": "music",
+      "channels": 2,
+      "track": "title_suno",
+      "kind": "title",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [],
+      "displayTitle": "Reel Tape Orbit",
+      "sourceFilename": "anotha one.mp3",
+      "sha256": "8D3F07B6D403D8FE1FE1F309E2CE972F5F8CBF89C85B2F754454D0F3DA687110",
+      "peakDb": -1.2,
+      "lufs": -13.7,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/garage_suno": {
+      "file": "music/suno/midnight-in-kingston.mp3",
+      "files": [
+        "music/suno/midnight-in-kingston.mp3"
+      ],
+      "duration": 168.014,
+      "durations": [
+        168.014
+      ],
+      "loop": true,
+      "variations": 1,
+      "gain": 0.749894,
+      "category": "music",
+      "channels": 2,
+      "track": "garage_suno",
+      "kind": "garage",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [],
+      "displayTitle": "Midnight in Kingston",
+      "sourceFilename": "Midnight in Kingston.mp3",
+      "sha256": "CD8D5F4E2D8AE72B1877EF7957295AB1951C76EFF28D1592AECAADD3DBE6BC78",
+      "peakDb": -0.2,
+      "lufs": -13.5,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    },
+    "music/victory_suno": {
+      "file": "music/suno/final-riff.mp3",
+      "files": [
+        "music/suno/final-riff.mp3"
+      ],
+      "duration": 131.294,
+      "durations": [
+        131.294
+      ],
+      "loop": false,
+      "variations": 1,
+      "gain": 0.691831,
+      "category": "music",
+      "channels": 2,
+      "track": "victory_suno",
+      "kind": "victory",
+      "stem": "base",
+      "intensity": 0,
+      "streaming": true,
+      "biomes": [],
+      "displayTitle": "Final Riff",
+      "sourceFilename": "final riff.mp3",
+      "sha256": "21D1CE9306E1298C271B8501A777D249641F0C6CA78307EE599B764D24BE39EE",
+      "peakDb": -1.3,
+      "lufs": -12.8,
+      "playbackLufs": -16,
+      "pitchRange": [
+        1,
+        1
+      ],
+      "notes": "Original full mixed Suno MP3 by yaportmax. Stream through music bus; attenuation only; no layered song stems or assumed bar alignment."
+    }
+  },
+  "musicRoutes": {
+    "run": {
+      "desert": "run_suno_01",
+      "canyon": "run_suno_02",
+      "coast": "run_suno_03",
+      "mountain": "run_suno_04",
+      "city": "run_suno_05",
+      "dam": "run_suno_06",
+      "underground": "run_suno_07",
+      "sky": "run_suno_08",
+      "hell": "run_suno_09",
+      "space": "run_suno_10"
+    },
+    "boss": {
+      "desert": "boss_suno_early",
+      "canyon": "boss_suno_early",
+      "coast": "boss_suno_early",
+      "mountain": "boss_suno_mid",
+      "city": "boss_suno_mid",
+      "dam": "boss_suno_mid",
+      "underground": "boss_suno_mid",
+      "sky": "boss_suno_late",
+      "hell": "boss_suno_late",
+      "space": "boss_suno_late",
+      "default": "boss_suno_early"
+    },
+    "title": "title_suno",
+    "garage": "garage_suno",
+    "victory": "victory_suno"
+  },
+  "soundtrackProvenance": {
+    "artist": "yaportmax",
+    "creationTool": "Suno",
+    "reusedFromGame": "Covenant: Ashfall",
+    "catalog": "/audio/music/suno/catalog.json",
+    "originalBytesPreserved": true,
+    "uniqueTracks": 12,
+    "excludedOriginalFiles": [
+      "Amen Drift (1).mp3",
+      "Deep Horizon.mp3"
+    ]
+  }
+}

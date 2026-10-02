@@ -1,8 +1,9 @@
 # Credits
 
 ## Audio (public/audio)
-Everything in `public/audio` is generated offline by `tools/audio` (Python / numpy / scipy / numba synthesis, encoded with ffmpeg libvorbis).
-No copyrighted material, no AI-generated audio. A few short sample layers are mixed into some impact / foley sounds; all of them are CC0 / public domain:
+The soundtrack in `public/audio/music/suno` is the owner's original Suno music by **yaportmax**, reused at the owner's request from **Covenant: Ashfall**. Twelve original MP3 masters are preserved byte for byte; the catalog records titles, hashes and measured playback attenuation. Stage and boss cues stream through the game's music bus.
+
+Other audio is generated offline by `tools/audio` (Python / numpy / scipy / numba synthesis, encoded with ffmpeg libvorbis). A few short sample layers are mixed into some impact / foley sounds; all of them are CC0 / public domain:
 
 - **Kenney (kenney.nl)** - "Impact Sounds 1.0" and "RPG Audio" - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). Used only as processed layers (pitch-shifted, trimmed, energy-balanced against synthesis):
   Impact Sounds (`impactTin_medium`, `impactGlass_light/heavy`, `impactSoft_heavy`, `impactPunch_medium`, `impactPlate_medium/heavy`, `impactMetal_heavy`, `impactMining`) in `impacts/*`
@@ -10,7 +11,7 @@ No copyrighted material, no AI-generated audio. A few short sample layers are mi
   `creak1`, `cloth1/2/3`, `handleSmallLeather`, `dropLeather`, `knifeSlice`) in the `guns/*` reload / swap foley.
 - **rubberduck (OpenGameArt.org)** - "100 CC0 SFX" (`slam_*`), "100 CC0 SFX 2" (`thunder_01`) and "75 CC0 breaking / falling / hit SFX" (`bfh1_glass_breaking_*`, `bfh1_metal_hit_*`, `bfh1_metal_falling_*`)
   - CC0 1.0. Used as layers in `impacts/*` (glass, metal, crash, ram, debris) and `explosions/*` (thunder under large / huge / distant blasts). Exact reads are in `tools/audio/g_impacts.py` and `g_explosions.py`.
-- Everything else (guns, engines, explosions, tyres, wind, ambience, UI, stingers, music) is original synthesis code in `tools/audio`.
+- Guns, engines, explosions, tyres, wind, ambience, UI and stingers use original synthesis code in `tools/audio`. Older synthesized OGG music remains archived in the asset tree but is excluded from the active soundtrack registry.
 
 Tools: Python 3, numpy, scipy, numba, soundfile, pyloudnorm, matplotlib (analysis only), FFmpeg (Vorbis encoder).
 
