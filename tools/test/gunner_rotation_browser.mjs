@@ -13,7 +13,7 @@ const views = (process.env.QA_ROTATION_VIEWS || 'hip').split(',');
 await mkdir(output, { recursive: true });
 const report = { scope: 'native pointer full Run gunner aim, survival-controlled software-rendered remote Chromium; not hardware FPS proof', phases: [], errors: [], passed: false };
 const preview = process.env.GAME_URL ? null : spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '5181', '--strictPort'], { stdio: 'ignore' });
-let browser;
+let browser, activePage;
 try {
   let ready = false;
   for (let i = 0; i < 100; i++) { try { ready = (await fetch(base)).ok; } catch {} if (ready) break; await wait(100); }
@@ -24,9 +24,15 @@ try {
     const context = await browser.newContext({ viewport: { width: 640, height: 360 } });
     await context.addInitScript(() => localStorage.setItem('rideordie.settings.v1', JSON.stringify({ quality: 0, resScale: .5, master: 0, motionBlur: false, grain: false, chromatic: false })));
     const page = await context.newPage();
+    activePage = page;
     page.on('pageerror', error => report.errors.push(String(error.stack || error)));
     await page.goto(`${base}/?solo&as=gunner&s=40&seed=7&weapons=rifle,sniper`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => window.__run?.started && window.__run.gunner && !window.__run.introOutside && !window.__game.paused, null, { timeout: 180000 });
+    await page.waitForFunction(() => window.__run?.started && window.__run.gunner, null, { timeout: 180000 });
+    await page.bringToFront();
+    if (await page.evaluate(() => window.__game.paused)) await page.locator('.pause [data-act="resume"]').click();
+    await page.mouse.click(320, 180);
+    await page.waitForFunction(() => !window.__run.introOutside && !window.__game.paused && window.__run.sim?.state === 'run', null, { timeout: 180000 });
+    console.log(`READY ${view}/${sign}`);
     await page.evaluate(({ view, sign }) => {
       const run = window.__run, game = window.__game;
       if (view === 'ads') run.gunner.swapTo(run.gunner.slots.indexOf('rifle'));
@@ -116,7 +122,11 @@ try {
   }
   assert.deepEqual(report.errors, []);
   report.passed = true;
-} catch (error) { report.failure = String(error.stack || error); throw error; }
+} catch (error) {
+  report.failure = String(error.stack || error);
+  try { report.failureState = await activePage?.evaluate(() => ({ready:window.__ready, screen:window.__app?.screen, paused:window.__game?.paused, started:window.__run?.started, introOutside:window.__run?.introOutside, simState:window.__run?.sim?.state, hasFocus:document.hasFocus(), hidden:document.hidden, probe:window.__rotationProbe})); } catch {}
+  throw error;
+}
 finally {
   await browser?.close(); preview?.kill();
   await writeFile(`${output}/report.json`, JSON.stringify(report, null, 2));
