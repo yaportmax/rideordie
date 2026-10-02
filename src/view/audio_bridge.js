@@ -157,7 +157,7 @@ export class AudioBridge {
     if (isPlayer) {
       const w = e.weapon, W = WEAPONS[w], own = dist < 3.5;
       this._play('guns/fire_' + w, { pos: own ? undefined : o, gain: 1, pitchVar: 0.04, slap: own ? 0.2 : undefined });
-      if (e.rocket) this._rocket(o, e.dir, W?.rocket?.speed ?? 85, true);
+      if (e.rocket) this._rocket(o, e.dir, e.speed ?? W?.rocket?.speed ?? 85, true, e.launchSpeed ?? W?.rocket?.launchSpeed ?? 25);
       else this._shellDrops(w, W, o, own, ctx);
       this._rays(e.rays || [], w);
       return;
@@ -167,7 +167,7 @@ export class AudioBridge {
     const now = A.now, last = this.enemyShotT.get(e.src) || -9;
     if (e.rocket || e.weapon === 'rpg') {
       this._play('guns/fire_rpg', { pos: o, gain: 0.85, refDist: 14 });
-      this._rocket(o, e.dir, e.speed || 60, false);
+      this._rocket(o, e.dir, e.speed || 60, false, e.launchSpeed ?? 25);
       return;
     }
     if (now - last < 0.05) return;
@@ -224,11 +224,11 @@ export class AudioBridge {
   }
 
   // ---- rockets
-  _rocket(o, dir, speed, own) {
+  _rocket(o, dir, speed, own, launchSpeed = 25) {
     const A = this.audio;
     if (!dir) return;
-    const d = arr3(dir), h = this._play('guns/rocket_loop', { pos: o, vel: [d[0] * 25, d[1] * 25, d[2] * 25], loop: true, gain: own ? 0.8 : 0.9, refDist: 12, pitchVar: 0.05, randomOffset: true, noCull: true });
-    this.rockets.push({ h, p: arr3(o).slice(), d, speed, t: 0 });
+    const d = arr3(dir), h = this._play('guns/rocket_loop', { pos: o, vel: [d[0] * launchSpeed, d[1] * launchSpeed, d[2] * launchSpeed], loop: true, gain: own ? 0.8 : 0.9, refDist: 12, pitchVar: 0.05, randomOffset: true, noCull: true });
+    this.rockets.push({ h, p: arr3(o).slice(), d, speed, launchSpeed, t: 0 });
     if (this.rockets.length > 8) { const r = this.rockets.shift(); r.h.stop(0.05); }
     void A;
   }
@@ -463,7 +463,7 @@ export class AudioBridge {
     }
     for (let i = this.rockets.length - 1; i >= 0; i--) {
       const r = this.rockets[i]; r.t += dt;
-      const sp = Math.min(r.speed, 25 + r.speed * 1.6 * r.t);
+      const sp = Math.min(r.speed, r.launchSpeed + r.speed * 1.6 * r.t);
       r.p[0] += r.d[0] * sp * dt; r.p[1] += r.d[1] * sp * dt; r.p[2] += r.d[2] * sp * dt;
       if (r.h.isNull || r.t > 4.5 || !r.h.playing) { r.h.stop(0.05); this.rockets.splice(i, 1); continue; }
       r.h.setPos(r.p, [r.d[0] * sp, r.d[1] * sp, r.d[2] * sp]);

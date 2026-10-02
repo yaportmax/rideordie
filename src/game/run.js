@@ -304,7 +304,7 @@ export class Run {
       }
       // the AI gunner aims from its own eye along its own aim; a human aims through the camera
       const aimCam = this.aiGunner ? { position: this.eye, dir: _aiDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch)) } : { position: g.camera.position, dir: this.camDir };
-      this.gunner.update(dt, cmds.gunner, aimCam, carYaw, { carVel: pst.vel, deferFire: true });
+      this.gunner.update(dt, cmds.gunner, aimCam, carYaw, { carVel: pst.vel, poseRevision: pst.poseRevision, deferFire: true });
     }
     // The gunner's projection must precede its viewmodel. The driver's cockpit
     // eye instead queries the current crew/head pose, so resolve it after views.

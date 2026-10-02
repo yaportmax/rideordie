@@ -22,7 +22,7 @@ export class Input {
   constructor(canvas) {
     this.canvas = canvas;
     this.keys = new Set(); this.pressed = new Set(); // pressed = edge this frame
-    this.mouseDX = 0; this.mouseDY = 0; this.wheel = 0;
+    this.mouseDX = 0; this.mouseDY = 0; this.wheel = 0; this._mouseMovedThisFrame = false;
     this.mouse = { left: false, right: false, middle: false }; this.mousePressed = { left: false, right: false };
     this.locked = false;
     this.bindings = { ...DEFAULT_BINDINGS };
@@ -48,10 +48,11 @@ export class Input {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('mousemove', (e) => {
       if (!this.locked) return;
+      if (!Number.isFinite(e.movementX) || !Number.isFinite(e.movementY)) return;
       this.mouseDX += e.movementX; this.mouseDY += e.movementY;
       // A mouse turn must leave controller-only target snapping behind, even
       // when the player switches devices without clicking or pressing a key.
-      if (e.movementX || e.movementY) this.lastDevice = 'kbm';
+      if (e.movementX || e.movementY) { this._mouseMovedThisFrame = true; this.lastDevice = 'kbm'; }
     });
     addEventListener('wheel', (e) => { if (this.locked) this.wheel += Math.sign(e.deltaY); }, { passive: true });
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; if (!this.locked) this.reset(); });
@@ -77,8 +78,12 @@ export class Input {
   down(action) { return (this.bindings[action] || []).some((c) => this.keys.has(c)); }
   hit(action) { return (this.bindings[action] || []).some((c) => this.pressed.has(c)); }
 
+  _mouseAimActive() { return !!this.locked && !!(this._mouseMovedThisFrame || this.mouseDX || this.mouseDY); }
+
   /** Poll the gamepad; call once per frame before reading commands. */
   poll() {
+    const mouseAimActive = this._mouseAimActive();
+    if (mouseAimActive) this.lastDevice = 'kbm';
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     let pad = null;
     for (const p of pads) if (p && p.connected) { pad = p; break; }
@@ -95,7 +100,7 @@ export class Input {
       // Ignore unused axes and stick drift inside the same deadzones as the command readers.
       const act = pad.buttons.some((b, i) => b.pressed || b.value > (i === 6 ? 0.3 : i === 7 ? 0.35 : 0.5))
         || PAD_ACTIVE_DEADZONES.some((dz, i) => Math.abs(pad.axes[i] || 0) > dz);
-      if (act) this.lastDevice = 'pad';
+      if (act && !mouseAimActive) this.lastDevice = 'pad';
     }
   }
   btn(i) { return !!(this.pad && this.pad.buttons[i] && (this.pad.buttons[i].pressed || this.pad.buttons[i].value > 0.5)); }
@@ -151,9 +156,14 @@ export class Input {
     for (let i = 1; i <= 6; i++) if (this.hit('slot' + i)) c.slot = i - 1;
     c.lean = this.down('lean') ? 1 : 0;
     if (this.pad) {
-      const ax = applyDead(this.pad.axes[2] || 0, 0.12), ay = applyDead(this.pad.axes[3] || 0, 0.12);
-      const s = adsActive ? this.sens.padAdsMul : 1;
-      c.dYaw += -curve(ax, 1.7) * this.sens.padYaw * dt * s; c.dPitch += -curve(ay, 1.7) * this.sens.padPitch * dt * s * (this.invertY ? -1 : 1);
+      // Keep controller buttons available, but never mix its right-stick aim
+      // into the same frame as captured mouse movement (including net-zero
+      // movement). Polling an active pad must not re-enable mouse aim assist.
+      if (!this._mouseAimActive()) {
+        const ax = applyDead(this.pad.axes[2] || 0, 0.12), ay = applyDead(this.pad.axes[3] || 0, 0.12);
+        const s = adsActive ? this.sens.padAdsMul : 1;
+        c.dYaw += -curve(ax, 1.7) * this.sens.padYaw * dt * s; c.dPitch += -curve(ay, 1.7) * this.sens.padPitch * dt * s * (this.invertY ? -1 : 1);
+      }
       c.fire = c.fire || this.btnV(7) > 0.35; c.firePressed = c.firePressed || (this.btnV(7) > 0.35 && !this._triggerPrev);
       this._triggerPrev = this.btnV(7) > 0.35;
       c.ads = c.ads || this.btnV(6) > 0.3;
@@ -185,5 +195,5 @@ export class Input {
   }
 
   /** Clear per-frame accumulators (call at the end of every frame). */
-  endFrame() { this.pressed.clear(); this.mouseDX = 0; this.mouseDY = 0; this.wheel = 0; this.mousePressed.left = false; this.mousePressed.right = false; }
+  endFrame() { this.pressed.clear(); this.mouseDX = 0; this.mouseDY = 0; this.wheel = 0; this._mouseMovedThisFrame = false; this.mousePressed.left = false; this.mousePressed.right = false; }
 }

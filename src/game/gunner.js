@@ -31,7 +31,7 @@ export class GunnerController {
     this.grenades = loadout.grenades ?? GRENADE.count; this.grenadeCd = 0; this.grenadeLv = loadout.grenadeLv || 0;
     this.pos = new THREE.Vector3(); // offset inside the bed (x,z), y unused
     this.muzzle = new THREE.Vector3(); this.aimPoint = new THREE.Vector3(); this.aimHit = false;
-    this.lastCarYaw = null; this.trigger = false; this.hitMarker = 0;
+    this.lastCarYaw = null; this.lastPoseRevision = null; this.trigger = false; this.hitMarker = 0;
     this._autoFireContinuous = false;
     this.shellQueue = [];
     this.dryClickT = 0;
@@ -66,8 +66,13 @@ export class GunnerController {
   update(dt, cmd, cam, carYaw, extra = {}) {
     let w = this.weapon;
     // ---- aim (world-space stabilised, inherits a fraction of the truck's turn)
-    if (this.lastCarYaw !== null) this.yaw += wrapAngle(carYaw - this.lastCarYaw) * 0.55;
+    const hasPoseRevision = Number.isInteger(extra.poseRevision);
+    const carrierRecovered = hasPoseRevision && this.lastPoseRevision !== null && extra.poseRevision !== this.lastPoseRevision;
+    // Recovery/unflip explicitly changes the truck pose. Keep world aim on its
+    // target instead of inheriting that teleport as a physical steering turn.
+    if (this.lastCarYaw !== null && !carrierRecovered) this.yaw += wrapAngle(carYaw - this.lastCarYaw) * 0.55;
     this.lastCarYaw = carYaw;
+    if (hasPoseRevision) this.lastPoseRevision = extra.poseRevision;
     const adsMul = this.ads > 0.5 ? (w.scope ? 0.28 : 0.6) : 1;
     this.yaw += cmd.dYaw * adsMul; this.pitch = clamp(this.pitch + cmd.dPitch * adsMul, -1.15, 1.2);
     this.yaw = wrapAngle(this.yaw);
@@ -216,7 +221,7 @@ export class GunnerController {
       // first person: the rocket (and its trail) starts a little ahead so it never fills the view right at the camera
       const R0 = this.fp ? M.clone().addScaledVector(_d, 1.6) : M.clone();
       ctx.fireRocket && ctx.fireRocket(R0, _d.clone(), w);
-      ctx.emit(this._fpTag({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), dir: _d.toArray(), rocket: true }));
+      ctx.emit(this._fpTag({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), dir: _d.toArray(), rocket: true, speed: w.rocket.speed, launchSpeed: w.rocket.launchSpeed ?? 25 }));
     } else {
       const shotEvents = [];
       const ignore = null; // (our own truck is never in the target list)

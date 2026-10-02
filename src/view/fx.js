@@ -594,7 +594,7 @@ export class Fx {
     const gy = this.groundAt(o[0], o[2], o[1] - 1.6);
     const fp = player && !evt.remote ? (evt.fp | 0) : 0;   // local first-person shooter (2 = scoped): the viewmodel draws its own flash
     R.muzzle(this, evt.heavy && wid === 'enemy' ? 'heavy' : wid, o[0], o[1], o[2], dx, dy, dz, vx, vy, vz, gy, fp);
-    if (evt.rocket) { this._launchRocket(o, dx, dy, dz, evt.speed || (WEAPONS.rpg.rocket && WEAPONS.rpg.rocket.speed) || 85); return; }
+    if (evt.rocket) { this._launchRocket(o, dx, dy, dz, evt.speed || (WEAPONS.rpg.rocket && WEAPONS.rpg.rocket.speed) || 85, evt.launchSpeed ?? 25); return; }
     if (player) {
       if (rays) for (let i = 0; i < rays.length; i++) {
         const ry = rays[i], e = ry && ry.end; if (!e) continue;
@@ -671,12 +671,12 @@ export class Fx {
   }
 
   // ------------------------------------------------------------------------------------------------ rockets + grenades
-  _launchRocket(o, dx, dy, dz, speed) {
+  _launchRocket(o, dx, dy, dz, speed, launchSpeed = 25) {
     if (this._projSeen) return;                                     // real projectile positions are being fed by updateProjectiles()
     for (const rk of this.rockets) if (!rk.live) {
-      rk.live = true; rk.x = o[0] + dx * 0.6; rk.y = o[1] + dy * 0.6; rk.z = o[2] + dz * 0.6; rk.dx = dx; rk.dy = dy; rk.dz = dz; rk.target = speed; rk.sp = 25; rk.t = 0; return;
+      rk.live = true; rk.x = o[0] + dx * 0.6; rk.y = o[1] + dy * 0.6; rk.z = o[2] + dz * 0.6; rk.dx = dx; rk.dy = dy; rk.dz = dz; rk.target = speed; rk.sp = launchSpeed; rk.t = 0; return;
     }
-    this.rockets.push({ live: true, x: o[0] + dx * 0.6, y: o[1] + dy * 0.6, z: o[2] + dz * 0.6, dx, dy, dz, target: speed, sp: 25, t: 0 });
+    this.rockets.push({ live: true, x: o[0] + dx * 0.6, y: o[1] + dy * 0.6, z: o[2] + dz * 0.6, dx, dy, dz, target: speed, sp: launchSpeed, t: 0 });
   }
   _updateRockets(dt) {
     for (const rk of this.rockets) {

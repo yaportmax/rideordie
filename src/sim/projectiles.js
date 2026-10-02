@@ -122,7 +122,8 @@ export class Projectiles {
     this.bullets.push({ x: o.x, y: o.y, z: o.z, vx: dir.x * speed, vy: dir.y * speed, vz: dir.z * speed, dmg, owner, life, maxLife: life, weapon });
   }
   addRocket(o, dir, cfg, owner) {
-    this.rockets.push({ id: this.nextId++, x: o.x, y: o.y, z: o.z, vx: dir.x * 25, vy: dir.y * 25, vz: dir.z * 25, speed: cfg.speed, blast: cfg.blast, blastDmg: cfg.blastDmg, direct: cfg.direct ?? 0, owner, life: 4, gravity: cfg.gravity || 0 });
+    const launchSpeed = cfg.launchSpeed ?? 25;
+    this.rockets.push({ id: this.nextId++, x: o.x, y: o.y, z: o.z, vx: dir.x * launchSpeed, vy: dir.y * launchSpeed, vz: dir.z * launchSpeed, speed: cfg.speed, blast: cfg.blast, blastDmg: cfg.blastDmg, direct: cfg.direct ?? 0, owner, life: 4, gravity: cfg.gravity || 0 });
   }
   addGrenade(sim, o, vel, cfg, owner) {
     const rb = sim.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(o.x, o.y, o.z).setLinvel(vel.x, vel.y, vel.z).setCcdEnabled(true).setAngularDamping(1.5));

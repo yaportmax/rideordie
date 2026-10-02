@@ -11,7 +11,7 @@ export function makeCarState(id, specId, kind) {
     id, specId, spec, kind, ride: ri,
     spin: new Float32Array(spec.wheels.length),
     pos: new THREE.Vector3(), quat: new THREE.Quaternion(), vel: new THREE.Vector3(),
-    steer: 0, nWheels: spec.wheels.length,
+    steer: 0, nWheels: spec.wheels.length, poseRevision: 0,
     L: new Float32Array(spec.wheels.length),        // suspension length per wheel
     slip: new Float32Array(spec.wheels.length),     // 0..1 skid intensity
     grounded: new Uint8Array(spec.wheels.length),
@@ -31,6 +31,7 @@ export function stateFromCar(car, alpha, st) {
   const v = car.veh;
   v.lerpPose(alpha, st.pos, st.quat);
   st.vel.copy(v.vel);
+  st.poseRevision = v.poseRevision || 0;
   st.steer = v.steerAngle;
   for (let i = 0; i < v.wheels.length; i++) { const w = v.wheels[i]; st.L[i] = w.L; st.slip[i] = w.slip; st.grounded[i] = w.grounded ? 1 : 0; st.flat[i] = w.flat ? 1 : 0; }
   st.hp01 = car.hp / car.maxHp; st.driverAlive = car.crew.driver.alive; st.gunnerAlive = car.crew.gunner ? car.crew.gunner.alive : false; st.gunner2Alive = car.crew.gunner2 ? car.crew.gunner2.alive : false;
