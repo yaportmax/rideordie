@@ -35,8 +35,13 @@ export class ChaseCam {
     const fwd = _v.set(0, 0, 1).applyQuaternion(carQuat);
     const heading = Math.atan2(fwd.x, fwd.z);
     const speed = Math.hypot(vel.x, vel.z);
-    const velHeading = speed > 6 ? Math.atan2(vel.x, vel.z) : heading;
-    const target = heading + wrapAngle(velHeading - heading) * 0.5;
+    // Bias towards the direction of travel without averaging wrapped angles.
+    // Half of a wrapped slip angle flips by PI when the truck spins through
+    // backwards travel, sending the chase camera around the opposite side.
+    // A bounded lateral projection remains continuous through a full turn,
+    // while a speed fade also avoids a target jump at the old 6 m/s switch.
+    const lateralSlip = speed > 1e-3 ? (vel.x * Math.cos(heading) - vel.z * Math.sin(heading)) / speed : 0;
+    const target = heading + lateralSlip * 0.5 * smoothstep(3, 8, speed);
     if (!this.init) { this.yaw = target; this.init = true; }
     this.yaw += wrapAngle(target - this.yaw) * (1 - Math.exp(-dt * 4.2));
     this.lookYaw = damp(this.lookYaw, (opts.lookX || 0) * -1.4, 8, dt);

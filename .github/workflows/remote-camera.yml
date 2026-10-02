@@ -1,0 +1,36 @@
+name: Remote camera acceptance
+on:
+  push:
+    branches: [codex/rideordie-fast-opt]
+    paths:
+      - src/view/camera_rig.js
+      - tests/camera_rotation.test.mjs
+      - .github/workflows/remote-camera.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  camera:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+      - run: node node_modules/playwright-core/cli.js install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: remote-camera-evidence
+          path: |
+            dist/
+            shots/quality/
+          if-no-files-found: error
+          retention-days: 14
