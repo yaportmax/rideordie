@@ -157,7 +157,15 @@ function poseDiscontinuity(a, b, dt) {
 
 /** Client-side buffer: interpolates CarStates ~100 ms behind the newest snapshot. */
 export class SnapshotBuffer {
-  constructor() { this.snaps = []; this.states = new Map(); this.delay = 0.1; this.clockOffset = null; this.renderTime = null; this.latest = null; this._q1 = new THREE.Quaternion(); this._q2 = new THREE.Quaternion(); this._qE = new THREE.Quaternion(); this._sampleSerial = 0; this.jitter = 0; this.lastArrival = 0; this.lastSample = null; }
+  constructor() { this.snaps = []; this.states = new Map(); this.delay = 0.1; this.clockOffset = null; this.renderTime = null; this.latest = null; this._q1 = new THREE.Quaternion(); this._q2 = new THREE.Quaternion(); this._qE = new THREE.Quaternion(); this._sampleSerial = 0; this.jitter = 0; this.lastArrival = 0; this.lastSample = null; this.streamPoseGeneration = 0; }
+  /** Explicit local stream reset, separate from authoritative vehicle recovery. */
+  clear() {
+    this.snaps.length = 0; this.states.clear(); this.delay = 0.1;
+    this.clockOffset = this.renderTime = this.latest = this.lastSample = null;
+    this.boss = null;
+    this.jitter = this.lastArrival = this._sampleSerial = 0;
+    this.streamPoseGeneration = (this.streamPoseGeneration + 1) >>> 0;
+  }
   push(snap, now) {
     // The unordered channel can deliver an older frame after a newer one. Never rewind its clock or state.
     if (!snap || !Number.isFinite(now) || !Number.isFinite(snap.time) || !Array.isArray(snap.cars)) return false;
@@ -191,7 +199,11 @@ export class SnapshotBuffer {
     // transient extra render delay instead of a many-meter one-frame correction.
     // After a genuinely stale stream, rebase rather than traverse obsolete road.
     let cursor = previous === null ? target : Math.max(previous, Math.min(target, previous + elapsed * 1.25));
-    if (previous !== null && newestTime - previous > 1) cursor = newestTime;
+    if (previous !== null && newestTime - previous > 1) {
+      cursor = newestTime;
+      // This is a receive-clock discontinuity, not physical one-frame steering.
+      this.streamPoseGeneration = (this.streamPoseGeneration + 1) >>> 0;
+    }
     const rt = this.renderTime = Math.min(newestTime + 0.1, cursor);
     let a = snaps[0], b = a;
     for (let i = 1; i < snaps.length; i++) { if (snaps[i].time > rt) { b = snaps[i]; break; } a = b = snaps[i]; }
@@ -204,6 +216,7 @@ export class SnapshotBuffer {
       let st = this.states.get(ca.id);
       if (!st || st.specId !== ca.spec) { st = makeCarState(ca.id, ca.spec, ca.kind); this.states.set(ca.id, st); }
       st._sampleSerial = seen;
+      st.streamPoseGeneration = this.streamPoseGeneration;
       const discontinuity = ca !== cb && poseDiscontinuity(ca, cb, b.time - a.time);
       const blend = discontinuity ? 0 : t, pose = discontinuity ? ca : cb;
       const predict = discontinuity ? Math.min(0.1, Math.max(0, rt - a.time)) : dtE;

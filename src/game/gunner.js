@@ -31,7 +31,7 @@ export class GunnerController {
     this.grenades = loadout.grenades ?? GRENADE.count; this.grenadeCd = 0; this.grenadeLv = loadout.grenadeLv || 0;
     this.pos = new THREE.Vector3(); // offset inside the bed (x,z), y unused
     this.muzzle = new THREE.Vector3(); this.aimPoint = new THREE.Vector3(); this.aimHit = false;
-    this.lastCarYaw = null; this.lastPoseRevision = null; this._hasCarQuat = false;
+    this.lastCarYaw = null; this.lastPoseRevision = null; this.lastStreamPoseGeneration = null; this._hasCarQuat = false;
     this._lastCarQuat = new THREE.Quaternion(); this._carQuat = new THREE.Quaternion(); this._carDeltaQuat = new THREE.Quaternion(); this.trigger = false; this.hitMarker = 0;
     this._autoFireContinuous = false;
     this.shellQueue = [];
@@ -69,6 +69,9 @@ export class GunnerController {
     // ---- aim (world-space stabilised, inherits a fraction of the truck's turn)
     const hasPoseRevision = Number.isInteger(extra.poseRevision);
     const carrierRecovered = hasPoseRevision && this.lastPoseRevision !== null && extra.poseRevision !== this.lastPoseRevision;
+    const hasStreamGeneration = Number.isInteger(extra.streamPoseGeneration);
+    const streamRebased = hasStreamGeneration && this.lastStreamPoseGeneration !== null && extra.streamPoseGeneration !== this.lastStreamPoseGeneration;
+    const skipCarrierTurn = carrierRecovered || streamRebased;
     // Recovery/unflip explicitly changes the truck pose. Keep world aim on its
     // target instead of inheriting that teleport as a physical steering turn.
     // Projected forward heading flips by PI when the chassis pitches through
@@ -80,7 +83,7 @@ export class GunnerController {
     let carrierTurn = 0;
     if (validCarQuat) {
       this._carQuat.copy(q).normalize();
-      if (this._hasCarQuat && !carrierRecovered) {
+      if (this._hasCarQuat && !skipCarrierTurn) {
         this._carDeltaQuat.copy(this._lastCarQuat).conjugate().premultiply(this._carQuat);
         const d = this._carDeltaQuat;
         // An exact 180-degree swing around a horizontal axis has no defined
@@ -93,11 +96,12 @@ export class GunnerController {
       this._hasCarQuat = false;
       // Standalone/legacy callers without a valid carrier quaternion retain
       // their existing heading-based behavior, never reuse a stale pose.
-      if (this.lastCarYaw !== null && !carrierRecovered) carrierTurn = wrapAngle(carYaw - this.lastCarYaw);
+      if (this.lastCarYaw !== null && !skipCarrierTurn) carrierTurn = wrapAngle(carYaw - this.lastCarYaw);
     }
     this.yaw += carrierTurn * 0.55;
     this.lastCarYaw = carYaw;
     if (hasPoseRevision) this.lastPoseRevision = extra.poseRevision;
+    if (hasStreamGeneration) this.lastStreamPoseGeneration = extra.streamPoseGeneration;
     const adsMul = this.ads > 0.5 ? (w.scope ? 0.28 : 0.6) : 1;
     this.yaw += cmd.dYaw * adsMul; this.pitch = clamp(this.pitch + cmd.dPitch * adsMul, -1.15, 1.2);
     this.yaw = wrapAngle(this.yaw);
