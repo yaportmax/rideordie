@@ -29,7 +29,7 @@ const UP_STATS = {
     { label: 'RUN-FLAT TIRES', get: (e) => (e.runFlat ? 1 : 0), max: 1, fmt: (v) => (v ? 'YES' : 'NO') },
   ],
   nitro: () => [
-    { label: 'NITRO TANK', get: (e) => e.nitroCap, max: 9, unit: 'SEC', fmt: r1 },
+    { label: 'NITRO TANK', get: (e) => e.nitroCap, max: 11, unit: 'SEC', fmt: r1 },
     { label: 'REFILL RATE', get: (e) => e.nitroRegen / e.nitroCap * 100, max: 25, unit: '%/S', fmt: r1 },
   ],
   ram: (spec, n) => [level(n, 'RAM PLATE')],

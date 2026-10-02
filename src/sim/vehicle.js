@@ -99,6 +99,7 @@ export class Vehicle {
     this.nitroMax = s.nitro?.capacity ?? 0;
     this.boosting = false;
     this.nitroNeedsRelease = false;
+    this.nitroRechargeLocked = false;
     this.engineDamage = 0; // 0..1, reduces power
     this.stunned = 0; // seconds: no control (driver dead etc.)
     this.driverAlive = true;
@@ -252,18 +253,26 @@ export class Vehicle {
     this.steerAngle = damp(this.steerAngle, delta, 24, dt);
 
     // ---------------- engine
-    // Once a held boost runs dry, wait for release before spending regenerated
-    // fuel. Otherwise a tiny recharge retriggers boost every other physics step,
-    // repeatedly punching the camera/FOV and alternating engine force.
+    // Exhausting the tank starts a full recharge cycle. Releasing/re-pressing
+    // cannot spend tiny refill pulses; the whole tank must return first. A
+    // release during recharge rearms the button without requiring another
+    // release after it fills. Holding continuously through empty stays disarmed.
     if (!inp.nitro) this.nitroNeedsRelease = false;
-    else if (this.nitro <= 0) this.nitroNeedsRelease = true;
-    const nitroOn = !!inp.nitro && !this.nitroNeedsRelease && this.nitro > 0 && throttle > 0.1 && this.driverAlive;
+    if (this.nitroMax > 0 && this.nitro <= 0) {
+      this.nitroRechargeLocked = true;
+      if (inp.nitro) this.nitroNeedsRelease = true;
+    }
+    if (this.nitroRechargeLocked && this.nitro >= this.nitroMax) this.nitroRechargeLocked = false;
+    const nitroOn = !!inp.nitro && !this.nitroNeedsRelease && !this.nitroRechargeLocked && this.nitro > 0 && throttle > 0.1 && this.driverAlive;
     this.boosting = nitroOn;
     if (nitroOn) {
       this.nitro = Math.max(0, this.nitro - dt);
-      if (this.nitro === 0) this.nitroNeedsRelease = true;
+      if (this.nitro === 0) { this.nitroNeedsRelease = true; this.nitroRechargeLocked = true; }
     }
-    else if (this.nitroMax > 0) this.nitro = Math.min(this.nitroMax, this.nitro + dt * (s.nitro?.regen ?? 0.12) * (Math.abs(this.slipAngle) > 0.25 && speed > 15 ? 3.0 : 1));
+    else if (this.nitroMax > 0) {
+      this.nitro = Math.min(this.nitroMax, this.nitro + dt * (s.nitro?.regen ?? 0.12) * (Math.abs(this.slipAngle) > 0.25 && speed > 15 ? 3.0 : 1));
+      if (this.nitro >= this.nitroMax) this.nitroRechargeLocked = false;
+    }
     const eng = s.engine;
     const powerMul = (1 - this.engineDamage * 0.6) * (nitroOn ? (s.nitro?.mul ?? 1.7) : 1);
     const vmax = eng.vmax * (nitroOn ? (s.nitro?.vmaxMul ?? 1.18) : 1);

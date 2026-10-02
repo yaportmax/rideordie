@@ -727,7 +727,7 @@ export class Run {
     const chapter = TEN_LEVELS[(this.journey.mode === 'campaign' ? this.journey.level : this.road.journeyLevelAt(s)) - 1];
     const progressTotal = this.journey.mode === 'campaign' ? chapter.bossDistance : this.journey.mode === 'marathon' ? TEN_LEVELS.length * MARATHON_LEVEL_LENGTH : BOSS_S;
     const d = {
-      speed: pst ? pst.speed : 0, rpm01: pst ? pst.rpm01 : 0, nitro01: 0, nitroMax: this.spec.nitro?.capacity || 0,
+      speed: pst ? pst.speed : 0, rpm01: pst ? pst.rpm01 : 0, nitro01: 0, nitroMax: this.spec.nitro?.capacity || 0, nitroRechargeLocked: !!pst?.nitroRechargeLocked,
       hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : (this.hud?.time || 0), biome: this.journey.mode === 'legacy' ? BIOMES[b.w > 0.5 ? b.b : b.a].name : chapter.name, prog01: s / progressTotal, boss,
       spreadPx: this.gunner ? (this.gunner.spreadNow() * Math.PI / 180) / (this.g.camera.fov * Math.PI / 180) * innerHeight : undefined,
       scoped: this.gunner && this.humanGunner && this.role !== 'driver' ? !!this.gunner.weapon.scope && this.gunner.ads > 0.85 : false, // never the AI gunner's scope on the driver's screen

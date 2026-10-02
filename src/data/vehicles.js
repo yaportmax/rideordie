@@ -4,6 +4,14 @@ import { createCityDoubleBusSpec } from './city_bus.js';
 // Static vehicle tables. Positions are meters in the model frame: +Z forward, +X LEFT, ground at y=0.
 // `colliders`: boxes [center from ground at rest, half extents]. Physics is spec-driven (not model-driven) so both peers agree.
 
+export const PLAYER_NITRO_RECHARGE_SECONDS = 12;
+// Longer bursts on every player chassis, with a bounded full-recharge wait.
+// Capacity remains seconds of boost; thrust and boosted top speed are unchanged.
+function playerNitro(previousCapacity, mul) {
+  const capacity = previousCapacity * 1.4;
+  return { capacity, regen: capacity / PLAYER_NITRO_RECHARGE_SECONDS, mul };
+}
+
 function wheels4(track, zf, zr, front = { drive: 0.5, brake: 0.3 }, rear = { drive: 0.5, brake: 0.2 }) {
   return [
     { name: 'FL', x: track, z: zf, front: true, ...front },
@@ -32,7 +40,7 @@ export const VEHICLES = {
     mass: 1350, length: 4.9, width: 1.75, height: 1.75, hp: 400,
     wheels: wheels4(0.82, 1.5, -1.45), wheelRadius: 0.34,
     colliders: [{ center: [0, 0.72, 0], half: [0.86, 0.36, 2.4] }, { center: [0, 1.28, 0.65], half: [0.76, 0.32, 0.85] }],
-    engine: { accel0: 4.3, vmax: 48, reverseMax: 11 }, nitro: { capacity: 1.0, regen: 0.07, mul: 1.6 },
+    engine: { accel0: 4.3, vmax: 48, reverseMax: 11 }, nitro: playerNitro(1.0, 1.6),
     seats: { driver: [0.4, 0.55, 0.55], gunner: [0, 0.95, -0.85] },
   },
   truck_t2: {
@@ -40,7 +48,7 @@ export const VEHICLES = {
     mass: 1700, length: 5.6, width: 2.0, height: 1.9,
     wheels: wheels4(0.92, 1.72, -1.6), wheelRadius: 0.4,
     colliders: [{ center: [0, 0.8, 0], half: [0.98, 0.4, 2.75] }, { center: [0, 1.4, 0.8], half: [0.85, 0.36, 0.95] }],
-    engine: { accel0: 4.65, vmax: 55, reverseMax: 12 }, nitro: { capacity: 2.0, regen: 0.12, mul: 1.65 },
+    engine: { accel0: 4.65, vmax: 55, reverseMax: 12 }, nitro: playerNitro(2.0, 1.65),
     seats: { driver: [0.45, 0.6, 0.75], gunner: [0, 1.0, -0.95] },
   },
   truck_t3: {
@@ -48,7 +56,7 @@ export const VEHICLES = {
     mass: 2300, length: 5.7, width: 2.1, height: 2.0,
     wheels: wheels4(0.96, 1.75, -1.65), wheelRadius: 0.42,
     colliders: [{ center: [0, 0.82, 0], half: [1.02, 0.42, 2.85] }, { center: [0, 1.45, 0.85], half: [0.88, 0.36, 0.95] }],
-    engine: { accel0: 5.5, vmax: 62, reverseMax: 12 }, nitro: { capacity: 3.0, regen: 0.14, mul: 1.7 },
+    engine: { accel0: 5.5, vmax: 62, reverseMax: 12 }, nitro: playerNitro(3.0, 1.7),
     seats: { driver: [0.48, 0.65, 0.8], gunner: [0, 1.05, -1.0] },
   },
   truck_t4: {
@@ -56,7 +64,7 @@ export const VEHICLES = {
     mass: 3000, length: 6.2, width: 2.3, height: 2.2,
     wheels: wheels4(1.05, 1.95, -1.8), wheelRadius: 0.48,
     colliders: [{ center: [0, 0.95, 0], half: [1.12, 0.48, 3.1] }, { center: [0, 1.6, 0.95], half: [0.95, 0.38, 1.0] }],
-    engine: { accel0: 6.55, vmax: 70, reverseMax: 13 }, nitro: { capacity: 4.0, regen: 0.16, mul: 1.8 },
+    engine: { accel0: 6.55, vmax: 70, reverseMax: 13 }, nitro: playerNitro(4.0, 1.8),
     seats: { driver: [0.52, 0.72, 0.9], gunner: [0, 1.15, -1.1] },
   },
 
@@ -132,7 +140,7 @@ export const VEHICLES = {
     wheels: wheels4(.79, 1.62, -1.42), wheelRadius: .39,
     colliders: [{ center: [0, .66, 0], half: [.88, .31, 2.48] }, { center: [0, 1.18, .25], half: [.76, .29, .73] }],
     colliderModelFrame: true,
-    engine: { accel0: 4.4, vmax: 46, reverseMax: 10 }, nitro: { capacity: .85, regen: .065, mul: 1.55 },
+    engine: { accel0: 4.4, vmax: 46, reverseMax: 10 }, nitro: playerNitro(.85, 1.55),
     grip: { ...truckBase.grip, front: 1.58, rear: 1.53, long: 1.34 },
     seats: { driver: [.4, .56, .03], gunner: [0, .555, -.86] },
     audio: { engine: 'engine_sedan' },
@@ -143,7 +151,7 @@ export const VEHICLES = {
     wheels: wheels4(.79, 1.62, -1.42), wheelRadius: .39,
     colliders: [{ center: [0, .66, 0], half: [.88, .31, 2.48] }, { center: [0, 1.18, .25], half: [.76, .29, .73] }],
     colliderModelFrame: true,
-    engine: { accel0: 4.95, vmax: 54, reverseMax: 10 }, nitro: { capacity: 1.35, regen: .095, mul: 1.6 },
+    engine: { accel0: 4.95, vmax: 54, reverseMax: 10 }, nitro: playerNitro(1.35, 1.6),
     grip: { ...truckBase.grip, front: 1.64, rear: 1.59, long: 1.4 },
     seats: { driver: [.4, .56, .03], gunner: [0, .555, -.86] },
     audio: { engine: 'engine_sedan' },
@@ -153,7 +161,7 @@ export const VEHICLES = {
     mass: 900, length: 3.756243, width: 1.99075, height: 1.72, hp: 300,
     wheels: wheels4(.84, 1.2, -1.1), wheelRadius: .4,
     colliders: [{ center: [0, .67, 0], half: [.77, .3, 1.62] }], colliderModelFrame: true,
-    engine: { accel0: 5.3, vmax: 58, reverseMax: 10 }, nitro: { capacity: 1.55, regen: .1, mul: 1.65 },
+    engine: { accel0: 5.3, vmax: 58, reverseMax: 10 }, nitro: playerNitro(1.55, 1.65),
     grip: { ...truckBase.grip, front: 1.65, rear: 1.6, long: 1.4 },
     susp: { ...truckBase.susp, freq: 2.1, zeta: .62, maxLen: .6, minLen: .15 },
     seats: { driver: [.36, .5, .14], gunner: [0, .7, -.68] },
@@ -165,7 +173,7 @@ export const VEHICLES = {
     mass: 1050, length: 3.756243, width: 1.99075, height: 1.72, hp: 380,
     wheels: wheels4(.84, 1.2, -1.1), wheelRadius: .4,
     colliders: [{ center: [0, .67, 0], half: [.77, .3, 1.62] }], colliderModelFrame: true,
-    engine: { accel0: 5.8, vmax: 64, reverseMax: 10 }, nitro: { capacity: 2.25, regen: .13, mul: 1.7 },
+    engine: { accel0: 5.8, vmax: 64, reverseMax: 10 }, nitro: playerNitro(2.25, 1.7),
     grip: { ...truckBase.grip, front: 1.7, rear: 1.65, long: 1.44 },
     susp: { ...truckBase.susp, freq: 2.1, zeta: .62, maxLen: .6, minLen: .15 },
     seats: { driver: [.36, .5, .14], gunner: [0, .7, -.68] },
@@ -177,7 +185,7 @@ export const VEHICLES = {
     mass: 1150, length: 3.756243, width: 1.99075, height: 1.72, hp: 460,
     wheels: wheels4(.84, 1.2, -1.1), wheelRadius: .4,
     colliders: [{ center: [0, .67, 0], half: [.77, .3, 1.62] }], colliderModelFrame: true,
-    engine: { accel0: 6.4, vmax: 70, reverseMax: 10 }, nitro: { capacity: 3.0, regen: .15, mul: 1.75 },
+    engine: { accel0: 6.4, vmax: 70, reverseMax: 10 }, nitro: playerNitro(3.0, 1.75),
     grip: { ...truckBase.grip, front: 1.74, rear: 1.69, long: 1.48 },
     susp: { ...truckBase.susp, freq: 2.1, zeta: .62, maxLen: .6, minLen: .15 },
     seats: { driver: [.36, .5, .14], gunner: [0, .7, -.68] },

@@ -80,6 +80,22 @@ function assertOnlyCar(hud) {
 
 const state = extra => ({ speed: 12, rpm01: .4, nitro01: .6, nitroMax: 1, hp01: .75, biome: 'Scorched Highway', ...extra });
 
+test('depleted boost clearly shows recharging only for a driver with a usable tank', () => {
+  withHud(hud => {
+    hud.show({ driver: true, gunner: false });
+    hud.update(1 / 60, state({ nitroRechargeLocked: true }));
+    assert.equal(hud.q.nitroStatus.textContent, 'RECHARGING');
+    assert.equal(hud.q.nitroStatus.style.display, 'block');
+    assert.match(hud.q.nitro.style.background, /ffc21a/);
+    for (const extra of [{ nitroRechargeLocked: false }, { nitroRechargeLocked: true, showDriver: false }, { nitroRechargeLocked: true, nitroMax: 0 }]) {
+      hud.update(1 / 60, state(extra));
+      assert.equal(hud.q.nitroStatus.style.display, 'none');
+    }
+    hud.update(1 / 60, state({ nitroRechargeLocked: false }));
+    assert.equal(hud.q.nitro.style.background, '');
+  });
+});
+
 test('actual HUD constructor creates only a CAR health row and retains separate weapon/boss indicators', () => {
   withHud((hud, doc) => {
     assert.equal(doc.body.querySelector('#hud'), hud.el);

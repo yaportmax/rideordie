@@ -196,7 +196,7 @@ test('removed physical chapter body is replaced only on verified road and retain
     const old = director.activeElite.cars[0];
     old.hp = 101; old.crew.gunner.alive = false; old.crew.gunner.hp = 0;
     old.tireHp[0] = -1; old.veh.wheels[0].flat = true; old.veh.wheels[0].grip = 0.55;
-    old.veh.engineDamage = 0.7; old.veh.nitro = 0.2; old.veh.nitroNeedsRelease = true;
+    old.veh.engineDamage = 0.7; old.veh.nitro = 0.2; old.veh.nitroNeedsRelease = true; old.veh.nitroRechargeLocked = true;
     sim.removeCar(old, 'controlled missing body');
     sim._placeOnClearRoad = () => true;
     director._bosses(sim, player, 0.5);
@@ -207,6 +207,7 @@ test('removed physical chapter body is replaced only on verified road and retain
     assert.deepEqual(next.tireHp, old.tireHp); assert.equal(next.veh.wheels[0].flat, true);
     assert.equal(next.veh.wheels[0].grip, 0.55); assert.equal(next.veh.engineDamage, 0.7);
     assert.equal(next.veh.nitro, 0.2); assert.equal(next.veh.nitroNeedsRelease, true);
+    assert.equal(next.veh.nitroRechargeLocked, true, 'body replacement cannot bypass an exhausted tank');
     assert.equal(director.campaignComplete, false);
   });
 });

@@ -477,7 +477,7 @@ export class Director {
     for (const key of ['hp', 'maxHp', 'fuelHp', 'engineHp', 'burning', 'fuseT', 'driverless', 'eliteDoom', 'lastHitBy', 'lastHitT']) replacement[key] = car[key];
     for (const role of Object.keys(replacement.crew)) if (car.crew[role]) Object.assign(replacement.crew[role], car.crew[role]);
     replacement.tireHp = car.tireHp?.slice() || replacement.tireHp;
-    for (const key of ['engineDamage', 'nitro', 'nitroNeedsRelease']) replacement.veh[key] = car.veh[key];
+    for (const key of ['engineDamage', 'nitro', 'nitroNeedsRelease', 'nitroRechargeLocked']) replacement.veh[key] = car.veh[key];
     for (let i = 0; i < replacement.veh.wheels.length; i++) if (car.veh.wheels[i]) {
       replacement.veh.wheels[i].grip = car.veh.wheels[i].grip;
       replacement.veh.wheels[i].flat = car.veh.wheels[i].flat;

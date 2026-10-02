@@ -7,7 +7,7 @@ const QN = 32767;
 const GUNS = ['pistol', 'smg', 'rifle', 'shotgun', 'mg', 'hmg', 'rpg', 'minigun'];
 const INTENTS = [null, 'shoot', 'ram', 'block'];
 const MAX_ELITE = 9; // Nine chapter bosses; the Leviathan uses its separate boss body.
-const F = { dead: 1, exploded: 2, burning: 4, smoking: 8, driverAlive: 16, gunnerAlive: 32, gunner2Alive: 64, braking: 128, boosting: 256, drifting: 512, airborne: 1024, flatAny: 2048 };
+const F = { dead: 1, exploded: 2, burning: 4, smoking: 8, driverAlive: 16, gunnerAlive: 32, gunner2Alive: 64, braking: 128, boosting: 256, drifting: 512, airborne: 1024, flatAny: 2048, nitroRechargeLocked: 4096 };
 const clamp16 = (v) => (v > 32767 ? 32767 : v < -32768 ? -32768 : v | 0);
 
 /** Encode the current sim state. hud: {hp01,dhp01,ghp01,nitro01,cash,kills,streak,level,bossHp01,bossId,medkits,state,time,dist} */
@@ -54,6 +54,7 @@ export function encodeSnapshot(sim, tick, hud, buf) {
     if (c.crew.driver.alive) fl |= F.driverAlive; if (c.crew.gunner?.alive) fl |= F.gunnerAlive; if (c.crew.gunner2?.alive) fl |= F.gunner2Alive;
     if (v.brakeApplied > 0.1) fl |= F.braking; if (v.boosting) fl |= F.boosting; if (v.drifting) fl |= F.drifting; if (v.grounded === 0 && v.airTime > 0.12) fl |= F.airborne;
     if (v.wheels.some((w) => w.flat)) fl |= F.flatAny;
+    if (v.nitroRechargeLocked) fl |= F.nitroRechargeLocked;
     dv.setUint16(o, fl, true); o += 2;
     dv.setUint16(o, v.poseRevision || 0, true); o += 2;
     dv.setFloat32(o, v.pos.x, true); dv.setFloat32(o + 4, v.pos.y, true); dv.setFloat32(o + 8, v.pos.z, true); o += 12;
@@ -258,7 +259,7 @@ export class SnapshotBuffer {
       const fl = blend > 0.5 ? pose.fl : ca.fl;
       st.dead = !!(fl & F.dead); st.exploded = !!(fl & F.exploded); st.burning = !!(fl & F.burning); st.smoking = !!(fl & F.smoking);
       st.driverAlive = !!(fl & F.driverAlive); st.gunnerAlive = !!(fl & F.gunnerAlive); st.gunner2Alive = !!(fl & F.gunner2Alive);
-      st.braking = !!(fl & F.braking); st.boosting = !!(fl & F.boosting); st.drifting = !!(fl & F.drifting); st.airborne = !!(fl & F.airborne);
+      st.braking = !!(fl & F.braking); st.boosting = !!(fl & F.boosting); st.nitroRechargeLocked = !!(fl & F.nitroRechargeLocked); st.drifting = !!(fl & F.drifting); st.airborne = !!(fl & F.airborne);
       st.hp01 = cb.hp01; st.rpm01 = ca.rpm01 + (pose.rpm01 - ca.rpm01) * blend; st.engineHp01 = cb.eng01; st.speed = st.vel.length();
       st.gunner.yaw = cb.gyaw; st.gunner.pitch = cb.gpitch; st.gunner.fire = cb.gfire; st.gunner.crouch = cb.gcrouch; st.gunner.ads = cb.gads; st.gunner.reloading = cb.greload; st.gunner.weapon = cb.gweapon; st.gunner.x = cb.gx; st.gunner.z = cb.gz;
       st.gunner2.yaw = cb.g2yaw; st.gunner2.pitch = cb.g2pitch; st.gunner2.fire = cb.g2fire;

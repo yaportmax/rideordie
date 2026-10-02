@@ -15,6 +15,7 @@ const CSS = `
 #hud .rpm i{background:linear-gradient(90deg,#3fd,#fd3 70%,#f43)}
 #hud .nitro{right:34px;bottom:130px;width:250px}
 #hud .nitro i{background:linear-gradient(90deg,#2af,#7ff)}
+#hud .nitrostatus{right:34px;bottom:144px;font-size:11px;letter-spacing:1.5px;color:#ffc21a;text-shadow:0 1px 3px #000;display:none}
 #hud .hpbox{left:30px;bottom:26px;width:290px}
 #hud .hpbox .row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;letter-spacing:1px}
 #hud .hpbox .row span{width:56px;opacity:.85}
@@ -64,14 +65,14 @@ export class Hud {
       <div class="abs kf"></div>
       <div class="abs speed"><b class="spd">0</b><small class="spdunit">MPH</small></div>
       <div class="abs bar rpm"><i class="rpmbar"></i></div>
-      <div class="abs bar nitro"><i class="nitrobar"></i></div>
+      <div class="abs bar nitro"><i class="nitrobar"></i></div><div class="abs nitrostatus">RECHARGING</div>
       <div class="abs hpbox">
         <div class="row"><span>CAR</span><div class="bar hp"><i class="hpbar"></i></div></div>
       </div>
       <div class="abs ammo" style="display:none"><span class="wname"></span><b class="mag">0</b><small> / ∞</small></div>`;
     document.body.appendChild(el);
     const $ = (s) => el.querySelector(s);
-    this.q = { spd: $('.spd'), spdUnit: $('.spdunit'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), hp: $('.hpbar'), area: $('.area'),
+    this.q = { spd: $('.spd'), spdUnit: $('.spdunit'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), nitroStatus: $('.nitrostatus'), hp: $('.hpbar'), area: $('.area'),
       vig: $('.vig'), msg: $('.msg'), defeat: $('.defeat'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
     this.arrowPool = []; this.msgT = 0; this.vigT = 0; this.hitT = 0;
     this.gh = new GunnerHud(el);   // first-person gunner layer (crosshair, hit markers, damage arcs, ammo, scope)
@@ -82,6 +83,7 @@ export class Hud {
     this.setDefeat(null);
     this.seenAreas = new Set(); this.areaT = 0; q.area.textContent = ''; q.area.style.opacity = 0;
     q.speedBox.style.display = o.driver ? '' : 'none'; q.rpmBox.style.display = o.driver ? '' : 'none'; q.nitroBox.style.display = o.driver ? '' : 'none';
+    q.nitroStatus.style.display = 'none';
     q.cross.style.display = 'none'; q.ammo.style.display = 'none';   // replaced by GunnerHud
     this.gunnerOn = !!o.gunner; this.gh.setVisible(this.gunnerOn); this.gh.setDriverShown(!!(o.gunner && o.driver));
     if (o.gunner && !o.driver) { q.hpbox.style.left = '30px'; }
@@ -118,6 +120,8 @@ export class Hud {
     q.spd.textContent = Math.round(speedValue(d.speed, this.units));
     q.rpm.style.transform = `scaleX(${clamp(d.rpm01, 0, 1)})`;
     q.nitro.style.transform = `scaleX(${clamp(d.nitro01, 0, 1)})`; q.nitroBox.style.display = d.nitroMax > 0 && d.showDriver !== false ? '' : 'none';
+    q.nitroStatus.style.display = d.nitroMax > 0 && d.showDriver !== false && d.nitroRechargeLocked ? 'block' : 'none';
+    q.nitro.style.background = d.nitroRechargeLocked ? 'linear-gradient(90deg,#b77b25,#ffc21a)' : '';
     q.hp.style.transform = `scaleX(${clamp(d.hp01, 0, 1)})`;
     if (noticeReady && this.el.style.display !== 'none') {
       if (d.biome && !this.seenAreas.has(d.biome)) {

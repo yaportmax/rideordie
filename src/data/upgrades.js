@@ -1,7 +1,7 @@
 // Shop catalogue. Every entry is data; `effects(profile)` folds owned upgrades into stat modifiers used by the run setup.
 // COST_SCALE is the master economy knob (campaign target ~2-3 h across all runs).
 import { WEAPON_ORDER, WEAPONS } from './weapons.js';
-import { VEHICLES } from './vehicles.js';
+import { VEHICLES, PLAYER_NITRO_RECHARGE_SECONDS } from './vehicles.js';
 import { equippedWeaponOptics } from './weapon_optics.js';
 import { defaultCampaignProgress } from './campaign.js';
 import { DRIVER_UPGRADE_IDS, PLAYER_VEHICLE_CATALOGUE, VEHICLE_FAMILIES, effectiveUpgrades, familyOf, upgradeCap, upgradeLevel } from './vehicle_families.js';
@@ -20,7 +20,7 @@ export const UPGRADES = [
   { id: 'engine', role: 'driver', name: 'ENGINE TUNE', desc: '+7% acceleration and top speed per level.', costs: C([800, 1500, 2600, 4200, 6500]) },
   { id: 'armor', role: 'driver', name: 'ARMOR PLATING', desc: '+16% truck HP and +4% bullet resistance per level.', costs: C([900, 1600, 2800, 4500, 7000]) },
   { id: 'tires', role: 'driver', name: 'TIRES & SUSPENSION', desc: '+4% grip per level. Level 3: run-flat tires.', costs: C([700, 1300, 2200, 3600, 5500]) },
-  { id: 'nitro', role: 'driver', name: 'NITRO TANK', desc: 'Bigger nitro tank: +0.8 s of boost and faster refill per level.', costs: C([1500, 2400, 3800, 5600, 8000]) },
+  { id: 'nitro', role: 'driver', name: 'NITRO TANK', desc: '+1.2 s of boost at level 1, then +0.8 s per level. Faster full refill.', costs: C([1500, 2400, 3800, 5600, 8000]) },
   { id: 'ram', role: 'driver', name: 'RAM PLATE', desc: 'Ramming hurts them more and you less.', costs: C([1200, 2600, 5200]) },
   { id: 'spikes', role: 'driver', name: 'SPIKED SKIRTS', desc: 'Enemies that side-swipe you take damage.', costs: C([2000, 5000]) },
   { id: 'glass', role: 'driver', name: 'ARMORED GLASS', desc: 'Driver takes 30% less bullet damage per level.', costs: C([2200, 4800]) },
@@ -82,16 +82,19 @@ export function effects(profile) {
   const lv = id => Number.isFinite(levels[id]) ? Math.max(0, Math.min(upgradeLimit(profile, id, truck), Math.trunc(levels[id]))) : 0;
   const tier = spec.familyStage ?? spec.tier;
   const nitro = spec.nitro;
+  const nitroLevel = lv('nitro');
+  const nitroCap = nitro.capacity + (nitroLevel > 0 ? 0.4 + 0.8 * nitroLevel : 0);
+  const nitroRefillSeconds = Math.max(8, PLAYER_NITRO_RECHARGE_SECONDS - nitroLevel);
   const vehicleUpgradeLevels = Object.freeze(Object.fromEntries(DRIVER_UPGRADE_IDS.map(id => [id, lv(id)])));
   const vestT = lv('vest');
   const e = {
     truck, tier, family: spec.family, stage: tier, vehicleUpgradeLevels,
     engineMul: 1 + 0.07 * lv('engine'), hpMul: 1 + 0.16 * lv('armor'), bulletResist: Math.max(0.55, 1 - 0.04 * lv('armor')),
     gripMul: 1 + 0.04 * lv('tires'), runFlat: lv('tires') >= 3,
-    // Tank upgrades add to the selected chassis, rather than replacing every
-    // tier's authored tank/refill with the Rustbucket's one-second baseline.
-    nitroCap: nitro.capacity + (lv('nitro') > 0 ? 0.4 + 0.8 * lv('nitro') : 0),
-    nitroRegen: nitro.regen + (lv('nitro') > 0 ? 0.03 : 0) + 0.03 * lv('nitro'),
+    // Upgrades retain each chassis's burst length and shorten the full refill
+    // from 12 seconds to 8, instead of making a bigger tank take longer to fill.
+    nitroCap,
+    nitroRegen: nitroCap / nitroRefillSeconds,
     ramLevel: lv('ram'), spikes: lv('spikes'), glass: lv('glass'), fueltank: lv('fueltank'), oil: lv('oil'), mines: lv('mines'),
     gunnerHp: 100 + [0, 20, 50, 90][vestT], gunnerArmor: [0, 0.15, 0.3, 0.45][vestT], armorTier: vestT, driverHp: 100,
     driverArmor: 0.3 * lv('glass') > 0 ? 0.3 * lv('glass') : 0,

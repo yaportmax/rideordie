@@ -7,6 +7,7 @@ import { VEHICLES } from '../src/data/vehicles.js';
 import { ChaseCam } from '../src/view/camera_rig.js';
 
 const DT = 1 / 120;
+const PLAYER_IDS = Object.values(VEHICLES).filter(spec => spec.kind === 'player').map(spec => spec.id);
 async function withTruck(check, id = 'truck_t1') {
   await initPhysics();
   const world = createWorld(DT);
@@ -20,7 +21,7 @@ async function withTruck(check, id = 'truck_t1') {
 }
 
 test('holding boost through depletion produces one ignition, then recharges without engine chatter', async () => {
-  for (const id of ['truck_t1', 'truck_t2', 'truck_t3', 'truck_t4']) await withTruck((truck, step) => {
+  for (const id of PLAYER_IDS) await withTruck((truck, step) => {
     let previous = false, ignitions = 0, ends = 0, boostedSteps = 0, dryStep = 0;
     for (let i = 0; i < 120 * 9; i++) {
       step({ throttle: 1, nitro: true });
@@ -32,19 +33,26 @@ test('holding boost through depletion produces one ignition, then recharges with
     }
     assert.equal(ignitions, 1, id + ' must not consume tiny recharge pulses while still held');
     assert.equal(ends, 1);
-    assert.ok(boostedSteps >= truck.nitroMax / DT && boostedSteps <= truck.nitroMax / DT + 1, id + ' retains initial boost duration');
+    assert.ok(Math.abs(boostedSteps * DT - truck.nitroMax) <= DT + 1e-10, id + ' retains initial boost duration within one physics step');
     assert.equal(truck.boosting, false);
     const expectedCharge = (120 * 9 - dryStep) * DT * truck.spec.nitro.regen;
     assert.ok(Math.abs(truck.nitro - Math.min(truck.nitroMax, expectedCharge)) < 1e-9, id + ' retains passive regeneration');
     assert.ok(truck.speed > 20, id + ' remains drivable when boost finishes');
+    truck.nitro = truck.nitroMax;
+    step({ throttle: 1, nitro: true });
+    assert.equal(truck.nitroRechargeLocked, false, id + ' full tank ends the recharge lock');
+    assert.equal(truck.boosting, false, id + ' continuous held input still needs a release after depletion');
+    step({ throttle: 1, nitro: false }); step({ throttle: 1, nitro: true });
+    assert.equal(truck.boosting, true, id + ' fresh press can use the fully refilled tank');
   }, id);
 });
 
-test('empty tank and added fuel wait for release, then a partial meter provides one normal boost', async () => {
+test('empty tank and partial pickup fuel stay locked after release until the tank is completely full', async () => {
   await withTruck((truck, step) => {
     truck.nitro = 0;
     step({ throttle: 1, nitro: true }, 120);
     assert.equal(truck.boosting, false);
+    assert.equal(truck.nitroRechargeLocked, true);
     assert.ok(Math.abs(truck.nitro - truck.spec.nitro.regen) < 1e-10);
     truck.nitro = .25; // A pickup or boost pad can add fuel while the control stays held.
     step({ throttle: 1, nitro: true }, 5);
@@ -53,16 +61,14 @@ test('empty tank and added fuel wait for release, then a partial meter provides 
     step({ throttle: 1, nitro: false });
     const charge = truck.nitro;
     step({ throttle: 1, nitro: true });
-    assert.equal(truck.boosting, true, 'release/re-press rearms available fuel immediately');
-    assert.ok(Math.abs(truck.nitro - (charge - DT)) < 1e-10);
-    let boostedSteps = 1;
-    while (truck.boosting && boostedSteps < 120) {
-      step({ throttle: 1, nitro: true }); if (truck.boosting) boostedSteps++;
-    }
-    assert.ok(boostedSteps <= Math.ceil(charge / DT) + 1);
-    step({ throttle: 1, nitro: true }, 120);
-    assert.equal(truck.boosting, false, 'second partial boost also ends cleanly');
-    assert.ok(truck.nitro > 0);
+    assert.equal(truck.boosting, false, 'release/re-press cannot spend partial refill or pickup fuel');
+    assert.equal(truck.nitroRechargeLocked, true);
+    assert.ok(Math.abs(truck.nitro - (charge + DT * truck.spec.nitro.regen)) < 1e-10);
+    truck.nitro = truck.nitroMax;
+    step({ throttle: 1, nitro: true });
+    assert.equal(truck.nitroRechargeLocked, false);
+    assert.equal(truck.boosting, true, 'the release during recharge already rearmed the control');
+    assert.ok(Math.abs(truck.nitro - (truck.nitroMax - DT)) < 1e-10);
   });
 });
 
@@ -83,14 +89,16 @@ test('throttle, stun and driver death do not spend nitro or bypass a depleted he
     step({ throttle: 1, nitro: true });
     assert.equal(truck.boosting, false, 'stunned throttle cannot boost');
     truck.stunned = 0;
-    step({ throttle: 1, nitro: true }, 150);
+    step({ throttle: 1, nitro: true }, Math.ceil(truck.nitro / DT) + 2);
     assert.equal(truck.boosting, false);
     truck.driverAlive = false; step({ throttle: 1, nitro: true }, 30);
     truck.driverAlive = true; step({ throttle: 0, nitro: true }, 30);
     step({ throttle: 1, nitro: true });
     assert.equal(truck.boosting, false, 'eligibility transitions cannot bypass exhaustion');
     step({ throttle: 1, nitro: false }); step({ throttle: 1, nitro: true });
-    assert.equal(truck.boosting, true);
+    assert.equal(truck.boosting, false, 'release alone does not bypass the full refill requirement');
+    truck.nitro = truck.nitroMax; step({ throttle: 1, nitro: true });
+    assert.equal(truck.boosting, true, 'full refill and the previous release restore normal boost');
   });
 });
 
@@ -101,9 +109,12 @@ test('depleted held boost retains the existing drift recharge bonus without re-i
     step({ throttle: 1, nitro: true });
     assert.ok(Math.abs(truck.slipAngle) > .25 && truck.speed > 15, 'real body velocity enters drift recharge range');
     assert.equal(truck.boosting, false);
+    assert.equal(truck.nitroRechargeLocked, true);
     assert.ok(Math.abs(truck.nitro - DT * truck.spec.nitro.regen * 3) < 1e-12, 'drift still recharges at three times the passive rate');
     step({ throttle: 1, nitro: true });
     assert.equal(truck.boosting, false, 'drift fuel cannot trigger a rapid depletion/recharge pulse');
+    step({ throttle: 1, nitro: false }); step({ throttle: 1, nitro: true });
+    assert.equal(truck.boosting, false, 'releasing after drift recharge still cannot spend a partially filled tank');
   });
 });
 
@@ -112,6 +123,7 @@ test('non-nitro vehicles keep a finite empty meter and never activate boost', as
     assert.equal(truck.nitroMax, 0);
     step({ throttle: 1, nitro: true }, 60);
     assert.equal(truck.boosting, false); assert.equal(truck.nitro, 0);
+    assert.equal(truck.nitroRechargeLocked, false, 'non-nitro chassis do not enter a meaningless refill cycle');
     step({ throttle: 1, nitro: false }); step({ throttle: 1, nitro: true });
     assert.equal(truck.boosting, false); assert.ok(Number.isFinite(truck.speed));
   }, 'e_sedan');

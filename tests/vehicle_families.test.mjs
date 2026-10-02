@@ -279,14 +279,14 @@ test('effects provide an immutable ten-upgrade appearance snapshot matching sele
   assert.deepEqual(VEHICLES, canonical, 'building upgraded specs cannot alter the production chassis table');
 });
 
-test('nitro capacity and regeneration add purchased levels to every selected chassis baseline', () => {
+test('nitro capacity and full recharge time improve with purchased levels on every chassis', () => {
   for (const id of Object.values(FAMILY_STAGES).flat()) {
     const family = familyOf(id), base = VEHICLES[id].nitro;
     for (let level = 0; level <= FAMILY_CAPS[family].nitro; level++) {
       const p = profile({ truck: id, trucks: [id], vehicleUpgradeSchema: 2, vehicleUpgrades: { [family]: { nitro: level } } });
       const before = structuredClone(p), e = effects(p), built = buildPlayerSpec(p);
       const capacity = base.capacity + (level ? .4 + .8 * level : 0);
-      const regeneration = base.regen + (level ? .03 : 0) + .03 * level;
+      const regeneration = capacity / Math.max(8, 12 - level);
       close(e.nitroCap, capacity, `${id} nitro level ${level} capacity`);
       close(e.nitroRegen, regeneration, `${id} nitro level ${level} regeneration`);
       assert.equal(built.spec.nitro.capacity, e.nitroCap); assert.equal(built.spec.nitro.regen, e.nitroRegen);

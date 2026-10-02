@@ -5,7 +5,7 @@ import { Hud } from '../src/ui/hud.js';
 function fixture() {
   const hud = Object.create(Hud.prototype);
   const node = () => ({ textContent: '', style: {} });
-  hud.q = Object.fromEntries(['spd', 'rpm', 'nitro', 'nitroBox', 'hp', 'area', 'boss', 'vig'].map(k => [k, node()]));
+  hud.q = Object.fromEntries(['spd', 'rpm', 'nitro', 'nitroBox', 'nitroStatus', 'hp', 'area', 'boss', 'vig'].map(k => [k, node()]));
   Object.assign(hud, { el: { style: {} }, seenAreas: new Set(), areaT: 0, vigT: 0, msgT: 0, gunnerOn: false, arrowPool: [] });
   const data = { speed: 0, rpm01: 0, nitro01: 0, hp01: 1, dhp01: 1, ghp01: 1, biome: 'Scorched Highway' };
   return { hud, data };

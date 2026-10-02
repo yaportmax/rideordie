@@ -3,11 +3,26 @@ import assert from 'node:assert/strict';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../src/net/snapshot.js';
 import { VEHICLES } from '../src/data/vehicles.js';
 
-function frame(tick, time, x = time * 10) {
+function frame(tick, time, x = time * 10, rechargeLocked = false) {
   const spec = VEHICLES.truck_t1;
   const car = { id: 1, spec, kind: 'player', hp: 400, maxHp: 400, engineHp: 100, crew: { driver: { alive: true }, gunner: { alive: true, aimYaw: 0.2, aimPitch: 0.1, weapon: 0 } }, veh: { pos: { x, y: 1, z: 0 }, quat: { x: 0, y: 0, z: 0, w: 1 }, vel: { x: 10, y: 0, z: 0 }, angvel: { x: 0, y: 0, z: 0 }, wheels: spec.wheels.map(() => ({ L: 0.4, slip: 0, grounded: true })), steerAngle: 0, rpm01: 0.5, brakeApplied: 0 } };
+  car.veh.nitroRechargeLocked = rechargeLocked;
   return encodeSnapshot({ cars: new Map([[1, car]]), time, state: 'run', projectiles: { rockets: [], grenades: [] }, boss: null }, tick, { dist: time * 10, hp01: 1, dhp01: 1, ghp01: 1, nitro01: 0.5, medkits: 2 });
 }
+
+test('authoritative boost recharge lock reaches the remote driver without changing packet length', () => {
+  const ready = frame(1, 0), locked = frame(2, .1, 1, true);
+  assert.equal(ready.byteLength, locked.byteLength);
+  assert.equal(decodeSnapshot(ready).cars[0].fl & 4096, 0);
+  assert.equal(decodeSnapshot(locked).cars[0].fl & 4096, 4096);
+  const b = new SnapshotBuffer();
+  b.push(decodeSnapshot(ready), 10); b.push(decodeSnapshot(locked), 10.1);
+  b.clockOffset = 10; b.delay = 0;
+  b.sample(10.1); assert.equal(b.states.get(1).nitroRechargeLocked, true);
+  b.push(decodeSnapshot(frame(3, .2, 2)), 10.2);
+  b.delay = 0;
+  b.sample(10.2); assert.equal(b.states.get(1).nitroRechargeLocked, false);
+});
 
 test('snapshot roundtrip retains truck pose, crew, suspension, HUD and typed-array offsets', () => {
   const ab = frame(120, 1.0), s = decodeSnapshot(ab);

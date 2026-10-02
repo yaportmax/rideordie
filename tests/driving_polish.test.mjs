@@ -144,21 +144,21 @@ test('all truck tiers retain strong brakes, capped reverse and stable alternatin
   });
 });
 
-test('runtime and garage effects preserve each chassis tank while retaining existing upgrade bonuses', () => {
+test('runtime and garage effects preserve each chassis tank and purchased duration/refill progression', () => {
   const specsBefore = JSON.stringify(VEHICLES);
   for (const id of trucks) for (let level = 0; level <= 5; level++) {
     const profile = upgradedProfile(id, { nitro: level }), original = JSON.stringify(profile);
     const e = effects(profile), { spec } = buildPlayerSpec(profile), base = VEHICLES[id].nitro;
-    const extraCapacity = level ? .4 + .8 * level : 0, extraRefill = (level ? .03 : 0) + .03 * level;
+    const extraCapacity = level ? .4 + .8 * level : 0;
     assert.equal(e.nitroCap, base.capacity + extraCapacity);
-    assert.equal(e.nitroRegen, base.regen + extraRefill);
+    assert.equal(e.nitroRegen, e.nitroCap / Math.max(8, 12 - level));
     assert.equal(spec.nitro.capacity, e.nitroCap); assert.equal(spec.nitro.regen, e.nitroRegen);
     assert.equal(JSON.stringify(profile), original);
   }
   assert.equal(JSON.stringify(VEHICLES), specsBefore, 'profile upgrades cannot mutate canonical vehicle specs');
 });
 
-test('actual profile-built tier tanks burn once under a held press, then wait for release', async () => {
+test('actual profile-built tier tanks burn once, then require full recharge and a released press', async () => {
   for (const id of trucks) {
     const { spec } = buildPlayerSpec(upgradedProfile(id, { nitro: 2 }));
     await withCar(id, (car, step) => {
@@ -174,7 +174,13 @@ test('actual profile-built tier tanks burn once under a held press, then wait fo
       assert.ok(Math.abs(boosted * DT - spec.nitro.capacity) <= DT);
       assert.ok(car.nitro > 0 && car.nitro <= car.nitroMax, id + ' refill remains finite');
       step({ throttle: 1, nitro: false }); step({ throttle: 1, nitro: true });
-      assert.equal(car.boosting, true);
+      assert.equal(car.boosting, !car.nitroRechargeLocked, id + ' a fresh press cannot bypass an unfinished refill');
+      if (car.nitroRechargeLocked) {
+        for (let i = 0; i < 12 * 120 && car.nitroRechargeLocked; i++) step({ throttle: 1, nitro: false });
+        assert.equal(car.nitro, car.nitroMax, id + ' full refill is required after depletion');
+        step({ throttle: 1, nitro: true });
+        assert.equal(car.boosting, true, id + ' fully recharged tank accepts a fresh burst');
+      }
     }, spec);
   }
 });

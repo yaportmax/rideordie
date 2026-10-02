@@ -56,7 +56,7 @@ test('units selector supports keyboard and click changes without changing numeri
 
 test('HUD speed changes units immediately at the last sampled physical speed', () => {
   const hud = Object.create(Hud.prototype), node = () => ({ textContent: '', style: {} });
-  hud.q = Object.fromEntries(['spd', 'spdUnit', 'rpm', 'nitro', 'nitroBox', 'hp', 'area', 'boss', 'vig'].map(key => [key, node()]));
+  hud.q = Object.fromEntries(['spd', 'spdUnit', 'rpm', 'nitro', 'nitroBox', 'nitroStatus', 'hp', 'area', 'boss', 'vig'].map(key => [key, node()]));
   Object.assign(hud, { el: { style: {} }, seenAreas: new Set(), areaT: 0, vigT: 0, msgT: 0, gunnerOn: false, arrowPool: [] });
   const data = { speed: METERS_PER_MILE / 60, rpm01: .5, nitro01: 0, hp01: 1 };
   hud.setUnits('mi'); hud.update(0, data);
