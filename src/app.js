@@ -3,7 +3,8 @@
 // The driver's machine runs the simulation.
 import { Ui } from './ui/ui.js';
 import { Session } from './net/session.js';
-import { loadProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, buyWeaponOptic, equipWeaponOptic, equipWeapon, selectTruck, creditRun, bestForJourney } from './meta/profile.js';
+import { loadProfile, saveProfile, getSaveStore, getSaveStorage, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, buyWeaponOptic, equipWeaponOptic, equipWeapon, selectTruck, creditRun, bestForJourney } from './meta/profile.js';
+import { CloudSaves } from './meta/cloud_saves.js';
 import { equippedWeaponOptics, sanitizeOpticId } from './data/weapon_optics.js';
 import { campaignJourney, normalizeJourney, selectCampaignLevel, creditCampaignLevel } from './data/campaign.js';
 
@@ -32,6 +33,22 @@ export class App {
     this.readyMine = false; this.readyOther = false;
     this._flowId = 0; this._garageGeneration = 0; this._garageEpoch = 0;
     this._peerGarageReady = null; this._startSelection = null; this._startup = null; this._lostTransition = null; this._roomPending = null;
+    this.saves = getSaveStore();
+    this._saveVisit = null; this._saveBusy = false; this._saveHistory = null;
+    this.cloudSaves = new CloudSaves({
+      store: this.saves, storage: getSaveStorage(),
+      canApplyRemote: () => this._canChangeSave(),
+      onChange: () => this._refreshSavePresentation(),
+    });
+    this._saveUnsubscribe = this.saves.onChange(event => {
+      if (event?.error && this._lastSaveError !== event.error.code) {
+        this._lastSaveError = event.error.code || 'storage';
+        this.ui.toast('Progress could not be saved locally. Open SAVES to recover or export it.', 'bad', 8000);
+      }
+      this._refreshSavePresentation();
+    });
+    addEventListener('online', () => this.cloudSaves.sync().catch(() => {}));
+    addEventListener('pagehide', event => { if (!event.persisted) { this.cloudSaves.dispose(); this._saveUnsubscribe?.(); } });
     this.applySettings(this.ui.settings);
     window.__app = this;
     addEventListener('resize', () => requestAnimationFrame(() => this._frameRect()));
@@ -50,6 +67,7 @@ export class App {
   sound(name) { this.game.audio?.ui(name); }
   _transition() {
     this._campaignOpen = false;
+    this._saveVisit = null; this._saveBusy = false;
     this._flowId = (this._flowId || 0) + 1;
     this._cancelStartSelection(); this._startup = this._lostTransition = null;
     return this._flowId;
@@ -102,6 +120,7 @@ export class App {
     this._pendingRunMsgs = []; this._pendingFast = null;
     this._stage('title');
     this.game.audio?.music?.setState?.('title');
+    this._resumeSaveSync();
     if (!this._booted) { this._booted = true; this._bootScreen().then(() => { if (this.screen === 'title') this._showTitle(); }); return; }
     this._showTitle();
   }
@@ -121,7 +140,151 @@ export class App {
       onSolo: (role) => { this.soloRole = role || 'both'; this.mode = 'solo'; this.sound('whoosh_transition'); this.garage(); },
       onHost: () => this.host(),
       onJoin: (code) => this.join(code),
+      onSaves: () => this._showSaves(),
+      saveSummary: this._saveSummary(),
     });
+  }
+
+  // Save ownership changes only on the disconnected title screen. A cloud
+  // response cannot move an in-flight run's purchases, reward or crew wallet.
+  _canChangeSave() {
+    return this.screen === 'title' && this.mode === 'title' && !this.session && !this.game.run
+      && !this._startup && !this._startSelection && !this._pendingResults && !this._roomPending;
+  }
+  _resumeSaveSync() {
+    const flow = this._flowId;
+    Promise.resolve(this.cloudSaves?.sync?.()).then(state => {
+      // An existing scan may have deferred a head just before we returned.
+      // One extra serialized scan resumes it without a retry loop in gameplay.
+      if (state?.status === 'pending' && this._flowId === flow && this._canChangeSave()) return this.cloudSaves.sync();
+    }).catch(() => {});
+  }
+  _saveSummary() {
+    if (!this.saves) return null;
+    let slot;
+    try { slot = this.saves.list().find(item => item.id === this.saves.activeId()); } catch { /* Storage failure must not prevent offline play. */ }
+    return { name: slot?.name || 'Unsaved session', status: this.cloudSaves?.state().status || 'local', cloud: this.cloudSaves?.state().connected || false };
+  }
+  _saveModel() {
+    let all = [], recoveries = [];
+    try { all = this.saves.list({ includeDeleted: true }); } catch { /* The durability warning remains visible. */ }
+    try {
+      recoveries = this.saves.recoveries().map(({ id, at, name, reason, profile, raw, volatile }) => {
+        let restorable = !!profile;
+        if (!profile && raw && reason === 'legacy-migration') {
+          try { const value = JSON.parse(raw); restorable = value?.v === 1 && typeof value.campaignId === 'string'; } catch { /* Damaged bytes are retained for repair. */ }
+        }
+        return { id, at, name, reason, profile, restorable, volatile };
+      });
+    } catch { /* Existing playable saves remain available if recovery metadata is damaged. */ }
+    return {
+      slots: all.filter(slot => !slot.deleted), deletedSlots: all.filter(slot => slot.deleted),
+      activeId: this.saves.activeId(), cloud: this.cloudSaves.state(),
+      status: this.saves.status?.(), canChange: this._canChangeSave(), busy: this._saveBusy,
+      history: this._saveHistory, recoveries,
+      notice: this._saveNotice || 'Autosaves purchases and completed or abandoned runs. Loading resumes in the garage; active combat is not saved.',
+    };
+  }
+  _refreshSavePresentation() {
+    if (!this.saves || !this.cloudSaves || this._refreshingSaves) return;
+    this._refreshingSaves = true;
+    try {
+    if (this._canChangeSave()) {
+      try {
+        const appearance = p => JSON.stringify([p?.truck, p?.truckColor, p?.loadout, p?.weaponOptics, p?.upgrades, p?.vehicleUpgrades]);
+        const previous = appearance(this.profile), loaded = this.saves.load();
+        this.profile = loaded; this.personalProfile = loaded;
+        if (previous !== appearance(loaded) && this.game.garage) this._stage('title');
+      } catch { /* Existing playable profile remains owned. */ }
+    }
+    this.ui.updateTitleSave?.(this._saveSummary());
+    if (this._saveVisit && this._canChangeSave() && this.ui.screen()?.kind === 'saves') this.ui.updateSaves?.(this._saveModel());
+    } finally { this._refreshingSaves = false; }
+  }
+  _showSaves() {
+    if (!this._canChangeSave()) return;
+    this._saveVisit = { flow: this._flowId }; this._saveHistory = null; this._saveNotice = null;
+    this.ui.showSaves(this._saveModel(), this._saveCallbacks());
+  }
+  async _saveAction(action, notice) {
+    const visit = this._saveVisit;
+    const current = () => this._saveVisit === visit && visit && visit.flow === this._flowId && this._canChangeSave();
+    if (!current() || this._saveBusy) return;
+    this._saveBusy = true; this._refreshSavePresentation();
+    try {
+      const result = await action();
+      if (!current()) return;
+      if (result?.status === 'offline' || result?.status === 'error') throw new Error(result.error || 'Cloud changes are queued. Retry when the service is available.');
+      this._saveNotice = result?.status === 'conflict' ? 'Cloud connected. Choose how to keep the conflicting versions below.' : notice || null;
+      this._lastSaveError = null;
+      return result;
+    } catch (error) {
+      if (current()) {
+        this._saveNotice = error?.message || 'Could not finish that save operation. Your existing saves are retained.';
+        this.ui.toast(this._saveNotice, 'bad', 6000);
+      }
+    } finally {
+      if (current()) { this._saveBusy = false; this._refreshSavePresentation(); }
+    }
+  }
+  _activateSave(id) {
+    if (!this._canChangeSave()) throw new Error('Return to the title and leave co-op before changing saves.');
+    this.profile = this.saves.activate(id); this.personalProfile = this.profile;
+    this._saveHistory = null; this._stage('title');
+  }
+  _saveCallbacks() {
+    const visit = this._saveVisit;
+    return {
+      onActivate: id => this._saveAction(() => this._activateSave(id), 'Save selected.'),
+      onCreate: name => this._saveAction(() => { const slot = this.saves.create(name); this._activateSave(slot.id); return slot; }, 'New save selected.'),
+      onRename: (id, name) => this._saveAction(() => this.saves.rename(id, name), 'Save renamed.'),
+      onDuplicate: (id, name) => this._saveAction(() => this.saves.duplicate(id, name), 'Copy created. Your original is unchanged.'),
+      onDelete: id => this._saveAction(() => this.saves.remove(id), 'Moved to deleted saves. The latest twelve deleted saves can be recovered.'),
+      onRestoreDeleted: id => this._saveAction(() => this.saves.restoreDeleted(id), 'Deleted save recovered.'),
+      onRestoreRecovery: (id, name) => this._saveAction(() => this.saves.restoreRecovery(id, name), 'Recovered as a separate save. Select it when you are ready.'),
+      onExportRecovery: id => this._saveAction(() => {
+        const entry = this.saves.recoveries().find(row => row.id === id);
+        if (!entry?.profile) throw new Error('This damaged record needs manual repair before it can be exported as a playable save.');
+        return this._downloadSave({ kind: 'rideordie-save', version: 2, name: entry.name || 'Recovered progress', profile: entry.profile, exportedAt: Date.now() });
+      }, 'Preserved progress exported. Keep the file until storage is available.'),
+      onHistory: id => this._saveAction(() => { this._saveHistory = { slotId: id, items: this.saves.history(id), source: 'local' }; }),
+      onRestore: (id, backupId) => this._saveAction(() => { const slot = this.saves.restore(id, backupId); if (id === this.saves.activeId()) this._activateSave(id); return slot; }, 'Backup restored. The previous head is retained as a backup.'),
+      onExport: id => this._saveAction(() => this._exportSave(id), 'Save exported.'),
+      onImport: file => this._saveAction(async () => {
+        if (!file || file.size > 65536) throw new Error('Choose a Ride or Die save file smaller than 64 KB.');
+        const text = await file.text();
+        if (!this._canChangeSave() || this._saveVisit !== visit) return;
+        return this.saves.importSlot(JSON.parse(text));
+      }, 'Imported as a separate save. Select it when you are ready.'),
+      onCloudCreate: () => this._saveAction(() => this.cloudSaves.createVault(), 'Cloud connected. Keep your recovery code to connect another device.'),
+      onCloudConnect: code => this._saveAction(() => this.cloudSaves.connect(code), 'Cloud connected. Your local saves are retained.'),
+      onCloudDisconnect: () => this._saveAction(() => this.cloudSaves.disconnect(), 'Cloud disconnected. Local saves are retained.'),
+      onSync: () => this._saveAction(() => this.cloudSaves.sync(), 'Sync checked. Review the cloud status and any conflicts below.'),
+      onRevealCode: () => this._canChangeSave() && this._saveVisit ? this.cloudSaves.recoveryCode() : null,
+      onCopyCode: () => this._saveAction(async () => {
+        const code = this.cloudSaves.recoveryCode(); if (!code) throw new Error('Connect cloud saves first.');
+        if (!navigator.clipboard?.writeText) throw new Error('Clipboard is unavailable. Reveal and copy your code manually.');
+        await navigator.clipboard.writeText(code);
+      }, 'Recovery code copied. Keep it private.'),
+      onResolve: (id, choice) => this._saveAction(() => this.cloudSaves.resolve(id, choice), 'Conflict resolved; preserved copies are available in saves and backups.'),
+      onCloudHistory: id => this._saveAction(async () => {
+        const visit = this._saveVisit, items = await this.cloudSaves.history(id);
+        if (this._saveVisit === visit && this._canChangeSave()) this._saveHistory = { slotId: id, items, source: 'cloud' };
+      }),
+      onCloudRestore: (id, backupId) => this._saveAction(() => this.cloudSaves.restoreCloud(id, backupId), 'Cloud backup restored. The previous version is retained.'),
+      onClose: () => { this._saveVisit = null; this._saveBusy = false; this._saveHistory = null; this.ui.close(); this._showTitle(); },
+    };
+  }
+  _exportSave(id) {
+    const data = this.saves.exportSlot(id);
+    return this._downloadSave(data);
+  }
+  _downloadSave(data) {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const anchor = document.createElement('a'); anchor.href = url;
+    anchor.download = `ride-or-die-${data.name.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 40) || 'save'}.json`;
+    anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return { exported: true };
   }
 
   // ------------------------------------------------------------------------------------------ lobby

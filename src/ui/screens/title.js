@@ -1,7 +1,7 @@
 // TITLE: logo + SINGLE PLAYER (seat picker: DRIVE / SHOOT / BOTH) / HOST CO-OP / JOIN CO-OP (room code entry incl. on-screen keypad for
 // gamepads) / SETTINGS / CONTROLS. The live 3D chase (TitleScene) runs behind it.
 import { h } from '../comp.js';
-import { hints, icon } from '../glyphs.js';
+import { esc, hints, icon } from '../glyphs.js';
 
 const KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789'.split('');
 const SEATS = [
@@ -41,12 +41,14 @@ export class TitleScreen {
       ${btn('solo', 'SINGLE PLAYER', 'DRIVE OR SHOOT &middot; AN AI PARTNER TAKES THE OTHER SEAT', 2, 'primary')}
       ${btn('host', 'HOST CO-OP', 'CREATE A ROOM &middot; SHARE THE CODE WITH A FRIEND', 3)}
       ${btn('join', 'JOIN CO-OP', 'ENTER A FRIEND&rsquo;S ROOM CODE', 4)}
-      <div class="menu-split stg" style="--i:5">
+      <div class="menu-split ${cb.onSaves ? 'menu-tools' : ''} stg" style="--i:5">
+        ${cb.onSaves ? `<button type="button" class="f btn half" data-act="saves" data-k="saves"><span>${icon('copy')}SAVES</span></button>` : ''}
         ${`<div class="f btn half" role="button" data-act="settings" data-k="settings"><span>${icon('sliders')}SETTINGS</span></div>`}
         ${`<div class="f btn half" role="button" data-act="controls" data-k="controls"><span>${icon('gamepad')}CONTROLS</span></div>`}
       </div>
       ${cb.onQuit ? btn('quit', 'QUIT', 'EXIT TO DESKTOP', 7, 'danger') : ''}
-    </nav>`;
+    </nav><div class="tt-save-summary" data-save-summary hidden></div>`;
+    this.updateSaveSummary(cb.saveSummary);
     this.hintsEl.innerHTML = hints([['nav', 'MOVE'], ['confirm', 'SELECT']]);
     if (anim) {
       this.viewEl.querySelector('.menu').animate([{ opacity: 0, transform: 'translateX(-24px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
@@ -110,6 +112,7 @@ export class TitleScreen {
       case 'sback': this.showMenu(true, 'solo'); break;
       case 'settings': if (cb.onSettings) cb.onSettings(); else ui.showSettings(); break;
       case 'controls': if (cb.onControls) cb.onControls(); else ui.showControls('driver'); break;
+      case 'saves': cb.onSaves && cb.onSaves(); break;
       case 'quit': cb.onQuit && cb.onQuit(); break;
       case 'jgo': {
         const code = (this.input.value || '').trim();
@@ -130,6 +133,17 @@ export class TitleScreen {
     return undefined;
   }
   initialFocus() { return this.viewEl.querySelector('[data-act=solo]') || this.viewEl.querySelector('.f'); }
+  updateSaveSummary(summary) {
+    this.cb.saveSummary = summary;
+    const element = this.viewEl.querySelector('[data-save-summary]'); if (!element) return;
+    const name = typeof summary === 'string' ? summary : summary?.name;
+    element.hidden = !name;
+    if (!name) { element.textContent = ''; return; }
+    const state = typeof summary === 'object' ? (summary.status || summary.cloud?.status || (summary.cloud?.connected ? 'connected' : 'disconnected')) : 'disconnected';
+    const label = { connected: 'CLOUD CONNECTED', pending: 'SYNC QUEUED', offline: 'OFFLINE', syncing: 'SYNCING', connecting: 'CONNECTING', conflict: 'CONFLICT', error: 'SYNC ERROR', disconnected: 'LOCAL SAVE' }[state] || 'LOCAL SAVE';
+    element.dataset.state = state;
+    element.innerHTML = `<i></i><span>ACTIVE SAVE</span><strong>${esc(name)}</strong><small>${label}</small>`;
+  }
   back() {
     if (this.view === 'join') { this.ui.snd('menu_close'); this.showMenu(true, 'join'); return true; }
     if (this.view === 'seats') { this.ui.snd('menu_close'); this.showMenu(true, 'solo'); return true; }

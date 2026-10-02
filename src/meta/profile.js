@@ -4,12 +4,16 @@ import { WEAPONS } from '../data/weapons.js';
 import { familyOf, normalizeFamilyUpgrades, stagePurchaseAllowed } from '../data/vehicle_families.js';
 import { normalizeWeaponOptics } from '../data/weapon_optics.js';
 import { defaultCampaignProgress, normalizeCampaignProgress, normalizeJourney } from '../data/campaign.js';
+import { SaveStore } from './save_store.js';
 export { campaignJourney, selectCampaignLevel, creditCampaignLevel } from '../data/campaign.js';
 
 export { upgradeLevel, upgradeLimit };
 export { buyWeaponOptic, equipWeaponOptic } from './weapon_optics.js';
 
 const KEY = 'rideordie.profile.v1';
+const stores = new WeakMap();
+const saveOutcomes = new WeakMap();
+const blockedStorage = { getItem() { throw new Error('Local storage is unavailable'); }, setItem() { throw new Error('Local storage is unavailable'); } };
 const record = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
 const natural = (v, max = Number.MAX_SAFE_INTEGER) => Number.isFinite(v) ? Math.min(max, Math.max(0, Math.trunc(v))) : 0;
 const positive = (v) => Number.isFinite(v) ? Math.max(0, v) : 0;
@@ -60,20 +64,38 @@ export function normalizeProfile(value) {
   };
 }
 
+/** Keep personal slots separate from foreign co-op campaign mirrors. */
+export function getSaveStorage() {
+  let storage;
+  try { storage = globalThis.localStorage; } catch { /* Browser security can block the getter itself. */ }
+  if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') storage = blockedStorage;
+  return storage;
+}
+export function getSaveStore() {
+  const storage = getSaveStorage();
+  let store = stores.get(storage);
+  if (!store) {
+    store = new SaveStore({ storage, normalize: normalizeProfile, fresh: () => normalizeProfile(DEFAULT_PROFILE()) });
+    stores.set(storage, store);
+  }
+  return store;
+}
+export function profileSaveStatus(profile) { return saveOutcomes.get(profile) || null; }
 export function loadProfile(campaignId) {
+  if (!campaignId) {
+    try { return getSaveStore().load(); } catch { /* Store exposes the failure; keep a playable session. */ }
+    return normalizeProfile(DEFAULT_PROFILE());
+  }
   try {
-    const raw = localStorage.getItem(campaignId ? `${KEY}.${campaignId}` : KEY);
+    const raw = localStorage.getItem(`${KEY}.${campaignId}`);
     if (raw) return normalizeProfile(JSON.parse(raw));
   } catch { /* blocked or damaged storage */ }
   return { ...DEFAULT_PROFILE(), campaignProgress: defaultCampaignProgress(), campaignRecords:{}, marathonBest:bestRecord() };
 }
 export function saveProfile(p) {
   p.revision = natural(p.revision) + 1;
-  try {
-    const data = JSON.stringify(p);
-    localStorage.setItem(KEY, data);
-    localStorage.setItem(`${KEY}.${p.campaignId}`, data);
-  } catch { /* storage may be blocked */ }
+  const result = getSaveStore().save(p);
+  saveOutcomes.set(p, result);
   return p;
 }
 export function newerProfile(a, b) { return (a?.revision || 0) >= (b?.revision || 0) ? a : b; }

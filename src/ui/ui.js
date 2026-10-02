@@ -11,7 +11,9 @@
  * the GARAGE never draws a backdrop).
  *
  * API (all `cb` objects are optional; every callback is optional):
- *   showTitle(cb)                 cb: onHost(), onJoin(code), onSolo(), onSettings()*, onControls()*, onQuit()** , sound(name)
+ *   showTitle(cb)                 cb: onHost(), onJoin(code), onSolo(), onSaves(), saveSummary:{name,status?}, onSettings()*, onControls()*, onQuit()** , sound(name)
+ *   showSaves(model, cb)           model: {slots,activeId,cloud,canChange,deletedSlots?,recoveries?,history?,notice?}; App owns storage/cloud callbacks.
+ *   updateSaves(model), updateTitleSave(summary)   update save data without replacing the open menu; no recovery codes in model.
  *   showLobby(state, cb)          cb: onSeat(role), onReady(ready:boolean), onStart(), onLeave(), onCopy()
  *   updateLobby(state)            state = { code, status:'connecting'|'waiting'|'connected'|'lost', latency?, isHost, canStart?,
  *                                            players:[{ id, name, device:'kbm'|'pad', seat:'driver'|'gunner'|null, ready, you, host }] }
@@ -37,6 +39,7 @@ import lobbyCss from './css/lobby.css?inline';
 import resultsCss from './css/results.css?inline';
 import settingsCss from './css/settings.css?inline';
 import campaignCss from './css/campaign.css?inline';
+import savesCss from './css/saves.css?inline';
 import { Nav } from './nav.js';
 import { esc, icon } from './glyphs.js';
 import { loadSettings, saveSettings, applySettings, wrapRumble, loadBindings, defaultBindings } from './settings_store.js';
@@ -49,8 +52,9 @@ import { PauseScreen } from './screens/pause.js';
 import { SettingsScreen } from './screens/settings.js';
 import { ControlsScreen } from './screens/controls.js';
 import { CampaignScreen } from './screens/campaign.js';
+import { SavesScreen } from './screens/saves.js';
 
-const cssText = [baseCss, garageCss, lobbyCss, resultsCss, settingsCss, campaignCss].join('\n');
+const cssText = [baseCss, garageCss, lobbyCss, resultsCss, settingsCss, campaignCss, savesCss].join('\n');
 
 // Texture overlays are generated ONCE as small raster PNGs (tileable value noise). They used to be SVG feTurbulence filters, which
 // Chrome re-rasterizes per element and per size on the main thread: every screen with many plates/keys hitched by 100s of ms.
@@ -229,6 +233,9 @@ export class Ui {
 
   // ---------------------------------------------------------------- public screens
   showTitle(cb = {}) { this._use(cb); this.snd('menu_open'); return this._mount(new TitleScreen(this, cb), { base: true }); }
+  updateTitleSave(summary) { this._find('title')?.updateSaveSummary(summary); }
+  showSaves(model = {}, cb = {}) { this._use(cb); this.snd('menu_open'); return this._mount(new SavesScreen(this, model, cb), {}); }
+  updateSaves(model) { this._find('saves')?.update(model); }
   showLobby(state, cb = {}) { this._use(cb); return this._mount(new LobbyScreen(this, state, cb), { base: true }); }
   updateLobby(state) { const s = this._find('lobby'); if (s) s.update(state); }
   showGarage(profile, cb = {}, extra = {}) { this._use(cb); return this._mount(new GarageScreen(this, profile, cb, extra), { base: true }); }

@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "ride-or-die-saves",
+  "main": "worker.js",
+  "account_id": "6ba6abe9133ad77796b3809ab899ee9c",
+  "compatibility_date": "2026-10-02",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "durable_objects": { "bindings": [{ "name": "SAVE_VAULTS", "class_name": "SaveVault" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SaveVault"] }],
+  "ratelimits": [
+    { "name": "SAVE_IP_LIMIT", "namespace_id": "41752026100201", "simple": { "limit": 120, "period": 60 } },
+    { "name": "SAVE_VAULT_LIMIT", "namespace_id": "41752026100202", "simple": { "limit": 60, "period": 60 } }
+  ]
+}
