@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CloudSaves } from '../src/meta/cloud_saves.js';
 import { SaveStore } from '../src/meta/save_store.js';
+import { normalizeProfile } from '../src/meta/profile.js';
+import { DEFAULT_PROFILE } from '../src/data/upgrades.js';
 import { sanitizeProfile, sanitizeName, canonicalJson, contentHash } from '../server/saves/schema.js';
 
 const KEY = 'rideordie.cloud.v1';
@@ -83,9 +85,9 @@ class VaultService {
 }
 
 function harness(t, { service = new VaultService(), storage = new MemoryStorage(), firstId = 1, gate = () => true,
-  debounceMs = 5000, timeoutMs = 2000 } = {}) {
+  debounceMs = 5000, timeoutMs = 2000, normalize = sanitizeProfile, fresh = () => profile() } = {}) {
   let nextId = firstId;
-  const store = new SaveStore({ storage, normalize: sanitizeProfile, fresh: () => profile(), id: () => id(nextId++) });
+  const store = new SaveStore({ storage, normalize, fresh, id: () => id(nextId++) });
   const changes = [];
   const cloud = new CloudSaves({ store, storage, fetch: service.fetch, canApplyRemote: gate, debounceMs, timeoutMs,
     retryBaseMs: 60000, retryMaxMs: 60000, onChange: state => changes.push(state) });
@@ -384,9 +386,79 @@ test('a deferred active remote head pruned before the next sync becomes a missin
 test('unsupported future profile or excess live response is rejected before any local import', async t => {
   const h = harness(t), slotId = h.store.activeId(); await h.service.seed(CODE_A, slotId, profile());
   const row = await h.service.seed(CODE_A, id(80), profile(55, 'future-road'), 'Future road');
-  row.profile.v = 2; h.service.vaults.get(CODE_A).slots.set(id(80), row);
+  row.profile.v = 3; h.service.vaults.get(CODE_A).slots.set(id(80), row);
   assert.equal((await h.cloud.connect(CODE_A)).status, 'error'); assert.equal(h.storage.getItem(KEY), null); assert.equal(h.store.list().length, 1);
   h.service.vaults.get(CODE_A).slots.delete(id(80));
   for (let n = 2; n <= 13; n++) await h.service.seed(CODE_A, id(n), profile(n, `road-${n}`), `Road ${n}`);
   assert.equal((await h.cloud.connect(CODE_A)).status, 'error'); assert.equal(h.store.list().length, 1); assert.equal(h.storage.getItem(KEY), null);
+});
+
+// These cases intentionally use the application's normalizer. The ordinary
+// network fixture uses sanitizeProfile and cannot create runtime-only defaults.
+const gameplayHarness = t => harness(t, { normalize: normalizeProfile, fresh: () => normalizeProfile(DEFAULT_PROFILE()) });
+const storedHead = (storage, slotId) => JSON.parse(storage.getItem('rideordie.saves.v2')).slots.find(slot => slot.id === slotId);
+
+test('actual gameplay defaults compare equal to an unchanged legacy cloud head without a conflict or head rewrite', async t => {
+  const h = gameplayHarness(t), slotId = h.store.activeId(), before = storedHead(h.storage, slotId), pinned = h.store.load();
+  assert.ok(Object.hasOwn(pinned.vehicleUpgrades, 'hummer'), 'real local normalizer must still create the inventory default');
+  const legacy = sanitizeProfile(pinned); delete legacy.vehicleUpgrades.hummer;
+  const remote = await h.service.seed(CODE_A, slotId, legacy, before.name);
+  assert.equal(Object.hasOwn(remote.profile.vehicleUpgrades, 'hummer'), false);
+  const state = await h.cloud.connect(CODE_A);
+  assert.equal(state.status, 'connected'); assert.equal(state.conflicts.length, 0);
+  for (let i = 0; i < 3; i++) assert.equal((await h.cloud.sync()).status, 'connected');
+  const after = storedHead(h.storage, slotId);
+  assert.equal(after.generation, before.generation); assert.equal(after.headId, before.headId);
+  assert.deepEqual(after.history, before.history); assert.equal(writes(h.service).length, 0);
+  assert.deepEqual(h.service.vaults.get(CODE_A).slots.get(slotId), remote);
+  pinned.cash += 1; pinned.revision += 1;
+  assert.equal(h.store.save(pinned).ok, true, 'acknowledging identical wire defaults must not invalidate a loaded profile pin');
+});
+
+test('unchanged imported legacy heads do not churn real SaveStore generations, backups or loaded pins', async t => {
+  const h = gameplayHarness(t), slotId = id(80), legacy = profile(42, 'old-cloud-road');
+  delete legacy.vehicleUpgrades.hummer;
+  const original = await h.service.seed(CODE_A, slotId, legacy, 'Old road');
+  assert.equal((await h.cloud.connect(CODE_A)).status, 'connected');
+  assert.deepEqual(h.store.load(slotId).vehicleUpgrades.hummer, normalizeProfile(legacy).vehicleUpgrades.hummer);
+  // One real remote update creates a useful recovery entry, then repeated
+  // unchanged reads must retain it rather than filling the ten-backup window.
+  const updated = await h.service.seed(CODE_A, slotId, { ...legacy, cash: 60 }, 'Old road');
+  assert.ok(updated.version > original.version);
+  assert.equal((await h.cloud.sync()).status, 'connected');
+  const before = storedHead(h.storage, slotId), history = h.store.history(slotId), pinned = h.store.load(slotId);
+  assert.ok(history.some(backup => backup.profile.cash === 42));
+  const count = writes(h.service).length, canonical = canonicalJson(updated.profile), hash = updated.hash;
+  for (let i = 0; i < 12; i++) assert.equal((await h.cloud.sync()).status, 'connected');
+  const after = storedHead(h.storage, slotId), ack = persisted(h.storage).acks[slotId];
+  assert.equal(after.generation, before.generation); assert.equal(after.headId, before.headId);
+  assert.deepEqual(h.store.history(slotId), history); assert.equal(writes(h.service).length, count);
+  assert.equal(ack.version, updated.version); assert.equal(ack.hash, hash);
+  assert.equal(canonicalJson(h.service.vaults.get(CODE_A).slots.get(slotId).profile), canonical);
+  assert.equal(h.service.vaults.get(CODE_A).slots.get(slotId).hash, hash);
+  pinned.cash += 1; pinned.revision += 1;
+  assert.equal(h.store.save(pinned).ok, true, 'unchanged remote reads must leave the imported loaded pin usable');
+});
+
+test('real gameplay cloud synchronization retains owned Hummer levels through import, unchanged reads and a genuine CAS update', async t => {
+  const h = gameplayHarness(t), slotId = id(81);
+  const levels = { engine: 4, armor: 5, tires: 4, nitro: 3, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 };
+  const owned = normalizeProfile({ ...profile(12000, 'paid-hummer-road'), trucks: ['player_sedan_t1', 'player_hummer_t1'], truck: 'player_hummer_t1',
+    vehicleUpgradeSchema: 2, vehicleUpgrades: { hummer: levels } });
+  const remote = await h.service.seed(CODE_A, slotId, owned, 'Hummer road');
+  assert.equal((await h.cloud.connect(CODE_A)).status, 'connected');
+  const before = storedHead(h.storage, slotId), count = writes(h.service).length;
+  for (let i = 0; i < 3; i++) assert.equal((await h.cloud.sync()).status, 'connected');
+  const local = h.store.load(slotId);
+  assert.equal(local.truck, 'player_hummer_t1'); assert.ok(local.trucks.includes('player_hummer_t1'));
+  assert.deepEqual(local.vehicleUpgrades.hummer, levels);
+  assert.equal(storedHead(h.storage, slotId).generation, before.generation); assert.equal(writes(h.service).length, count);
+  local.cash -= 250; local.revision += 1; assert.equal(h.store.save(local).ok, true);
+  assert.equal((await h.cloud.sync()).status, 'connected');
+  const writesForSlot = writes(h.service).slice(count).filter(request => request.url.endsWith(`/v1/slots/${slotId}`));
+  assert.equal(writesForSlot.length, 1); assert.equal(writesForSlot[0].body.baseVersion, remote.version);
+  const head = h.service.vaults.get(CODE_A).slots.get(slotId);
+  assert.equal(head.profile.cash, 11750);
+  assert.equal(head.profile.truck, 'player_hummer_t1'); assert.deepEqual(head.profile.vehicleUpgrades.hummer, levels);
+  assert.ok(head.version > remote.version);
 });

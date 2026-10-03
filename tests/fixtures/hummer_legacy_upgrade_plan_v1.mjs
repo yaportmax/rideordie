@@ -1,6 +1,8 @@
+// Held historical pre-Hummer oracle. Provenance is in hummer_legacy_oracles_v1.md.
 // Installed vehicle upgrades. Game frame: +X left, +Y up, +Z forward.
 // Static authored mounts; geometry is rebuilt only when appearance changes.
-import { DRIVER_UPGRADE_MAX } from '../data/vehicle_families.js';
+// Freeze the historical cap table rather than importing current family policy.
+const DRIVER_UPGRADE_MAX = Object.freeze({ engine: 5, armor: 5, tires: 5, nitro: 5, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 });
 export const CAR_UPGRADE_MAX = DRIVER_UPGRADE_MAX;
 export const sanitizeVisualLevels = (levels = {}) => Object.fromEntries(Object.entries(CAR_UPGRADE_MAX).map(([id, max]) => [id, Math.max(0, Math.min(max, Math.floor(Number(levels[id]) || 0)))]));
 export const visualKey = levels => Object.entries(sanitizeVisualLevels(levels)).map(([id, level]) => `${id}:${level}`).join('|');
@@ -53,9 +55,9 @@ export function buildUpgradePlan(mounts, rawLevels) {
   }
   if (levels.armor) {
     const lv = levels.armor;
-    for (const side of ['left', 'right', ...Object.keys(mounts.sides || {}).filter(name => name !== 'left' && name !== 'right')]) {
+    for (const side of ['left', 'right']) {
       const m = mounts.sides?.[side]; if (!m) throw new Error('Missing armor side mount');
-      const sign = side === 'left' ? 1 : side === 'right' ? -1 : Math.sign(m.p[0]), h = m.size[1] * (.49 + .09 * lv), d = m.size[2] * (.63 + .065 * lv);
+      const sign = side === 'left' ? 1 : -1, h = m.size[1] * (.49 + .09 * lv), d = m.size[2] * (.63 + .065 * lv);
       box('armor', m, [sign * (.015 + .004 * lv), 0, 0], [.028 + .007 * lv, h, d], 'steel');
       bolts('armor', m, d, h, sign * (.044 + .009 * lv), 'x');
       if (lv >= 3) box('armor', m, [sign * .054, -h * .43, 0], [.055, .06, d * 1.03], 'dark');
@@ -109,9 +111,9 @@ export function buildUpgradePlan(mounts, rawLevels) {
   }
   if (levels.spikes) {
     const lv = levels.spikes;
-    for (const side of ['left', 'right', ...Object.keys(mounts.sides || {}).filter(name => name !== 'left' && name !== 'right')]) {
+    for (const side of ['left', 'right']) {
       const m = mounts.sides?.[side]; if (!m) throw new Error('Missing spikes side mount');
-      const sign = side === 'left' ? 1 : side === 'right' ? -1 : Math.sign(m.p[0]), d = m.size[2] * .9;
+      const sign = side === 'left' ? 1 : -1, d = m.size[2] * .9;
       box('spikes', m, [sign * .075, -m.size[1] * .37, 0], [.075, .10, d], 'dark');
       for (let i = 0; i < 4 + lv * 2; i++) add('spikes', 'cone', m, [sign * (.11 + lv * .037), -m.size[1] * .37, (i / (3 + lv * 2) - .5) * d * .86], [.105, .16 + .08 * lv, .105], 'bare', [0, 0, -sign * Math.PI / 2]);
     }

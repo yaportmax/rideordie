@@ -37,6 +37,21 @@ function fixture(t) {
   return { app, saves, memory, shown, toasts, stages };
 }
 
+test('save recovery presentation supports guarded Hummer v2 singleton bytes and keeps future versions blocked', t => {
+  const f = fixture(t);
+  const hummer = normalizeProfile({ v: 1, campaignId: 'hummer-v2-recovery',
+    trucks: ['player_sedan_t1', 'player_hummer_t1'], truck: 'player_hummer_t1',
+    vehicleUpgradeSchema: 2, vehicleUpgrades: { hummer: { armor: 5, nitro: 3 } } });
+  assert.equal(hummer.v, 2, 'actual new-family progress carries its older-client guard');
+  const current = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify(hummer) });
+  const legacy = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...DEFAULT_PROFILE(), campaignId: 'legacy-v1-recovery' }) });
+  const future = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...hummer, v: 3 }) });
+  const model = f.app._saveModel();
+  assert.equal(model.recoveries.find(value => value.id === current.id).restorable, true);
+  assert.equal(model.recoveries.find(value => value.id === legacy.id).restorable, true);
+  assert.equal(model.recoveries.find(value => value.id === future.id).restorable, false);
+});
+
 test('existing personal save migrates once without turning foreign crew archives into cloud-owned slots', t => {
   const memory = storage(); inStorage(t, memory);
   const original = normalizeProfile(DEFAULT_PROFILE()); original.campaignId = 'legacy-person'; original.cash = 14200;

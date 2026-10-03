@@ -164,7 +164,7 @@ test('exports and imports exclude credentials, leave existing heads intact, and 
   const imported = store.importSlot(JSON.stringify(exported), 'Imported');
   assert.notEqual(imported.id, id); assert.equal(imported.name, 'Imported'); assert.equal(store.activeId(), id);
   assert.equal(JSON.stringify(store.exportSlot(imported.id)).includes('secret'), false); assert.deepEqual(store.load(), before);
-  for (const invalid of [null, [], { ...exported, version: 3 }, { ...exported, profile: {} }, { ...exported, profile: { ...exported.profile, campaignId: 123 } }, { ...exported, profile: { ...exported.profile, v: 2 } }, { ...exported, profile: { ...exported.profile, cash: Infinity } }, { ...exported, profile: { ...exported.profile, weapons: { pistol: { dmg: 'bad' } } } }, { ...exported, profile: { ...exported.profile, campaignProgress: { version: 3 } } }]) assert.throws(() => store.importSlot(invalid));
+  for (const invalid of [null, [], { ...exported, version: 3 }, { ...exported, profile: {} }, { ...exported, profile: { ...exported.profile, campaignId: 123 } }, { ...exported, profile: { ...exported.profile, v: 3 } }, { ...exported, profile: { ...exported.profile, cash: Infinity } }, { ...exported, profile: { ...exported.profile, weapons: { pistol: { dmg: 'bad' } } } }, { ...exported, profile: { ...exported.profile, campaignProgress: { version: 3 } } }]) assert.throws(() => store.importSlot(invalid));
   assert.throws(() => store.importSlot('{bad json'), isCode('invalid-import'));
   assert.throws(() => store.importSlot({ ...exported, filler: 'x'.repeat(70 * 1024) }));
   assert.throws(() => store.importSlot('x'.repeat(70 * 1024)), isCode('save-too-large'));

@@ -5,6 +5,7 @@ import { registerHooks } from 'node:module';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { normalizeProfile } from '../src/meta/profile.js';
 import { MAX_BODY_BYTES, sanitizeProfile, canonicalJson } from '../server/saves/schema.js';
+import { sanitizeProfile as sanitizeLegacyProfile } from './fixtures/hummer_legacy_schema_v1.mjs';
 
 // Only the platform base constructor is substituted. Every HTTP handler,
 // authorization check, schema projection, query and transaction is production
@@ -299,7 +300,13 @@ test('fixed wire schema preserves genuine purchased gear, campaign/cash/records 
   const r = await h.send('PUT', `/v1/slots/${id}`, secret, { name: '  Owned progress  ', profile: original, baseVersion: 0 });
   assert.equal(r.status, 200);
   const p = r.data.slot.profile;
-  for (const key of ['cash', 'totalCash', 'revision', 'runs', 'wins', 'trucks', 'truck', 'vehicleUpgrades', 'upgrades', 'weapons', 'weaponOptics', 'loadout', 'campaignProgress', 'campaignRecords', 'best', 'marathonBest', 'lastRunId', 'coopLastRunId']) assert.deepEqual(p[key], original[key], key);
+  for (const key of ['cash', 'totalCash', 'revision', 'runs', 'wins', 'trucks', 'truck', 'upgrades', 'weapons', 'weaponOptics', 'loadout', 'campaignProgress', 'campaignRecords', 'best', 'marathonBest', 'lastRunId', 'coopLastRunId']) assert.deepEqual(p[key], original[key], key);
+  assert.deepEqual(p.vehicleUpgrades, sanitizeLegacyProfile(original).vehicleUpgrades, 'all legacy purchased family gear survives the canonical wire projection');
+  assert.equal(original.vehicleUpgrades.rustbucket.engine, 5); assert.equal(p.vehicleUpgrades.rustbucket.engine, 5);
+  assert.equal(original.vehicleUpgrades.buggy.tires, 5); assert.equal(p.vehicleUpgrades.buggy.tires, 5);
+  assert.equal(original.vehicleUpgrades.sedan.engine, 4); assert.equal(p.vehicleUpgrades.sedan.engine, 4);
+  assert.ok(Object.values(original.vehicleUpgrades.hummer).every(level => level === 0));
+  assert.equal(Object.hasOwn(p.vehicleUpgrades, 'hummer'), false, 'only the unowned runtime zero default is omitted');
   assert.equal(r.data.slot.name, 'Owned progress');
   const expectedHash = createHash('sha256').update(canonicalJson({ name: 'Owned progress', profile: p, deleted: false })).digest('hex');
   assert.equal(r.data.slot.hash, expectedHash);
@@ -336,7 +343,7 @@ test('future/invalid schema, nonfinite numbers, unsupported gear, oversized arra
   const h = harness(t), secret = code(), id = randomUUID();
   await h.send('POST', '/v1/vault', secret);
   const first = (await put(h, secret, id, 0, 12)).data.slot;
-  const patches = [{ v: 2 }, { campaignId: '../bad' }, { cash: -1 }, { cash: 1.5 }, { totalCash: Number.MAX_SAFE_INTEGER + 1 }, { best: { distance: Infinity } }, { weapons: { pistol: { dmg: 4 } } }, { trucks: ['arbitrary'] }, { vehicleUpgrades: { sedan: { engine: 5 } } }, { loadout: ['pistol', 'pistol', 'pistol', 'pistol'] }, { campaignProgress: { version: 2 } }, { campaignProgress: { cleared: [11] } }, { lastRunId: 'x'.repeat(129) }];
+  const patches = [{ v: 3 }, { campaignId: '../bad' }, { cash: -1 }, { cash: 1.5 }, { totalCash: Number.MAX_SAFE_INTEGER + 1 }, { best: { distance: Infinity } }, { weapons: { pistol: { dmg: 4 } } }, { trucks: ['arbitrary'] }, { vehicleUpgrades: { sedan: { engine: 5 } } }, { loadout: ['pistol', 'pistol', 'pistol', 'pistol'] }, { campaignProgress: { version: 2 } }, { campaignProgress: { cleared: [11] } }, { lastRunId: 'x'.repeat(129) }];
   for (const patch of patches) {
     const r = await h.send('PUT', `/v1/slots/${id}`, secret, { name: 'bad', profile: { ...profile(), ...patch }, baseVersion: first.version });
     assert.equal(r.status, 400, JSON.stringify(patch));
@@ -395,4 +402,75 @@ test('rate bindings fail closed and gate work before auth/DO; durable per-vault 
   entry.vault = new SaveVault({ storage: entry.storage }, h.env);
   assert.equal((await h.send('GET', '/v1/vault', secret)).status, 429);
   t.mock.restoreAll();
+});
+
+
+test('Hummer paid ownership and capped family gear survive real cloud HTTP writes, reads and stale-write rejection', async t => {
+  const h=harness(t),secret=code(),id=randomUUID();await h.send('POST','/v1/vault',secret);
+  const owned=profile(12345,{trucks:['player_sedan_t1','player_hummer_t1'],truck:'player_hummer_t1',vehicleUpgradeSchema:2,vehicleUpgrades:{hummer:{engine:4,armor:5,tires:4,nitro:3,ram:3,spikes:2,glass:2,fueltank:2,oil:2,mines:2}}});
+  const first=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:owned,baseVersion:0});assert.equal(first.status,200);assert.deepEqual(first.data.slot.profile,owned);
+  const list=await h.send('GET','/v1/vault',secret);assert.equal(list.status,200);assert.deepEqual(list.data.slots[0].profile,owned);
+  const bad=structuredClone(owned);bad.vehicleUpgrades.hummer.nitro=4;const rejected=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:bad,baseVersion:first.data.slot.version});assert.equal(rejected.status,400);
+  const changed=structuredClone(owned);changed.cash=12000;const second=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:changed,baseVersion:first.data.slot.version});assert.equal(second.status,200);assert.deepEqual(second.data.slot.profile.vehicleUpgrades.hummer,owned.vehicleUpgrades.hummer);
+  const stale=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:owned,baseVersion:first.data.slot.version});assert.equal(stale.status,409);assert.deepEqual(stale.data.slot.profile,changed);
+});
+
+test('legacy three-family wire payloads keep their canonical bytes when Hummer was absent', () => {
+  const legacy=sanitizeLegacyProfile(profile(42));assert.equal(canonicalJson(sanitizeProfile(legacy)),canonicalJson(legacy));
+});
+
+test('historical legacy wire projection stays byte-identical after actual gameplay adds empty unowned Hummer defaults', () => {
+  const corpus = [
+    { v: 1, campaignId: 'legacy-wire-default' },
+    { v: 1, campaignId: 'legacy-wire-migrate', cash: 700, truck: 'truck_t3', upgrades: { engine: 5, armor: 5, nitro: 4, vest: 2 } },
+    { v: 1, campaignId: 'legacy-wire-families', vehicleUpgradeSchema: 2, trucks: ['player_sedan_t1', 'player_buggy_t3'], truck: 'player_buggy_t3',
+      vehicleUpgrades: { sedan: { engine: 4, ram: 2 }, rustbucket: { armor: 5 }, buggy: { tires: 5, nitro: 4 } },
+      campaignProgress: { version: 1, cleared: [1, 2], selectedLevel: 3 }, campaignRecords: { 2: { distance: 500, kills: 10 } } },
+  ];
+  for (const input of corpus) {
+    const old = sanitizeLegacyProfile(input), normalized = normalizeProfile(input);
+    assert.ok(Object.hasOwn(normalized.vehicleUpgrades, 'hummer'));
+    const wire = sanitizeProfile(normalized);
+    assert.equal(Object.hasOwn(wire.vehicleUpgrades, 'hummer'), false);
+    assert.equal(canonicalJson(wire), canonicalJson(old), input.campaignId);
+    assert.equal(createHash('sha256').update(canonicalJson({ name: 'Legacy', profile: wire, deleted: false })).digest('hex'),
+      createHash('sha256').update(canonicalJson({ name: 'Legacy', profile: old, deleted: false })).digest('hex'), input.campaignId);
+  }
+});
+
+test('only validated zero unowned Hummer defaults are omitted; owned, paid and malformed rows keep their semantics', () => {
+  const local = normalizeProfile({ v: 1, campaignId: 'hummer-wire-default' });
+  assert.equal(Object.hasOwn(sanitizeProfile(local).vehicleUpgrades, 'hummer'), false);
+  const owned = structuredClone(local); owned.trucks.push('player_hummer_t1'); owned.truck = 'player_hummer_t1';
+  assert.deepEqual(sanitizeProfile(owned).vehicleUpgrades.hummer, local.vehicleUpgrades.hummer, 'owned base retains explicit defaults');
+  const paid = structuredClone(local); paid.vehicleUpgrades.hummer.ram = 3;
+  assert.equal(sanitizeProfile(paid).vehicleUpgrades.hummer.ram, 3, 'positive gear survives even when the base is unselected/unowned');
+  for (const row of [null, [], { engine: -1 }, { engine: .5 }, { nitro: 4 }, { armor: '0' }, { tires: NaN }, { mines: Infinity }]) {
+    const malformed = structuredClone(local); malformed.vehicleUpgrades.hummer = row;
+    assert.throws(() => sanitizeProfile(malformed), /invalid_profile/, JSON.stringify(row));
+  }
+});
+
+test('actual Worker preserves legacy hashes and CAS receipts across an equivalent normalized-default retry', async t => {
+  const h = harness(t), secret = code(), slotId = randomUUID(), mutationId = randomUUID();
+  await h.send('POST', '/v1/vault', secret);
+  const legacy = sanitizeLegacyProfile({ v: 1, campaignId: 'legacy-http-defaults', cash: 42 });
+  const firstBody = { name: 'Legacy defaults', profile: legacy, baseVersion: 0, mutationId };
+  const first = await h.send('PUT', `/v1/slots/${slotId}`, secret, firstBody);
+  assert.equal(first.status, 200);
+  const expectedHash = createHash('sha256').update(canonicalJson({ name: firstBody.name, profile: legacy, deleted: false })).digest('hex');
+  assert.equal(first.data.slot.hash, expectedHash); assert.equal(canonicalJson(first.data.slot.profile), canonicalJson(legacy));
+  const retry = await h.send('PUT', `/v1/slots/${slotId}`, secret, { ...firstBody, profile: normalizeProfile(legacy) });
+  assert.equal(retry.status, 200); assert.deepEqual(retry.data.slot, first.data.slot, 'equivalent wire defaults retain the exact immutable mutation receipt');
+  const stale = await h.send('PUT', `/v1/slots/${slotId}`, secret, { ...firstBody, profile: normalizeProfile(legacy), mutationId: randomUUID() });
+  assert.equal(stale.status, 409); assert.deepEqual(stale.data.slot, first.data.slot, 'same content is not stale-write authority');
+  assert.deepEqual((await h.send('GET', '/v1/vault', secret)).data.slots[0], first.data.slot);
+  assert.deepEqual((await h.send('GET', `/v1/slots/${slotId}/history`, secret)).data.history, []);
+  const next = await h.send('PUT', `/v1/slots/${slotId}`, secret, { name: firstBody.name, profile: { ...normalizeProfile(legacy), cash: 60 },
+    baseVersion: first.data.slot.version, mutationId: randomUUID() });
+  assert.equal(next.status, 200); assert.ok(next.data.slot.version > first.data.slot.version);
+  const oldReceipt = await h.send('PUT', `/v1/slots/${slotId}`, secret, { ...firstBody, profile: normalizeProfile(legacy) });
+  assert.equal(oldReceipt.status, 409); assert.deepEqual(oldReceipt.data.slot, next.data.slot);
+  const history = (await h.send('GET', `/v1/slots/${slotId}/history`, secret)).data.history;
+  assert.equal(history.length, 1); assert.equal(history[0].hash, expectedHash); assert.deepEqual(history[0].profile, legacy);
 });

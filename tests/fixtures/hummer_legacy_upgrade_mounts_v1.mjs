@@ -1,9 +1,9 @@
+// Held historical pre-Hummer oracle. Provenance is in hummer_legacy_oracles_v1.md.
 // Vehicle modifier mounts, derived from source and existing asset metadata.
 // Metres in the CarView ground frame: +X left, +Y up, +Z forward.
 // Panel/body positions stay in this frame. UpgradeKit converts them to the
 // authored anchor frame. Tire geometry alone is generated wheel-local.
 // Runtime visual/physics acceptance remains pending.
-import { hummerBaseUpgradeMounts } from './hummer_upgrade_mounts.js';
 
 const mount = (p, anchor = 'body', size) => ({ p, anchor, ...(size ? { size } : {}) });
 const sidePair = (x, y, z, height, depth, anchors = ['panel_door_L', 'panel_door_R']) => ({
@@ -156,7 +156,6 @@ export function vehicleUpgradeMounts(spec) {
   let mounts;
   if (/^player_sedan_t\d+$/.test(modelId)) mounts = sedanMounts();
   else if (/^player_buggy_t\d+$/.test(modelId)) mounts = buggyMounts();
-  else if (modelId === 'player_hummer_t1') mounts = hummerBaseUpgradeMounts(spec);
   else mounts = truckMounts(modelId);
   if (!mounts) return null;
   const wheels = wheelMounts(spec);

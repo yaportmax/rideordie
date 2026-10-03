@@ -78,7 +78,13 @@ export class Cockpit {
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
     this.model.traverse(o => {
       if (!o.isMesh || !o.geometry?.attributes?.position) return;
-      for (let p = o; p && p !== this.model; p = p.parent) if (/^panel_/.test(p.name)) return;
+      // An explicitly authored front-window panel can own glass independently
+      // of the rigid body. Other door/hatch panels retain their full geometry.
+      // The group/material scan below removes only its forward glass triangles;
+      // painted retainers, pillars and other cabin furniture stay intact.
+      let outerPanel = null;
+      for (let p = o; p && p !== this.model; p = p.parent) if (/^panel_/.test(p.name)) outerPanel = p.name;
+      if (outerPanel && outerPanel !== this.cv.spec.cockpit?.frontGlassPanel) return;
       const full = o.geometry, pos = full.attributes.position, idx = full.index, mats = [].concat(o.material);
       const groups = full.groups.length ? full.groups : [{ start: 0, count: idx ? idx.count : pos.count, materialIndex: 0 }];
       const mw = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld), keep = [], keptGroups = [];
@@ -210,9 +216,9 @@ export class Cockpit {
     const GLASS = { truck_t1: [0.09, 0.14], truck_t2: [0.13, 0.23], truck_t3: [0.12, 0.19], truck_t4: [0.14, 0.21] }[modelID] || [0.12, 0.19];
     // New chassis keep their authored mirror shapes rather than inheriting the
     // tall pickup glass, which protrudes through the compact housings.
-    const layout = modelID === 'player_buggy_t1'
+    const layout = this.cv.spec.cockpit?.mirrorLayout || (modelID === 'player_buggy_t1'
       ? { C: [.23, .07, .025], L: [.12, .10, .018], R: [.12, .10, .018] }
-      : modelID === 'player_sedan_t1' ? { C: [.25, .08, .026], L: [.028, .17, .009], R: [.104, .104, .052] } : null;
+      : modelID === 'player_sedan_t1' ? { C: [.25, .08, .026], L: [.028, .17, .009], R: [.104, .104, .052] } : null);
     const sC = this.model.getObjectByName('mirror_C'), sL = this.model.getObjectByName('mirror_L'), sR = this.model.getObjectByName('mirror_R');
     if (sC) {
       const dims = layout?.C || [.25, .07, .026];

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE, UPGRADE_BY_ID, weaponTrackCost, upgradeLevel } from '../src/data/upgrades.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { saveProfile, loadProfile } from '../src/meta/profile.js';
+import { saveProfile, loadProfile, normalizeProfile } from '../src/meta/profile.js';
 import { NET_PROTOCOL } from '../src/net/run_packet.js';
 import { GARAGE_SEAT_PROTOCOL } from '../src/net/garage_seats.js';
 import { PLAYER_VEHICLE_PROTOCOL } from '../src/data/vehicle_families.js';
@@ -58,6 +58,60 @@ async function start(host, guest) {
   host.swap.ready(true); guest.swap.ready(true); await flush();
   const cfg = host.startRun({ seed: 17 }); assert.ok(cfg); await flush(); return cfg;
 }
+
+// Actual Session/store transactions with in-memory transport. This exercises
+// ownership and the purchasing person's wallet, not native WebRTC or UI pixels.
+test('both host seats permit a guest-funded Hummer while preserving personal inventory, wallet and saved campaign', async () => {
+  for (const hostRole of ['driver', 'gunner']) {
+    const state = await pair({ hostRole, hostCash: 7000, guestCash: 120000 });
+    const { host, guest, hostBuy, guestBuy, hostStore, guestStore } = state;
+    const personalBefore = normalizeProfile(structuredClone(guest.personalProfile));
+    guestBuy('truck', 'player_hummer_t1'); await flush();
+    assert.equal(host.profile.cash, 7000); assert.equal(host.peerWallet.cash, 20000); assert.equal(guest.profile.cash, 20000);
+    for (const campaign of [host.profile, guest.profile]) {
+      assert.equal(campaign.truck, 'player_hummer_t1'); assert.ok(campaign.trucks.includes('player_hummer_t1'));
+      assert.equal(upgradeLevel(campaign, 'engine'), 0); assert.equal(upgradeLevel(campaign, 'armor'), 0);
+    }
+    guestBuy('upgrade', 'armor'); await flush();
+    const guestPaid = 20000 - UPGRADE_BY_ID.armor.costs[0];
+    hostBuy('upgrade', 'engine'); await flush();
+    assert.equal(host.profile.cash, 7000 - UPGRADE_BY_ID.engine.costs[0]); assert.equal(guest.profile.cash, guestPaid);
+    assert.equal(host.profile.vehicleUpgrades.hummer.armor, 1); assert.equal(host.profile.vehicleUpgrades.hummer.engine, 1);
+    assert.equal(upgradeLevel(host.profile, 'engine', 'player_sedan_t1'), 0);
+    const denied = []; guest.on({ buyDenied: error => denied.push(error) });
+    guestBuy('truck', 'player_hummer_t1'); await flush();
+    assert.equal(denied.length, 1); assert.equal(host.profile.cash, 7000 - UPGRADE_BY_ID.engine.costs[0]);
+    assert.equal(guest.profile.cash, guestPaid, 'repeat purchase cannot debit again');
+    const hp = inStore(hostStore, () => loadProfile()), gp = inStore(guestStore, () => loadProfile());
+    assert.equal(hp.truck, 'player_hummer_t1'); assert.equal(hp.vehicleUpgrades.hummer.armor, 1); assert.equal(hp.vehicleUpgrades.hummer.engine, 1);
+    assert.equal(gp.cash, guestPaid); assert.equal(gp.campaignId, personalBefore.campaignId);
+    assert.deepEqual(gp.trucks, personalBefore.trucks); assert.equal(gp.truck, personalBefore.truck);
+    assert.deepEqual(gp.vehicleUpgrades, personalBefore.vehicleUpgrades); assert.deepEqual(gp.weapons, personalBefore.weapons);
+    let guestCfg; guest.on({ start: cfg => { guestCfg = cfg; } }); const cfg = await start(host, guest);
+    assert.equal(cfg.profile.truck, 'player_hummer_t1'); assert.equal(guestCfg.profile.truck, 'player_hummer_t1');
+    assert.equal(cfg.profile.cash, hp.cash); assert.equal(guestCfg.profile.cash, guestPaid);
+    assert.equal(cfg.role, hostRole); assert.equal(guestCfg.role, hostRole === 'driver' ? 'gunner' : 'driver');
+    host.leave(); guest.leave();
+    const next = await pair({ profiles: [hp, gp], stores: [hostStore, guestStore], hostRole });
+    try {
+      assert.equal(next.host.profile.truck, 'player_hummer_t1'); assert.equal(next.guest.profile.truck, 'player_hummer_t1');
+      assert.equal(next.host.profile.vehicleUpgrades.hummer.armor, 1); assert.equal(next.guest.profile.cash, guestPaid);
+      assert.deepEqual(next.guest.personalProfile.trucks, personalBefore.trucks);
+    } finally { next.host.leave(); next.guest.leave(); }
+  }
+});
+
+test('a premium Hummer cannot spend a rich partner wallet on a forged or unaffordable guest purchase', async () => {
+  const { host, guest, guestBuy } = await pair({ hostCash: 200000, guestCash: 99999 });
+  const before = structuredClone(host.profile), errors = []; guest.on({ buyDenied: event => errors.push(event) });
+  try {
+    guestBuy('truck', 'player_hummer_t1'); await flush();
+    guest.tp.send({ t: 'buy', kind: 'truck', id: 'player_hummer_t1', payer: 'host', cash: 1000000 }); await flush();
+    guestBuy('truck', 'player_hummer_forged'); await flush();
+    assert.equal(errors.length, 3); assert.deepEqual(host.profile, before);
+    assert.equal(host.profile.cash, 200000); assert.equal(host.peerWallet.cash, 99999); assert.equal(guest.profile.cash, 99999);
+  } finally { host.leave(); guest.leave(); }
+});
 
 test('both seat assignments debit only the purchasing person while keeping shared equipment and truck upgrades', async () => {
   for (const hostRole of ['driver', 'gunner']) {

@@ -10,11 +10,13 @@ const FAMILY_STAGES = {
   sedan: ['player_sedan_t1', 'player_sedan_t2'],
   rustbucket: ['truck_t1', 'truck_t2', 'truck_t3', 'truck_t4'],
   buggy: ['player_buggy_t1', 'player_buggy_t2', 'player_buggy_t3'],
+  hummer: ['player_hummer_t1'],
 };
 const FAMILY_CAPS = {
   sedan: { engine: 4, armor: 3, tires: 4, nitro: 3, ram: 2, spikes: 1, glass: 2, fueltank: 2, oil: 2, mines: 1 },
   rustbucket: { engine: 5, armor: 5, tires: 5, nitro: 5, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 },
   buggy: { engine: 5, armor: 2, tires: 5, nitro: 4, ram: 1, spikes: 1, glass: 1, fueltank: 2, oil: 1, mines: 1 },
+  hummer: { engine: 4, armor: 5, tires: 4, nitro: 3, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 },
 };
 const zeroLevels = () => Object.fromEntries(DRIVER_UPGRADE_IDS.map(id => [id, 0]));
 const profile = (extra = {}) => normalizeProfile({ campaignId: 'vehicle-family-test', cash: 1000000, ...extra });
@@ -26,10 +28,10 @@ const rejectedWithoutMutation = (p, action, reason) => {
   assert.deepEqual(p, before, `${reason} rejection must preserve the entire profile`);
 };
 
-test('the shop has nine unique player chassis with explicit family stages and real model aliases', () => {
+test('the shop has ten unique player chassis with explicit family stages and real model aliases', () => {
   const expected = Object.values(FAMILY_STAGES).flat();
-  assert.equal(PLAYER_VEHICLE_CATALOGUE.length, 9);
-  assert.equal(new Set(PLAYER_VEHICLE_CATALOGUE.map(vehicle => vehicle.id)).size, 9);
+  assert.equal(PLAYER_VEHICLE_CATALOGUE.length, 10);
+  assert.equal(new Set(PLAYER_VEHICLE_CATALOGUE.map(vehicle => vehicle.id)).size, 10);
   assert.deepEqual(PLAYER_VEHICLE_CATALOGUE.map(vehicle => vehicle.id), expected);
   assert.deepEqual(TRUCKS.map(vehicle => vehicle.id), expected);
   assert.deepEqual(Object.keys(VEHICLE_FAMILIES), Object.keys(FAMILY_STAGES));
@@ -62,9 +64,9 @@ test('new profiles own only the sedan and begin with independent empty family in
   const p = DEFAULT_PROFILE(), other = DEFAULT_PROFILE();
   assert.equal(p.truck, 'player_sedan_t1'); assert.deepEqual(p.trucks, ['player_sedan_t1']);
   assert.equal(p.vehicleUpgradeSchema, 2);
-  assert.deepEqual(p.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {} });
+  assert.deepEqual(p.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {}, hummer: {} });
   p.vehicleUpgrades.sedan.engine = 1;
-  assert.deepEqual(other.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {} });
+  assert.deepEqual(other.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {}, hummer: {} });
   for (const raw of [null, [], {}, { trucks: ['missing', 'e_sedan'], truck: 'missing' }]) {
     const repaired = normalizeProfile(raw);
     assert.equal(repaired.truck, 'player_sedan_t1'); assert.deepEqual(repaired.trucks, ['player_sedan_t1']);

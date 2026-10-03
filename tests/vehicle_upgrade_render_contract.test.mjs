@@ -34,7 +34,7 @@ const maxLevels = id => Object.fromEntries(DRIVER_UPGRADE_IDS.map(upgrade => [up
 const meshCount = root => { let count = 0; root.traverse(node => { if (node.isMesh) count++; }); return count; };
 const modifiers = root => { const nodes = []; root.traverse(node => { if (node.userData.ownedVehicleUpgradeGeometry) nodes.push(node); }); return nodes; };
 
-test('every purchased driver track mounts on all nine actual player stages without changing template mechanics', () => {
+test('every purchased driver track mounts on all ten actual player stages without changing template mechanics', () => {
   for (const id of PLAYER_VEHICLE_IDS) {
     const template = Assets.template(vehicleModelURL(id)), before = meshCount(template), view = new CarView(VEHICLES[id], { lod: false });
     const levels = maxLevels(id), plan = buildUpgradePlan(vehicleUpgradeMounts(VEHICLES[id]), levels);

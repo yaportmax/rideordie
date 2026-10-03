@@ -89,7 +89,7 @@ function titleFixture(t) {
   t.after(() => { for (const car of title.cars) { car.view.dispose(); for (const crew of car.crew) crew.dispose(); } });
   return title;
 }
-const familyLevels = { sedan: { armor: 3, ram: 2, glass: 2 }, rustbucket: { armor: 5, ram: 3, spikes: 2, nitro: 5 }, buggy: { armor: 2, engine: 5, tires: 5 } };
+const familyLevels = { sedan: { armor: 3, ram: 2, glass: 2 }, rustbucket: { armor: 5, ram: 3, spikes: 2, nitro: 5 }, buggy: { armor: 2, engine: 5, tires: 5 }, hummer: { armor: 5, ram: 3, nitro: 3 } };
 
 test('stale owned and preview tiers cannot rebuild real garage crew, bench, chassis or installed family parts', t => {
   const garage = garageFixture(t);

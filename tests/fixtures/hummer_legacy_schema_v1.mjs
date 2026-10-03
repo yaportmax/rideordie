@@ -1,3 +1,4 @@
+// Held historical pre-Hummer wire oracle. Provenance is in hummer_legacy_oracles_v1.md.
 // Portable, finite wire schema shared by the Worker and browser sync client.
 // Unknown keys are discarded. Invalid values in supported fields fail the write.
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -50,10 +51,9 @@ const families = {
   sedan: { engine: 4, armor: 3, tires: 4, nitro: 3, ram: 2, spikes: 1, glass: 2, fueltank: 2, oil: 2, mines: 1 },
   rustbucket: driver,
   buggy: { engine: 5, armor: 2, tires: 5, nitro: 4, ram: 1, spikes: 1, glass: 1, fueltank: 2, oil: 1, mines: 1 },
-  hummer: { engine: 4, armor: 5, tires: 4, nitro: 3, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 },
 };
 const crew = { vest: 3, grenades: 3, grenadeDmg: 2, medkit: 3, pouches: 3, steady: 3, scavenger: 3 };
-const trucks = ['player_sedan_t1', 'player_sedan_t2', 'truck_t1', 'truck_t2', 'truck_t3', 'truck_t4', 'player_buggy_t1', 'player_buggy_t2', 'player_buggy_t3', 'player_hummer_t1'];
+const trucks = ['player_sedan_t1', 'player_sedan_t2', 'truck_t1', 'truck_t2', 'truck_t3', 'truck_t4', 'player_buggy_t1', 'player_buggy_t2', 'player_buggy_t3'];
 const weapons = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg', 'minigun'];
 const reflex = ['pistol', 'smg', 'shotgun', 'rifle', 'lmg'];
 const tracks = ['dmg', 'mag', 'rel', 'hnd'];
@@ -80,7 +80,7 @@ function progress(value) {
 }
 export function sanitizeProfile(value) {
   const p = object(value);
-  if ((p.v !== 1 && p.v !== 2) || typeof p.campaignId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) || recoveryCode.test(p.campaignId)) invalid();
+  if (p.v !== 1 || typeof p.campaignId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) || recoveryCode.test(p.campaignId)) invalid();
   const vehicleUpgradeSchema = choice(p.vehicleUpgradeSchema, [1, 2], 1);
   const ownedTrucks = array(p.trucks, trucks.length, id => trucks.includes(id), ['player_sedan_t1']);
   if (!ownedTrucks.includes('player_sedan_t1')) ownedTrucks.unshift('player_sedan_t1');
@@ -88,17 +88,11 @@ export function sanitizeProfile(value) {
   if (vehicleUpgradeSchema !== 2 && /^truck_t[1-4]$/.test(selectedTruck) && !ownedTrucks.includes(selectedTruck)) ownedTrucks.push(selectedTruck);
   const oldUpgrades = object(p.upgrades), oldFamilies = object(p.vehicleUpgrades), vehicleUpgrades = {}, upgrades = {};
   for (const [family, caps] of Object.entries(families)) {
-    // Preserve legacy canonical profiles, including cloud hashes and backups.
-    if (family === 'hummer' && !own(oldFamilies, family) && !ownedTrucks.includes('player_hummer_t1')) continue;
     const levels = object(oldFamilies[family]), row = {};
     for (const [id, cap] of Object.entries(caps)) {
       const old = vehicleUpgradeSchema !== 2 && family === 'rustbucket' ? number(oldUpgrades[id], 0, driver[id]) : 0;
       row[id] = Math.max(Math.min(cap, old), number(levels[id], 0, cap));
     }
-    // Runtime normalization adds an empty row for every family. That default
-    // must not change a legacy unowned save's wire signature/hash, while
-    // explicit malformed rows must still be validated by the loop above.
-    if (family === 'hummer' && !ownedTrucks.includes('player_hummer_t1') && Object.values(row).every(level => level === 0)) continue;
     vehicleUpgrades[family] = row;
   }
   for (const [id, cap] of Object.entries(crew)) upgrades[id] = number(oldUpgrades[id], 0, cap);
@@ -118,10 +112,7 @@ export function sanitizeProfile(value) {
   for (let i = 0; i <= 4; i++) if (boolean(sourceBosses[i])) minibosses[i] = true;
   for (let i = 1; i <= 10; i++) if (own(sourceRecords, i)) campaignRecords[i] = best(sourceRecords[i]);
   return {
-    // Preserve all v1 legacy bytes, but make new-family data fail closed in
-    // older clients before their schema projects away an unknown family.
-    v: ownedTrucks.includes('player_hummer_t1') || Object.values(vehicleUpgrades.hummer || {}).some(level => level > 0) ? 2 : 1,
-    campaignId: p.campaignId, revision: number(p.revision), cash: number(p.cash), totalCash: number(p.totalCash),
+    v: 1, campaignId: p.campaignId, revision: number(p.revision), cash: number(p.cash), totalCash: number(p.totalCash),
     runs: number(p.runs), wins: number(p.wins), best: best(p.best), trucks: ownedTrucks, truck: ownedTrucks.includes(selectedTruck) ? selectedTruck : 'player_sedan_t1',
     vehicleUpgradeSchema: 2, vehicleUpgrades, upgrades, weapons: ownedWeapons, weaponOptics, loadout: loadout.length ? loadout : ['pistol'],
     truckColor: number(p.truckColor, 0, 7), seen: {}, settings: {}, bossKilled: boolean(p.bossKilled), minibosses,

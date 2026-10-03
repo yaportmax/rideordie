@@ -19,11 +19,11 @@ const AUTHORED_THRUST = {
 };
 const close = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-10, message);
 
-async function withVehicle(check) {
+async function withVehicle(check, vehicleID = 'player_sedan_t1') {
   await initPhysics();
   const world = createWorld(DT);
   addStaticBox(world, [0, -1, 0], [100, 1, 2000]);
-  const vehicle = new Vehicle(world, structuredClone(VEHICLES.player_sedan_t1));
+  const vehicle = new Vehicle(world, structuredClone(VEHICLES[vehicleID]));
   const step = nitro => {
     vehicle.setInput({ throttle: 1, nitro });
     vehicle.applyForces(DT, null); world.step(); vehicle.afterStep();
@@ -72,8 +72,8 @@ test('voluntary partial bursts remain responsive without increasing available fu
   });
 });
 
-test('every player chassis has 40 percent longer native boost and a 12 second passive full recharge', () => {
-  assert.equal(Object.values(VEHICLES).filter(spec => spec.kind === 'player').length, 9);
+test('nine legacy chassis retain 40 percent longer native boost and the new Hummer shares 12 second full recharge', () => {
+  assert.equal(Object.values(VEHICLES).filter(spec => spec.kind === 'player').length, 10);
   for (const [id, previousCapacity] of Object.entries(PREVIOUS_TANKS)) {
     const spec = VEHICLES[id];
     close(spec.nitro.capacity, previousCapacity * 1.4, id + ' native burst lasts longer');
@@ -83,11 +83,15 @@ test('every player chassis has 40 percent longer native boost and a 12 second pa
   for (const spec of Object.values(VEHICLES).filter(spec => spec.kind !== 'player')) {
     assert.equal(spec.nitro, undefined, spec.id + ' did not acquire a player boost tank');
   }
+  const hummer = VEHICLES.player_hummer_t1;
+  close(hummer.nitro.capacity, 1.54, 'new Hummer has its authored stock finite burst');
+  close(hummer.nitro.capacity / hummer.nitro.regen, 12, 'new Hummer requires full passive recharge');
+  assert.equal(hummer.nitro.mul, 1.6, 'new Hummer uses its authored finite boost thrust');
 });
 
-test('tank upgrades retain all nine chassis identities, exact costs, longer bursts and faster complete refill', () => {
+test('tank upgrades retain all ten chassis identities, exact costs, longer bursts and faster complete refill', () => {
   assert.deepEqual(UPGRADE_BY_ID.nitro.costs, [1875, 3000, 4750, 7000, 10000]);
-  for (const id of Object.keys(PREVIOUS_TANKS)) {
+  for (const id of [...Object.keys(PREVIOUS_TANKS), 'player_hummer_t1']) {
     const profile = DEFAULT_PROFILE(), base = VEHICLES[id];
     profile.truck = id; profile.trucks = [id];
     const cap = upgradeLimit(profile, 'nitro');
@@ -109,4 +113,26 @@ test('tank upgrades retain all nine chassis identities, exact costs, longer burs
       previousCapacity = capacity; previousRefill = refillSeconds;
     }
   }
+});
+
+test('actual Hummer body inherits depletion lock, ignores boost spam and resumes only after full refill', async () => {
+  await withVehicle((vehicle, step) => {
+    close(vehicle.nitro, 1.54, 'actual Hummer begins with its finite stock tank');
+    let used = 0;
+    while (vehicle.nitro > 0 && used < 300) { step(true); used++; }
+    assert.ok(used >= 184 && used <= 186, 'actual stock burst lasts the authored seconds, not infinite input time');
+    assert.equal(vehicle.nitro, 0); assert.equal(vehicle.nitroRechargeLocked, true);
+    for (let i = 0; i < 120 * 11; i++) {
+      step(i % 2 === 0); assert.equal(vehicle.boosting, false); assert.equal(vehicle.nitroRechargeLocked, true);
+      close(vehicle.nitro, (i + 1) * DT * vehicle.spec.nitro.regen, 'spam cannot spend or create refill fuel');
+    }
+    let wait = 0;
+    while (vehicle.nitroRechargeLocked && wait < 130) { step(true); wait++; }
+    assert.ok(wait >= 119 && wait <= 122); assert.equal(vehicle.nitroRechargeLocked, false);
+    assert.equal(vehicle.boosting, false, 'the last refill step does not consume the refilled tank');
+    close(vehicle.nitro, vehicle.nitroMax, 'full tank is restored exactly');
+    step(true);
+    assert.equal(vehicle.boosting, true, 'a release during refill arms the next fully charged burst');
+    close(vehicle.nitro, vehicle.nitroMax - DT, 'normal second Hummer burst resumes');
+  }, 'player_hummer_t1');
 });

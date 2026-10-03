@@ -41,10 +41,6 @@ export function normalizeProfile(value) {
   const upgrades = {};
   for (const [id, u] of Object.entries(UPGRADE_BY_ID)) upgrades[id] = natural(record(p.upgrades)[id], u.costs.length);
   const familyUpgrades = normalizeFamilyUpgrades({ ...p, upgrades });
-  // Older builds reject v2 before normalizing a SaveStore profile. Mark actual
-  // new-family progress so an old tab/import cannot silently discard it.
-  const profileVersion = trucks.includes('player_hummer_t1')
-    || Object.values(familyUpgrades.vehicleUpgrades.hummer || {}).some(level => level > 0) ? 2 : 1;
   const weapons = { pistol: { dmg: 0, mag: 0, rel: 0, hnd: 0 } };
   for (const [id, levels] of Object.entries(record(p.weapons))) {
     if (!validWeapon(id)) continue;
@@ -53,7 +49,7 @@ export function normalizeProfile(value) {
   const loadout = [...new Set((Array.isArray(p.loadout) ? p.loadout : d.loadout).filter((id) => Object.hasOwn(weapons, id)))].slice(0, 3);
   const best = record(p.best);
   return {
-    ...d, ...p, v: profileVersion,
+    ...d, ...p, v: 1,
     campaignId: typeof p.campaignId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) ? p.campaignId : d.campaignId,
     revision: natural(p.revision), cash: natural(p.cash), totalCash: natural(p.totalCash), runs: natural(p.runs), wins: natural(p.wins),
     best: { distance: positive(best.distance), furthestS: Math.max(positive(best.furthestS), positive(best.distance)), time: positive(best.time), kills: natural(best.kills) },

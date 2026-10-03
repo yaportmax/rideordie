@@ -164,7 +164,7 @@ test('missing or mismatching hello version blocks a run and closes only the data
 });
 
 test('missing or incompatible vehicle families rejects mixed catalogues before receiving a campaign', async () => {
-  for (const familyVehicles of [undefined, 0, PLAYER_VEHICLE_PROTOCOL + 1, '1']) {
+  for (const familyVehicles of [undefined, 0, PLAYER_VEHICLE_PROTOCOL - 1, PLAYER_VEHICLE_PROTOCOL + 1, '1']) {
     const tp = new Memory(), session = new Session(tp); await session.host(DEFAULT_PROFILE());
     const initial = structuredClone(session.profile), errors = [];
     session.on({ error: error => errors.push(error) }); tp.onOpen();

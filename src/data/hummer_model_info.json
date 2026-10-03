@@ -1,0 +1,4708 @@
+{
+  "id": "player_hummer_t1",
+  "authoringStatus": "exported-unaccepted",
+  "authoringRevision": "hummer-base-v6-mirrors",
+  "wheels": {
+    "FL": {
+      "x": 1.05,
+      "y": 0.43,
+      "z": 1.62,
+      "r": 0.427474,
+      "w": 0.345765
+    },
+    "FR": {
+      "x": -1.05,
+      "y": 0.43,
+      "z": 1.62,
+      "r": 0.427474,
+      "w": 0.345765
+    },
+    "RL": {
+      "x": 1.05,
+      "y": 0.43,
+      "z": -1.42,
+      "r": 0.427474,
+      "w": 0.345765
+    },
+    "RR": {
+      "x": -1.05,
+      "y": 0.43,
+      "z": -1.42,
+      "r": 0.427474,
+      "w": 0.345765
+    }
+  },
+  "sockets": {
+    "mirror_R": [
+      -1.23,
+      1.62,
+      0.528
+    ],
+    "mirror_L": [
+      1.23,
+      1.62,
+      0.528
+    ],
+    "steering_wheel": [
+      0.44,
+      1.21,
+      0.7
+    ],
+    "seat_driver": [
+      0.44,
+      0.84,
+      0.24
+    ],
+    "seat_passenger": [
+      -0.44,
+      0.84,
+      0.24
+    ],
+    "floor_driver": [
+      0.44,
+      0.28,
+      0.67
+    ],
+    "seat_gunner": [
+      0.0,
+      1.02,
+      -1.5
+    ],
+    "mounted_deck": [
+      0.0,
+      1.02,
+      -0.92
+    ],
+    "gun_mount": [
+      0.0,
+      2.24,
+      -0.92
+    ],
+    "light_head_R": [
+      -0.76,
+      0.91,
+      2.56
+    ],
+    "light_head_L": [
+      0.76,
+      0.91,
+      2.56
+    ],
+    "nitro_R": [
+      -0.59,
+      0.47,
+      -2.33
+    ],
+    "light_tail_R": [
+      -0.82,
+      0.92,
+      -2.37
+    ],
+    "nitro_L": [
+      0.59,
+      0.47,
+      -2.33
+    ],
+    "light_tail_L": [
+      0.82,
+      0.92,
+      -2.37
+    ],
+    "weak_engine": [
+      0.0,
+      0.91,
+      1.45
+    ],
+    "weak_fuel": [
+      0.0,
+      0.59,
+      -1.2
+    ],
+    "fuel_cap": [
+      -1.045,
+      0.93,
+      -1.1
+    ],
+    "smoke_engine": [
+      0.0,
+      1.18,
+      1.35
+    ],
+    "exhaust_R": [
+      -0.67,
+      0.41,
+      -2.36
+    ],
+    "camera_hood": [
+      0.0,
+      1.26,
+      1.05
+    ],
+    "roof_top": [
+      0.0,
+      2.04,
+      -0.25
+    ],
+    "mirror_C": [
+      0.0,
+      1.73,
+      0.8
+    ],
+    "part_nitro": [
+      -0.72,
+      1.08,
+      -2.25
+    ],
+    "part_fuel": [
+      0.72,
+      1.08,
+      -2.12
+    ],
+    "part_oil": [
+      0.7,
+      0.63,
+      -2.5
+    ],
+    "part_mines": [
+      -0.7,
+      0.63,
+      -2.5
+    ],
+    "upgrade_engine": [
+      -0.55,
+      1.188,
+      1.82
+    ]
+  },
+  "socketBasis": {
+    "mirror_R": {
+      "x": [
+        -0.139173,
+        0.0,
+        -0.990268
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.990268,
+        0.0,
+        -0.139173
+      ]
+    },
+    "mirror_L": {
+      "x": [
+        -0.275637,
+        0.0,
+        0.961262
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        -0.961262,
+        0.0,
+        -0.275637
+      ]
+    },
+    "steering_wheel": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        0.913545,
+        0.406737
+      ],
+      "z": [
+        0.0,
+        -0.406737,
+        0.913545
+      ]
+    },
+    "seat_driver": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "seat_passenger": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "floor_driver": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "seat_gunner": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "mounted_deck": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "gun_mount": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "light_head_R": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "light_head_L": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "nitro_R": {
+      "x": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        -0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    "light_tail_R": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "nitro_L": {
+      "x": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        -0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    "light_tail_L": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "weak_engine": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "weak_fuel": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "fuel_cap": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "smoke_engine": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "exhaust_R": {
+      "x": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        -0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    "camera_hood": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "roof_top": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "mirror_C": {
+      "x": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        -0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    "part_nitro": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "part_fuel": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "part_oil": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "part_mines": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "upgrade_engine": {
+      "x": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "z": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "parts": {
+    "panel_windshield": {
+      "min": [
+        -0.89,
+        1.33,
+        0.8625
+      ],
+      "max": [
+        0.89,
+        1.95,
+        0.8775
+      ]
+    },
+    "panel_hood": {
+      "min": [
+        -0.97,
+        0.98,
+        0.73
+      ],
+      "max": [
+        0.97,
+        1.18,
+        2.51
+      ]
+    },
+    "panel_door_R": {
+      "min": [
+        -1.291375,
+        0.73,
+        -0.4925
+      ],
+      "max": [
+        -0.9325,
+        1.975,
+        0.7175
+      ]
+    },
+    "panel_door_R2": {
+      "min": [
+        -1.054,
+        0.73,
+        -1.6825
+      ],
+      "max": [
+        -0.9325,
+        1.975,
+        -0.6075
+      ]
+    },
+    "panel_door_L": {
+      "min": [
+        0.9325,
+        0.73,
+        -0.4925
+      ],
+      "max": [
+        1.299556,
+        1.975,
+        0.7175
+      ]
+    },
+    "panel_door_L2": {
+      "min": [
+        0.9325,
+        0.73,
+        -1.6825
+      ],
+      "max": [
+        1.054,
+        1.975,
+        -0.6075
+      ]
+    },
+    "panel_bumper_F": {
+      "min": [
+        -1.06,
+        0.56,
+        2.47
+      ],
+      "max": [
+        1.06,
+        0.74,
+        2.65
+      ]
+    },
+    "panel_bumper_R": {
+      "min": [
+        -1.06,
+        0.56,
+        -2.47
+      ],
+      "max": [
+        1.06,
+        0.74,
+        -2.29
+      ]
+    },
+    "panel_trunk": {
+      "min": [
+        -0.88,
+        0.79,
+        -2.66
+      ],
+      "max": [
+        0.88,
+        2.0175,
+        -1.8075
+      ]
+    }
+  },
+  "materials": [
+    "armor",
+    "glass",
+    "interior",
+    "leather",
+    "light_head",
+    "light_tail",
+    "metal_dark",
+    "paint",
+    "paint2",
+    "rim",
+    "rubber",
+    "rubber_tire"
+  ],
+  "collisionProxies": [
+    {
+      "center": [
+        0,
+        0.77,
+        0.09
+      ],
+      "half": [
+        1.06,
+        0.32,
+        2.56
+      ]
+    },
+    {
+      "center": [
+        0,
+        1.42,
+        -0.575
+      ],
+      "half": [
+        0.99,
+        0.65,
+        1.375
+      ]
+    }
+  ],
+  "collisionStatus": "source-defined ground-frame proxies; actual contact acceptance pending",
+  "clearanceTargets": {
+    "driverFloorTop": 0.28,
+    "driverFootwellX": [
+      -0.9,
+      0.9
+    ],
+    "driverFootwellZ": [
+      -0.39,
+      1.25
+    ],
+    "gunnerFloorTop": 1.02,
+    "gunnerDeckX": [
+      -0.92,
+      0.92
+    ],
+    "gunnerDeckZ": [
+      -1.79,
+      -0.11
+    ],
+    "mountedDeckRoot": [
+      0,
+      1.02,
+      -0.92
+    ],
+    "mountedOperatorRootRadius": [
+      0.46,
+      0.58
+    ],
+    "hatchRoofY": 2.04,
+    "hatchOpeningX": [
+      -0.89,
+      0.89
+    ],
+    "hatchOpeningZ": [
+      -1.87,
+      0.02
+    ]
+  },
+  "bbox": {
+    "min": [
+      -1.291375,
+      0.002526,
+      -2.66
+    ],
+    "max": [
+      1.299556,
+      2.065,
+      2.65
+    ]
+  },
+  "cockpitProposal": {
+    "steeringSocket": [
+      0.44,
+      1.21,
+      0.7
+    ],
+    "steeringTiltDeg": 24,
+    "wheelRingCentreRadius": 0.185,
+    "wheelRadialSection": 0.013,
+    "wheelSegments": 40,
+    "mirrorCentre": [
+      0,
+      1.73,
+      0.8
+    ],
+    "windshieldZ": 0.87,
+    "sideMirrorYawDeg": {
+      "L": -106.0,
+      "R": 98.0
+    },
+    "sideMirrorHousingDepth": 0.05,
+    "sideMirrorEyeReferences": [
+      [
+        0.4434370164667502,
+        1.5523463759591711,
+        0.25746012465918217
+      ],
+      [
+        0.44144960055209326,
+        1.5539713530174848,
+        0.2712061292958773
+      ],
+      [
+        0.44,
+        1.62,
+        0.34
+      ]
+    ],
+    "sideMirrorFitStatus": "authored source eye-range orientation; actual native image/obstruction acceptance pending",
+    "sourceClusterBrowReferenceMax": [
+      1.293,
+      0.957
+    ],
+    "sourceDriverRecessX": [
+      0.21,
+      0.67
+    ],
+    "sourceClearanceStatus": "authored static margins; actual native/animated fit remains unaccepted"
+  },
+  "authoring": "Work-only unaccepted Hummer-style base wagon cockpit v6. Recessed utility dash, rounded steering wheel, supported lower centre mirror, forward windshield and inward-yawed rigid side mirror housings. No camera/FOV/crew/tuning change or GPU bake.",
+  "metadataSource": "Measured transformed geometry after actual exported GLB re-import",
+  "roundTrip": {
+    "complete": true,
+    "method": "Blender glTF2 exporter then real glTF2 importer",
+    "toleranceMetres": 5e-05,
+    "maxDeltaMetres": 0.0,
+    "basisComponentTolerance": 5e-05,
+    "maxDeltaBasisComponent": 0.0,
+    "materialNamesEqual": true,
+    "records": [
+      {
+        "record": "bbox.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "bbox.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "sockets.steering_wheel",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.steering_wheel.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.steering_wheel.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.steering_wheel.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.seat_driver",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.seat_driver.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.seat_driver.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.seat_driver.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.seat_passenger",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.seat_passenger.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.seat_passenger.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.seat_passenger.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.floor_driver",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.floor_driver.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.floor_driver.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.floor_driver.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.seat_gunner",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.seat_gunner.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.seat_gunner.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.seat_gunner.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.mounted_deck",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.mounted_deck.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mounted_deck.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mounted_deck.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.gun_mount",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.gun_mount.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.gun_mount.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.gun_mount.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.mirror_R",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.mirror_R.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mirror_R.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mirror_R.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.light_head_R",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.light_head_R.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_head_R.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_head_R.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.mirror_L",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.mirror_L.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mirror_L.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mirror_L.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.light_head_L",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.light_head_L.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_head_L.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_head_L.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.nitro_R",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.nitro_R.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.nitro_R.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.nitro_R.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.light_tail_R",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.light_tail_R.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_tail_R.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_tail_R.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.nitro_L",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.nitro_L.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.nitro_L.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.nitro_L.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.light_tail_L",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.light_tail_L.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_tail_L.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.light_tail_L.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.weak_engine",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.weak_engine.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.weak_engine.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.weak_engine.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.weak_fuel",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.weak_fuel.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.weak_fuel.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.weak_fuel.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.fuel_cap",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.fuel_cap.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.fuel_cap.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.fuel_cap.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.smoke_engine",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.smoke_engine.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.smoke_engine.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.smoke_engine.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.exhaust_R",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.exhaust_R.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.exhaust_R.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.exhaust_R.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.camera_hood",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.camera_hood.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.camera_hood.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.camera_hood.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.roof_top",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.roof_top.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.roof_top.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.roof_top.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.mirror_C",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.mirror_C.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mirror_C.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.mirror_C.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.part_nitro",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.part_nitro.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_nitro.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_nitro.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.part_fuel",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.part_fuel.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_fuel.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_fuel.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.part_oil",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.part_oil.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_oil.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_oil.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.part_mines",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.part_mines.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_mines.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.part_mines.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "sockets.upgrade_engine",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "socketBasis.upgrade_engine.x",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.upgrade_engine.y",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "socketBasis.upgrade_engine.z",
+        "maxAbsoluteDifference": 0.0,
+        "units": "unit-basis-component"
+      },
+      {
+        "record": "wheels.FL",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "wheels.FR",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "wheels.RL",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "wheels.RR",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_windshield.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_windshield.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_hood.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_hood.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_R.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_R.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_R2.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_R2.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_L.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_L.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_L2.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_door_L2.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_bumper_F.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_bumper_F.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_bumper_R.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_bumper_R.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_trunk.min",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      },
+      {
+        "record": "parts.panel_trunk.max",
+        "maxAbsoluteDifference": 0.0,
+        "units": "metres"
+      }
+    ],
+    "scope": "actual GLB hierarchy and transformed geometry; no native image/handling acceptance"
+  },
+  "authoredPose": {
+    "complete": true,
+    "builtBeforeReparent": {
+      "complete": true,
+      "phase": "built-before-reparent",
+      "socketCount": 28,
+      "toleranceMetres": 5e-05,
+      "basisComponentTolerance": 5e-05,
+      "maxDeltaMetres": 1.1102230246251565e-16,
+      "maxDeltaBasisComponent": 4.2970657343488483e-07,
+      "records": [
+        {
+          "socket": "steering_wheel",
+          "expectedPosition": [
+            0.44,
+            1.21,
+            0.7
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              0.9135454297065735,
+              0.4067366421222687
+            ],
+            "z": [
+              0.0,
+              -0.4067366421222687,
+              0.9135454297065735
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 4.2970657343488483e-07
+        },
+        {
+          "socket": "seat_driver",
+          "expectedPosition": [
+            0.44,
+            0.84,
+            0.24
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "seat_passenger",
+          "expectedPosition": [
+            -0.44,
+            0.84,
+            0.24
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "floor_driver",
+          "expectedPosition": [
+            0.44,
+            0.28,
+            0.6699999999999999
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 1.1102230246251565e-16,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "seat_gunner",
+          "expectedPosition": [
+            0,
+            1.02,
+            -1.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mounted_deck",
+          "expectedPosition": [
+            0,
+            1.02,
+            -0.92
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "gun_mount",
+          "expectedPosition": [
+            0,
+            2.24,
+            -0.92
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_R",
+          "expectedPosition": [
+            -1.23,
+            1.62,
+            0.528
+          ],
+          "expectedBasis": {
+            "x": [
+              -0.13917307555675507,
+              -0.0,
+              -0.9902680516242981
+            ],
+            "y": [
+              0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              0.9902680516242981,
+              0.0,
+              -0.13917307555675507
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 7.555675507475712e-08
+        },
+        {
+          "socket": "light_head_R",
+          "expectedPosition": [
+            -0.76,
+            0.91,
+            2.56
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_L",
+          "expectedPosition": [
+            1.23,
+            1.62,
+            0.528
+          ],
+          "expectedBasis": {
+            "x": [
+              -0.27563735842704773,
+              -0.0,
+              0.9612616896629333
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -0.9612616896629333,
+              -0.0,
+              -0.27563735842704773
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 3.5842704770860934e-07
+        },
+        {
+          "socket": "light_head_L",
+          "expectedPosition": [
+            0.76,
+            0.91,
+            2.56
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "nitro_R",
+          "expectedPosition": [
+            -0.59,
+            0.47,
+            -2.33
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "light_tail_R",
+          "expectedPosition": [
+            -0.82,
+            0.92,
+            -2.37
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "nitro_L",
+          "expectedPosition": [
+            0.59,
+            0.47,
+            -2.33
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "light_tail_L",
+          "expectedPosition": [
+            0.82,
+            0.92,
+            -2.37
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "weak_engine",
+          "expectedPosition": [
+            0,
+            0.91,
+            1.45
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "weak_fuel",
+          "expectedPosition": [
+            0,
+            0.59,
+            -1.2
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "fuel_cap",
+          "expectedPosition": [
+            -1.045,
+            0.93,
+            -1.1
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "smoke_engine",
+          "expectedPosition": [
+            0,
+            1.18,
+            1.35
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "exhaust_R",
+          "expectedPosition": [
+            -0.67,
+            0.41,
+            -2.36
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "camera_hood",
+          "expectedPosition": [
+            0,
+            1.26,
+            1.05
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "roof_top",
+          "expectedPosition": [
+            0,
+            2.04,
+            -0.25
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_C",
+          "expectedPosition": [
+            0,
+            1.73,
+            0.8
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "part_nitro",
+          "expectedPosition": [
+            -0.72,
+            1.08,
+            -2.25
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_fuel",
+          "expectedPosition": [
+            0.72,
+            1.08,
+            -2.12
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_oil",
+          "expectedPosition": [
+            0.7,
+            0.63,
+            -2.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_mines",
+          "expectedPosition": [
+            -0.7,
+            0.63,
+            -2.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "upgrade_engine",
+          "expectedPosition": [
+            -0.55,
+            1.188,
+            1.82
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        }
+      ]
+    },
+    "preExport": {
+      "complete": true,
+      "phase": "pre-export",
+      "socketCount": 28,
+      "toleranceMetres": 5e-05,
+      "basisComponentTolerance": 5e-05,
+      "maxDeltaMetres": 1.1102230246251565e-16,
+      "maxDeltaBasisComponent": 4.2970657343488483e-07,
+      "records": [
+        {
+          "socket": "steering_wheel",
+          "expectedPosition": [
+            0.44,
+            1.21,
+            0.7
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              0.9135454297065735,
+              0.4067366421222687
+            ],
+            "z": [
+              0.0,
+              -0.4067366421222687,
+              0.9135454297065735
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 4.2970657343488483e-07
+        },
+        {
+          "socket": "seat_driver",
+          "expectedPosition": [
+            0.44,
+            0.84,
+            0.24
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "seat_passenger",
+          "expectedPosition": [
+            -0.44,
+            0.84,
+            0.24
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "floor_driver",
+          "expectedPosition": [
+            0.44,
+            0.28,
+            0.6699999999999999
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 1.1102230246251565e-16,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "seat_gunner",
+          "expectedPosition": [
+            0,
+            1.02,
+            -1.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mounted_deck",
+          "expectedPosition": [
+            0,
+            1.02,
+            -0.92
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "gun_mount",
+          "expectedPosition": [
+            0,
+            2.24,
+            -0.92
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_R",
+          "expectedPosition": [
+            -1.23,
+            1.62,
+            0.528
+          ],
+          "expectedBasis": {
+            "x": [
+              -0.13917307555675507,
+              -0.0,
+              -0.9902680516242981
+            ],
+            "y": [
+              0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              0.9902680516242981,
+              0.0,
+              -0.13917307555675507
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 7.555675507475712e-08
+        },
+        {
+          "socket": "light_head_R",
+          "expectedPosition": [
+            -0.76,
+            0.91,
+            2.56
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_L",
+          "expectedPosition": [
+            1.23,
+            1.62,
+            0.528
+          ],
+          "expectedBasis": {
+            "x": [
+              -0.27563735842704773,
+              -0.0,
+              0.9612616896629333
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -0.9612616896629333,
+              -0.0,
+              -0.27563735842704773
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 3.5842704770860934e-07
+        },
+        {
+          "socket": "light_head_L",
+          "expectedPosition": [
+            0.76,
+            0.91,
+            2.56
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "nitro_R",
+          "expectedPosition": [
+            -0.59,
+            0.47,
+            -2.33
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "light_tail_R",
+          "expectedPosition": [
+            -0.82,
+            0.92,
+            -2.37
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "nitro_L",
+          "expectedPosition": [
+            0.59,
+            0.47,
+            -2.33
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "light_tail_L",
+          "expectedPosition": [
+            0.82,
+            0.92,
+            -2.37
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "weak_engine",
+          "expectedPosition": [
+            0,
+            0.91,
+            1.45
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "weak_fuel",
+          "expectedPosition": [
+            0,
+            0.59,
+            -1.2
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "fuel_cap",
+          "expectedPosition": [
+            -1.045,
+            0.93,
+            -1.1
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "smoke_engine",
+          "expectedPosition": [
+            0,
+            1.18,
+            1.35
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "exhaust_R",
+          "expectedPosition": [
+            -0.67,
+            0.41,
+            -2.36
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "camera_hood",
+          "expectedPosition": [
+            0,
+            1.26,
+            1.05
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "roof_top",
+          "expectedPosition": [
+            0,
+            2.04,
+            -0.25
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_C",
+          "expectedPosition": [
+            0,
+            1.73,
+            0.8
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "part_nitro",
+          "expectedPosition": [
+            -0.72,
+            1.08,
+            -2.25
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_fuel",
+          "expectedPosition": [
+            0.72,
+            1.08,
+            -2.12
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_oil",
+          "expectedPosition": [
+            0.7,
+            0.63,
+            -2.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_mines",
+          "expectedPosition": [
+            -0.7,
+            0.63,
+            -2.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "upgrade_engine",
+          "expectedPosition": [
+            -0.55,
+            1.188,
+            1.82
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        }
+      ]
+    },
+    "postImport": {
+      "complete": true,
+      "phase": "post-import",
+      "socketCount": 28,
+      "toleranceMetres": 5e-05,
+      "basisComponentTolerance": 5e-05,
+      "maxDeltaMetres": 1.1102230246251565e-16,
+      "maxDeltaBasisComponent": 4.2970657343488483e-07,
+      "records": [
+        {
+          "socket": "steering_wheel",
+          "expectedPosition": [
+            0.44,
+            1.21,
+            0.7
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              0.9135454297065735,
+              0.4067366421222687
+            ],
+            "z": [
+              0.0,
+              -0.4067366421222687,
+              0.9135454297065735
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 4.2970657343488483e-07
+        },
+        {
+          "socket": "seat_driver",
+          "expectedPosition": [
+            0.44,
+            0.84,
+            0.24
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "seat_passenger",
+          "expectedPosition": [
+            -0.44,
+            0.84,
+            0.24
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "floor_driver",
+          "expectedPosition": [
+            0.44,
+            0.28,
+            0.6699999999999999
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 1.1102230246251565e-16,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "seat_gunner",
+          "expectedPosition": [
+            0,
+            1.02,
+            -1.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mounted_deck",
+          "expectedPosition": [
+            0,
+            1.02,
+            -0.92
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "gun_mount",
+          "expectedPosition": [
+            0,
+            2.24,
+            -0.92
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_R",
+          "expectedPosition": [
+            -1.23,
+            1.62,
+            0.528
+          ],
+          "expectedBasis": {
+            "x": [
+              -0.13917307555675507,
+              -0.0,
+              -0.9902680516242981
+            ],
+            "y": [
+              0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              0.9902680516242981,
+              0.0,
+              -0.13917307555675507
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 7.555675507475712e-08
+        },
+        {
+          "socket": "light_head_R",
+          "expectedPosition": [
+            -0.76,
+            0.91,
+            2.56
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_L",
+          "expectedPosition": [
+            1.23,
+            1.62,
+            0.528
+          ],
+          "expectedBasis": {
+            "x": [
+              -0.27563735842704773,
+              -0.0,
+              0.9612616896629333
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -0.9612616896629333,
+              -0.0,
+              -0.27563735842704773
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 3.5842704770860934e-07
+        },
+        {
+          "socket": "light_head_L",
+          "expectedPosition": [
+            0.76,
+            0.91,
+            2.56
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "nitro_R",
+          "expectedPosition": [
+            -0.59,
+            0.47,
+            -2.33
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "light_tail_R",
+          "expectedPosition": [
+            -0.82,
+            0.92,
+            -2.37
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "nitro_L",
+          "expectedPosition": [
+            0.59,
+            0.47,
+            -2.33
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "light_tail_L",
+          "expectedPosition": [
+            0.82,
+            0.92,
+            -2.37
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "weak_engine",
+          "expectedPosition": [
+            0,
+            0.91,
+            1.45
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "weak_fuel",
+          "expectedPosition": [
+            0,
+            0.59,
+            -1.2
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "fuel_cap",
+          "expectedPosition": [
+            -1.045,
+            0.93,
+            -1.1
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "smoke_engine",
+          "expectedPosition": [
+            0,
+            1.18,
+            1.35
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "exhaust_R",
+          "expectedPosition": [
+            -0.67,
+            0.41,
+            -2.36
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "camera_hood",
+          "expectedPosition": [
+            0,
+            1.26,
+            1.05
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "roof_top",
+          "expectedPosition": [
+            0,
+            2.04,
+            -0.25
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "mirror_C",
+          "expectedPosition": [
+            0,
+            1.73,
+            0.8
+          ],
+          "expectedBasis": {
+            "x": [
+              -1.0,
+              -0.0,
+              8.742277657347586e-08
+            ],
+            "y": [
+              -0.0,
+              1.0,
+              -0.0
+            ],
+            "z": [
+              -8.742277657347586e-08,
+              -0.0,
+              -1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 8.742277657347586e-08
+        },
+        {
+          "socket": "part_nitro",
+          "expectedPosition": [
+            -0.72,
+            1.08,
+            -2.25
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_fuel",
+          "expectedPosition": [
+            0.72,
+            1.08,
+            -2.12
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_oil",
+          "expectedPosition": [
+            0.7,
+            0.63,
+            -2.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "part_mines",
+          "expectedPosition": [
+            -0.7,
+            0.63,
+            -2.5
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        },
+        {
+          "socket": "upgrade_engine",
+          "expectedPosition": [
+            -0.55,
+            1.188,
+            1.82
+          ],
+          "expectedBasis": {
+            "x": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "y": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "positionDeltaMetres": 0.0,
+          "basisDeltaComponent": 0.0
+        }
+      ]
+    },
+    "scope": "actual scene versus authored world socket positions and orientation; no native fit proof"
+  },
+  "exportInventory": {
+    "nodes": 43,
+    "meshNodes": 15,
+    "uniqueMeshes": 13,
+    "uniqueMeshTriangles": 11436,
+    "primitiveCount": 39,
+    "materials": 12,
+    "images": 18,
+    "textures": 24,
+    "embedded": true
+  },
+  "sceneBeforeExport": {
+    "bbox": {
+      "min": [
+        -1.291375,
+        0.002526,
+        -2.66
+      ],
+      "max": [
+        1.299556,
+        2.065,
+        2.65
+      ]
+    },
+    "wheels": {
+      "FL": {
+        "x": 1.05,
+        "y": 0.43,
+        "z": 1.62,
+        "r": 0.427474,
+        "w": 0.345765
+      },
+      "FR": {
+        "x": -1.05,
+        "y": 0.43,
+        "z": 1.62,
+        "r": 0.427474,
+        "w": 0.345765
+      },
+      "RL": {
+        "x": 1.05,
+        "y": 0.43,
+        "z": -1.42,
+        "r": 0.427474,
+        "w": 0.345765
+      },
+      "RR": {
+        "x": -1.05,
+        "y": 0.43,
+        "z": -1.42,
+        "r": 0.427474,
+        "w": 0.345765
+      }
+    },
+    "sockets": {
+      "steering_wheel": [
+        0.44,
+        1.21,
+        0.7
+      ],
+      "seat_driver": [
+        0.44,
+        0.84,
+        0.24
+      ],
+      "seat_passenger": [
+        -0.44,
+        0.84,
+        0.24
+      ],
+      "floor_driver": [
+        0.44,
+        0.28,
+        0.67
+      ],
+      "seat_gunner": [
+        0.0,
+        1.02,
+        -1.5
+      ],
+      "mounted_deck": [
+        0.0,
+        1.02,
+        -0.92
+      ],
+      "gun_mount": [
+        0.0,
+        2.24,
+        -0.92
+      ],
+      "mirror_R": [
+        -1.23,
+        1.62,
+        0.528
+      ],
+      "light_head_R": [
+        -0.76,
+        0.91,
+        2.56
+      ],
+      "mirror_L": [
+        1.23,
+        1.62,
+        0.528
+      ],
+      "light_head_L": [
+        0.76,
+        0.91,
+        2.56
+      ],
+      "nitro_R": [
+        -0.59,
+        0.47,
+        -2.33
+      ],
+      "light_tail_R": [
+        -0.82,
+        0.92,
+        -2.37
+      ],
+      "nitro_L": [
+        0.59,
+        0.47,
+        -2.33
+      ],
+      "light_tail_L": [
+        0.82,
+        0.92,
+        -2.37
+      ],
+      "weak_engine": [
+        0.0,
+        0.91,
+        1.45
+      ],
+      "weak_fuel": [
+        0.0,
+        0.59,
+        -1.2
+      ],
+      "fuel_cap": [
+        -1.045,
+        0.93,
+        -1.1
+      ],
+      "smoke_engine": [
+        0.0,
+        1.18,
+        1.35
+      ],
+      "exhaust_R": [
+        -0.67,
+        0.41,
+        -2.36
+      ],
+      "camera_hood": [
+        0.0,
+        1.26,
+        1.05
+      ],
+      "roof_top": [
+        0.0,
+        2.04,
+        -0.25
+      ],
+      "mirror_C": [
+        0.0,
+        1.73,
+        0.8
+      ],
+      "part_nitro": [
+        -0.72,
+        1.08,
+        -2.25
+      ],
+      "part_fuel": [
+        0.72,
+        1.08,
+        -2.12
+      ],
+      "part_oil": [
+        0.7,
+        0.63,
+        -2.5
+      ],
+      "part_mines": [
+        -0.7,
+        0.63,
+        -2.5
+      ],
+      "upgrade_engine": [
+        -0.55,
+        1.188,
+        1.82
+      ]
+    },
+    "socketBasis": {
+      "steering_wheel": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          0.913545,
+          0.406737
+        ],
+        "z": [
+          0.0,
+          -0.406737,
+          0.913545
+        ]
+      },
+      "seat_driver": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "seat_passenger": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "floor_driver": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "seat_gunner": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "mounted_deck": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "gun_mount": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "mirror_R": {
+        "x": [
+          -0.139173,
+          0.0,
+          -0.990268
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.990268,
+          0.0,
+          -0.139173
+        ]
+      },
+      "light_head_R": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "mirror_L": {
+        "x": [
+          -0.275637,
+          0.0,
+          0.961262
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          -0.961262,
+          0.0,
+          -0.275637
+        ]
+      },
+      "light_head_L": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "nitro_R": {
+        "x": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          -0.0,
+          0.0,
+          -1.0
+        ]
+      },
+      "light_tail_R": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "nitro_L": {
+        "x": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          -0.0,
+          0.0,
+          -1.0
+        ]
+      },
+      "light_tail_L": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "weak_engine": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "weak_fuel": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "fuel_cap": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "smoke_engine": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "exhaust_R": {
+        "x": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          -0.0,
+          0.0,
+          -1.0
+        ]
+      },
+      "camera_hood": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "roof_top": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "mirror_C": {
+        "x": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          -0.0,
+          0.0,
+          -1.0
+        ]
+      },
+      "part_nitro": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "part_fuel": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "part_oil": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "part_mines": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "upgrade_engine": {
+        "x": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    "parts": {
+      "panel_windshield": {
+        "min": [
+          -0.89,
+          1.33,
+          0.8625
+        ],
+        "max": [
+          0.89,
+          1.95,
+          0.8775
+        ]
+      },
+      "panel_hood": {
+        "min": [
+          -0.97,
+          0.98,
+          0.73
+        ],
+        "max": [
+          0.97,
+          1.18,
+          2.51
+        ]
+      },
+      "panel_door_R": {
+        "min": [
+          -1.291375,
+          0.73,
+          -0.4925
+        ],
+        "max": [
+          -0.9325,
+          1.975,
+          0.7175
+        ]
+      },
+      "panel_door_R2": {
+        "min": [
+          -1.054,
+          0.73,
+          -1.6825
+        ],
+        "max": [
+          -0.9325,
+          1.975,
+          -0.6075
+        ]
+      },
+      "panel_door_L": {
+        "min": [
+          0.9325,
+          0.73,
+          -0.4925
+        ],
+        "max": [
+          1.299556,
+          1.975,
+          0.7175
+        ]
+      },
+      "panel_door_L2": {
+        "min": [
+          0.9325,
+          0.73,
+          -1.6825
+        ],
+        "max": [
+          1.054,
+          1.975,
+          -0.6075
+        ]
+      },
+      "panel_bumper_F": {
+        "min": [
+          -1.06,
+          0.56,
+          2.47
+        ],
+        "max": [
+          1.06,
+          0.74,
+          2.65
+        ]
+      },
+      "panel_bumper_R": {
+        "min": [
+          -1.06,
+          0.56,
+          -2.47
+        ],
+        "max": [
+          1.06,
+          0.74,
+          -2.29
+        ]
+      },
+      "panel_trunk": {
+        "min": [
+          -0.88,
+          0.79,
+          -2.66
+        ],
+        "max": [
+          0.88,
+          2.0175,
+          -1.8075
+        ]
+      }
+    },
+    "materials": [
+      "armor",
+      "glass",
+      "interior",
+      "leather",
+      "light_head",
+      "light_tail",
+      "metal_dark",
+      "paint",
+      "paint2",
+      "rim",
+      "rubber",
+      "rubber_tire"
+    ]
+  },
+  "glb": {
+    "file": "player_hummer_t1.glb",
+    "sha256": "7d48b9ac6b1f41e9ceacc72285e5ad999eb5947752e0bec9867112bbd23cda25",
+    "bytes": 1699724
+  }
+}

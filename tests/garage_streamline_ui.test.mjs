@@ -35,7 +35,7 @@ test('family cards preserve upgraded and legacy ownership without changing any s
   s.p.vehicleUpgrades.buggy = { engine: 5, nitro: 4 };
   s.p.upgrades.vest = 3;
   const before = structuredClone(s.p), selection = garageInitialSelection(s.p);
-  assert.deepEqual(garageItems(s.p, 'truck'), ['player_sedan_t1', 'truck_t1', 'player_buggy_t1']);
+  assert.deepEqual(garageItems(s.p, 'truck'), ['player_sedan_t1', 'truck_t1', 'player_buggy_t1', 'player_hummer_t1']);
   assert.equal(selection.selId.truck, 'truck_t1');
   assert.equal(garageFamilyVehicle(s.p, 'truck_t1'), 'truck_t4');
   assert.equal(garageFamilyVehicle(s.p, 'player_buggy_t1'), 'player_buggy_t3');
@@ -271,8 +271,8 @@ test('generated lists group current-family builds under Vehicle Upgrades and nev
   s.q = { lhead: {}, lcount: {}, rows: {} };
   try {
     s.renderList();
-    assert.equal((s.q.rows.innerHTML.match(/data-row=/g) || []).length, 3);
-    assert.equal((s.q.rows.innerHTML.match(/family-row/g) || []).length, 3);
+    assert.equal((s.q.rows.innerHTML.match(/data-row=/g) || []).length, 4);
+    assert.equal((s.q.rows.innerHTML.match(/family-row/g) || []).length, 4);
     assert.ok(!s.q.rows.innerHTML.includes('STAGE '));
     s.tab = 'upgrades'; s.renderList();
     assert.equal(s.q.lhead.textContent, 'VEHICLE UPGRADES');

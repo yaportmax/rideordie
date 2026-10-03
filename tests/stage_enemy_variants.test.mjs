@@ -25,7 +25,8 @@ async function fixture(level, check) {
 
 test('new enemy catalogue identities append after the bus and retain independent geometry/crew contracts', () => {
   const ids = Object.keys(VEHICLES), variants = createEnemyVariantSpecs();
-  assert.deepEqual(ids.slice(-7), ['e_double_bus', ...ENEMY_VARIANT_IDS]);
+  assert.deepEqual(ids.slice(16, 23), ['e_double_bus', ...ENEMY_VARIANT_IDS]);
+  assert.deepEqual(ids.slice(23), ['player_hummer_t1']);
   for (const id of ENEMY_VARIANT_IDS) {
     const spec = variants[id];
     assert.equal(spec.id, id); assert.equal(vehicleModelURL(spec), `/models/vehicles/${id}.glb`);

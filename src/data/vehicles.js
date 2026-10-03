@@ -2,6 +2,8 @@ import MODEL_INFO from './model_info.json' with { type: 'json' };
 import PLAYER_MODEL_INFO from './player_model_info.json' with { type: 'json' };
 import { createCityDoubleBusSpec } from './city_bus.js';
 import { createEnemyVariantSpecs } from './enemy_variants.js';
+import { createHummerBaseVehicleSpecs } from './hummer_base.js';
+import HUMMER_MODEL_INFO from './hummer_model_info.json' with { type: 'json' };
 // Static vehicle tables. Positions are meters in the model frame: +Z forward, +X LEFT, ground at y=0.
 // `colliders`: boxes [center from ground at rest, half extents]. Physics is spec-driven (not model-driven) so both peers agree.
 
@@ -247,4 +249,6 @@ function applyModelInfo() {
 // keeps its identity. Protocol4 gates clients that know the bus and chapters.
 VEHICLES.e_double_bus = createCityDoubleBusSpec();
 Object.assign(VEHICLES, createEnemyVariantSpecs());
+// Append the new player base after every legacy ID to preserve snapshot indices.
+Object.assign(VEHICLES, createHummerBaseVehicleSpecs(HUMMER_MODEL_INFO));
 applyModelInfo();

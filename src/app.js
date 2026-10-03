@@ -195,7 +195,7 @@ export class App {
       recoveries = this.saves.recoveries().map(({ id, at, name, reason, profile, raw, volatile }) => {
         let restorable = !!profile;
         if (!profile && raw && reason === 'legacy-migration') {
-          try { const value = JSON.parse(raw); restorable = value?.v === 1 && typeof value.campaignId === 'string'; } catch { /* Damaged bytes are retained for repair. */ }
+          try { const value = JSON.parse(raw); restorable = (value?.v === 1 || value?.v === 2) && typeof value.campaignId === 'string'; } catch { /* Damaged bytes are retained for repair. */ }
         }
         return { id, at, name, reason, profile, restorable, volatile };
       });

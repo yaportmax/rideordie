@@ -1,3 +1,8 @@
+/* Keep the cached 3D frame fixed while garage boundary panels fade in. */
+.rod-ui .screens .screen.garage,
+.rod-ui .garage .g-left, .rod-ui .garage .g-detail,
+.rod-ui .garage .g-loadout, .rod-ui .garage .g-seat-panel{animation-name:fadeIn}
+
 /* ---------------------------------------------------------------- shared list bits */
 .rod-ui .scroll{overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:#7a5a36 transparent; overscroll-behavior:contain}
 .rod-ui .scroll::-webkit-scrollbar{width:9px}
