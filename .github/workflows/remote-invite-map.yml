@@ -1,0 +1,70 @@
+name: Remote invite and campaign map acceptance
+on:
+  push:
+    branches: [codex/rideordie-fast-opt]
+    paths:
+      - .github/workflows/remote-invite-map.yml
+      - tools/test/invite_map_browser.mjs
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact committed source SHA to build and accept on the remote worker
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: remote-invite-map-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  invite-map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      INVITE_MAP_REMOTE: '1'
+      VITE_TURN_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - name: Bind the worker to the requested full source SHA
+        env:
+          REQUESTED_SOURCE_SHA: ${{ inputs.source_ref || github.sha }}
+        run: |
+          [[ "$REQUESTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'A full committed source SHA is required'; exit 1; }
+          ACTUAL_SOURCE_SHA=$(git rev-parse HEAD)
+          test "$ACTUAL_SOURCE_SHA" = "$REQUESTED_SOURCE_SHA"
+          echo "EXPECTED_SOURCE_SHA=$ACTUAL_SOURCE_SHA" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Focused normal-app invite and map CPU checks
+        run: |
+          mkdir -p shots/invite-map
+          set -o pipefail
+          node --max-old-space-size=2048 --test --test-isolation=none tests/invite_links.test.mjs tests/campaign_map.test.mjs tests/campaign_ui_status.test.mjs tests/session_campaign.test.mjs tests/app_coop_flow.test.mjs 2>&1 | tee shots/invite-map/cpu-tests.log
+      - name: Lint source and acceptance harness
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee shots/invite-map/lint.log
+      - name: Build once on this worker
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee shots/invite-map/build.log
+      - run: node node_modules/playwright-core/cli.js install --with-deps chromium
+      - name: Muted software-rendered normal App acceptance, remote only
+        run: |
+          set -o pipefail
+          node --max-old-space-size=2048 tools/test/invite_map_browser.mjs --remote-ci 2>&1 | tee shots/invite-map/browser.log
+      - name: Preserve the exact worker build and original acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-invite-map-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            dist/
+            shots/invite-map/
+          if-no-files-found: error
+          retention-days: 14

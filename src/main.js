@@ -5,9 +5,11 @@ import { familyOf } from './data/vehicle_families.js';
 import { Session } from './net/session.js';
 import { Transport } from './net/transport.js';
 import { loadSettings } from './ui/settings_store.js';
+import { roomInviteFromUrl, clearRoomInvite } from './net/invite.js';
 
 async function boot() {
 const q = new URLSearchParams(location.search);
+const hasInvite = q.has('room');
 const game = new Game({ quality: loadSettings().quality });
 window.__game = game;
 window.render_game_to_text = () => {
@@ -23,7 +25,7 @@ window.render_game_to_text = () => {
 await game.boot();
 game.loop();
 // dev shortcuts skip the menus: no boot screen (index.html removes it too; this is the safety net)
-if (q.has('solo') || q.get('devnet')) document.getElementById('boot')?.remove();
+if (!hasInvite && (q.has('solo') || q.get('devnet'))) document.getElementById('boot')?.remove();
 
 const devProfile = () => {
   const p = DEFAULT_PROFILE();
@@ -33,12 +35,12 @@ const devProfile = () => {
   return p;
 };
 
-if (q.has('solo')) {
+if (!hasInvite && q.has('solo')) {
   // dev shortcut: straight into a solo run
   const as = q.get('as'); // ?solo&as=driver (AI gunner) | as=gunner (AI driver)
   const run = await game.startRun({ role: as || 'solo', ai: as === 'driver' ? 'gunner' : as === 'gunner' ? 'driver' : null, seed: +(q.get('seed') || 7), profile: devProfile(), paint: 0x8f6a3d, startS: +(q.get('s') || 40) });
   window.__run = run; window.__ready = true;
-} else if (q.get('devnet')) {
+} else if (!hasInvite && q.get('devnet')) {
   // dev shortcut for automated 2-browser tests: ?devnet=host&role=driver   /   ?devnet=join&code=ABCDE
   // A local signalling server is supported by the test shortcut; normal rooms still use PeerJS defaults.
   const peerOptions = q.get('peerHost') ? { host: q.get('peerHost'), port: +(q.get('peerPort') || 9000), path: '/peerjs', secure: false, config: { iceServers: [] } } : {};
@@ -77,8 +79,18 @@ if (q.has('solo')) {
   } else await session.join(q.get('code'), profile);
 } else {
   const app = new App(game);
-  app.title();
+  const title = app.title();
   window.__ready = true;
+  if (hasInvite) {
+    const invite = roomInviteFromUrl(location.href);
+    // Best-effort removal also avoids stale-room retries on reload. App
+    // consumes once per page if the browser restricts history changes.
+    clearRoomInvite(location.href, history);
+    if (invite) await app.consumeInvite(invite);
+    else if (await title && app.screen === 'title' && app.mode === 'title' && app.ui.screen()?.kind === 'title') {
+      app.ui.toast('INVALID INVITE LINK. Ask your friend for a new link or enter their room code.', 'warn', 7000);
+    }
+  }
 }
 }
 

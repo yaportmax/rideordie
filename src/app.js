@@ -3,6 +3,7 @@
 // The driver's machine runs the simulation.
 import { Ui } from './ui/ui.js';
 import { Session } from './net/session.js';
+import { normalizeRoomCode } from './net/invite.js';
 import { loadProfile, saveProfile, getSaveStore, getSaveStorage, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, buyWeaponOptic, equipWeaponOptic, equipWeapon, selectTruck, creditRun, bestForJourney } from './meta/profile.js';
 import { CloudSaves } from './meta/cloud_saves.js';
 import { equippedWeaponOptics, sanitizeOpticId } from './data/weapon_optics.js';
@@ -112,7 +113,7 @@ export class App {
 
   // ------------------------------------------------------------------------------------------ title
   title() {
-    this._transition(); this.ui.hideAll();
+    const flow = this._transition(); this.ui.hideAll();
     this.mode = 'title'; this.screen = 'title';
     this._roomPending = null; this._peerGarageReady = null; this.readyMine = this.readyOther = false;
     this._pendingResults = null;
@@ -121,8 +122,16 @@ export class App {
     this._stage('title');
     this.game.audio?.music?.setState?.('title');
     this._resumeSaveSync();
-    if (!this._booted) { this._booted = true; this._bootScreen().then(() => { if (this.screen === 'title') this._showTitle(); }); return; }
-    this._showTitle();
+    const show = () => {
+      if (this._flowId !== flow || this.screen !== 'title' || this.mode !== 'title' || this.session || this.game.run) return false;
+      this._showTitle(); return true;
+    };
+    if (!this._booted) {
+      this._booted = true;
+      this._bootReady = this._bootScreen().then(() => { this._bootReady = null; });
+    }
+    if (this._bootReady) return this._titleReady = this._bootReady.then(show);
+    return this._titleReady = Promise.resolve(show());
   }
   /** First launch: keep the boot screen up until both menu stages are loaded, compiled and drawn once (then no hitches). */
   _bootScreen() {
@@ -131,18 +140,32 @@ export class App {
     return ready.then(() => new Promise((res) => {
       if (!boot) { res(); return; }
       boot.classList.add('done');
-      setTimeout(res, 250);
-      setTimeout(() => boot.remove(), 800);
+      setTimeout(() => { boot.remove(); res(); }, 800);
     }));
   }
+  /** Join one invitation after this disconnected title visit is visible. */
+  async consumeInvite(value) {
+    const code = normalizeRoomCode(value);
+    if (!code || this._inviteConsumed || !this._titleReady || this.screen !== 'title' || this.mode !== 'title') return false;
+    this._inviteConsumed = true;
+    const flow = this._flowId, ready = await this._titleReady;
+    const panel = this.ui.screen();
+    if (!ready || this._flowId !== flow || this.screen !== 'title' || this.mode !== 'title' || panel?.kind !== 'title' || panel.view !== 'menu' || this.ui.modalOpen() || this.session || this.game.run ||
+        this._startup || this._startSelection || this._roomPending || this._pendingResults || this._saveVisit) return false;
+    return this.join(code);
+  }
   _showTitle() {
-    this.ui.showTitle({
-      onSolo: (role) => { this.soloRole = role || 'both'; this.mode = 'solo'; this.sound('whoosh_transition'); this.garage(); },
-      onHost: () => this.host(),
-      onJoin: (code) => this.join(code),
-      onSaves: () => this._showSaves(),
+    const flow = this._flowId;
+    let panel;
+    const current = view => this._flowId === flow && this.screen === 'title' && this.mode === 'title' && !this.session && !this.game.run &&
+      (!this.ui.screen || this.ui.screen() === panel) && (!panel || panel.view === view) && !this.ui.modalOpen?.();
+    panel = this.ui.showTitle({
+      onSolo: (role) => { if (!current('seats')) return; this.soloRole = role || 'both'; this.mode = 'solo'; this.sound('whoosh_transition'); this.garage(); },
+      onHost: () => { if (current('menu')) return this.host(); },
+      onJoin: (code) => { if (current('join')) return this.join(code); },
+      onSaves: () => { if (current('menu')) return this._showSaves(); },
       saveSummary: this._saveSummary(),
-    });
+    }) || this.ui.screen?.();
   }
 
   // Save ownership changes only on the disconnected title screen. A cloud
@@ -343,24 +366,34 @@ export class App {
   async host() {
     this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Host';
+    const flow = this._flowId;
     this._roomPending = { session: s, code: '' };
     this.ui.showLobby(this._lobbyState('connecting'), this._lobbyCb());
-    try { await s.host(this.profile); } catch (e) { if (this.session !== s) return; this.ui.toast('Could not create room: ' + (e.message || e.type), 'bad'); return this.title(); }
+    try { await s.host(this.profile); } catch (e) { if (this.session !== s || this._flowId !== flow) return; this.ui.toast('Could not create room: ' + (e.message || e.type), 'bad'); return this.title(); }
     finally { if (this._roomPending?.session === s) this._roomPending = null; }
-    if (this.session !== s || this.screen !== 'lobby') return;
+    if (this.session !== s || this._flowId !== flow || this.mode !== 'coop' || this.screen !== 'lobby') return;
     s.setRole('driver');
     this._lobbyRefresh();
   }
   async join(code) {
+    code = normalizeRoomCode(code);
+    if (!code) { this.ui.toast('ENTER A VALID ROOM CODE', 'warn'); return false; }
     this.mode = 'coop'; this.screen = 'lobby';
     const s = this._newSession(); s.me.name = 'Player 2';
-    this._roomPending = { session: s, code: String(code || '').trim().toUpperCase() };
+    const flow = this._flowId;
+    this._roomPending = { session: s, code };
     this.ui.showLobby(this._lobbyState('connecting'), this._lobbyCb());
-    try { await s.join(code, this.profile); } catch (e) { if (this.session !== s) return; this.ui.toast(e.message || 'Could not join', 'bad'); return this.title(); }
+    try { await s.join(code, this.profile); }
+    catch (e) {
+      if (this.session !== s || this._flowId !== flow) return false;
+      this.ui.toast(e.message || 'Could not join. Ask your friend to create a new room.', 'bad');
+      await this.title(); return false;
+    }
     finally { if (this._roomPending?.session === s) this._roomPending = null; }
-    if (this.session !== s || this.screen !== 'lobby') return;
+    if (this.session !== s || this._flowId !== flow || this.mode !== 'coop' || this.screen !== 'lobby') return false;
     s.setRole('gunner');
     this._lobbyRefresh();
+    return true;
   }
   _lobbyState(status) {
     const s = this.session, L = s ? s.lobby() : null;
@@ -374,11 +407,13 @@ export class App {
   }
   _lobbyRefresh() { if (this.screen === 'lobby' && this.mode === 'coop' && !this.game.run) this.ui.updateLobby(this._lobbyState()); }
   _lobbyCb() {
+    const session = this.session, flow = this._flowId;
+    const current = () => this.session === session && !!session && this._flowId === flow && this.mode === 'coop' && this.screen === 'lobby' && !this.game.run;
     return {
-      onSeat: (role) => this.session?.setRole(role),
-      onReady: (r) => this.session?.setReady(r),
-      onStart: () => { const s = this.session; if (!s?.canStart()) return; s.sendJSON({ t: 'toGarage' }); s.broadcastProfile(); this.garage(); },
-      onLeave: () => this.title(),
+      onSeat: (role) => { if (current()) session.setRole(role); },
+      onReady: (r) => { if (current()) session.setReady(r); },
+      onStart: () => { if (!current() || !session.canStart()) return; session.sendJSON({ t: 'toGarage' }); session.broadcastProfile(); this.garage(); },
+      onLeave: () => { if (current()) return this.title(); },
     };
   }
   _lost(s = this.session) {

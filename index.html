@@ -34,7 +34,7 @@
   <div class="tip"><b>TIP</b> &nbsp;SHOOT THE DRIVER AND THE CAR SWERVES INTO ITS FRIENDS</div></div>
 <script>
   // dev shortcuts go straight into a run (no menus): no boot screen
-  if (/[?&](solo|devnet)(=|&|$)/.test(location.search)) { var b = document.getElementById('boot'); if (b) b.remove(); }
+  if (!new URLSearchParams(location.search).has('room') && /[?&](solo|devnet)(=|&|$)/.test(location.search)) { var b = document.getElementById('boot'); if (b) b.remove(); }
 </script>
 <script type="module" src="/src/main.js"></script>
 </body>

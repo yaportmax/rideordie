@@ -13,7 +13,7 @@ const SEATS = [
 export class TitleScreen {
   constructor(ui, cb) {
     this.ui = ui; this.cb = cb; this.kind = 'title'; this.bg = 'title';
-    this.view = 'menu';
+    this.view = 'menu'; this._actionGeneration = 0;
     this.el = h('<div class="screen title"></div>');
     this.render();
   }
@@ -35,6 +35,7 @@ export class TitleScreen {
     this.el.addEventListener('input', (e) => { if (e.target.classList.contains('code')) this.sanitize(e.target); });
   }
   showMenu(anim = true, focusAct = 'solo') {
+    const generation = ++this._actionGeneration;
     const cb = this.cb; this.view = 'menu'; this.el.classList.remove('joining', 'seating');
     const btn = (act, label, sub, i, extra = '') => `<div class="f btn stack stg ${extra}" style="--i:${i}" role="button" data-act="${act}" data-k="${act}"><span><b>${label}</b><small>${sub}</small></span></div>`;
     this.viewEl.innerHTML = `<nav class="menu">
@@ -52,10 +53,11 @@ export class TitleScreen {
     this.hintsEl.innerHTML = hints([['nav', 'MOVE'], ['confirm', 'SELECT']]);
     if (anim) {
       this.viewEl.querySelector('.menu').animate([{ opacity: 0, transform: 'translateX(-24px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
-      requestAnimationFrame(() => this.ui.nav.ensure(this.viewEl.querySelector(`[data-act=${focusAct}]`)));
+      requestAnimationFrame(() => { if (this._activeView(generation, 'menu')) this.ui.nav.ensure(this.viewEl.querySelector(`[data-act=${focusAct}]`)); });
     }
   }
   showSeats() {
+    const generation = ++this._actionGeneration;
     this.view = 'seats'; this.el.classList.add('seating');
     const card = (s, i) => `<div class="f seatcard stg" style="--i:${i}" role="button" data-seat="${s.id}" data-k="seat:${s.id}" data-snd="none">
         <div class="sc-ic">${icon(s.icon)}</div>
@@ -70,9 +72,10 @@ export class TitleScreen {
     </div>`;
     this.hintsEl.innerHTML = hints([['navh', 'CHOOSE'], ['confirm', 'RIDE'], ['back', 'BACK']]);
     const last = this.ui.settings?.soloSeat || 'driver';
-    requestAnimationFrame(() => this.ui.nav.focus(this.viewEl.querySelector(`[data-seat=${last}]`) || this.viewEl.querySelector('.seatcard'), { silent: true }));
+    requestAnimationFrame(() => { if (this._activeView(generation, 'seats')) this.ui.nav.focus(this.viewEl.querySelector(`[data-seat=${last}]`) || this.viewEl.querySelector('.seatcard'), { silent: true }); });
   }
   showJoin() {
+    const generation = ++this._actionGeneration;
     this.view = 'join'; this.el.classList.add('joining');
     const keys = KEYS.map((k) => `<div class="f key" role="button" data-key="${k}"><span>${k}</span></div>`).join('');
     this.viewEl.innerHTML = `<div class="join">
@@ -83,7 +86,7 @@ export class TitleScreen {
     </div>`;
     this.hintsEl.innerHTML = hints([['nav', 'MOVE'], ['confirm', 'TYPE / SELECT'], ['back', 'BACK']]);
     this.input = this.viewEl.querySelector('.code');
-    requestAnimationFrame(() => this.ui.nav.focus(this.input, { silent: true }));
+    requestAnimationFrame(() => { if (this._activeView(generation, 'join')) this.ui.nav.focus(this.input, { silent: true }); });
     this.viewEl.querySelector('.join').animate([{ opacity: 0, transform: 'translateX(-24px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
   }
   sanitize(input) {
@@ -102,7 +105,10 @@ export class TitleScreen {
     if (t.dataset.seat) {
       ui.snd('go'); ui.pressFx(t);
       try { ui.changeSetting('soloSeat', t.dataset.seat); } catch { /* ignore */ }
-      if (cb.onSolo) setTimeout(() => cb.onSolo(t.dataset.seat), 120);
+      const generation = this._actionGeneration;
+      if (cb.onSolo) setTimeout(() => {
+        if (this._activeView(generation, 'seats')) cb.onSolo(t.dataset.seat);
+      }, 120);
       return;
     }
     switch (t.dataset.act) {
@@ -150,4 +156,6 @@ export class TitleScreen {
     return false;
   }
   resumed() { }
+  _activeView(generation, view) { return !this._destroyed && this._actionGeneration === generation && this.view === view && this.ui.screen() === this; }
+  destroy() { this._destroyed = true; this._actionGeneration++; }
 }

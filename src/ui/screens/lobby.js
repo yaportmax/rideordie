@@ -1,6 +1,7 @@
 // LOBBY: room code + copy, connection status, DRIVER / GUNNER seat cards, READY (everyone) and START (host).
 import { h } from '../comp.js';
 import { esc, icon, hints } from '../glyphs.js';
+import { makeInviteLink } from '../../net/invite.js';
 
 const ROLES = {
   driver: { name: 'DRIVER', icon: 'wheel', blurb: 'Steer, drift and burn nitro. Drop oil and mines. Keep the truck alive.' },
@@ -37,6 +38,7 @@ export class LobbyScreen {
   render() {
     const s = this.state, me = this.me(), st = STATUS[s.status] || STATUS.closed, available = this.actionsAvailable();
     const code = this.roomCode();
+    const copyHelp = this._inviteCopyFallback?.code === code ? this._inviteCopyFallback.text : null;
     const tiles = code ? [...code].map((c) => `<i>${esc(c)}</i>`).join('') : '<i class="ph">&middot;</i><i class="ph">&middot;</i><i class="ph">&middot;</i><i class="ph">&middot;</i>';
     const seat = (role) => {
       const R = ROLES[role], occ = this.seatOccupant(role), mine = !!(occ && occ.you);
@@ -59,8 +61,11 @@ export class LobbyScreen {
     this.safe.innerHTML = `
       <div class="lb-title stg" style="--i:0"><div class="eyebrow">CO-OP LOBBY</div><h1>THE CONVOY</h1></div>
       <div class="lb-code plate trans stg" style="--i:1">
-        <div class="lc-l"><span class="eyebrow">ROOM CODE</span><div class="codetiles">${tiles}</div><div class="lc-sub">SHARE THIS CODE WITH YOUR PARTNER</div></div>
+        <div class="lc-l"><span class="eyebrow">ROOM CODE</span><div class="codetiles">${tiles}</div>${copyHelp
+          ? `<input class="f" data-k="invite-url" aria-label="Invite link: select and copy" type="text" readonly value="${esc(copyHelp)}" style="width:510px;max-width:100%;height:28px;color:var(--bone);background:#14110f;border:1px solid var(--mute);font:16px sans-serif;user-select:text">`
+          : '<div class="lc-sub">SHARE AN INVITE LINK WITH YOUR PARTNER</div>'}</div>
         <div class="lc-r">
+          <div class="f btn copy ${code ? '' : 'inactive dis'}" role="button" aria-disabled="${!code}" data-act="invite" data-k="invite"><span>${icon('copy')}COPY INVITE LINK</span></div>
           <div class="f btn copy ${code ? '' : 'inactive dis'}" role="button" aria-disabled="${!code}" data-act="copy" data-k="copy"><span>${icon('copy')}COPY CODE</span></div>
           <div class="lb-status ${st.cls}"><i class="dot"></i><span>${st.txt}${st.dots ? '<b class="dots"><u>.</u><u>.</u><u>.</u></b>' : ''}</span>${s.latency != null && s.status === 'connected' ? `<em>${Math.round(s.latency)} MS</em>` : ''}</div>
         </div>
@@ -90,19 +95,47 @@ export class LobbyScreen {
     if (k) { const n = this.el.querySelector(`[data-k="${k}"]`); if (n && nav.isFocusable(n)) nav.focus(n, { silent: true, reveal: false }); }
     if (!nav.cur || !nav.cur.isConnected) nav.ensure();
   }
-  copy() {
+  copy(invite = false) {
+    if (this._destroyed) return;
     const code = this.roomCode();
     if (!code) return;
-    const done = () => { this.ui.toast('ROOM CODE COPIED', 'good', 1800); this.cb.onCopy && this.cb.onCopy(); };
-    const fallback = () => {
-      let t;
-      try { t = document.createElement('textarea'); t.value = code; t.style.cssText = 'position:fixed;left:-999px'; document.body.appendChild(t); t.select(); if (!document.execCommand('copy')) throw new Error('Copy failed'); done(); }
-      catch { this.ui.toast('COULD NOT COPY - CODE: ' + code, 'warn'); }
-      finally { t?.remove(); }
+    const text = invite ? makeInviteLink(globalThis.location?.href, code) : code;
+    if (!text) { this.ui.toast('COULD NOT CREATE INVITE LINK - CODE: ' + code, 'warn'); return; }
+    const epoch = this._copyEpoch || 0;
+    const current = () => (this._copyEpoch || 0) === epoch && this.roomCode() === code && (!this.ui.screen || this.ui.screen() === this);
+    if (!current()) return;
+    const done = () => {
+      if (!current()) return;
+      this.ui.toast(invite ? 'INVITE LINK COPIED' : 'ROOM CODE COPIED', 'good', 1800); this.cb.onCopy && this.cb.onCopy();
     };
-    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(code).then(done, fallback);
+    const failed = () => {
+      if (!current()) return;
+      if (invite) {
+        this._inviteCopyFallback = { code, text };
+        if (this.safe) {
+          const key = this.ui.nav?.cur?.dataset.k;
+          this.render();
+          this.ui.nav?.ensure?.(key ? this.el?.querySelector(`[data-k="${key}"]`) : undefined);
+        }
+      }
+      this.ui.toast(invite ? 'COULD NOT COPY. Select and copy the invite link below the room code.' : 'COULD NOT COPY - CODE: ' + code, 'warn');
+    };
+    const fallback = () => {
+      if (!current()) return;
+      let t;
+      const active = document.activeElement, selection = active && Number.isFinite(active.selectionStart) ? [active.selectionStart, active.selectionEnd] : null;
+      try { t = document.createElement('textarea'); t.value = text; t.style.cssText = 'position:fixed;left:-999px'; document.body.appendChild(t); t.select(); if (!document.execCommand('copy')) throw new Error('Copy failed'); done(); }
+      catch { failed(); }
+      finally {
+        t?.remove();
+        if (current() && active?.isConnected) { active.focus?.({ preventScroll: true }); if (selection) active.setSelectionRange?.(...selection); }
+      }
+    };
+    try { if (navigator.clipboard?.writeText) return Promise.resolve(navigator.clipboard.writeText(text)).then(done, fallback); }
+    catch { return fallback(); }
     return fallback();
   }
+  destroy() { this._destroyed = true; this._copyEpoch = (this._copyEpoch || 0) + 1; }
   onClick(e) {
     const t = e.target.closest('.f'); if (!t || t.classList.contains('dis')) return;
     const ui = this.ui, cb = this.cb, me = this.me();
@@ -115,6 +148,7 @@ export class LobbyScreen {
     }
     switch (t.dataset.act) {
       case 'copy': this.copy(); break;
+      case 'invite': this.copy(true); break;
       case 'leave': cb.onLeave && cb.onLeave(); break;
       case 'ready':
         if (!me || !me.seat) { ui.snd('error'); ui.toast('PICK A SEAT FIRST', 'warn', 1600); t.classList.add('shake'); setTimeout(() => t.classList.remove('shake'), 400); break; }
