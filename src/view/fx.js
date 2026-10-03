@@ -37,6 +37,7 @@ import { BOSS_ID } from '../data/boss.js';
 import { ATMO, KEY } from '../world/atmosphere.js';
 import { measureCabin } from './fx/cabin.js';
 import { DebrisSystem } from './debris.js';
+import { validNukeCue, emitNukePulse } from './fx/nuke.js';
 
 export { SkidMarks } from './fx/skid.js';
 
@@ -62,6 +63,7 @@ export class Fx {
     this.q = Math.max(0, Math.min(3, opts.quality ?? 2)); this.cfg = QUALITY[this.q]; this.qd = this.cfg.qd; this.farDist = this.cfg.far; this.lodNear = this.cfg.lodNear;
     this.rng = new Rng(0x9e3779b1); this.p = new PDesc();
     this.time = 0; this.loaded = false; this.frame = 0;
+    this._nukeRunId = null; this._nukeAward = 0;
     this.camPos = new THREE.Vector3(); this.frustum = new THREE.Frustum();
     this.groundFn = null; this.groundY0 = 0;
     this._shake = null; this.lastSlot = 0; this.lastBirth = 0; this.lastSlot2 = 0;
@@ -462,6 +464,14 @@ export class Fx {
     const cp = ctx.cameraPos; if (cp) this.camPos.copy(cp);
     const rng = this.rng;
     switch (evt.t) {
+      case 'combatNuke': {
+        if (!validNukeCue(evt, ctx.runId)) break;
+        if (this._nukeRunId !== ctx.runId) { this._nukeRunId = ctx.runId; this._nukeAward = 0; }
+        if (evt.award <= this._nukeAward) break;
+        this._nukeAward = evt.award;
+        emitNukePulse(this, evt);
+        break;
+      }
       case 'shot': this._shot(evt, ctx); break;
       case 'hit': {
         const p = evt.pos, n = evt.normal || [0, 1, 0];
@@ -785,7 +795,7 @@ export class Fx {
   prewarmDone() { if (this._warm) { this._warm.removeFromParent(); this._warm = null; } }
 
   // ------------------------------------------------------------------------------------------------ cleanup
-  clear() { this.pa.clear(); this.pf.clear(); this.skid.clear(); for (const j of this.jobs) j.type = 0; this.boss.clear(); this.haz.clear(); for (const it of this.pimp) it.live = false; }
+  clear() { this.pa.clear(); this.pf.clear(); this.skid.clear(); for (const j of this.jobs) j.type = 0; this.boss.clear(); this.haz.clear(); for (const it of this.pimp) it.live = false; this._nukeRunId = null; this._nukeAward = 0; }
   dispose() {
     for (const o of [this.pa, this.pf, this.skid, this.decScorch, this.decHoles, this.chunks, this.plates, this.casings, this.grenades, this.haz]) o && o.dispose();
     for (const s of this.lights) { s.light.removeFromParent(); }

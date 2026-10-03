@@ -16,6 +16,7 @@ import { validHitReport, resolveHitPoint } from './hit_contact.js';
 import { planRamTakedown, launchRamTakedown, planRearRamBonk, launchRearRamBonk, updateRearRamContact } from './ram_takedown.js';
 import { normalizeJourney } from '../data/campaign.js';
 import { celebrationActive, verifiedBossClear } from './victory_presentation.js';
+import { CombatPolicy, HitContactGuard, damageState, actualDamageReceipt, applyBossChip, playerLive } from './combat.js';
 
 export const DT = 1 / 120;
 const V3 = THREE.Vector3;
@@ -61,6 +62,7 @@ export class Sim {
     this.hitStop = 0;
     this.enemyDamageMul = 1; this.playerDamageMul = 1;
     this.boss = null; this.won = false; this.victoryPresentation = false; this.victoryStats = null; this.victoryTime = null;
+    this.combat = null; this.hitGuard = null; this._damageReceiptRevision = 0;
     this.projectiles = this.use(new Projectiles());
     this.director = this.use(new Director(opts.director || {}));
     this.hazards = this.use(new Hazards());
@@ -80,6 +82,7 @@ export class Sim {
   setGround(g) { this.ground = g; }
   /** The WASM world and event queue are owned by one life, not by the renderer. */
   dispose() {
+    this.combat?.dispose(); this.combat = null; this.hitGuard?.dispose(); this.hitGuard = null;
     this.encounters?.dispose(this);
     this.ground?.dispose?.();
     if (this.world) clearColliderLabels(this.world);
@@ -93,6 +96,36 @@ export class Sim {
   use(sys) { this.systems.push(sys); return sys; }
   emit(e) { e.time = this.time; this.events.push(e); }
   drainEvents() { const e = this.events; this.events = []; return e; }
+
+  configureCombat(runId, loadout) {
+    this.combat?.dispose(); this.hitGuard?.dispose();
+    this.combat = new CombatPolicy(this, runId); this.hitGuard = new HitContactGuard(loadout); this._damageReceiptRevision = 0;
+  }
+  _combatState() { if (this.combat) this.emit({ t: 'combatState', state: this.combat.state() }); }
+  _playerKill(target, event) {
+    const epoch = this.combat?.nukeEpoch(target);
+    const state = this.combat?.creditTerminal(target, { owner: 1, cause: event.cause, nukeEpoch: epoch });
+    if (state) this._combatState();
+    this.emit({ ...event, nukeDerived: !!epoch, earnedCombo: state?.combo ?? null });
+  }
+  _damageReceipt(rep, target, zone, before) {
+    if (!this.combat || celebrationActive(this)) return;
+    const actual = actualDamageReceipt(target, zone, before);
+    if (!actual || !/^(?:fuel|driver(?:_head)?|gunner[2-4]?(?:_head|_legs)?)$/.test(zone)) return;
+    this.emit({ t: 'damageReceipt', runId: this.combat.runId, revision: ++this._damageReceiptRevision,
+      shotId: rep.shotId, pelletIndex: rep.pelletIndex, penetrationIndex: rep.penetrationIndex, targetId: target.id, ...actual });
+  }
+  activateNuke(message, requester = 'local') {
+    if (!this.combat) return { ok: false, reason: 'unavailable' };
+    const result = this.combat.activate(message, requester, {
+      clearCar: (car) => this.explodeCar(car, 'nuke', 1),
+      clearActor: (actor, epoch) => this.encounters._kill(actor, { src: 1, cause: 'nuke', quiet: true, nukeEpoch: epoch }, this),
+      chipBoss: (maximum, fraction) => applyBossChip(this, maximum, fraction),
+    });
+    if (result.ok) { this._combatState(); this.emit({ t: 'combatNuke', runId: this.combat.runId, award: result.epoch.award,
+      pos: this.player.veh.pos.toArray(), cars: result.cleared.cars.length, actors: result.cleared.actors.length, bossDamage: result.bossDamage }); }
+    return result;
+  }
 
   // ------------------------------------------------------------------------------------------ spawning
   /** Place a car on the road at path distance s, lateral offset d (left +), heading along the road. */
@@ -360,6 +393,9 @@ export class Sim {
     if (car.dead && car.exploded) return;
     const dv = force * dt / car.veh.mass; // velocity change contributed this step
     if (dv < 0.35) return;
+    // An earned nuke cannot create collateral player damage or bypass the
+    // boss chip budget through its inert wrecks. Rapier contact remains real.
+    if (other && this.combat?.nukeEpoch(other) && (car.kind === 'player' || car.elite || car.isBoss)) return;
     const rearBonk = planRearRamBonk(this, car, other, dv, dir);
     car.crashAccum = (car.crashAccum || 0) + dv;
     car.crashT = this.time;
@@ -393,6 +429,9 @@ export class Sim {
     // blame: a car the player crippled (dead driver, recent hits) that plows into others earns the player a crash kill
     const blame = (c) => c && c.kind === 'enemy' && (c.driverless || (c.lastHitBy === 1 && this.time - c.lastHitT < 8));
     const src = other ? (car.kind === 'enemy' && blame(other) ? 1 : other.id) : (car.kind === 'enemy' && blame(car) ? 1 : -1);
+    // A nuke wreck is driverless, but its later collisions must not recharge
+    // the nuke. Store provenance before crash damage or delayed fuse creation.
+    if (other) this.combat?.inheritNukeDerived(car, other);
     const ramTakedown = planRamTakedown(this, car, other, dmg, dv);
     if (dmg > 0) this.damageCar(car, dmg, { cause: other ? 'ram' : 'crash', src, point: car.veh.pos, ramTakedown });
     const bonked = rearBonk && !ramTakedown && !car.dead && launchRearRamBonk(car, rearBonk, this.time);
@@ -528,31 +567,36 @@ export class Sim {
     if (car.exploded) return;
     // A waiting live car becomes a dynamic wreck before its launch impulses.
     if (car._groundHold) this.releaseCar(car);
+    const nukeEpoch = this.combat?.nukeEpoch(car), nukeDerived = !!nukeEpoch;
+    const playerCredit = src === 1 || (car.lastHitBy === 1 && this.time - car.lastHitT < 6);
     car.exploded = true; car.dead = true; car.hp = 0;
+    if (nukeDerived) { car.fuseT = -1; car.burning = 0; car.sealBurn = 0; car.chainFrom = null; car.lastHitBy = -1; car.lastHitT = -Infinity; }
     car.veh.driverAlive = false; car.driverless = true; car.veh.input.throttle = 0; car.veh.input.brake = 0;
-    for (const r of Object.keys(car.crew)) { const c = car.crew[r]; if (c.alive) { c.alive = false; c.hp = 0; this.emit({ t: 'crewDead', id: car.id, role: r, cause: 'explosion', src }); } }
+    for (const r of Object.keys(car.crew)) { const c = car.crew[r]; if (c.alive) { c.alive = false; c.hp = 0; if (!nukeDerived) this.emit({ t: 'crewDead', id: car.id, role: r, cause: 'explosion', src }); } }
     const p = car.veh.pos, big = car.spec.explosive ? 2.4 : 1;
     const explosion = { t: 'explode', id: car.id, pos: [p.x, p.y, p.z], size: (car.spec.mass > 4000 ? 1.8 : 1) * big, cause, src, spec: car.spec.id, vel: [car.veh.vel.x, car.veh.vel.y, car.veh.vel.z] };
-    this.emit(explosion);
+    if (!nukeDerived) this.emit(explosion);
     // launch the wreck a little
-    if (!ramTakedown) {
+    if (!ramTakedown && !nukeDerived) {
       car.veh.body.applyImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 2, y: car.veh.mass * (3 + Math.random() * 3) * big, z: (Math.random() - 0.5) * car.veh.mass * 2 }, true);
       car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * car.veh.mass * 3, y: 0, z: (Math.random() - 0.5) * car.veh.mass * 3 }, true);
     }
-    this.blast(p, (car.spec.explosive ? 26 : 11), (car.spec.explosive ? 260 : 110), (car.spec.explosive ? 1.0 : 0.6), car);
-    this.director.onExplode?.(this, car, { launchWreck: !ramTakedown }); // neighbours cook off, wrecks tumble
+    if (!nukeDerived) {
+      this.blast(p, (car.spec.explosive ? 26 : 11), (car.spec.explosive ? 260 : 110), (car.spec.explosive ? 1.0 : 0.6), car);
+      this.director.onExplode?.(this, car, { launchWreck: !ramTakedown }); // neighbours cook off, wrecks tumble
+    }
     if (ramTakedown && launchRamTakedown(car, ramTakedown)) {
       explosion.takedown = true;
       explosion.vel = [car.veh.vel.x, car.veh.vel.y, car.veh.vel.z];
     }
     if (car.kind === 'enemy') {
       if (!celebrationActive(this)) this.stats.kills++;
-      if (src === 1 || (car.lastHitBy === 1 && this.time - car.lastHitT < 6)) {
-        if (!celebrationActive(this)) this.stats.streak++;
-        this.emit({ t: 'kill', id: car.id, spec: car.spec.id, cause, pos: [p.x, p.y, p.z], crash: cause === 'ram' || cause === 'crash' || (src > 1), nonScoring: celebrationActive(this) });
+      if (playerCredit) {
+        if (!nukeDerived && !celebrationActive(this)) this.stats.streak++;
+        this._playerKill(car, { t: 'kill', id: car.id, spec: car.spec.id, cause, pos: [p.x, p.y, p.z], crash: !nukeDerived && (cause === 'ram' || cause === 'crash' || (src > 1)), nonScoring: celebrationActive(this) });
         // salvage: every wreck you make patches your truck a little (a warlord a lot) -- aggression keeps you rolling
         const P = this.player;
-        if (P && !P.exploded && this.state === 'run' && !celebrationActive(this)) {
+        if (P && !P.exploded && this.state === 'run' && !nukeDerived && !celebrationActive(this)) {
           const k = car.elite ? 0.14 : (car.spec.mass > 4000 ? 0.012 : 0.006);
           const before = P.hp; P.hp = Math.min(P.maxHp, P.hp + P.maxHp * k);
           if (P.hp > before) this.emit({ t: 'repair', id: P.id, amount: P.hp - before, big: !!car.elite });
@@ -568,10 +612,12 @@ export class Sim {
   blast(pos, radius, damage, impulseScale, sourceCar, ownerId) {
     const src = ownerId ?? (sourceCar ? sourceCar.id : -1);
     const enemyCarExplosion = sourceCar?.kind === 'enemy';
-    if (this.boss && src === 1) this.boss.blastParts(pos, radius, damage);
+    const nukeEpoch = this.combat?.nukeEpoch(sourceCar);
+    if (this.boss && src === 1 && !nukeEpoch) this.boss.blastParts(pos, radius, damage);
     this.encounters?.blast(pos, radius, damage, src, this, sourceCar);
     for (const car of this.cars.values()) {
       if (car === sourceCar) continue;
+      if (nukeEpoch && (car.kind === 'player' || car.elite || car.isBoss)) continue;
       if (car.kind === 'player' && (src === 1 || enemyCarExplosion)) continue;
       // chain explosions of a car the player wrecked are credited to the player (for enemies only)
       const credit = car.kind === 'enemy' && sourceCar && sourceCar.kind === 'enemy' && sourceCar.lastHitBy === 1 && this.time - sourceCar.lastHitT < 12 ? 1 : src;
@@ -585,6 +631,7 @@ export class Sim {
       const tq = damage * f * car.veh.mass * 0.05;
       car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * tq, y: (Math.random() - 0.5) * tq, z: (Math.random() - 0.5) * tq }, true);
       if (!car.exploded) {
+        if (sourceCar) this.combat?.inheritNukeDerived(car, sourceCar);
         const pm = car.spec.weakpoint ? (car.spec.weakpointBlastResist ?? 0) : car.kind === 'player' ? (this.playerBlastMul ?? 0.6) * (sourceCar ? (this.playerCarBlastMul ?? 1) : 1) : 1; // (car cook-offs next to you: director)
         this.damageCar(car, damage * f * pm, { cause: credit !== src ? 'crash' : 'blast', src: credit });
         if (!car.spec.weakpoint) for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src: credit });
@@ -595,14 +642,28 @@ export class Sim {
   /** The gunner's client reports a hit it detected against the cars it sees. */
   applyHit(rep) {
     if (!validHitReport(rep)) return false;
+    // After a verified clear, the owned AI may keep cosmetically fighting.
+    // Entitlement and receipts stay closed; those shots cannot occupy human
+    // replay slots or alter frozen results. Remote input is already rejected
+    // by Run's victoryPresenting guard.
+    const cosmetic = celebrationActive(this);
+    if (this.combat && !cosmetic && !playerLive(this)) return false;
+    const guard = cosmetic ? null : this.hitGuard;
+    const target = this.encounters?.entities.get(rep.carId) || (this.boss?.id === rep.carId ? this.boss : this.cars.get(rep.carId));
+    // Reserve the replay slot only after the current target path accepts its
+    // real contact. A malformed/obsolete actor zone must not poison a later
+    // genuine report for that ray.
+    if (guard && (!target || !guard.check(rep, target))) return false;
     if (this.encounters?.entities.has(rep.carId)) {
+      const before = damageState(target, rep.zone);
       const accepted = this.encounters.applyHit(rep, this);
-      if (accepted) this._countLandedShot(rep.shotId);
+      if (accepted) { guard?.accept(rep, target); this._countLandedShot(rep.shotId); this._damageReceipt(rep, target, rep.zone, before); }
       return accepted;
     }
     if (this.boss && rep.carId === this.boss.id) {
+      const before = damageState(this.boss, rep.zone);
       const d = this.boss.damage(rep.zone, rep.dmg * this.playerDamageMul, { point: rep.point });
-      if (d > 0) this._countLandedShot(rep.shotId);
+      if (d > 0) { guard?.accept(rep, this.boss); this._countLandedShot(rep.shotId); this._damageReceipt(rep, this.boss, rep.zone, before); }
       return d > 0;
     }
     const car = this.cars.get(rep.carId);
@@ -613,8 +674,11 @@ export class Sim {
     if (!point) return false;
     const zone = car.zones.find((z) => z.kind === rep.zone && (z.index === undefined || z.index === rep.zoneIndex)) || car.zones.find((z) => z.kind === 'body');
     const dmg = rep.dmg * this.playerDamageMul * (rep.tireMul && zone.kind === 'tire' ? rep.tireMul : 1);
+    const before = damageState(car, zone.kind);
+    guard?.accept(rep, car);
     this._countLandedShot(rep.shotId);
     this.damageZone(car, { zone, throughBody: !!rep.through }, dmg, { cause: 'bullet', src: 1, point: point.clone(), head: !!rep.head, weapon: rep.weapon });
+    this._damageReceipt(rep, car, zone.kind, before);
     // hit reaction impulse (tiny shove so shots feel physical)
     const dir = rep.dir; car.veh.body.applyImpulseAtPoint({ x: dir[0] * dmg * 3, y: dir[1] * dmg * 3, z: dir[2] * dmg * 3 }, { x: point.x, y: point.y, z: point.z }, true);
     return true;

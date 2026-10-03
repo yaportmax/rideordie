@@ -35,6 +35,9 @@ import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
 import { TEN_LEVELS, MARATHON_LEVEL_LENGTH, normalizeJourney } from '../data/campaign.js';
 import { clamp, damp, lerp, wrapAngle } from '../core/util.js';
 import { runPhase, defeatReason, isDefeated, rememberDefeat, victoryPresenting } from './run_status.js';
+import { validCombatState, validDamageReceipt, validRemoteGunnerFX } from '../sim/combat.js';
+import { validNukeCue } from '../view/fx/nuke.js';
+import { keyLabel } from '../ui/glyphs.js';
 
 const V3 = THREE.Vector3;
 
@@ -70,6 +73,8 @@ export class Run {
     this.medkits = 0; this.cash = 0; this.streakT = 0; this.streak = 0; this.multi = 0;
     this.gunnerRemote = { yaw: 0, pitch: 0, fire: false, crouch: false, ads: false, weapon: 0, reloading: false, x: 0, z: 0, seq: 0 };
     this.lastStats = null; this.shots = 0; this.hitsLanded = 0;
+    this.nukeRequestSeq = 0; this.combatRevision = -1; this.damageReceiptRevision = 0; this.combatHud = null;
+    this.nukeShownAward = 0; this.nukePresentedAward = 0;
   }
 
   async init() {
@@ -88,6 +93,8 @@ export class Run {
       this.player = this.sim.spawnCar(spec.id, { spec, s: startS, d: 0, kind: 'player', hold: true });
       this.player.crew.gunner.weapon = 0;
       this.sim.playerDamageMul = 1;
+      this.sim.configureCombat(this.id, gunnerLoadout(effects));
+      this._receiveCombatState(this.sim.combat.state());
       this.encounters = this.sim.encounters;
     } else {
       // viewer peer: a static Rapier world purely for bullet raycasts against terrain
@@ -253,6 +260,12 @@ export class Run {
   /** Advance sim/net and produce this frame's render data. */
   update(dt, cmds, now) {
     const g = this.g; this.time += dt; this.streakT = Math.max(0, (this.streakT || 0) - dt);
+    // Read the global human action once before an AI partner replaces commands.
+    if (!g.paused && (this.humanDriver || this.humanGunner) && g.input?.nukePressed?.()) this._requestNuke();
+    if (this.sim?.combat) {
+      const revision = this.sim.combat.revision; this.sim.combat.advance(dt);
+      if (this.sim.combat.revision !== revision) this.sim._combatState();
+    }
     if (!this.sim) this.encounters?.updateGuest?.(dt);
     if (this.gunner) { this.gunner.crouch = 0; this.gunner.pos.x = 0; this.gunner.pos.z = 0; }
     const P = this.sim ? this.player : null;
@@ -303,6 +316,10 @@ export class Run {
       let steps = 0;
       const _ts = performance.now();
       while (this.acc >= DT && steps < 8) { this.sim.step(DT); this.acc -= DT; steps++; }
+      if (this.sim.combat) {
+        const revision = this.sim.combat.revision; this.sim.combat.advance(0);
+        if (this.sim.combat.revision !== revision) this.sim._combatState();
+      }
       { const ms = performance.now() - _ts; if (ms > 15) (window.__spikes || (window.__spikes = [])).push({ what: 'simSteps', ms: +ms.toFixed(1), steps, cars: this.sim.cars.size, at: +(performance.now() / 1000).toFixed(1) }); }
       if (steps === 8) this.acc = 0;
       this.alpha = this.acc / DT;
@@ -420,6 +437,7 @@ export class Run {
       for (const e of late) { this.wv.handleEvent(e, this.states); evs.push(e); }
       if (!this.sim) this.localEvents.length = 0;
     }
+    this._filterNukePresentations(evs);
     this.allEvents = evs;
     // first-person cockpit (local human driver): mirrors, gauges, windshield damage
     if (this.role === 'driver' && !this.cockpit) { const v = this.wv.viewMap.get(1); if (v && v.model) { this.cockpit = new Cockpit(v); g.warmMeshes?.(this.cockpit.meshes); } }
@@ -430,7 +448,9 @@ export class Run {
       for (let i = 0; i < count; i++) { const e = this.cockpit.onEvent(evs[i]); if (e) evs.push({ ...e, time: this.time, localOnly: true }); }
     }
     for (const e of evs) {
-      if (e.t === 'minibossSpawn') { this.banner.miniboss(e); g.audio?.stinger('danger_riser'); }
+      if (e.t === 'combatState') this._receiveCombatState(e.state);
+      else if (e.t === 'damageReceipt') this._receiveDamageReceipt(e);
+      else if (e.t === 'minibossSpawn') { this.banner.miniboss(e); g.audio?.stinger('danger_riser'); }
       else if (e.t === 'minibossLost') g.hud.message(`${e.name} FELL BEHIND`, 2200, '#bbbbbb');
       else if (e.t === 'hazardWarn') { this.banner.hazard(e); g.audio?.ui('countdown_beep'); }
       else if (e.t === 'stageWarn') { this.banner.event({ title: e.title, sub: e.hint }); g.audio?.ui('countdown_beep'); }
@@ -459,7 +479,7 @@ export class Run {
     }
     const fx = g.fx;
     if (fx) {
-      const ctx = this._fxCtx || (this._fxCtx = { carViews: this.wv.viewMap, states: null, playerId: 1, cameraPos: g.camera.position,
+      const ctx = this._fxCtx || (this._fxCtx = { carViews: this.wv.viewMap, states: null, playerId: 1, runId: this.id, cameraPos: g.camera.position,
         playerMuzzle: (out) => { const st = this.states.get(this.playerId); return !!st && this.wv.muzzlePos(st, out); },
         playerEject: (out, direction) => { const st = this.states.get(this.playerId); return !!st && !!this.wv.mountedWeapon(st)?.ejectWorld(out, direction); },
         shake: (a) => { const k = a * (g.shakeMul ?? 1); this.chase.shake.add(k); this.gcam.shake.add(k); } });
@@ -500,6 +520,7 @@ export class Run {
     }
     // HUD data
     this.hud2 = this._hudData(pst);
+    if (this.combatHud) g.hud.setCombat?.(this.combatHud, g.input.lastDevice, keyLabel(g.input.bindings?.nuke?.[0] || ''));
     if (this.role === 'driver' && this.net) this._sendNet(dt);
     if (this.role === 'gunner' && this.net) this._sendGunner(dt);
     this._outcome(dt);
@@ -594,9 +615,46 @@ export class Run {
     if (!this.sim) { this.net.sendJSON({ t: 'medkit' }); return; }
     if (this.sim.useMedkit()) { this.medkits--; this.g.hud.message('MEDKIT', 900, '#7fdc7f'); }
   }
+  _requestNuke() {
+    if (this.g.paused || this.disposed || this.phase !== 'run' || isDefeated(this) || this.over || this.finished) return false;
+    const seq = ++this.nukeRequestSeq;
+    const message = { t: 'nuke', runId: this.id, seq };
+    if (this.sim) return this.sim.activateNuke(message, 'local').ok;
+    return this.net?.sendJSON(message) === true;
+  }
+  _filterNukePresentations(events) {
+    // Local authority and online viewer share this final presentation gate.
+    // Retain chronology, strip replays before HUD/FX/net and leave scoring alone.
+    for (let i = 0; i < events.length;) {
+      const event = events[i];
+      if (event?.t === 'combatNuke') {
+        if (this.disposed || !validNukeCue(event, this.id) || event.award <= this.nukePresentedAward) {
+          events.splice(i, 1); continue;
+        }
+        this.nukePresentedAward = event.award;
+        if (this.g.hud.nukeCue) this.g.hud.nukeCue();
+        else this.g.hud.message('NUKE DETONATED', 850, '#ffc93a'); // Declared legacy HUD fixtures.
+      }
+      i++;
+    }
+    return events;
+  }
+  _receiveCombatState(state) {
+    if (!validCombatState(state, this.id) || state.revision <= this.combatRevision) return false;
+    this.combatRevision = state.revision; this.combatHud = { ...state };
+    const input = this.g.input;
+    this.g.hud.setCombat?.(this.combatHud, input.lastDevice, keyLabel(input.bindings?.nuke?.[0] || '')); return true;
+  }
+  _receiveDamageReceipt(receipt) {
+    if (!validDamageReceipt(receipt, this.id) || receipt.revision <= this.damageReceiptRevision) return false;
+    this.damageReceiptRevision = receipt.revision;
+    if (this.humanGunner) this.g.hud.gh?.damageReceipt?.(receipt); return true;
+  }
 
   _simEventsToRun(events = this.events) {
     for (const e of events) {
+      if (e.remote) continue; // gunner presentation cannot authorize cash/state
+      if (e.t === 'combatNuke') { this.multi = 0; this.streakT = 0; }
       if (e.t === 'minibossDown' && !this.victoryPresentation) {
         const b = Math.round((ECONOMY.minibossBounty[e.index] || 5000) * this.effects.cashMul);
         this.minibossCash = (this.minibossCash || 0) + b; (this.minibossesKilled || (this.minibossesKilled = [])).push(e.index);
@@ -892,7 +950,7 @@ export class Run {
     const why = sim.result?.why;
     return {
       id: this.id, won, journey, levelCleared, cash: total, breakdown: lines, distance: dist, startS: this.cfg.startS ?? 40, furthestS: st.distance, time: elapsed, kills: st.kills, crashKills: st.crashKills || 0,
-      bestStreak: this.bestMulti || 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
+      bestStreak: sim.combat?.best ?? this.bestMulti ?? 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
       biome: journey.mode === 'legacy' ? BIOMES[(sim.road || this.road)?.biomeAt?.(st.distance)?.a || biomeAt(st.distance).a].name : TEN_LEVELS[((sim.road || this.road)?.journeyLevelAt?.(st.distance) ?? journey.level) - 1].name, minibosses: this.minibossesKilled || [],
     };
   }
@@ -937,7 +995,17 @@ export class Run {
       if (!Array.isArray(m.e) || m.e.length > 256) return;
       if (!this.sim) rememberDefeat(this, m.e);
       for (const e of m.e) {
-        if (e?.t === 'stageState') { if (!this.sim) this.encounters?.applySnapshot(e.state); }
+        if (e?.t === 'combatState' || e?.t === 'damageReceipt' || e?.t === 'combatNuke') {
+          const peerRole = this.net?.activeRunRoles?.[this.net.isHost ? 'guest' : 'host'];
+          if (!this.sim && m.runId === this.id && peerRole === 'driver') {
+            if (e.t === 'combatState') this._receiveCombatState(e.state);
+            else if (e.t === 'damageReceipt') this._receiveDamageReceipt(e);
+            else if (validNukeCue(e, this.id) && e.award > this.nukeShownAward) {
+              this.nukeShownAward = e.award; (this.netEvents || (this.netEvents = [])).push(e);
+            }
+          }
+        }
+        else if (e?.t === 'stageState') { if (!this.sim) this.encounters?.applySnapshot(e.state); }
         else if (e) (this.netEvents || (this.netEvents = [])).push(e);
       }
       return;
@@ -947,11 +1015,21 @@ export class Run {
     if (m.t === 'go') { this.goSeen = true; this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }
     if (this.sim) {
       if (victoryPresenting(this)) return;
-      if (m.t === 'g') { const r = this.gunnerRemote; r.yaw = m.y; r.pitch = m.p; r.fire = !!m.f; r.crouch = false; r.ads = !!m.a; r.weapon = m.w; r.reloading = !!m.r; r.x = 0; r.z = 0; }
+      if (m.t === 'nuke') {
+        const peerRole = this.net?.activeRunRoles?.[this.net.isHost ? 'guest' : 'host'];
+        if (peerRole === 'gunner' && m.runId === this.id) this.sim.activateNuke(m, 'peer');
+      }
+      else if (m.t === 'g') { const r = this.gunnerRemote; r.yaw = m.y; r.pitch = m.p; r.fire = !!m.f; r.crouch = false; r.ads = !!m.a; r.weapon = m.w; r.reloading = !!m.r; r.x = 0; r.z = 0; }
       else if (m.t === 'hit') this.sim.applyHit(m.h);
       else if (m.t === 'rocket') this.sim.projectiles.addRocket(new V3(...m.o), new V3(...m.d), m.cfg, 1);
       else if (m.t === 'grenade') this.sim.projectiles.addGrenade(this.sim, new V3(...m.o), new V3(...m.v), m.cfg, 1);
-      else if (m.t === 'shotfx') for (const e of m.e) { if (e.t === 'shot') this.shots++; this.sim.emit({ ...e, remote: true }); }
+      else if (m.t === 'shotfx') {
+        const peerRole = this.net?.activeRunRoles?.[this.net.isHost ? 'guest' : 'host'];
+        if (peerRole !== 'gunner' || m.runId !== this.id || !Array.isArray(m.e) || m.e.length > 64) return;
+        for (const e of m.e) if (validRemoteGunnerFX(e, this.effects.weapons)) {
+          if (e.t === 'shot') this.shots++; this.sim.emit({ ...e, remote: true });
+        }
+      }
       else if (m.t === 'input') this.remoteDriverInput = m.i;
       else if (m.t === 'medkit') { if (this.medkits > 0 && this.sim.useMedkit()) this.medkits--; }
     }
@@ -976,6 +1054,9 @@ export class Run {
     this.cockpit?.dispose(); this.cockpit = null; this.threatHud?.dispose(); this.threatHud = null;
     this.banner?.dispose(); this.banner = null; this.hazMarks?.dispose(); this.hazMarks = null; this.bossMarks?.dispose(); this.bossMarks = null;
     this.g.fx?.clear();
+    this.combatHud = null; this.combatRevision = -1; this.damageReceiptRevision = 0; this.nukeRequestSeq = 0;
+    this.nukeShownAward = 0; this.nukePresentedAward = 0;
+    this.g.hud?.setCombat?.(null);
     try { this.dressing?.dispose(); } catch (e) { console.warn(e); }
     this.structures?.dispose();
     this.abridge?.reset();
@@ -1028,14 +1109,17 @@ function g_kill(run, e) {
   const L = run.sim.director.level;
   let mult = 1 + L * ECONOMY.killLevel;
   if (e.crash) { mult *= ECONOMY.crashMul; run.sim.stats.crashKills = (run.sim.stats.crashKills || 0) + 1; }
-  if (run.streakT <= 0) run.multi = 0;
-  run.streakT = 3.5; run.multi++; run.bestMulti = Math.max(run.bestMulti || 0, run.multi);
-  if (run.multi >= 2) mult *= 1 + Math.min(run.multi - 1, 5) * 0.15;
-  if (run.multi === 3 && !(run.lastPulse > run.time - 6)) { run.pulseT = 0.3; run.lastPulse = run.time; }
+  if (!e.nukeDerived) {
+    if (run.streakT <= 0) run.multi = 0;
+    run.streakT = 3.5; run.multi++; run.bestMulti = Math.max(run.bestMulti || 0, run.multi);
+    if (run.multi >= 2) mult *= 1 + Math.min(run.multi - 1, 5) * 0.15;
+    if (run.multi === 3 && !(run.lastPulse > run.time - 6)) { run.pulseT = 0.3; run.lastPulse = run.time; }
+  }
   const cash = Math.round(base * mult * run.effects.cashMul);
   run.cash += cash;
   run.sim.stats.cash = run.cash;
-  const label = `+$${cash}  ${e.crash ? 'CRASH KILL ' : ''}${run.multi >= 2 ? 'x' + run.multi : ''}`;
+  const displayCombo = run.sim.combat ? e.earnedCombo || 0 : run.multi;
+  const label = `+$${cash}  ${e.nukeDerived ? 'NUKE ' : e.crash ? 'CRASH KILL ' : ''}${!e.nukeDerived && displayCombo >= 2 ? 'x' + displayCombo : ''}`;
   run.g.hud.feed(label, e.crash ? '#ffc21a' : '#fff');
   run.g.hud.hitMarker(true);
   if (run.net) run.net.sendJSON({ t: 'feed', text: label, crash: !!e.crash });

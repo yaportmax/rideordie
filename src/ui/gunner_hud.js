@@ -35,6 +35,7 @@ const CSS = `
 #ghud .bp.df .bb{display:none}
 #ghud .kr{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;border:3px solid rgba(255,60,40,.85);border-radius:50%;opacity:0}
 #ghud .kt{position:absolute;left:50%;top:calc(50% + 46px);transform:translateX(-50%);font:800 italic 17px 'Bahnschrift','Segoe UI Semibold',sans-serif;letter-spacing:3px;color:#ff4a30;text-shadow:0 1px 3px #000,0 0 10px rgba(255,40,20,.6);opacity:0;white-space:nowrap}
+#ghud .zone-receipt{position:absolute;left:50%;top:calc(50% + 82px);transform:translateX(-50%);max-width:calc(100% - 48px);font:700 11px 'Bahnschrift','Segoe UI Semibold',sans-serif;letter-spacing:1.5px;color:#f3e9d7;text-shadow:0 1px 3px #000;opacity:0;white-space:nowrap}
 #ghud .dm{position:absolute;left:50%;top:50%;width:0;height:0}
 #ghud .dm div{position:absolute;left:-44vh;top:-44vh;width:88vh;height:88vh;border-radius:50%;border:6px solid transparent;border-top-color:rgba(255,34,18,.95);opacity:0;filter:drop-shadow(0 0 6px rgba(255,0,0,.6));-webkit-mask:linear-gradient(90deg,transparent 30%,#000 44%,#000 56%,transparent 70%);mask:linear-gradient(90deg,transparent 30%,#000 44%,#000 56%,transparent 70%)}
 #ghud .am{position:absolute;right:34px;bottom:26px;text-align:right;font-family:'Bahnschrift','Segoe UI Semibold','Arial Narrow',sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.85)}
@@ -79,24 +80,53 @@ export class GunnerHud {
       <div class="dm">${'<div></div>'.repeat(6)}</div>
       <div class="c"><i class="h"></i><i class="h"></i><i class="v"></i><i class="v"></i><i class="d"></i><i class="ring"></i><i class="chev"></i></div>
       <div class="hm"><i></i><i></i><i></i><i></i></div>
-      <div class="kr"></div><div class="kt"></div>
+      <div class="kr"></div><div class="kt"></div><div class="zone-receipt"></div>
       <div class="bp"><span class="bpn"></span><div class="bb"><i></i><u></u></div></div>
       <div class="rp"><span>R</span>RELOAD</div>
       <div class="am"><span class="wn"></span><b class="mg">0</b><small>/ ∞</small><div class="bar"><i></i></div></div>`;
     parent.appendChild(el);
     const $ = (s) => el.querySelector(s);
     this.q = { c: $('.c'), h: [...el.querySelectorAll('.c .h')], v: [...el.querySelectorAll('.c .v')], dot: $('.c .d'), ring: $('.c .ring'), chev: $('.c .chev'),
-      hm: $('.hm'), hmI: [...el.querySelectorAll('.hm i')], kr: $('.kr'), kt: $('.kt'), dm: [...el.querySelectorAll('.dm div')], am: $('.am'), wn: $('.am .wn'), mg: $('.am .mg'), bar: $('.am .bar i'), rp: $('.rp'),
+      hm: $('.hm'), hmI: [...el.querySelectorAll('.hm i')], kr: $('.kr'), kt: $('.kt'), receipt: $('.zone-receipt'), dm: [...el.querySelectorAll('.dm div')], am: $('.am'), wn: $('.am .wn'), mg: $('.am .mg'), bar: $('.am .bar i'), rp: $('.rp'),
       sc: $('.sc'), mk: $('.sc .mk'), svg: $('.sc svg'), bp: $('.bp'), bpn: $('.bpn'), bpi: $('.bp .bb i'), bpu: $('.bp .bb u') };
     this.bpT = 0; this.bpPart = ''; this.bpShown = 1; this.bpLag = 1; this.seq = 0; this.bossSeq = 0;
     this.hitT = 0; this.hitLen = 0.2; this.hitKind = 0; this.killT = 0; this.scopeK = 0; this.scopeKind = null; this.on = true; this.crossKind = -1;
     this.dmg = this.q.dm.map((e) => ({ e, t: 0, a: 0 }));
     this._last = { mag: -1, w: '', cls: '' };
     this.lastHitKey = 0;
+    this.show();
   }
 
+  /** A new life resets the bounded receipt watermark; visibility changes do not. */
+  show(v = this.on) {
+    this.receiptRunId = null; this.receiptRevision = -1; this.receiptT = 0; this.receiptDown = false;
+    this.q.receipt.textContent = ''; this.q.receipt.style.opacity = 0;
+    this.setVisible(v);
+  }
   setVisible(v) { this.on = v; this.el.style.display = v ? '' : 'none'; }
   setDriverShown(v) { this.q.am.style.bottom = v ? '156px' : ''; }
+
+  /** Trusted, positive actual damage from this run's authority; never reports or network events. */
+  damageReceipt(receipt) {
+    if (!receipt || typeof receipt.runId !== 'string' || !receipt.runId.length || receipt.runId.length > 128 ||
+      !Number.isSafeInteger(receipt.revision) || receipt.revision < 0 || !Number.isSafeInteger(receipt.shotId) || receipt.shotId <= 0 ||
+      !Number.isInteger(receipt.pelletIndex) || receipt.pelletIndex < 0 || receipt.pelletIndex > 8 ||
+      !Number.isInteger(receipt.penetrationIndex) || receipt.penetrationIndex < 0 || receipt.penetrationIndex > 2 ||
+      !Number.isSafeInteger(receipt.targetId) || receipt.targetId <= 0 || typeof receipt.zone !== 'string' ||
+      !Number.isFinite(receipt.damage) || receipt.damage <= 0 || typeof receipt.killed !== 'boolean') return false;
+    if (this.receiptRunId && receipt.runId !== this.receiptRunId || receipt.revision <= this.receiptRevision) return false;
+    this.receiptRunId = receipt.runId; this.receiptRevision = receipt.revision;
+    const driver = /^driver(?:_head)?$/.test(receipt.zone), gunner = /^gunner[2-4]?(?:_head|_legs)?$/.test(receipt.zone);
+    if (receipt.zone !== 'fuel' && !driver && !gunner) return false;
+    const down = (driver || gunner) && receipt.killed;
+    if (this.receiptT > 0 && this.receiptDown && !down) return false;
+    const role = driver ? 'DRIVER' : 'GUNNER';
+    this.q.receipt.textContent = receipt.zone === 'fuel' ? 'FUEL HIT' : down ? `${role} DOWN` : receipt.zone.endsWith('_head') ? `${role} HEADSHOT` : `${role} HIT`;
+    this.q.receipt.style.color = receipt.zone === 'fuel' ? '#ffb75b' : down ? '#ffc93a' : '#f3e9d7';
+    this.receiptT = down ? .45 : .28; this.receiptDown = down;
+    this.q.receipt.style.opacity = this.on && this.bpT <= 0 && this.killT <= 0 ? 1 : 0;
+    return true;
+  }
 
   /** kind: 0 body, 1 head, 2 kill (2 + head -> gold/red); cls: 'weak' (warlord weak point / boss reactor) | 'deflect' (no damage) */
   hit(kill = false, head = false, cls = '') {
@@ -173,7 +203,8 @@ export class GunnerHud {
 
   update(dt, d) {
     const q = this.q, G = d.gunner;
-    if (!G || !this.on || d.cinematic || inCinematic()) { this.el.style.display = 'none'; return; }
+    this.receiptT = Math.max(0, this.receiptT - dt);
+    if (!G || !this.on || d.cinematic || inCinematic()) { this.el.style.display = 'none'; q.receipt.style.opacity = 0; return; }
     this.el.style.display = '';
     this._events(d);
     this._bossPart(dt, G);
@@ -209,6 +240,7 @@ export class GunnerHud {
       q.kr.style.opacity = Math.max(0, 0.9 - age * 1.4); q.kr.style.transform = `scale(${0.6 + age * 1.6})`;
       q.kt.style.opacity = age < 0.75 ? 1 : Math.max(0, 1 - (age - 0.75) * 4); q.kt.style.transform = `translateX(-50%) translateY(${-age * 6}px) scale(${1.15 - Math.min(0.15, age * 0.6)})`;
     } else { q.kr.style.opacity = 0; q.kt.style.opacity = 0; }
+    q.receipt.style.opacity = this.bpT > 0 || this.killT > 0 ? 0 : Math.min(1, this.receiptT / .08);
     // ---------------------------------------------------------------- damage direction
     for (const s of this.dmg) {
       if (s.t <= 0) { if (s.e.style.opacity !== '0') s.e.style.opacity = 0; continue; }

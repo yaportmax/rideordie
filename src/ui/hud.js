@@ -39,6 +39,8 @@ const CSS = `
 #hud .defeat{left:50%;top:14%;transform:translateX(-50%);max-width:calc(100% - 48px);padding:12px 20px;background:rgba(12,8,8,.82);border-left:3px solid #ff4433;color:#ffb3a8;font-size:clamp(18px,2vw,26px);font-weight:800;letter-spacing:2px;text-align:center;display:none}
 #hud .kf{right:30px;top:80px;text-align:right;font-size:18px;letter-spacing:1px}
 #hud .kf div{opacity:1;transition:opacity .4s}
+#hud .combat-ready{right:30px;top:24px;z-index:3;max-width:calc(100% - 48px);padding:6px 10px;background:rgba(20,16,8,.82);border-left:2px solid #ffc21a;color:#ffd465;font-size:13px;font-weight:800;letter-spacing:1px;display:none}
+#hud .combat-combo{right:30px;top:59px;z-index:3;max-width:calc(100% - 48px);font-size:13px;letter-spacing:1px;color:#ffe0a0;text-align:right;opacity:0;white-space:nowrap}
 #hud .hitm{left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0;transition:opacity .18s}
 #hud .hitm:before,#hud .hitm:after{content:'';position:absolute;left:12px;top:-2px;width:2px;height:30px;background:#fff;transform:rotate(45deg)}
 #hud .hitm:after{transform:rotate(-45deg)}
@@ -63,6 +65,7 @@ export class Hud {
       <div class="abs msg"></div>
       <div class="abs defeat" role="status" aria-live="polite"></div>
       <div class="abs kf"></div>
+      <div class="abs combat-ready" role="status"></div><div class="abs combat-combo"></div>
       <div class="abs speed"><b class="spd">0</b><small class="spdunit">MPH</small></div>
       <div class="abs bar rpm"><i class="rpmbar"></i></div>
       <div class="abs bar nitro"><i class="nitrobar"></i></div><div class="abs nitrostatus">RECHARGING</div>
@@ -73,7 +76,7 @@ export class Hud {
     document.body.appendChild(el);
     const $ = (s) => el.querySelector(s);
     this.q = { spd: $('.spd'), spdUnit: $('.spdunit'), rpm: $('.rpmbar'), nitro: $('.nitrobar'), nitroBox: $('.nitro'), nitroStatus: $('.nitrostatus'), hp: $('.hpbar'), area: $('.area'),
-      vig: $('.vig'), msg: $('.msg'), defeat: $('.defeat'), kf: $('.kf'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
+      vig: $('.vig'), msg: $('.msg'), defeat: $('.defeat'), kf: $('.kf'), combatReady: $('.combat-ready'), combatCombo: $('.combat-combo'), hitm: $('.hitm'), arrows: $('.arrows'), ammo: $('.ammo'), mag: $('.mag'), wname: $('.wname'), cross: $('.cross'), scope: $('.scope'), crossH: [...el.querySelectorAll('.cross .h')], crossV: [...el.querySelectorAll('.cross .v')], boss: $('.boss'), bossbar: $('.bossbar'), bossname: $('.bossname'), rpmBox: $('.rpm'), speedBox: $('.speed'), hpbox: $('.hpbox') };
     this.arrowPool = []; this.msgT = 0; this.vigT = 0; this.hitT = 0;
     this.gh = new GunnerHud(el);   // first-person gunner layer (crosshair, hit markers, damage arcs, ammo, scope)
     this.show({ driver: true, gunner: true });
@@ -81,14 +84,49 @@ export class Hud {
   show(o) {
     const q = this.q;
     this.setDefeat(null);
+    this._resetCombat();
     this.seenAreas = new Set(); this.areaT = 0; q.area.textContent = ''; q.area.style.opacity = 0;
     q.speedBox.style.display = o.driver ? '' : 'none'; q.rpmBox.style.display = o.driver ? '' : 'none'; q.nitroBox.style.display = o.driver ? '' : 'none';
     q.nitroStatus.style.display = 'none';
     q.cross.style.display = 'none'; q.ammo.style.display = 'none';   // replaced by GunnerHud
-    this.gunnerOn = !!o.gunner; this.gh.setVisible(this.gunnerOn); this.gh.setDriverShown(!!(o.gunner && o.driver));
+    this.gunnerOn = !!o.gunner; this.gh.show(this.gunnerOn); this.gh.setDriverShown(!!(o.gunner && o.driver));
     if (o.gunner && !o.driver) { q.hpbox.style.left = '30px'; }
   }
   setVisible(v) { this.el.style.display = v ? '' : 'none'; }
+  _resetCombat() {
+    this.combatRunId = null; this.combatRevision = -1; this.combatCombo = 0; this.combatReady = false; this.combatLabel = ''; this.combatT = 0; this.combatNukeCue = false;
+    this.q.combatReady.textContent = ''; this.q.combatReady.style.display = 'none';
+    this.q.combatCombo.textContent = ''; this.q.combatCombo.style.opacity = 0;
+  }
+  /** Accepted authority state only. One life, one notice node, no event queue. */
+  setCombat(state, device = 'kbm', bindingLabel = 'N') {
+    if (state === null) { this._resetCombat(); this.gh.show(this.gunnerOn); return true; }
+    if (!state || typeof state.runId !== 'string' || !state.runId.length || state.runId.length > 128 ||
+      !Number.isSafeInteger(state.revision) || state.revision < 0 || !Number.isSafeInteger(state.combo) || state.combo < 0 ||
+      typeof state.label !== 'string' || typeof state.ready !== 'boolean') return false;
+    if (this.combatRunId && state.runId !== this.combatRunId || state.revision < this.combatRevision) return false;
+    if (state.revision === this.combatRevision && (state.combo !== this.combatCombo || state.ready !== this.combatReady || state.label !== this.combatLabel)) return false;
+    this.combatRunId = state.runId;
+    const changed = state.revision > this.combatRevision && state.combo !== this.combatCombo;
+    this.combatRevision = state.revision;
+    this.combatCombo = state.combo; this.combatReady = state.ready; this.combatLabel = state.label;
+    if (changed && state.combo >= 2) {
+      this.combatNukeCue = false;
+      this.q.combatCombo.textContent = `x${state.combo} ${state.label.slice(0, 48)}`;
+      this.combatT = .75; this.q.combatCombo.style.opacity = this.defeatWhy ? 0 : 1;
+    } else if (!state.combo && !this.combatNukeCue) { this.combatT = 0; this.q.combatCombo.style.opacity = 0; }
+    const binding = device === 'pad' ? 'L3' : String(bindingLabel ?? 'N').slice(0, 24) || 'UNBOUND';
+    this.q.combatReady.textContent = state.ready ? `${binding} · NUKE READY` : '';
+    this.q.combatReady.style.display = state.ready && !this.defeatWhy ? 'block' : 'none';
+    return true;
+  }
+  /** One existing notice node, no generic alert replacement or delayed timer. */
+  nukeCue() {
+    if (this.defeatWhy) return false;
+    this.combatNukeCue = true; this.combatT = .85;
+    this.q.combatCombo.textContent = 'NUKE DETONATED'; this.q.combatCombo.style.opacity = 1;
+    return true;
+  }
   setUnits(units) {
     this.units = normalizeUnits(units);
     this.q.spdUnit.textContent = speedLabel(this.units);
@@ -106,7 +144,7 @@ export class Hud {
     const e = this.q.defeat;
     const cause = why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED';
     e.textContent = why ? `RUN ENDED · ${cause}` : ''; e.style.display = why ? 'block' : 'none';
-    if (why) this.q.boss.style.display = 'none';
+    if (why) { this.q.boss.style.display = 'none'; this.q.combatReady.style.display = 'none'; this.q.combatCombo.style.opacity = 0; this.combatT = 0; this.combatNukeCue = false; }
   }
   /** Hit / kill marker: only when the local human is the gunner (an AI gunner's hits never show on the driver's screen). */
   hitMarker(kill = false, head = false) { if (this.gunnerOn) this.gh.hit(kill, head); }
@@ -142,6 +180,11 @@ export class Hud {
     const lowHp = hpLow < 0.3 ? (0.22 + 0.2 * (1 - hpLow / 0.3)) * (0.75 + 0.25 * Math.pow(Math.abs(Math.sin(performance.now() / 420)), 6)) : 0;
     q.vig.style.opacity = Math.max(this.vigT, lowHp);
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT < 0.4) q.msg.style.opacity = Math.max(0, this.msgT / 0.4); }
+    if (q.combatCombo) {
+      this.combatT = Math.max(0, (this.combatT || 0) - dt);
+      if (!this.combatT) this.combatNukeCue = false;
+      q.combatCombo.style.opacity = this.defeatWhy ? 0 : Math.min(1, this.combatT / .18);
+    }
     if (this.gunnerOn) this.gh.update(dt, d);
     // radar arrows for off-screen threats
     const arr = d.arrows || [];

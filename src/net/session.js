@@ -2,6 +2,7 @@
 // Cash belongs to each person, independently of their driver/gunner seat.
 // Messages (reliable JSON): hello, lobby, role, ready, start, profile, buy, runOver, results, + in-run messages (see Run.onNet).
 import { Transport } from './transport.js';
+import { planEventPackets } from './event_batches.js';
 import { GarageSeatSwap, GARAGE_SEAT_PROTOCOL } from './garage_seats.js';
 import { PLAYER_VEHICLE_PROTOCOL } from '../data/vehicle_families.js';
 import { DRIVING_ROUTE_VERSION } from '../world/driving_plan.js';
@@ -238,7 +239,22 @@ export class Session {
   sendJSON(m, unreliableOK) {
     if (RUN_JSON_TYPES.has(m?.t)) {
       if (!this.activeRunId) return false;
-      return this.tp.send({ ...m, runId: this.activeRunId });
+      const life = this.activeRunId, message = { ...m, runId: life };
+      if (m.t === 'events') {
+        const plan = planEventPackets(message);
+        if (!plan.ok) {
+          const error = new Error(`Could not send gameplay events: ${plan.reason}${plan.index === null ? '' : ` at event ${plan.index}`}.`);
+          error.type = 'event-packet-rejected'; error.reason = plan.reason; error.index = plan.index;
+          this.h.error && this.h.error(error); return false;
+        }
+        // Keep every ordered gameplay event. No retry queue, state-channel
+        // dropping or life-crossing dispatch after a connection callback.
+        for (const packet of plan.packets) {
+          if (this.activeRunId !== life || this.tp.send(packet) !== true) return false;
+        }
+        return true;
+      }
+      return this.tp.send(message);
     }
     return this.tp.send(m);
   }

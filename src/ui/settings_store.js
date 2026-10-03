@@ -76,7 +76,7 @@ export function wrapRumble(input, getSettings) {
   input.__rodRumble = true;
 }
 
-/** Actions grouped by role for the rebinding list + conflict checks. Bindings within one role group must be unique; 'pause' is global. */
+/** Actions grouped by role for the rebinding list + conflict checks. Global actions conflict with both seats. */
 export const BIND_GROUPS = [
   { id: 'driver', name: 'DRIVER', actions: [
     ['throttle', 'ACCELERATE'], ['brake', 'BRAKE / REVERSE'], ['left', 'STEER LEFT'], ['right', 'STEER RIGHT'], ['handbrake', 'HANDBRAKE / DRIFT'], ['nitro', 'NITRO'],
@@ -86,7 +86,7 @@ export const BIND_GROUPS = [
     ['reload', 'RELOAD'], ['grenade', 'GRENADE'], ['view', 'CAMERA'],
     ['slot1', 'WEAPON 1'], ['slot2', 'WEAPON 2'], ['slot3', 'WEAPON 3'],
   ] },
-  { id: 'global', name: 'GLOBAL', actions: [['pause', 'PAUSE MENU'], ['medkit', 'USE MEDKIT']] },
+  { id: 'global', name: 'GLOBAL', actions: [['pause', 'PAUSE MENU'], ['medkit', 'USE MEDKIT'], ['nuke', 'ACTIVATE NUKE']] },
 ];
 export const ACTION_LABEL = Object.fromEntries(BIND_GROUPS.flatMap((g) => g.actions));
 /** Actions that could conflict with `action` (same role group, or anything for global). */

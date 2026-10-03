@@ -1,12 +1,13 @@
 // Each life uses one cached full identifier. Late packets from a prior life
 // must be rejected before they reach startup queues or the snapshot clock.
 // Retired player armor changes crew stats/purchases on the driving authority.
-// Both peers must reload so an older driver cannot apply the previous rules.
+// Combat hit slots, authority receipts and the earned nuke require protocol7.
+// Both peers must reload so protocol6 cannot silently ignore the new rules.
 // The RDR1 life envelope and optional four-crew snapshot body are unchanged.
-export const NET_PROTOCOL = 6;
+export const NET_PROTOCOL = 7;
 export const RUN_JSON_TYPES = new Set([
   'runReady', 'go', 'g', 'input', 'events', 'feed', 'hit', 'rocket',
-  'grenade', 'shotfx', 'medkit', 'summary', 'runOver', 'results', 'abort',
+  'grenade', 'shotfx', 'medkit', 'nuke', 'summary', 'runOver', 'results', 'abort',
 ]);
 
 const MAGIC = 0x31524452; // RDR1, independently versioned from the snapshot body

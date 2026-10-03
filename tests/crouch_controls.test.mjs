@@ -81,7 +81,9 @@ test('gunner help omits crouch and walking even with old in-memory bindings', ()
   assert.doesNotMatch(q.pad.innerHTML, /crouch/i);
   assert.equal(legendRow(q.pad.innerHTML, 'B'), '', 'dedicated gunner B has no retired action legend');
   assert.equal(keyboardRow(q.kb.innerHTML, 'MOVE'), '', 'gunner walking must not appear in keyboard help');
-  assert.equal(legendRow(q.pad.innerHTML, 'LS'), '', 'dedicated gunner left stick has no walking legend');
+  const stickClick = legendRow(q.pad.innerHTML, 'LS');
+  assert.match(stickClick, /<em>CLICK<\/em>[\s\S]*ACTIVATE NUKE/, 'gunner stick click documents the earned nuke action');
+  assert.doesNotMatch(stickClick, /\b(?:MOVE|WALK|CROUCH|STEER)\b/, 'gunner stick movement has no action legend');
   assert.match(keyboardRow(q.kb.innerHTML, 'RELOAD'), /<kbd[^>]*>F<\/kbd>/);
   assert.match(keyboardRow(q.kb.innerHTML, 'THROW GRENADE'), /<kbd class="none">/);
   assert.match(legendRow(q.pad.innerHTML, 'RB'), /GRENADE/);

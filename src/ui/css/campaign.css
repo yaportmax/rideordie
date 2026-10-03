@@ -15,8 +15,8 @@
 .rod-ui .campaign-route-link{fill:none;stroke:#695843;stroke-width:3;stroke-dasharray:5 7;vector-effect:non-scaling-stroke}
 .rod-ui .campaign-route-link.cleared{stroke:#8ec7a5;stroke-dasharray:none}
 .rod-ui .campaign-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(2,208px);gap:30px;padding:12px 0}
-.rod-ui .campaign-card{--world:#c49c60;--world-bg:#372b20;grid-column:var(--map-column);grid-row:var(--map-row);position:relative;min-width:0;background:#171511;border:2px solid #65503a;color:var(--bone);transition:border-color .15s,background .15s}
-.rod-ui .campaign-world{height:98px;position:relative;overflow:hidden;background:linear-gradient(180deg,var(--world-bg),#171511)}
+.rod-ui .campaign-card{--world:#c49c60;--world-bg:#372b20;grid-column:var(--map-column);grid-row:var(--map-row);position:relative;display:flex;flex-direction:column;min-width:0;background:#171511;border:2px solid #65503a;color:var(--bone);transition:border-color .15s,background .15s}
+.rod-ui .campaign-world{height:98px;flex:0 0 98px;position:relative;overflow:hidden;background:linear-gradient(180deg,var(--world-bg),#171511)}
 .rod-ui .campaign-world-scene{position:absolute;inset:0;width:100%;height:100%;color:var(--world)}
 .rod-ui .map-land{fill:currentColor;opacity:.5}
 .rod-ui .map-landmark{fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
@@ -25,11 +25,19 @@
 .rod-ui .map-planet{fill:currentColor;opacity:.4}
 .rod-ui .campaign-number{position:absolute;left:13px;top:9px;font:36px var(--disp);color:var(--bone);text-shadow:0 2px 8px #000}
 .rod-ui .campaign-clear-mark{position:absolute;right:12px;top:9px;width:28px;height:28px;border:1px solid #8ec7a5;border-radius:50%;display:grid;place-items:center;color:#a7dfba;background:#101c16;font-size:17px}
-.rod-ui .campaign-card-label{padding:10px 14px 27px}
+.rod-ui .campaign-card-label{padding:6px 14px 4px;flex:none}
 .rod-ui .campaign-card b{display:block;font-size:20px;letter-spacing:.045em;line-height:1.1;overflow-wrap:break-word}
-.rod-ui .campaign-card small{display:block;font-size:12px;letter-spacing:.07em;color:var(--bone-d);margin-top:6px;line-height:1.25}
-.rod-ui .campaign-status{position:absolute;bottom:10px;left:14px;font-size:11px;font-weight:800;letter-spacing:.13em;color:var(--bone-d)}
-.rod-ui .campaign-card.locked{opacity:.48;border-style:dashed}
+.rod-ui .campaign-card small{display:block;font-size:18px;letter-spacing:.03em;color:var(--bone-d);margin-top:4px;line-height:1.15;overflow-wrap:break-word}
+/* Status owns a row instead of overlapping the title/boss text when it wraps.
+   The catalogue, illustration height, card height and route anchors stay fixed. */
+.rod-ui .campaign-status{position:static;flex:none;margin-top:auto;padding:0 14px 8px;font-size:16px;line-height:1.15;font-weight:800;letter-spacing:.09em;color:var(--bone-d)}
+/* Future world names stay readable. Only the authored illustration is dimmed;
+   locked cards keep their dashed border and existing noninteractive markup. */
+.rod-ui .campaign-card.locked{opacity:1;border-style:dashed;background:#14120f}
+.rod-ui .campaign-card.locked .campaign-world-scene{opacity:.55}
+.rod-ui .campaign-card.locked b{color:#d9d2c3}
+.rod-ui .campaign-card.locked small{color:#beb6a3}
+.rod-ui .campaign-card.locked .campaign-status{color:#beb6a3}
 .rod-ui .campaign-card.cleared{border-color:#51775f}
 .rod-ui .campaign-card.cleared .campaign-status{color:#a7dfba}
 .rod-ui .campaign-card.frontier:before{content:"";position:absolute;left:calc(50% - 5px);top:-16px;width:10px;height:10px;background:var(--haz);transform:rotate(45deg)}
@@ -46,7 +54,7 @@
 .rod-ui .campaign-card[data-theme="sky"]{--world:#abd6ed;--world-bg:#46698a}
 .rod-ui .campaign-card[data-theme="hell"]{--world:#fa9568;--world-bg:#632923}
 .rod-ui .campaign-card[data-theme="space"]{--world:#c7b6ed;--world-bg:#2e2548}
-.rod-ui .campaign-map-footer{display:flex;justify-content:space-between;gap:20px;min-height:16px;margin:0 4px 10px;font-size:11px;line-height:16px;letter-spacing:.12em;color:var(--bone-d)}
+.rod-ui .campaign-map-footer{display:flex;justify-content:space-between;gap:20px;min-height:20px;margin:0 4px 10px;font-size:16px;line-height:20px;letter-spacing:.06em;color:var(--bone-d)}
 .rod-ui .campaign-legend{display:flex;gap:22px}
 .rod-ui .campaign-legend span{display:flex;align-items:center;gap:8px}
 .rod-ui .campaign-legend i{width:9px;height:9px;background:#695843}

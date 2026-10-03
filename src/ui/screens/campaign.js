@@ -1,5 +1,5 @@
 import { h } from '../comp.js';
-import { esc, hints } from '../glyphs.js';
+import { caps, esc, hints, pad } from '../glyphs.js';
 import { TEN_LEVELS, normalizeCampaignProgress } from '../../data/campaign.js';
 
 // Map positions are presentation only. Level identity and unlocks come from the
@@ -79,7 +79,7 @@ export class CampaignScreen {
     this.el.addEventListener('navfocus', event => this.preview(event.target));
     this.render();
   }
-  render() { this.el.querySelector('.campaign-body').innerHTML = campaignSelectionMarkup(this.profile, this.extra); this.el.querySelector('[data-hints]').innerHTML = hints([['nav', 'CHOOSE WORLD'], ['confirm', 'SELECT'], ['back', 'GARAGE']]); }
+  render() { this.el.querySelector('.campaign-body').innerHTML = campaignSelectionMarkup(this.profile, this.extra); this.el.querySelector('[data-hints]').innerHTML = hints([[caps(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']), pad('DPAD'), 'CHOOSE WORLD'], ['confirm', 'SELECT'], ['back', 'GARAGE']]); }
   update(profile, extra = {}) {
     const focused = this.ui.nav.cur, key = focused && this.el.contains(focused) ? focused.dataset.k : null;
     this.profile = profile; this.extra = { ...this.extra, ...extra }; this.render();

@@ -310,6 +310,7 @@ export class Director {
   // --------------------------------------------------------------------------------------------- chain reactions
   /** sim hook: a car just exploded. Neighbours cook off (staggered), runaway wrecks tumble. */
   onExplode(sim, car, { launchWreck = true } = {}) {
+    if (sim.combat?.nukeEpoch(car)) return;
     const p = car.veh.pos;
     const R = car.spec.explosive ? 22 : 12.5;
     const credit = car.kind === 'enemy' && (car.lastHitBy === 1 && sim.time - car.lastHitT < 12);
@@ -348,6 +349,10 @@ export class Director {
   /** sim hook: two cars collided hard. Runaway (driverless) cars and burning wrecks take the other car with them. */
   onCrash(sim, car, other, dv) {
     if (!other) return;
+    if (sim.combat?.nukeEpoch(other)) {
+      if (car.kind === 'player' || car.elite || car.isBoss) return;
+      sim.combat.inheritNukeDerived(car, other);
+    }
     // a raider that MEANT to hit you (ram / swipe / crush) hits harder than the physics alone says: upgraded trucks still feel it
     if (car.kind === 'player' && other.kind === 'enemy' && other.ai?.atk && other.ai.atk.kind !== 'brake' && other.ai.atk.phase !== 'line' && dv > 1.2 && sim.time - (other.ramHitT ?? -9) > 0.6) {
       other.ramHitT = sim.time;

@@ -15,7 +15,7 @@ export const DEFAULT_BINDINGS = {
   // gunner
   reload: ['KeyR'], grenade: ['KeyG'], slot1: ['Digit1'], slot2: ['Digit2'], slot3: ['Digit3'], slot4: ['Digit4'], slot5: ['Digit5'], slot6: ['Digit6'],
   lean: ['KeyQ'], view: ['KeyV'],
-  pause: ['Escape'],
+  pause: ['Escape'], nuke: ['KeyN'],
 };
 
 export class Input {
@@ -30,6 +30,7 @@ export class Input {
     this.invertY = false;
     this.pad = null; this.padPrev = new Array(20).fill(false); this.padEdge = new Array(20).fill(false);
     this.padConnected = false; this.padName = '';
+    this._nukePadArmed = false; // Require a sampled neutral L3 after capture/reset or a new pad.
     this.lastDevice = 'kbm';
     this.steerSmooth = 0;
     addEventListener('keydown', (e) => {
@@ -65,11 +66,11 @@ export class Input {
     this.keys.clear(); this.endFrame();
     this.mouse.left = this.mouse.right = this.mouse.middle = false;
     this.steerSmooth = 0; this.mlook = null; this._triggerPrev = false;
-    this.padEdge.fill(false);
+    this.padEdge.fill(false); this._nukePadArmed = false;
   }
   _clearPad() {
     this.pad = null; this.padConnected = false; this.padName = '';
-    this.padPrev.fill(false); this.padEdge.fill(false); this._triggerPrev = false;
+    this.padPrev.fill(false); this.padEdge.fill(false); this._triggerPrev = false; this._nukePadArmed = false;
   }
 
   requestLock() { if (!this.locked) { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* ignore */ } } }
@@ -77,6 +78,13 @@ export class Input {
 
   down(action) { return (this.bindings[action] || []).some((c) => this.keys.has(c)); }
   hit(action) { return (this.bindings[action] || []).some((c) => this.pressed.has(c)); }
+
+  /** Shared human action: read after poll(), before replacing either seat with AI commands. */
+  nukePressed() {
+    if (this._nukeRead) return false;
+    this._nukeRead = true;
+    return this.hit('nuke') || (this._nukePadArmed && this.edge(10)); // Only L3 requires release; keyboard is unchanged.
+  }
 
   _mouseAimActive() { return !!this.locked && !!(this._mouseMovedThisFrame || this.mouseDX || this.mouseDY); }
 
@@ -96,6 +104,7 @@ export class Input {
         const d = !!(pad.buttons[i]?.pressed || pad.buttons[i]?.value > 0.5);
         this.padEdge[i] = d && !this.padPrev[i]; this.padPrev[i] = d;
       }
+      if (!this.padPrev[10]) this._nukePadArmed = true;
       // Device prompts and aim assist must follow usable analog input, not only fully pressed triggers.
       // Ignore unused axes and stick drift inside the same deadzones as the command readers.
       const act = pad.buttons.some((b, i) => b.pressed || b.value > (i === 6 ? 0.3 : i === 7 ? 0.35 : 0.5))
@@ -195,5 +204,5 @@ export class Input {
   }
 
   /** Clear per-frame accumulators (call at the end of every frame). */
-  endFrame() { this.pressed.clear(); this.mouseDX = 0; this.mouseDY = 0; this.wheel = 0; this._mouseMovedThisFrame = false; this.mousePressed.left = false; this.mousePressed.right = false; }
+  endFrame() { this.pressed.clear(); this.mouseDX = 0; this.mouseDY = 0; this.wheel = 0; this._mouseMovedThisFrame = false; this.mousePressed.left = false; this.mousePressed.right = false; this._nukeRead = false; }
 }

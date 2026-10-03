@@ -71,7 +71,7 @@ test('hello requires explicit campaign capability and rejects a protocol-3 minig
   const transport = new Memory(), session = new Session(transport); await session.host(normalizeProfile(DEFAULT_PROFILE()));
   transport.onOpen(); session._onMsg({ ...hello(CAMPAIGN_PROTOCOL), protocol: 3 });
   assert.equal(session.connected, false); assert.equal(session.canStart(), false); assert.equal(transport.closedConnections, 1);
-  assert.equal(NET_PROTOCOL, 6);
+  assert.equal(NET_PROTOCOL, 7);
 });
 
 test('host chapter selection invalidates old consent/readiness without moving personal cash, gear or garage presence', async () => {

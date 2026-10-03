@@ -71,7 +71,7 @@ test('optional v4 carries all four distinct aim, fire, alive and weapon states w
   const ordinaryBytes = packet([ordinary]); assert.equal(new Uint8Array(ordinaryBytes)[0], 3);
   const bytes = packet([car, ordinary]); assert.equal(new Uint8Array(bytes)[0], 4);
   const { decoded, buffer } = materialize(bytes), st = buffer.states.get(car.id);
-  assert.equal(decoded.cars.length, 2); assert.equal(NET_PROTOCOL, 6);
+  assert.equal(decoded.cars.length, 2); assert.equal(NET_PROTOCOL, 7);
   assert.equal(st.poseRevision, 37); assert.equal(st.nitroRechargeLocked, true);
   assert.equal(st.nWheels, car.spec.wheels.length);
   for (const role of GUNNER_ROLES) {

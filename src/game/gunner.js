@@ -201,9 +201,14 @@ export class GunnerController {
     // 2) tracking: follow the target's angular motion relative to us (70%)
     const tYaw = Math.atan2(_o.copy(best.t.p).sub(cam.position).x, _o.z), tPitch = Math.asin(Math.max(-1, Math.min(1, _o.normalize().y)));
     const futP = _e.copy(best.t.p).addScaledVector(best.t.v, 0.1).addScaledVector(ownVel || _r.set(0, 0, 0), -0.1).sub(cam.position);
-    const fYaw = Math.atan2(futP.x, futP.z), fPitch = Math.asin(Math.max(-1, Math.min(1, futP.normalize().y)));
-    const rate = 0.7 / 0.1;
-    cmd.dYaw += wrapAngle(fYaw - tYaw) * rate * dt * 0.7; cmd.dPitch += (fPitch - tPitch) * rate * dt * 0.7;
+    // A close target can pass the eye during the prediction horizon. Its
+    // predicted opposite bearing is not the current target's angular motion.
+    // Retain current-target slowdown/ADS snap without rotating toward that pole.
+    if (futP.lengthSq() > 1e-12 && futP.dot(_o) > 0) {
+      const fYaw = Math.atan2(futP.x, futP.z), fPitch = Math.asin(Math.max(-1, Math.min(1, futP.normalize().y)));
+      const rate = 0.7 / 0.1;
+      cmd.dYaw += wrapAngle(fYaw - tYaw) * rate * dt * 0.7; cmd.dPitch += (fPitch - tPitch) * rate * dt * 0.7;
+    }
     // 3) ADS snap: when sights come up, pull most of the way onto the target over ~0.15 s
     if (cmd.ads && !this._adsPrev) this._snapT = 0.15;
     this._adsPrev = !!cmd.ads;
@@ -265,7 +270,7 @@ export class GunnerController {
         _u.set(0, 1, 0); if (Math.abs(_d.y) > 0.95) _u.set(1, 0, 0);
         _r.crossVectors(_d, _u).normalize(); _u.crossVectors(_r, _d).normalize();
         _e.copy(_d).addScaledVector(_r, Math.tan(ang) * Math.cos(rot)).addScaledVector(_u, Math.tan(ang) * Math.sin(rot)).normalize();
-        this._shootRay(M, _e, w, shotEvents, ignore, own);
+        this._shootRay(M, _e, w, shotEvents, ignore, own, p);
       }
       ctx.emit(this._fpTag({ t: 'shot', src: 'player', weapon: w.id, origin: M.toArray(), rays: shotEvents, mode: w.mode }));
     }
@@ -287,7 +292,7 @@ export class GunnerController {
     return e;
   }
 
-  _shootRay(o, dir, w, out, ignore, own) {
+  _shootRay(o, dir, w, out, ignore, own, pelletIndex = 0) {
     const ctx = this.ctx;
     let remaining = w.range, origin = _o.copy(o), pierce = w.pierce || 0, last = null;
     const ro = origin.clone(); const dr = dir.clone();
@@ -308,7 +313,7 @@ export class GunnerController {
       const zone = hit.zone;
       const dmg = w.dmg * fall * (pass > 0 ? 0.6 : 1);
       rays.push({ end: end.toArray(), carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, through: !!hit.through, surface: zone.kind === 'tire' ? 'tire' : /driver|gunner/.test(zone.kind) ? 'flesh' : 'metal', dmg });
-      ctx.report({ carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, dmg, through: !!hit.through, point: end.toArray(), localPoint: localHitPoint(hit.car, end), poseRevision: hit.car.veh?.poseRevision || 0, shotId: this.shots, dir: dr.toArray(), weapon: w.id, tireMul: w.tireMul || 1, head: /_head$/.test(zone.kind) });
+      ctx.report({ carId: hit.car.id, zone: zone.kind, zoneIndex: zone.index ?? -1, dmg, through: !!hit.through, point: end.toArray(), localPoint: localHitPoint(hit.car, end), poseRevision: hit.car.veh?.poseRevision || 0, shotId: this.shots, pelletIndex, penetrationIndex: pass, dir: dr.toArray(), weapon: w.id, tireMul: w.tireMul || 1, head: /_head$/.test(zone.kind) });
       // feedback class for the HUD: boss part / armour deflect (the war-train's hull and locked parts take no damage) / weak point
       const car = hit.car; let kind = 'hit';
       if (car.isBoss) {

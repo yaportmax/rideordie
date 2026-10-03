@@ -14,28 +14,28 @@ const L = (c) => ({ c });
 const KB = {
   driver: [
     ['ACCELERATE', [A('throttle')]], ['BRAKE / REVERSE', [A('brake')]], ['STEER LEFT', [A('left')]], ['STEER RIGHT', [A('right')]], ['HANDBRAKE / DRIFT', [A('handbrake')]],
-    ['NITRO', [A('nitro')]], ['OIL SLICK', [A('special1')]], ['DROP MINE', [A('special2')]], ['FLIP / RESET (HOLD)', [A('reset')]], ['CAMERA (COCKPIT / CHASE)', [A('camera')]], ['LOOK BACK (HOLD)', [A('lookBack')]], ['HORN', [A('horn')]], ['USE MEDKIT', [A('medkit')]], ['PAUSE MENU', [A('pause')]],
+    ['NITRO', [A('nitro')]], ['OIL SLICK', [A('special1')]], ['DROP MINE', [A('special2')]], ['FLIP / RESET (HOLD)', [A('reset')]], ['CAMERA (COCKPIT / CHASE)', [A('camera')]], ['LOOK BACK (HOLD)', [A('lookBack')]], ['HORN', [A('horn')]], ['USE MEDKIT', [A('medkit')]], ['ACTIVATE NUKE (20-KILL COMBO)', [A('nuke')]], ['PAUSE MENU', [A('pause')]],
   ],
   gunner: [
     ['AIM', [L('MouseMove')]], ['FIRE', [L('MouseLeft')]], ['AIM DOWN SIGHTS', [L('MouseRight')]], ['RELOAD', [A('reload')]], ['THROW GRENADE', [A('grenade')]],
-    ['WEAPON 1-3', [A('slot1'), A('slot2'), A('slot3')]], ['NEXT / PREVIOUS WEAPON', [L('Wheel')]], ['CAMERA (FIRST / THIRD PERSON)', [A('view')]], ['USE MEDKIT', [A('medkit')]], ['PAUSE MENU', [A('pause')]],
+    ['WEAPON 1-3', [A('slot1'), A('slot2'), A('slot3')]], ['NEXT / PREVIOUS WEAPON', [L('Wheel')]], ['CAMERA (FIRST / THIRD PERSON)', [A('view')]], ['USE MEDKIT', [A('medkit')]], ['ACTIVATE NUKE (20-KILL COMBO)', [A('nuke')]], ['PAUSE MENU', [A('pause')]],
   ],
   solo: [
     ['DRIVE', [A('throttle'), A('left'), A('brake'), A('right')]], ['HANDBRAKE / DRIFT', [A('handbrake')]], ['NITRO', [A('nitro')]],
     ['AIM', [L('MouseMove')]], ['FIRE', [L('MouseLeft')]], ['AIM DOWN SIGHTS', [L('MouseRight')]], ['RELOAD', [A('reload')]], ['THROW GRENADE', [A('grenade')]],
-    ['OIL SLICK', [A('special1')]], ['DROP MINE', [A('special2')]], ['FLIP / RESET', [L('KeyT')]], ['WEAPON 1-3 / WHEEL', [A('slot1'), A('slot2'), A('slot3'), L('Wheel')]], ['CAMERA (FIRST / THIRD PERSON)', [A('view')]], ['USE MEDKIT', [A('medkit')]], ['PAUSE MENU', [A('pause')]],
+    ['OIL SLICK', [A('special1')]], ['DROP MINE', [A('special2')]], ['FLIP / RESET', [L('KeyT')]], ['WEAPON 1-3 / WHEEL', [A('slot1'), A('slot2'), A('slot3'), L('Wheel')]], ['CAMERA (FIRST / THIRD PERSON)', [A('view')]], ['USE MEDKIT', [A('medkit')]], ['ACTIVATE NUKE (20-KILL COMBO)', [A('nuke')]], ['PAUSE MENU', [A('pause')]],
   ],
 };
 // gamepad mapping (mirrors src/core/input.js: driver(), gunner(), solo())
 const PADMAP = {
-  driver: { LT: 'BRAKE / REVERSE', RT: 'ACCELERATE', LB: 'LOOK BACK (HOLD)', RB: 'NITRO', LS: 'STEER', DPAD: 'LEFT / RIGHT: STEER · DOWN: MEDKIT', A: 'HANDBRAKE / DRIFT', B: 'DROP MINE', X: 'OIL SLICK', Y: 'FLIP / RESET (HOLD)', RS: 'LOOK AROUND · CLICK: CAMERA', START: 'PAUSE' },
-  gunner: { LT: 'AIM DOWN SIGHTS', RT: 'FIRE', LB: 'GRENADE', RB: 'GRENADE', DPAD: 'UP / RIGHT / DOWN: WEAPON 1-3', X: 'RELOAD', Y: 'NEXT WEAPON', RS: 'AIM · CLICK: MEDKIT', BACK: 'FIRST / THIRD PERSON', START: 'PAUSE' },
-  solo: { LT: 'BRAKE', RT: 'ACCELERATE', LB: 'NITRO', RB: 'FIRE', LS: 'STEER', DPAD: 'LEFT: OIL · RIGHT: MINE · DOWN: MEDKIT', A: 'HANDBRAKE / DRIFT', B: 'GRENADE', X: 'RELOAD', Y: 'FLIP / RESET', RS: 'AIM · CLICK: NEXT WEAPON', BACK: 'FIRST / THIRD PERSON', START: 'PAUSE' },
+  driver: { LT: 'BRAKE / REVERSE', RT: 'ACCELERATE', LB: 'LOOK BACK (HOLD)', RB: 'NITRO', LS: 'STEER', L3: 'ACTIVATE NUKE', DPAD: 'LEFT / RIGHT: STEER · DOWN: MEDKIT', A: 'HANDBRAKE / DRIFT', B: 'DROP MINE', X: 'OIL SLICK', Y: 'FLIP / RESET (HOLD)', RS: 'LOOK AROUND · CLICK: CAMERA', START: 'PAUSE' },
+  gunner: { LT: 'AIM DOWN SIGHTS', RT: 'FIRE', LB: 'GRENADE', RB: 'GRENADE', L3: 'ACTIVATE NUKE', DPAD: 'UP / RIGHT / DOWN: WEAPON 1-3', X: 'RELOAD', Y: 'NEXT WEAPON', RS: 'AIM · CLICK: MEDKIT', BACK: 'FIRST / THIRD PERSON', START: 'PAUSE' },
+  solo: { LT: 'BRAKE', RT: 'ACCELERATE', LB: 'NITRO', RB: 'FIRE', LS: 'STEER', L3: 'ACTIVATE NUKE', DPAD: 'LEFT: OIL · RIGHT: MINE · DOWN: MEDKIT', A: 'HANDBRAKE / DRIFT', B: 'GRENADE', X: 'RELOAD', Y: 'FLIP / RESET', RS: 'AIM · CLICK: NEXT WEAPON', BACK: 'FIRST / THIRD PERSON', START: 'PAUSE' },
 };
-const LEFT = ['LT', 'LB', 'LS', 'DPAD'], RIGHT = ['RT', 'RB', 'Y', 'X', 'B', 'A', 'RS', 'BACK', 'START'];
+const LEFT = ['LT', 'LB', 'LS', 'L3', 'DPAD'], RIGHT = ['RT', 'RB', 'Y', 'X', 'B', 'A', 'RS', 'BACK', 'START'];
 
 function padSvg(map) {
-  const on = (k) => (map[k] ? 'on' : '');
+  const on = (k) => (map[k] || k === 'LS' && map.L3 ? 'on' : '');
   const xy = (k, x, y, xb, ps) => `<g class="pbtn ${on(k)}"><circle cx="${x}" cy="${y}" r="15"/><text class="xb" x="${x}" y="${y + 5}">${xb}</text><text class="ps" x="${x}" y="${y + 5}">${ps}</text></g>`;
   return `<svg class="padsvg" viewBox="0 0 420 300" aria-hidden="true">
     <path class="pbody" d="M118 96C84 96 54 136 44 196C37 238 51 276 77 268C99 262 109 231 131 221L289 221C311 231 321 262 343 268C369 276 383 238 376 196C366 136 336 96 302 96Z"/>

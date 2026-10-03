@@ -256,17 +256,34 @@ test('known defeat and a simultaneous fatal crew hit cannot become a later celeb
 
 test('real Run.update drives both seats beneath naturally reached results after registered boss clear', async () => {
   await fixture({ role: 'solo', bossApproach: true }, ({ run, sim, player, profile }) => {
+    // The new live combat policy must not block the already published
+    // cosmetic AI damage path or reopen awards after the verified clear.
+    sim.configureCombat(run.id, gunnerLoadout(run.effects));
+    for (let i = 0; i < 20; i++) {
+      sim.combat.advance(.1);
+      const terminal = sim.spawnCar('e_sedan', { s: 400 + i * 30, d: 30 });
+      sim.damageCar(terminal, terminal.hp + 1, { cause: 'bullet', src: 1 });
+    }
+    assert.equal(sim.combat.ready, true); assert.equal(sim.combat.combo, 20);
+    run._simEventsToRun(sim.drainEvents());
     // Declared source-generated terrain/asphalt/branch CPU scope at the authored boss approach.
     // Kill actual retained Director boss bodies through production explosion;
     // do not inject complete flags or force over/won/results timing.
     const beforeProfile = structuredClone(profile), beforeOwnership = [run.role, run.simPeer, run.humanDriver, run.humanGunner];
     const elite = actualChapterDeath(sim);
+    sim.combat.advance(0);
+    assert.equal(sim.combat.ready, false); assert.equal(sim.combat.combo, 0);
+    assert.equal(sim.combat.best, 20);
     assert.ok(elite.cars.every(car => sim.cars.get(car.id) === car && car.exploded));
     assert.equal(verifiedBossClear(sim), true); assert.equal(sim.state, 'run');
     run.events = sim.drainEvents(); run._simEventsToRun();
     assert.equal(run._beginVictoryPresentation(), true);
     assert.equal(run.aiDriver.run, run); assert.equal(run.aiGunner.run, run);
     const frozenSummary = structuredClone(run.victorySummary), frozenCash = run.cash;
+    const combatBest = sim.combat.best, combatAward = sim.combat.award;
+    const receiptRevision = sim._damageReceiptRevision, slotCount = sim.hitGuard.shots.size;
+    const frozenHits = sim.stats.hits;
+    assert.equal(frozenSummary.bestStreak, combatBest);
     sim.releaseCar(player); assert.equal(player.held, false);
     const enemy = sim.spawnCar('e_technical', { s: player.s + 60, d: -4, speed: 18 });
     const start = player.s, shots = [], acceptedHits = [], trace = [];
@@ -292,6 +309,11 @@ test('real Run.update drives both seats beneath naturally reached results after 
     assert.ok(acceptedHits.length > 0, 'real temporary AI hits are accepted by actual Sim.applyHit for the actual Technical');
     assert.ok(enemy.exploded || enemy.hp < enemy.maxHp || Object.values(enemy.crew).some(crew => crew.hp < crew.max), 'accepted shots damage a real enemy');
     assert.equal(sim.state, 'over'); assert.equal(sim.won, true);
+    assert.equal(sim.combat.best, combatBest); assert.equal(sim.combat.award, combatAward);
+    assert.equal(sim.combat.ready, false); assert.equal(sim.combat.combo, 0);
+    assert.equal(sim._damageReceiptRevision, receiptRevision, 'cosmetic hits cannot publish new human damage receipts');
+    assert.equal(sim.hitGuard.shots.size, slotCount, 'cosmetic hits cannot consume human replay slots');
+    assert.equal(sim.stats.hits, frozenHits, 'cosmetic hits cannot change counted accuracy');
     assert.equal(run.finished, true, 'actual victory and existing results delays complete while driving continues');
     assert.ok(resultsStartS !== null && player.s > resultsStartS + 10, 'actual AI driving continues after Results became available');
     assert.equal(sim.result.why, 'victory'); assert.equal(run.shots, 0, 'presentation shots remain non-scoring');
@@ -302,14 +324,17 @@ test('real Run.update drives both seats beneath naturally reached results after 
 });
 test('authoritative celebration rejects remote actions without mutating peer/seat ownership', async () => {
   await fixture({ coop: true }, ({ run, sim }) => {
+    sim.configureCombat(run.id, gunnerLoadout(run.effects));
     sim.director.chapterBossDone.add(1); sim.director.campaignComplete = true; sim._runState(DT); run._beginVictoryPresentation();
     const before = structuredClone(run.gunnerRemote), magazine = run.gunner.mag.slice(), kits = run.medkits;
     for (const message of [{ t: 'input', i: { throttle: 0, brake: 1 } }, { t: 'g', y: 4, p: 1, f: 1, w: 1 },
       { t: 'hit', h: {} }, { t: 'rocket', o: [0, 0, 0], d: [0, 0, 1], cfg: {} },
-      { t: 'grenade', o: [0, 0, 0], v: [0, 0, 1], cfg: {} }, { t: 'shotfx', e: [{ t: 'shot' }] }, { t: 'medkit' }]) run.onNet(message);
+      { t: 'grenade', o: [0, 0, 0], v: [0, 0, 1], cfg: {} }, { t: 'shotfx', e: [{ t: 'shot' }] },
+      { t: 'nuke', runId: run.id, seq: 1 }, { t: 'medkit' }]) run.onNet(message);
     assert.deepEqual(run.gunnerRemote, before); assert.deepEqual(run.gunner.mag, magazine);
     assert.equal(run.remoteDriverInput, null); assert.equal(run.medkits, kits); assert.equal(run.shots, 0);
     assert.equal(run.simPeer, true); assert.equal(run.role, 'driver');
+    assert.deepEqual(sim.combat.requestSeq, { local: 0, peer: 0 }, 'post-clear remote actions never reach entitlement');
   });
 });
 

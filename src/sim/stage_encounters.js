@@ -482,19 +482,23 @@ export class StageEncounters {
       if (actor.dead || !actor.shootable) continue;
       const distance = actor.pos.distanceTo(pos);
       if (distance >= radius + actor.raycastRadius()) continue;
-      this.damageActor(actor, damage * clamp(1 - Math.max(0, distance - actor.raycastRadius()) / radius, 0, 1), { src: owner, cause: 'blast', sourceCar }, sim);
+      const dealt = damage * clamp(1 - Math.max(0, distance - actor.raycastRadius()) / radius, 0, 1);
+      if (dealt > 0 && sourceCar) sim.combat?.inheritNukeDerived(actor, sourceCar);
+      this.damageActor(actor, dealt, { src: owner, cause: 'blast', sourceCar }, sim);
     }
   }
   _kill(actor, info, sim) {
     if (actor.dead) return;
+    const quiet = !!info.quiet || !!sim.combat?.nukeEpoch(actor);
     actor.hp = 0; actor.dead = actor.exploded = true; actor.status = actor.phase = actor.kind === 'gate' ? 'broken' : 'dead'; actor.deadT = sim.time;
     this._removeBodies(actor, sim);
-    if (!info.quiet) sim.emit({ t: 'stageBreak', id: actor.id, kind: actor.kind, siteId: actor.siteId, pos: actor.pos.toArray(), owner: info.src });
+    if (!quiet) sim.emit({ t: 'stageBreak', id: actor.id, kind: actor.kind, siteId: actor.siteId, pos: actor.pos.toArray(), owner: info.src });
     if (info.src === 1 && ['tower', 'rifleman', 'drone', 'boat'].includes(actor.kind)) {
       if (!celebrationActive(sim)) sim.stats.kills++;
-      sim.emit({ t: 'kill', id: actor.id, spec: `stage_${actor.kind}`, cause: info.cause || 'bullet', pos: actor.pos.toArray(), crash: false, nonScoring: celebrationActive(sim) });
+      const event = { t: 'kill', id: actor.id, spec: `stage_${actor.kind}`, cause: info.cause || 'bullet', pos: actor.pos.toArray(), crash: false, nonScoring: celebrationActive(sim) };
+      if (sim._playerKill) sim._playerKill(actor, event); else sim.emit(event);
     }
-    if (actor.kind === 'barrel' && !info.quiet) {
+    if (actor.kind === 'barrel' && !quiet) {
       sim.emit({ t: 'boom', pos: actor.pos.toArray(), radius: 5.5, kind: 'mine' });
       // This is a dodgeable enemy weapon, rather than an enemy vehicle cook-off.
       sim.blast(actor.pos, 5.5, 42, .45, info.sourceCar?.kind === 'enemy' ? info.sourceCar : null, info.src === 1 ? 1 : actor.owner);
