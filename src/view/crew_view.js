@@ -37,6 +37,7 @@ function shadowOnly(m) {
 }
 
 const ENEMY_GUN_MODEL = { pistol: 'pistol', smg: 'smg', rifle: 'rifle', shotgun: 'shotgun', mg: 'lmg', hmg: 'lmg', rpg: 'rpg' };
+const RETIRED_HERO_VEST_NODES = new Set(['armor_t1', 'armor_t2', 'armor_t3']);
 const ONE_HANDED = new Set(['pistol', 'revolver']);
 const V = () => new THREE.Vector3();
 const _a = V(), _b = V(), _c = V(), _t = V(), _e = V(), _n = V(), _u = V(), _p = V(), _d = V(), _up = new THREE.Vector3(0, 1, 0);
@@ -176,8 +177,10 @@ export class CrewView {
     patchCrewMaterials(model);
     this.bones = {};
     model.traverse((o) => { if (o.isBone || o.type === 'Bone' || /^(socket_|armor_t)/.test(o.name)) this.bones[o.name] = o; });
-    // armour tiers on the hero gunner
-    for (const t of [1, 2, 3]) { const a = model.getObjectByName('armor_t' + t); if (a) a.visible = this.opts.armorTier === t; }
+    // Retired player vests stay attached for cloned skeleton/resource ownership.
+    // Hide only the exact authored hero nodes; stale loadouts cannot select one,
+    // and enemy armour and the unarmored body keep their authored visibility.
+    if (this.kind === 'hero_gunner') model.traverse((o) => { if (RETIRED_HERO_VEST_NODES.has(o.name)) o.visible = false; });
     this.mixer = new THREE.AnimationMixer(model);
     let idx = clipIndex.get(this.clips);
     if (!idx) { idx = new Map(this.clips.map((c) => [c.name, c])); clipIndex.set(this.clips, idx); }

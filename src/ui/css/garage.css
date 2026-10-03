@@ -79,6 +79,15 @@
 .rod-ui .garage .lhead h2{font-size:32px}
 .rod-ui .garage .g-rows{top:66px; padding:14px 22px 16px 18px}
 .rod-ui .garage .row{height:80px; margin-bottom:8px}
+.rod-ui .garage .g-list-sec{margin:6px 12px 12px;font-size:13px;font-weight:800;letter-spacing:.12em;color:var(--rust)}
+.rod-ui .garage .g-list-sec:not(:first-child){margin-top:20px}
+.rod-ui .garage .family-row{height:116px;padding-left:22px;gap:12px}
+.rod-ui .garage .family-row .ricon{width:48px;flex:none}
+.rod-ui .garage .family-row .ricon .ic{width:48px;height:38px}
+.rod-ui .garage .family-row .rn{font-size:24px;letter-spacing:.05em}
+.rod-ui .garage .family-row .rsub .lv{font-size:13px;letter-spacing:.025em;white-space:normal;line-height:1.3}
+.rod-ui .garage .family-row .rprice{min-width:80px}
+.rod-ui .garage .family-row .chip{font-size:13px;padding:5px 8px;letter-spacing:.1em}
 /* scroll affordance: fades + "N MORE" chevron when rows are hidden */
 .rod-ui .g-list .more{position:absolute; left:2px; right:12px; pointer-events:none; opacity:0; transition:opacity .2s; z-index:3; display:flex; justify-content:center}
 .rod-ui .g-list .m-down{bottom:2px; height:84px; align-items:flex-end; padding-bottom:8px; background:linear-gradient(180deg,rgba(17,13,10,0),rgba(17,13,10,.92) 62%)}
@@ -132,15 +141,30 @@
 .rod-ui .sw.is-f span{color:#fff}
 
 .rod-ui .g-detail{position:absolute; right:56px; top:164px; bottom:176px; width:460px}
-.rod-ui .g-detail.nofoot .d-scroll{bottom:0}
-.rod-ui .d-scroll{position:absolute; left:0; right:0; top:0; bottom:112px; overflow-y:auto; padding:24px 30px 8px 34px}
+.rod-ui .g-detail.nofoot .d-content{bottom:0}
+.rod-ui .d-content{position:absolute; left:0; right:0; top:0; bottom:112px; overflow:hidden; padding:22px 26px 12px 28px}
 .rod-ui .d-foot{position:absolute; left:0; right:0; bottom:0; height:112px; padding:10px 30px 24px 34px; display:flex; align-items:flex-end}
 .rod-ui .d-foot:empty{display:none}
+.rod-ui .d-note{display:flex;align-items:center;justify-content:center;min-height:68px;width:100%;padding:12px;border-top:2px solid #4a3b2c;color:var(--mute);font-size:15px;line-height:1.35;font-weight:800;letter-spacing:.09em;text-align:center}
+.rod-ui .d-build{font-size:16px;line-height:1.4;margin-top:12px;color:var(--mute);letter-spacing:.025em}
+.rod-ui .detail-link{display:flex;align-items:center;min-height:40px;padding:8px 12px;margin-top:12px;border:2px solid #6a4c2d;font-size:15px;font-weight:800;letter-spacing:.07em;color:var(--haz)}
+.rod-ui .detail-link.is-f{background:var(--haz);color:#1a0e06;border-color:var(--haz);box-shadow:0 0 0 3px var(--haz)}
+.rod-ui .detail-pages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:12px}
+.rod-ui .detail-page{display:flex;align-items:center;justify-content:center;min-height:42px;padding:8px 6px;border:2px solid #3b322a;font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--mute);background:#1e1915}
+.rod-ui .detail-page.on{border-color:var(--rust);color:var(--haz)}
+.rod-ui .detail-page.is-f{border-color:var(--haz);background:var(--haz);color:#1a0e06;box-shadow:0 0 0 2px var(--haz)}
+.rod-ui .weapon-panel{margin-top:4px}
+.rod-ui .weapon-panel .d-desc{font-size:16px;line-height:1.35}
+.rod-ui .weapon-panel .d-sec{margin:14px 0 8px}
+.rod-ui .garage .d-content .stats:not(.compact) .stat{row-gap:4px;margin-bottom:12px}
+.rod-ui .garage .d-content .stats:not(.compact) .slabel{font-size:16px;line-height:1.2}
+.rod-ui .garage .d-content .stats:not(.compact) .sval{font-size:20px;line-height:1.2}
+.rod-ui .garage .d-content .stats:not(.compact) .sbar{height:10px}
 .rod-ui .d-head{position:relative}
-.rod-ui .d-head h2{font-family:var(--disp); font-size:54px; line-height:1; letter-spacing:.05em; margin-top:4px; transform:skewX(-8deg); transform-origin:left bottom; text-shadow:0 3px 0 rgba(0,0,0,.6)}
+.rod-ui .d-head h2{font-family:var(--disp); font-size:42px; line-height:1.08; letter-spacing:.04em; margin-top:4px; transform:skewX(-8deg); transform-origin:left bottom; text-shadow:0 3px 0 rgba(0,0,0,.6)}
 .rod-ui .d-tier{margin-top:10px; font-size:17px; font-weight:800; letter-spacing:.2em; color:var(--bone-d); display:flex; align-items:center; gap:14px}
-.rod-ui .d-desc{font-size:21px; line-height:1.38; color:var(--bone-d); margin:12px 0 4px; letter-spacing:.02em}
-.rod-ui .d-sec{display:flex; align-items:center; gap:14px; font-size:15px; font-weight:800; letter-spacing:.32em; color:var(--rust); margin:20px 0 12px}
+.rod-ui .d-desc{font-size:18px; line-height:1.38; color:var(--bone-d); margin:12px 0 4px; letter-spacing:.015em}
+.rod-ui .d-sec{display:flex; align-items:center; gap:14px; font-size:14px; font-weight:800; letter-spacing:.2em; color:var(--rust); margin:18px 0 10px}
 .rod-ui .d-sec::after{content:''; flex:1; height:2px; background:linear-gradient(90deg,#5a3a20,transparent)}
 .rod-ui .d-lv{display:flex; flex-direction:column; gap:10px; margin:16px 0 0; font-size:19px; font-weight:800; letter-spacing:.2em; color:var(--bone-d)}
 .rod-ui .d-lv b{font-family:var(--disp); font-size:34px; color:var(--haz); font-weight:400; letter-spacing:.05em}
@@ -179,6 +203,10 @@
 .rod-ui .buy>*{transform:skewX(10deg)}
 .rod-ui .buy .bl{font-size:28px; display:inline-flex; align-items:center; gap:12px; white-space:nowrap} .rod-ui .buy .bl .ic{width:30px; height:30px}
 .rod-ui .buy .bp{font-family:var(--disp); font-size:38px; letter-spacing:.06em; font-weight:400}
+.rod-ui .garage .buy{padding:0 20px;gap:12px}
+.rod-ui .garage .buy .bl{font-size:24px;letter-spacing:.09em;white-space:normal;line-height:1.18;min-width:0}
+.rod-ui .garage .buy .bp{font-size:32px;flex:none}
+.rod-ui .garage .buy.no .bl{font-size:18px;letter-spacing:.04em}
 .rod-ui .buy.ok{background:var(--noise-soft),linear-gradient(180deg,#ffd23f,#f0a91a); color:#1c1206; border:2px solid #ffe08a}
 .rod-ui .buy.ok.is-f{filter:brightness(1.12); box-shadow:0 0 0 4px #fff3c4,0 0 44px rgba(255,194,26,.85); transform:skewX(-10deg) scale(1.03)}
 .rod-ui .buy.no{background:#291512; color:#ec8572; border:2px solid #7d2c20}
@@ -207,7 +235,7 @@
 .rod-ui .lo-slot .lo-w{width:50px; height:22px; color:var(--bone)} .rod-ui .lo-slot .lo-w .wic{width:50px; height:22px}
 .rod-ui .lo-slot em{font-style:normal; font-size:13px; font-weight:800; letter-spacing:.06em; color:var(--bone-d); white-space:nowrap; max-width:92px; overflow:hidden; text-overflow:ellipsis}
 .rod-ui .lo-slot.empty b{background:#3b322a; color:var(--mute)} .rod-ui .lo-slot.empty em{color:var(--mute); padding-left:6px}
-.rod-ui .lo-gear{border-left:2px solid rgba(88,74,58,.6); min-width:170px}
+.rod-ui .lo-gear{border-left:2px solid rgba(88,74,58,.6); min-width:144px}
 .rod-ui .lo-gear b{display:flex; align-items:center; gap:8px; font-size:15px; font-weight:800; letter-spacing:.1em; white-space:nowrap}
 .rod-ui .lo-gear .ic{width:22px; height:22px; color:var(--rust)}
 .rod-ui .lo-perks{display:flex; gap:12px; margin-top:5px}
@@ -231,10 +259,10 @@
 .rod-ui .party b{margin-left:auto; color:#c4523f} .rod-ui .party.on i{background:var(--green); box-shadow:0 0 12px var(--green)} .rod-ui .party.on b{color:var(--green)}
 .rod-ui .party.off i{background:#5a4d3e; animation:blink 1.2s infinite}
 @keyframes blink{50%{opacity:.25}}
-.rod-ui .btn.ready{width:100%; height:108px; font-size:46px; padding:0 30px; letter-spacing:.2em}
-.rod-ui .btn.ready>span{flex-direction:column; gap:0}
-.rod-ui .btn.ready small{font-size:14px; letter-spacing:.22em; margin-top:4px}
-.rod-ui .btn.ready .ic{width:40px; height:40px}
+.rod-ui .btn.ready{width:100%; height:108px; font-size:36px; line-height:1.1; padding:0 30px; letter-spacing:.1em}
+.rod-ui .btn.ready>span{flex-direction:column; gap:0; max-width:100%; white-space:normal; text-align:center}
+.rod-ui .btn.ready small{font-size:13px; line-height:1.2; letter-spacing:.12em; margin-top:4px; white-space:normal}
+.rod-ui .btn.ready .ic{width:24px; height:24px}
 .rod-ui .btn.ready:not(.is-f):not(.is-ready){animation:readyIdle 2.2s ease-in-out infinite}
 .rod-ui .btn.ready.is-ready{background:var(--noise-soft),linear-gradient(180deg,#9ee05a,#5da126); color:#0e2004; border-color:#c9f5a0}
 @keyframes readyIdle{0%,100%{box-shadow:0 0 0 0 rgba(255,194,26,0)}50%{box-shadow:0 0 30px 2px rgba(255,194,26,.4)}}
@@ -245,15 +273,6 @@
 @keyframes bflash{0%{opacity:.9}100%{opacity:0}}
 .rod-ui .g-cash.deny{animation:shake .38s}
 .rod-ui .g-cash.deny .cv{animation:cashDown .7s}
-
-/* detail panel scroll affordance */
-.rod-ui .g-detail::after{content:''; position:absolute; left:2px; right:12px; bottom:112px; height:70px; pointer-events:none; opacity:0; transition:opacity .2s; z-index:3;
-  background:linear-gradient(180deg,rgba(17,13,10,0),rgba(17,13,10,.95))}
-.rod-ui .g-detail.nofoot::after{bottom:2px}
-.rod-ui .g-detail.has-below::after{opacity:1}
-.rod-ui .g-detail .d-more{position:absolute; left:50%; bottom:122px; z-index:4; transform:translateX(-50%) skewX(-10deg); padding:4px 12px; font-size:13px; font-weight:800; letter-spacing:.24em; color:#1a0e06; background:var(--haz); opacity:0; transition:opacity .2s; pointer-events:none}
-.rod-ui .g-detail.nofoot .d-more{bottom:12px}
-.rod-ui .g-detail.has-below .d-more{opacity:1}
 
 /* Chapter selector stays above the central vehicle, clear of shop and readiness. */
 .rod-ui .g-campaign{position:absolute;left:600px;right:536px;top:126px;pointer-events:auto}

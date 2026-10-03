@@ -45,7 +45,7 @@ function makeProfile() {
   p.trucks = ['player_sedan_t1', 'truck_t1', 'truck_t2']; p.truck = VEHICLES[q.get('truck')]?.kind === 'player' ? q.get('truck') : 'truck_t2';
   if (!p.trucks.includes(p.truck)) p.trucks.push(p.truck);
   p.vehicleUpgrades[familyOf(p.truck)] = { engine: 2, armor: 1, tires: 3, nitro: 1, ram: 1 };
-  p.upgrades = { vest: 1, grenades: 2, scavenger: 1, medkit: 1 };
+  p.upgrades = { grenades: 2, scavenger: 1, medkit: 1 };
   p.weapons = { pistol: { dmg: 1, mag: 0, rel: 2, hnd: 0 }, revolver: { dmg: 0, mag: 0, rel: 0, hnd: 0 }, smg: { dmg: 2, mag: 1, rel: 0, hnd: 1 } };
   p.loadout = ['smg', 'revolver', 'pistol']; p.truckColor = 1; p.wins = 0;
   if (q.get('rich')) { p.cash = 999999; }

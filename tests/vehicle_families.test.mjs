@@ -117,7 +117,7 @@ test('schema two ignores stray global driver levels instead of remigrating or sh
   const p = normalizeProfile(raw), familyOnly = normalizeFamilyUpgrades(raw);
   assert.equal(p.vehicleUpgrades.rustbucket.engine, 1); assert.equal(p.vehicleUpgrades.rustbucket.nitro, 0);
   assert.equal(p.vehicleUpgrades.sedan.engine, 2); assert.equal(p.vehicleUpgrades.buggy.engine, 0);
-  assert.equal(effects(p).engineMul, 1); assert.equal(effects(p).gunnerHp, 150); assert.equal(effects(p).cashMul, 1.1);
+  assert.equal(effects(p).engineMul, 1); assert.equal(effects(p).gunnerHp, 100); assert.equal(effects(p).gunnerArmor, 0); assert.equal(effects(p).cashMul, 1.1);
   for (const id of DRIVER_UPGRADE_IDS) assert.ok(!Object.hasOwn(familyOnly.upgrades, id));
   assert.equal(familyOnly.upgrades.vest, 2); assert.equal(familyOnly.upgrades.scavenger, 1);
   assert.deepEqual(normalizeFamilyUpgrades(familyOnly), familyOnly, 'the schema marker makes migration idempotent');
@@ -181,7 +181,7 @@ test('purchased driver levels persist through family switches and chassis stages
 
 test('crew and shared purchases stay global across all vehicle families', () => {
   const p = profile();
-  for (const id of ['vest', 'scavenger']) {
+  for (const id of ['medkit', 'scavenger']) {
     const upgrade = UPGRADES.find(item => item.id === id);
     assert.equal(upgradeLimit(p, id), upgrade.costs.length);
     const before = p.cash; assert.deepEqual(buyUpgrade(p, id), { ok: true }); assert.equal(p.cash, before - upgrade.costs[0]);
@@ -190,8 +190,8 @@ test('crew and shared purchases stay global across all vehicle families', () => 
   }
   for (const id of ['truck_t1', 'player_buggy_t1']) {
     assert.deepEqual(buyTruck(p, id), { ok: true });
-    assert.equal(upgradeLevel(p, 'vest'), 1); assert.equal(upgradeLevel(p, 'scavenger'), 1);
-    assert.equal(effects(p).gunnerHp, 120); assert.equal(effects(p).cashMul, 1.1);
+    assert.equal(upgradeLevel(p, 'medkit'), 1); assert.equal(upgradeLevel(p, 'scavenger'), 1);
+    assert.equal(effects(p).medkits, 1); assert.equal(effects(p).gunnerHp, 100); assert.equal(effects(p).cashMul, 1.1);
   }
 });
 

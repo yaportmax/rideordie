@@ -106,7 +106,7 @@ export class Run {
     if (this.disposed) return this;
     this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, playerUpgradeLevels: effects.vehicleUpgradeLevels, playerWeaponOptics: effects.weaponOptics, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.encounterView = new StageEncountersView(g.scene, this.road);
-    this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
+    this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
     if (this.ai === 'driver') this.aiDriver = new AIDriver(this);
     if (this.ai === 'gunner') this.aiGunner = new AIGunner(this);

@@ -50,6 +50,12 @@ test('every truck and upgrade charges its catalog price exactly and stops at its
   // separate caps/isolation have dedicated vehicle_families coverage.
   assert.equal(selectTruck(p, 'truck_t4').ok, true);
   for (const u of UPGRADES) {
+    if (u.retired) {
+      const before = structuredClone(p);
+      assert.deepEqual(buyUpgrade(p, u.id), { ok: false, reason: 'retired' });
+      assert.deepEqual(p, before, 'archived equipment is never charged or reactivated');
+      continue;
+    }
     for (const cost of u.costs) { const before = p.cash; assert.equal(buyUpgrade(p, u.id).ok, true); assert.equal(p.cash, before - cost); }
     assert.equal(buyUpgrade(p, u.id).reason, 'max');
   }

@@ -141,12 +141,14 @@ test('a seat proposal and its explicit acceptance cancel a pending checkpoint ch
   assert.equal(f.started.length, 0); assert.equal(f.app.readyMine, false); assert.equal(f.app.readyOther, false);
 });
 
-test('gunner gear preview shows owned armor instead of displaying an unpurchased tier', (t) => {
+test('retired vest inputs cannot add armor to the garage loadout or preview', (t) => {
   const f = fixture(t, 'solo'), previews = [];
   f.game.garage.setPreview = value => previews.push(value);
   for (const tier of [0, 1, 2, 3]) {
     f.profile.upgrades.vest = tier; f.app._garageView('gunner', 'vest');
-    assert.equal(previews.at(-1).armorTier, tier);
+    assert.equal(Object.hasOwn(previews.at(-1), 'armorTier'), false);
+    assert.equal(Object.hasOwn(f.app._garageLoadout(), 'armorTier'), false);
+    assert.equal(f.profile.upgrades.vest, tier, 'presentation cannot consume or credit a personal saved entitlement');
   }
 });
 

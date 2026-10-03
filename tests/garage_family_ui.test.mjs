@@ -12,11 +12,11 @@ const screen = () => {
 };
 
 test('garage upgrade prices/maxima use the selected family and keep crew tracks global', () => {
-  const s = screen(); s.p.upgrades.vest = 1;
+  const s = screen(); s.p.upgrades.medkit = 1;
   for (const [truck, cap] of [['player_sedan_t1', 3], ['truck_t1', 5], ['player_buggy_t1', 2]]) {
     s.p.truck = truck;
     const armor = s.upState('armor'); assert.equal(armor.lv, cap); assert.equal(armor.max, cap); assert.equal(armor.state, 'max');
-    assert.equal(s.upState('vest').lv, 1); assert.equal(s.upState('vest').max, 3);
+    assert.equal(s.upState('medkit').lv, 1); assert.equal(s.upState('medkit').max, 3);
   }
   s.p.truck = 'player_sedan_t1'; assert.equal(s.snapshot(s.p).up.ram, 1);
   s.p.truck = 'truck_t1'; assert.equal(s.snapshot(s.p).up.ram, 3);

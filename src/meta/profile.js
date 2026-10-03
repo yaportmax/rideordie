@@ -116,6 +116,7 @@ export function upgradeCost(p, id) {
 }
 export function buyUpgrade(p, id) {
   if (!Object.hasOwn(UPGRADE_BY_ID, id)) return { ok: false, reason: 'invalid' };
+  if (UPGRADE_BY_ID[id].retired) return { ok: false, reason: 'retired' };
   const c = upgradeCost(p, id);
   if (c === null) return { ok: false, reason: 'max' };
   if (p.cash < c) return { ok: false, reason: 'cash' };

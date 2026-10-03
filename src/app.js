@@ -433,7 +433,7 @@ export class App {
     this.session?.swap.enterGarage();
     requestAnimationFrame(() => this._frameRect());
   }
-  _garageLoadout() { const weapon = this.profile.loadout[0] || 'pistol'; return { weapon, opticId: equippedWeaponOptics(this.profile)[weapon] || 'standard', armorTier: this.profile.upgrades.vest || 0, upgradeLevels: effectiveUpgrades(this.profile) }; }
+  _garageLoadout() { const weapon = this.profile.loadout[0] || 'pistol'; return { weapon, opticId: equippedWeaponOptics(this.profile)[weapon] || 'standard', upgradeLevels: effectiveUpgrades(this.profile) }; }
   _selectedJourney() { return this.profile.campaignProgress ? campaignJourney(this.profile) : normalizeJourney(); }
   _showCampaign() {
     if (this.screen !== 'garage') return;
@@ -474,7 +474,7 @@ export class App {
     this.ui.updateGarage(this.profile, this._garageExtra());
   }
   /** Preview the selected chassis with its family's own modifications. Driver
-   * upgrade previews match the next purchase; crew armor shows the owned tier. */
+   * upgrade previews match the next purchase. */
   _garageView(tab, sel, opticId) {
     const G = this.game.garage; if (!G) return;
     G.setTab(tab);
@@ -486,11 +486,13 @@ export class App {
     }
     if (tab === 'paint' && sel != null) pv.paint = TRUCK_COLORS[+sel];
     if (tab === 'weapons' && sel) { pv.weapon = sel; pv.opticId = sanitizeOpticId(sel, opticId ?? equippedWeaponOptics(p)[sel]); }
-    if (tab === 'gunner' && sel === 'vest') pv.armorTier = p.upgrades.vest || 0;
     G.setPreview(pv);
   }
   _garageCb() {
+    const flow = this._flowId, generation = this._garageGeneration, session = this.session;
+    const current = () => this.screen === 'garage' && this._flowId === flow && this._garageGeneration === generation && this.session === session;
     const act = (kind, id, extra) => {
+      if (!current()) return;
       const p = this.profile; let r;
       if (this.session) { r = this.session.buy(kind, id, extra); if (r.pending) return; }
       else if (kind === 'truck') r = buyTruck(p, id);
@@ -510,22 +512,22 @@ export class App {
       this._garageRefresh();
     };
     return {
-      onCampaign: () => this._showCampaign(),
+      onCampaign: () => { if (current()) this._showCampaign(); },
       onBuy: (kind, id, track) => act(kind, id, track),
       onSelectTruck: (id) => act('select', id),
       onPaint: (i) => act('color', i),
       onEquip: (w, slot) => act('equip', w, slot),
-      onView: (tab, sel, opticId) => this._garageView(tab, sel, opticId),
+      onView: (tab, sel, opticId) => { if (current()) this._garageView(tab, sel, opticId); },
       onSeatSwap: (action, id) => {
         const s = this.session;
-        if (this.mode !== 'coop' || this.screen !== 'garage' || !s) return;
+        if (!current() || this.mode !== 'coop' || !s) return;
         this._cancelStartSelection();
         if (action === 'request') s.swap.request();
         else if (action === 'accept' || action === 'decline') s.swap.respond(id, action === 'accept');
         else if (action === 'cancel') s.swap.cancel(id);
       },
       onReady: async () => {
-        if (this.screen !== 'garage') return;
+        if (!current()) return;
         if (this.mode === 'solo') {
           if (this._startSelection) return;
           const token = this._startSelection = { flow: this._flowId, garage: this._garageGeneration, profile: this.profile, revision: this.profile.revision };

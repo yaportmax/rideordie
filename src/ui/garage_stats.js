@@ -38,10 +38,6 @@ const UP_STATS = {
   fueltank: (spec, n) => [level(n, 'SEALING')],
   oil: (spec, n) => [level(n, 'OIL SLICK')],
   mines: (spec, n) => [level(n, 'MINE LAYER')],
-  vest: () => [
-    { label: 'GUNNER HP', get: (e) => e.gunnerHp, max: 250, fmt: r0 },
-    { label: 'DAMAGE REDUCTION', get: (e) => e.gunnerArmor * 100, max: 45, fmt: pctPlain },
-  ],
   grenades: () => [{ label: 'GRENADES PER RUN', get: (e) => e.grenades, max: 6, fmt: r0 }],
   grenadeDmg: (spec, n) => [level(n, 'FRAG POWER')],
   medkit: () => [{ label: 'MEDKITS PER RUN', get: (e) => e.medkits, max: 3, fmt: r0 }],
@@ -52,7 +48,7 @@ const UP_STATS = {
 
 /** Rows for a leveled upgrade: current level and (if not maxed) the level you would get. */
 export function upgradeStats(profile, id, units = 'mi') {
-  const u = UPGRADE_BY_ID[id]; if (!u) return [];
+  const u = UPGRADE_BY_ID[id]; if (!u || u.retired) return [];
   const lv = upgradeLevel(profile, id), n = upgradeLimit(profile, id);
   const spec = specOf(profile);
   const e0 = effects(profile);
@@ -96,17 +92,17 @@ export function truckStats(profile, id, units = 'mi') {
  */
 export function suggestNext(profile, cause = '') {
   const p = profile, cash = p.cash || 0, lv = (id) => upgradeLevel(p, id);
-  const up = (id, why) => { const u = UPGRADE_BY_ID[id]; if (!u || lv(id) >= upgradeLimit(p, id)) return null; return { tab: u.role === 'driver' ? 'upgrades' : 'gunner', id, name: `${u.name}${u.costs.length > 1 ? ' LV ' + (lv(id) + 1) : ''}`, kind: u.role === 'driver' ? 'CAR UPGRADE' : 'GUNNER GEAR', cost: u.costs[lv(id)], why }; };
+  const up = (id, why) => { const u = UPGRADE_BY_ID[id]; if (!u || u.retired || lv(id) >= upgradeLimit(p, id)) return null; return { tab: u.role === 'driver' ? 'upgrades' : 'gunner', id, name: `${u.name}${u.costs.length > 1 ? ' LV ' + (lv(id) + 1) : ''}`, kind: u.role === 'driver' ? 'CAR UPGRADE' : 'GUNNER GEAR', cost: u.costs[lv(id)], why }; };
   const family = familyOf(p.truck);
   const candidates = TRUCKS.filter(t => !p.trucks.includes(t.id) && stagePurchaseAllowed(p, t.id));
   const nextTruck = candidates.find(t => t.family === family) || candidates.find(t => t.tier === 1);
-  const truck = nextTruck ? { tab: 'truck', id: nextTruck.id, name: nextTruck.name, kind: `STAGE ${nextTruck.tier} CHASSIS`, cost: nextTruck.cost, why: nextTruck.family === family ? 'A STRONGER CHASSIS FOR YOUR CURRENT BUILD' : 'A DIFFERENT CHASSIS WITH ITS OWN UPGRADE PATH' } : null;
+  const truck = nextTruck ? { tab: nextTruck.tier > 1 ? 'upgrades' : 'truck', id: nextTruck.id, name: nextTruck.name, kind: nextTruck.tier > 1 ? 'CHASSIS UPGRADE' : 'BASE VEHICLE', cost: nextTruck.cost, why: nextTruck.family === family ? 'A STRONGER CHASSIS FOR YOUR CURRENT BUILD' : 'A DIFFERENT CHASSIS WITH ITS OWN UPGRADE PATH' } : null;
   const bestOwnedIdx = Math.max(...WEAPON_ORDER.map((id, i) => (p.weapons[id] ? i : -1)));
   const nextGunId = WEAPON_ORDER.find((id, i) => i > bestOwnedIdx && !p.weapons[id] && id !== 'revolver');
   const gun = nextGunId ? { tab: 'weapons', id: nextGunId, name: WEAPONS[nextGunId].name, kind: 'WEAPON', cost: WEAPONS[nextGunId].cost, why: 'BIGGER GUN, FASTER KILLS, MORE CASH' } : null;
   const c = String(cause).toUpperCase();
-  const causeUp = /TRUCK/.test(c) ? up('armor', 'YOUR TRUCK WAS WRECKED: PLATING KEEPS IT ROLLING') : /DRIVER/.test(c) ? (up('glass', 'THEY SHOT YOUR DRIVER: ARMORED GLASS STOPS THAT') || up('armor', 'MORE HULL, MORE TIME')) : /GUNNER/.test(c) ? (up('vest', 'THEY SHOT YOUR GUNNER: BODY ARMOR HELPS') || up('medkit', 'PATCH UP MID-RUN')) : null;
-  const order = [causeUp, truck, gun, up('engine', 'OUTRUN THE CONVOY'), up('armor', 'MORE HULL, MORE TIME'), up('vest', 'KEEP YOUR GUNNER STANDING'), up('medkit', 'PATCH UP MID-RUN'), up('tires', 'GRIP IN THE CORNERS'), up('pouches', 'FASTER RELOADS')].filter(Boolean);
+  const causeUp = /TRUCK/.test(c) ? up('armor', 'YOUR TRUCK WAS WRECKED: PLATING KEEPS IT ROLLING') : /DRIVER/.test(c) ? (up('glass', 'THEY SHOT YOUR DRIVER: ARMORED GLASS STOPS THAT') || up('armor', 'MORE HULL, MORE TIME')) : /GUNNER/.test(c) ? up('medkit', 'PATCH UP MID-RUN') : null;
+  const order = [causeUp, truck, gun, up('engine', 'OUTRUN THE CONVOY'), up('armor', 'MORE HULL, MORE TIME'), up('medkit', 'PATCH UP MID-RUN'), up('tires', 'GRIP IN THE CORNERS'), up('pouches', 'FASTER RELOADS')].filter(Boolean);
   if (!order.length) return null;
   const pick = order.find((o) => o.cost <= cash) || order.slice().sort((a, b) => a.cost - b.cost)[0];
   return { ...pick, need: Math.max(0, pick.cost - cash) };

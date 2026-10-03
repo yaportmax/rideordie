@@ -28,7 +28,10 @@ export const UPGRADES = [
   { id: 'oil', role: 'driver', name: 'OIL SLICK DROPPER', desc: 'Q: drop an oil slick behind you. Level 2: faster reload.', costs: C([2500, 4500]) },
   { id: 'mines', role: 'driver', name: 'MINE LAYER', desc: 'E: drop proximity mines. Level 2: bigger blast.', costs: C([3500, 6000]) },
   // ---- gunner
-  { id: 'vest', role: 'gunner', name: 'BODY ARMOR', desc: 'T1 vest / T2 plate carrier / T3 heavy armor: more HP and less damage.', costs: C([1500, 5000, 12000]) },
+  // Archive old paid tiers without erasing saved ownership. This record is not
+  // purchasable and grants no stats; a future personal refund migration must
+  // preserve cloud versions, retry receipts and wallet ownership.
+  { id: 'vest', retired: true, role: 'gunner', name: 'BODY ARMOR', desc: 'Retired legacy equipment.', costs: C([1500, 5000, 12000]) },
   { id: 'grenades', role: 'gunner', name: 'GRENADE BANDOLIER', desc: '+1 grenade per level.', costs: C([1200, 2400, 4800]) },
   { id: 'grenadeDmg', role: 'gunner', name: 'FRAG UPGRADE', desc: 'Bigger, meaner frag grenades.', costs: C([2000, 4200]) },
   { id: 'medkit', role: 'gunner', name: 'MEDKITS', desc: 'One medkit per level per run: heals both of you.', costs: C([2000, 4200, 7000]) },
@@ -42,6 +45,7 @@ export const UPGRADE_BY_ID = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 export function upgradeLimit(profile, id, vehicleId = profile?.truck) {
   if (!Object.hasOwn(UPGRADE_BY_ID, id)) return 0;
   const u = UPGRADE_BY_ID[id];
+  if (u.retired) return 0;
   return u.role === 'driver' ? Math.min(u.costs.length, upgradeCap(familyOf(vehicleId), id)) : u.costs.length;
 }
 
@@ -86,7 +90,6 @@ export function effects(profile) {
   const nitroCap = nitro.capacity + (nitroLevel > 0 ? 0.4 + 0.8 * nitroLevel : 0);
   const nitroRefillSeconds = Math.max(8, PLAYER_NITRO_RECHARGE_SECONDS - nitroLevel);
   const vehicleUpgradeLevels = Object.freeze(Object.fromEntries(DRIVER_UPGRADE_IDS.map(id => [id, lv(id)])));
-  const vestT = lv('vest');
   const e = {
     truck, tier, family: spec.family, stage: tier, vehicleUpgradeLevels,
     engineMul: 1 + 0.07 * lv('engine'), hpMul: 1 + 0.16 * lv('armor'), bulletResist: Math.max(0.55, 1 - 0.04 * lv('armor')),
@@ -96,7 +99,7 @@ export function effects(profile) {
     nitroCap,
     nitroRegen: nitroCap / nitroRefillSeconds,
     ramLevel: lv('ram'), spikes: lv('spikes'), glass: lv('glass'), fueltank: lv('fueltank'), oil: lv('oil'), mines: lv('mines'),
-    gunnerHp: 100 + [0, 20, 50, 90][vestT], gunnerArmor: [0, 0.15, 0.3, 0.45][vestT], armorTier: vestT, driverHp: 100,
+    gunnerHp: 100, gunnerArmor: 0, armorTier: 0, driverHp: 100,
     driverArmor: 0.3 * lv('glass') > 0 ? 0.3 * lv('glass') : 0,
     grenades: 2 + lv('grenades'), grenadeLv: lv('grenadeDmg'), medkits: lv('medkit'),
     reloadMul: 1 - 0.12 * lv('pouches'), handling: lv('steady'), cashMul: 1 + 0.1 * lv('scavenger'),

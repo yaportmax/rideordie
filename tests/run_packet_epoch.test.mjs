@@ -150,7 +150,7 @@ test('garage, leave and physical disconnect revoke the current fast header and g
 });
 
 test('missing or mismatching hello version blocks a run and closes only the data connection', async () => {
-  for (const protocol of [undefined, 1, 3, NET_PROTOCOL + 1, '4']) {
+  for (const protocol of [undefined, 1, 3, 5, NET_PROTOCOL + 1, '4']) {
     const tp = new Memory(), s = new Session(tp); await s.host(DEFAULT_PROFILE());
     const errors = []; let disconnects = 0;
     s.on({ error: e => errors.push(e), disconnect: () => disconnects++ }); tp.onOpen();

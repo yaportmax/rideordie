@@ -1,8 +1,9 @@
 // Each life uses one cached full identifier. Late packets from a prior life
 // must be rejected before they reach startup queues or the snapshot clock.
-// Expanded enemy chassis and four independently aimed crews require both
-// peers to reload. The RDR1 life envelope remains independently unchanged.
-export const NET_PROTOCOL = 5;
+// Retired player armor changes crew stats/purchases on the driving authority.
+// Both peers must reload so an older driver cannot apply the previous rules.
+// The RDR1 life envelope and optional four-crew snapshot body are unchanged.
+export const NET_PROTOCOL = 6;
 export const RUN_JSON_TYPES = new Set([
   'runReady', 'go', 'g', 'input', 'events', 'feed', 'hit', 'rocket',
   'grenade', 'shotfx', 'medkit', 'summary', 'runOver', 'results', 'abort',

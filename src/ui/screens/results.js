@@ -106,7 +106,7 @@ export class ResultsScreen {
     const p = this.profile; if (!p) return '';
     const s = this.sug = suggestNext(p, this.run.cause);
     if (!s) return '';
-    const art = s.tab === 'weapons' ? weaponIcon(s.id) : icon(s.tab === 'truck' ? 'truck' : s.tab === 'gunner' ? 'vest' : 'wrench');
+    const art = s.tab === 'weapons' ? weaponIcon(s.id) : icon(s.tab === 'truck' ? 'truck' : s.tab === 'gunner' ? 'gun' : 'wrench');
     return `<div class="f nextup ${s.need ? 'save' : 'afford'}" role="button" data-act="next" data-k="next">
       <span class="nu-k">${s.need ? 'SAVE UP FOR' : 'NEXT UP'}</span>
       <span class="nu-art ${s.tab === 'weapons' ? 'gun' : ''}">${art}</span>

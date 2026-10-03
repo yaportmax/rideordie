@@ -50,7 +50,7 @@ export class WorldView {
     this.night = 0;
     this.groundY = opts.groundY || (() => null);
     this.debris = new DebrisSystem(this.scene, (x, y, z) => this.groundY(x, y, z));
-    this.armorTier = 0; this.playerWeapon = 'pistol';
+    this.playerWeapon = 'pistol';
     this.projMeshes = new Map();
     this._projectileSeen = new Set();
     this.loose = [];                       // dead crew bodies whose car was removed
@@ -75,7 +75,7 @@ export class WorldView {
       crewRadius: crewFrustumRadius(st.spec, st.ride?.restComHeight, st.kind) };
     // crew figures
     const s = st.spec;
-    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunNames?.[role] || st.gunName, nativeEnemyGun: st.kind === 'enemy' && !!s.gunMuzzles?.[role], weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
+    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunNames?.[role] || st.gunName, nativeEnemyGun: st.kind === 'enemy' && !!s.gunMuzzles?.[role], weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
     // raider faces: 4 gunner types x 2 variants (+ 2 driver variants), picked deterministically from the car id
     const v2 = (n) => (((st.id * 2654435761) >>> (n + 3)) & 1 ? '2' : '');
     if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver' + v2(0), s.seats.driver);

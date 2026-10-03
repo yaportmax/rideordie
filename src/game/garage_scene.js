@@ -82,7 +82,7 @@ export class GarageScene {
     s.add(this.sparks.mesh);
     // ---------------------------------------------------------------- truck / crew / bench weapon
     this.view = null; this.truckId = null; this.paint = null; this.crew = []; this.crewQ = new THREE.Quaternion();
-    this.base = { truck: 'player_sedan_t1', paint: 0x8f6a3d, weapon: 'pistol', opticId: 'standard', armorTier: 0, upgradeLevels: sanitizeVisualLevels() };
+    this.base = { truck: 'player_sedan_t1', paint: 0x8f6a3d, weapon: 'pistol', opticId: 'standard', upgradeLevels: sanitizeVisualLevels() };
     this.preview = {};
     this.benchWeapon = null; this.benchId = null; this.benchDrop = 0;
     this.drop = 0;
@@ -92,7 +92,7 @@ export class GarageScene {
 
   /**
    * Startup (behind the boot screen): build the title chase + the garage set, compile every program they can show (all trucks,
-   * weapons, armour tiers) and draw both stages once off-screen. ANGLE finishes shader work on the first draw, so compiling alone
+   * weapons, crew) and draw both stages once off-screen. ANGLE finishes shader work on the first draw, so compiling alone
    * is not enough: after this the title, the garage and every shop preview render without a hitch.
    */
   async _boot() {
@@ -106,6 +106,7 @@ export class GarageScene {
     this._drawWarm(g); L('drawn');
     for (const view of g.userData.warmVehicleViews || []) view.dispose();
     for (const view of g.userData.warmWeaponViews || []) view.dispose(this._warmMaterials);
+    for (const crew of g.userData.warmCrewViews || []) crew.dispose();
     this.scene.remove(g);
     this.warmed = true;
   }
@@ -179,8 +180,8 @@ export class GarageScene {
     g.userData.warmWeaponViews = [];
     for (const w of WEAPON_IDS) { const v = w === 'minigun' ? new MountedGun(w) : new WeaponView(w); g.add(v.root); g.userData.warmWeaponViews.push(v); }
     for (const w of REFLEX_GUNS) { const v = new WeaponView(w, { opticId: 'wide_reflex' }); g.add(v.root); g.userData.warmWeaponViews.push(v); }
-    for (const t of [0, 1, 2, 3]) g.add(new CrewView('hero_gunner', { role: 'gunner', weapon: 'rifle', armorTier: t }).root);
-    g.add(new CrewView('hero_driver', { role: 'driver' }).root);
+    g.userData.warmCrewViews = [new CrewView('hero_gunner', { role: 'gunner', weapon: 'rifle' }), new CrewView('hero_driver', { role: 'driver' })];
+    for (const crew of g.userData.warmCrewViews) g.add(crew.root);
     this.scene.add(g);
     await warmScene(this.renderer, this.scene, this.camera, this.post);
     return g;
@@ -231,13 +232,13 @@ export class GarageScene {
   fadeIn() { this.fade = 1; this.fadeTo = 0; }
 
   // ------------------------------------------------------------------------------------------------ garage content
-  /** Show the player's chassis and owned {weapon, armorTier, upgradeLevels}. */
+  /** Show the player's chassis and owned {weapon, opticId, upgradeLevels}. */
   setTruck(id, paint, loadout) {
     const weapon = loadout?.weapon || 'pistol';
-    this.base = { truck: id, paint, weapon, opticId: sanitizeOpticId(weapon, loadout?.opticId), armorTier: loadout?.armorTier || 0, upgradeLevels: sanitizeVisualLevels(loadout?.upgradeLevels) };
+    this.base = { truck: id, paint, weapon, opticId: sanitizeOpticId(weapon, loadout?.opticId), upgradeLevels: sanitizeVisualLevels(loadout?.upgradeLevels) };
     this._apply();
   }
-  /** Shop previews: {truck?, paint?, weapon?, armorTier?, upgradeLevels?}. */
+  /** Shop previews: {truck?, paint?, weapon?, opticId?, upgradeLevels?}. */
   setPreview(p = {}) { this.preview = p; this._apply(); }
   /** Camera framing for a shop tab ('truck'|'upgrades'|'weapons'|'gunner'|'paint'). */
   setTab(tab) {
@@ -263,16 +264,16 @@ export class GarageScene {
   _apply() {
     const truck = this.preview.truck || this.base.truck;
     const weapon = this.preview.weapon || this.base.weapon;
-    const want = { truck, paint: this.preview.paint ?? this.base.paint, weapon, opticId: sanitizeOpticId(weapon, this.preview.opticId ?? (weapon === this.base.weapon ? this.base.opticId : 'standard')), armorTier: this.preview.armorTier ?? this.base.armorTier,
+    const want = { truck, paint: this.preview.paint ?? this.base.paint, weapon, opticId: sanitizeOpticId(weapon, this.preview.opticId ?? (weapon === this.base.weapon ? this.base.opticId : 'standard')),
       upgradeLevels: sanitizeVisualLevels(this.preview.upgradeLevels ?? (truck === this.base.truck ? this.base.upgradeLevels : {})) };
-    const truckKey = `${want.truck}`, crewKey = `${want.truck}:${weaponOpticKey(this.base.weapon, this.base.opticId)}:${want.armorTier}`;
+    const truckKey = `${want.truck}`, crewKey = `${want.truck}:${weaponOpticKey(this.base.weapon, this.base.opticId)}`;
     if (truckKey !== this.truckKey) { this._buildTruck(want.truck); this.truckKey = truckKey; this.crewKey = null; this.drop = 1; }
     const appearanceKey = visualKey(want.upgradeLevels);
     if (appearanceKey !== this.appearanceKey) {
       this.view?.setUpgradeLevels(want.upgradeLevels); this.appearanceKey = appearanceKey;
       this.view?.root.traverse(o => o.layers.enable(REFL));
     }
-    if (crewKey !== this.crewKey) { this._buildCrew(this.base.weapon, want.armorTier, this.base.opticId); this.crewKey = crewKey; }
+    if (crewKey !== this.crewKey) { this._buildCrew(this.base.weapon, this.base.opticId); this.crewKey = crewKey; }
     if (want.paint !== this.paint) { this.paint = want.paint; this.view?.setTint(want.paint, 0x30302e); }
     if (weaponOpticKey(want.weapon, want.opticId) !== this.benchId) { this._buildBench(want.weapon, want.opticId); }
     if (this.title && this.stage === 'title') this.title.setHero(this.base.truck, this.base.paint, this.base.weapon, this.base);
@@ -295,10 +296,10 @@ export class GarageScene {
     this.paint = null; // re-tint below
     this.appearanceKey = null;
   }
-  _buildCrew(weapon, armorTier, opticId = 'standard') {
+  _buildCrew(weapon, opticId = 'standard') {
     for (const c of this.crew) c.dispose(); this.crew = []; this.gunnerCrew = null;
     const spec = this.spec; if (!spec || !this.view) return;
-    if (spec.seats.gunner) { const g = new CrewView('hero_gunner', { role: 'gunner', weapon: weapon || 'pistol', opticId, armorTier }); this.view.root.add(g.root); g.attach(this.view, spec.seats.gunner); this.crew.push(g); this.gunnerCrew = g; }
+    if (spec.seats.gunner) { const g = new CrewView('hero_gunner', { role: 'gunner', weapon: weapon || 'pistol', opticId }); this.view.root.add(g.root); g.attach(this.view, spec.seats.gunner); this.crew.push(g); this.gunnerCrew = g; }
     if (spec.seats.driver) { const d = new CrewView('hero_driver', { role: 'driver' }); this.view.root.add(d.root); d.attach(this.view, spec.seats.driver); this.crew.push(d); }
     for (const c of this.crew) {
       c.root.traverse((o) => o.layers.enable(REFL));
