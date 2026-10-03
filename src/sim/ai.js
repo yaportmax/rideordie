@@ -3,7 +3,7 @@
 // Gunnery = wind-up (gunner shoulders the gun, glint) -> burst that walks onto the truck (leading, spread, recovering error).
 // Dead drivers slump onto the wheel: jammed throttle + yanked wheel + slide, steered into whatever is next to them.
 import * as THREE from 'three';
-import { clamp, lerp, wrapAngle, rng } from '../core/util.js';
+import { clamp, lerp, smoothstep, wrapAngle, rng } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
 import { drivingLaneTarget } from '../world/driving_plan.js';
 import { GRAVITY } from './physics.js';
@@ -105,7 +105,7 @@ export class EnemyBrain {
   update(dt) {
     const car = this.car, sim = this.sim, veh = car.veh, P = sim.player;
     this.t += dt;
-    this.drivingSlice = false;
+    this.drivingSlice = false; this.stageAvoiding = false; this.roadblockAvoiding = false;
     if (car.exploded) return;
     if (car.driverless || !car.crew.driver.alive) { this._deadDriver(dt); this.gunnery(dt); return; }
     if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
@@ -215,7 +215,7 @@ export class EnemyBrain {
         case 'swipe': {
           // tell: swing out ~1.5 m for a beat, then slam the flank
           if (a.phase === 'wind') { dT = pd + a.side * 5.8; vDes = pv + clamp((gap + 1.5) * 0.5, -6, 8); if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
-          else if (a.phase === 'hit') { dT = pd + a.side * 0.6; vDes = pv + clamp((gap + 0.5) * 0.6, -5, 6) + 1; if (a.t > 0.9 || Math.abs(relLat) < 2.1) { a.phase = 'recover'; a.t = 0; } }
+          else if (a.phase === 'hit') { dT = pd + a.side * 0.6; vDes = pv + clamp((gap + 0.5) * 0.6, -5, 6) + 1; if (car.elite || this.pattern || path.branch ? a.t > .9 || Math.abs(relLat) < 2.1 : a.contact || gap < -(car.spec.length + P.spec.length) / 2 - 2 || a.t > 1.4) { a.phase = 'recover'; a.t = 0; } }
           else { dT = pd + a.side * 4.6; if (a.t > 1.0) this._endAttack(5.5); }
           break;
         }
@@ -228,10 +228,14 @@ export class EnemyBrain {
         }
         case 'ram': {
           // line up behind a rear corner, hoot, then charge (nitro) into it — a PIT attempt
-          const corner = pd + a.side * 0.9;
-          if (a.phase === 'line') { dT = corner; vDes = pv + clamp((gap - 11) * 0.5, -8, 12); if (Math.abs(gap - 11) < 5 && Math.abs(relLat - a.side * 0.9) < 1.4) { a.phase = 'wind'; a.t = 0; horn = true; this._tell('ram'); } if (a.t > 7) this._endAttack(3); }
+          // Ordinary charges commit closer to the truck's centre instead of
+          // settling into a glancing .9m corner touch. Authored boss/branch
+          // patterns keep their existing corner and tell alignment.
+          const cornerOffset = car.elite || this.pattern || path.branch || path.crossRoute ? .9 : .25;
+          const corner = pd + a.side * cornerOffset;
+          if (a.phase === 'line') { dT = corner; vDes = pv + clamp((gap - 11) * 0.5, -8, 12); if (Math.abs(gap - 11) < 5 && Math.abs(relLat - a.side * cornerOffset) < 1.4) { a.phase = 'wind'; a.t = 0; horn = true; this._tell('ram'); } if (a.t > 7) this._endAttack(3); }
           else if (a.phase === 'wind') { dT = corner; vDes = pv; if (a.t > a.wind) { a.phase = 'hit'; a.t = 0; } }
-          else if (a.phase === 'hit') { dT = corner + clamp(P.veh.vl * 0.2, -1, 1); vDes = this.maxSpeed + 10; nitro = true; if (gap < -3 || a.t > 2.4 || a.contact) { a.phase = 'recover'; a.t = 0; } }
+          else if (a.phase === 'hit') { dT = corner + clamp(P.veh.vl * 0.2, -1, 1); vDes = car.elite || this.pattern || path.branch ? this.maxSpeed + 10 : pv + clamp(6 + Math.max(0, gap) * .2, 6, 12); nitro = true; if (gap < -3 || a.t > 2.4 || a.contact) { a.phase = 'recover'; a.t = 0; } }
           else { dT = pd + a.side * 5; vDes = pv - 6; if (a.t > 1.4) this._endAttack(4.5); }
           break;
         }
@@ -278,8 +282,10 @@ export class EnemyBrain {
     }
     // ---------------- raiders know where their own roadblocks are: thread the gap
     const rb = !path.branch ? road.featuresIn(car.s + 5, car.s + 120, 'roadblock')[0] : null;
-    if (rb) { dT = clamp(rb.gap * 2.2, -4.6, 4.6); if (this.atk) this._endAttack(2); vDes = Math.min(vDes, 36); }
+    this.roadblockAvoiding = !!rb || !!rbP;
+    if (rb) { nitro = false; dT = clamp(rb.gap * 2.2, -4.6, 4.6); if (this.atk) this._endAttack(2); vDes = Math.min(vDes, 36); }
     const stage = !path.branch && drivingLaneTarget(road, car.s, car.spec.length, 220, this._stage || (this._stage = {}));
+    this.stageAvoiding = !!stage;
     if (stage) {
       dT = stage.d; vDes = Math.min(vDes, stage.speed); nitro = false;
       this.drivingSlice = stage.distance < 160;
@@ -321,6 +327,46 @@ export class EnemyBrain {
   /** Called by the director when this car bumps the player (ends a ram / swipe). */
   onContact() { if (this.atk && (this.atk.kind === 'ram' || this.atk.kind === 'swipe')) this.atk.contact = true; }
 
+  // Estimate traction from the current grounded wheels and their surface grip.
+  _traction(includeTires = true) {
+    let sum = 0, count = 0;
+    for (const w of this.car.veh.wheels || []) if (w.grounded) { sum += (w.surface?.grip ?? 1) * (includeTires ? Math.min(1, w.grip ?? 1) : 1); count++; }
+    return count ? clamp(sum / count, .1, 1) : 1;
+  }
+
+  _curveSpeed(path, curvature) {
+    const car = this.car, v = car.veh, sp = car.spec, k = Math.max(curvature, 1 / 1500);
+    const old = Math.sqrt(Math.max(400, 15.5 / k));
+    this._curveLegacyLimit = old; this._curveTireBound = null;
+    if (car.elite || this.pattern || path.branch || path.crossRoute) return old;
+    const yaw = clamp(sp.hiSpeedYaw ?? .76, .5, 1);
+    // Heuristic .72 authority allowance. Pure-pursuit/heading gains and
+    // axle loading still require genuine trajectory checks.
+    const gain = .72 * .9 * (sp.steerAssistK ?? .9) * yaw * Math.min(sp.grip.front, sp.grip.rear) * this._traction();
+    const denominator = k - gain * (sp.downforce ?? .35) * .01;
+    const tireLimit = denominator > 0 ? Math.sqrt(gain * GRAVITY / denominator) : Infinity;
+    const conservative = Math.min(tireLimit, .72 * (sp.yawRateMax ?? 2.3) * yaw / k);
+    this._curveTireBound = conservative;
+    // Sliding or sparse contact cannot lift a real low-traction speed bound.
+    return v.grounded < 2 || Math.abs(v.slipAngle || 0) > .18 ? Math.min(old, conservative) : conservative;
+  }
+
+  _catchUpNitro(path, curvature) {
+    const car = this.car, v = car.veh, P = this.sim.player, gap = P.s - car.s;
+    const lining = this.atk?.kind === 'ram' && this.atk.phase === 'line';
+    if (car.elite || this.pattern || path.branch || path.crossRoute || this.mode === 'ambush' || this.stageAvoiding || this.roadblockAvoiding
+        || car.dead || car.held || car.driverless || car.exploded || !car.crew.driver.alive
+        || !v.driverAlive || car.engineHp <= 0 || v.engineDamage > .35 || v.stunned > 0
+        || v.grounded < 2 || v.up.y < .8 || Math.abs(v.slipAngle || 0) > .12
+        || Math.abs(v.vl) > 2.5 || Math.abs(path.carD) + car.spec.width / 2 > path.halfWidth
+        || curvature > 1 / 240 || P.veh.vf < 18 || (this.atk && !lining)
+        || gap < (lining ? 28 : 65) || gap > 260 || v.nitro <= 0 || v.nitroNeedsRelease || v.nitroRechargeLocked) return false;
+    const roadHeading = this.sim.road.sample(car.s, {}).th;
+    if (Math.abs(wrapAngle(roadHeading - Math.atan2(v.fwd.x, v.fwd.z))) > .15) return false;
+    return !this.sim.road.featuresIn(car.s + 5, car.s + 180)
+      .some(f => ['roadblock', 'stage_challenge', 'ramp', 'bridge', 'tunnel', 'overpass'].includes(f.type));
+  }
+
   _drive(dt, dT, vDes, brakeIn, nitro, horn, shoulder = false) {
     const car = this.car, sim = this.sim, veh = car.veh, road = sim.road, speed = veh.vf, P = sim.player;
     const path = enemyDrivingContext(road, car, P, this._routeContext || (this._routeContext = {}));
@@ -328,15 +374,25 @@ export class EnemyBrain {
     const lim = constrained ? Math.max(0, path.halfWidth - car.spec.width / 2 - 0.35)
       : shoulder || this.behavior === 'flanker' || this.behavior === 'summoner' || this.mode === 'overtake' ? HALF_ROAD + 0.3 : LANE_LIMIT;
     dT = clamp(dT, -lim, lim);
-    vDes = Math.min(vDes, this.maxSpeed + (nitro ? 8 : 0));
     // curve caution: slow down for tight corners
-    const look = clamp(speed * 0.6 + 8, 10, 64);
+    const curveLook = clamp(speed * 0.6 + 8, 10, 64);
     const smK = path.branch ? path.branch.maxCurvature
-      : Math.max(Math.abs(road.sample(car.s + look * 1.8, _pt).k), Math.abs(road.sample(car.s + look * 0.9, _pt).k), Math.abs(road.sample(car.s + 10, _pt).k));
-    vDes = Math.min(vDes, Math.sqrt(Math.max(400, 15.5 / Math.max(smK, 1 / 1500))));   // ~15 m/s² of cornering grip (like the AI driver)
+      : Math.max(Math.abs(road.sample(car.s + curveLook * 1.8, _pt).k), Math.abs(road.sample(car.s + curveLook * 0.9, _pt).k), Math.abs(road.sample(car.s + 10, _pt).k));
+    this.pursuitBoost = this._catchUpNitro(path, smK);
+    nitro = nitro || this.pursuitBoost;
+    vDes = Math.min(vDes, this.maxSpeed + (nitro ? 8 : 0));
+    this._curveLimit = this._curveSpeed(path, smK);
+    vDes = Math.min(vDes, this._curveLimit);
     // off the asphalt: slow down and get back on it
     const off = Math.abs(path.carD) - (constrained ? lim : HALF_ROAD + 1.5);
     if (off > 0) vDes = Math.min(vDes, Math.max(18, 45 - off * 4));
+    // Keep the original far curvature warning. Only the final ordinary hit
+    // aims along a nearer road point, rather than forty metres beyond a truck
+    // only five metres away. Existing slew/yaw limits and physical forces own
+    // the approach; this does not place either body or promise unavoidable hits.
+    const committedRam = !constrained && !car.elite && !this.pattern
+      && this.atk?.kind === 'ram' && this.atk.phase === 'hit';
+    const look = committedRam ? Math.min(curveLook, clamp(Math.max(0, P.s - car.s) + 6, 10, 30)) : curveLook;
     // pure pursuit toward a point on the road ahead at the target lateral offset
     // lane target moves at most ~8 m/s sideways: no twitchy full-lock swerves at 200 km/h when a slot flips sides
     const rate = this.atk && this.atk.phase === 'hit' ? 12 : 8;
@@ -353,8 +409,16 @@ export class EnemyBrain {
     // proper pure pursuit: the yaw rate that arcs onto the target point, as a fraction of what the tyres allow at this speed
     // (the vehicle's steering is a yaw-rate command), plus a little direct heading gain for low-speed jostling
     const err = wrapAngle(desired - heading), sp = car.spec, vv = Math.max(Math.abs(speed), 4);
-    const aLat = 0.81 * Math.min(sp.grip.front, sp.grip.rear) * (17.5 + (sp.downforce ?? 0.35) * vv * vv * 0.01);
-    const rMax = Math.min(sp.yawRateMax ?? 2.3, aLat / vv);
+    let aLat = .81 * Math.min(sp.grip.front, sp.grip.rear) * (17.5 + (sp.downforce ?? .35) * vv * vv * .01);
+    let rMax = Math.min(sp.yawRateMax ?? 2.3, aLat / vv);
+    if (!constrained && !car.elite && !this.pattern) {
+      // Vehicle yaw-command authority averages surface grip only. Flat tyres
+      // reduce tyre forces and the curve speed bound, not this denominator.
+      aLat = .9 * Math.min(sp.grip.front, sp.grip.rear) * this._traction(false) * (sp.steerAssistK ?? .9)
+        * (GRAVITY + (veh.grounded > 0 ? (sp.downforce ?? .35) * vv * vv * .01 : 0));
+      rMax = Math.max(.05, Math.min(sp.yawRateMax ?? 2.3, aLat / vv)
+        * lerp(1, sp.hiSpeedYaw ?? .76, smoothstep(18, 45, vv)));
+    }
     let steer = clamp((2 * Math.sin(err) * vv / look) / rMax * 1.15 + err * (0.5 + 0.4 * this.skill), -1, 1);
     // avoid other cars ahead (not the player when attacking it; wrecks and runaway cars are noticed late -> pile-ups)
     let brakeAvoid = 0;
@@ -375,6 +439,7 @@ export class EnemyBrain {
     // at speed, full lock just breaks traction (and the drift governor takes over): keep the input under the grip limit
     const sLim = clamp(1.9 - Math.max(0, speed) / 40, 0.8, 1);
     veh.input.steer = clamp(steer, -sLim, sLim);
+    this._lastVDes = vDes;
     const dv = vDes - speed;
     veh.input.throttle = brakeIn > 0.5 ? 0 : dv > 0 ? clamp(dv * 0.5, 0, 1) : 0;
     veh.input.brake = Math.max(brakeAvoid, brakeIn, dv < -3 ? clamp(-dv * 0.18, 0, 1) : 0);
@@ -555,3 +620,4 @@ export class EnemyBrain {
     sim.emit({ t: 'shot', src: car.id, weapon: 'enemy', origin: origin.toArray(), rays, speed: gun.speed, role, pellets: gun.pellets, heavy: gun.heavy || undefined });
   }
 }
+
