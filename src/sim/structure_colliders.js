@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { RAPIER, GROUPS, setColliderLabel, removeBody } from './physics.js';
 import { RockColliders } from './rock_colliders.js';
+import { appendDiagnostic } from '../core/diagnostics.js';
 
 const TYPES = new Set(['bridge', 'tunnel', 'overpass', 'static', 'roadblock']);
 
@@ -11,7 +12,7 @@ export class StructureColliders {
 
   hook(req) {
     const _t0 = performance.now();
-    try { this._hook(req); } finally { const ms = performance.now() - _t0; if (ms > 8 && typeof window !== 'undefined') (window.__spikes || (window.__spikes = [])).push({ what: 'collider:' + req.type, ms: +ms.toFixed(1), n: req.collision?.idx?.length / 3 | 0 }); }
+    try { this._hook(req); } finally { const ms = performance.now() - _t0; if (ms > 8 && typeof window !== 'undefined') appendDiagnostic(window, '__spikes', { what: 'collider:' + req.type, ms: +ms.toFixed(1), n: req.collision?.idx?.length / 3 | 0 }); }
   }
   _hook(req) {
     if (req.type === 'remove') {

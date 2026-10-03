@@ -34,6 +34,7 @@ import { BOSS_ID, BOSS_NAMES, MINIBOSSES, BOSS_PARTS } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
 import { TEN_LEVELS, MARATHON_LEVEL_LENGTH, normalizeJourney } from '../data/campaign.js';
 import { clamp, damp, lerp, wrapAngle } from '../core/util.js';
+import { appendDiagnostic } from '../core/diagnostics.js';
 import { runPhase, defeatReason, isDefeated, rememberDefeat, victoryPresenting } from './run_status.js';
 import { validCombatState, validDamageReceipt, validRemoteGunnerFX } from '../sim/combat.js';
 import { validNukeCue } from '../view/fx/nuke.js';
@@ -320,7 +321,7 @@ export class Run {
         const revision = this.sim.combat.revision; this.sim.combat.advance(0);
         if (this.sim.combat.revision !== revision) this.sim._combatState();
       }
-      { const ms = performance.now() - _ts; if (ms > 15) (window.__spikes || (window.__spikes = [])).push({ what: 'simSteps', ms: +ms.toFixed(1), steps, cars: this.sim.cars.size, at: +(performance.now() / 1000).toFixed(1) }); }
+      { const ms = performance.now() - _ts; if (ms > 15) appendDiagnostic(window, '__spikes', { what: 'simSteps', ms: +ms.toFixed(1), steps, cars: this.sim.cars.size, at: +(performance.now() / 1000).toFixed(1) }); }
       if (steps === 8) this.acc = 0;
       this.alpha = this.acc / DT;
       // states from sim
@@ -411,7 +412,7 @@ export class Run {
     const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5 && !this.introOutside, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
     const evs = this.sim || !this.localEvents.length ? this.events : this.events.concat(this.localEvents); // local sim events already went through sim.emit
     this.localEvents.length = 0;
-    { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) (window.__spikes || (window.__spikes = [])).push({ what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
+    { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) appendDiagnostic(window, '__spikes', { what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
     this.structures?.updateRocks(this.sim ? this.sim.cars.values() : this.states.values());
     this.encounterView?.update(dt, this.encounters, this.playerS || 0);
     this.wv.updateBoss(this.bossState, dt);

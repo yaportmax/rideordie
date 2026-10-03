@@ -7,6 +7,7 @@ import { setRoadNight, makeWorldFloor, FLOOR_R } from './terrain_material.js';
 import { lookAt } from './look.js';
 import { CoverField } from './dressing/groundcover.js';
 import { RAPIER, GROUPS } from '../sim/physics.js';
+import { appendDiagnostic } from '../core/diagnostics.js';
 
 /** Private look output (lookAt's default output object is shared by the render loop: never overwrite it from here). */
 const _look = (() => { const src = lookAt(0), o = {}; for (const [k, v] of Object.entries(src)) o[k] = v && v.isColor ? v.clone() : k === 'grade' ? { con: 0, sat: 1, shT: [0, 0, 0], hiT: [1, 1, 1] } : v; return o; })();
@@ -110,7 +111,7 @@ export class TerrainStreamer {
   _onMsg(w, m) {
     if (this.disposed) return;
     const _t0 = performance.now();
-    try { this._onMsg2(w, m); } finally { const ms = performance.now() - _t0; if (ms > 12) (window.__spikes || (window.__spikes = [])).push({ what: 'terrainMsg', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
+    try { this._onMsg2(w, m); } finally { const ms = performance.now() - _t0; if (ms > 12) appendDiagnostic(window, '__spikes', { what: 'terrainMsg', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
   }
   _onMsg2(w, m) {
     if (this.disposed) return;

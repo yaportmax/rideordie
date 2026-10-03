@@ -26,6 +26,7 @@ import { CrewView } from '../view/crew_view.js';
 import { ViewModel } from '../view/viewmodel.js';
 import { disposeOwnedSkeletonsIn } from '../view/owned_skeletons.js';
 import { clamp } from '../core/util.js';
+import { appendDiagnostic } from '../core/diagnostics.js';
 import { canCaptureRun, defeatReason } from './run_status.js';
 
 export class Game {
@@ -326,7 +327,7 @@ export class Game {
     const needLock = !window.__aimbot && !window.__camOverride && run.humanGunner && run.role !== 'driver' && !this.paused && canCaptureRun(run) && this.input.lastDevice !== 'pad' && !this.input.locked;
     if (!this._lockEl) { const e = this._lockEl = document.createElement('div'); e.textContent = 'CLICK TO AIM'; e.style.cssText = 'position:fixed;left:50%;top:58%;transform:translateX(-50%);padding:10px 22px;background:rgba(0,0,0,.55);color:#ffc21a;font:600 16px Bahnschrift,Segoe UI,sans-serif;letter-spacing:4px;border-left:3px solid #ffc21a;pointer-events:none;z-index:4;display:none'; document.body.appendChild(e); }
     this._lockEl.style.display = needLock ? 'block' : 'none';
-    if (t3 - t0 > 80) (window.__hitches || (window.__hitches = [])).push({ at: +(performance.now() / 1000).toFixed(1), sim: +(t1 - t0).toFixed(0), look: +(t2 - t1).toFixed(0), render: +(t3 - t2).toFixed(0), chunks: run.streamer?.stats?.built, cars: run.states.size, progs: this.renderer.info.programs?.length, ev: (run.allEvents || []).map((e) => e.t).join(',').slice(0, 120) });
+    if (t3 - t0 > 80) appendDiagnostic(window, '__hitches', { at: +(performance.now() / 1000).toFixed(1), sim: +(t1 - t0).toFixed(0), look: +(t2 - t1).toFixed(0), render: +(t3 - t2).toFixed(0), chunks: run.streamer?.stats?.built, cars: run.states.size, progs: this.renderer.info.programs?.length, ev: (run.allEvents || []).map((e) => e.t).join(',').slice(0, 120) });
     const P = this.perf; P.sim = P.sim * 0.95 + (t1 - t0) * 0.05; P.render = P.render * 0.95 + (t3 - t2) * 0.05; P.frame = P.frame * 0.95 + frameMs * 0.05; P.fps = 1000 / P.frame;
     const st = this.post?.stats; P.calls = st ? st.calls : this.renderer.info.render.calls; P.tris = st ? st.triangles : this.renderer.info.render.triangles; P.worst = Math.max(P.worst * 0.99, frameMs);
     this.fx?.update?.(dt);
