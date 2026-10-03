@@ -61,7 +61,7 @@ const server = createServer(async (request, response) => {
     const pathname = decodeURIComponent(url.pathname), path = resolve(dist, '.' + (pathname === '/' ? '/index.html' : pathname));
     if (path !== dist && !path.startsWith(dist + sep)) { response.writeHead(403).end(); return; }
     const bytes = await readFile(path);
-    response.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); response.end(bytes);
+    response.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream', 'Content-Length': bytes.length, 'Cache-Control': 'no-store' }); response.end(bytes);
   } catch { response.writeHead(404, { 'Content-Type': 'text/plain' }); response.end('Not found'); }
 });
 let browser, base;
