@@ -8,7 +8,7 @@ export function marathonLevelAt(s) {
   return Number.isFinite(s)?Math.max(0,Math.min(9,Math.floor(s/MARATHON_LEVEL_LENGTH))):0;
 }
 export const TEN_LEVELS = Object.freeze([
-  [1,'desert','SCORCHED DESERT','SCRAPJAW',3500,1,1500],
+  [1,'desert','SCORCHED DESERT','SCRAPJAW',5500,1,1500],
   [2,'canyon','BONE CANYON','THE BONECRUSHER TWINS',3800,1.12,2200],
   [3,'coast','DEAD COAST','MOTHER TRUCKER',4100,1.25,3000],
   [4,'mountain','FROST PASS','BLAZE',4400,1.4,4000],

@@ -6,7 +6,6 @@ import { clamp, wrapAngle, lerp } from '../core/util.js';
 import { carPoint } from '../sim/ai.js';
 import { bossAimPoint } from '../sim/boss.js';
 import { GUNNER_ROLES } from '../sim/car.js';
-import { celebrationActive } from '../sim/victory_presentation.js';
 
 const _p = new THREE.Vector3(), _d = new THREE.Vector3();
 const ENCOUNTER_THREAT = Object.freeze({ gate: 6, barrel: 5.5, tower: 3.8, rifleman: 3.6, drone: 4, boat: 3.8, arch: 1.4, rock: 1.2 });
@@ -128,7 +127,7 @@ export class AIGunner {
   update(dt, gunner, eye) {
     const run = this.run, sim = run.sim, P = run.player, c = this.cmd;
     c.fire = c.firePressed = c.reload = c.grenade = c.medkit = false; c.slot = -1; c.swap = 0; c.dYaw = 0; c.dPitch = 0; c.ads = false;
-    if ((sim.state !== 'run' && !celebrationActive(sim)) || !P.crew.gunner || !P.crew.gunner.alive) return c;
+    if (sim.state !== 'run' || !P.crew.gunner || !P.crew.gunner.alive) return c;
     this.retargetT -= dt; this.swapCd -= dt; this.nadeCd -= dt; this.rpgCd -= dt;
     // A destroyed/replaced encounter or a now-hidden armored weak point must
     // stop receiving fire immediately, even between reaction-time scans.
@@ -159,7 +158,7 @@ export class AIGunner {
       // Rockets splash hulls; a sealed vehicle's small exposed fuel zone needs
       // the normal aimed gun path rather than an invulnerable-body explosion.
       const heavy = !t.protected && (t.kind === 'weak' || (t.car && (t.car.spec.mass > 2500 || t.car.elite)));
-      const auto = ['minigun', 'lmg', 'rifle', 'smg', 'revolver', 'pistol'].find((id) => has(id) >= 0);
+      const auto = ['lmg', 'rifle', 'smg', 'revolver', 'pistol'].find((id) => has(id) >= 0);
       if (t.boss) {
         // the war-train: sustained fire wins; the RPG only when it is already loaded (never sit through its reload)
         const rpgReady = has('rpg') >= 0 && gunner.mag[has('rpg')] > 0 && !(gunner.cur === has('rpg') && gunner.reloading);

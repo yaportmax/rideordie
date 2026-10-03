@@ -286,16 +286,46 @@ test('legitimate24-row vault including12 tombstones connects and reloads its pri
 
 test('debounced autosaves serialize fetches and upload committed personal slot snapshots without blocking synchronous saves', async t => {
   const h = harness(t, { debounceMs: 5 }); await h.cloud.createVault();
+  const slotId = h.store.activeId(), beforeWrites = writes(h.service).length;
   const entered = deferred(), release = deferred(); let blocked = false;
   h.service.interceptor = async (request, next) => {
-    if (request.method === 'PUT' && !blocked) { blocked = true; entered.resolve(); await release.promise; }
+    if (request.method === 'PUT' && !blocked) { blocked = true; entered.resolve(request); await release.promise; }
     return next();
   };
-  saveCash(h.store, 10); saveCash(h.store, 20); await entered.promise;
-  const last = saveCash(h.store, 30); assert.equal(last.cash, 30); const sync = h.cloud.sync();
-  release.resolve(); await sync; await delay(20);
-  assert.equal(h.service.maxActive, 1); assert.equal(h.store.load().cash, 30);
-  assert.equal(h.service.vaults.get(h.cloud.recoveryCode()).slots.get(h.store.activeId()).profile.cash, 30);
+  const synced = deferred();
+  const unsubscribe = h.cloud.onChange(state => {
+    const remote = h.service.vaults.get(h.cloud.recoveryCode())?.slots.get(slotId);
+    if (state.status === 'connected' && state.pending === 0 && remote?.profile.cash === 30) synced.resolve(state);
+  });
+  let deadline;
+  const bounded = new Promise((_, reject) => {
+    // This referenced timer keeps the fixture alive for unref'd autosave timers.
+    // It is a failure bound, not an assumption about when upload work finishes.
+    deadline = setTimeout(() => {
+      const state = h.cloud.state();
+      reject(new Error(`Latest committed autosave receipt not observed: status=${state.status}, pending=${state.pending}, active=${h.service.active}`));
+    }, 5000);
+  });
+  try {
+    saveCash(h.store, 10); saveCash(h.store, 20);
+    const first = await Promise.race([entered.promise, bounded]); assert.equal(first.body.profile.cash, 20);
+    const last = saveCash(h.store, 30); assert.equal(last.cash, 30); assert.equal(h.store.load().cash, 30);
+    const committed = h.store.list().find(slot => slot.id === slotId);
+    // sync() joins the first blocked upload. The newer committed generation
+    // must follow automatically; another manual sync would mask debounce.
+    const sync = h.cloud.sync();
+    const observed = Promise.race([(async () => { await sync; return synced.promise; })(), bounded]);
+    release.resolve(); const state = await observed; assert.equal(state.status, 'connected'); assert.equal(state.pending, 0);
+    assert.equal(h.service.maxActive, 1); assert.equal(h.store.load().cash, 30);
+    const remote = h.service.vaults.get(h.cloud.recoveryCode()).slots.get(slotId), disk = persisted(h.storage);
+    assert.equal(remote.profile.cash, 30);
+    assert.deepEqual(writes(h.service).slice(beforeWrites).map(request => request.body.profile.cash), [20, 30]);
+    assert.equal(first.body.profile.cash, 20, 'in-flight committed snapshot stays immutable after the next save');
+    assert.equal(disk.acks[slotId].generation, committed.generation);
+    assert.equal(disk.acks[slotId].version, remote.version); assert.equal(disk.acks[slotId].hash, remote.hash);
+    assert.equal(disk.dirty[slotId], undefined); assert.equal(disk.outbox[slotId], undefined);
+  }
+  finally { release.resolve(); clearTimeout(deadline); unsubscribe(); }
 });
 
 test('bounded request timeout keeps immutable outbox and reports a secret-free error', async t => {

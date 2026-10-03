@@ -60,17 +60,49 @@ test('each blocked stage encounter retries after its existing backoff and comple
   }
 });
 
-test('a stage encounter cannot retry after its route window, during a warlord, or outside the active run', () => {
+test('stage retries retain route/run guards and bounded placement while coexisting with a retained warlord', () => {
   const piece = SET_PIECES[0], f = fixture(piece);
   f.update(20); f.allow();
   f.sim.player.s = piece.s + 901; f.update(29);
   assert.equal(f.spawned.length, 1, 'passing the existing window does not spawn a late ambush');
+  f.sim.player.s = piece.s - 261; f.update(29.05);
+  assert.equal(f.spawned.length, 1, 'the existing approach window still prevents an early retry');
+  assert.equal(f.director.setDone?.has(piece.key) ?? false, false);
   f.sim.player.s = piece.s;
-  f.director.activeElite = {}; f.update(29.1);
-  assert.equal(f.spawned.length, 1, 'warlord encounters retain exclusive scheduling');
-  f.director.activeElite = null; f.sim.state = 'dying'; f.update(30);
-  assert.equal(f.spawned.length, 1, 'no deferred stage retry after death');
-  assert.equal(f.events.filter(e => e.t === 'setPiece').length, 0);
+  // This scheduler fixture retains a warlord marker without fabricating an
+  // earned boss fight. Real boss bodies/caps/clearance remain covered by the
+  // separate production boss-wave tests; only placement is stubbed here.
+  const warlord = { index: 0, name: 'retained scheduler warlord', cars: [] };
+  f.director.activeElite = warlord; f.update(29.1);
+  assert.equal(f.spawned.length, 2, 'an eligible stage squad may retry alongside the retained warlord');
+  assert.equal(f.director.activeElite, warlord, 'ordinary stage scheduling cannot consume boss ownership');
+  assert.equal(f.director.setDone.has(piece.key), true);
+  assert.equal(f.events.filter(e => e.t === 'setPiece' && e.key === piece.key).length, 1);
+  assert.equal(f.events.filter(e => e.t === 'encounter' && e.key === piece.key).length, 1);
+  assert.equal(f.director.encounters, 1);
+  const queueSize = f.director.spawnQ.length;
+  assert.equal(queueSize, ENCOUNTERS[piece.key].cars.length - 1);
+  f.update(29.11);
+  assert.equal(f.spawned.length, 3, 'only one existing deferred escort enters the first opening');
+  assert.equal(f.director.spawnQ.length, queueSize - 1);
+  f.update(29.12);
+  assert.equal(f.spawned.length, 3, 'retained warlord does not bypass the original escort cadence');
+  assert.equal(f.events.filter(e => e.t === 'setPiece').length, 1, 'successful stage scheduling remains once per run');
+  for (const state of ['dying', 'over', 'countdown']) {
+    f.sim.state = state; f.update(30);
+    assert.equal(f.spawned.length, 3, `no deferred stage escort outside the active run: ${state}`);
+    assert.equal(f.director.spawnQ.length, queueSize - 1, 'terminal phase neither dispatches nor destroys the pending queue');
+    assert.equal(f.director.activeElite, warlord);
+  }
+
+  const blocked = fixture(piece); blocked.director.activeElite = warlord;
+  for (const time of [20, 20.01, 27.999]) blocked.update(time);
+  assert.equal(blocked.spawned.length, 1, 'boss presence cannot retry rejected physical placement every tick');
+  blocked.update(28);
+  assert.equal(blocked.spawned.length, 2, 'failed placement retains its existing eight-second backoff during the fight');
+  assert.equal(blocked.director.setDone?.has(piece.key) ?? false, false, 'an unsuccessful boss-adjacent placement cannot consume the event');
+  assert.equal(blocked.director.spawnQ?.length ?? 0, 0, 'failed first placement cannot enqueue an orphan squad');
+  assert.equal(blocked.events.filter(e => e.t === 'setPiece' || e.t === 'encounter').length, 0);
 });
 
 test('repeated placement failures stay bounded and a fresh director can run the stage again', () => {

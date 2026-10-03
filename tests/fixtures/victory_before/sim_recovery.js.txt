@@ -227,7 +227,7 @@ export class Sim {
 
   /** Water and the space below every terrain triangle are terminal driving areas, never playable underpasses. */
   _recoverOffroadFall(car) {
-    if (this.state !== 'run' && !celebrationActive(this)) { car._ditchRecovery = null; return; }
+    if (this.state !== 'run') { car._ditchRecovery = null; return; }
     const v = car.veh, bounds = this.ground?.recoveryBoundsAt?.(car.s), bio = this.road.biomeAt ? this.road.biomeAt(car.s) : biomeAt(car.s);
     const waterSide = ['coast', 'dam'].find(id => (bio.a === id || bio.b === id) && car.d * BIOMES[id].terrain.seaSide > HALF_ROAD + 6);
     const submerged = waterSide && bounds?.waterY != null && v.pos.y < bounds.waterY - 2;
@@ -238,9 +238,8 @@ export class Sim {
     const player = car.kind === 'player';
     const targetS = player ? car.s : this.player.s + 120 + car.id % 3 * 22;
     if (!this._placeOnClearRoad(car, targetS)) return;
-    const penalty = player && !celebrationActive(this);
-    if (penalty) this.damageCar(car, car.maxHp * 0.04, { cause: 'fall' });
-    this.emit({ t: 'groundRecovered', id: car.id, s: car.s, reason: submerged ? 'water' : 'void', penalty });
+    if (player) this.damageCar(car, car.maxHp * 0.04, { cause: 'fall' });
+    this.emit({ t: 'groundRecovered', id: car.id, s: car.s, reason: submerged ? 'water' : 'void', penalty: player });
   }
 
   /** A beached mountain car above the terrain floor needs a bounded route back, too. */
@@ -265,7 +264,7 @@ export class Sim {
 
   /** Shared physical eligibility for automatic failed driving and an explicit reset. */
   _mountainDitchSite(car, bio = car && this.road.biomeAt(car.s)) {
-    if ((this.state !== 'run' && !celebrationActive(this)) || !car || car !== this.player || car.dead || car.exploded || car.held ||
+    if (this.state !== 'run' || !car || car !== this.player || car.dead || car.exploded || car.held ||
         !car.crew.driver.alive || !car.veh.driverAlive || car.engineHp <= 0 || car.veh.stunned > 0) return null;
     const v = car.veh, velocity = v.body.linvel();
     const mountain = (bio.w > .5 ? bio.b : bio.a) === 'mountain';
@@ -292,9 +291,8 @@ export class Sim {
 
   _returnFromDitch(car, targetS, manual) {
     if (!this._placeOnClearRoad(car, targetS)) return false;
-    const penalty = !celebrationActive(this);
-    if (penalty) this.damageCar(car, car.maxHp * .04, { cause: 'fall' });
-    this.emit({ t: 'groundRecovered', id: car.id, s: car.s, reason: 'ditch', penalty, manual });
+    this.damageCar(car, car.maxHp * .04, { cause: 'fall' });
+    this.emit({ t: 'groundRecovered', id: car.id, s: car.s, reason: 'ditch', penalty: true, manual });
     return true;
   }
 

@@ -12,6 +12,7 @@ import { TEN_LEVELS, normalizeJourney } from '../data/campaign.js';
 import { Leviathan } from './boss.js';
 import { EnemyBrain } from './ai.js';
 import { RAPIER, RAY_WORLD, G, groups } from './physics.js';
+import { celebrationActive } from './victory_presentation.js';
 
 const LANES = [-5.0, -1.7, 1.7, 5.0];
 const _v = new THREE.Vector3();
@@ -49,7 +50,7 @@ export class Director {
 
   update(dt, sim) {
     const P = sim.player;
-    if (!P || sim.state !== 'run' || !this.enabled) return;
+    if (!P || (sim.state !== 'run' && !celebrationActive(sim)) || !this.enabled) return;
     if (!this.r) {
       this.r = rng(sim.seed * 31 + 5); this.playerVmax = P.spec.engine.vmax;
       // the player's fuel tank / engine are hit zones too; with raider fire landing, a 60-HP tank would be a one-burst instant
@@ -75,13 +76,13 @@ export class Director {
       sim.bossDamageMul = 0.55 + 0.45 * Lb;
       sim.enemyDamageMul = 0.55 + 0.4 * Math.min(Lb, 0.55) + 0.12 * Math.max(0, Lb - 0.55);
       sim.enemyRamMul = 0.8; sim.playerBlastMul = 0.45; sim.playerCarBlastMul = 0.8;
-      this._cleanup(sim, P); return;
+    } else {
+      // Raider damage follows normal chapter tuning outside the living finale.
+      sim.enemyDamageMul = 0.55 + 0.4 * Math.min(L, 0.55) + 0.12 * Math.max(0, L - 0.55);
+      sim.enemyRamMul = 0.38 + 0.2 * Math.min(L, 1);
+      sim.playerBlastMul = 0.18 + 0.1 * Math.min(L, 1);
+      sim.playerCarBlastMul = 0.6;
     }
-    // how much the raiders hurt, by level: rounds (x the per-round growth in ai.shoot), rams, blasts next to you
-    sim.enemyDamageMul = 0.55 + 0.4 * Math.min(L, 0.55) + 0.12 * Math.max(0, L - 0.55);   // (flattens on the last stretch: a maxed rig must reach the dam)
-    sim.enemyRamMul = 0.38 + 0.2 * Math.min(L, 1);
-    sim.playerBlastMul = 0.18 + 0.1 * Math.min(L, 1);
-    sim.playerCarBlastMul = 0.6;   // raider cars cooking off beside you (the chain-reaction show) sting less than rockets and mines
     // accumulate budget with a slow pulse (waves and lulls)
     this.pulse += dt * (0.45 + 0.2 * L);
     const wave = 0.55 + 0.75 * (0.5 + 0.5 * Math.sin(this.pulse));
@@ -99,12 +100,11 @@ export class Director {
       if (!c.driverless && Math.abs(c.s - P.s) < 55) engaged = true;
     }
     if (engaged) this.lastEngaged = sim.time;
-    const cap = Math.round(3 + 6.8 * Math.pow(L, 0.8)) + (this.opts.capBonus || 0) - (this.activeElite ? 3 : 0);
+    const cap = Math.round(3 + 6.8 * Math.pow(L, 0.8)) + (this.opts.capBonus || 0);
     this._cleanup(sim, P);
     // pressure: if nobody has been in your face for a while, the next squad comes now (early game: every run is eventful)
     const idle = sim.time - this.lastEngaged;
     const pressure = idle > lerp(9, 4, clamp(L * 1.5, 0, 1)) && sim.time > 2;
-    if (this.activeElite) return;   // a warlord fight is its own encounter (the warlord calls its own help)
     // biome set piece: once per run, regardless of budget / cap
     const scripted = journey.mode === 'legacy' ? SET_PIECES : CHAPTER_SCRIPTED[journey.mode][chapter - 1];
     for (const sp of scripted) {
@@ -117,6 +117,9 @@ export class Director {
         return;
       }
     }
+    // A due authored escort gets the next opening; normal waves still accrue
+    // budget and resume as soon as the boss has dispatched it.
+    if (sim.boss?.dueEscort?.()) return;
     if (this.cooldown > 0 && !(pressure && this.cooldown < 4)) return;
     if (alive >= cap) return;
     const enc = this._pickEncounter(L, cap - alive, pressure);
@@ -399,7 +402,6 @@ export class Director {
       this.bossSpawned = true;
       sim.boss = new Leviathan(sim, P.s + 320, 0);
       sim.emit({ t: 'bossSpawn', id: sim.boss.id });
-      for (const c of sim.cars.values()) if (c.kind === 'enemy' && !c.exploded && !c.elite) c.bossClear = true;
       // the last supply cache before the war-train: the fight starts fair however battered the truck arrived
       const before = P.hp; P.hp = P.maxHp;
       for (const c of Object.values(P.crew)) if (c && c.alive) c.hp = c.max;
@@ -454,7 +456,6 @@ export class Director {
       if (!sim.boss && !this.bossSpawned && (!sim.ground?.hasColliderAt || sim.ground.hasColliderAt(P.s + 300))) {
         this.bossSpawned = true; sim.boss = new Leviathan(sim, P.s + 320, 0);
         sim.emit({ t: 'bossSpawn', id: sim.boss.id });
-        for (const c of sim.cars.values()) if (c.kind === 'enemy' && !c.exploded && !c.elite) c.bossClear = true;
         const before = P.hp; P.hp = P.maxHp;
         for (const crew of Object.values(P.crew)) if (crew?.alive) crew.hp = crew.max;
         P.fuelHp = Math.max(P.fuelHp, P.maxHp * 0.6); P.engineHp = Math.max(P.engineHp, 100 + P.maxHp * 0.4); P.veh.engineDamage = 0;

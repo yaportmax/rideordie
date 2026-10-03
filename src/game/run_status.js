@@ -1,5 +1,6 @@
 // Read-only presentation/input policy shared by the authority and snapshot viewer.
 // `over` is deliberately later than defeat, and may arrive before a victory summary.
+import { celebrationActive } from '../sim/victory_presentation.js';
 const CAUSES = { 'TRUCK DESTROYED': 'car', 'DRIVER KILLED': 'driver', 'GUNNER KILLED': 'gunner' };
 const knownReason = why => why === 'car' || why === 'driver' || why === 'gunner';
 
@@ -46,6 +47,18 @@ export function defeatReason(run) {
 
 export function isDefeated(run) { return defeatReason(run) !== null; }
 
+export function victoryPresenting(run) {
+  if (run?.sim) return celebrationActive(run.sim);
+  return !!(run?.victoryPresentation && run._victorySeen && !isDefeated(run));
+}
+
+export function validVictoryPresentationEvent(run, event) {
+  return !!(run && !run.sim && event?.t === 'victoryPresentation' &&
+    event.mode === run.journey?.mode && event.level === run.journey?.level &&
+    !knownReason(run._defeatWhy) && !CAUSES[(run.remoteSummary ?? run.summary)?.cause] &&
+    (run.remoteSummary ?? run.summary)?.won !== false);
+}
+
 export function localSeatAlive(run) {
   const p = run?.states?.get(run.playerId ?? 1);
   if (!p) return false;
@@ -62,9 +75,14 @@ export function canCaptureRun(run) {
 export function rememberDefeat(run, events = []) {
   for (const e of events) {
     if (run.sim && e.remote) continue; // remote shot FX cannot authorize host run state
+    if (validVictoryPresentationEvent(run, e)) { run._victorySeen = true; run.victoryPresentation = true; continue; }
     if (e.t !== 'playerDown' && e.t !== 'runOver') continue;
     if (e.why === 'victory') run._victorySeen = true;
     else if (knownReason(e.why) && !run._defeatWhy) run._defeatWhy = e.why;
   }
+  // Explicit reliable loss/final correction supersedes an earlier proof.
+  // Casual dying snapshots retain the proof, since they cannot reveal event order.
+  const summary = run.remoteSummary ?? run.summary;
+  if (run.victoryPresentation && (knownReason(run._defeatWhy) || summary?.won === false || CAUSES[summary?.cause])) run.victoryPresentation = false;
   if (!run._inferredDefeatWhy && !isVictory(run)) run._inferredDefeatWhy = inferredDefeatReason(run);
 }

@@ -11,6 +11,8 @@ const _o = new V3(), _d = new V3(), _p = new V3(), _q = new THREE.Quaternion(), 
 const _sm = {}, _sm2 = {};
 
 const PART_SKIN = 0.9;
+const ESCORT_RETRY = 0.25;
+const PHASE_DROP_INTERVAL = 1.4;
 /** Shared by the sim boss and the client-side ghost: raycast the boss parts at a pose. */
 export function raycastBoss(b, origin, dir, maxDist) {
   _qi.copy(b.quat).invert();
@@ -67,6 +69,7 @@ export class Leviathan {
     for (const n of PART_NAMES) { this.hp[n] = BOSS_PARTS[n].hp; this.alive[n] = true; if (BOSS_PARTS[n].core) this.maxCore += BOSS_PARTS[n].hp; }
     this.phase = 1; this.t = 0; this.dead = false; this.deathT = 0; this.exploded = false;
     this.phaseT = 0; this.dropQ = []; this.blockQ = []; this.wall = []; this.blockadeDone = false;   // pacing beats (see BOSS.phase1Max ...)
+    this.nextEscortAt = 0; this.phaseEscortRetryAt = 0; this.rampEscortRetryAt = 0; this.rampEscort = null;
     this.r = rng(sim.seed * 13 + 777);
     this.cd = { pods: 6, cannon: 99, ramp: 99, charge: 0 };
     this.turrets = ['part_turret_1', 'part_turret_2'].map((n, i) => ({ part: n, socket: 'turret_' + (i + 1), yaw: 0, pitch: 0, mode: 'idle', t: 1 + i, burst: 0, fireT: 0 }));
@@ -144,6 +147,11 @@ export class Leviathan {
 
   engineExposed() { return !BOSS_PARTS.part_engine.needs.some((n) => this.alive[n]); }
 
+  /** Due authored support takes priority over the director's ordinary waves. */
+  dueEscort() {
+    return !this.dead && !this.exploded && (this.dropQ.some(q => q.t <= this.t) || (this.phase >= 2 && this.cd.ramp <= 0));
+  }
+
   _setPhase(p) {
     this.phase = p; this.phaseT = this.t;
     // breather: the train's guns reload while it shifts gear (the banner beat), everything else keeps coming
@@ -151,7 +159,7 @@ export class Leviathan {
     this.cd.pods = Math.max(this.cd.pods, 4); this.cd.cannon = Math.max(this.cd.cannon, 4);
     if (p === 2) { this.cd.cannon = 3; this.cd.ramp = 9; }
     // an escort wave comes down the ramp as each phase opens (staggered: one car at a time)
-    (BOSS.waves[p] || []).forEach((k, i) => this.dropQ.push({ k, t: this.t + 1.5 + i * 1.4 }));
+    (BOSS.waves[p] || []).forEach((k, i) => this.dropQ.push({ k, t: this.t + 1.5 + i * PHASE_DROP_INTERVAL }));
     // reactor exposed: the blast that tore its plates off showers the road with scrap — a last patch-up before the kill
     const P = this.sim.player;
     if (p === 3 && P && !P.exploded) {
@@ -172,17 +180,12 @@ export class Leviathan {
   /** Scripted beats: escort drops, and the wreck blockade the train smashes through early in the fight. */
   _beats(dt) {
     const sim = this.sim;
+    if (this.dead || this.exploded) return;
     if (this.overheatT !== undefined && this.t >= this.overheatT && this.phase === 2) {
       this.overheatT = Infinity;
       for (const n of BOSS_PARTS.part_engine.needs) if (this.alive[n]) this._destroyPart(n);   // plates + tanks
     }
-    for (let i = this.dropQ.length - 1; i >= 0; i--) {
-      const q = this.dropQ[i]; if (this.t < q.t) continue;
-      this.dropQ.splice(i, 1);
-      if ([...sim.cars.values()].filter((c) => c.kind === 'enemy' && !c.exploded).length > 7) continue;
-      sim.emit({ t: 'bossRamp', pos: this.socket('ramp_rear', _p).toArray() });
-      sim.director.spawnAt(sim, q.k, this.s - 24, this.d, this.v - 2, { behavior: this.r() < 0.5 ? 'flanker' : 'chaser', side: this.r() < 0.5 ? 1 : -1 });
-    }
+    this._phaseEscort();
     if (!this.blockadeDone && this.t > BOSS.blockadeAt && this.phase < 3) {
       this.blockadeDone = true;
       const s0 = this.s + 18 + 95;
@@ -213,6 +216,26 @@ export class Leviathan {
       sim.emit({ t: 'explode', id: w.id, pos: [p.x, p.y + 0.5, p.z], size: 1.3, cause: 'boss', spec: w.spec.id, vel: [sm.fx * this.v, 6, sm.fz * this.v] });
       sim.emit({ t: 'bossBeat', kind: 'smash', pos: [p.x, p.y, p.z] });
     }
+  }
+
+  _phaseEscort() {
+    if (this.dead || this.exploded || this.t < this.nextEscortAt || this.t < this.phaseEscortRetryAt) return;
+    // An overdue wave must not burst every retained car into one frame. Pick
+    // the oldest due authored job and keep its original spacing after success.
+    let i = -1;
+    for (let j = 0; j < this.dropQ.length; j++) if (this.dropQ[j].t <= this.t && (i < 0 || this.dropQ[j].t < this.dropQ[i].t)) i = j;
+    if (i < 0) return;
+    this.phaseEscortRetryAt = this.t + ESCORT_RETRY;
+    const sim = this.sim, q = this.dropQ[i];
+    if ([...sim.cars.values()].filter(c => c.kind === 'enemy' && !c.exploded).length > 7) return;
+    // A failed physical/loaded-ground guard retries the same authored car and
+    // choices, rather than consuming the job or rolling new choices at 120 Hz.
+    q.launch ||= { behavior: this.r() < 0.5 ? 'flanker' : 'chaser', side: this.r() < 0.5 ? 1 : -1 };
+    const car = sim.director.spawnAt(sim, q.k, this.s - 24, this.d, this.v - 2, q.launch);
+    if (!car) return;
+    this.dropQ.splice(i, 1);
+    this.nextEscortAt = this.t + PHASE_DROP_INTERVAL;
+    sim.emit({ t: 'bossRamp', pos: this.socket('ramp_rear', _p).toArray() });
   }
 
   _aimAt(P, muzzle, speed, out) {
@@ -303,14 +326,19 @@ export class Leviathan {
   }
 
   _ramp(dt, P) {
-    this.cd.ramp -= dt;
-    if (this.cd.ramp > 0) return;
-    this.cd.ramp = this.r.range(BOSS.ramp.every[0], BOSS.ramp.every[1]);
+    if (this.dead || this.exploded || this.phase < 2) return;
+    this.cd.ramp = Math.max(0, this.cd.ramp - dt);
+    if (this.cd.ramp > 0 || this.t < this.nextEscortAt || this.t < this.rampEscortRetryAt || this.dropQ.some(q => q.t <= this.t)) return;
+    this.rampEscortRetryAt = this.t + ESCORT_RETRY;
     const alive = [...this.sim.cars.values()].filter((c) => c.kind === 'enemy' && !c.exploded).length;
     if (alive > 6) return;
-    const key = this.r.pick(BOSS.ramp.cars);
+    this.rampEscort ||= { cooldown: this.r.range(BOSS.ramp.every[0], BOSS.ramp.every[1]), key: this.r.pick(BOSS.ramp.cars) };
+    const car = this.sim.director.spawnAt(this.sim, this.rampEscort.key, this.s - 24, this.d, this.v - 2, { behavior: 'chaser' });
+    if (!car) return;
+    this.cd.ramp = this.rampEscort.cooldown;
+    this.rampEscort = null;
+    this.nextEscortAt = this.t + PHASE_DROP_INTERVAL;
     this.sim.emit({ t: 'bossRamp', pos: this.socket('ramp_rear', _p).toArray() });
-    this.sim.director.spawnAt(this.sim, key, this.s - 24, this.d, this.v - 2, { behavior: 'chaser' });
   }
 
   /** Damage from a bullet/explosion to a part (or 'body'). Returns damage dealt. */
@@ -352,6 +380,8 @@ export class Leviathan {
 
   _die() {
     this.dead = true; this.deathT = 0;
+    this.dropQ.length = 0; this.rampEscort = null;
+    this.nextEscortAt = this.phaseEscortRetryAt = this.rampEscortRetryAt = 0;
     this.sim.emit({ t: 'bossDying', pos: this.pos.toArray() });
   }
 
@@ -387,7 +417,7 @@ export class Leviathan {
     }
   }
 
-  destroy() { this.sim.world.removeRigidBody(this.body); }
+  destroy() { this.dropQ.length = 0; this.rampEscort = null; this.sim.world.removeRigidBody(this.body); }
 }
 
 /** Client stand-in: pose + alive mask come from snapshots. */

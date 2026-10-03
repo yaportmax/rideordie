@@ -5,6 +5,7 @@ import { clamp, wrapAngle, lerp, smoothstep } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
 import { rbGapD } from '../sim/hazards.js';
 import { drivingLaneTarget, projectDrivingBranch } from '../world/driving_plan.js';
+import { celebrationActive } from '../sim/victory_presentation.js';
 
 const _v = new THREE.Vector3(), _tp = {}, _mainProjection = {};
 
@@ -31,7 +32,7 @@ export class AIDriver {
   update(dt) {
     const run = this.run, sim = run.sim, P = run.player, v = P.veh, road = sim.road, c = this.cmd;
     c.special1 = c.special2 = c.medkit = c.reset = false;
-    if (sim.state !== 'run' && sim.state !== 'countdown') { c.throttle = 0; c.brake = 1; c.steer = 0; return c; }
+    if (sim.state !== 'run' && sim.state !== 'countdown' && !celebrationActive(sim)) { c.throttle = 0; c.brake = 1; c.steer = 0; return c; }
     const vmax = P.spec.engine.vmax, branch = P.route && road.drivingBranch(P.route), route = branch?.id || null, halfWidth = branch ? branch.width / 2 : HALF_ROAD;
     if (route !== this._route) { this.lane = 0; this.laneT = 2; this.retry = null; this._route = route; }
     // ---------------- where to be laterally
@@ -137,7 +138,7 @@ export class AIDriver {
     const upright = v.up.y > 0.55;
     if (!upright) { this.flipT = (this.flipT || 0) + dt; if (this.flipT > 1.0) { this.flipT = 0; run._unflip(true); } }
     else this.flipT = 0;
-    if (upright && v.speed < 2 && c.throttle > 0.3 && sim.state === 'run' && sim.time > 4) {
+    if (upright && v.speed < 2 && c.throttle > 0.3 && (sim.state === 'run' || celebrationActive(sim)) && sim.time > 4) {
       this.stuckT += dt;
       if (this.stuckT > 0.9) {
         this.stuckT = 0; this.reverseT = 1.6;

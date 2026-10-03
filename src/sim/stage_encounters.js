@@ -8,6 +8,7 @@ import { plannedStageEncounters } from '../data/stage_encounters.js';
 import { BIOMES, HALF_ROAD } from '../data/biomes.js';
 import { terrainPoint, seaLevel } from '../world/terrain_gen.js';
 import { clamp } from '../core/util.js';
+import { celebrationActive } from './victory_presentation.js';
 
 const V3 = THREE.Vector3, Q = THREE.Quaternion;
 const _local = new V3(), _dir = new V3(), _inverse = new Q(), _point = new V3(), _target = new V3(), _origin = new V3();
@@ -103,7 +104,7 @@ export class StageEncounters {
   update(dt, sim = this.sim) {
     if (!sim || !Number.isFinite(dt) || dt < 0 || dt > .2) return;
     this.sim = sim;
-    if (!this.authoritative || sim.state !== 'run' || !sim.player || sim.player.exploded) return;
+    if (!this.authoritative || (sim.state !== 'run' && !celebrationActive(sim)) || !sim.player || sim.player.exploded) return;
     if (!this.plan) this.plan = plannedStageEncounters(sim.road);
     const p = sim.player;
     if (sim.tick % 15 === 0) this._sync(sim, p.s);
@@ -490,8 +491,8 @@ export class StageEncounters {
     this._removeBodies(actor, sim);
     if (!info.quiet) sim.emit({ t: 'stageBreak', id: actor.id, kind: actor.kind, siteId: actor.siteId, pos: actor.pos.toArray(), owner: info.src });
     if (info.src === 1 && ['tower', 'rifleman', 'drone', 'boat'].includes(actor.kind)) {
-      sim.stats.kills++;
-      sim.emit({ t: 'kill', id: actor.id, spec: `stage_${actor.kind}`, cause: info.cause || 'bullet', pos: actor.pos.toArray(), crash: false });
+      if (!celebrationActive(sim)) sim.stats.kills++;
+      sim.emit({ t: 'kill', id: actor.id, spec: `stage_${actor.kind}`, cause: info.cause || 'bullet', pos: actor.pos.toArray(), crash: false, nonScoring: celebrationActive(sim) });
     }
     if (actor.kind === 'barrel' && !info.quiet) {
       sim.emit({ t: 'boom', pos: actor.pos.toArray(), radius: 5.5, kind: 'mine' });

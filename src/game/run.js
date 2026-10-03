@@ -34,7 +34,7 @@ import { BOSS_ID, BOSS_NAMES, MINIBOSSES, BOSS_PARTS } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
 import { TEN_LEVELS, MARATHON_LEVEL_LENGTH, normalizeJourney } from '../data/campaign.js';
 import { clamp, damp, lerp, wrapAngle } from '../core/util.js';
-import { runPhase, defeatReason, isDefeated, rememberDefeat } from './run_status.js';
+import { runPhase, defeatReason, isDefeated, rememberDefeat, victoryPresenting } from './run_status.js';
 
 const V3 = THREE.Vector3;
 
@@ -66,6 +66,7 @@ export class Run {
     this.pivot = new V3(); this.hud = {}; this.playerId = 1; this.buf = new SnapshotBuffer();
     this.pendingReports = []; this.proj = []; this.outEvents = [];
     this.over = false; this.finished = false; this.countdown = 3.2; this.started = false;
+    this.victoryPresentation = false; this.victorySummary = null; this._victoryControls = null;
     this.medkits = 0; this.cash = 0; this.streakT = 0; this.streak = 0; this.multi = 0;
     this.gunnerRemote = { yaw: 0, pitch: 0, fire: false, crouch: false, ads: false, weapon: 0, reloading: false, x: 0, z: 0, seq: 0 };
     this.lastStats = null; this.shots = 0; this.hitsLanded = 0;
@@ -149,10 +150,10 @@ export class Run {
       },
       raycastWorld: (o, d, max) => run._worldRay(o, d, max, true),
       emit: (e) => run._localEvent(e),
-      report: (h) => { run.hitsLanded++; if (run.sim) run.sim.applyHit(h); else { run.net.sendJSON({ t: 'hit', h }); (run.localFlash || (run.localFlash = new Map())).set(h.carId, 0.12); } },
+      report: (h) => { if (!run.victoryPresentation) run.hitsLanded++; if (run.sim) run.sim.applyHit(h); else if (!run.victoryPresentation) { run.net.sendJSON({ t: 'hit', h }); (run.localFlash || (run.localFlash = new Map())).set(h.carId, 0.12); } },
       fireRocket: (o, d, w) => { const cfg = { ...w.rocket, direct: w.dmg }; if (run.sim) run.sim.projectiles.addRocket(o, d, cfg, 1); else run.net.sendJSON({ t: 'rocket', o: o.toArray(), d: d.toArray(), cfg }); },
       throwGrenade: (o, v, cfg) => { if (run.sim) run.sim.projectiles.addGrenade(run.sim, o, v, cfg, 1); else run.net.sendJSON({ t: 'grenade', o: o.toArray(), v: v.toArray(), cfg }); },
-      kick: (pitch, yaw, kick) => { run.gcam.addRecoil(pitch, yaw); run.gcam.shake.add(kick * 1.2); },
+      kick: (pitch, yaw, kick) => { if (!run.victoryPresentation) { run.gcam.addRecoil(pitch, yaw); run.gcam.shake.add(kick * 1.2); } },
       hitMarker: (head) => { if (run.humanGunner) run.g.hud.hitMarker(false, head); },
     };
   }
@@ -194,12 +195,61 @@ export class Run {
     return n;
   }
   _localEvent(e) {
-    e.time = this.time; if (e.t === 'shot') this.shots++;
+    if (!this.sim && this.victoryPresentation) return;
+    e.time = this.time; if (e.t === 'shot' && !this.victoryPresentation) this.shots++;
     if (this.sim) this.sim.emit({ ...e, remote: false, fromGunner: true });   // solo/driver: same event list as everything else
     else { this.localEvents.push(e); this.outEvents.push(e); }                // gunner peer: show locally + forward to the driver
   }
 
   // ---------------------------------------------------------------------------------------------- per-frame
+  /** Own both seats only after the authoritative simulation verified a boss death. */
+  _beginVictoryPresentation() {
+    if (this.disposed || this.victoryPresentation || !victoryPresenting(this)) return false;
+    // The clearing batch credits these two Run-owned earned fields after
+    // Sim freezes its combat/time statistics. Preserve that exact clear
+    // while including the actual final ram kill and its cash conversion.
+    if (this.sim.victoryStats) {
+      this.sim.victoryStats.cash = this.sim.stats.cash;
+      this.sim.victoryStats.crashKills = this.sim.stats.crashKills;
+    }
+    this.victorySummary = structuredClone(this.buildSummary(true));
+    this.victoryPresentation = true;
+    // A co-op driver's authority normally has no local weapon controller.
+    // Its verified run profile supplies the same partner loadout/slot/aim.
+    // Remote magazine count is not part of protocol5: this new cosmetic
+    // controller starts with its own magazine, never a persistent ammo grant.
+    let ownedGunner = false;
+    if (!this.gunner) {
+      this.gunner = new GunnerController(gunnerLoadout(this.effects), this._gunnerCtx());
+      const remote = this.gunnerRemote;
+      this.gunner.cur = clamp(remote.weapon, 0, this.gunner.slots.length - 1);
+      this.gunner.yaw = remote.yaw; this.gunner.pitch = remote.pitch; this.gunner.ads = remote.ads ? 1 : 0;
+      ownedGunner = true;
+    }
+    const driver = new AIDriver(this), gunner = new AIGunner(this);
+    this._victoryControls = { driver, gunner, ownedGunner };
+    this.aiDriver = driver; this.aiGunner = gunner;
+    this.remoteDriverInput = null; this.outEvents.length = 0;
+    return true;
+  }
+
+  _victoryDriverCommand(command) {
+    // Road avoidance/recovery remain active; paid gadgets, healing, boost
+    // and human look input cannot spend or override anything after the clear.
+    command.special1 = command.special2 = command.medkit = command.nitro = command.reset = false;
+    command.lookX = command.lookY = command.mouseYaw = command.mousePitch = 0;
+    command.lookBack = command.cameraToggle = command.horn = false;
+    return command;
+  }
+
+  _syncVictoryGunnerPose(state) {
+    if (!this.gunner || !state?.gunner) return;
+    const pose = state.gunner, gunner = this.gunner;
+    gunner.cur = clamp(pose.weapon, 0, gunner.slots.length - 1);
+    gunner.yaw = pose.yaw; gunner.pitch = pose.pitch; gunner.ads = pose.ads ? 1 : 0;
+    gunner.reloading = !!pose.reloading; gunner.trigger = false;
+  }
+
   /** Advance sim/net and produce this frame's render data. */
   update(dt, cmds, now) {
     const g = this.g; this.time += dt; this.streakT = Math.max(0, (this.streakT || 0) - dt);
@@ -207,6 +257,7 @@ export class Run {
     if (this.gunner) { this.gunner.crouch = 0; this.gunner.pos.x = 0; this.gunner.pos.z = 0; }
     const P = this.sim ? this.player : null;
     if (this.sim) {
+      this._beginVictoryPresentation();
       // countdown -> start once the ground under the truck exists
       if (this.sim.state === 'countdown') {
         this.streamer.update(P.s);
@@ -232,10 +283,11 @@ export class Run {
         Object.assign(cmds.driver, { throttle: v.vf < want ? 1 : 0, brake: v.vf > want + 4 ? 0.5 : 0, steer: clamp(err * 2.5, -1, 1), handbrake: false, nitro: false });
       }
       if (this.aiDriver) cmds.driver = this.aiDriver.update(dt);
+      if (this.victoryPresentation) cmds.driver = this._victoryDriverCommand(cmds.driver);
       if (this.sim.state === 'countdown') Object.assign(cmds.driver, { throttle: 0, brake: 0, steer: 0, handbrake: true, nitro: false }); // no false starts
-      if (this.driverLocal) { P.veh.setInput(cmds.driver); this._driverActions(dt, cmds.driver); }
-      if (this.humanGunner && cmds.gunner.medkit && !cmds.driver.medkit) this._medkit();
-      else if (this.remoteDriverInput) P.veh.setInput(this.remoteDriverInput);
+      if (this.driverLocal || this.victoryPresentation) { P.veh.setInput(cmds.driver); this._driverActions(dt, cmds.driver); }
+      if (!this.victoryPresentation && this.humanGunner && cmds.gunner.medkit && !cmds.driver.medkit) this._medkit();
+      else if (!this.victoryPresentation && this.remoteDriverInput) P.veh.setInput(this.remoteDriverInput);
       // gunner state onto the sim car (from the local controller or from the remote gunner)
       const gs = P.crew.gunner;
       if (this.gunner) {
@@ -264,6 +316,7 @@ export class Run {
       this.events = this.sim.drainEvents();
       this.playerS = P.s;
       this._simEventsToRun();
+      this._beginVictoryPresentation();
       const Bs = this.sim.boss;
       if (Bs) { const B = Bs; const bs = this.bossState || (this.bossState = { pos: B.pos, quat: B.quat, vel: B.vel, v: 0, alive: B.alive, phase: 1, dead: false, exploded: false }); bs.v = B.v; bs.phase = B.phase; bs.dead = B.dead; bs.exploded = B.exploded; } else this.bossState = null;
       this._projectileViews();
@@ -291,13 +344,15 @@ export class Run {
     }
     rememberDefeat(this, this.events);
     const pst = this.states.get(this.playerId);
-    if (!this.sim && cmds.gunner.medkit) this._medkit();
+    if (!this.sim && this.victoryPresentation) this._syncVictoryGunnerPose(pst);
+    if (!this.sim && !this.victoryPresentation && cmds.gunner.medkit) this._medkit();
     if (this.streamer) this.streamer.update(this.playerS || 0);
     if (pst) this._gunnerEye(pst, this.eye || (this.eye = new THREE.Vector3()));
-    if (cmds.gunner.viewToggle && this.humanGunner && !isDefeated(this)) this.gcam.toggle();
+    if (cmds.gunner.viewToggle && this.humanGunner && !this.victoryPresentation && !isDefeated(this)) this.gcam.toggle();
     if (this.aiGunner && this.gunner && this.sim) cmds.gunner = this.aiGunner.update(dt, this.gunner, this.eye);
+    if (this.victoryPresentation && this.sim) { cmds.gunner.grenade = cmds.gunner.medkit = false; cmds.gunner.viewToggle = false; }
     // debug aimbot (tests only): point the gunner at the nearest enemy
-    if (window.__aimbot && this.gunner && pst) {
+    if (window.__aimbot && this.gunner && pst && !this.victoryPresentation) {
       let best = null, bd = 140;
       for (const [id, st] of this.states) { if (st.kind !== 'enemy' || st.exploded) continue; const d = st.pos.distanceTo(pst.pos); if (d < bd) { bd = d; best = st; } }
       let aimP = best ? _t2.copy(best.pos).add(_f.set(0, 1.2, 0)) : null;
@@ -313,11 +368,11 @@ export class Run {
       } else cmds.gunner.fire = false;
     }
     // Advance controls first; firing waits for this frame's camera and posed gun.
-    if (this.gunner && pst) {
+    if (this.gunner && pst && (this.sim || !this.victoryPresentation)) {
       const carYaw = Math.atan2(_f.set(0, 0, 1).applyQuaternion(pst.quat).x, _f.z);
       this.gunner.crewAlive = pst.gunnerAlive;
-      if (!pst.gunnerAlive || (this.sim ? this.sim.state : this.simState) !== 'run' || isDefeated(this)) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
-      if (this.humanGunner && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
+      if (!pst.gunnerAlive || ((this.sim ? this.sim.state : this.simState) !== 'run' && !victoryPresenting(this)) || isDefeated(this)) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
+      if (this.humanGunner && !this.victoryPresentation && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
         this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, this._assistTargets(), pst.vel);
       }
       // the AI gunner aims from its own eye along its own aim; a human aims through the camera
@@ -352,7 +407,7 @@ export class Run {
     const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside, cockpit: this.cockpit, gear: this.player ? this.player.veh.gear : 1 } : null;   // cockpit + gear: first-person driver arms
     this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[this.gunnerRemote.weapon] || this.effects.weapons[0], localGunner, proj: this.proj });
     if (!cameraBeforeViews) this._camera(dt, cmds, pst);
-    if (this.gunner && pst) {
+    if (this.gunner && pst && (this.sim || !this.victoryPresentation)) {
       if (!this.wv.muzzlePos(pst, this.gunner.muzzle)) this.gunner.muzzle.set(0, 0, 0);
       const aimCam = this.aiGunner ? { position: this.eye, dir: _aiDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch)) } : { position: g.camera.position, dir: this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion) };
       if (this.gunner.finishFire(aimCam, { carVel: pst.vel })) this.wv.notifyLocalShot(pst, this.gunner);
@@ -535,19 +590,19 @@ export class Run {
     this.sim.emit({ t: 'unflip', id: P.id });
   }
   _medkit() {
-    if (this.medkits <= 0 || (this.sim ? this.sim.state : this.simState) !== 'run' || isDefeated(this)) return;
+    if (this.victoryPresentation || this.medkits <= 0 || (this.sim ? this.sim.state : this.simState) !== 'run' || isDefeated(this)) return;
     if (!this.sim) { this.net.sendJSON({ t: 'medkit' }); return; }
     if (this.sim.useMedkit()) { this.medkits--; this.g.hud.message('MEDKIT', 900, '#7fdc7f'); }
   }
 
   _simEventsToRun(events = this.events) {
     for (const e of events) {
-      if (e.t === 'minibossDown') {
+      if (e.t === 'minibossDown' && !this.victoryPresentation) {
         const b = Math.round((ECONOMY.minibossBounty[e.index] || 5000) * this.effects.cashMul);
         this.minibossCash = (this.minibossCash || 0) + b; (this.minibossesKilled || (this.minibossesKilled = [])).push(e.index);
         this.cash += 0; this.sim.stats.cash = this.cash;
       }
-      if (e.t === 'kill') { g_kill(this, e); }
+      if (e.t === 'kill' && !e.nonScoring && !this.victoryPresentation) { g_kill(this, e); }
       if (e.t === 'runOver' && !this.over) { this.over = true; this.overWhy = e.why; }
       if (e.t === 'crash' && e.id === 1) { this.chase.shake.add(clamp(e.dv * 0.05, 0, 0.7)); this.gcam.shake.add(clamp(e.dv * 0.05, 0, 0.7)); if (e.dv > 2.5) { this.g.hud.damageFlash(clamp(e.dv * 0.08, 0.2, 0.6)); this.g.input.rumble(0.8, 0.6, 200); } }
       if (e.t === 'rampLand' && e.id === 1) { const k = clamp(e.v / 14, 0.3, 1); this.chase.shake.add(0.35 * k); this.gcam.shake.add(0.4 * k); this.g.input.rumble(0.7 * k, 0.5, 220); }
@@ -584,7 +639,17 @@ export class Run {
         g.camera.lookAt(B.pos.x, B.pos.y + 4, B.pos.z);
         return;
       }
-      this.finaleDone = true; this.introOutside = false; g.hud.setVisible(true); this._finaleHudHidden = false;
+      this.finaleDone = true; this.introOutside = false; this._finaleHudHidden = false;
+      const app = window.__app;
+      // Results and a replacement Run own their HUD; headless callers retain the legacy show.
+      if (!app || (app.game === g && g.run === this && app.screen === 'run')) g.hud.setVisible(true);
+    }
+    if (this.victoryPresentation) {
+      this.cinematic = true; this.introOutside = true; this.cockpit?.setActive(false);
+      this.chase.mode = 1;
+      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { fovBase: g.driverFovBase ?? 85, lookX: 0, lookY: 0, mouseYaw: 0, mousePitch: 0, boosting: false });
+      this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion);
+      return;
     }
     const co = window.__camOverride; // dev: {offset:[x,y,z] in truck frame, look:[x,y,z] in truck frame}
     if (co) { const q = pst.quat; g.camera.position.set(...co.offset).applyQuaternion(q).add(pst.pos); _v.set(...co.look).applyQuaternion(q).add(pst.pos); g.camera.lookAt(_v); if (co.fov) { g.camera.fov = co.fov; g.camera.updateProjectionMatrix(); } return; }
@@ -798,7 +863,7 @@ export class Run {
   _outcome(dt) {
     if (this.over && !this.finished) {
       this.overT = (this.overT || 0) + dt;
-      if (this.sim && !this.summary && this.overT > 0.3) { this.summary = this.buildSummary(this.sim.won); if (this.net) this.net.sendJSON({ t: 'summary', s: this.summary }); }
+      if (this.sim && !this.summary && this.overT > 0.3) { this.summary = this.victorySummary || this.buildSummary(this.sim.won); if (this.net) this.net.sendJSON({ t: 'summary', s: this.summary }); }
       const summary = this.summary || this.remoteSummary;
       if (summary && this.overT > (summary.won ? 4.5 : 2.2)) this.finished = true;
     }
@@ -806,7 +871,8 @@ export class Run {
 
   /** Sim peer: final results + cash breakdown (the profile owner credits it). */
   buildSummary(won = false) {
-    const sim = this.sim, st = sim.stats, E = ECONOMY;
+    if (won && this.victorySummary) return structuredClone(this.victorySummary);
+    const sim = this.sim, st = sim.victoryStats || sim.stats, E = ECONOMY;
     const journey = this.journey || normalizeJourney(this.cfg?.journey);
     const L = sim.director.level;
     const dist = Math.max(0, st.distance - (this.cfg.startS ?? 40));
@@ -814,7 +880,8 @@ export class Run {
     lines.push({ label: 'RAIDERS WRECKED', amount: this.cash });
     const distCash = Math.round(Math.max(0, dist) * E.perMeter * (1 + E.perMeterLevel * L) * this.effects.cashMul);
     lines.push({ label: `DISTANCE ${(dist / 1000).toFixed(1)} KM`, amount: distCash });
-    const timeCash = Math.round(sim.time * E.perSecond * this.effects.cashMul);
+    const elapsed = sim.victoryTime ?? sim.time;
+    const timeCash = Math.round(elapsed * E.perSecond * this.effects.cashMul);
     lines.push({ label: 'TIME SURVIVED', amount: timeCash });
     if (this.minibossCash) lines.push({ label: 'WARLORD BOUNTIES', amount: this.minibossCash });
     const finiteLevel = journey.mode === 'campaign' ? TEN_LEVELS[journey.level - 1] : null;
@@ -824,7 +891,7 @@ export class Run {
     const total = lines.reduce((a, l) => a + l.amount, 0);
     const why = sim.result?.why;
     return {
-      id: this.id, won, journey, levelCleared, cash: total, breakdown: lines, distance: dist, startS: this.cfg.startS ?? 40, furthestS: st.distance, time: sim.time, kills: st.kills, crashKills: st.crashKills || 0,
+      id: this.id, won, journey, levelCleared, cash: total, breakdown: lines, distance: dist, startS: this.cfg.startS ?? 40, furthestS: st.distance, time: elapsed, kills: st.kills, crashKills: st.crashKills || 0,
       bestStreak: this.bestMulti || 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
       biome: journey.mode === 'legacy' ? BIOMES[(sim.road || this.road)?.biomeAt?.(st.distance)?.a || biomeAt(st.distance).a].name : TEN_LEVELS[((sim.road || this.road)?.journeyLevelAt?.(st.distance) ?? journey.level) - 1].name, minibosses: this.minibossesKilled || [],
     };
@@ -853,6 +920,7 @@ export class Run {
     }
   }
   _sendGunner(dt) {
+    if (this.victoryPresentation) { this.outEvents.length = 0; return; }
     this.gunnerSendAcc = advanceCadence(this.gunnerSendAcc, dt);
     if (this.gunnerSendAcc >= 1 / 30 && this.gunner) {
       this.gunnerSendAcc = consumeCadence(this.gunnerSendAcc);
@@ -875,9 +943,10 @@ export class Run {
       return;
     }
     if (m.t === 'feed') { this.g.hud.feed(m.text, m.crash ? '#ffc21a' : '#fff'); if (this.gunner) this.g.hud.hitMarker(true); return; }
-    if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; return; }
+    if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; if (!this.sim) rememberDefeat(this); return; }
     if (m.t === 'go') { this.goSeen = true; this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }
     if (this.sim) {
+      if (victoryPresenting(this)) return;
       if (m.t === 'g') { const r = this.gunnerRemote; r.yaw = m.y; r.pitch = m.p; r.fire = !!m.f; r.crouch = false; r.ads = !!m.a; r.weapon = m.w; r.reloading = !!m.r; r.x = 0; r.z = 0; }
       else if (m.t === 'hit') this.sim.applyHit(m.h);
       else if (m.t === 'rocket') this.sim.projectiles.addRocket(new V3(...m.o), new V3(...m.d), m.cfg, 1);
@@ -902,6 +971,7 @@ export class Run {
 
   dispose() {
     if (this.disposed) return; this.disposed = true;
+    this._victoryControls = null; this.aiDriver = null; this.aiGunner = null; this.gunner = null; this.victoryPresentation = false;
     if (this.streamer) { this.streamer.onChunk = null; this.streamer.onChunkDrop = null; }
     this.cockpit?.dispose(); this.cockpit = null; this.threatHud?.dispose(); this.threatHud = null;
     this.banner?.dispose(); this.banner = null; this.hazMarks?.dispose(); this.hazMarks = null; this.bossMarks?.dispose(); this.bossMarks = null;

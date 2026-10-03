@@ -7,6 +7,7 @@ import { clamp, lerp, smoothstep, wrapAngle, rng } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
 import { drivingLaneTarget } from '../world/driving_plan.js';
 import { GRAVITY } from './physics.js';
+import { celebrationActive } from './victory_presentation.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _t = new THREE.Vector3(), _f = new THREE.Vector3(), _m = new THREE.Vector3(), _q = new THREE.Quaternion();
 const _pt = {};
@@ -109,7 +110,7 @@ export class EnemyBrain {
     if (car.exploded) return;
     if (car.driverless || !car.crew.driver.alive) { this._deadDriver(dt); this.gunnery(dt); return; }
     if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
-    if (sim.boss?.dead) { veh.input.throttle = 0; veh.input.brake = 0.6; veh.input.nitro = false; this.gunnery(dt); return; }   // scatter
+    if (sim.boss?.dead && !celebrationActive(sim)) { veh.input.throttle = 0; veh.input.brake = 0.6; veh.input.nitro = false; this.gunnery(dt); return; }   // scatter
     const path = enemyDrivingContext(sim.road, car, P, this._routeContext || (this._routeContext = {}));
     const pd = path.playerD, cd = path.carD, half = path.halfWidth;
     if (path.crossRoute && this.atk) this._endAttack(2);
