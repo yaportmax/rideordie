@@ -90,9 +90,11 @@ export class Director {
     this.cooldown -= dt;
     let alive = 0, engaged = false;
     this.currentBusCount = 0;
+    this.currentEnemyCounts = {};
     for (const c of sim.cars.values()) {
       if (c.kind !== 'enemy' || c.exploded) continue;
       if (c.spec.id === 'e_double_bus') this.currentBusCount++;
+      this.currentEnemyCounts[c.spec.id] = (this.currentEnemyCounts[c.spec.id] || 0) + 1;
       alive++;
       if (!c.driverless && Math.abs(c.s - P.s) < 55) engaged = true;
     }
@@ -156,6 +158,15 @@ export class Director {
       if (first && key !== 'ambush') continue;
       const cars = E.cars.filter((c) => (c.minLevel ?? 0) <= L);
       if (cars.some(c => c.k === 'e_double_bus' && this.currentBusCount >= ENEMIES.e_double_bus.maxActive)) continue;
+      const squadCounts = {};
+      let allowed = true;
+      for (const car of cars) {
+        const def = ENEMIES[this._carKey(car, L, true)];
+        if (def.biomes && !def.biomes.includes(this.currentBiome)) { allowed = false; break; }
+        squadCounts[def.spec] = (squadCounts[def.spec] || 0) + 1;
+        if (def.maxActive && (this.currentEnemyCounts?.[def.spec] || 0) + squadCounts[def.spec] > def.maxActive) { allowed = false; break; }
+      }
+      if (!allowed) continue;
       if (cars.length > room) continue;
       const cost = cars.reduce((a, c) => a + ENEMIES[this._carKey(c, L, true)].cost, 0) * 0.85;
       if (cost > this.budget + (pressure ? 1.5 : 0)) continue;
@@ -525,6 +536,7 @@ export class Director {
   /** Spawn an enemy. o: {behavior, side, mode, next, gap, at:{s,d,speed}, elite, pattern} */
   spawn(sim, key, L, o = {}) {
     const P = sim.player, def = ENEMIES[key], r = this.r || (this.r = rng(sim.seed * 31 + 5));
+    if (!P || !def) return false;
     if (!o.elite && def.biomes) {
       const biome = sim.road.biomeAt(P.s), theme = biome.w > 0.5 ? biome.b : biome.a;
       if (!def.biomes.includes(theme)) return false;
@@ -541,6 +553,7 @@ export class Director {
     // tune the enemy so it can actually keep up with the player's truck as the game goes on
     const base = VEHICLES[def.spec];
     if (key === 'e_double_bus' && !this._busSpawnClear(sim, base, s, lane)) return false;
+    if (base.modelId?.startsWith('e_') && key !== 'e_double_bus' && sim.ground?.roadHeightAt && !this._busSpawnClear(sim, base, s, lane, base.height + .25)) return false;
     // raiders are always a little faster than the player's truck: you can't just outrun them, you have to fight
     // (a clear margin: leaders and flankers have to be able to hold a slot AHEAD of a truck that is flat out)
     const want = Math.max(base.engine.vmax, this.playerVmax * (1.12 + 0.06 * L) + (behavior === 'rammer' ? 3 : 0));
@@ -563,7 +576,7 @@ export class Director {
       yawOff = -Math.sign(lane) * 0.55;   // angled in toward the road (+X is left: a car on the left turns right)
     }
     const car = sim.spawnCar(def.spec, { spec, s, d: lane, speed: o.at ? o.at.speed : ahead ? pv * 0.7 : pv * 0.95 + 5, kind: 'enemy', yawOff });
-    if (key === 'e_double_bus') {
+    if (key === 'e_double_bus' || base.modelId?.startsWith('e_')) {
       // Check actual physical hull volume, including nearby traffic/props.
       for (const collider of car.veh.colliders) if (sim.world.intersectionWithShape(collider.translation(), collider.rotation(), collider.shape,
         undefined, groups(0xffff, G.WORLD | G.CAR | G.PROP), undefined, car.veh.body)) {
@@ -577,6 +590,13 @@ export class Director {
     }
     const hpMul = 1 + 1.9 * L;
     car.tag = def.label; car.maxHp = car.hp = Math.round(base.hp * hpMul); car.armor = clamp(0.08 * L * 2, 0, 0.35);
+    if (base.weakpoint) {
+      const zone = car.zones.find(q => q.kind === base.weakpoint.zone);
+      car.weakPoint = zone ? { zone: base.weakpoint.zone, c: zone.c.slice() } : null;
+      car.fuelHp = car.engineHp = 1e9;
+      car.armor = .96;
+      car.zoneMul = { [base.weakpoint.zone]: base.weakpoint.mul, body: 0, tire: 0, engine: 0 };
+    }
     const el = o.elite;
     if (el) {
       car.elite = el; car.maxHp = car.hp = Math.round((el.hpBase ?? base.hp) * hpMul * el.hpMul); car.armor = el.armor ?? car.armor; car.tag = el.name;
@@ -590,21 +610,26 @@ export class Director {
     }
     const crewMul = 1 + 0.7 * L;
     for (const role of Object.keys(car.crew)) { const c = car.crew[role]; c.hp = c.max = Math.round(c.max * crewMul); }
-    const gunName = el?.gun || (L > 0.55 && def.gunLate ? def.gunLate : r.pick(def.guns.length ? def.guns : ['pistol']));
-    const guns = {};
-    if (car.crew.gunner && (def.guns.length || el?.gun)) guns.gunner = ENEMY_GUNS[gunName];
-    if (car.crew.gunner2 && (def.guns.length || el?.gun2)) guns.gunner2 = ENEMY_GUNS[el?.gun2 || r.pick(def.guns)];
+    const gunName = el?.gun || def.roleGuns?.gunner || (L > 0.55 && def.gunLate ? def.gunLate : r.pick(def.guns.length ? def.guns : ['pistol']));
+    const guns = {}, gunNames = {};
+    for (const role of Object.keys(car.crew).filter(role => role.startsWith('gunner'))) {
+      if (!def.guns.length && !(role === 'gunner' ? el?.gun : el?.gun2)) continue;
+      const name = role === 'gunner' ? gunName : el?.gun2 || def.roleGuns?.[role] || r.pick(def.guns);
+      const gun = ENEMY_GUNS[name]; if (!gun) continue;
+      guns[role] = gun; gunNames[role] = gun.model || name;
+    }
     // warlord crews sit behind armour: the driver is nearly untouchable (the weak point is how you win), the gunners can be silenced
     if (el) for (const role of Object.keys(car.crew)) { const c = car.crew[role]; c.hp = c.max = Math.round(c.max * (role === 'driver' ? 6 : 2.5)); c.armor = role === 'driver' ? 0.92 : 0.45; }
     car.ai = new EnemyBrain(car, sim, { behavior, side: o.side, mode: o.mode, next: o.next, pattern: o.pattern, skill: clamp(def.skill + 0.25 * L + (el ? 0.15 : 0), 0.2, 0.95), level: L, guns, gap: o.gap });
     car.gunName = ENEMY_GUNS[gunName]?.model || gunName; // (what the crew view shows / snapshots carry)
+    car.gunNames = gunNames;
     if (o.at?.burst) { car.ai.launchT = 0; car.ai._tell('burst'); sim.emit({ t: 'horn', id: car.id }); }   // floors it out of the scrub, nitro, horn
     this.spawned++;
     sim.emit({ t: 'enemySpawn', id: car.id, spec: def.spec, label: def.label, behavior, elite: el ? el.index + 1 : 0 });
     return car;
   }
 
-  _busSpawnClear(sim, base, s, d) {
+  _busSpawnClear(sim, base, s, d, clearance = 4.4) {
     if (!sim.ground?.hasColliderAt?.(s) || !sim.ground.roadHeightAt) return false;
     for (const ds of [-base.length / 2, 0, base.length / 2]) {
       const sm = sim.road.sample(s + ds);
@@ -613,7 +638,7 @@ export class Director {
         const y = sim.ground.roadHeightAt(s + ds, x, z, sim.road.surfaceY(sm, lane) + 2);
         if (y == null || !sim.ground.hasColliderAt(s + ds)) return false;
         const ray = new RAPIER.Ray({ x, y: y + 0.25, z }, { x: 0, y: 1, z: 0 });
-        if (sim.world.castRay(ray, 4.4, true, undefined, RAY_WORLD)) return false;
+        if (sim.world.castRay(ray, clearance, true, undefined, RAY_WORLD)) return false;
       }
     }
     return true;

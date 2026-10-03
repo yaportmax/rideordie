@@ -11,6 +11,7 @@ import { clamp, lerp, smoothstep, rng } from '../core/util.js';
 import { Projectiles } from './projectiles.js';
 import { Director } from './director.js';
 import { Hazards } from './hazards.js';
+import { StageEncounters } from './stage_encounters.js';
 import { validHitReport, resolveHitPoint } from './hit_contact.js';
 import { planRamTakedown, launchRamTakedown, planRearRamBonk, launchRearRamBonk, updateRearRamContact } from './ram_takedown.js';
 import { normalizeJourney } from '../data/campaign.js';
@@ -62,6 +63,7 @@ export class Sim {
     this.projectiles = this.use(new Projectiles());
     this.director = this.use(new Director(opts.director || {}));
     this.hazards = this.use(new Hazards());
+    this.encounters = this.use(new StageEncounters());
   }
 
   async init() {
@@ -77,6 +79,7 @@ export class Sim {
   setGround(g) { this.ground = g; }
   /** The WASM world and event queue are owned by one life, not by the renderer. */
   dispose() {
+    this.encounters?.dispose(this);
     this.ground?.dispose?.();
     if (this.world) clearColliderLabels(this.world);
     this.eventQueue?.free(); this.eventQueue = null;
@@ -222,18 +225,73 @@ export class Sim {
 
   /** Water and the space below every terrain triangle are terminal driving areas, never playable underpasses. */
   _recoverOffroadFall(car) {
-    if (this.state !== 'run') return;
+    if (this.state !== 'run') { car._ditchRecovery = null; return; }
     const v = car.veh, bounds = this.ground?.recoveryBoundsAt?.(car.s), bio = this.road.biomeAt ? this.road.biomeAt(car.s) : biomeAt(car.s);
     const waterSide = ['coast', 'dam'].find(id => (bio.a === id || bio.b === id) && car.d * BIOMES[id].terrain.seaSide > HALF_ROAD + 6);
     const submerged = waterSide && bounds?.waterY != null && v.pos.y < bounds.waterY - 2;
     const roadY = this.road.sample(car.s).y;
     const voidFall = bounds ? v.pos.y < bounds.minY - 12 : v.pos.y < roadY - 400;
-    if (!submerged && !voidFall) return;
+    if (!submerged && !voidFall) { this._recoverMountainDitch(car, bio); return; }
+    car._ditchRecovery = null;
     const player = car.kind === 'player';
     const targetS = player ? car.s : this.player.s + 120 + car.id % 3 * 22;
     if (!this._placeOnClearRoad(car, targetS)) return;
     if (player) this.damageCar(car, car.maxHp * 0.04, { cause: 'fall' });
     this.emit({ t: 'groundRecovered', id: car.id, s: car.s, reason: submerged ? 'water' : 'void', penalty: player });
+  }
+
+  /** A beached mountain car above the terrain floor needs a bounded route back, too. */
+  _recoverMountainDitch(car, bio) {
+    const v = car.veh, input = v.input;
+    const driving = (input.throttle >= .5 && input.brake < .2) || (input.brake >= .5 && input.throttle < .2);
+    const near = driving && !input.handbrake ? this._mountainDitchSite(car, bio) : null;
+    if (!near) { car._ditchRecovery = null; return; }
+    const stuck = car._ditchRecovery;
+    if (!stuck || this.time < stuck.t || this.time - stuck.lastT > .25 || Math.hypot(v.pos.x - stuck.x, v.pos.y - stuck.y, v.pos.z - stuck.z) > 1.5 || Math.abs(near.s - stuck.s) > 1.5) {
+      car._ditchRecovery = { t: this.time, lastT: this.time, x: v.pos.x, y: v.pos.y, z: v.pos.z, s: near.s }; return;
+    }
+    stuck.lastT = this.time;
+    if (this.time - stuck.t >= 4) this._returnFromDitch(car, near.s, false);
+  }
+
+  /** Explicit reset intent can recover a grounded beach without holding the accelerator. */
+  requestDitchRecovery(car = this.player) {
+    const near = this._mountainDitchSite(car);
+    return !!near && this._returnFromDitch(car, near.s, true);
+  }
+
+  /** Shared physical eligibility for automatic failed driving and an explicit reset. */
+  _mountainDitchSite(car, bio = car && this.road.biomeAt(car.s)) {
+    if (this.state !== 'run' || !car || car !== this.player || car.dead || car.exploded || car.held ||
+        !car.crew.driver.alive || !car.veh.driverAlive || car.engineHp <= 0 || car.veh.stunned > 0) return null;
+    const v = car.veh, velocity = v.body.linvel();
+    const mountain = (bio.w > .5 ? bio.b : bio.a) === 'mountain';
+    // One wheel is sufficient for the observed belly-beached truck. A genuine
+    // contact, low actual body velocity and launch grace keep airborne travel free.
+    if (!mountain || v.grounded < 1 || v.up.y < .45 ||
+        Math.abs(velocity.y) > .5 || Math.hypot(velocity.x, velocity.y, velocity.z) > 1.2 ||
+        this.time - (car.rampJumpT ?? -9) < 4 || this.time - (car.rampLandT ?? -9) < .6) {
+      return null;
+    }
+    const near = this.roadQuery.projectDriving(v.pos.x, v.pos.z, car.s, 60, {});
+    // This query accepts every authored fork and its shoulder before main-road
+    // fallback. A healthy shortcut or an intentional roadside stop stays free.
+    if (near.dist <= near.halfWidth + 2.5 || !this.ground?.groundReady?.(near.s, near.route) ||
+        this.road.featuresIn(near.s - car.spec.length - 60, near.s + car.spec.length + 60)
+          .some(f => ['bridge', 'tunnel', 'overpass', 'ramp'].includes(f.type))) {
+      return null;
+    }
+    const bounds = this.ground.recoveryBoundsAt?.(near.s);
+    if (!bounds || v.pos.y < bounds.minY - 12) return null;
+    const sm = this.road.sample(near.s), asphalt = this.ground.roadHeightAt?.(near.s, sm.x, sm.z, sm.y + 2);
+    return asphalt != null && v.pos.y - v.restComHeight <= asphalt - 3 ? near : null;
+  }
+
+  _returnFromDitch(car, targetS, manual) {
+    if (!this._placeOnClearRoad(car, targetS)) return false;
+    this.damageCar(car, car.maxHp * .04, { cause: 'fall' });
+    this.emit({ t: 'groundRecovered', id: car.id, s: car.s, reason: 'ditch', penalty: true, manual });
+    return true;
   }
 
   /** Place a living car on verified, unobstructed asphalt without changing encounter or damage state. */
@@ -267,7 +325,7 @@ export class Sim {
       v.poseRevision = ((v.poseRevision || 0) + 1) & 0xffff;
       v.readState(); v.prevPos.copy(v.pos); v.prevQuat.copy(v.quat); v.airTime = 0; v.grounded = 0;
       for (let i = 0; i < v.wheels.length; i++) v.wheels[i].L = v.wheels[i].Lprev = v.prevL[i] = v.restLen;
-      car.s = s; car.d = d; car.route = null; car.routeHalfWidth = HALF_ROAD; car._roadGrounded = false;
+      car.s = s; car.d = d; car.route = null; car.routeHalfWidth = HALF_ROAD; car._roadGrounded = false; car._ditchRecovery = null;
       if (car.ai) { car.ai.stuckT = 0; car.ai.dTs = car.ai._lastDT = d; }
       return true;
     }
@@ -282,6 +340,9 @@ export class Sim {
       this._lastOther = getColliderLabel(this.world, A ? ev.collider2() : ev.collider1()) || (this.boss && (A ? ev.collider2() : ev.collider1()) ? 'boss?' : 'unknown');
       const mag = ev.totalForceMagnitude();
       if (!A && !B) return;
+      // Encounter contacts have their own bounded, telegraphed damage policy.
+      // Rapier still resolves their real colliders, without a second crash hit.
+      if ((!A || !B) && this.encounters?.ownsCollider(A ? ev.collider2() : ev.collider1())) return;
       const dir = ev.maxForceDirection();
       if (A && B) {
         this._crash(A, B, mag, dir, dt);
@@ -379,6 +440,8 @@ export class Sim {
 
   damageCar(car, dmg, info = {}) {
     if (car.dead && car.exploded) return;
+    if (info.cause === 'blast' && car.spec.weakpoint) dmg *= car.spec.weakpointBlastResist ?? 0;
+    if (!(dmg > 0)) return;
     car.hp -= dmg; car.hitFlash = 0.12;
     if (car.kind === 'player') { this.stats.damageTaken += dmg; const k = info.cause || '?'; (this.stats.damageBy || (this.stats.damageBy = {}))[k] = ((this.stats.damageBy[k]) || 0) + dmg; }
     if (info.src !== undefined && info.src >= 0) { car.lastHitBy = info.src; car.lastHitT = this.time; }
@@ -412,6 +475,9 @@ export class Sim {
   /** Shot damage to a car at a given zone. returns {killedCrew, dmg} */
   damageZone(car, zone, dmg, info = {}) {
     const z = zone.zone || zone;
+    // Armoured variants expose an authored reactor. Shooting protected crew
+    // or hull cannot bypass that rule; physical rams retain their own damage.
+    if (car.spec.weakpoint && z.kind !== car.spec.weakpoint.zone) return;
     if (car.zoneMul) dmg *= car.zoneMul[z.kind] ?? 1; // warlords: armoured hull, glowing weak point
     const through = zone.throughBody;
     const armorMul = through ? 1 - car.armor : 1;
@@ -419,7 +485,7 @@ export class Sim {
     switch (z.kind) {
       case 'driver_head': case 'driver':
         this.damageCrew(car, 'driver', dmg * (head ? 2.6 : 1) * (through ? 1 - car.armor * 0.6 : 1), { ...info, head }); return;
-      case 'gunner_head': case 'gunner': case 'gunner_legs': case 'gunner2_head': case 'gunner2': case 'gunner2_legs': {
+      case 'gunner_head': case 'gunner': case 'gunner_legs': case 'gunner2_head': case 'gunner2': case 'gunner2_legs': case 'gunner3_head': case 'gunner3': case 'gunner3_legs': case 'gunner4_head': case 'gunner4': case 'gunner4_legs': {
         const role = z.role; const m = z.lowerBody ? 0.45 : 1;
         this.damageCrew(car, role, dmg * (head ? 2.6 : 1) * m, { ...info, head }); return;
       }
@@ -494,6 +560,7 @@ export class Sim {
     const src = ownerId ?? (sourceCar ? sourceCar.id : -1);
     const enemyCarExplosion = sourceCar?.kind === 'enemy';
     if (this.boss && src === 1) this.boss.blastParts(pos, radius, damage);
+    this.encounters?.blast(pos, radius, damage, src, this, sourceCar);
     for (const car of this.cars.values()) {
       if (car === sourceCar) continue;
       if (car.kind === 'player' && (src === 1 || enemyCarExplosion)) continue;
@@ -509,9 +576,9 @@ export class Sim {
       const tq = damage * f * car.veh.mass * 0.05;
       car.veh.body.applyTorqueImpulse({ x: (Math.random() - 0.5) * tq, y: (Math.random() - 0.5) * tq, z: (Math.random() - 0.5) * tq }, true);
       if (!car.exploded) {
-        const pm = car.kind === 'player' ? (this.playerBlastMul ?? 0.6) * (sourceCar ? (this.playerCarBlastMul ?? 1) : 1) : 1; // (car cook-offs next to you: director)
+        const pm = car.spec.weakpoint ? (car.spec.weakpointBlastResist ?? 0) : car.kind === 'player' ? (this.playerBlastMul ?? 0.6) * (sourceCar ? (this.playerCarBlastMul ?? 1) : 1) : 1; // (car cook-offs next to you: director)
         this.damageCar(car, damage * f * pm, { cause: credit !== src ? 'crash' : 'blast', src: credit });
-        for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src: credit });
+        if (!car.spec.weakpoint) for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src: credit });
       }
     }
   }
@@ -519,6 +586,11 @@ export class Sim {
   /** The gunner's client reports a hit it detected against the cars it sees. */
   applyHit(rep) {
     if (!validHitReport(rep)) return false;
+    if (this.encounters?.entities.has(rep.carId)) {
+      const accepted = this.encounters.applyHit(rep, this);
+      if (accepted) this._countLandedShot(rep.shotId);
+      return accepted;
+    }
     if (this.boss && rep.carId === this.boss.id) {
       const d = this.boss.damage(rep.zone, rep.dmg * this.playerDamageMul, { point: rep.point });
       if (d > 0) this._countLandedShot(rep.shotId);

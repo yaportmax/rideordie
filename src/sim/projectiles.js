@@ -4,6 +4,7 @@ import { RAPIER, GROUPS, RAY_SHOT } from './physics.js';
 import { clamp } from '../core/util.js';
 
 const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _n = new THREE.Vector3(), _pv = new THREE.Vector3();
+export const PROJECTILE_LIMITS = Object.freeze({ bullets: 384, rockets: 64, grenades: 16 });
 
 export class Projectiles {
   constructor() {
@@ -75,14 +76,19 @@ export class Projectiles {
         if (r.owner === 1 && car.kind === 'player') continue;
         if (car.veh.pos.distanceTo(_o) > step + 12) continue;
         const h = car.raycast(_o, _d, step + 0.3, null);
-        if (h && (!best || h.t < best.t)) best = { t: h.t, car, point: h.point };
+        if (h && (!best || h.t < best.t)) best = { t: h.t, car, point: h.point, zone: h.zone, throughBody: h.throughBody };
+      }
+      if (r.owner === 1) {
+        const h = sim.encounters?.raycast(_o, _d, step + .3);
+        if (h && (!best || h.t < best.t)) best = h;
       }
       if (sim.boss && r.owner === 1 && !sim.boss.dead && sim.boss.pos.distanceTo(_o) < step + 30) {
         const h = sim.boss.raycast(_o, _d, step + 0.3);
         if (h && (!best || h.t < best.t)) best = { t: h.t, car: null, point: h.point, bossZone: h.zone.kind };
       }
       this.ray.origin.x = _o.x; this.ray.origin.y = _o.y; this.ray.origin.z = _o.z; this.ray.dir.x = _d.x; this.ray.dir.y = _d.y; this.ray.dir.z = _d.z;
-      let wh = sim.world.castRay(this.ray, step + 0.2, true, undefined, RAY_SHOT);
+      const predicate = r.owner === 1 ? (col) => { const actor = sim.encounters?.colliderOwner(col.handle); return !actor || actor.dead || !actor.shootable; } : undefined;
+      let wh = sim.world.castRay(this.ray, step + 0.2, true, undefined, RAY_SHOT, undefined, undefined, predicate);
       const rock = sim.structures?.raycastRocks(this.ray.origin, this.ray.dir, wh ? Math.min(step + 0.2, wh.timeOfImpact) : step + 0.2);
       if (rock && (!wh || rock.timeOfImpact < wh.timeOfImpact)) wh = rock;
       const directHit = best && (!wh || best.t <= wh.timeOfImpact) ? best : null;
@@ -92,7 +98,10 @@ export class Projectiles {
         const p = boom || _o.clone();
         this.rockets.splice(i, 1);
         if (directHit && directHit.bossZone && r.direct) sim.boss.damage(directHit.bossZone, r.direct * 1.5, { point: p });
-        this._explode(sim, p, r.blast, r.blastDmg, r.owner, r.direct && directHit ? directHit.car : null, r.direct);
+        if (directHit?.actor && r.direct) sim.encounters.damageActor(directHit.actor, r.direct, { src: r.owner, cause: 'rocket', zone: directHit.zone?.kind, point: p }, sim);
+        else if (directHit?.car?.spec.weakpoint && r.direct) sim.damageZone(directHit.car, directHit, r.direct, { cause: 'rocket', src: r.owner, point: p });
+        const directCar = r.direct && directHit && !directHit.actor && !directHit.car?.spec.weakpoint ? directHit.car : null;
+        this._explode(sim, p, r.blast, r.blastDmg, r.owner, directCar, r.direct);
         continue;
       }
       r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt;
@@ -119,15 +128,21 @@ export class Projectiles {
 
   /** Enemy bullet. */
   addBullet(o, dir, speed, dmg, owner, weapon = 'mg', life = 1.6) {
+    if (this.bullets.length >= PROJECTILE_LIMITS.bullets) return false;
     this.bullets.push({ x: o.x, y: o.y, z: o.z, vx: dir.x * speed, vy: dir.y * speed, vz: dir.z * speed, dmg, owner, life, maxLife: life, weapon });
+    return true;
   }
   addRocket(o, dir, cfg, owner) {
+    if (this.rockets.length >= PROJECTILE_LIMITS.rockets) return false;
     const launchSpeed = cfg.launchSpeed ?? 25;
     this.rockets.push({ id: this.nextId++, x: o.x, y: o.y, z: o.z, vx: dir.x * launchSpeed, vy: dir.y * launchSpeed, vz: dir.z * launchSpeed, speed: cfg.speed, blast: cfg.blast, blastDmg: cfg.blastDmg, direct: cfg.direct ?? 0, owner, life: 4, gravity: cfg.gravity || 0 });
+    return true;
   }
   addGrenade(sim, o, vel, cfg, owner) {
+    if (this.grenades.length >= PROJECTILE_LIMITS.grenades) return false;
     const rb = sim.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(o.x, o.y, o.z).setLinvel(vel.x, vel.y, vel.z).setCcdEnabled(true).setAngularDamping(1.5));
     sim.world.createCollider(RAPIER.ColliderDesc.ball(0.09).setDensity(2).setRestitution(0.35).setFriction(0.5).setCollisionGroups(GROUPS.grenade), rb);
     this.grenades.push({ id: this.nextId++, body: rb, fuse: cfg.fuse, blast: cfg.blast, dmg: cfg.dmg, owner });
+    return true;
   }
 }

@@ -316,7 +316,8 @@ export class GunnerController {
         const deflect = !def || zone.kind === 'body' || def.invulnerable || !!(def.needs && def.needs.some((k) => car.alive && car.alive[k]));
         kind = deflect ? 'deflect' : def.weak ? 'weak' : 'part';
         const B = this.bossHit || (this.bossHit = { part: '', kind: '', n: 0 }); B.part = zone.kind; B.kind = kind; B.n++;
-      } else if (car.zoneMul && (car.zoneMul[zone.kind] ?? 1) > 1.5) kind = 'weak';
+      } else if (car.spec?.weakpoint && zone.kind !== car.spec.weakpoint.zone || car.zoneMul && (car.zoneMul[zone.kind] ?? 1) <= 0) kind = 'deflect';
+      else if (car.spec?.weakpoint && zone.kind === car.spec.weakpoint.zone || car.zoneMul && (car.zoneMul[zone.kind] ?? 1) > 1.5) kind = 'weak';
       this.hitKind = kind; this.hitSeq = (this.hitSeq || 0) + 1;
       this.hitMarker = 0.14; if (kind !== 'deflect') ctx.hitMarker && ctx.hitMarker(/_head$/.test(zone.kind));
       if (pass < pierce) { ro.copy(end).addScaledVector(dr, 0.25); remaining -= ro.distanceTo(o); if (remaining < 2) break; } else break;

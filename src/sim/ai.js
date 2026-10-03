@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { clamp, lerp, wrapAngle, rng } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
 import { drivingLaneTarget } from '../world/driving_plan.js';
+import { GRAVITY } from './physics.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _t = new THREE.Vector3(), _f = new THREE.Vector3(), _m = new THREE.Vector3(), _q = new THREE.Quaternion();
 const _pt = {};
@@ -243,8 +244,21 @@ export class EnemyBrain {
         }
       }
     }
-    // ---------------- dropper: burning barrels in the player's path
-    if (this.behavior === 'dropper' && gap < -25 && gap > -110 && this.t - (this.lastDrop || 0) > (this.pattern ? 1.1 : 2.6)) {
+    // ---------------- dropper: rolling barrels, preceded by a visible tell.
+    // Existing warlord mine patterns retain their authored timing and weapon.
+    if (this.behavior === 'dropper' && car.spec.rollBarrels) {
+      const eligible = !path.crossRoute && gap < -25 && gap > -110 && Math.abs(cd - pd) < 6 && veh.up.y > .65;
+      if (this.barrelTellT !== undefined) {
+        if (!eligible) this.barrelTellT = undefined;
+        else if (this.t >= this.barrelTellT) {
+          sim.encounters?.dropBarrel(sim, car);
+          this.lastDrop = this.t;
+          this.barrelTellT = undefined;
+        }
+      } else if (eligible && this.t - (this.lastDrop || 0) > 4.2) {
+        this.barrelTellT = this.t + .7; this._tell('barrel', { delay: .7 });
+      }
+    } else if (this.behavior === 'dropper' && gap < -25 && gap > -110 && this.t - (this.lastDrop || 0) > (this.pattern ? 1.1 : 2.6)) {
       this.lastDrop = this.t;
       if (!this.pattern || (this.dropN = ((this.dropN || 0) + 1) % 4) !== 0) sim.hazards.dropEnemyMine(sim, car, 8, 55 + 50 * L);
     }
@@ -431,7 +445,7 @@ export class EnemyBrain {
       if (!crew || !crew.alive) { if (crew) { crew.fire = false; crew.ads = false; } continue; }
       if (this.mode === 'ambush') { crew.fire = false; crew.ads = false; continue; }
       const seat = car.spec.seats[role];
-      const muzzle = carPoint(car, [seat[0], seat[1] + 1.35, seat[2]], _m);
+      const muzzle = carPoint(car, car.spec.gunMuzzles?.[role] || [seat[0], seat[1] + 1.35, seat[2]], _m);
       const dist = muzzle.distanceTo(P.veh.pos);
       // choose an aim point on the player's truck (+ a walking error that closes during the burst)
       const ps = P.spec.seats, zone = st.aimAt;
@@ -457,7 +471,7 @@ export class EnemyBrain {
       st.yaw += clamp(dy, -rate * dt, rate * dt); st.pitch += clamp(dp, -rate * dt, rate * dt);
       crew.aimYaw = st.yaw; crew.aimPitch = st.pitch;
       const aligned = Math.abs(dy) < 0.09 && Math.abs(dp) < 0.09;
-      const inRange = dl < gun.range;
+      const inRange = dl < gun.range && (!gun.forwardArc || Math.abs(wrapAngle(wantYaw - Math.atan2(car.veh.fwd.x, car.veh.fwd.z))) < gun.forwardArc);
       st.t -= dt;
       switch (st.mode) {
         case 'idle':
@@ -467,6 +481,8 @@ export class EnemyBrain {
             if (!sim.director.fireToken(car, role)) { st.t = this.r.range(0.25, 0.6); break; }
             // wind-up: the gunner shoulders the gun (visible glint) before the burst — this is the driver's cue to jink
             st.mode = 'aim'; st.t = this.r.range(gun.react[0], gun.react[1]) * lerp(1.2, 0.8, this.skill);
+            st.t = Math.max(st.t, gun.minimumTell || 0);
+            if (gun.tell) this._tell(gun.tell, { role, delay: st.t });
             // far away they shoot at the truck; up close they go for the crew
             const u = this.r(), close = dist < 32 && !car.elite; // (warlords work on the truck itself: their HP pressure, not crew one-shots)
             st.aimAt = close ? (u < 0.5 ? 'body' : u < 0.72 ? 'cab' : u < 0.94 ? 'bed' : 'tire') : (u < 0.7 ? 'body' : u < 0.8 ? 'cab' : u < 0.9 ? 'bed' : 'tire');
@@ -503,11 +519,26 @@ export class EnemyBrain {
     const spread = gun.spread * (Math.PI / 180) * lerp(2.1, 0.75, this.skill);
     const proj = sim.projectiles;
     const dir = new THREE.Vector3(Math.sin(st.yaw) * Math.cos(st.pitch), Math.sin(st.pitch), Math.cos(st.yaw) * Math.cos(st.pitch));
+    if (gun.grenade) {
+      // A ballistic toss to the truck's moving lane, carrying the launch car's
+      // motion. Its readable fuse leaves time to dodge after it has landed.
+      if (proj.grenades.length >= 12) return;
+      const cfg = gun.grenade, target = this.tgt.clone(), relative = sim.player.veh.vel.clone().sub(car.veh.vel);
+      const flight = clamp(origin.distanceTo(target) / cfg.speed, .35, 1.65);
+      target.addScaledVector(relative, flight * .80);
+      const velocity = target.sub(origin).multiplyScalar(1 / flight);
+      velocity.y += GRAVITY * flight * .5;
+      velocity.add(car.veh.vel);
+      const fuse = Math.max(1.6, cfg.fuse);
+      proj.addGrenade(sim, origin, velocity, { ...cfg, fuse }, car.id);
+      sim.emit({ t: 'grenadeThrow', src: car.id, role, origin: origin.toArray(), vel: velocity.toArray(), fuse });
+      return;
+    }
     if (gun.rocket) {
       const d = dir.clone();
       d.x += (this.r() - 0.5) * spread; d.y += (this.r() - 0.5) * spread; d.normalize();
       proj.addRocket(origin, d, gun.rocket, car.id);
-      sim.emit({ t: 'shot', src: car.id, weapon: 'rpg', origin: origin.toArray(), dir: d.toArray(), rocket: true, speed: gun.rocket.speed });
+      sim.emit({ t: 'shot', src: car.id, role, weapon: gun.tell === 'cannon' ? 'cannon' : 'rpg', origin: origin.toArray(), dir: d.toArray(), rocket: true, speed: gun.rocket.speed, launchSpeed: gun.rocket.launchSpeed });
       return;
     }
     const dmg = gun.dmg * (1 + 0.5 * this.level) * (car.elite ? 1.1 : 1);

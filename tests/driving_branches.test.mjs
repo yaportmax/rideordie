@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { Road, HALF_ROAD } from '../src/world/road.js';
 import { RoadQuery } from '../src/sim/road_query.js';
-import { branchPointAt, projectDrivingBranch, drivingReserved, protectedDrivingSpan, drivingFootprintRadius, planDrivingBranches } from '../src/world/driving_plan.js';
+import { branchPointAt, projectDrivingBranch, branchDrivingReserved, protectedDrivingSpan, drivingFootprintRadius, planDrivingBranches } from '../src/world/driving_plan.js';
 import { TerrainStreamer } from '../src/world/terrain.js';
 import { genTerrainChunk, genRoadChunk, genDrivingBranchChunk } from '../src/world/terrain_gen.js';
 import { initPhysics, createWorld, RAPIER, GROUPS } from '../src/sim/physics.js';
@@ -70,7 +70,7 @@ test('qualified shortcuts are bounded, deterministic and physically shorter with
       assert.ok(['desert', 'canyon'].includes(branch.biome));
       assert.ok(branch.saved >= 4); assert.ok(branch.maxGrade <= .085); assert.ok(branch.maxCurvature <= 1 / 70);
       assert.equal(protectedDrivingSpan(branch.s0 - 200, branch.s1 + 200), false);
-      assert.equal(drivingReserved(a.drivingPlan, branch.s0, branch.s1, 100), false);
+      assert.equal(branchDrivingReserved(a.drivingPlan, branch.s0, branch.s1, 100), false);
       assert.equal(a.featuresIn(branch.s0 - 100, branch.s1 + 100).some(f => ['bridge', 'tunnel', 'overpass', 'roadblock', 'ramp', 'guard'].includes(f.type)), false);
     }
   }

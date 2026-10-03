@@ -3,7 +3,15 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { Run } from '../src/game/run.js';
 import { GunnerController } from '../src/game/gunner.js';
-import { makeCarState, SPEC_IDS } from '../src/view/car_state.js';
+import { makeCarState } from '../src/view/car_state.js';
+
+// The old oracle describes the pre-armored assist contract. Keep its original
+// vehicle coverage fixed; intentionally protected targets are checked below.
+const LEGACY_ASSIST_SPEC_IDS = Object.freeze([
+  'truck_t1', 'truck_t2', 'truck_t3', 'truck_t4',
+  'e_sedan', 'e_muscle', 'e_buggy', 'e_technical', 'e_van', 'e_heavy', 'e_tanker',
+  'player_sedan_t1', 'player_sedan_t2', 'player_buggy_t1', 'player_buggy_t2', 'player_buggy_t3', 'e_double_bus',
+]);
 
 function targetsBefore(run) {
   const points = [];
@@ -23,7 +31,7 @@ function targetsBefore(run) {
 
 function fixture() {
   const run = Object.assign(Object.create(Run.prototype), { states: new Map(), sim: { cars: new Map() } });
-  SPEC_IDS.forEach((id, i) => {
+  LEGACY_ASSIST_SPEC_IDS.forEach((id, i) => {
     const state = makeCarState(i + 1, id, i ? 'enemy' : 'player'); run.states.set(state.id, state);
     run.sim.cars.set(state.id, { elite: i % 3 ? null : {}, weakPoint: { c: [0.3, 1.1, -0.2] } });
   });
@@ -68,6 +76,33 @@ test('assist targets reuse their vectors and records after warm-up, and clear de
   const refreshed = run._assistTargets(), expected = targetsBefore(run);
   assert.equal(refreshed.length, expected.length);
   refreshed.forEach((point, i) => { assert.deepEqual(point.p.toArray(), expected[i].p.toArray()); assert.equal(point.v, expected[i].v); });
+});
+
+test('actual pooled assist offers only the authored armored weak zone and preserves its posed coordinates', () => {
+  for (const specId of ['e_armored', 'e_light_tank']) {
+    const state = makeCarState(2, specId, 'enemy');
+    state.pos.set(7, 2.1, 71060);
+    state.quat.setFromEuler(new THREE.Euler(.13, Math.PI - .04, -.09));
+    state.vel.set(2, -.3, 38);
+    state.driverAlive = state.gunnerAlive = state.gunner2Alive = state.gunner3Alive = state.gunner4Alive = true;
+    const run = Object.assign(Object.create(Run.prototype), {
+      states: new Map([[state.id, state]]),
+      sim: { cars: new Map([[state.id, { elite: {}, weakPoint: { c: [99, 99, 99] } }]]) },
+    });
+    const local = state.spec.hitZones[state.spec.weakpoint.zone].c;
+    const expected = () => new THREE.Vector3(local[0], local[1] - state.ride.restComHeight, local[2]).applyQuaternion(state.quat).add(state.pos);
+    const points = run._assistTargets();
+    assert.equal(points.length, 1, `${specId}: protected hull, crew and stale elite metadata are excluded`);
+    assert.deepEqual(points[0].p.toArray(), expected().toArray());
+    assert.equal(points[0].v, state.vel);
+    const record = points[0], vector = record.p;
+    state.pos.add(new THREE.Vector3(-3, .2, 18)); state.quat.setFromEuler(new THREE.Euler(-.07, -Math.PI + .06, .04));
+    assert.equal(run._assistTargets(), points);
+    assert.equal(points[0], record); assert.equal(points[0].p, vector);
+    assert.deepEqual(vector.toArray(), expected().toArray());
+    state.exploded = true;
+    assert.equal(run._assistTargets().length, 0, 'destroyed protected targets retire immediately');
+  }
 });
 
 test('projectile view records reuse storage without stale coordinates across movement, count or kind changes', () => {

@@ -7,6 +7,7 @@ import { TEN_LEVELS, normalizeJourney, MARATHON_LEVEL_STARTS, MARATHON_LEVEL_LEN
 import { CAMPAIGN_THEMES } from '../data/campaign_themes.js';
 import { rng, clamp, lerp, smoothstep, fbm1, hash2, wrapAngle } from '../core/util.js';
 import { stageChallenges, drivingReserved, DRIVING_ROUTE_VERSION, planDrivingBranches, projectDrivingRoute, intersectsDrivingCorridor, branchPointAt } from './driving_plan.js';
+import { stageEncounterReservations } from '../data/stage_encounters.js';
 
 export const DS = 3;        // sample spacing (m)
 export const BLOCK = 96;    // generation block length (m)
@@ -26,6 +27,8 @@ export class Road {
     this.features = [];
     this.routeVersion = DRIVING_ROUTE_VERSION;
     this.drivingPlan = stageChallenges(this.seed, this.journey);
+    this.drivingPlan.push(...stageEncounterReservations(this.seed, this.journey, this.drivingPlan));
+    this.drivingPlan.sort((a, b) => a.s0 - b.s0 || (a.row ?? -1) - (b.row ?? -1));
     this.drivingBranches = null;
     this._drivingNext = 0;
     this._featEnd = 0; // s up to which features have been decided

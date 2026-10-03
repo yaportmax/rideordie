@@ -10,6 +10,7 @@ import { rngOf, CHUNK_LEN } from './util.js';
 import { MB, frameYaw, frameBasis } from './mbuild.js';
 import { facadeMaterial, neonRect, ST, NEON_H, NEON_V, NEON_DOT } from './city_mat.js';
 import { drivingFootprintRadius } from '../driving_plan.js';
+import { stageActorReserved, stageSceneryReserved } from '../scenery_gen.js';
 import { contextualRoad, biomeRange, biomeWeight, biomeDistance } from '../biome_context.js';
 
 export const CITY_A = 40350, CITY_B = 50250;
@@ -161,7 +162,8 @@ export function cityItems(ctx, sA, sB) {
   out.b = out.b.filter(b => {
     const d = b.arch ? 0 : b.side * (b.dFront + b.D / 2), p = ctx.road.pointAt(b.s, d, {});
     const radius = b.arch ? 85 : Math.hypot(b.W, b.D) / 2 + 6;
-    return !ctx.road.corridorBlocked(p.x, p.z, radius, b.s);
+    const halfS = b.arch ? radius : b.W / 2 + 6, halfD = b.arch ? radius : b.D / 2 + 6;
+    return !stageActorReserved(ctx.road, b.s, d, halfS, halfD) && !ctx.road.corridorBlocked(p.x, p.z, radius, b.s);
   });
   return out;
 }
@@ -619,9 +621,10 @@ function putWreck(ctx, chunk, cols, name, s, d, psi, r) {
   const g = chunk.ground.sample(Math.min(chunk.s0 + CHUNK_LEN, Math.max(chunk.s0, s)), d, _G);
   if (ctx.road.corridorBlocked(g.x, g.z, drivingFootprintRadius(a), s)) return false;
   const th = ctx.road.sample(s, _smp).th, yaw = th + psi;
-  const t = 0.7 + r() * 0.5;
+  const t = 0.7 + r() * 0.5, tg = t * (0.9 + r() * 0.15), tb = t * (0.85 + r() * 0.2);
+  if (stageSceneryReserved(ctx.road, s, g.x, g.z, yaw, a, 1, .5)) return false;
   ctx.pool.register(name, PROP_SPEC);
-  chunk.list(name).push(g.x, g.y - 0.05, g.z, yaw, 1, 1, 1, g.nx, g.ny, g.nz, 0.6, a.sphere.radius, t, t * (0.9 + r() * 0.15), t * (0.85 + r() * 0.2));
+  chunk.list(name).push(g.x, g.y - 0.05, g.z, yaw, 1, 1, 1, g.nx, g.ny, g.nz, 0.6, a.sphere.radius, t, tg, tb);
   if (cols && a.collision) {
     const c = Math.cos(yaw), sn = Math.sin(yaw), src = a.collision.pos, base = cols.pos.length / 3;
     for (let i = 0; i < src.length; i += 3) cols.pos.push(g.x + src[i] * c + src[i + 2] * sn, g.y - 0.05 + src[i + 1], g.z - src[i] * sn + src[i + 2] * c);
@@ -660,17 +663,19 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
     if (blocked(s)) continue;
     const g = chunk.ground.sample(s, d, _G);
     if (road.corridorBlocked(g.x, g.z, drivingFootprintRadius(barrel, 1.05) + .5, s)) continue;
+    if (stageActorReserved(road, s, d, drivingFootprintRadius(barrel, 1.05) + .5)) continue;
     ctx.pool.register('barrel', { far: 320, shadow: false, lite: true });
     chunk.list('barrel').push(g.x, g.y + 0.1, g.z, r() * 6.28, 1.05, 1.05, 1.05, 0, 1, 0, 0, 0.7, 0.55, 0.42, 0.36);
     ctx.pool.register('fx_flame', { far: 450, shadow: false });
     chunk.list('fx_flame').push(g.x, g.y + 0.1 + 0.86, g.z, r() * 3, 0.95, 1.5, 0.95, 0, 1, 0, 0, 1.5);
-    if (r() < 0.5) { const d2 = d + side * (0.6 + r() * 0.6), s2 = s + (r() - 0.5) * 2.5, g2 = chunk.ground.sample(s2, d2, _G); if (!road.corridorBlocked(g2.x, g2.z, drivingFootprintRadius(barrel), s2)) chunk.list('barrel').push(g2.x, g2.y + 0.1, g2.z, r() * 6.28, 1, 1, 1, 0, 1, 0, 0, 0.7, 0.4, 0.3, 0.26); }
+    if (r() < 0.5) { const d2 = d + side * (0.6 + r() * 0.6), s2 = s + (r() - 0.5) * 2.5, g2 = chunk.ground.sample(s2, d2, _G); if (!road.corridorBlocked(g2.x, g2.z, drivingFootprintRadius(barrel), s2) && !stageActorReserved(road, s2, d2, drivingFootprintRadius(barrel))) chunk.list('barrel').push(g2.x, g2.y + 0.1, g2.z, r() * 6.28, 1, 1, 1, 0, 1, 0, 0, 0.7, 0.4, 0.3, 0.26); }
   }
   // ---- traffic lights at the side streets: pole + arm over the shoulder, dead signal heads blinking amber
   for (const q of items.streets) {
     const s = q.s1 + 1.2; if (s < s0 || s >= s0 + CHUNK_LEN || blocked(s)) continue;
     const side = q.side, sm = road.sample(s, _smp), d = side * 10.7;
     const centre = road.pointAt(s, d, {}); if (road.corridorBlocked(centre.x, centre.z, 4.5, s)) continue;
+    if (stageActorReserved(road, s, d, .4, 4.5)) continue;
     const F = frameYaw(sm.x + sm.nx * d, chunk.ground.sample(s, d, _G).y - 0.1, sm.z + sm.nz * d, side > 0 ? sm.th - Math.PI / 2 : sm.th + Math.PI / 2, {});
     mb.col(0.16, 0.17, 0.18).setFac(ST.PLAIN, 1, 1, 0.2).setFac2(0, 0, 0, 0);
     mb.box(F, -0.12, 0.12, 0, 6.3, -0.12, 0.12, { skip: 'd' });
@@ -685,7 +690,7 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
   if (hash2(chunk.c, 881, seed) < 0.42 && dens > 0.5) {
     const s = s0 + 20 + r() * 56, side = hash2(chunk.c, 882, seed) < 0.5 ? 1 : -1;
     const centre = road.pointAt(s, side * 12.2, {});
-    if (!blocked(s) && !inStreet(s, side) && !road.corridorBlocked(centre.x, centre.z, 4.2, s)) {
+    if (!blocked(s) && !inStreet(s, side) && !road.corridorBlocked(centre.x, centre.z, 4.2, s) && !stageActorReserved(road, s, side * 12.2, 4.2, 1.1)) {
       const sm = road.sample(s, _smp), d = side * 12.2, gy = chunk.ground.sample(s, d, _G).y + 0.16;
       const F = frameYaw(sm.x + sm.nx * d, gy, sm.z + sm.nz * d, side > 0 ? sm.th - Math.PI / 2 : sm.th + Math.PI / 2, {});   // local +z toward the road
       mb.col(0.16, 0.17, 0.18).setFac(ST.PLAIN, 1, 1, 0.3).setFac2(0, 0, 0, 0);
@@ -713,6 +718,7 @@ function emitStreetProps(ctx, chunk, mb, nb, cols, items) {
         if (blocked(s) || inStreet(s, side)) continue;
         const d = side * 13.1, g = chunk.ground.sample(s, d, _G), sc = 0.7 + r() * 0.45;
         if (road.corridorBlocked(g.x, g.z, drivingFootprintRadius(tree, sc), s)) continue;
+        if (stageActorReserved(road, s, d, drivingFootprintRadius(tree, sc))) continue;
         chunk.list('dead_tree_c').push(g.x, g.y, g.z, r() * 6.28, sc, sc, sc, 0, 1, 0, 0, 3 * sc, 0.75, 0.72, 0.7);
       }
     }
@@ -790,5 +796,7 @@ function placeGlbRuin(ctx, chunk, b, fr, g0, r) {
   ctx.pool.register(name, { far: 1700, shadow: true, behind: true, mergeNear: 75 });
   const sc = 0.95 + r() * 0.15, sy = 0.9 + r() * 0.45, t = 0.85 + r() * 0.25;
   if (ctx.road.corridorBlocked(fr.x, fr.z, drivingFootprintRadius(a, sc), b.s)) return;
-  chunk.list(name).push(fr.x, g0 - 0.4, fr.z, fr.yaw + (r() - 0.5) * 0.12, sc, sy, sc, 0, 1, 0, 0, a.sphere.radius * Math.max(sc, sy) * 1.1, t, t, t);
+  const yaw = fr.yaw + (r() - 0.5) * .12;
+  if (stageSceneryReserved(ctx.road, b.s, fr.x, fr.z, yaw, a, sc, 1.5)) return;
+  chunk.list(name).push(fr.x, g0 - 0.4, fr.z, yaw, sc, sy, sc, 0, 1, 0, 0, a.sphere.radius * Math.max(sc, sy) * 1.1, t, t, t);
 }

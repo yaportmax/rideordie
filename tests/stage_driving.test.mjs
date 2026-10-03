@@ -177,6 +177,9 @@ test('real friendly AI drives solid canyon, city and dam chicanes without hull c
     const structures = new StructureColliders(sim.world), roadBodies = [];
     try {
       sim.director.enabled = false;
+      // This fixture proves the existing solid chicane with real car/road
+      // physics. New armed encounters have separate damage/escape coverage.
+      sim.encounters.plan = [];
       const first = sim.road.drivingPlan.find(f => f.biome === biome && f.type === 'stage_challenge');
       const rows = sim.road.drivingPlan.filter(f => f.challengeId === first.challengeId && f.type === 'stage_challenge');
       const start = first.s0 - 240, end = rows.at(-1).s1 + 70;

@@ -14,6 +14,7 @@ import { rockExclusions } from './rocks.js';
 import { momentExclusions } from './moments.js';
 import { GAUNTLET_ASSETS } from './damroad.js';
 import { drivingFootprintRadius } from '../driving_plan.js';
+import { stageActorReserved, stageSceneryReserved } from '../scenery_gen.js';
 import { rbFlankExclusions } from './features.js';
 
 // ------------------------------------------------------------------------------------------------ tables
@@ -159,7 +160,10 @@ export class LandmarkPlanner {
     // is emitted. A corridor cannot hide a solid landmark under new pavement.
     return out.filter(p => {
       const asset = this.ctx.kit.get(p.asset), radius = asset ? Math.max(p.r, drivingFootprintRadius(asset, p.sc)) : p.r;
-      return !this.ctx.road.corridorBlocked(p.x, p.z, radius + 3, p.s);
+      if (this.ctx.road.corridorBlocked(p.x, p.z, radius + 3, p.s)) return false;
+      if (asset) return !stageSceneryReserved(this.ctx.road, p.s, p.x, p.z, p.yaw, asset, p.sc, p.found ? 3.75 : 3);
+      const frame = this.ctx.road.sample(p.s, {}), d = (p.x - frame.x) * frame.nx + (p.z - frame.z) * frame.nz;
+      return !stageActorReserved(this.ctx.road, p.s, d, radius + 3);
     });
   }
 

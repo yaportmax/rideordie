@@ -28,6 +28,8 @@ import { AIDriver } from './ai_driver.js';
 import { AIGunner } from './ai_gunner.js';
 import { Dressing } from '../world/dressing.js';
 import { StructureColliders } from '../sim/structure_colliders.js';
+import { StageEncounters } from '../sim/stage_encounters.js';
+import { StageEncountersView } from '../view/stage_encounters.js';
 import { BOSS_ID, BOSS_NAMES, MINIBOSSES, BOSS_PARTS } from '../data/boss.js';
 import { BOSS_S, biomeAt, BIOMES } from '../data/biomes.js';
 import { TEN_LEVELS, MARATHON_LEVEL_LENGTH, normalizeJourney } from '../data/campaign.js';
@@ -85,9 +87,11 @@ export class Run {
       this.player = this.sim.spawnCar(spec.id, { spec, s: startS, d: 0, kind: 'player', hold: true });
       this.player.crew.gunner.weapon = 0;
       this.sim.playerDamageMul = 1;
+      this.encounters = this.sim.encounters;
     } else {
       // viewer peer: a static Rapier world purely for bullet raycasts against terrain
       this.qworld = createWorld();
+      this.encounters = new StageEncounters({ authoritative: false });
       this.streamer = new TerrainStreamer({ scene: g.scene, world: this.qworld, seed: this.seed, journey: this.journey, terrainMat: g.terrainMat, roadMat: g.roadMat, workers: 3 });
     }
     // world dressing (props, structures, water) + their colliders
@@ -100,6 +104,7 @@ export class Run {
     } catch (e) { console.warn('dressing disabled', e); this.dressing = null; }
     if (this.disposed) return this;
     this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, playerUpgradeLevels: effects.vehicleUpgradeLevels, playerWeaponOptics: effects.weaponOptics, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
+    this.encounterView = new StageEncountersView(g.scene, this.road);
     this.wv.armorTier = effects.armorTier; this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
     if (this.ai === 'driver') this.aiDriver = new AIDriver(this);
@@ -140,8 +145,9 @@ export class Run {
       targets: function* () {
         if (run.sim) { for (const c of run.sim.cars.values()) if (c.kind === 'enemy') yield c; if (run.sim.boss && !run.sim.boss.exploded) yield run.sim.boss; }
         else { for (const gh of run.ghosts.values()) if (gh.kind === 'enemy') yield gh; if (run.ghostBoss && !run.ghostBoss.exploded) yield run.ghostBoss; }
+        if (run.encounters) yield* run.encounters.targets();
       },
-      raycastWorld: (o, d, max) => run._worldRay(o, d, max),
+      raycastWorld: (o, d, max) => run._worldRay(o, d, max, true),
       emit: (e) => run._localEvent(e),
       report: (h) => { run.hitsLanded++; if (run.sim) run.sim.applyHit(h); else { run.net.sendJSON({ t: 'hit', h }); (run.localFlash || (run.localFlash = new Map())).set(h.carId, 0.12); } },
       fireRocket: (o, d, w) => { const cfg = { ...w.rocket, direct: w.dmg }; if (run.sim) run.sim.projectiles.addRocket(o, d, cfg, 1); else run.net.sendJSON({ t: 'rocket', o: o.toArray(), d: d.toArray(), cfg }); },
@@ -150,11 +156,14 @@ export class Run {
       hitMarker: (head) => { if (run.humanGunner) run.g.hud.hitMarker(false, head); },
     };
   }
-  _worldRay(o, d, max) {
+  _worldRay(o, d, max, shooting = false) {
     const world = this.sim ? this.sim.world : this.qworld; if (!world) return null;
     if (!this._ray) this._ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
     const r = this._ray; r.origin.x = o.x; r.origin.y = o.y; r.origin.z = o.z; r.dir.x = d.x; r.dir.y = d.y; r.dir.z = d.z;
-    let h = world.castRayAndGetNormal(r, max, true, undefined, RAY_SHOT);
+    // Living encounter targets use their authored zones below. Camera and
+    // ground queries keep their solid geometry, as do dead road obstructions.
+    const predicate = shooting ? (col) => { const actor = this.encounters?.colliderOwner(col.handle); return !actor || actor.dead || !actor.shootable; } : undefined;
+    let h = world.castRayAndGetNormal(r, max, true, undefined, RAY_SHOT, undefined, undefined, predicate);
     const rock = this.structures?.raycastRocks(o, d, h ? Math.min(max, h.timeOfImpact) : max);
     if (rock && (!h || rock.timeOfImpact < h.timeOfImpact)) h = rock;
     if (!h) return null;
@@ -194,6 +203,7 @@ export class Run {
   /** Advance sim/net and produce this frame's render data. */
   update(dt, cmds, now) {
     const g = this.g; this.time += dt; this.streakT = Math.max(0, (this.streakT || 0) - dt);
+    if (!this.sim) this.encounters?.updateGuest?.(dt);
     if (this.gunner) { this.gunner.crouch = 0; this.gunner.pos.x = 0; this.gunner.pos.z = 0; }
     const P = this.sim ? this.player : null;
     if (this.sim) {
@@ -331,6 +341,7 @@ export class Run {
     this.localEvents.length = 0;
     { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) (window.__spikes || (window.__spikes = [])).push({ what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
     this.structures?.updateRocks(this.sim ? this.sim.cars.values() : this.states.values());
+    this.encounterView?.update(dt, this.encounters, this.playerS || 0);
     this.wv.updateBoss(this.bossState, dt);
     // roadblock telegraphing (signs, flares, breakable barricades) + cinematic banners (warlord intro, roadblock countdown)
     (this.hazMarks || (this.hazMarks = new HazardMarks(g.scene, this.road))).update(dt, this.playerS || 0);
@@ -367,6 +378,15 @@ export class Run {
       if (e.t === 'minibossSpawn') { this.banner.miniboss(e); g.audio?.stinger('danger_riser'); }
       else if (e.t === 'minibossLost') g.hud.message(`${e.name} FELL BEHIND`, 2200, '#bbbbbb');
       else if (e.t === 'hazardWarn') { this.banner.hazard(e); g.audio?.ui('countdown_beep'); }
+      else if (e.t === 'stageWarn') { this.banner.event({ title: e.title, sub: e.hint }); g.audio?.ui('countdown_beep'); }
+      else if (e.t === 'stageBreak') {
+        if (['tower', 'drone', 'boat'].includes(e.kind)) evs.push({ t: 'boom', pos: e.pos, radius: e.kind === 'drone' ? 2 : 3.5, kind: 'mine', localOnly: true });
+        else if (e.kind !== 'barrel') evs.push({ t: 'hit', pos: e.pos, normal: [0, 1, 0], surface: e.kind === 'rock' || e.kind === 'arch' ? 'rock' : e.kind === 'rifleman' ? 'flesh' : 'metal', carId: e.id, localOnly: true });
+      }
+      else if (e.t === 'enemyTell' && this.time - (this.lastEnemyTell ?? -20) > 5) {
+        const message = { barrel: 'EXPLOSIVE BARRELS: SHOOT OR DODGE', grenade: 'GRENADE INCOMING: KEEP MOVING', cannon: 'CANNON LINING UP', sniper: 'SNIPER LINING UP' }[e.kind];
+        if (message) { g.hud.message(message, 1400, '#ffbc67'); this.lastEnemyTell = this.time; }
+      }
       else if (e.t === 'barrierBreak') this.hazMarks.handleEvent(e);
       else if (e.t === 'setPiece') { this.banner.event(e); g.audio?.stinger('danger_riser', { gain: 0.7 }); }
       else if (e.t === 'minibossDown') { g.hud.message(`${e.name} WRECKED  +$${ECONOMY.minibossBounty[e.index] || ''}`, 2800, '#ffc21a'); }
@@ -459,6 +479,8 @@ export class Run {
     for (const st of this.states.values()) {
       if (st.kind !== 'enemy' || st.exploded) continue;
       const up = st.ride.restComHeight, seats = st.spec.seats;
+      const weak = st.spec.weakpoint && st.spec.hitZones?.[st.spec.weakpoint.zone];
+      if (weak) { const c = weak.c; if (c) this._assistPoint(st, c[0], c[1] - up, c[2]); continue; }
       if (st.gunnerAlive && seats.gunner) { const s = seats.gunner; this._assistPoint(st, s[0], s[1] + 1.2 - up, s[2]); }
       if (st.driverAlive) { const s = seats.driver; this._assistPoint(st, s[0], s[1] + 0.5 - up, s[2]); }
       this._assistPoint(st);
@@ -466,6 +488,10 @@ export class Run {
       if (wc && wc.elite && wc.weakPoint) { const c = wc.weakPoint.c; this._assistPoint(st, c[0], c[1] - up, c[2]); }
     }
     const boss = this.bossState; if (boss && !boss.dead) this._assistPoint(boss, 0, 5, -8);
+    if (this.encounters) for (const actor of this.encounters.targets()) {
+      const point = this._assistPool[pts.length] || (this._assistPool[pts.length] = { p: new V3(), v: new V3() });
+      if (this.encounters.aimPoint(actor, this.g.camera.position, point.p)) { point.v = actor.veh.vel; pts.push(point); }
+    }
     return pts;
   }
 
@@ -483,8 +509,16 @@ export class Run {
     if (d.special1 && e.oil > 0 && this.oilCd <= 0) { sim.hazards.dropOil(sim, P); this.oilCd = e.oil >= 2 ? 6 : 10; }
     if (d.special2 && e.mines > 0 && this.mineCd <= 0) { sim.hazards.dropMine(sim, P, e.mines >= 2 ? 11 : 8, e.mines >= 2 ? 190 : 140); this.mineCd = 4; }
     if (d.medkit) this._medkit();
-    // hold reset to flip the truck upright
-    if (d.reset && P.veh.up.y < 0.55) { this.flipT = (this.flipT || 0) + dt; if (this.flipT > 1.0) { this.flipT = 0; this._unflip(); } } else this.flipT = 0;
+    // Holding reset also requests a safe road rescue for an upright truck
+    // beached in a deep mountain ditch. Ordinary upright road driving is free.
+    if (d.reset) {
+      this.flipT = (this.flipT || 0) + dt;
+      if (this.flipT > 1.0) {
+        this.flipT = 0;
+        if (P.veh.up.y < 0.55) this._unflip();
+        else sim.requestDitchRecovery(P);
+      }
+    } else this.flipT = 0;
     if (d.horn) sim.emit({ t: 'horn', id: P.id });
   }
   _unflip(free = false) {
@@ -807,6 +841,16 @@ export class Run {
     }
     const out = this.events.filter((e) => !e.remote && !e.localOnly);
     if (out.length) this.net.sendJSON({ t: 'events', e: out });
+    this.encounterSendAcc = advanceCadence(this.encounterSendAcc || 0, dt, .1);
+    if (this.encounterSendAcc >= .1) {
+      this.encounterSendAcc = consumeCadence(this.encounterSendAcc, .1);
+      const state = this.encounters?.snapshot();
+      // An empty state also retires the last encounter on the viewer. This
+      // uses bounded JSON on the reliable channel, dropping superseded poses
+      // under backpressure. Retry retirement until the empty state is sent.
+      if (state && (state.actors.length || this.sentEncounterActors) &&
+        this.net.sendTransientJSON({ t: 'events', e: [{ t: 'stageState', state }] })) this.sentEncounterActors = state.actors.length;
+    }
   }
   _sendGunner(dt) {
     this.gunnerSendAcc = advanceCadence(this.gunnerSendAcc, dt);
@@ -821,7 +865,15 @@ export class Run {
   onNet(m) {
     if (!m || this.disposed) return;
     if (m.t === 'runReady') { this.partnerReady = true; return; }
-    if (m.t === 'events') { if (!this.sim) rememberDefeat(this, m.e); (this.netEvents || (this.netEvents = [])).push(...m.e); return; }
+    if (m.t === 'events') {
+      if (!Array.isArray(m.e) || m.e.length > 256) return;
+      if (!this.sim) rememberDefeat(this, m.e);
+      for (const e of m.e) {
+        if (e?.t === 'stageState') { if (!this.sim) this.encounters?.applySnapshot(e.state); }
+        else if (e) (this.netEvents || (this.netEvents = [])).push(e);
+      }
+      return;
+    }
     if (m.t === 'feed') { this.g.hud.feed(m.text, m.crash ? '#ffc21a' : '#fff'); if (this.gunner) this.g.hud.hitMarker(true); return; }
     if (m.t === 'summary') { this.remoteSummary = m.s; this.over = true; return; }
     if (m.t === 'go') { this.goSeen = true; this.g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); return; }
@@ -858,6 +910,8 @@ export class Run {
     this.structures?.dispose();
     this.abridge?.reset();
     this.wv?.dispose();
+    this.encounterView?.dispose(); this.encounterView = null;
+    if (!this.sim) this.encounters?.dispose();
     this.streamer?.dispose();
     this.sim?.dispose(); this.qworld?.free(); this.qworld = null;
   }

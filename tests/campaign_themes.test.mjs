@@ -9,7 +9,7 @@ import { AssetKit } from '../src/world/dressing/assets.js';
 import { InstList, ChunkGround, CHUNK_LEN } from '../src/world/dressing/util.js';
 import { buildCampaignThemes, registerCampaignThemeAssets } from '../src/world/dressing/campaign_themes.js';
 import { CAMPAIGN_CHUNK_BUDGET } from '../src/world/dressing/campaign_theme_builder.js';
-import { drivingJourneyStages, stageChallenges, protectedDrivingSpan, drivingReserved } from '../src/world/driving_plan.js';
+import { drivingJourneyStages, stageChallenges, protectedDrivingSpan, branchDrivingReserved, CAMPAIGN_BRANCH_LIMIT } from '../src/world/driving_plan.js';
 
 test('new themes retain complete numeric biome contracts and distinct terrain kinds', () => {
   assert.deepEqual(CAMPAIGN_THEME_IDS, ['underground', 'sky', 'hell', 'space']);
@@ -46,12 +46,12 @@ test('selected-level branch planning is bounded and late worlds retain physicall
     const road = new Road(1, { mode: 'campaign', level: level.number });
     const branches = road.ensureDrivingBranches();
     assert.ok(road.sEnd <= level.bossDistance + 800, `${level.id} planning must not generate the legacy60km road`);
-    assert.ok(branches.length <= 1, 'one bounded cut per selected stage');
+    assert.ok(branches.length <= CAMPAIGN_BRANCH_LIMIT[level.id], 'bounded physically qualified cuts per selected stage');
     for (const b of branches) {
       assert.equal(b.biome, level.id);
       assert.ok(b.saved >= 4 && b.maxGrade <= .085 && b.maxCurvature <= 1 / 70);
       assert.equal(protectedDrivingSpan(b.s0 - 100, b.s1 + 100, road.journey), false);
-      assert.equal(drivingReserved(road.drivingPlan, b.s0, b.s1, 100), false);
+      assert.equal(branchDrivingReserved(road.drivingPlan, b.s0, b.s1, 100), false);
       assert.ok(b.s0 >= 650 && b.s1 < level.bossDistance - 1000);
     }
   }

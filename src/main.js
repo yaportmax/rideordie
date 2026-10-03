@@ -18,7 +18,7 @@ window.render_game_to_text = () => {
     driverAlive: player?.driverAlive, gunnerAlive: player?.gunnerAlive, truckHp01: player?.hp01,
     cinematic: run?.cinematic, introOutside: run?.introOutside, mouseCaptured: game.input.locked,
     weapon: gunner?.weapon?.id, magazine: gunner?.magNow, reloading: gunner?.reloading, ads: gunner?.ads,
-    vehicles: run?.states.size, finished: run?.finished, performance: game.perf });
+    vehicles: run?.states.size, encounters: run?.encounters ? [...run.encounters.entities.values()].slice(0, 16).map(a => ({ id: a.id, kind: a.kind, biome: a.biome, phase: a.status, hp: a.hp, position: a.pos, weakpoint: a.weakpoint?.pos })) : [], finished: run?.finished, performance: game.perf });
 };
 await game.boot();
 game.loop();

@@ -11,6 +11,7 @@ import { BOSS_ID } from '../data/boss.js';
 import { WEAPONS } from '../data/weapons.js';
 import { sanitizeVisualLevels } from '../view/car_upgrade_plan.js';
 import { sanitizeOpticId } from '../data/weapon_optics.js';
+import { GUNNER_ROLES } from '../sim/car.js';
 
 const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f, 0x6a2f2f, 0x91856a];
 const _sph = new THREE.Sphere();
@@ -74,12 +75,17 @@ export class WorldView {
       crewRadius: crewFrustumRadius(st.spec, st.ride?.restComHeight, st.kind) };
     // crew figures
     const s = st.spec;
-    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunName, weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
+    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunNames?.[role] || st.gunName, nativeEnemyGun: st.kind === 'enemy' && !!s.gunMuzzles?.[role], weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, armorTier: st.kind === 'player' && role === 'gunner' ? this.armorTier : 0, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
     // raider faces: 4 gunner types x 2 variants (+ 2 driver variants), picked deterministically from the car id
     const v2 = (n) => (((st.id * 2654435761) >>> (n + 3)) & 1 ? '2' : '');
     if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver' + v2(0), s.seats.driver);
-    if (s.seats.gunner && (st.kind === 'player' || (s.gunners ?? 0) >= 1)) rec.crew.gunner = mk('gunner', st.kind === 'player' ? 'hero_gunner' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][st.id % 4] + v2(1), s.seats.gunner);
-    if (s.seats.gunner2 && (s.gunners ?? 0) >= 2) rec.crew.gunner2 = mk('gunner2', 'raider_b' + v2(2), s.seats.gunner2);
+    for (let index = 0; index < GUNNER_ROLES.length; index++) {
+      const role = GUNNER_ROLES[index], seat = s.seats[role];
+      if (!seat || (st.kind !== 'player' && (s.gunners ?? 0) <= index)) continue;
+      const enemyKind = index === 1 && (s.gunners ?? 0) <= 2 ? 'raider_b' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][(st.id + index) % 4];
+      const kind = st.kind === 'player' ? 'hero_gunner' : enemyKind + v2(index + 1);
+      rec.crew[role] = mk(role, kind, seat);
+    }
     // Crew membership is fixed for this vehicle spec. Each entry owns a pose
     // scratch object, so updating one character never overwrites another's pose.
     rec.crewEntries = Object.entries(rec.crew).map(([role, crew]) => ({ role, crew, pose: {} }));
@@ -124,12 +130,13 @@ export class WorldView {
         if (st.exploded && !rec.wreck) { rec.wreck = true; if (!this.fx) this._charCar(rec); } this._damageVisuals(rec, st); continue;
       }
       for (const { role, crew, pose } of rec.crewEntries) {
-        const gs = role === 'gunner' ? st.gunner : role === 'gunner2' ? st.gunner2 : null;
-        const alive = role === 'driver' ? st.driverAlive : role === 'gunner' ? st.gunnerAlive : st.gunner2Alive;
+        const gs = role === 'driver' ? null : st[role];
+        const alive = role === 'driver' ? st.driverAlive : st[role + 'Alive'];
         crew.lastVel = st.vel;
         pose.alive = alive; pose.aimYaw = gs ? gs.yaw : 0; pose.aimPitch = gs ? gs.pitch : 0; pose.fire = gs ? gs.fire : false;
         pose.crouch = st.kind === 'player' ? false : gs ? gs.crouch : false; pose.ads = gs ? gs.ads : false; pose.reloading = gs ? gs.reloading : false;
         pose.weaponId = st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null;
+        pose.enemyGun = st.kind === 'enemy' && role !== 'driver' ? st.gunNames?.[role] || st.gunName : null;
         pose.opticId = st.kind === 'player' ? sanitizeOpticId(pose.weaponId, this.playerWeaponOptics?.[pose.weaponId]) : 'standard';
         pose.steer = st.steer; pose.speed = st.speed; pose.quat = st.quat; pose.vel = st.vel;
         pose.local = st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null;
@@ -158,7 +165,7 @@ export class WorldView {
     if (e.t === 'crewDead' && rec && rec.crew[e.role]) rec.crew[e.role].die(e);
     // an enemy crew that just killed one of ours taunts / celebrates
     if (e.t === 'crewDead' && e.id === 1 && e.src > 1) this.cars.get(e.src)?.crew.gunner?.cheer();
-    if (e.t === 'grenadeThrow') { const r = this.cars.get(1); r?.crew.gunner?.throwGrenade(); }
+    if (e.t === 'grenadeThrow') { const r = this.cars.get(e.src === 'player' || e.src == null ? 1 : e.src); r?.crew[e.role || 'gunner']?.throwGrenade(); }
     if (e.t === 'crewHit' && rec && rec.crew[e.role]) rec.crew[e.role].flinch(e);
     if (e.t === 'shot') {
       const r = e.src === 'player' ? this.cars.get(1) : this.cars.get(e.src);
@@ -237,9 +244,9 @@ export class WorldView {
     out.set(seat[0], seat[1] + 1.6 - st.ride.restComHeight, seat[2]).applyQuaternion(st.quat).add(st.pos);
     return out;
   }
-  muzzlePos(st, out) {
+  muzzlePos(st, out, role = 'gunner') {
     const rec = this.cars.get(st.id);
-    if (rec && rec.crew.gunner && rec.crew.gunner.muzzleWorld(out)) return true;
+    if (rec?.crew[role]?.muzzleWorld(out)) return true;
     return false;
   }
   /** Resolve the physical deck rig before camera/shot sampling on a weapon swap.

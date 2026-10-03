@@ -6,6 +6,7 @@ import { clamp, clamp01, lerp, smoothstep, fbm2, fbm1, ridged2, vnoise2, hash2 }
 import { CAMPAIGN_THEMES } from '../data/campaign_themes.js';
 import { DS } from './road.js';
 import { drivingCorridorAt, drivingBranchRibbon, branchSample } from './driving_plan.js';
+import { plannedStageEncounters, STAGE_BOAT_WATER_CUT as PATROL_WATER_CUT } from '../data/stage_encounters.js';
 
 export const CHUNK_LEN = 96;
 export const EDGE = HALF_ROAD + SHOULDER;             // 9.5 m: road strip / terrain seam
@@ -23,6 +24,43 @@ export const LOD_STRIDE = [1, 2, 4]; // row stride per LOD (rows are DS = 3 m ap
 export const TEX_WRAP = 720;
 export const ROAD_WRAP = 768;
 const wrapOff = (v) => v - TEX_WRAP * Math.floor(v / TEX_WRAP);
+
+// A patrol encounter owns a real water-facing cut, rather than firing through
+// the coastal shoulder. Keep the main deck and the landward shortcut intact.
+// Cached finite plans make this a bounded pure worker/authority height query.
+export { PATROL_WATER_CUT };
+const _patrolCuts = new WeakMap();
+function patrolCuts(road) {
+  let cuts = _patrolCuts.get(road);
+  if (!cuts) {
+    cuts = plannedStageEncounters(road).filter(site => site.kind === 'patrol_boat' && (site.biome === 'coast' || site.biome === 'dam'));
+    _patrolCuts.set(road, cuts);
+  }
+  return cuts;
+}
+
+/** Authored coastal face below the unchanged deck; positive d is road-left.
+ * Its full-height core covers gunfire approaches and the entire boat encounter.
+ * The sea remains the biome's actual fixed water height. */
+export function patrolWaterCutAt(road, s, side, out = {}) {
+  out.weight = 0; out.siteId = null; out.biome = null; out.seaY = -1e9;
+  for (const site of patrolCuts(road)) {
+    const waterSide = BIOMES[site.biome].terrain.seaSide;
+    if (side !== waterSide) continue;
+    const start = site.s0 - PATROL_WATER_CUT.approach, end = site.s1 + PATROL_WATER_CUT.departure;
+    if (s <= start - PATROL_WATER_CUT.blend || s >= end + PATROL_WATER_CUT.blend) continue;
+    const weight = smoothstep(start - PATROL_WATER_CUT.blend, start, s) * (1 - smoothstep(end, end + PATROL_WATER_CUT.blend, s));
+    if (weight <= out.weight) continue;
+    out.weight = weight; out.siteId = site.id; out.biome = site.biome; out.seaY = seaLevel(road, site.biome);
+    out.side = waterSide; out.s0 = start; out.s1 = end;
+  }
+  return out;
+}
+
+function patrolCutNear(road, s0, s1) {
+  return patrolCuts(road).some(site => s1 >= site.s0 - PATROL_WATER_CUT.approach - PATROL_WATER_CUT.blend &&
+    s0 <= site.s1 + PATROL_WATER_CUT.departure + PATROL_WATER_CUT.blend);
+}
 
 /** Biome weight of `id` in a biomeAt() result. */
 const bw = (bio, id) => (bio.a === id ? 1 - bio.w : 0) + (bio.b === id ? bio.w : 0);
@@ -197,7 +235,10 @@ const FOLD_MAX = 0.85, SQUEEZE_U0 = 0.62;
 // nothing changes (the road side is untouched); beyond it the columns are squeezed smoothly into the limit, and near a Voronoi boundary the
 // height blends into the average of both sections' terrain, so the two strips meet in one continuous surface.
 const LIM_WIN = 3000, LIM_STEP = 4;                               // search +-3 km of road, every 4th sample (12 m)
-const _lim = new Map();
+// Authority queries use genuine fractional road distances, while worker grids
+// use integer rows. Quantizing both to a quarter metre made the first query
+// change later mesh vertices. Exact numeric keys keep both routes deterministic.
+const _lim = [new Map(), new Map()];
 let _limRoad = null;
 /**
  * {dmax (lateral distance from the centreline where this row's ground ends), jB (road sample index of the section on the other side, -1 =
@@ -206,9 +247,9 @@ let _limRoad = null;
  * curvature radius (the neighbouring rows of the arc), i.e. where rows of constant s would start to fold over.
  */
 function rowLimit(road, s, side) {
-  if (_limRoad !== road) { _limRoad = road; _lim.clear(); }
-  const key = Math.round(s * 4) * 2 + (side > 0 ? 1 : 0);
-  let L = _lim.get(key);
+  if (_limRoad !== road) { _limRoad = road; _lim[0].clear(); _lim[1].clear(); }
+  const limits = _lim[side > 0 ? 1 : 0];
+  let L = limits.get(s);
   if (L) return L;
   road.extendTo(s + LIM_WIN + 100);
   const sm = road.sample(s, _smL), i0 = Math.round(s / DS);
@@ -223,8 +264,8 @@ function rowLimit(road, s, side) {
     if (D < best) { best = D; bj = j; }
   }
   L = best < EDGE + 920 ? { dmax: Math.max(EDGE + 12, best), jB: bj } : { dmax: 1e9, jB: -1 };
-  if (_lim.size > 40000) _lim.clear();
-  _lim.set(key, L);
+  if (_lim[0].size + _lim[1].size >= 40000) { _lim[0].clear(); _lim[1].clear(); }
+  limits.set(s, L);
   return L;
 }
 const _smL = {}, _nB = {}, _smB = {};
@@ -270,10 +311,20 @@ export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   }
   const corridor = drivingCorridorAt(road, road.ensureDrivingBranches(), out.x, out.z, s, _corridor);
   if (corridor.weight > 0) { out.y = lerp(out.y, corridor.y, corridor.weight); off = out.y - yPlane; }
+  const waterCut = patrolWaterCutAt(road, s, side, _waterCut);
+  if (waterCut.weight > 0 && a > 0 && corridor.weight === 0) {
+    const lateral = smoothstep(0, PATROL_WATER_CUT.dropWidth, a) * (1 - smoothstep(PATROL_WATER_CUT.lateralCore, PATROL_WATER_CUT.lateralEnd, a));
+    // A continuous steep face begins just outside EDGE. The original road
+    // seam stays exact and the seabed is lowered in the visible and physical
+    // mesh together, never by excluding the terrain from weapon raycasts.
+    const floor = waterCut.seaY - PATROL_WATER_CUT.floorDepth;
+    out.y = lerp(out.y, Math.min(out.y, floor), waterCut.weight * lateral); off = out.y - yPlane;
+  }
   out.s = s; out.a = a; out.side = side; out.off = off; out.bio = bio;
   return out;
 }
 const _corridor = {};
+const _waterCut = {};
 
 // ------------------------------------------------------------------------------------------------ splat
 function splatWeights(w, bioId, seed, s, a, side, slope, wy, wx, wz, seaY) {
@@ -361,9 +412,10 @@ export function splatAt(w, seed, s, a, side, slope, wx, wy, wz, seaY, bio) {
 export function genTerrainChunk(road, seed, chunk, lod) {
   const s0 = chunk * CHUNK_LEN, s1 = s0 + CHUNK_LEN;
   const branchNear = road.ensureDrivingBranches().some(b => b.s1 + 16 >= s0 && b.s0 - 16 <= s1);
+  const waterCutNear = patrolCutNear(road, s0, s1);
   // Corridor terrain remains fine on its first distant reply as well. Coarse
   // long rows must never fill the carved lane or rise through its road strip.
-  const stride = branchNear ? 1 : LOD_STRIDE[lod];
+  const stride = branchNear || waterCutNear ? 1 : LOD_STRIDE[lod];
   road.extendTo(s1 + 200);
   const rowsN = CHUNK_LEN / (DS * stride) + 1;
   const anchorSm = road.sample(s0);
@@ -387,7 +439,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
   let vi = 0;
   const colPos = []; // lod0 only: collision positions (same grid without skirts), separate index list
   const colIdx = [];
-  const collide = lod === 0 || branchNear;
+  const collide = lod === 0 || branchNear || waterCutNear;
   const seaY = (() => { // sea level for coast/lake: fixed world height under the road of that biome
     const bio = road.biomeAt((s0 + s1) / 2);
     return bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : bio.a === 'dam' || bio.b === 'dam' ? seaLevel(road, 'dam') : -1e9;

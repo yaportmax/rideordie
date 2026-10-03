@@ -2,32 +2,45 @@
 import * as THREE from 'three';
 import { SPEC_IDS, makeCarState } from '../view/car_state.js';
 import { PART_NAMES, BOSS_PARTS } from '../data/boss.js';
+import { VEHICLES } from '../data/vehicles.js';
+import { GUNNER_ROLES } from '../sim/car.js';
 
 const QN = 32767;
 const GUNS = ['pistol', 'smg', 'rifle', 'shotgun', 'mg', 'hmg', 'rpg', 'minigun'];
+const EXTRA_GUNNER_ROLES = GUNNER_ROLES.slice(2);
 const INTENTS = [null, 'shoot', 'ram', 'block'];
 const MAX_ELITE = 9; // Nine chapter bosses; the Leviathan uses its separate boss body.
-const F = { dead: 1, exploded: 2, burning: 4, smoking: 8, driverAlive: 16, gunnerAlive: 32, gunner2Alive: 64, braking: 128, boosting: 256, drifting: 512, airborne: 1024, flatAny: 2048, nitroRechargeLocked: 4096 };
+const F = { dead: 1, exploded: 2, burning: 4, smoking: 8, driverAlive: 16, gunnerAlive: 32, gunner2Alive: 64, braking: 128, boosting: 256, drifting: 512, airborne: 1024, flatAny: 2048, nitroRechargeLocked: 4096, gunner3Alive: 8192, gunner4Alive: 16384 };
 const clamp16 = (v) => (v > 32767 ? 32767 : v < -32768 ? -32768 : v | 0);
+const crewFlags = g => g ? (g.fire ? 1 : 0) | (g.crouch ? 2 : 0) | (g.ads ? 4 : 0) | (g.reloading ? 8 : 0) : 0;
+const roleGun = (car, role) => car.crew[role] ? car.gunNames?.[role] || car.gunName || null : null;
 
 /** Encode the current sim state. hud: {hp01,dhp01,ghp01,nitro01,cash,kills,streak,level,bossHp01,bossId,medkits,state,time,dist} */
 export function encodeSnapshot(sim, tick, hud, buf) {
   const cars = [...sim.cars.values()];
+  const extendedCrew = cars.some(c => c.crew.gunner3 || c.crew.gunner4);
   // Never wrap an unknown catalogue entry into a different weapon or boss.
   for (const c of cars) {
     if (c.gunName != null && !GUNS.includes(c.gunName)) return null;
     if (c.elite && (!Number.isInteger(c.elite.index) || c.elite.index < 0 || c.elite.index >= MAX_ELITE)) return null;
     if (!INTENTS.includes(c.ai?.intent ?? null)) return null;
+    if (extendedCrew) for (const role of GUNNER_ROLES) {
+      const gun = roleGun(c, role);
+      if (gun != null && !GUNS.includes(gun)) return null;
+      if (c.crew[role] && !c.spec.seats?.[role]) return null;
+    }
   }
   let size = 64;
-  for (const c of cars) size += 64 + c.veh.wheels.length * 2;
+  for (const c of cars) size += 64 + c.veh.wheels.length * 2 + (extendedCrew ? 4 + (c.crew.gunner3 ? 6 : 0) + (c.crew.gunner4 ? 6 : 0) : 0);
   const p = sim.projectiles;
   const nProj = p.rockets.length + p.grenades.length;
   size += 2 + nProj * 14 + 40 + PART_NAMES.length;
   const ab = buf && buf.byteLength >= size ? buf : new ArrayBuffer(size + 256);
   const dv = new DataView(ab);
   let o = 0;
-  dv.setUint8(o, 3); o += 1;
+  // Ordinary scenes retain the exact v3 layout and packet cost. v4 adds
+  // bounded per-car fields only when an actual third/fourth shooter exists.
+  dv.setUint8(o, extendedCrew ? 4 : 3); o += 1;
   dv.setUint32(o, tick, true); o += 4;
   dv.setFloat32(o, sim.time, true); o += 4;
   dv.setFloat32(o, hud.dist || 0, true); o += 4;
@@ -55,6 +68,7 @@ export function encodeSnapshot(sim, tick, hud, buf) {
     if (v.brakeApplied > 0.1) fl |= F.braking; if (v.boosting) fl |= F.boosting; if (v.drifting) fl |= F.drifting; if (v.grounded === 0 && v.airTime > 0.12) fl |= F.airborne;
     if (v.wheels.some((w) => w.flat)) fl |= F.flatAny;
     if (v.nitroRechargeLocked) fl |= F.nitroRechargeLocked;
+    if (c.crew.gunner3?.alive) fl |= F.gunner3Alive; if (c.crew.gunner4?.alive) fl |= F.gunner4Alive;
     dv.setUint16(o, fl, true); o += 2;
     dv.setUint16(o, v.poseRevision || 0, true); o += 2;
     dv.setFloat32(o, v.pos.x, true); dv.setFloat32(o + 4, v.pos.y, true); dv.setFloat32(o + 8, v.pos.z, true); o += 12;
@@ -71,6 +85,17 @@ export function encodeSnapshot(sim, tick, hud, buf) {
     dv.setInt8(o, Math.round((g?.x || 0) * 100)); dv.setInt8(o + 1, Math.round((g?.z || 0) * 100)); o += 2;
     dv.setInt16(o, clamp16((g2 ? g2.aimYaw : 0) * 5000), true); dv.setInt16(o + 2, clamp16((g2 ? g2.aimPitch : 0) * 10000), true); o += 4;
     dv.setUint8(o, g2 ? (g2.fire ? 1 : 0) : 0); o += 1;
+    if (extendedCrew) {
+      dv.setUint8(o++, (c.crew.gunner3 ? 1 : 0) | (c.crew.gunner4 ? 2 : 0));
+      dv.setUint8(o++, GUNS.indexOf(roleGun(c, 'gunner')) + 1);
+      dv.setUint8(o++, GUNS.indexOf(roleGun(c, 'gunner2')) + 1);
+      dv.setUint8(o++, crewFlags(g2));
+      for (const role of EXTRA_GUNNER_ROLES) {
+        const extra = c.crew[role]; if (!extra) continue;
+        dv.setInt16(o, clamp16(extra.aimYaw * 5000), true); dv.setInt16(o + 2, clamp16(extra.aimPitch * 10000), true); o += 4;
+        dv.setUint8(o++, crewFlags(extra)); dv.setUint8(o++, GUNS.indexOf(roleGun(c, role)) + 1);
+      }
+    }
     // v3 tag: bits 0-3 gun, bits 4-5 intent, bits 6-7 reserved. A separate
     // byte carries 0 (ordinary) or 1-9 (chapter boss), without intent overlap.
     dv.setUint8(o, (GUNS.indexOf(c.gunName || '') + 1) | (INTENTS.indexOf(c.ai?.intent ?? null) << 4)); o += 1;
@@ -103,7 +128,7 @@ export function decodeSnapshot(ab) {
 
 function readSnapshot(dv) {
   let o = 0;
-  const version = dv.getUint8(o); if (version !== 1 && version !== 2 && version !== 3) return null; o += 1;
+  const version = dv.getUint8(o); if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return null; o += 1;
   const s = { cars: [], proj: [] };
   s.tick = dv.getUint32(o, true); o += 4; s.time = dv.getFloat32(o, true); o += 4; s.dist = dv.getFloat32(o, true); o += 4;
   s.state = ['countdown', 'run', 'dying', 'over'][dv.getUint8(o)]; o += 1;
@@ -117,6 +142,7 @@ function readSnapshot(dv) {
     c.id = dv.getUint16(o, true); o += 2; c.spec = SPEC_IDS[dv.getUint8(o)]; c.kind = dv.getUint8(o + 1) === 0 ? 'player' : 'enemy'; o += 2;
     if (!c.spec) return null;
     c.fl = dv.getUint16(o, true); o += 2;
+    if ((c.fl & 32768) || (version < 4 && (c.fl & (F.gunner3Alive | F.gunner4Alive)))) return null;
     c.poseRevision = version >= 2 ? dv.getUint16(o, true) : 0; if (version >= 2) o += 2;
     c.x = dv.getFloat32(o, true); c.y = dv.getFloat32(o + 4, true); c.z = dv.getFloat32(o + 8, true); o += 12;
     if (![c.x, c.y, c.z].every(Number.isFinite)) return null;
@@ -128,6 +154,22 @@ function readSnapshot(dv) {
     const gf = dv.getUint8(o); o += 1; c.gfire = !!(gf & 1); c.gcrouch = !!(gf & 2); c.gads = !!(gf & 4); c.greload = !!(gf & 8); c.gweapon = gf >> 4;
     c.gx = dv.getInt8(o) / 100; c.gz = dv.getInt8(o + 1) / 100; o += 2;
     c.g2yaw = dv.getInt16(o, true) / 5000; c.g2pitch = dv.getInt16(o + 2, true) / 10000; o += 4; c.g2fire = !!dv.getUint8(o); o += 1;
+    if (version >= 4) {
+      const mask = dv.getUint8(o++), primary = dv.getUint8(o++), secondary = dv.getUint8(o++), secondFlags = dv.getUint8(o++);
+      if ((mask & ~3) || primary > GUNS.length || secondary > GUNS.length || (secondFlags & ~15) || !!(secondFlags & 1) !== c.g2fire) return null;
+      c.gunNames = { gunner: GUNS[primary - 1] || null, gunner2: GUNS[secondary - 1] || null, gunner3: null, gunner4: null };
+      c.g2crouch = !!(secondFlags & 2); c.g2ads = !!(secondFlags & 4); c.g2reload = !!(secondFlags & 8);
+      for (let index = 0; index < 2; index++) {
+        const role = GUNNER_ROLES[index + 2], prefix = 'g' + (index + 3);
+        if (!(mask & (1 << index))) { if (c.fl & F[role + 'Alive']) return null; continue; }
+        if (!VEHICLES[c.spec].seats?.[role] || (VEHICLES[c.spec].gunners ?? 0) < index + 3) return null;
+        c[prefix + 'yaw'] = dv.getInt16(o, true) / 5000; c[prefix + 'pitch'] = dv.getInt16(o + 2, true) / 10000; o += 4;
+        const flags = dv.getUint8(o++), gun = dv.getUint8(o++);
+        if ((flags & ~15) || gun > GUNS.length) return null;
+        c[prefix + 'fire'] = !!(flags & 1); c[prefix + 'crouch'] = !!(flags & 2); c[prefix + 'ads'] = !!(flags & 4); c[prefix + 'reload'] = !!(flags & 8);
+        c.gunNames[role] = GUNS[gun - 1] || null;
+      }
+    }
     {
       const tb = dv.getUint8(o++);
       if (version >= 3) {
@@ -259,11 +301,19 @@ export class SnapshotBuffer {
       const fl = blend > 0.5 ? pose.fl : ca.fl;
       st.dead = !!(fl & F.dead); st.exploded = !!(fl & F.exploded); st.burning = !!(fl & F.burning); st.smoking = !!(fl & F.smoking);
       st.driverAlive = !!(fl & F.driverAlive); st.gunnerAlive = !!(fl & F.gunnerAlive); st.gunner2Alive = !!(fl & F.gunner2Alive);
+      st.gunner3Alive = !!(fl & F.gunner3Alive); st.gunner4Alive = !!(fl & F.gunner4Alive);
       st.braking = !!(fl & F.braking); st.boosting = !!(fl & F.boosting); st.nitroRechargeLocked = !!(fl & F.nitroRechargeLocked); st.drifting = !!(fl & F.drifting); st.airborne = !!(fl & F.airborne);
       st.hp01 = cb.hp01; st.rpm01 = ca.rpm01 + (pose.rpm01 - ca.rpm01) * blend; st.engineHp01 = cb.eng01; st.speed = st.vel.length();
       st.gunner.yaw = cb.gyaw; st.gunner.pitch = cb.gpitch; st.gunner.fire = cb.gfire; st.gunner.crouch = cb.gcrouch; st.gunner.ads = cb.gads; st.gunner.reloading = cb.greload; st.gunner.weapon = cb.gweapon; st.gunner.x = cb.gx; st.gunner.z = cb.gz;
       st.gunner2.yaw = cb.g2yaw; st.gunner2.pitch = cb.g2pitch; st.gunner2.fire = cb.g2fire;
+      st.gunner2.crouch = !!cb.g2crouch; st.gunner2.ads = !!cb.g2ads; st.gunner2.reloading = !!cb.g2reload;
+      for (let index = 0; index < 2; index++) {
+        const role = GUNNER_ROLES[index + 2], prefix = 'g' + (index + 3), crew = st[role];
+        crew.yaw = cb[prefix + 'yaw'] || 0; crew.pitch = cb[prefix + 'pitch'] || 0;
+        crew.fire = !!cb[prefix + 'fire']; crew.crouch = !!cb[prefix + 'crouch']; crew.ads = !!cb[prefix + 'ads']; crew.reloading = !!cb[prefix + 'reload'];
+      }
       st.gunName = GUNS[cb.tagIdx - 1] || null; st.elite = cb.elite; st.intent = cb.intent;
+      for (const role of GUNNER_ROLES) st.gunNames[role] = cb.gunNames?.[role] || st.gunName;
     }
     for (const id of this.states.keys()) if (this.states.get(id)._sampleSerial !== seen) this.states.delete(id);
     if (b.boss) {

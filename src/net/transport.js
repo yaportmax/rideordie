@@ -7,6 +7,24 @@ export function makeCode(n = 5) { let s = ''; for (let i = 0; i < n; i++) s += A
 const idFor = (code) => 'rod-' + code.toLowerCase().replace(/[^a-z0-9]/g, '');
 const FAST_ID = 7;
 const MAX_BUFFER = 262144;
+// Keep a single actor frame within the actual negotiated SCTP message limit.
+// A congested reliable channel must not retain superseded actor poses behind
+// important gameplay events. Unknown SCTP metadata keeps PeerJS's old bound.
+export const MAX_TRANSIENT_JSON_BYTES = 65536;
+const FALLBACK_TRANSIENT_JSON_BYTES = 16299;
+const transientEncoder = new TextEncoder();
+
+function transientWritable(conn, channel) {
+  return !!conn?.open && !conn._buffering && (conn.bufferSize ?? 0) === 0 &&
+    channel?.readyState === 'open' && channel.bufferedAmount === 0;
+}
+
+function transientByteLimit(conn) {
+  const negotiated = conn.peerConnection?.sctp?.maxMessageSize;
+  if (negotiated === 0) return MAX_TRANSIENT_JSON_BYTES;
+  return Number.isFinite(negotiated) && negotiated > 0
+    ? Math.min(MAX_TRANSIENT_JSON_BYTES, Math.floor(negotiated)) : FALLBACK_TRANSIENT_JSON_BYTES;
+}
 
 export class Transport {
   constructor({ peerOptions = {}, PeerClass = Peer, iceProvider = PeerClass === Peer ? getIceConfig : null, timeout = 15000, reconnectDelays = [500, 1500, 3000], reconnectTimeout = 5000 } = {}) {
@@ -283,6 +301,27 @@ export class Transport {
   send(obj) {
     if (!this.conn?.open) return false;
     try { this.conn.send(obj); return true; } catch (e) { this.onError(e); return false; }
+  }
+  /** Latest-state JSON on the same reliable channel, without a retry queue. */
+  sendTransientJSON(obj) {
+    const conn = this.conn, channel = conn?.dataChannel;
+    if (!transientWritable(conn, channel)) return false;
+    let bytes;
+    try {
+      const serialized = JSON.stringify(obj);
+      const limit = transientByteLimit(conn);
+      if (typeof serialized !== 'string' || serialized.length > limit) return false;
+      bytes = transientEncoder.encode(serialized);
+      if (bytes.byteLength > limit) return false;
+    } catch { return false; }
+    // Serialization can invoke user-defined toJSON; never write through a
+    // replaced/closed connection or bypass a newly queued reliable message.
+    if (this.conn !== conn || !transientWritable(conn, channel) || bytes.byteLength > transientByteLimit(conn)) return false;
+    try {
+      // PeerJS JSON decodes these UTF-8 bytes normally. Using the already-open
+      // ordered reliable channel directly avoids its unbounded retry buffer.
+      channel.send(bytes); this.stats.bytesOut += bytes.byteLength; return true;
+    } catch (error) { this.onError(error); return false; }
   }
   /** Use reliable delivery during negotiation or after the fast channel fails. Never queue stale snapshots. */
   sendFast(buf) {

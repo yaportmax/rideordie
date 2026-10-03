@@ -13,6 +13,9 @@ export const ENEMY_GUNS = {
   hmg_warlord: { rate: 8, burst: [8, 16], pause: [2.0, 3.2], dmg: 4.6, speed: 210, spread: 2.2, range: 160, aimRate: 1.2, pellets: 1, react: [1.0, 1.5], heavy: true, model: 'hmg' },
   hmg:     { rate: 8,   burst: [10, 22], pause: [1.3, 2.4], dmg: 5.2, speed: 215, spread: 2.1, range: 165, aimRate: 1.3, pellets: 1, react: [1.0, 1.6], heavy: true },
   rpg:     { rate: 0.35, burst: [1, 1], pause: [5.5, 8.0], dmg: 0, speed: 60, spread: 1.3, range: 150, aimRate: 1.4, pellets: 1, react: [1.3, 2.0], rocket: { speed: 58, blast: 8, blastDmg: 48, direct: 28 } },
+  sniper: { rate: 1, burst: [1, 1], pause: [3.0, 4.2], dmg: 14, speed: 240, spread: .7, range: 180, aimRate: 1.35, pellets: 1, react: [1.5, 2.0], model: 'rifle', tell: 'sniper' },
+  grenade: { rate: .32, burst: [1, 1], pause: [4.5, 6.5], dmg: 0, speed: 30, spread: 0, range: 76, aimRate: 1.6, pellets: 1, react: [1.3, 1.8], model: 'rpg', tell: 'grenade', grenade: { fuse: 2.4, blast: 6, dmg: 34, speed: 28 } },
+  cannon: { rate: .25, burst: [1, 1], pause: [5.8, 7.5], dmg: 0, speed: 150, spread: .4, range: 180, aimRate: 1.0, pellets: 1, react: [1.7, 2.2], minimumTell: 1.6, model: 'rpg', tell: 'cannon', forwardArc: Math.PI / 6, rocket: { launchSpeed: 150, speed: 150, blast: 6.5, blastDmg: 42, direct: 24, gravity: 3.5 } },
 };
 
 export const ENEMIES = {
@@ -24,6 +27,12 @@ export const ENEMIES = {
   e_heavy:     { spec: 'e_heavy',     cost: 5.0, minLevel: 0.5,  weight: 2,  behaviors: ['heavy'],                       guns: ['mg', 'rifle'],      gunLate: 'hmg',   skill: 0.6, label: 'HAULER' },
   e_tanker:    { spec: 'e_tanker',    cost: 4.5, minLevel: 0.42, weight: 2,  behaviors: ['heavy', 'leader'],             guns: ['rifle'],            gunLate: 'hmg',   skill: 0.55, label: 'FUEL BOMB' },
   e_double_bus: { spec: 'e_double_bus', cost: 5.5, minLevel: 0.30, weight: 2, behaviors: ['heavy'], guns: ['hmg'], gunLate: 'hmg', skill: .60, label: 'DOUBLE DECKER', biomes: ['city'], maxActive: 1 },
+  e_barrel_carrier: { spec: 'e_barrel_carrier', cost: 2.2, minLevel: .03, weight: 4, behaviors: ['dropper'], guns: ['pistol'], skill: .45, label: 'CINDER HAULER', biomes: ['desert', 'coast', 'city', 'dam', 'underground', 'hell', 'space'], maxActive: 1 },
+  e_grenadier: { spec: 'e_grenadier', cost: 2.5, minLevel: .12, weight: 3, behaviors: ['flanker', 'leader'], guns: ['grenade'], skill: .54, label: 'LOBBER', biomes: ['canyon', 'mountain', 'underground'], maxActive: 1 },
+  e_armored: { spec: 'e_armored', cost: 3.8, minLevel: .26, weight: 2, behaviors: ['heavy', 'leader'], guns: ['mg'], skill: .52, label: 'IRONBACK: REAR REACTOR', biomes: ['city', 'dam', 'hell', 'space'], maxActive: 1 },
+  e_monster: { spec: 'e_monster', cost: 3.5, minLevel: .15, weight: 2, behaviors: ['rammer'], guns: [], skill: .62, label: 'CRUSHER', biomes: ['desert', 'canyon', 'mountain', 'hell'], maxActive: 1 },
+  e_light_tank: { spec: 'e_light_tank', cost: 4.8, minLevel: .33, weight: 2, behaviors: ['chaser'], guns: ['cannon'], skill: .57, label: 'SIEGEBREAKER: REAR FUEL', biomes: ['city', 'dam', 'space'], maxActive: 1 },
+  e_warwagon: { spec: 'e_warwagon', cost: 4.8, minLevel: .36, weight: 2, behaviors: ['leader', 'heavy'], guns: ['rifle', 'smg', 'shotgun', 'mg'], roleGuns: { gunner: 'rifle', gunner2: 'smg', gunner3: 'shotgun', gunner4: 'mg' }, skill: .50, label: 'WARWAGON', biomes: ['city', 'sky', 'hell', 'space'], maxActive: 1 },
 };
 export const ENEMY_KEYS = Object.keys(ENEMIES);
 
@@ -36,6 +45,12 @@ export const ENEMY_KEYS = Object.keys(ENEMIES);
  */
 export const ENCOUNTERS = {
   citybus: { minLevel: .30, weight: 2, biomes: ['city'], cars: [{ k: 'e_double_bus', role: 'heavy', at: 'ahead' }] },
+  cindertrail: { minLevel: .03, weight: 4, biomes: ['desert', 'hell'], cars: [{ k: 'e_barrel_carrier', role: 'dropper', at: 'ahead', gap: -45 }, { k: 'e_sedan', role: 'chaser', at: 'behind' }] },
+  canyonlobbers: { minLevel: .12, weight: 3, biomes: ['canyon', 'mountain', 'underground'], cars: [{ k: 'e_grenadier', role: 'flanker', at: 'ahead', side: 1 }, { k: 'e_buggy', role: 'flanker', at: 'behind', side: -1 }] },
+  monstercharge: { minLevel: .15, weight: 3, biomes: ['desert', 'canyon', 'mountain', 'hell'], cars: [{ k: 'e_monster', role: 'rammer', at: 'behind' }] },
+  ironescort: { minLevel: .26, weight: 3, biomes: ['city', 'dam', 'hell', 'space'], cars: [{ k: 'e_armored', role: 'heavy', at: 'ahead' }, { k: 'e_buggy', role: 'flanker', at: 'behind', side: -1 }] },
+  siegepatrol: { minLevel: .33, weight: 2, biomes: ['city', 'dam', 'space'], cars: [{ k: 'e_light_tank', role: 'chaser', at: 'behind' }, { k: 'e_sedan', role: 'chaser', at: 'behind' }] },
+  warparty: { minLevel: .36, weight: 3, biomes: ['city', 'sky', 'hell', 'space'], cars: [{ k: 'e_warwagon', role: 'leader', at: 'ahead' }] },
   // two bandits waiting on the shoulder ahead: they pull out as you arrive, one leads, one rides your flank
   ambush:   { minLevel: 0, weight: 6, cars: [{ k: ['e_sedan', 'e_buggy', 'e_technical'], role: 'leader', at: 'park', side: 1 }, { k: ['e_sedan', 'e_buggy'], role: 'flanker', at: 'park', side: -1 }] },
   // a car tails you, then overtakes and cuts in front; its partner hangs back as the gunner's target

@@ -242,6 +242,11 @@ export class Session {
     }
     return this.tp.send(m);
   }
+  /** Only supersedable actor poses may use the dropping reliable-state path. */
+  sendTransientJSON(m) {
+    if (!this.activeRunId || m?.t !== 'events' || !Array.isArray(m.e) || m.e.length !== 1 || m.e[0]?.t !== 'stageState') return false;
+    return this.tp.sendTransientJSON?.({ ...m, runId: this.activeRunId }) === true;
+  }
   sendFast(b) {
     const packet = encodeRunPacket(this._fastHeader, b);
     return packet ? this.tp.sendFast(packet) : false;

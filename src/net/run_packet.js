@@ -1,8 +1,8 @@
 // Each life uses one cached full identifier. Late packets from a prior life
 // must be rejected before they reach startup queues or the snapshot clock.
-// Campaign selection, nine elite tags and the minigun catalogue require both
+// Expanded enemy chassis and four independently aimed crews require both
 // peers to reload. The RDR1 life envelope remains independently unchanged.
-export const NET_PROTOCOL = 4;
+export const NET_PROTOCOL = 5;
 export const RUN_JSON_TYPES = new Set([
   'runReady', 'go', 'g', 'input', 'events', 'feed', 'hit', 'rocket',
   'grenade', 'shotfx', 'medkit', 'summary', 'runOver', 'results', 'abort',

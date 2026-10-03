@@ -132,6 +132,7 @@ export class CrewView {
   constructor(kind, opts = {}) {
     this.kind = kind; this.role = opts.role; this.opts = opts; this.alive = true; this.hero = /^hero/.test(kind);
     this.ai = opts.weapon === 'enemy';
+    this.nativeEnemyGun = this.ai && !!opts.nativeEnemyGun;
     this.enemyRate = this.ai ? ENEMY_GUNS[opts.enemyGun]?.rate ?? null : null;
     this.root = skipHiddenMatrixTraversal(new THREE.Group()); this.root.name = 'crew_' + kind;
     this.body = new THREE.Group(); this.root.add(this.body);             // yawed toward the aim
@@ -155,7 +156,10 @@ export class CrewView {
     this.gun = new THREE.Group(); this.gun.name = 'gunframe';
     if (model) this._setupRig(model); else this._placeholder();
     this.weapon = null; this.weaponId = null;
-    if (this.role !== 'driver') this.setWeapon(opts.weapon === 'enemy' ? ENEMY_GUN_MODEL[opts.enemyGun] || 'rifle' : opts.weapon || 'pistol', opts.opticId);
+    if (this.role !== 'driver') {
+      if (this.nativeEnemyGun) this._setClass(CLASS_OF(ENEMY_GUN_MODEL[opts.enemyGun] || 'rifle'));
+      else this.setWeapon(opts.weapon === 'enemy' ? ENEMY_GUN_MODEL[opts.enemyGun] || 'rifle' : opts.weapon || 'pistol', opts.opticId);
+    }
     this.aimYawL = 0; this.bodyYaw = 0; this.pitch = 0; this.crouch = 0; this.kick = 0; this.flinchT = 0; this.throwT = 0; this.steer = 0;
     this.deadT = -1; this.fallVel = V(); this.fallSpin = V(); this.detached = false; this.leave = null; this.y0 = 0; this.yGround = null;
     configureCrewShadows(this.root, this.weapon?.root);
@@ -239,7 +243,7 @@ export class CrewView {
 
   setWeapon(id, opticId = this.opts?.weaponOptics?.[id] || 'standard') {
     opticId = sanitizeOpticId(id, opticId);
-    if (!id || (id === this.weaponId && opticId === this.opticId) || this.role === 'driver') return;
+    if (!id || (id === this.weaponId && opticId === this.opticId) || this.role === 'driver' || this.nativeEnemyGun) return;
     this.weaponId = id;
     this.opticId = opticId;
     if (this.weapon) { disposeOwnedSkeletons(this.weapon.model); this.weapon.dispose(); }
@@ -275,8 +279,8 @@ export class CrewView {
   }
 
   fire(rate, mode, actionLen) {
-    if (!this.weapon) return;
-    this.weapon.fire(rate); if (mode === 'pump' || mode === 'bolt') this.weapon.action(actionLen || 0.6); this.kick = 1;
+    if (!this.weapon && !this.nativeEnemyGun) return;
+    this.weapon?.fire(rate); if (this.weapon && (mode === 'pump' || mode === 'bolt')) this.weapon.action(actionLen || 0.6); this.kick = 1;
     this.fireRate = this.enemyRate ?? rate; this.sinceShot = 0; this.shots++;
     // clip layer (third person): single kicks for slow weapons, the auto loop takes over for fast rifle-class fire
     if (this.lastMode === 'clip' && this.alive && !(this.cls === 'rifle' && this.fireRate >= 5)) {
@@ -312,6 +316,11 @@ export class CrewView {
   update(dt, s) {
     if (this.deadT >= 0) { this._dead(dt, s); return; }
     if (!s.alive) { this.die({}); return; }
+    if (this.ai && s.enemyGun && s.enemyGun !== this.opts.enemyGun) {
+      this.opts.enemyGun = s.enemyGun;
+      this.enemyRate = ENEMY_GUNS[s.enemyGun]?.rate ?? null;
+      this.setWeapon(ENEMY_GUN_MODEL[s.enemyGun] || 'rifle');
+    }
     if (s.weaponId) this.setWeapon(s.weaponId, s.opticId);
     const mounted = !!this.weapon?.mounted;
     this.lastSpeed = s.speed || 0;
@@ -545,6 +554,7 @@ export class CrewView {
   _fpWeapon(dt, s, fp, useVm) {
     // ---------------- weapon on the aim line
     this.kick = Math.max(0, this.kick - dt * 10);
+    if (!this.weapon) return;
     const sh = this.arm && this.arm.Right ? this.arm.Right.u : this.head;
     sh.getWorldPosition(_p);
     const one = ONE_HANDED.has(this.weaponId), rpg = this.weaponId === 'rpg';
@@ -828,6 +838,7 @@ export class CrewView {
   cheer() { if (this.alive && this.role !== 'driver' && this.lastMode === 'clip' && !this.ov) this._play(Math.random() < 0.5 ? 'taunt' : 'celebrate', 'taunt', { fin: 0.15, fout: 0.2 }); }
 
   throwGrenade() {
+    if (this.nativeEnemyGun) return;
     if (this.lastMode === 'clip' && this.bones) {
       if (!this.nade && this.bones.socket_hand_R) {
         nadeGeo ??= new THREE.SphereGeometry(0.034, 10, 8).scale(1, 1, 1.3);

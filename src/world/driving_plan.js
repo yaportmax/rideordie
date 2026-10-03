@@ -5,7 +5,7 @@ import { hash2 } from '../core/util.js';
 import { TEN_LEVELS, normalizeJourney, MARATHON_LEVEL_LENGTH, MARATHON_LEVEL_STARTS } from '../data/campaign.js';
 import { CAMPAIGN_THEME_IDS } from '../data/campaign_themes.js';
 
-export const DRIVING_ROUTE_VERSION = 3;
+export const DRIVING_ROUTE_VERSION = 4;
 export const BRANCH_BIOMES = Object.freeze([...BIOME_ORDER, ...CAMPAIGN_THEME_IDS]);
 /** Later service cuts are narrower, with longer gentle approaches on the dam. */
 export const BRANCH_DRIVING = Object.freeze({
@@ -20,6 +20,11 @@ export const BRANCH_DRIVING = Object.freeze({
   hell: Object.freeze({ label: 'BASALT CUT', spans: Object.freeze([384, 480, 576]), offset: 24, width: 8.2 }),
   space: Object.freeze({ label: 'DOCKING BYPASS', spans: Object.freeze([384, 480, 576]), offset: 22, width: 8 }),
 });
+/** More choices become available as chapters progress. Geometry still has to
+ * earn its shortcut: no candidate is forced through cliffs, water or scenery. */
+export const CAMPAIGN_BRANCH_LIMIT = Object.freeze({ desert: 2, canyon: 2, coast: 3, mountain: 3, city: 3,
+  dam: 3, underground: 3, sky: 3, hell: 3, space: 3 });
+export const BRANCH_SEPARATION = 180;
 export const STAGE_WARNING_DISTANCE = 265;
 export const STAGE_DRIVING = Object.freeze({
   desert: Object.freeze({ rows: 2, spacing: 135, gap: 9, asset: 'rb_wreck_car', name: 'WRECK CHICANE', depth: 5.2, height: 1.5 }),
@@ -130,6 +135,17 @@ export function drivingReserved(plan, a, b, pad = 0) {
   });
 }
 
+/** Off-road cuts intentionally provide an escape around main-road encounters.
+ * Their actors reserve the actual paved strip separately; warning envelopes
+ * must not erase every optional route from later, busier chapters. */
+export function branchDrivingReserved(plan, a, b, pad = 0) {
+  return plan.some(f => {
+    if (f.type === 'stage_encounter_reservation') return false;
+    const span = f.type === 'stage_warning' ? f.group : f.authoredDriving ? f : null;
+    return span && b > span.s0 - pad && a < span.s1 + pad;
+  });
+}
+
 /** Physical main-road slice, with a generous clear corridor on the indicated side. */
 export function stageObstacleSpan(feature, halfRoad = 7) {
   const width = 2 * halfRoad - feature.gap;
@@ -137,20 +153,39 @@ export function stageObstacleSpan(feature, halfRoad = 7) {
   return { width, d: side * (halfRoad - width / 2), gapD: feature.passSide * width / 2, gap: feature.gap };
 }
 
-/** First slice still overlapping or ahead of a vehicle; shared by friendly/enemy path planning. */
-export function drivingLaneTarget(road, s, length = 5.3, lookAhead = 265, out = {}) {
+const ENCOUNTER_DRIVING_KINDS = new Set(['shoot_gate', 'rockfall', 'lava_fall', 'steam_vent']);
+
+/** First hard slice still overlapping or ahead of a vehicle. Reservation
+ * warnings do not count as geometry: commit to their actual core and keep its
+ * escape lane until the full vehicle clears. Both existing AI seats use this
+ * query, without changing their normal lane selection or route behavior. */
+export function drivingLaneTarget(road, s, length = 5.3, lookAhead = 265, out = {}, route = null) {
+  // Existing callers already suppress main-road slices on a separated branch.
+  // Preserve that guard for direct/shared route queries as well.
+  if (route && road.drivingBranch?.(route)) return null;
   const behind = length / 2 + 3;
   const features = road.featuresIn(Math.max(0, s - behind), s + lookAhead, 'stage_challenge');
-  let next = null;
+  let next = null, nextS0 = Infinity, nextS1 = Infinity, encounter = false;
   for (const f of features) {
-    if (f.s1 < s - behind || (next && f.s0 > next.s0)) continue;
-    next = f;
+    if (f.s1 < s - behind || f.s0 > nextS0) continue;
+    next = f; nextS0 = f.s0; nextS1 = f.s1;
+  }
+  // The plan is finite and is available before incremental Road features have
+  // streamed this far. Scan it directly rather than manufacturing new solids
+  // or extending the road to an entire warning envelope on every AI update.
+  for (const f of road.drivingPlan || []) {
+    if (f.type !== 'stage_encounter_reservation' || !ENCOUNTER_DRIVING_KINDS.has(f.encounterKind)) continue;
+    if (!Number.isFinite(f.coreS0) || !Number.isFinite(f.coreS1) || f.coreS1 < f.coreS0 ||
+      !Number.isFinite(f.gapD) || !Number.isFinite(f.gap) || f.gap <= 0 || Math.abs(f.gapD) + f.gap / 2 > 7 + .001) continue;
+    if (f.coreS1 < s - behind || f.coreS0 > s + lookAhead || f.coreS0 >= nextS0) continue;
+    next = f; nextS0 = f.coreS0; nextS1 = f.coreS1; encounter = true;
   }
   if (!next) return null;
-  const span = stageObstacleSpan(next);
-  out.d = span.gapD; out.gap = span.gap; out.distance = next.s0 - s; out.s0 = next.s0; out.s1 = next.s1;
+  const span = encounter ? next : stageObstacleSpan(next);
+  out.d = span.gapD; out.gap = span.gap; out.distance = nextS0 - s; out.s0 = nextS0; out.s1 = nextS1;
   out.speed = Math.max(24, Math.min(38, 24 + (out.distance - 30) * .11));
-  out.id = next.challengeId; out.row = next.row;
+  out.id = encounter ? next.encounterId : next.challengeId; out.row = encounter ? -1 : next.row;
+  out.encounterKind = encounter ? next.encounterKind : null;
   return out;
 }
 
@@ -269,7 +304,7 @@ export function planDrivingBranches(road, biomes = BRANCH_BIOMES) {
     for (let s0 = lo; s0 + cfg.spans[0] < hi; s0 += 96) for (const length of cfg.spans) {
       const s1 = s0 + length;
       if (s1 >= hi) continue;
-      if (protectedDrivingSpan(s0 - 200, s1 + 200) || drivingReserved(road.drivingPlan, s0, s1, 100)) continue;
+      if (protectedDrivingSpan(s0 - 200, s1 + 200) || branchDrivingReserved(road.drivingPlan, s0, s1, 100)) continue;
       if (road.featuresIn(s0 - 100, s1 + 100).some(f => branchFeatureObstructs(f, biome))) continue;
       const sm = road.sample((s0 + s1) / 2, {}), side = Math.sign(sm.k);
       if (!side || (cfg.landSide && side !== cfg.landSide)) continue;
@@ -290,19 +325,28 @@ function planCampaignBranches(road, biomes) {
   road.extendTo(Math.max(...stages.map(stage => stage.s1)) + 100);
   for (const stage of stages) {
     const cfg = BRANCH_DRIVING[stage.biome], lo = stage.s0 + 720, hi = stage.boss - 1100;
-    let best = null;
+    const candidates = [];
     for (let s0 = lo; s0 + cfg.spans[0] < hi; s0 += 48) for (const length of cfg.spans) {
       const s1 = s0 + length;
-      if (s1 >= hi || protectedJourneySpan(s0 - 100, s1 + 100, allStages) || drivingReserved(road.drivingPlan, s0, s1, 100)) continue;
+      if (s1 >= hi || protectedJourneySpan(s0 - 100, s1 + 100, allStages) || branchDrivingReserved(road.drivingPlan, s0, s1, 100)) continue;
       if (road.featuresIn(s0 - 100, s1 + 100).some(f => branchFeatureObstructs(f, stage.biome))) continue;
       const sm = road.sample((s0 + s1) / 2, {}), side = Math.sign(sm.k);
       if (!side || (cfg.landSide && side !== cfg.landSide)) continue;
       const branch = branchGeometry(road, { id: `${stage.biome}-level-${stage.index + 1}-service-${s0}`, biome: stage.biome, level: stage.index + 1,
         s0, s1, side, offset: cfg.offset, width: cfg.width });
       if (branch.saved < 4 || branch.maxGrade > .085 || branch.maxCurvature > 1 / 70) continue;
-      if (!best || branch.saved > best.saved) best = branch;
+      candidates.push(branch);
     }
-    if (best) out.push(best);
+    // The original best cut remains the first selection. Additional branches
+    // use quiet nonoverlapping spans with time to read their entry/merge signs.
+    candidates.sort((a, b) => b.saved - a.saved || a.s0 - b.s0 || a.s1 - b.s1);
+    const selected = [];
+    for (const branch of candidates) {
+      if (selected.some(previous => branch.s1 + BRANCH_SEPARATION > previous.s0 && branch.s0 - BRANCH_SEPARATION < previous.s1)) continue;
+      selected.push(branch);
+      if (selected.length >= CAMPAIGN_BRANCH_LIMIT[stage.biome]) break;
+    }
+    out.push(...selected.sort((a, b) => a.s0 - b.s0));
   }
   return out;
 }

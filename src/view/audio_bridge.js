@@ -13,6 +13,8 @@ import { VEHICLES } from '../data/vehicles.js';
 import { clamp, smoothstep } from '../core/util.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+// Weapon IDs may share an authored sound family (the mounted minigun uses LMG fire).
+const fireSound = (id) => 'guns/fire_' + (WEAPONS[id]?.sound || id);
 
 /** Reload foley per weapon family: [name, fraction of reload time, {gain,pitch}] (times scale with reloadStart.time). */
 const RELOAD = {
@@ -30,7 +32,7 @@ const RELOAD = {
 
 /** Every manifest name the bridge / engine may use (the test page lists the ones the library lacks). */
 export const EXPECTED_NAMES = [
-  ...['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg'].map((w) => 'guns/fire_' + w),
+  ...new Set(Object.keys(WEAPONS).map(fireSound)),
   'guns/fire_enemy_light', 'guns/fire_enemy_heavy', 'guns/dry_click', 'guns/weapon_swap', 'guns/rocket_loop', 'guns/shell_drop_brass', 'guns/shell_drop_shotgun',
   'guns/shotgun_pump', 'guns/shotgun_shell_in', 'guns/grenade_pin', 'guns/grenade_throw', 'guns/grenade_bounce',
   ...new Set(Object.values(RELOAD).flat().map((r) => r[0])),
@@ -82,7 +84,7 @@ export class AudioBridge {
   preload({ weapons = ['pistol'], truck = 'truck_t1', enemies = ['e_sedan', 'e_buggy'] } = {}) {
     const A = this.audio, ps = [];
     ps.push(A.preload([/^ui\//], 0));
-    ps.push(A.preload(weapons.map((w) => 'guns/fire_' + w), 0));
+    ps.push(A.preload([...new Set(weapons.map(fireSound))], 0));
     for (const w of weapons) ps.push(A.preload((RELOAD[w] || []).map((r) => r[0]), 1));
     ps.push(A.preloadEngine(A.engineIdFor(VEHICLES[truck]), 0));
     ps.push(A.preload(['guns/fire_enemy_light', 'guns/fire_enemy_heavy', 'guns/dry_click', 'guns/weapon_swap', 'guns/shell_drop_brass', 'guns/shell_drop_shotgun', 'guns/rocket_loop', 'guns/grenade_pin', 'guns/grenade_throw', 'guns/grenade_bounce', 'impacts/hit_marker', 'impacts/bullet_metal', 'impacts/bullet_whizz'], 0));
@@ -161,7 +163,7 @@ export class AudioBridge {
     const isPlayer = e.src === 'player', dist = A.listener.distTo(o);
     if (isPlayer) {
       const w = e.weapon, W = WEAPONS[w], own = dist < 3.5;
-      this._play('guns/fire_' + w, { pos: own ? undefined : o, gain: 1, pitchVar: 0.04, slap: own ? 0.2 : undefined });
+      this._play(fireSound(w), { pos: own ? undefined : o, gain: 1, pitch: W?.soundPitch ?? 1, pitchVar: 0.04, slap: own ? 0.2 : undefined });
       if (e.rocket) this._rocket(o, e.dir, e.speed ?? W?.rocket?.speed ?? 85, true, e.launchSpeed ?? W?.rocket?.launchSpeed ?? 25);
       else this._shellDrops(w, W, o, own, ctx);
       this._rays(e.rays || [], w);

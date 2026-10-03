@@ -248,7 +248,7 @@ export class Game {
     const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>LB</b> LOOK BACK &nbsp; <b>Y</b> FLIP &nbsp; <b>R3</b> VIEW' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>B</b> LOOK BACK &nbsp; <b>R</b> FLIP &nbsp; <b>C</b> VIEW',
       gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>BACK</b> VIEW' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>V</b> VIEW',
       solo: pad ? '<b>LS</b> STEER &nbsp; <b>RT/LT</b> GAS/BRAKE &nbsp; <b>A</b> DRIFT &nbsp; <b>LB</b> NITRO &nbsp; <b>Y</b> FLIP &nbsp;|&nbsp; <b>RS</b> AIM &nbsp; <b>RB</b> FIRE &nbsp; <b>X</b> RELOAD &nbsp; <b>B</b> GRENADE &nbsp; <b>D-PAD DOWN</b> MEDKIT' : '<b>WASD</b> DRIVE &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>T</b> FLIP &nbsp;|&nbsp; <b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>X</b> MEDKIT' };
-    this.hud.hints([run.role === 'solo' ? H.solo : run.role === 'driver' ? H.driver : H.gunner, 'SHOOT THE DRIVERS &middot; SHOOT THE FUEL TANKS &middot; DON\'T CRASH']);
+    this.hud.hints([(run.role === 'solo' ? H.solo : run.role === 'driver' ? H.driver : H.gunner).replaceAll(' FLIP', ' RESET'), 'SHOOT THE DRIVERS &middot; SHOOT THE FUEL TANKS &middot; DON\'T CRASH']);
     return run;
   }
   /** Full-screen black fade (0..1) over `secs`. */

@@ -1,6 +1,7 @@
 import MODEL_INFO from './model_info.json' with { type: 'json' };
 import PLAYER_MODEL_INFO from './player_model_info.json' with { type: 'json' };
 import { createCityDoubleBusSpec } from './city_bus.js';
+import { createEnemyVariantSpecs } from './enemy_variants.js';
 // Static vehicle tables. Positions are meters in the model frame: +Z forward, +X LEFT, ground at y=0.
 // `colliders`: boxes [center from ground at rest, half extents]. Physics is spec-driven (not model-driven) so both peers agree.
 
@@ -245,4 +246,5 @@ function applyModelInfo() {
 // Append after legacy/player IDs so every previous snapshot catalogue index
 // keeps its identity. Protocol4 gates clients that know the bus and chapters.
 VEHICLES.e_double_bus = createCityDoubleBusSpec();
+Object.assign(VEHICLES, createEnemyVariantSpecs());
 applyModelInfo();

@@ -8,4 +8,6 @@ export const ECONOMY = {
   bossBounty: 50000,
   minibossBounty: [3000, 5000, 8000, 11000, 15000],
 };
-export const KILL_CASH = { e_sedan: 70, e_buggy: 85, e_muscle: 120, e_technical: 150, e_van: 260, e_heavy: 420, e_tanker: 390 };
+export const KILL_CASH = { e_sedan: 70, e_buggy: 85, e_muscle: 120, e_technical: 150, e_van: 260, e_heavy: 420, e_tanker: 390,
+  e_barrel_carrier: 180, e_grenadier: 155, e_armored: 310, e_monster: 370, e_light_tank: 500, e_warwagon: 320,
+  stage_rifleman: 45, stage_drone: 90, stage_boat: 130, stage_tower: 100 };

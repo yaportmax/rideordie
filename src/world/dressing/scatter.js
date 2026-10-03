@@ -13,6 +13,7 @@ import { buildFences, buildWrecks } from './furniture.js';
 import { vegFactor, rockFactor, addAnchor, VEG_MAX } from './ecology.js';
 import { isSolidRock, RockCollisionBatch } from './rock_collisions.js';
 import { drivingFootprintRadius } from '../driving_plan.js';
+import { stageActorReserved } from '../scenery_gen.js';
 
 const QKEEP = [0.26, 0.5, 0.74, 1.0];
 const scat = (id, key) => (key ? (BIOMES[id].scatter[key] ?? 0) : 1);
@@ -43,6 +44,9 @@ const _g = {}, _rs = {}, _fr = {};
 /** Shared placement checks (slope, cliff drop, water, custom rule, landmark exclusions, tunnels). */
 function placeable(ctx, chunk, e, s, d, a, side, g, rr, excl, tun, uAux, footprint) {
   if (ctx.road.corridorBlocked(g.x, g.z, Math.max(rr, footprint), s)) return false;
+  // Instances can be 8% wider in x/z; reserve their complete transformed
+  // visual/collision envelope before either the instance or rock body exists.
+  if (stageActorReserved(ctx.road, s, d, Math.max(rr, footprint) * 1.08)) return false;
   const slope = 1 - g.ny;
   if (slope > e.slope) return false;
   const roadY = ctx.road.sample(s, _rs).y;

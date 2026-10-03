@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Road } from '../src/world/road.js';
 import { RoadQuery } from '../src/sim/road_query.js';
 import { BIOME_ORDER, BOSS_S } from '../src/data/biomes.js';
-import { BRANCH_DRIVING, DRIVING_ROUTE_VERSION, planDrivingBranches, branchPointAt, protectedDrivingSpan, drivingReserved, branchFeatureObstructs } from '../src/world/driving_plan.js';
+import { BRANCH_DRIVING, DRIVING_ROUTE_VERSION, planDrivingBranches, branchPointAt, protectedDrivingSpan, branchDrivingReserved, branchFeatureObstructs } from '../src/world/driving_plan.js';
 import { genTerrainChunk, genDrivingBranchChunk, seaLevel } from '../src/world/terrain_gen.js';
 import { TerrainStreamer } from '../src/world/terrain.js';
 import { ChunkGround, InstList } from '../src/world/dressing/util.js';
@@ -69,7 +69,7 @@ function putCar(sim, car, branch, s, speed) {
 }
 
 test('campaign shortcut planning is deterministic, preserves both initial descriptors and exact main-road samples, and retains strict qualification in all six stages', () => {
-  assert.equal(DRIVING_ROUTE_VERSION, 3);
+  assert.equal(DRIVING_ROUTE_VERSION, 4);
   const covered = new Set();
   for (const seed of SEEDS) {
     const road = new Road(seed), branches = road.ensureDrivingBranches(), old = new Road(seed), before = planDrivingBranches(old, ['desert', 'canyon']);
@@ -84,7 +84,7 @@ test('campaign shortcut planning is deterministic, preserves both initial descri
       covered.add(b.biome); const cfg = BRANCH_DRIVING[b.biome];
       assert.equal(b.width, cfg.width); assert.equal(b.offset, cfg.offset); assert.ok(cfg.spans.includes(b.s1 - b.s0));
       assert.ok(b.saved >= 4 && b.maxGrade <= .085 && b.maxCurvature <= 1 / 70);
-      assert.equal(protectedDrivingSpan(b.s0 - 200, b.s1 + 200), false); assert.equal(drivingReserved(road.drivingPlan, b.s0, b.s1, 100), false);
+      assert.equal(protectedDrivingSpan(b.s0 - 200, b.s1 + 200), false); assert.equal(branchDrivingReserved(road.drivingPlan, b.s0, b.s1, 100), false);
       const features = road.featuresIn(b.s0 - 100, b.s1 + 100);
       assert.equal(features.some(f => ['bridge', 'tunnel', 'overpass', 'roadblock', 'ramp'].includes(f.type)), false);
       // The sea-bank rail remains solid and visible on its original bank. A

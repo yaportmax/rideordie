@@ -269,6 +269,9 @@ test('the actual director never fills a full cap and consumes only the final nor
     for (let i = 1; i < cap; i++) sim.spawnCar('e_sedan', { s: player.s, d: 0 });
     const d = sim.director = new Director();
     d.r = rng(19); d.playerVmax = player.spec.engine.vmax;
+    // This legacy filler regression deliberately leaves every existing squad
+    // enabled. New one-car themed encounters have their own cap/cost tests.
+    for (const key of ['cindertrail', 'canyonlobbers', 'monstercharge', 'ironescort', 'siegepatrol', 'warparty']) d.disabled.add(key);
     d.setDone = new Set(SET_PIECES.map(s => s.key));
     d.budget = 14; d.cooldown = 0; d.encounters = 1; d.lastEngaged = sim.time;
     const before = sim.cars.size;
@@ -281,6 +284,7 @@ test('the actual director never fills a full cap and consumes only the final nor
     assert.equal(d.spawnQ?.length ?? 0, 0, 'a filler queues no extra bodies');
     assert.ok(d.cooldown > 0, 'ordinary encounter pacing applies');
     assert.ok(d.budget < 14, 'ordinary budget is paid');
+    assert.equal(d.budget, 14 - 1.6 * .85, 'the single normal rammer pays its complete authored cost');
     assert.equal([...sim.cars.values()].filter(c => c.kind === 'enemy' && !c.exploded).length, cap);
   });
 });

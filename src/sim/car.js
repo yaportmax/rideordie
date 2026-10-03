@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 
 const _p = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion(), _c3 = [0, 0, 0];
+export const GUNNER_ROLES = Object.freeze(['gunner', 'gunner2', 'gunner3', 'gunner4']);
 
 /** Hit zones in the model frame (ground under COM at rest as origin; +Z forward, +X left). */
 export function buildZones(spec) {
@@ -12,7 +13,7 @@ export function buildZones(spec) {
     z.push({ kind: 'driver_head', shape: 'sphere', c: [d[0], d[1] + 0.68, d[2]], r: 0.2 });
     z.push({ kind: 'driver', shape: 'box', c: [d[0], d[1] + 0.3, d[2]], h: [0.3, 0.32, 0.3] });
   }
-  for (const key of ['gunner', 'gunner2']) {
+  for (const key of GUNNER_ROLES) {
     const g = s[key]; if (!g) continue;
     z.push({ kind: key + '_head', role: key, shape: 'sphere', c: [g[0], g[1] + 1.62, g[2]], r: 0.2, standing: true });
     z.push({ kind: key, role: key, shape: 'box', c: [g[0], g[1] + 1.0, g[2]], h: [0.33, 0.55, 0.26], standing: true });
@@ -49,9 +50,12 @@ export class Car {
     this.crew = {
       driver: { hp: spec.driverHp ?? 50, max: spec.driverHp ?? 50, alive: true, armor: spec.driverArmor ?? 0 },
     };
-    const ng = spec.gunners ?? (spec.seats.gunner ? 1 : 0);
-    if (ng >= 1) this.crew.gunner = { hp: spec.gunnerHp ?? 50, max: spec.gunnerHp ?? 50, alive: true, armor: spec.gunnerArmor ?? 0, aimYaw: 0, aimPitch: 0, fire: false, crouch: false, ragdolled: false };
-    if (ng >= 2) this.crew.gunner2 = { hp: spec.gunnerHp ?? 50, max: spec.gunnerHp ?? 50, alive: true, armor: 0, aimYaw: 0, aimPitch: 0, fire: false, crouch: false };
+    const ng = Math.min(4, spec.gunners ?? (spec.seats.gunner ? 1 : 0));
+    for (let i = 0; i < ng; i++) {
+      const role = GUNNER_ROLES[i]; if (!spec.seats[role]) continue;
+      this.crew[role] = { hp: spec.gunnerHp ?? 50, max: spec.gunnerHp ?? 50, alive: true, armor: spec.gunnerArmors?.[role] ?? (i === 0 ? spec.gunnerArmor ?? 0 : 0),
+        aimYaw: 0, aimPitch: 0, fire: false, crouch: false, ads: false, reloading: false, ragdolled: false };
+    }
     this.zones = buildZones(spec);
     // Static zone bounds are built once. Dynamic crew movement is included below.
     this._zoneRadius = 0;
@@ -161,15 +165,23 @@ export function raycastZones(carLike, origin, dir, maxDist, ignoreRoles) {
 export class GhostCar {
   constructor(st) {
     this.id = st.id; this.spec = st.spec; this.kind = st.kind; this.zones = buildZones(st.spec);
-    this.crew = { driver: { alive: true } }; if (st.spec.seats.gunner) this.crew.gunner = { alive: true, crouch: false, x: 0, z: 0 }; if (st.spec.seats.gunner2) this.crew.gunner2 = { alive: true };
+    this.crew = { driver: { alive: true } };
+    const count = Math.min(4, st.spec.gunners ?? (st.spec.seats.gunner ? 1 : 0));
+    for (let i = 0; i < count; i++) {
+      const role = GUNNER_ROLES[i];
+      if (st.spec.seats[role]) this.crew[role] = { alive: true, crouch: false, x: 0, z: 0 };
+    }
     this.veh = { pos: st.pos, quat: st.quat, restComHeight: st.ride.restComHeight, vel: st.vel, poseRevision: st.poseRevision || 0 };
     this.exploded = false; this.st = st;
   }
   sync(st) {
     this.st = st; this.veh.pos = st.pos; this.veh.quat = st.quat; this.veh.vel = st.vel; this.veh.poseRevision = st.poseRevision || 0; this.exploded = st.exploded;
     this.crew.driver.alive = st.driverAlive;
-    if (this.crew.gunner) { this.crew.gunner.alive = st.gunnerAlive; this.crew.gunner.crouch = st.gunner.crouch; this.crew.gunner.x = st.gunner.x; this.crew.gunner.z = st.gunner.z; }
-    if (this.crew.gunner2) this.crew.gunner2.alive = st.gunner2Alive;
+    for (const role of GUNNER_ROLES) if (this.crew[role]) {
+      const source = st[role], target = this.crew[role];
+      target.alive = !!st[role + 'Alive']; target.crouch = !!source?.crouch;
+      target.x = source?.x || 0; target.z = source?.z || 0;
+    }
   }
   raycast(o, d, max, ignore) { return raycastZones(this, o, d, max, ignore); }
 }
