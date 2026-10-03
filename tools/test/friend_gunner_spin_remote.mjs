@@ -1,8 +1,8 @@
-// WORK-only remote collector proposal. Root owns integration and every execution.
+// WORK-only bounded V2. Root owns integration and every remote execution.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, appendFile, rename } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright-core';
@@ -12,102 +12,135 @@ if (process.platform !== 'linux' || process.env.CI !== 'true' || process.env.GIT
   || process.env.FRIEND_SPIN_REMOTE !== '1' || !process.argv.includes('--remote-ci') || process.env.GAME_URL || process.env.HARDWARE_GPU) throw Error('REMOTE GITHUB LINUX ONLY; laptop execution is forbidden.');
 const root = resolve(process.env.GITHUB_WORKSPACE), out = resolve(root, 'shots/friend-gunner-spin');
 assert.equal(resolve(process.cwd()), root);
-const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', timeout: 5000 }).trim();
 assert.match(process.env.EXPECTED_SOURCE_SHA || '', /^[a-f0-9]{40}$/); assert.equal(commit, process.env.EXPECTED_SOURCE_SHA);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex').toUpperCase();
-const html = await readFile(resolve(root, 'dist/index.html')), entry = /<script\b[^>]*\bsrc="([^"]+\.js)"/.exec(html.toString())?.[1]; assert.ok(entry);
-const entryBytes = await readFile(resolve(root, 'dist', entry.slice(1)));
-await mkdir(out, { recursive: true });
-const report = { version: 1, passed: false, orientationPassed: false, sourceCommit: commit, startedAt: new Date().toISOString(),
+console.log('STAGE frozen-artifact-read start');
+const html = await bounded('frozen-index-read', () => readFile(resolve(root, 'dist/index.html')), 5000), entry = /<script\b[^>]*\bsrc="([^"]+\.js)"/.exec(html.toString())?.[1]; assert.ok(entry);
+const entryBytes = await bounded('frozen-entry-read', () => readFile(resolve(root, 'dist', entry.slice(1))), 5000);
+await bounded('output-directory', () => mkdir(out, { recursive: true }), 5000);
+console.log('STAGE frozen-artifact-read finish');
+const beganAt = Date.now(), deadline = beganAt + 8 * 60 * 1000;
+const report = { version: 2, passed: false, orientationPassed: false, sourceCommit: commit, startedAt: new Date().toISOString(),
   entry: { path: entry, sha256: hash(entryBytes), bytes: entryBytes.length }, indexSha256: hash(html),
-  scope: 'Normal-menu real WebRTC gunner-viewer backward/360 aim using trusted remote browser pointer movement; both lobby host roles.',
+  scope: 'Bounded normal-menu driver-host/guest-gunner hip-view backward/360 investigation, both pointer directions only.',
+  requestedPhases: ['driver-hip--1', 'driver-hip-1'], omittedPhases: ['gunner-host arrangement', 'rifle ADS', 'mounted minigun'], deadlineAt: new Date(deadline).toISOString(), primaryError: null, stages: [],
   exclusions: ['Not physical laptop input, native GPU FPS, complete gameplay, audio quality, remote-friend NAT or TURN proof.', 'Survival-controlled authority with no injected driving commands; contacts, snapshots and carrier rotation remain authored.'],
   setup: [], pages: [], phases: [], screenshots: [], errors: [], cleanup: [] };
 const base = 'http://127.0.0.1:5184', contexts = new Set(), receipts = new Map(), responseTasks = [];
-const until = (page, fn, arg, timeout = 180000) => page.waitForFunction(fn, arg, { timeout, polling: 50 });
 const chronology = row => appendFile(resolve(out, 'chronology.ndjson'), JSON.stringify({ wall: new Date().toISOString(), ...row }) + '\n');
+let stopped = false, cleanupDeadline, checkpointSerial = 0, diskQueue = Promise.resolve();
+function bounded(name, operation, ms) {
+  let timer; const limit = new Promise((_, reject) => { timer = setTimeout(() => reject(Error(`TIMEOUT ${name} after ${ms}ms`)), ms); });
+  return Promise.race([Promise.resolve().then(operation), limit]).finally(() => clearTimeout(timer));
+}
+async function checkpoint(reason) {
+  const serial = ++checkpointSerial, bytes = JSON.stringify({ ...report, checkpoint: { serial, reason, at: new Date().toISOString() } });
+  diskQueue = diskQueue.catch(() => {}).then(async () => {
+    const temporary = resolve(out, 'report.json.tmp'); await writeFile(temporary, bytes); await rename(temporary, resolve(out, 'report.json'));
+  }); // Retain the previous valid checkpoint if the worker dies mid-write.
+  await bounded('report-checkpoint', () => diskQueue, 4000);
+}
+async function stage(name, operation, ms = 15000, cleanup = false) {
+  if (stopped && !cleanup) throw Error('Collector stopped after prior failure');
+  const remaining = (cleanup ? cleanupDeadline : deadline) - Date.now();
+  if (!(remaining > 0)) throw Error(`TIMEOUT collector deadline before ${name}`);
+  const row = { name, startedAt: new Date().toISOString(), budgetMs: Math.min(ms, remaining), status: 'started' }; report.stages.push(row);
+  console.log(JSON.stringify({ stage: name, status: 'started', budgetMs: row.budgetMs }));
+  await checkpoint('stage-start:' + name);
+  try {
+    const value = await bounded(name, operation, row.budgetMs);
+    if (stopped && !cleanup) throw Error('Collector stopped while operation was outstanding');
+    row.status = 'finished'; row.finishedAt = new Date().toISOString(); console.log(JSON.stringify({ stage: name, status: 'finished' })); await checkpoint('stage-finish:' + name); return value;
+  } catch (error) {
+    row.status = 'failed'; row.finishedAt = new Date().toISOString(); row.error = error.stack || String(error); if (!cleanup) stopped = true;
+    if (!cleanup && !report.primaryError) report.primaryError = { stage: name, error: row.error, at: row.finishedAt };
+    console.log(JSON.stringify({ stage: name, status: 'failed', error: row.error })); await checkpoint('stage-failed:' + name).catch(() => {}); throw error;
+  }
+}
+const labelOf = page => receipts.get(page)?.label || 'new-page';
+const evaluate = (page, fn, arg, label = 'evaluate', ms = 15000, cleanup = false) => stage(labelOf(page) + ':' + label, () => page.evaluate(fn, arg), ms, cleanup);
+const click = (page, selector) => stage(labelOf(page) + ':click:' + selector, () => page.locator(selector).click({ timeout: 20000 }), 22000);
+const until = (page, fn, arg, timeout = 90000) => stage(labelOf(page) + ':wait:' + fn.toString().slice(0, 80), () => page.waitForFunction(fn, arg, { timeout, polling: 50 }), timeout + 1000);
+await checkpoint('initial-before-owned-preview-and-browser');
 const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '5184', '--strictPort'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
 report.preview = { pid: preview.pid, command: 'owned Vite preview --strictPort 127.0.0.1:5184', errors: [], exits: [] };
 preview.on('error', error => report.preview.errors.push(String(error)));
 preview.on('exit', (code, signal) => report.preview.exits.push({ at: Date.now(), code, signal }));
 preview.stdout.on('data', data => chronology({ type: 'owned-preview-stdout', text: String(data) }).catch(() => {}));
 preview.stderr.on('data', data => chronology({ type: 'owned-preview-stderr', text: String(data) }).catch(() => {}));
-let browser, activePage;
+let browser, activePage, candidatePassed = false;
 async function newPage(label) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, permissions: ['clipboard-read', 'clipboard-write'] }); contexts.add(context);
+  const context = await stage(label + ':new-context', () => browser.newContext({ viewport: { width: 1280, height: 720 }, permissions: ['clipboard-read', 'clipboard-write'] })); contexts.add(context);
   const seed = { v: 1, campaignId: `friend-spin-${label}`, cash: 50000, totalCash: 50000 };
   report.setup.push({ label, prebootIsolatedStorage: seed, settings: { quality: 0, resScale: .5, master: 0, music: 0, sfx: 0, shake: 0, motionBlur: false, chromatic: false, grain: false }, note: 'Functional software rendering fixture and funded shop, not earned progression or native performance.' });
-  await context.addInitScript(seed => { localStorage.setItem('rideordie.profile.v1', JSON.stringify(seed)); localStorage.setItem('rideordie.settings.v1', JSON.stringify({ quality: 0, resScale: .5, master: 0, music: 0, sfx: 0, shake: 0, motionBlur: false, chromatic: false, grain: false })); }, seed);
-  const page = await context.newPage(), receipt = { label, errors: [], console: [], failures: [], wss: [], entries: [] }; receipts.set(page, receipt); report.pages.push(receipt);
-  page.setDefaultTimeout(180000);
+  await stage(label + ':preboot-storage', () => context.addInitScript(seed => { localStorage.setItem('rideordie.profile.v1', JSON.stringify(seed)); localStorage.setItem('rideordie.settings.v1', JSON.stringify({ quality: 0, resScale: .5, master: 0, music: 0, sfx: 0, shake: 0, motionBlur: false, chromatic: false, grain: false })); }, seed));
+  const page = await stage(label + ':new-page', () => context.newPage()), receipt = { label, errors: [], console: [], failures: [], wss: [], entries: [] }; receipts.set(page, receipt); report.pages.push(receipt); activePage = page;
+  page.setDefaultTimeout(20000); page.setDefaultNavigationTimeout(30000);
   page.on('pageerror', error => receipt.errors.push({ at: Date.now(), text: error.stack || String(error) }));
   page.on('console', message => { if (['error', 'warning'].includes(message.type())) receipt.console.push({ at: Date.now(), type: message.type(), text: message.text() }); });
   page.on('requestfailed', request => receipt.failures.push({ at: Date.now(), url: request.url(), resourceType: request.resourceType(), error: request.failure()?.errorText }));
   page.on('response', response => {
     if (response.status() >= 400) receipt.failures.push({ at: Date.now(), url: response.url(), status: response.status() });
-    if (new URL(response.url()).pathname === entry) responseTasks.push(response.body().then(bytes => receipt.entries.push({ url: response.url(), sha256: hash(bytes), bytes: bytes.length, headers: response.headers() }), error => receipt.errors.push({ text: String(error) })));
+    if (new URL(response.url()).pathname === entry) responseTasks.push(stage(label + ':entry-response-body', () => response.body(), 30000).then(bytes => receipt.entries.push({ url: response.url(), sha256: hash(bytes), bytes: bytes.length, headers: response.headers() }), error => receipt.errors.push({ at: Date.now(), text: String(error) })));
   });
   page.on('websocket', socket => { const row = { url: socket.url(), frames: [] }; receipt.wss.push(row); socket.on('framereceived', data => { let type; try { type = JSON.parse(String(data.payload)).type; } catch { /* Original non-JSON metadata retained. */ } row.frames.push({ at: Date.now(), type, bytes: data.payload.length }); }); });
   return page;
 }
 async function boot(page, url = base, screen = 'title') {
-  const navigation = await page.goto(url), bytes = await navigation.body();
+  const navigation = await stage(labelOf(page) + ':navigation-domcontentloaded', () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }), 32000);
+  const bytes = await stage(labelOf(page) + ':navigation-body', () => navigation.body(), 15000);
   receipts.get(page).navigation = { url: navigation.url(), status: navigation.status(), headers: navigation.headers(), sha256: hash(bytes), bytes: bytes.length };
   assert.equal(hash(bytes), report.indexSha256, 'Normal navigation must serve this exact worker index');
   await until(page, screen => window.__ready && window.__app?.screen === screen, screen);
-  assert.equal(await page.evaluate(() => !!window.__session || !!window.__forceInput || !!window.__forceGunner || !!window.__aimbot || !!window.__autodrive), false);
-  const gl = await page.evaluate(() => { const renderer = window.__game.renderer, gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); return { vendor: gl.getParameter(ext ? ext.UNMASKED_VENDOR_WEBGL : gl.VENDOR), renderer: gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER), width: gl.drawingBufferWidth, height: gl.drawingBufferHeight }; });
+  assert.equal(await evaluate(page, () => !!window.__session || !!window.__forceInput || !!window.__forceGunner || !!window.__aimbot || !!window.__autodrive, undefined, 'normal-boot-debug-guards'), false);
+  const gl = await evaluate(page, () => { const renderer = window.__game.renderer, gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); return { vendor: gl.getParameter(ext ? ext.UNMASKED_VENDOR_WEBGL : gl.VENDOR), renderer: gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER), width: gl.drawingBufferWidth, height: gl.drawingBufferHeight }; }, undefined, 'actual-software-renderer');
   receipts.get(page).gl = gl; assert.match(gl.renderer, /SwiftShader/i, 'This remote collector must use the software renderer');
 }
-async function screenshot(page, label) {
-  const path = resolve(out, label + '.png'), bytes = await page.screenshot({ path, timeout: 60000 }); report.screenshots.push({ label, sha256: hash(bytes), bytes: bytes.length });
+async function screenshot(page, label, cleanup = false) {
+  const path = resolve(out, label + '.png'), bytes = await stage(labelOf(page) + ':screenshot:' + label, () => page.screenshot({ path, timeout: cleanup ? 4000 : 15000 }), cleanup ? 4500 : 16000, cleanup); report.screenshots.push({ label, sha256: hash(bytes), bytes: bytes.length });
 }
 async function peerProof(page) {
-  return page.evaluate(async () => {
+  return evaluate(page, async () => {
     const session = window.__app.session, tp = session.tp, pc = tp.conn.peerConnection, stats = [...(await pc.getStats()).values()];
     const pair = stats.find(row => row.type === 'candidate-pair' && row.nominated && row.state === 'succeeded');
     return { host: session.isHost, role: session.me.role, code: session.code, peerHost: tp.peer.options.host, peerSecure: tp.peer.options.secure,
       connection: pc.connectionState, ice: pc.iceConnectionState, reliableOpen: tp.conn.open, protocol: session._peerProtocol,
       pair: pair ? { state: pair.state, nominated: pair.nominated, sent: pair.bytesSent, received: pair.bytesReceived } : null };
-  });
+  }, undefined, 'real-webrtc-getStats', 15000);
 }
 async function room(hostRole) {
   const host = await newPage(`${hostRole}-host`), guest = await newPage(`${hostRole}-guest`);
-  await boot(host); await host.locator('.title [data-act="host"]').click();
+  await boot(host); await click(host, '.title [data-act="host"]');
   await until(host, () => window.__app.session?.code && window.__app.session.me.role === 'driver');
-  if (hostRole === 'gunner') { await host.locator('.lobby [data-seat="gunner"]').click(); await until(host, () => window.__app.session.me.role === 'gunner'); }
-  await host.locator('.lobby [data-act="invite"]').click(); const link = await host.evaluate(() => navigator.clipboard.readText());
+  if (hostRole === 'gunner') { await click(host, '.lobby [data-seat="gunner"]'); await until(host, () => window.__app.session.me.role === 'gunner'); }
+  await click(host, '.lobby [data-act="invite"]'); const link = await evaluate(host, () => navigator.clipboard.readText(), undefined, 'actual-copied-invite');
   await boot(guest, link, 'lobby');
   await Promise.all([until(host, () => window.__app.session.connected && window.__app.session.other && window.__app.session.peerWallet), until(guest, () => window.__app.session.connected && window.__app.session.other && window.__app.session._peerProtocol != null)]);
   const guestRole = hostRole === 'driver' ? 'gunner' : 'driver';
-  if (await guest.evaluate(role => window.__app.session.me.role !== role, guestRole)) await guest.locator(`.lobby [data-seat="${guestRole}"]`).click();
+  if (await evaluate(guest, role => window.__app.session.me.role !== role, guestRole, 'real-guest-seat')) await click(guest, `.lobby [data-seat="${guestRole}"]`);
   await until(host, role => window.__app.session.other?.role === role, guestRole);
-  for (const page of [host, guest]) assert.equal(await page.evaluate(() => window.__app.session.me.ready), false);
-  await host.locator('.lobby [data-act="ready"]').click(); await guest.locator('.lobby [data-act="ready"]').click(); await until(host, () => window.__app.session.canStart());
-  await host.locator('.lobby [data-act="start"]').click(); await Promise.all([until(host, () => window.__app.screen === 'garage'), until(guest, () => window.__app.screen === 'garage')]);
-  // Purchase and assign loadout through the real guest shop, irrespective of seat.
-  for (const [weapon, slot] of [['rifle', 1], ['minigun', 2]]) {
-    await guest.locator('.garage [data-tab="weapons"]').click(); await guest.locator(`.garage [data-row="${weapon}"]`).click(); await guest.locator('.garage [data-buy="1"]').click();
-    await until(host, weapon => !!window.__app.profile.weapons[weapon], weapon); await guest.locator(`.garage [data-slot="${slot}"]`).click();
-    await until(host, ({ weapon, slot }) => window.__app.profile.loadout[slot] === weapon, { weapon, slot });
-  }
-  await host.locator('.garage [data-ready="1"]').click(); await guest.locator('.garage [data-ready="1"]').click();
+  for (const page of [host, guest]) assert.equal(await evaluate(page, () => window.__app.session.me.ready, undefined, 'readiness-before-consent'), false);
+  await click(host, '.lobby [data-act="ready"]'); await click(guest, '.lobby [data-act="ready"]'); await until(host, () => window.__app.session.canStart());
+  await click(host, '.lobby [data-act="start"]'); await Promise.all([until(host, () => window.__app.screen === 'garage'), until(guest, () => window.__app.screen === 'garage')]);
+  // V2 deliberately omits shop, AR and mounted setup; use the normal pistol.
+  await click(host, '.garage [data-ready="1"]'); await click(guest, '.garage [data-ready="1"]');
   await Promise.all([until(host, () => window.__run?.started && window.__app.screen === 'run'), until(guest, () => window.__run?.started && window.__app.screen === 'run')]);
   const driver = hostRole === 'driver' ? host : guest, gunner = hostRole === 'gunner' ? host : guest;
-  assert.equal(await driver.evaluate(() => !!window.__run.sim && window.__run.role === 'driver'), true);
-  assert.equal(await gunner.evaluate(() => !window.__run.sim && window.__run.role === 'gunner' && !!window.__run.gunner), true);
+  assert.equal(await evaluate(driver, () => !!window.__run.sim && window.__run.role === 'driver', undefined, 'driver-authority'), true);
+  assert.equal(await evaluate(gunner, () => !window.__run.sim && window.__run.role === 'gunner' && !!window.__run.gunner, undefined, 'gunner-viewer'), true);
   const proof = { hostRole, link, host: await peerProof(host), guest: await peerProof(guest) };
   for (const [page, row] of [[host, proof.host], [guest, proof.guest]]) { assert.equal(row.peerSecure, true); assert.equal(row.connection, 'connected'); assert.ok(row.pair); assert.ok(receipts.get(page).wss.some(socket => /^wss:/.test(socket.url) && socket.frames.some(frame => frame.type === 'OPEN'))); }
   report.setup.push({ hostRole, fixture: 'authoritative HP-only survival shield', reason: 'Keep a slow software-rendered spin investigation alive. Does not set driver command, carrier pose, aim, camera, revision, network or world content.' });
-  await driver.evaluate(() => {
+  await evaluate(driver, () => {
     const run = window.__run, original = run.update;
     run.update = function(...args) { const player = this.player; if (player) { player.hp = player.maxHp = 1e9; for (const crew of [player.crew.driver, player.crew.gunner]) if (crew?.alive) crew.hp = crew.max = 1e9; } return original.apply(this, args); };
     window.__spinShieldRestore = () => { run.update = original; };
-  });
+  }, undefined, 'install-declared-hp-only-shield');
   return { host, guest, driver, gunner, proof };
 }
 async function observe(page) {
-  await page.evaluate(() => {
+  await evaluate(page, () => {
     const game = window.__game, run = window.__run, gunner = run.gunner, input = game.input;
     const probe = window.__friendSpin = { rows: [], events: [], restores: [], armed: false, serial: 0 };
     const vmState = () => ({ visible: gunner.vm?.visible, quat: gunner.vm?.quat?.toArray(), pos: gunner.vm?.pos?.toArray(), weapon: gunner.vm?.id, shownWeapon: gunner.vm?.shownId, angularVelocity: gunner.vm?.angV?.toArray() });
@@ -140,7 +173,7 @@ async function observe(page) {
     const originalRun = run.update;
     run.update = function(...args) { const result = originalRun.apply(this, args); const row = probe.rows.at(-1); if (probe.armed && row?.final.frame === game.frames) row.afterRunUpdate = { at: performance.now(), vm: vmState(), paused: game.paused, phase: run.phase }; return result; };
     probe.restores.push(() => { run.update = originalRun; });
-  });
+  }, undefined, 'install-original-spin-observers');
 }
 const short = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
 const angular = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a.reduce((sum, v, i) => sum + v * b[i], 0)) / Math.hypot(...a) / Math.hypot(...b)));
@@ -185,24 +218,31 @@ function analyse(rows, view) {
   return { violations, checks, travel, inputTravel, seams, backward, snapshotAdvances, rows: rows.length };
 }
 async function phase(room, view, sign) {
-  const page = room.gunner; activePage = page; await page.bringToFront();
-  if (await page.evaluate(() => window.__game.paused)) await page.locator('[data-act="resume"]').click();
-  await page.keyboard.press(view === 'hip' ? '1' : view === 'rifle-ads' ? '2' : '3');
-  await page.mouse.move(640, 330); await page.mouse.click(640, 330);
+  const page = room.gunner, label = `${room.proof.hostRole}-${view}-${sign}`; activePage = page;
+  const partial = { label, view, sign, room: room.proof, passed: false, incomplete: true, startedAt: new Date().toISOString(), rows: [], mouseEvents: [], stepsCompleted: 0 }; report.phases.push(partial); await checkpoint('phase-start:' + label);
+  await stage(labelOf(page) + ':viewer-focus', () => page.bringToFront());
+  if (await evaluate(page, () => window.__game.paused, undefined, 'viewer-pause-state')) await click(page, '[data-act="resume"]');
+  await stage(label + ':normal-weapon-key', () => page.keyboard.press(view === 'hip' ? '1' : view === 'rifle-ads' ? '2' : '3'));
+  await stage(label + ':capture-mouse-position', () => page.mouse.move(640, 330)); await stage(label + ':capture-canvas-click', () => page.mouse.click(640, 330));
   await until(page, () => window.__game.input.locked && document.pointerLockElement === window.__game.canvas && !window.__run.introOutside && !window.__game.paused);
-  await page.mouse.up({ button: 'right' }); if (view === 'rifle-ads') await page.mouse.down({ button: 'right' });
+  await stage(label + ':ads-button-release', () => page.mouse.up({ button: 'right' })); if (view === 'rifle-ads') await stage(label + ':ads-button-hold', () => page.mouse.down({ button: 'right' }));
   await until(page, view => window.__run.gunner.weaponId === (view === 'hip' ? 'pistol' : view === 'rifle-ads' ? 'rifle' : 'minigun') && window.__run.gunner.swapT <= 0 && (view === 'rifle-ads' ? window.__run.gcam.adsK > .99 : window.__run.gcam.adsK < .01), view);
-  assert.equal(await page.evaluate(() => window.__run.gcam.firstPerson), true);
-  await observe(page); const label = `${room.proof.hostRole}-${view}-${sign}`; await screenshot(page, label + '-before');
-  const sensitivity = await page.evaluate(() => window.__game.input.sens.mouse), pixels = Math.max(1, Math.round(.065 / sensitivity / (view === 'rifle-ads' ? .6 : 1)));
-  await page.evaluate(() => { window.__friendSpin.armed = true; });
-  let backwardShot = false, seamShot = false, failedShot = false, observedRows = 0, previousRow;
+  assert.equal(await evaluate(page, () => window.__run.gcam.firstPerson, undefined, 'first-person-policy'), true);
+  await observe(page); await screenshot(page, label + '-before');
+  const sensitivity = await evaluate(page, () => window.__game.input.sens.mouse, undefined, 'actual-input-sensitivity'), pixels = Math.max(1, Math.round(.065 / sensitivity / (view === 'rifle-ads' ? .6 : 1)));
+  partial.sensitivity = sensitivity; partial.pixels = pixels;
+  await evaluate(page, () => { window.__friendSpin.armed = true; }, undefined, 'arm-observer');
+  let backwardShot = false, seamShot = false, failedShot = false, observedRows = 0, observedEvents = 0, previousRow;
   for (let step = 1; step <= 120; step++) {
     // Game increments frames after Run.update. Compare against the last
     // recorded row, so the next actual consumed command is never skipped.
-    const prior = await page.evaluate(() => ({ frame: window.__friendSpin.rows.at(-1)?.final.frame ?? window.__game.frames - 1, serial: window.__friendSpin.serial })); await page.mouse.move(640 + sign * pixels * step, 330);
+    const prior = await evaluate(page, () => ({ frame: window.__friendSpin.rows.at(-1)?.final.frame ?? window.__game.frames - 1, serial: window.__friendSpin.serial }), undefined, label + ':step-' + step + ':prior');
+    await stage(label + ':step-' + step + ':trusted-pointer-move', () => page.mouse.move(640 + sign * pixels * step, 330));
     await until(page, prior => window.__friendSpin.rows.some(row => row.final.frame > prior.frame && row.controller?.eventSerial > prior.serial && Math.abs(row.controller.command.dYaw) > 0), prior, 30000);
-    const fresh = await page.evaluate(offset => window.__friendSpin.rows.slice(offset), observedRows); observedRows += fresh.length;
+    const returned = await evaluate(page, ({ rows, events }) => ({ rows: window.__friendSpin.rows.slice(rows), events: window.__friendSpin.events.slice(events) }), { rows: observedRows, events: observedEvents }, label + ':step-' + step + ':raw-returned-rows');
+    const fresh = returned.rows; observedRows += fresh.length; observedEvents += returned.events.length; partial.rows.push(...fresh); partial.mouseEvents.push(...returned.events); partial.stepsCompleted = step;
+    // Persist the already returned native rows before any screenshot can stall.
+    await checkpoint('returned-native-rows:' + label + ':' + step);
     for (const current of fresh) { if (!previousRow) { previousRow = current; continue; }
       const a = previousRow.final, b = current.final, cameraTurn = angular(a.camera.quat, b.camera.quat); previousRow = current;
       if (!seamShot && Math.abs(a.yaw - b.yaw) > Math.PI) { await screenshot(page, label + '-yaw-seam-original'); seamShot = true; }
@@ -211,15 +251,17 @@ async function phase(room, view, sign) {
       if (!failedShot && cameraTurn > 1) { await screenshot(page, label + '-unexpected-large-turn-original'); failedShot = true; }
     }
   }
-  await page.evaluate(() => { window.__friendSpin.armed = false; });
+  await evaluate(page, () => { window.__friendSpin.armed = false; }, undefined, 'disarm-observer');
   await screenshot(page, label + '-after');
-  const raw = await page.evaluate(() => ({ rows: window.__friendSpin.rows, mouseEvents: window.__friendSpin.events, end: window.render_game_to_text() }));
+  const raw = await evaluate(page, () => ({ rows: window.__friendSpin.rows, mouseEvents: window.__friendSpin.events, end: window.render_game_to_text() }), undefined, 'final-original-phase-rows');
   const analysis = analyse(raw.rows, view), result = { label, view, sign, pixels, sensitivity, room: room.proof, originalScreenshots: { backwardShot, seamShot, failedShot }, ...analysis, ...raw };
-  report.phases.push(result); await writeFile(resolve(out, label + '.json'), JSON.stringify(result)); await chronology({ type: 'phase', label, analysis });
-  await page.evaluate(() => { for (const restore of window.__friendSpin.restores.splice(0).reverse()) restore(); }); await page.mouse.up({ button: 'right' });
+  Object.assign(partial, result, { completedAt: new Date().toISOString(), incomplete: false });
+  await stage(label + ':phase-json-write', () => writeFile(resolve(out, label + '.json'), JSON.stringify(partial)), 5000); await bounded('phase-chronology', () => chronology({ type: 'phase', label, analysis }), 4000);
+  await evaluate(page, () => { for (const restore of window.__friendSpin.restores.splice(0).reverse()) restore(); }, undefined, 'restore-original-spin-observers'); await stage(label + ':ads-release-after-phase', () => page.mouse.up({ button: 'right' }));
   assert.ok(raw.mouseEvents.length >= 120 && raw.mouseEvents.every(event => event.trusted && event.locked && event.captured), 'Actual trusted locked pointer events required');
   assert.ok(analysis.inputTravel > Math.PI * 2 && analysis.travel > Math.PI * 2 && analysis.seams > 0 && analysis.backward > 0, 'Actual full-circle input, yaw seam and backward view coverage required');
   assert.deepEqual(analysis.violations, [], `Observed camera or healthy-viewer scope failure: ${label}`);
+  partial.passed = true; await stage(label + ':accepted-phase-json-write', () => writeFile(resolve(out, label + '.json'), JSON.stringify(partial)), 5000); await checkpoint('accepted-complete-phase:' + label);
 }
 function assertPageEvidence() {
   for (const row of report.pages) {
@@ -231,28 +273,42 @@ function assertPageEvidence() {
   }
 }
 try {
-  let ready = false; for (let i = 0; i < 100; i++) { assert.deepEqual(report.preview.errors, []); assert.deepEqual(report.preview.exits, []); try { const response = await fetch(base); ready = response.ok && hash(Buffer.from(await response.arrayBuffer())) === report.indexSha256; } catch { /* Owned preview may not have bound yet. */ } if (ready) break; await delay(100); } assert.ok(ready);
-  browser = await chromium.launch({ headless: true, args: ['--mute-audio', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
+  await stage('collector-eight-minute-sequence', async () => {
+  await stage('owned-preview-ready-and-exact-index', async () => {
+    let ready = false; for (let i = 0; i < 40; i++) { assert.deepEqual(report.preview.errors, []); assert.deepEqual(report.preview.exits, []); try { const response = await fetch(base, { signal: AbortSignal.timeout(1000) }); ready = response.ok && hash(Buffer.from(await response.arrayBuffer())) === report.indexSha256; } catch { /* Retain readiness timeout stage, no guessed server diagnosis. */ } if (ready) break; await delay(100); } assert.ok(ready);
+  }, 15000);
+  browser = await stage('chromium-headless-muted-launch', () => {
+    const launching = chromium.launch({ headless: true, timeout: 45000, args: ['--mute-audio', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
+    launching.then(late => { if (stopped && !browser) bounded('late-owned-browser-close', () => late.close(), 6000).then(() => report.cleanup.push({ lateOwnedBrowserClosed: true }), error => report.errors.push('Late owned browser: ' + String(error))); }, () => {}); return launching;
+  }, 46000);
   report.browser = { version: browser.version(), headless: true, muted: true, software: true };
-  for (const hostRole of ['driver', 'gunner']) {
-    const pair = await room(hostRole);
-    for (const view of ['hip', 'rifle-ads', 'minigun-hip']) for (const sign of [-1, 1]) await phase(pair, view, sign);
-    for (const page of [pair.gunner, pair.driver]) { await page.mouse.up(); await page.mouse.up({ button: 'right' }); await page.evaluate(() => { window.__spinShieldRestore?.(); window.__app.title(); }); const context = page.context(); await context.close(); contexts.delete(context); report.cleanup.push({ label: receipts.get(page).label, ownedContextClosed: true }); }
-  }
-  report.orientationPassed = true; await Promise.all(responseTasks);
+  const pair = await room('driver');
+  for (const sign of [-1, 1]) await phase(pair, 'hip', sign);
+  assert.deepEqual(report.phases.filter(row => row.passed && !row.incomplete).map(row => row.label), report.requestedPhases);
+  report.orientationPassed = true; await stage('all-observed-entry-body-tasks', () => Promise.all(responseTasks), 30000);
   assertPageEvidence(); assert.deepEqual(report.preview.errors, []); assert.deepEqual(report.preview.exits, []);
-  assert.equal(hash(await readFile(resolve(root, 'dist', entry.slice(1)))), report.entry.sha256); report.passed = true;
+  assert.equal(hash(await stage('frozen-entry-final-read', () => readFile(resolve(root, 'dist', entry.slice(1))), 5000)), report.entry.sha256); candidatePassed = true;
+  }, 8 * 60 * 1000);
 } catch (error) {
-  report.errors.push(error.stack || String(error)); process.exitCode = 1;
-  try { if (activePage && !activePage.isClosed()) { await screenshot(activePage, 'original-failure'); report.failureRaw = await activePage.evaluate(() => ({ state: window.__friendSpin?.state(), rows: window.__friendSpin?.rows, events: window.__friendSpin?.events })); } } catch (error) { report.errors.push(`Failure capture: ${error}`); }
+  stopped = true; report.passed = false; report.errors.push(error.stack || String(error)); process.exitCode = 1;
+  report.primaryError ??= { stage: 'collector-sequence', error: error.stack || String(error), at: new Date().toISOString() };
+  // Preserve the primary error and last returned rows before attempting capture.
+  await checkpoint('primary-failure-before-best-effort-capture').catch(error => report.errors.push('Failure checkpoint: ' + String(error)));
+  cleanupDeadline = Date.now() + 25000;
+  try { if (activePage && !activePage.isClosed()) { report.failureRaw = await evaluate(activePage, () => ({ state: window.__friendSpin?.state(), rows: window.__friendSpin?.rows, events: window.__friendSpin?.events }), undefined, 'best-effort-original-failure-rows', 4000, true); await screenshot(activePage, 'original-failure', true); } } catch (error) { report.errors.push(`Supplemental failure capture: ${error}`); }
 } finally {
-  for (const context of contexts) { try { await context.close(); report.cleanup.push({ failureOwnedContextClosed: true }); } catch (error) { report.errors.push(String(error)); report.passed = false; } }
-  try { await browser?.close(); report.cleanup.push({ ownedBrowserClosed: true }); } catch (error) { report.errors.push(`Owned browser close: ${error}`); report.passed = false; }
-  const requestedTermination = preview.kill(); await Promise.race([new Promise(done => { if (preview.exitCode !== null || preview.signalCode !== null) done(); else preview.once('exit', done); }), delay(5000)]);
+  stopped = true; cleanupDeadline ??= Date.now() + 25000;
+  for (const context of contexts) { try { await stage('owned-context-close', () => context.close(), 4000, true); report.cleanup.push({ ownedContextClosed: true }); } catch (error) { report.errors.push('Cleanup context: ' + String(error)); report.passed = false; } }
+  try { if (browser) await stage('owned-browser-close', () => browser.close(), 6000, true); report.cleanup.push({ ownedBrowserClosed: !!browser }); } catch (error) { report.errors.push(`Cleanup browser: ${error}`); report.passed = false; }
+  console.log('STAGE owned-preview-terminate start');
+  const requestedTermination = preview.kill(); await bounded('owned-preview-termination', () => new Promise(done => { if (preview.exitCode !== null || preview.signalCode !== null) done(); else preview.once('exit', done); }), 2500).catch(error => { report.errors.push('Cleanup preview: ' + String(error)); report.passed = false; });
   report.cleanup.push({ ownedPreview: preview.pid, requestedTermination, exitCode: preview.exitCode, signalCode: preview.signalCode });
   if (preview.exitCode === null && preview.signalCode === null) { preview.kill('SIGKILL'); report.errors.push('Owned preview failed bounded termination'); report.passed = false; }
-  await Promise.allSettled(responseTasks);
+  await bounded('cleanup-entry-body-settlement', () => Promise.allSettled(responseTasks), 2000).catch(error => { report.errors.push('Cleanup body tasks: ' + String(error)); report.passed = false; });
   if (report.orientationPassed) { try { assertPageEvidence(); assert.deepEqual(report.preview.errors, []); } catch (error) { report.errors.push(`Final late evidence check: ${error}`); report.passed = false; } }
-  if (report.errors.length) report.passed = false; if (!report.passed) process.exitCode = 1; report.finishedAt = new Date().toISOString();
-  await writeFile(resolve(out, 'report.json'), JSON.stringify(report)); console.log(JSON.stringify({ passed: report.passed, orientationPassed: report.orientationPassed, phases: report.phases.map(row => ({ label: row.label, violations: row.violations, travel: row.travel, inputTravel: row.inputTravel })), errors: report.errors }));
+  report.finishedAt = new Date().toISOString();
+  report.passed = candidatePassed && report.orientationPassed && !report.primaryError && report.errors.length === 0;
+  if (!report.passed) process.exitCode = 1;
+  await checkpoint('final').catch(error => { report.passed = false; report.errors.push('Final checkpoint failed: ' + String(error)); console.error(report.errors.at(-1)); process.exitCode = 1; });
+  console.log(JSON.stringify({ passed: report.passed, orientationPassed: report.orientationPassed, primaryError: report.primaryError, phases: report.phases.map(row => ({ label: row.label, passed: row.passed, incomplete: row.incomplete, stepsCompleted: row.stepsCompleted, violations: row.violations, travel: row.travel, inputTravel: row.inputTravel })), errors: report.errors }));
 }

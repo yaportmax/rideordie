@@ -1,4 +1,4 @@
-name: Remote friend gunner backward aim investigation
+name: Remote bounded friend gunner hip aim investigation
 on:
   # Narrow initial registration on the existing feature branch. Root owns the
   # push and sequential remote validation lease; no recurring execution.
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   friend-spin:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 12
     env:
       FRIEND_SPIN_REMOTE: '1'
       VITE_TURN_ENABLED: '0'
@@ -44,8 +44,11 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: node node_modules/playwright-core/cli.js install --with-deps chromium
-      - name: Remote muted real-menu co-op spin collector
-        run: node --max-old-space-size=2048 tools/test/friend_gunner_spin_remote.mjs --remote-ci
+      - name: Remote muted bounded real-menu co-op hip collector
+        timeout-minutes: 10
+        # Collector bounds normal work to eight minutes, cleanup to25seconds.
+        # GNU timeout is the final root-owned worker process-group hard cap.
+        run: timeout --signal=TERM --kill-after=15s 9m node --max-old-space-size=2048 tools/test/friend_gunner_spin_remote.mjs --remote-ci
       - uses: actions/upload-artifact@v4
         if: always()
         with:
