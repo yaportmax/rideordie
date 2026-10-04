@@ -1,5 +1,4 @@
 // Named personal saves. Slot ownership is separate from a co-op campaign ID.
-import { assertSupportedProfile } from '../../server/saves/profile_support.js';
 export const SAVE_STORE_KEY = 'rideordie.saves.v2';
 export const SAVE_BACKUP_KEY = `${SAVE_STORE_KEY}.backup`;
 export const SAVE_RECOVERY_KEY = `${SAVE_STORE_KEY}.recovery`;
@@ -103,11 +102,11 @@ export class SaveStore {
   _id() { const id = this.id(); if (typeof id !== 'string' || !UUID.test(id)) fail('invalid-id', 'The save ID generator must return a UUID.'); return id; }
   _profile(value, strict = false) {
     if (!object(value)) fail('invalid-profile', 'A save must contain a profile object.');
-    try { assertSupportedProfile(value); } catch (error) { fail('unsupported-profile', 'This save contains vehicle progress from an unsupported build.', { requiredVersion: error.requiredVersion }); }
+    if (value.v !== undefined && value.v !== 1 && value.v !== 2) fail('unsupported-profile', 'This profile version is not supported.');
     if (value.vehicleUpgradeSchema !== undefined && value.vehicleUpgradeSchema !== 1 && value.vehicleUpgradeSchema !== 2) fail('unsupported-profile', 'This vehicle upgrade version is not supported.');
     if (object(value.campaignProgress) && value.campaignProgress.version !== undefined && value.campaignProgress.version !== 1) fail('unsupported-profile', 'This campaign version is not supported.');
     if (strict) {
-      if (![1, 2, 3].includes(value.v) || typeof value.campaignId !== 'string' || !CAMPAIGN_ID.test(value.campaignId) || !natural(value.cash)
+      if ((value.v !== 1 && value.v !== 2) || typeof value.campaignId !== 'string' || !CAMPAIGN_ID.test(value.campaignId) || !natural(value.cash)
         || typeof value.truck !== 'string' || !Array.isArray(value.trucks) || !value.trucks.length
         || !object(value.weapons) || !Array.isArray(value.loadout) || !value.loadout.length) fail('invalid-profile', 'The imported profile is incomplete or malformed.');
       for (const key of PROFILE_NUMBERS) if (value[key] !== undefined && !natural(value[key])) fail('invalid-profile', `Invalid ${key} in save.`);
@@ -127,7 +126,7 @@ export class SaveStore {
     const profile = {};
     for (const key of PROFILE_FIELDS) if (normalized[key] !== undefined) profile[key] = normalized[key];
     jsonTree(profile);
-    if (![1, 2, 3].includes(profile.v) || typeof profile.campaignId !== 'string' || !CAMPAIGN_ID.test(profile.campaignId)) fail('invalid-profile', 'Profile normalization must return a supported campaign identity.');
+    if ((profile.v !== 1 && profile.v !== 2) || typeof profile.campaignId !== 'string' || !CAMPAIGN_ID.test(profile.campaignId)) fail('invalid-profile', 'Profile normalization must return a supported campaign identity.');
     if (!natural(profile.cash) || typeof profile.truck !== 'string' || !Array.isArray(profile.trucks) || !profile.trucks.length
       || !object(profile.weapons) || !Array.isArray(profile.loadout) || !profile.loadout.length) fail('invalid-profile', 'Profile normalization returned an incomplete profile.');
     for (const key of PROFILE_NUMBERS) if (profile[key] !== undefined && !natural(profile[key])) fail('invalid-profile', 'Profile normalization returned invalid counters.');

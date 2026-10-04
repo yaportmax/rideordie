@@ -323,7 +323,7 @@ test('untrusted metadata, credentials and prototype keys cannot enter saved prof
   const body = JSON.parse(JSON.stringify({ name: 'Private', profile: profile(9), baseVersion: 0, version: 999, hash: 'forged', owner: 'attacker' }));
   body.profile.recoveryCode = secret; body.profile.token = secret; body.profile.session = { nested: secret }; body.profile.settings = { key: secret }; body.profile.seen = { key: secret };
   Object.defineProperty(body.profile, '__proto__', { value: { polluted: true }, enumerable: true });
-  body.profile.weapons.unknown = { token: secret }; body.profile.vehicleUpgrades.unknown = { token: secret };
+  body.profile.weapons.unknown = { token: secret };
   const r = await h.send('PUT', `/v1/slots/${id}`, secret, body);
   assert.equal(r.status, 200);
   assert.equal(r.data.slot.version, 1);
@@ -332,6 +332,9 @@ test('untrusted metadata, credentials and prototype keys cannot enter saved prof
   assert.deepEqual(r.data.slot.profile.seen, {});
   assert.equal({}.polluted, undefined);
   assert.ok(![...h.objects.values()][0].storage.dump().includes(secret));
+  const unsupported = await h.send('PUT', `/v1/slots/${id}`, secret, { name: 'Private', profile: { ...profile(), vehicleUpgrades: { unknown: { armor: 1 } } }, baseVersion: r.data.slot.version });
+  assert.equal(unsupported.status, 409); assert.equal(unsupported.data.error, 'unsupported_profile');
+  assert.deepEqual((await h.send('GET', '/v1/vault', secret)).data.slots[0], r.data.slot);
   for (const known of [{ campaignId: secret }, { lastRunId: secret }, { coopLastRunId: secret }]) {
     assert.equal((await h.send('PUT', `/v1/slots/${id}`, secret, { name: 'Private', profile: { ...profile(), ...known }, baseVersion: r.data.slot.version })).status, 400);
   }
@@ -343,11 +346,15 @@ test('future/invalid schema, nonfinite numbers, unsupported gear, oversized arra
   const h = harness(t), secret = code(), id = randomUUID();
   await h.send('POST', '/v1/vault', secret);
   const first = (await put(h, secret, id, 0, 12)).data.slot;
-  const patches = [{ v: 3 }, { campaignId: '../bad' }, { cash: -1 }, { cash: 1.5 }, { totalCash: Number.MAX_SAFE_INTEGER + 1 }, { best: { distance: Infinity } }, { weapons: { pistol: { dmg: 4 } } }, { trucks: ['arbitrary'] }, { vehicleUpgrades: { sedan: { engine: 5 } } }, { loadout: ['pistol', 'pistol', 'pistol', 'pistol'] }, { campaignProgress: { version: 2 } }, { campaignProgress: { cleared: [11] } }, { lastRunId: 'x'.repeat(129) }];
+  const patches = [{ campaignId: '../bad' }, { cash: -1 }, { cash: 1.5 }, { totalCash: Number.MAX_SAFE_INTEGER + 1 }, { best: { distance: Infinity } }, { weapons: { pistol: { dmg: 4 } } }, { vehicleUpgrades: { sedan: { engine: 5 } } }, { loadout: ['pistol', 'pistol', 'pistol', 'pistol'] }, { campaignProgress: { version: 2 } }, { campaignProgress: { cleared: [11] } }, { lastRunId: 'x'.repeat(129) }];
   for (const patch of patches) {
     const r = await h.send('PUT', `/v1/slots/${id}`, secret, { name: 'bad', profile: { ...profile(), ...patch }, baseVersion: first.version });
     assert.equal(r.status, 400, JSON.stringify(patch));
     assert.equal(r.data.error, 'invalid_profile');
+  }
+  for (const patch of [{ v: 4 }, { trucks: ['arbitrary'] }]) {
+    const r = await h.send('PUT', `/v1/slots/${id}`, secret, { name: 'Unsupported', profile: { ...profile(), ...patch }, baseVersion: first.version });
+    assert.equal(r.status, 409); assert.equal(r.data.error, 'unsupported_profile');
   }
   for (const baseVersion of [-1, 1.5, '1', null]) assert.equal((await put(h, secret, id, baseVersion)).status, 400);
   for (const name of ['', 'x'.repeat(65), 'bad\u0000name']) assert.equal((await h.send('PUT', `/v1/slots/${id}`, secret, { name, profile: profile(), baseVersion: first.version })).data.error, 'invalid_name');
@@ -408,11 +415,45 @@ test('rate bindings fail closed and gate work before auth/DO; durable per-vault 
 test('Hummer paid ownership and capped family gear survive real cloud HTTP writes, reads and stale-write rejection', async t => {
   const h=harness(t),secret=code(),id=randomUUID();await h.send('POST','/v1/vault',secret);
   const owned=profile(12345,{trucks:['player_sedan_t1','player_hummer_t1'],truck:'player_hummer_t1',vehicleUpgradeSchema:2,vehicleUpgrades:{hummer:{engine:4,armor:5,tires:4,nitro:3,ram:3,spikes:2,glass:2,fueltank:2,oil:2,mines:2}}});
-  const first=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:owned,baseVersion:0});assert.equal(first.status,200);assert.deepEqual(first.data.slot.profile,owned);
-  const list=await h.send('GET','/v1/vault',secret);assert.equal(list.status,200);assert.deepEqual(list.data.slots[0].profile,owned);
+  assert.equal(owned.v,2,'Hummer keeps its original content version and missing-header capability2');
+  assert.deepEqual(owned.vehicleUpgrades.tank,{engine:0,armor:0,tires:0,nitro:0,ram:0,spikes:0,glass:0,fueltank:0,oil:0,mines:0});
+  // Local normalization adds unowned zero Tank defaults; historical canonical
+  // cloud bytes intentionally omit only that row. All original Hummer gear stays.
+  const wireOwned=structuredClone(owned);delete wireOwned.vehicleUpgrades.tank;
+  const first=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:owned,baseVersion:0});assert.equal(first.status,200);assert.deepEqual(first.data.slot.profile,wireOwned);
+  const list=await h.send('GET','/v1/vault',secret);assert.equal(list.status,200);assert.deepEqual(list.data.slots[0].profile,wireOwned);
   const bad=structuredClone(owned);bad.vehicleUpgrades.hummer.nitro=4;const rejected=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:bad,baseVersion:first.data.slot.version});assert.equal(rejected.status,400);
   const changed=structuredClone(owned);changed.cash=12000;const second=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:changed,baseVersion:first.data.slot.version});assert.equal(second.status,200);assert.deepEqual(second.data.slot.profile.vehicleUpgrades.hummer,owned.vehicleUpgrades.hummer);
-  const stale=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:owned,baseVersion:first.data.slot.version});assert.equal(stale.status,409);assert.deepEqual(stale.data.slot.profile,changed);
+  const wireChanged=structuredClone(changed);delete wireChanged.vehicleUpgrades.tank;
+  const stale=await h.send('PUT',`/v1/slots/${id}`,secret,{name:'Hummer',profile:owned,baseVersion:first.data.slot.version});assert.equal(stale.status,409);assert.deepEqual(stale.data.slot.profile,wireChanged);
+});
+
+test('Tank cloud writes need explicit capability3, preserve exact family caps and keep old-header/stale guards', async t => {
+  const h=harness(t),secret=code(),id=randomUUID();await h.send('POST','/v1/vault',secret);
+  const gear={engine:3,armor:5,tires:4,nitro:2,ram:3,spikes:2,glass:2,fueltank:2,oil:2,mines:2};
+  const owned=profile(777,{trucks:['player_sedan_t1','player_tank_t1'],truck:'player_tank_t1',vehicleUpgradeSchema:2,vehicleUpgrades:{tank:gear},campaignProgress:{version:1,cleared:[1,2],selectedLevel:3}});
+  assert.equal(owned.v,3);assert.deepEqual(owned.vehicleUpgrades.tank,gear);
+  const wireOwned=structuredClone(owned);assert.ok(Object.values(wireOwned.vehicleUpgrades.hummer).every(level=>level===0));delete wireOwned.vehicleUpgrades.hummer;
+  const body={name:'Tank',profile:owned,baseVersion:0},current={headers:{'X-ROD-Profile-Version':'3'}};
+  for(const options of [{},{headers:{'X-ROD-Profile-Version':'2'}}]) {
+    const refused=await h.send('PUT',`/v1/slots/${id}`,secret,body,options);
+    assert.equal(refused.status,409);assert.equal(refused.data.error,'unsupported_profile');assert.equal(refused.data.requiredVersion,3);
+  }
+  assert.deepEqual((await h.send('GET','/v1/vault',secret)).data.slots,[],'refused old-client writes allocate no Tank head');
+  const first=await h.send('PUT',`/v1/slots/${id}`,secret,body,current);assert.equal(first.status,200);assert.deepEqual(first.data.slot.profile,wireOwned);
+  const listed=await h.send('GET','/v1/vault',secret);assert.deepEqual(listed.data.slots[0].profile,wireOwned,'old readers receive exact raw supported-newer data, not destructive projection');
+  assert.deepEqual(first.data.slot.profile.campaignProgress.cleared,[1,2]);assert.equal(first.data.slot.profile.campaignProgress.selectedLevel,3);
+  const bad=structuredClone(owned);bad.vehicleUpgrades.tank.nitro=3;
+  assert.equal((await h.send('PUT',`/v1/slots/${id}`,secret,{...body,profile:bad,baseVersion:first.data.slot.version},current)).status,400,'Tank nitro does not borrow Hummer cap3');
+  const changed=structuredClone(owned);changed.cash=700;
+  const second=await h.send('PUT',`/v1/slots/${id}`,secret,{...body,profile:changed,baseVersion:first.data.slot.version},current);assert.equal(second.status,200);
+  const wireChanged=structuredClone(changed);delete wireChanged.vehicleUpgrades.hummer;assert.deepEqual(second.data.slot.profile,wireChanged);
+  const stale=await h.send('PUT',`/v1/slots/${id}`,secret,{...body,baseVersion:first.data.slot.version},current);assert.equal(stale.status,409);assert.deepEqual(stale.data.slot.profile,wireChanged);
+  for(const options of [{},{headers:{'X-ROD-Profile-Version':'2'}}]) {
+    const refused=await h.send('PUT',`/v1/slots/${id}`,secret,{...body,baseVersion:second.data.slot.version},options);
+    assert.equal(refused.status,409);assert.equal(refused.data.error,'unsupported_profile');
+  }
+  assert.deepEqual((await h.send('GET','/v1/vault',secret)).data.slots[0],second.data.slot,'old capability cannot replace valid Tank progress even with current CAS version');
 });
 
 test('legacy three-family wire payloads keep their canonical bytes when Hummer was absent', () => {

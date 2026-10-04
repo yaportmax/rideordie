@@ -1,7 +1,6 @@
 // Progress belongs to SaveStore's personal slots. Cloud requests never touch
 // App/Session profile references, and credentials never enter slot data.
 import { sanitizeProfile, sanitizeName, canonicalJson } from '../../server/saves/schema.js';
-import { SUPPORTED_PROFILE_VERSION } from '../../server/saves/profile_support.js';
 
 const KEY = 'rideordie.cloud.v1';
 const DEFAULT_URL = 'https://ride-or-die-saves.yaportmax.workers.dev';
@@ -28,7 +27,6 @@ const messageFor = error => {
   if (error?.kind === 'unsafe') return 'Return to the disconnected title screen before changing this save.';
   if (error?.kind === 'local') return 'Cloud progress could not be stored locally. Existing local saves are retained.';
   if (error?.kind === 'invalid-response') return 'The cloud service returned an unsupported response.';
-  if (error?.kind === 'unsupported-profile' || error?.code === 'unsupported-profile') return 'This save needs a newer game build. Existing local and cloud progress is retained.';
   if (error?.kind === 'missing-conflict') return 'This conflict has changed. Synchronize again before choosing.';
   if (error?.kind === 'timeout') return 'Cloud request timed out. Local saves are retained for retry.';
   if (error?.status === 404) return 'Cloud vault was not found. Check the recovery code.';
@@ -57,7 +55,7 @@ function remoteSlot(value) {
     || typeof value.deleted !== 'boolean' || !Number.isFinite(value.updatedAt)) throw new CloudError('invalid-response');
   try { return { id: value.id, name: sanitizeName(value.name), profile: sanitizeProfile(value.profile), version: value.version,
     hash: value.hash, updatedAt: value.updatedAt, deleted: value.deleted }; }
-  catch (error) { throw new CloudError(error?.code === 'unsupported-profile' ? 'unsupported-profile' : 'invalid-response'); }
+  catch { throw new CloudError('invalid-response'); }
 }
 function vaultResponse(value) {
   if (!record(value) || value.version !== 1 || !Array.isArray(value.slots) || value.slots.length > MAX_SLOTS) throw new CloudError('invalid-response');
@@ -107,7 +105,7 @@ export class CloudSaves {
     try {
       const raw = storage.getItem(KEY);
       if (raw) { this.#vault = persistedVault(JSON.parse(raw)); this._lastSyncedAt = this.#vault.lastSyncedAt || null; this._status = 'pending'; }
-    } catch (error) { this._error = messageFor(error?.code === 'unsupported-profile' ? error : new CloudError('storage')); this._status = 'error'; }
+    } catch { this._error = messageFor(new CloudError('storage')); this._status = 'error'; }
     this._unsubscribe = store.onChange(event => this._storeChanged(event));
     this._online = () => { this._retries = 0; this._schedule(0); };
     this._storageChanged = event => {
@@ -217,14 +215,14 @@ export class CloudSaves {
       const operation = (async () => {
         let response;
         try { response = await this.fetch(`${this.url}${path}`, { method, signal: controller.signal, cache: 'no-store', credentials: 'omit',
-          headers: { Authorization: `Bearer ${code}`, 'X-ROD-Profile-Version': String(SUPPORTED_PROFILE_VERSION), ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
+          headers: { Authorization: `Bearer ${code}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
         catch { throw new CloudError('network'); }
         let data;
         try { data = await response.json(); } catch { throw new CloudError('invalid-response'); }
         if (!response.ok) {
           let slot = null;
           if (response.status === 409 && data?.slot) slot = remoteSlot(data.slot);
-          throw new CloudError(data?.error === 'unsupported_profile' ? 'unsupported-profile' : response.status === 409 && data?.error === 'conflict' ? 'conflict' : 'http', response.status, slot);
+          throw new CloudError(response.status === 409 && data?.error === 'conflict' ? 'conflict' : 'http', response.status, slot);
         }
         return data;
       })();

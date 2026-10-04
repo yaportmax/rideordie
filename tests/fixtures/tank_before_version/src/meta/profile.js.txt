@@ -5,7 +5,6 @@ import { familyOf, normalizeFamilyUpgrades, stagePurchaseAllowed } from '../data
 import { normalizeWeaponOptics } from '../data/weapon_optics.js';
 import { defaultCampaignProgress, normalizeCampaignProgress, normalizeJourney } from '../data/campaign.js';
 import { SaveStore } from './save_store.js';
-import { assertSupportedProfile, contentProfileVersion } from '../../server/saves/profile_support.js';
 export { campaignJourney, selectCampaignLevel, creditCampaignLevel } from '../data/campaign.js';
 
 export { upgradeLevel, upgradeLimit };
@@ -33,7 +32,6 @@ export function bestForJourney(profile, journey) {
 
 /** Repair incomplete/old saves without allowing malformed levels or loadouts to break a run. */
 export function normalizeProfile(value) {
-  assertSupportedProfile(value);
   const p = record(value), d = DEFAULT_PROFILE();
   const owned = Array.isArray(p.trucks) ? p.trucks.filter(validTruck) : [];
   // Legacy campaigns retain their selected pickup even when the old ownership
@@ -43,9 +41,10 @@ export function normalizeProfile(value) {
   const upgrades = {};
   for (const [id, u] of Object.entries(UPGRADE_BY_ID)) upgrades[id] = natural(record(p.upgrades)[id], u.costs.length);
   const familyUpgrades = normalizeFamilyUpgrades({ ...p, upgrades });
-  // Content marker, independent of selected chassis. Empty unowned rows do
-  // not opt old campaigns into a newer profile, while paid gear always does.
-  const profileVersion = contentProfileVersion({ trucks, ...familyUpgrades });
+  // Older builds reject v2 before normalizing a SaveStore profile. Mark actual
+  // new-family progress so an old tab/import cannot silently discard it.
+  const profileVersion = trucks.includes('player_hummer_t1')
+    || Object.values(familyUpgrades.vehicleUpgrades.hummer || {}).some(level => level > 0) ? 2 : 1;
   const weapons = { pistol: { dmg: 0, mag: 0, rel: 0, hnd: 0 } };
   for (const [id, levels] of Object.entries(record(p.weapons))) {
     if (!validWeapon(id)) continue;
@@ -94,11 +93,10 @@ export function loadProfile(campaignId) {
   try {
     const raw = localStorage.getItem(`${KEY}.${campaignId}`);
     if (raw) return normalizeProfile(JSON.parse(raw));
-  } catch (error) { if (error?.code === 'unsupported-profile') throw error; /* blocked or damaged storage */ }
+  } catch { /* blocked or damaged storage */ }
   return { ...DEFAULT_PROFILE(), campaignProgress: defaultCampaignProgress(), campaignRecords:{}, marathonBest:bestRecord() };
 }
 export function saveProfile(p) {
-  assertSupportedProfile(p); p.v = contentProfileVersion(p);
   p.revision = natural(p.revision) + 1;
   const result = getSaveStore().save(p);
   saveOutcomes.set(p, result);
@@ -107,22 +105,20 @@ export function saveProfile(p) {
 export function newerProfile(a, b) { return (a?.revision || 0) >= (b?.revision || 0) ? a : b; }
 
 export function buyTruck(p, id) {
-  assertSupportedProfile(p);
   const t = TRUCKS.find((x) => x.id === id);
   if (!t) return { ok: false, reason: 'invalid' };
   if (p.trucks.includes(id)) return { ok: false, reason: 'owned' };
   if (p.cash < t.cost) return { ok: false, reason: 'cash' };
   if (!stagePurchaseAllowed(p, id)) return { ok: false, reason: 'locked' };
-  p.cash -= t.cost; p.trucks.push(id); p.truck = id; p.v = contentProfileVersion(p); return { ok: true };
+  p.cash -= t.cost; p.trucks.push(id); p.truck = id; return { ok: true };
 }
-export function selectTruck(p, id) { assertSupportedProfile(p); if (validTruck(id) && p.trucks.includes(id)) { p.truck = id; p.v = contentProfileVersion(p); return { ok: true }; } return { ok: false, reason: 'locked' }; }
+export function selectTruck(p, id) { if (validTruck(id) && p.trucks.includes(id)) { p.truck = id; return { ok: true }; } return { ok: false, reason: 'locked' }; }
 export function upgradeCost(p, id) {
   if (!Object.hasOwn(UPGRADE_BY_ID, id)) return null;
   const u = UPGRADE_BY_ID[id], l = upgradeLevel(p, id);
   return l >= upgradeLimit(p, id) ? null : u.costs[l];
 }
 export function buyUpgrade(p, id) {
-  assertSupportedProfile(p);
   if (!Object.hasOwn(UPGRADE_BY_ID, id)) return { ok: false, reason: 'invalid' };
   if (UPGRADE_BY_ID[id].retired) return { ok: false, reason: 'retired' };
   const c = upgradeCost(p, id);
@@ -134,7 +130,7 @@ export function buyUpgrade(p, id) {
     families.vehicleUpgrades[familyOf(p.truck)][id] = next;
     Object.assign(p, families);
   } else p.upgrades[id] = next;
-  p.cash -= c; p.v = contentProfileVersion(p); return { ok: true };
+  p.cash -= c; return { ok: true };
 }
 export function buyWeapon(p, id) {
   if (!validWeapon(id)) return { ok: false, reason: 'invalid' };

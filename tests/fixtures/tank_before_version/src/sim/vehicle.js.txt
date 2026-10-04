@@ -7,7 +7,6 @@
 import * as THREE from 'three';
 import { RAPIER, GROUPS, RAY_WORLD, GRAVITY } from './physics.js';
 import { clamp, clamp01, lerp, smoothstep, damp, wrapAngle } from '../core/util.js';
-import { createTrackedDriveState, trackedContactRadius, writeTrackedDriveForces } from './tracked_drive.js';
 
 const V = THREE.Vector3, Q = THREE.Quaternion;
 const _v1 = new V(), _v3 = new V(), _v4 = new V(), _v5 = new V(), _f = new V(), _l = new V(), _n = new V();
@@ -30,11 +29,10 @@ export class Vehicle {
     this.poseRevision = 0; // incremented by explicit recovery/unflip, never ordinary motion
     const s = spec;
     this.mass = s.mass;
-    this.trackedDrive = createTrackedDriveState(s);
 
     // ---- geometry: rest ride height so that the visual (ground-origin) model sits on the ground
     const sp = s.susp;
-    this.wheelR = trackedContactRadius(s);
+    this.wheelR = s.wheelRadius;
     const perWheelMass = s.mass / s.wheels.length;
     // Specs can share a suspension table across vehicle masses. Derived values
     // belong to this body; writing them to the spec makes spawn order change
@@ -235,25 +233,24 @@ export class Vehicle {
     const grav = GRAVITY;
     const frontMu = s.grip.front, rearMu = s.grip.rear;
     const avgSurfaceGrip = groundedCount ? surfaceGrip / groundedCount : 1;
-    const aLatMax = 0.9 * (this.trackedDrive ? Math.min(frontMu, rearMu) * this.trackedDrive.lateralScrub : Math.min(frontMu, rearMu)) * avgSurfaceGrip * (grav + downforceN / this.mass) * (s.steerAssistK ?? 0.9);
-    const rMaxLow = this.trackedDrive ? this.trackedDrive.pivotRate : s.yawRateMax ?? 2.3;
+    const aLatMax = 0.9 * Math.min(frontMu, rearMu) * avgSurfaceGrip * (grav + downforceN / this.mass) * (s.steerAssistK ?? 0.9);
+    const rMaxLow = s.yawRateMax ?? 2.3;
     const vAbs = Math.max(Math.abs(vfBody), 1.0);
     // high speed: a bit calmer than the tyre limit (less twitchy on a keyboard, the truck feels its weight); the tightest bend
     // on the route (r 126 m) still only needs ~65% of what is left at top speed
     const rMax = Math.min(rMaxLow, aLatMax / vAbs) * lerp(1, s.hiSpeedYaw ?? 0.76, smoothstep(18, 45, vAbs));
     const lockRad = (s.steerLockDeg ?? 32) * Math.PI / 180;
     let rCmd = this.steerSmooth * rMax * (vfBody < -1 ? -1 : 1);
-    if (this.trackedDrive && this.reversing && vfBody >= -1) rCmd = -rCmd;
     let delta = Math.atan(rCmd * this.wheelbase / Math.max(Math.abs(vfBody), 3.0));
     delta = clamp(delta, -lockRad, lockRad);
     // drift mode: front wheels point along the velocity (auto counter-steer); a governor holds a slip angle set by the steering input
-    const driftMode = !this.trackedDrive && groundedCount >= 2 && speed > 8 && vfBody > 0 && (handbrake || Math.abs(this.slipAngle) > 0.2);
+    const driftMode = groundedCount >= 2 && speed > 8 && vfBody > 0 && (handbrake || Math.abs(this.slipAngle) > 0.2);
     this.driftMode = driftMode;
     if (driftMode) {
       const counter = clamp(this.slipAngle, -lockRad, lockRad);
       delta = clamp(counter + this.steerSmooth * 0.14, -lockRad, lockRad);
     }
-    this.steerAngle = this.trackedDrive ? 0 : damp(this.steerAngle, delta, 24, dt);
+    this.steerAngle = damp(this.steerAngle, delta, 24, dt);
 
     // ---------------- engine
     // Exhausting the tank starts a full recharge cycle. Releasing/re-pressing
@@ -295,20 +292,11 @@ export class Vehicle {
     // ---------------- tyre forces
     let driveShareGrounded = 0;
     for (const w of this.wheels) if (w.grounded) driveShareGrounded += w.drive;
-    if (this.trackedDrive) {
-      // Four shoe rays; motor yaw is a bounded differential contact request.
-      // The existing finite-nitro/engine/brake calculations above stay shared.
-      const active = this.driverAlive && this.stunned <= 0;
-      const steerPowered = active && !handbrake && brakeTotal === 0 && (throttle > .05 || this.reversing || Math.abs(steerIn) > .05);
-      const control = this.reversing ? .6 * brake : Math.max(throttle, Math.abs(this.steerSmooth));
-      const budget = Math.max(Math.abs(driveForce), this.mass * eng.accel0 * powerMul * control) * this.trackedDrive.turnPower;
-      writeTrackedDriveForces(this.trackedDrive, s, this.wheels, handbrake ? 0 : driveForce, handbrake ? 0 : budget, rCmd, this.yawRate, steerPowered);
-    }
     let anySlide = false, maxSlip = 0;
     for (let i = 0; i < this.wheels.length; i++) {
       const w = this.wheels[i];
       // visual steer
-      w.steer = this.trackedDrive ? 0 : w.front ? this.steerAngle : 0;
+      w.steer = w.front ? this.steerAngle : 0;
       if (!w.grounded || w.load <= 0) { w.slip = damp(w.slip, 0, 10, dt); w.spinRate = damp(w.spinRate, w.spinRate * 0.98, 2, dt); w.spin += w.spinRate * dt; continue; }
       // The suspension already carries gravity plus aero downforce. Applying
       // another speed multiplier here counts that load twice and gives tyres
@@ -328,15 +316,12 @@ export class Vehicle {
       const surf = w.surface;
       let muLat = (w.front ? frontMu : rearMu) * surf.grip * w.grip;
       let muLong = (s.grip.long ?? 1.25) * surf.grip * w.grip;
-      if (this.trackedDrive) muLat *= this.trackedDrive.lateralScrub;
       let rearHb = false;
-      if (this.trackedDrive && handbrake) rearHb = true;
-      else if (handbrake && (w.hb || !w.front)) { muLat *= lerp(s.grip.hbLat ?? 0.32, 0.48, smoothstep(18, 36, speed)); rearHb = true; } // less snap at motorway speed
-      const hbBrake = rearHb ? this.mass * (s.hbDecel ?? 3.5) / (this.trackedDrive ? this.wheels.length : 2) : 0;
+      if (handbrake && (w.hb || !w.front)) { muLat *= lerp(s.grip.hbLat ?? 0.32, 0.48, smoothstep(18, 36, speed)); rearHb = true; } // less snap at motorway speed
+      const hbBrake = rearHb ? this.mass * (s.hbDecel ?? 3.5) / 2 : 0;
       // longitudinal request
       let Fx = 0;
-      if (this.trackedDrive) Fx += this.trackedDrive.forces[i];
-      else if (w.drive > 0 && !rearHb && driveShareGrounded > 0) Fx += driveForce * w.drive / driveShareGrounded;
+      if (w.drive > 0 && !rearHb && driveShareGrounded > 0) Fx += driveForce * w.drive / driveShareGrounded;
       const mEff = this.mass / this.wheels.length;
       if (brakeTotal > 0) {
         const fb = brakeTotal * w.brake * (w.flat ? 0.5 : 1);
@@ -347,15 +332,12 @@ export class Vehicle {
       const rr = (0.012 + surf.drag) * N;
       Fx += -Math.sign(vf) * Math.min(rr, Math.abs(vf) * mEff / dt);
       // lateral: kill sideways velocity with a stiff "grip gain", saturating on the friction circle
-      const gain = this.trackedDrive ? this.trackedDrive.lateralGain : s.grip.gain ?? 14;
+      const gain = s.grip.gain ?? 14;
       let Fl = -mEff * vl * gain;
       const Fmax = muLat * N;
       const FxMax = muLong * N;
       // friction circle
-      // Track requests must also respect exactly-zero/sub-newton traction.
-      // The legacy car denominator guard remains numerically unchanged.
-      if (this.trackedDrive) { if (Fmax <= 0) Fl = 0; if (FxMax <= 0) Fx = 0; }
-      const demand = this.trackedDrive ? Math.hypot(Fmax > 0 ? Fl / Fmax : 0, FxMax > 0 ? Fx / FxMax : 0) : Math.hypot(Fl / Math.max(Fmax, 1), Fx / Math.max(FxMax, 1));
+      const demand = Math.hypot(Fl / Math.max(Fmax, 1), Fx / Math.max(FxMax, 1));
       let slideK = 1;
       if (demand > 1) { slideK = 1 / demand; anySlide = true; }
       Fl *= slideK; Fx *= slideK;
@@ -380,7 +362,7 @@ export class Vehicle {
     }
 
     // ---------------- stability assist torque (yaw damping toward commanded yaw rate)
-    if (!this.trackedDrive && groundedCount >= 2) {
+    if (groundedCount >= 2) {
       const Iy = (s.inertia ? s.inertia[1] : this.mass * 2.6);
       let tq;
       if (driftMode) {
@@ -411,7 +393,7 @@ export class Vehicle {
       if (th > 0) { _imp.copy(v).multiplyScalar(this.mass * th * dt / Math.max(speed, 1)); b.applyImpulse(_imp, true); }
     }
     // drifting bookkeeping
-    this.drifting = !this.trackedDrive && groundedCount >= 2 && speed > 12 && Math.abs(this.slipAngle) > 0.28;
+    this.drifting = groundedCount >= 2 && speed > 12 && Math.abs(this.slipAngle) > 0.28;
     this.driftTime = this.drifting ? this.driftTime + dt : Math.max(0, this.driftTime - dt * 2);
 
     // ---------------- air control: self-level, keep nose along the flight path
@@ -425,8 +407,6 @@ export class Vehicle {
       // damp angular velocity (keep yaw mostly free)
       const av = this.angvel;
       tqv.x -= av.x * 1.6; tqv.z -= av.z * 1.6; tqv.y -= av.y * 0.3;
-      // Tracks can retain pitch/roll self-levelling, never airborne motor yaw.
-      if (this.trackedDrive) tqv.addScaledVector(up, -tqv.dot(up));
       _imp.copy(tqv).multiplyScalar(this.mass * 2.0 * dt);
       b.applyTorqueImpulse(_imp, true);
     }

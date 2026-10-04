@@ -22,9 +22,9 @@ const frozen = resolve(root, 'tests/fixtures/hummer_before_version');
 const prefix = 'hummer-before-version://source/';
 const snapshots = new Set(['src/meta/profile.js', 'src/meta/save_store.js',
   'src/data/upgrades.js', 'src/data/vehicle_families.js']);
-const cloudSource = readFileSync(resolve(root, 'src/meta/cloud_saves.js'), 'utf8');
-// Its entire implementation is still the published client; only the schema
-// module binding changes for the old-client execution below.
+const cloudSource = readFileSync(resolve(frozen, 'src/meta/cloud_saves.js.txt'), 'utf8');
+// Freeze the exact published pre-tank client, retaining its existing hash gate.
+// Its schema module binding changes for the historical v1 execution below.
 assert.equal(createHash('sha256').update(cloudSource).digest('hex'),
   '0ffffcca0b38fddd343609842045b04797a22f8c308fa30a258da2c173811cdc');
 const oldSources = new Map([...snapshots].map(path => [prefix + path,

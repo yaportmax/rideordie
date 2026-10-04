@@ -12,6 +12,7 @@ import { seatSwapMarkup } from './garage_seats.js';
 import { WEAPON_OPTICS, compatibleWeaponOptic, normalizeWeaponOptics } from '../../data/weapon_optics.js';
 import { weaponOpticState } from '../../meta/weapon_optics.js';
 import { TEN_LEVELS, campaignJourney, normalizeJourney, normalizeCampaignProgress } from '../../data/campaign.js';
+import { vehicleUpgradePresentation } from '../../data/vehicle_upgrade_presentation.js';
 
 export function garageJourneyStatus(profile, extra={}) {
   const journey=extra.journey?normalizeJourney(extra.journey):campaignJourney(profile), level=TEN_LEVELS[journey.level-1];
@@ -123,7 +124,7 @@ export class GarageScreen {
   }
   sel() { return this.selId[this.tab]; }
   upState(id) {
-    const u = UPGRADE_BY_ID[id];
+    const u = vehicleUpgradePresentation(this.p, id);
     if (!u) return { u: null, lv: 0, max: 0, cost: null, state: 'max' };
     const lv = upgradeLevel(this.p, id), max = upgradeLimit(this.p, id);
     if (lv >= max) return { u, lv, max, cost: null, state: 'max' };

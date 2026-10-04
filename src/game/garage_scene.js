@@ -21,7 +21,7 @@ import { TitleScene } from './title_scene.js';
 import { buildGarageSet, BENCH, SUN_DIR, DOOR, BACK_Z } from './garage_env.js';
 import { PuffSystem } from './menu_fx.js';
 import { GpuTimer } from '../view/post/gpu_timer.js';
-import { HUMMER_GARAGE_ID, HummerGarageEnvelope, hummerGarageFitDistance } from './hummer_garage_fit.js';
+import { HUMMER_GARAGE_ID, TANK_GARAGE_ID, HummerGarageEnvelope, TankGarageEnvelope, hummerGarageFitDistance } from './hummer_garage_fit.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const REFL = 1;                      // layer seen by the floor reflection camera
@@ -279,7 +279,7 @@ export class GarageScene {
     if (crewKey !== this.crewKey) { this._buildCrew(this.base.weapon, this.base.opticId); this.crewKey = crewKey; fitChanged = true; }
     if (want.paint !== this.paint) { this.paint = want.paint; this.view?.setTint(want.paint, 0x30302e); }
     if (weaponOpticKey(want.weapon, want.opticId) !== this.benchId) { this._buildBench(want.weapon, want.opticId); }
-    if (fitChanged) this.hummerEnvelope = this.spec?.id === HUMMER_GARAGE_ID ? new HummerGarageEnvelope(this.view, this.crew, this.turntable) : null;
+    if (fitChanged) this.hummerEnvelope = this.spec?.id === HUMMER_GARAGE_ID ? new HummerGarageEnvelope(this.view, this.crew, this.turntable) : this.spec?.id === TANK_GARAGE_ID ? new TankGarageEnvelope(this.view, this.crew, this.turntable) : null;
     if (this.title && this.stage === 'title') this.title.setHero(this.base.truck, this.base.paint, this.base.weapon, this.base);
   }
   _buildTruck(id) {
@@ -423,7 +423,7 @@ export class GarageScene {
     const spec = this.spec || VEHICLES.truck_t1;
     if (v.subject === 'bench' && this.benchWeapon) { out.copy(this.benchWeapon.root.userData.base); return Math.max(0.45, this.benchWeapon.root.userData.framingRadius ?? this.benchWeapon.root.userData.size * 0.62); }
     if (v.subject === 'gunner' && this.gunnerCrew) { this.gunnerCrew.root.getWorldPosition(out); out.y += 1.05; return 1.25; }
-    if (v.subject === 'truck' && this.spec?.id === HUMMER_GARAGE_ID && this.hummerEnvelope) {
+    if (v.subject === 'truck' && [HUMMER_GARAGE_ID, TANK_GARAGE_ID].includes(this.spec?.id) && this.hummerEnvelope) {
       this.hummerEnvelope.update().worldCenter(out);
       out.y += v.y || 0;
       return this.hummerEnvelope.radius + Math.abs(v.y || 0);
@@ -445,7 +445,7 @@ export class GarageScene {
     // than fitting radius only at the subject's center-depth plane.
     const mountedBench = v.subject === 'bench' && this.benchWeapon?.view.mounted;
     g.dist = (mountedBench ? Math.hypot(R, need) : need) * v.fit;
-    const hummerTruck = v.subject === 'truck' && this.spec?.id === HUMMER_GARAGE_ID && this.hummerEnvelope;
+    const hummerTruck = v.subject === 'truck' && [HUMMER_GARAGE_ID, TANK_GARAGE_ID].includes(this.spec?.id) && this.hummerEnvelope;
     if (hummerTruck) g.dist = hummerGarageFitDistance(R, c.fov, W, H, fr);
     // smooth (critically damped-ish); a fast cut when snapping
     const k = damp(this.snap ? 60 : 3.0, dt); this.snap = false;

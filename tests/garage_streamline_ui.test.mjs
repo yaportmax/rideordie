@@ -35,12 +35,19 @@ test('family cards preserve upgraded and legacy ownership without changing any s
   s.p.vehicleUpgrades.buggy = { engine: 5, nitro: 4 };
   s.p.upgrades.vest = 3;
   const before = structuredClone(s.p), selection = garageInitialSelection(s.p);
-  assert.deepEqual(garageItems(s.p, 'truck'), ['player_sedan_t1', 'truck_t1', 'player_buggy_t1', 'player_hummer_t1']);
+  const bases = garageItems(s.p, 'truck');
+  assert.deepEqual(bases, ['player_sedan_t1', 'truck_t1', 'player_buggy_t1', 'player_hummer_t1', 'player_tank_t1']);
+  assert.deepEqual(bases.map(id => [id, TRUCKS.find(row => row.id === id).cost]), [
+    ['player_sedan_t1', 0], ['truck_t1', 3125], ['player_buggy_t1', 12500], ['player_hummer_t1', 100000], ['player_tank_t1', 250000],
+  ]);
   assert.equal(selection.selId.truck, 'truck_t1');
   assert.equal(garageFamilyVehicle(s.p, 'truck_t1'), 'truck_t4');
   assert.equal(garageFamilyVehicle(s.p, 'player_buggy_t1'), 'player_buggy_t3');
   assert.equal(s.familyState('truck_t1').state, 'active');
   assert.equal(s.familyState('player_buggy_t1').state, 'owned');
+  assert.equal(s.familyState('player_tank_t1').state, 'no', '100000 personal cash cannot buy the appended 250000 Tank');
+  assert.equal(s.familyState('player_tank_t1').owned, false);
+  assert.equal(garageFamilyVehicle(s.p, 'player_tank_t1'), 'player_tank_t1', 'one Tank base, without fictitious stages');
   assert.deepEqual(s.p, before, 'presentation cannot migrate or overwrite the save');
 });
 
@@ -271,8 +278,10 @@ test('generated lists group current-family builds under Vehicle Upgrades and nev
   s.q = { lhead: {}, lcount: {}, rows: {} };
   try {
     s.renderList();
-    assert.equal((s.q.rows.innerHTML.match(/data-row=/g) || []).length, 4);
-    assert.equal((s.q.rows.innerHTML.match(/family-row/g) || []).length, 4);
+    assert.equal((s.q.rows.innerHTML.match(/data-row=/g) || []).length, 5);
+    assert.equal((s.q.rows.innerHTML.match(/family-row/g) || []).length, 5);
+    assert.deepEqual([...s.q.rows.innerHTML.matchAll(/data-row="([^"]+)"/g)].map(match => match[1]),
+      ['player_sedan_t1', 'truck_t1', 'player_buggy_t1', 'player_hummer_t1', 'player_tank_t1']);
     assert.ok(!s.q.rows.innerHTML.includes('STAGE '));
     s.tab = 'upgrades'; s.renderList();
     assert.equal(s.q.lhead.textContent, 'VEHICLE UPGRADES');

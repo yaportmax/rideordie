@@ -11,12 +11,14 @@ const FAMILY_STAGES = {
   rustbucket: ['truck_t1', 'truck_t2', 'truck_t3', 'truck_t4'],
   buggy: ['player_buggy_t1', 'player_buggy_t2', 'player_buggy_t3'],
   hummer: ['player_hummer_t1'],
+  tank: ['player_tank_t1'],
 };
 const FAMILY_CAPS = {
   sedan: { engine: 4, armor: 3, tires: 4, nitro: 3, ram: 2, spikes: 1, glass: 2, fueltank: 2, oil: 2, mines: 1 },
   rustbucket: { engine: 5, armor: 5, tires: 5, nitro: 5, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 },
   buggy: { engine: 5, armor: 2, tires: 5, nitro: 4, ram: 1, spikes: 1, glass: 1, fueltank: 2, oil: 1, mines: 1 },
   hummer: { engine: 4, armor: 5, tires: 4, nitro: 3, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 },
+  tank: { engine: 3, armor: 5, tires: 4, nitro: 2, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 },
 };
 const zeroLevels = () => Object.fromEntries(DRIVER_UPGRADE_IDS.map(id => [id, 0]));
 const profile = (extra = {}) => normalizeProfile({ campaignId: 'vehicle-family-test', cash: 1000000, ...extra });
@@ -28,10 +30,10 @@ const rejectedWithoutMutation = (p, action, reason) => {
   assert.deepEqual(p, before, `${reason} rejection must preserve the entire profile`);
 };
 
-test('the shop has ten unique player chassis with explicit family stages and real model aliases', () => {
+test('the shop has eleven unique player chassis with explicit family stages and real model aliases', () => {
   const expected = Object.values(FAMILY_STAGES).flat();
-  assert.equal(PLAYER_VEHICLE_CATALOGUE.length, 10);
-  assert.equal(new Set(PLAYER_VEHICLE_CATALOGUE.map(vehicle => vehicle.id)).size, 10);
+  assert.equal(PLAYER_VEHICLE_CATALOGUE.length, 11);
+  assert.equal(new Set(PLAYER_VEHICLE_CATALOGUE.map(vehicle => vehicle.id)).size, 11);
   assert.deepEqual(PLAYER_VEHICLE_CATALOGUE.map(vehicle => vehicle.id), expected);
   assert.deepEqual(TRUCKS.map(vehicle => vehicle.id), expected);
   assert.deepEqual(Object.keys(VEHICLE_FAMILIES), Object.keys(FAMILY_STAGES));
@@ -64,10 +66,10 @@ test('new profiles own only the sedan and begin with independent empty family in
   const p = DEFAULT_PROFILE(), other = DEFAULT_PROFILE();
   assert.equal(p.truck, 'player_sedan_t1'); assert.deepEqual(p.trucks, ['player_sedan_t1']);
   assert.equal(p.vehicleUpgradeSchema, 2);
-  assert.deepEqual(p.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {}, hummer: {} });
+  assert.deepEqual(p.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {}, hummer: {}, tank: {} });
   p.vehicleUpgrades.sedan.engine = 1;
-  assert.deepEqual(other.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {}, hummer: {} });
-  for (const raw of [null, [], {}, { trucks: ['missing', 'e_sedan'], truck: 'missing' }]) {
+  assert.deepEqual(other.vehicleUpgrades, { sedan: {}, rustbucket: {}, buggy: {}, hummer: {}, tank: {} });
+  for (const raw of [null, [], {}]) {
     const repaired = normalizeProfile(raw);
     assert.equal(repaired.truck, 'player_sedan_t1'); assert.deepEqual(repaired.trucks, ['player_sedan_t1']);
     assert.equal(repaired.vehicleUpgradeSchema, 2);
@@ -75,10 +77,11 @@ test('new profiles own only the sedan and begin with independent empty family in
       for (const id of DRIVER_UPGRADE_IDS) assert.equal(upgradeLevel(repaired, id, stages[0]), 0);
     }
   }
+  assert.throws(() => normalizeProfile({ trucks: ['missing', 'e_sedan'], truck: 'missing' }), error => error?.code === 'unsupported-profile', 'unknown vehicle progress must not be projected into a smaller catalogue');
 });
 
 test('normalization preserves valid legacy pickup ownership and selection without inventing a free pickup for new saves', () => {
-  const old = normalizeProfile({ truck: 'truck_t4', trucks: ['truck_t2', 'truck_t4', 'truck_t4', 'missing', 'e_sedan'] });
+  const old = normalizeProfile({ truck: 'truck_t4', trucks: ['truck_t2', 'truck_t4', 'truck_t4'] });
   assert.equal(old.truck, 'truck_t4');
   assert.ok(old.trucks.includes('truck_t2') && old.trucks.includes('truck_t4'));
   assert.equal(old.trucks.filter(id => id === 'truck_t4').length, 1);
@@ -127,8 +130,8 @@ test('schema two ignores stray global driver levels instead of remigrating or sh
 
 test('damaged family inventories clamp finite integer levels to each family cap', () => {
   const raw = { vehicleUpgradeSchema: 2, upgrades: {}, vehicleUpgrades: {
-    sedan: { engine: 100, armor: 2.9, tires: -1, nitro: Infinity, ram: '2', spikes: NaN, glass: null, fueltank: [], oil: {}, mines: 100, unknown: 9 },
-    rustbucket: [], buggy: { engine: 100, armor: 100, tires: 100, nitro: 100, ram: 100, spikes: 100, glass: 100, fueltank: 100, oil: 100, mines: 100 }, ignored: { engine: 5 },
+    sedan: { engine: 100, armor: 2.9, tires: -1, nitro: Infinity, ram: '2', spikes: NaN, glass: null, fueltank: [], oil: {}, mines: 100 },
+    rustbucket: [], buggy: { engine: 100, armor: 100, tires: 100, nitro: 100, ram: 100, spikes: 100, glass: 100, fueltank: 100, oil: 100, mines: 100 },
   } };
   const before = structuredClone(raw), result = normalizeFamilyUpgrades(raw);
   assert.deepEqual(result.vehicleUpgrades.sedan, { ...zeroLevels(), engine: 4, armor: 2, mines: 1 });

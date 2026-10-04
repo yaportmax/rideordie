@@ -14,7 +14,7 @@ import { sanitizeVisualLevels } from '../src/view/car_upgrade_plan.js';
 import { makeCarState } from '../src/view/car_state.js';
 
 await loadWeaponAssets();
-// Load actual menu/world characters and all three player families through the
+// Load actual menu/world characters and all registered player families through the
 // shipped Assets path. Only file transport and browser image decoding differ.
 const assetURLs = [...new Set([
   ...['hero_driver', 'raider_a', 'raider_b', 'raider_c', 'raider_d', 'raider_driver'].map(id => `/models/characters/${id}.glb`),
@@ -89,10 +89,11 @@ function titleFixture(t) {
   t.after(() => { for (const car of title.cars) { car.view.dispose(); for (const crew of car.crew) crew.dispose(); } });
   return title;
 }
-const familyLevels = { sedan: { armor: 3, ram: 2, glass: 2 }, rustbucket: { armor: 5, ram: 3, spikes: 2, nitro: 5 }, buggy: { armor: 2, engine: 5, tires: 5 }, hummer: { armor: 5, ram: 3, nitro: 3 } };
+const familyLevels = { sedan: { armor: 3, ram: 2, glass: 2 }, rustbucket: { armor: 5, ram: 3, spikes: 2, nitro: 5 }, buggy: { armor: 2, engine: 5, tires: 5 }, hummer: { armor: 5, ram: 3, nitro: 3 }, tank: { armor: 5, ram: 3, tires: 4, nitro: 2 } };
 
 test('stale owned and preview tiers cannot rebuild real garage crew, bench, chassis or installed family parts', t => {
   const garage = garageFixture(t);
+  assert.deepEqual(Object.keys(familyLevels).sort(), Object.keys(VEHICLE_FAMILIES).sort(), 'every actual family needs a positive paid appearance fixture');
   for (const [family, data] of Object.entries(VEHICLE_FAMILIES)) {
     const id = data.stageIDs.at(-1), loadout = { weapon: 'rifle', opticId: 'wide_reflex', upgradeLevels: familyLevels[family], armorTier: 0 };
     garage.setPreview({}); garage.setTruck(id, 0x8f6a3d, loadout);

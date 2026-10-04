@@ -386,7 +386,7 @@ test('a deferred active remote head pruned before the next sync becomes a missin
 test('unsupported future profile or excess live response is rejected before any local import', async t => {
   const h = harness(t), slotId = h.store.activeId(); await h.service.seed(CODE_A, slotId, profile());
   const row = await h.service.seed(CODE_A, id(80), profile(55, 'future-road'), 'Future road');
-  row.profile.v = 3; h.service.vaults.get(CODE_A).slots.set(id(80), row);
+  row.profile.v = 4; h.service.vaults.get(CODE_A).slots.set(id(80), row);
   assert.equal((await h.cloud.connect(CODE_A)).status, 'error'); assert.equal(h.storage.getItem(KEY), null); assert.equal(h.store.list().length, 1);
   h.service.vaults.get(CODE_A).slots.delete(id(80));
   for (let n = 2; n <= 13; n++) await h.service.seed(CODE_A, id(n), profile(n, `road-${n}`), `Road ${n}`);

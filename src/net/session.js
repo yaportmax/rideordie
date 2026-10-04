@@ -6,6 +6,7 @@ import { planEventPackets } from './event_batches.js';
 import { GarageSeatSwap, GARAGE_SEAT_PROTOCOL } from './garage_seats.js';
 import { PLAYER_VEHICLE_PROTOCOL } from '../data/vehicle_families.js';
 import { ELITE_VEHICLE_PROTOCOL } from '../data/elite_vehicles.js';
+import { assertSupportedProfile } from '../../server/saves/profile_support.js';
 import { DRIVING_ROUTE_VERSION } from '../world/driving_plan.js';
 import { CAMPAIGN_PROTOCOL, normalizeJourney, normalizeCampaignProgress, campaignJourney, selectCampaignLevel, creditCampaignLevel } from '../data/campaign.js';
 import { normalizeProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from '../meta/profile.js';
@@ -92,8 +93,8 @@ export class Session {
     this._fastHeader = createRunHeader(this._activeRunId);
   }
 
-  async host(profile) { this.isHost = true; this.peerWallet = null; this._peerProtocol = null; this._protocolError = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); this.code = await this.tp.host(); return this.code; }
-  async join(code, profile) { this.isHost = false; this.peerWallet = null; this._peerProtocol = null; this._protocolError = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); await this.tp.join(code); this.code = code.toUpperCase(); }
+  async host(profile) { assertSupportedProfile(profile); this.isHost = true; this.peerWallet = null; this._peerProtocol = null; this._protocolError = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); this.code = await this.tp.host(); return this.code; }
+  async join(code, profile) { assertSupportedProfile(profile); this.isHost = false; this.peerWallet = null; this._peerProtocol = null; this._protocolError = null; this.profile = this.personalProfile = profile; this.wallet = walletOf(profile); await this.tp.join(code); this.code = code.toUpperCase(); }
   leave() { this.swap.disconnect(); this.tp.destroy(); this.connected = false; this.other = null; this.me.ready = false; this.activeRunId = null; this._peerProtocol = null; }
 
   // ---- lobby
@@ -221,7 +222,9 @@ export class Session {
   _receiveProfile(value, remoteWallet) {
     const wallet = readWallet(remoteWallet);
     if (!wallet || wallet.playerId !== this.personalProfile.campaignId) return false;
-    const profile = normalizeProfile(value);
+    let profile;
+    try { profile = normalizeProfile(value); }
+    catch (error) { if (error?.code === 'unsupported-profile') return false; throw error; }
     if ((this._receivedCampaign && profile.campaignId !== this._receivedCampaign) || profile.revision < this._receivedRevision) return false;
     this._receivedCampaign = profile.campaignId; this._receivedRevision = profile.revision;
     this.wallet = wallet;

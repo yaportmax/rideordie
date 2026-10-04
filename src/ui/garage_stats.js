@@ -4,6 +4,7 @@ import { VEHICLES } from '../data/vehicles.js';
 import { familyOf, normalizeFamilyUpgrades, stagePurchaseAllowed } from '../data/vehicle_families.js';
 import { WEAPONS, WEAPON_ORDER, weaponStats } from '../data/weapons.js';
 import { speedValue, speedLabel } from './units.js';
+import { vehicleUpgradePresentation } from '../data/vehicle_upgrade_presentation.js';
 
 const r0 = (v) => String(Math.round(v));
 const r1 = (v) => (Math.round(v * 10) / 10).toFixed(1);
@@ -24,9 +25,9 @@ const UP_STATS = {
     { label: 'CAR HP', get: (e) => hullHp(spec) * e.hpMul, max: 1800, fmt: r0 },
     { label: 'BULLET RESIST', get: (e) => (1 - e.bulletResist) * 100, max: 45, fmt: pctPlain },
   ],
-  tires: () => [
+  tires: (spec) => [
     { label: 'GRIP', get: (e) => (e.gripMul - 1) * 100, max: 20, fmt: pct },
-    { label: 'RUN-FLAT TIRES', get: (e) => (e.runFlat ? 1 : 0), max: 1, fmt: (v) => (v ? 'YES' : 'NO') },
+    { label: spec.driveMode === 'tracks' ? 'DRIVE PROTECTION' : 'RUN-FLAT TIRES', get: (e) => (e.runFlat ? 1 : 0), max: 1, fmt: (v) => (v ? 'YES' : 'NO') },
   ],
   nitro: () => [
     { label: 'NITRO TANK', get: (e) => e.nitroCap, max: 11, unit: 'SEC', fmt: r1 },
@@ -82,7 +83,7 @@ export function truckStats(profile, id, units = 'mi') {
   const row = (label, k, max, fmt, unit, lowerBetter) => ({ label, before: a[k], after: same ? null : b[k], max, fmt, unit, lowerBetter });
   return [
     row('TOP SPEED', 'speed', speedValue(360 / 3.6, units), r0, speedLabel(units)), row('ACCELERATION', 'accel', 10, r1, 'M/S²'),
-    row('HULL HP', 'hp', 1800, r0), { ...row('WEIGHT', 'mass', 3200, r0, 'KG'), },
+    row('HULL HP', 'hp', 1800, r0), { ...row('WEIGHT', 'mass', cur.driveMode === 'tracks' || tgt.driveMode === 'tracks' ? 8000 : 3200, r0, 'KG'), },
   ];
 }
 
@@ -92,7 +93,7 @@ export function truckStats(profile, id, units = 'mi') {
  */
 export function suggestNext(profile, cause = '') {
   const p = profile, cash = p.cash || 0, lv = (id) => upgradeLevel(p, id);
-  const up = (id, why) => { const u = UPGRADE_BY_ID[id]; if (!u || u.retired || lv(id) >= upgradeLimit(p, id)) return null; return { tab: u.role === 'driver' ? 'upgrades' : 'gunner', id, name: `${u.name}${u.costs.length > 1 ? ' LV ' + (lv(id) + 1) : ''}`, kind: u.role === 'driver' ? 'CAR UPGRADE' : 'GUNNER GEAR', cost: u.costs[lv(id)], why }; };
+  const up = (id, why) => { const u = vehicleUpgradePresentation(p, id); if (!u || u.retired || lv(id) >= upgradeLimit(p, id)) return null; return { tab: u.role === 'driver' ? 'upgrades' : 'gunner', id, name: `${u.name}${u.costs.length > 1 ? ' LV ' + (lv(id) + 1) : ''}`, kind: u.role === 'driver' ? 'CAR UPGRADE' : 'GUNNER GEAR', cost: u.costs[lv(id)], why }; };
   const family = familyOf(p.truck);
   const candidates = TRUCKS.filter(t => !p.trucks.includes(t.id) && stagePurchaseAllowed(p, t.id));
   const nextTruck = candidates.find(t => t.family === family) || candidates.find(t => t.tier === 1);

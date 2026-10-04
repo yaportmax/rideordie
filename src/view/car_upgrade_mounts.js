@@ -4,6 +4,7 @@
 // authored anchor frame. Tire geometry alone is generated wheel-local.
 // Runtime visual/physics acceptance remains pending.
 import { hummerBaseUpgradeMounts } from './hummer_upgrade_mounts.js';
+import { tankBaseUpgradeMounts } from './tank_upgrade_mounts.js';
 
 const mount = (p, anchor = 'body', size) => ({ p, anchor, ...(size ? { size } : {}) });
 const sidePair = (x, y, z, height, depth, anchors = ['panel_door_L', 'panel_door_R']) => ({
@@ -153,6 +154,7 @@ function truckMounts(modelId) {
 export function vehicleUpgradeMounts(spec) {
   if (!spec || spec.kind !== 'player') return null;
   const modelId = spec.modelId ?? spec.id;
+  if (modelId === 'player_tank_t1') return tankBaseUpgradeMounts(spec);
   let mounts;
   if (/^player_sedan_t\d+$/.test(modelId)) mounts = sedanMounts();
   else if (/^player_buggy_t\d+$/.test(modelId)) mounts = buggyMounts();

@@ -72,8 +72,11 @@ test('voluntary partial bursts remain responsive without increasing available fu
   });
 });
 
-test('nine legacy chassis retain 40 percent longer native boost and the new Hummer shares 12 second full recharge', () => {
-  assert.equal(Object.values(VEHICLES).filter(spec => spec.kind === 'player').length, 10);
+test('nine legacy chassis retain longer native boost and appended Hummer/Tank share finite 12 second full recharge', () => {
+  const players = Object.values(VEHICLES).filter(spec => spec.kind === 'player');
+  assert.equal(players.length, 11);
+  assert.deepEqual(players.slice(0, 10).map(spec => spec.id), [...Object.keys(PREVIOUS_TANKS), 'player_hummer_t1']);
+  assert.equal(players[10].id, 'player_tank_t1', 'Tank appends without reindexing the ten existing player specs');
   for (const [id, previousCapacity] of Object.entries(PREVIOUS_TANKS)) {
     const spec = VEHICLES[id];
     close(spec.nitro.capacity, previousCapacity * 1.4, id + ' native burst lasts longer');
@@ -87,14 +90,20 @@ test('nine legacy chassis retain 40 percent longer native boost and the new Humm
   close(hummer.nitro.capacity, 1.54, 'new Hummer has its authored stock finite burst');
   close(hummer.nitro.capacity / hummer.nitro.regen, 12, 'new Hummer requires full passive recharge');
   assert.equal(hummer.nitro.mul, 1.6, 'new Hummer uses its authored finite boost thrust');
+  const tank = VEHICLES.player_tank_t1;
+  close(tank.nitro.capacity, 1.4, 'new Tank has its authored finite stock burst');
+  close(tank.nitro.capacity / tank.nitro.regen, 12, 'Tank requires the same complete passive recharge');
+  assert.equal(tank.nitro.mul, 1.35, 'Tank keeps its separate authored boost thrust');
+  assert.equal(tank.driveMode, 'tracks');
 });
 
-test('tank upgrades retain all ten chassis identities, exact costs, longer bursts and faster complete refill', () => {
+test('nitro upgrades retain all eleven chassis identities, exact costs, longer bursts and faster complete refill', () => {
   assert.deepEqual(UPGRADE_BY_ID.nitro.costs, [1875, 3000, 4750, 7000, 10000]);
-  for (const id of [...Object.keys(PREVIOUS_TANKS), 'player_hummer_t1']) {
+  for (const id of [...Object.keys(PREVIOUS_TANKS), 'player_hummer_t1', 'player_tank_t1']) {
     const profile = DEFAULT_PROFILE(), base = VEHICLES[id];
     profile.truck = id; profile.trucks = [id];
     const cap = upgradeLimit(profile, 'nitro');
+    if (id === 'player_tank_t1') assert.equal(cap, 2, 'Tank uses its own paid nitro cap, not Rustbucket\'s five');
     let previousCapacity = 0, previousRefill = Infinity;
     for (let level = 0; level <= cap; level++) {
       profile.vehicleUpgrades[base.family].nitro = level;

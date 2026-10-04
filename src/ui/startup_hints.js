@@ -21,19 +21,19 @@ export function startupHintLines(role, input = {}) {
   let rows;
   if (role === 'driver') {
     rows = pad ? [
-      line([item('LS', 'STEER'), item('RT', 'GAS'), item('LT', 'BRAKE / REVERSE'), item('A', 'DRIFT'), item('RB', 'NITRO')]),
+      line([item('LS', 'STEER'), item('RT', 'GAS'), item('LT', 'BRAKE / REVERSE'), item('A', 'HANDBRAKE'), item('RB', 'NITRO')]),
       line([item('LB', 'LOOK BACK (HOLD)'), item('Y', 'RESET (HOLD)'), item('R3', 'VIEW'), item('X / B', 'OIL / MINE'), item('D-PAD DOWN', 'MEDKIT')]),
     ] : [
-      line([pair('throttle', 'brake', 'GAS / BRAKE'), pair('left', 'right', 'STEER'), action('handbrake', 'DRIFT'), action('nitro', 'NITRO')]),
+      line([pair('throttle', 'brake', 'GAS / BRAKE'), pair('left', 'right', 'STEER'), action('handbrake', 'HANDBRAKE'), action('nitro', 'NITRO')]),
       line([pair('special1', 'special2', 'OIL / MINE'), action('lookBack', 'LOOK BACK (HOLD)'), action('reset', 'RESET (HOLD)'), action('camera', 'VIEW'), action('medkit', 'MEDKIT')]),
     ];
   } else if (role === 'solo') {
     rows = pad ? [
-      line([item('LS', 'STEER'), item('RT / LT', 'GAS / BRAKE'), item('A', 'DRIFT'), item('LB', 'NITRO'), item('Y', 'RESET (HOLD)')]),
+      line([item('LS', 'STEER'), item('RT / LT', 'GAS / BRAKE'), item('A', 'HANDBRAKE'), item('LB', 'NITRO'), item('Y', 'RESET (HOLD)')]),
       line([item('RS', 'AIM'), item('RB', 'FIRE'), item('X', 'RELOAD'), item('B', 'GRENADE'), item('R3', 'NEXT WEAPON')]),
       line([item('D-PAD LEFT / RIGHT', 'OIL / MINE'), item('BACK', 'VIEW'), item('D-PAD DOWN', 'MEDKIT')]),
     ] : [
-      line([pair('throttle', 'brake', 'GAS / BRAKE'), pair('left', 'right', 'STEER'), action('handbrake', 'DRIFT'), action('nitro', 'NITRO'), item('T', 'RESET (HOLD)')]),
+      line([pair('throttle', 'brake', 'GAS / BRAKE'), pair('left', 'right', 'STEER'), action('handbrake', 'HANDBRAKE'), action('nitro', 'NITRO'), item('T', 'RESET (HOLD)')]),
       line([item('MOUSE', 'AIM'), item('LMB', 'FIRE'), item('RMB', 'SIGHTS'), action('reload', 'RELOAD'), action('grenade', 'GRENADE')]),
       line([pair('special1', 'special2', 'OIL / MINE'), slots(), item('WHEEL', 'SWAP'), action('view', 'VIEW'), action('medkit', 'MEDKIT')]),
     ];

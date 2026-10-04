@@ -1,0 +1,141 @@
+// Portable, finite wire schema shared by the Worker and browser sync client.
+// Unknown keys are discarded. Invalid values in supported fields fail the write.
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const MAX_BODY_BYTES = 64 * 1024;
+export const MAX_SLOTS = 12;
+export const MAX_TOMBSTONES = 12;
+export const MAX_BACKUPS = 10;
+const MAX = Number.MAX_SAFE_INTEGER;
+const recoveryCode = /ROD1-[a-zA-Z0-9_-]{43}/;
+const own = (value, key) => Object.hasOwn(value, key);
+const invalid = () => { throw new TypeError('invalid_profile'); };
+function object(value, fallback = {}) {
+  if (value === undefined) return fallback;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) invalid();
+  return value;
+}
+function number(value, fallback = 0, max = MAX, integer = true, min = 0) {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max || (integer && !Number.isSafeInteger(value))) invalid();
+  return value;
+}
+function boolean(value, fallback = false) {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'boolean') invalid();
+  return value;
+}
+function choice(value, values, fallback) {
+  if (value === undefined) return fallback;
+  if (!values.includes(value)) invalid();
+  return value;
+}
+function array(value, max, check, fallback = []) {
+  if (value === undefined) return [...fallback];
+  if (!Array.isArray(value) || value.length > max || value.some(v => !check(v))) invalid();
+  return [...new Set(value)];
+}
+function runId(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(value) || recoveryCode.test(value)) invalid();
+  return value;
+}
+export function sanitizeName(value) {
+  if (typeof value !== 'string') throw new TypeError('invalid_name');
+  const name = value.trim();
+  if (!name || name.length > 64 || /[\u0000-\u001f\u007f]/.test(name) || recoveryCode.test(name)) throw new TypeError('invalid_name');
+  return name;
+}
+const driver = { engine: 5, armor: 5, tires: 5, nitro: 5, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 };
+const families = {
+  sedan: { engine: 4, armor: 3, tires: 4, nitro: 3, ram: 2, spikes: 1, glass: 2, fueltank: 2, oil: 2, mines: 1 },
+  rustbucket: driver,
+  buggy: { engine: 5, armor: 2, tires: 5, nitro: 4, ram: 1, spikes: 1, glass: 1, fueltank: 2, oil: 1, mines: 1 },
+  hummer: { engine: 4, armor: 5, tires: 4, nitro: 3, ram: 3, spikes: 2, glass: 2, fueltank: 2, oil: 2, mines: 2 },
+};
+const crew = { vest: 3, grenades: 3, grenadeDmg: 2, medkit: 3, pouches: 3, steady: 3, scavenger: 3 };
+const trucks = ['player_sedan_t1', 'player_sedan_t2', 'truck_t1', 'truck_t2', 'truck_t3', 'truck_t4', 'player_buggy_t1', 'player_buggy_t2', 'player_buggy_t3', 'player_hummer_t1'];
+const weapons = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg', 'minigun'];
+const reflex = ['pistol', 'smg', 'shotgun', 'rifle', 'lmg'];
+const tracks = ['dmg', 'mag', 'rel', 'hnd'];
+function best(value) {
+  const b = object(value), distance = number(b.distance, 0, MAX, false);
+  return { distance, furthestS: Math.max(distance, number(b.furthestS, 0, MAX, false)), time: number(b.time, 0, MAX, false), kills: number(b.kills) };
+}
+function progress(value) {
+  const p = object(value);
+  if (p.version !== undefined && p.version !== 1) invalid();
+  const cleared = array(p.cleared, 10, n => Number.isInteger(n) && n >= 1 && n <= 10).sort((a, b) => a - b);
+  let contiguous = 0;
+  while (cleared.includes(contiguous + 1)) contiguous++;
+  const unlockedLevel = Math.min(10, contiguous + 1), marathonUnlocked = cleared.length === 10;
+  number(p.unlockedLevel, 1, 10, true, 1); boolean(p.marathonUnlocked);
+  const selectedLevel = Math.min(unlockedLevel, number(p.selectedLevel, 1, 10, true, 1));
+  const mode = choice(p.selectedMode, ['campaign', 'marathon'], 'campaign');
+  const clearRuns = {}, rows = object(p.clearRuns), used = new Set();
+  for (const level of cleared) {
+    const id = runId(rows[level]);
+    if (id && !used.has(id)) { clearRuns[level] = id; used.add(id); }
+  }
+  return { version: 1, unlockedLevel, cleared, selectedLevel, selectedMode: mode === 'marathon' && marathonUnlocked ? 'marathon' : 'campaign', marathonUnlocked, clearRuns };
+}
+export function sanitizeProfile(value) {
+  const p = object(value);
+  if ((p.v !== 1 && p.v !== 2) || typeof p.campaignId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) || recoveryCode.test(p.campaignId)) invalid();
+  const vehicleUpgradeSchema = choice(p.vehicleUpgradeSchema, [1, 2], 1);
+  const ownedTrucks = array(p.trucks, trucks.length, id => trucks.includes(id), ['player_sedan_t1']);
+  if (!ownedTrucks.includes('player_sedan_t1')) ownedTrucks.unshift('player_sedan_t1');
+  const selectedTruck = choice(p.truck, trucks, 'player_sedan_t1');
+  if (vehicleUpgradeSchema !== 2 && /^truck_t[1-4]$/.test(selectedTruck) && !ownedTrucks.includes(selectedTruck)) ownedTrucks.push(selectedTruck);
+  const oldUpgrades = object(p.upgrades), oldFamilies = object(p.vehicleUpgrades), vehicleUpgrades = {}, upgrades = {};
+  for (const [family, caps] of Object.entries(families)) {
+    // Preserve legacy canonical profiles, including cloud hashes and backups.
+    if (family === 'hummer' && !own(oldFamilies, family) && !ownedTrucks.includes('player_hummer_t1')) continue;
+    const levels = object(oldFamilies[family]), row = {};
+    for (const [id, cap] of Object.entries(caps)) {
+      const old = vehicleUpgradeSchema !== 2 && family === 'rustbucket' ? number(oldUpgrades[id], 0, driver[id]) : 0;
+      row[id] = Math.max(Math.min(cap, old), number(levels[id], 0, cap));
+    }
+    // Runtime normalization adds an empty row for every family. That default
+    // must not change a legacy unowned save's wire signature/hash, while
+    // explicit malformed rows must still be validated by the loop above.
+    if (family === 'hummer' && !ownedTrucks.includes('player_hummer_t1') && Object.values(row).every(level => level === 0)) continue;
+    vehicleUpgrades[family] = row;
+  }
+  for (const [id, cap] of Object.entries(crew)) upgrades[id] = number(oldUpgrades[id], 0, cap);
+  const ownedWeapons = {}, sourceWeapons = object(p.weapons), sourceOptics = object(p.weaponOptics), weaponOptics = {};
+  for (const id of weapons) {
+    if (id !== 'pistol' && !own(sourceWeapons, id)) continue;
+    const levels = object(sourceWeapons[id]);
+    ownedWeapons[id] = Object.fromEntries(tracks.map(track => [track, number(levels[track], 0, 3)]));
+    const row = object(sourceOptics[id]), optics = reflex.includes(id) ? ['standard', 'wide_reflex'] : ['standard'];
+    const owned = array(row.owned, optics.length, optic => optics.includes(optic));
+    if (!owned.includes('standard')) owned.unshift('standard');
+    const equipped = choice(row.equipped, optics, 'standard');
+    weaponOptics[id] = { owned, equipped: owned.includes(equipped) ? equipped : 'standard' };
+  }
+  const loadout = array(p.loadout, 3, id => weapons.includes(id), ['pistol']).filter(id => own(ownedWeapons, id));
+  const minibosses = {}, sourceBosses = object(p.minibosses), campaignRecords = {}, sourceRecords = object(p.campaignRecords);
+  for (let i = 0; i <= 4; i++) if (boolean(sourceBosses[i])) minibosses[i] = true;
+  for (let i = 1; i <= 10; i++) if (own(sourceRecords, i)) campaignRecords[i] = best(sourceRecords[i]);
+  return {
+    // Preserve all v1 legacy bytes, but make new-family data fail closed in
+    // older clients before their schema projects away an unknown family.
+    v: ownedTrucks.includes('player_hummer_t1') || Object.values(vehicleUpgrades.hummer || {}).some(level => level > 0) ? 2 : 1,
+    campaignId: p.campaignId, revision: number(p.revision), cash: number(p.cash), totalCash: number(p.totalCash),
+    runs: number(p.runs), wins: number(p.wins), best: best(p.best), trucks: ownedTrucks, truck: ownedTrucks.includes(selectedTruck) ? selectedTruck : 'player_sedan_t1',
+    vehicleUpgradeSchema: 2, vehicleUpgrades, upgrades, weapons: ownedWeapons, weaponOptics, loadout: loadout.length ? loadout : ['pistol'],
+    truckColor: number(p.truckColor, 0, 7), seen: {}, settings: {}, bossKilled: boolean(p.bossKilled), minibosses,
+    campaignProgress: progress(p.campaignProgress), campaignRecords, marathonBest: best(p.marathonBest),
+    lastRunId: runId(p.lastRunId), coopLastRunId: runId(p.coopLastRunId),
+  };
+}
+export function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+export async function sha256(value) {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('');
+}
+export const contentHash = (name, profile, deleted = false) => sha256(canonicalJson({ name, profile, deleted }));

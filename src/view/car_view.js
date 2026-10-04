@@ -11,6 +11,8 @@ import { buildStageTrimPlan, buildUpgradePlan, sanitizeVisualLevels, visualKey }
 import { UpgradeKit } from './car_upgrade_kit.js';
 import { vehicleUpgradeMounts } from './car_upgrade_mounts.js';
 import { CarViewResources } from './car_view_resources.js';
+import { TrackedTankView } from './tracked_tank_view.js';
+import { appendTankTensionerPlan } from './tank_upgrade_mounts.js';
 
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const WHEEL_ORDER = ['FL', 'FR', 'RL', 'RR'];
@@ -36,7 +38,7 @@ export class CarView {
     this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     // far LOD (enemies): one vertex-coloured body + one mesh per wheel
     this.lod = null; this.lodOn = false;
-    if (model && opts.lod !== false) {
+    if (model && opts.lod !== false && spec.driveMode !== 'tracks') {
       const L = buildCarLod(url, Assets.template(url));
       if (L && L.body) {
         const mat = makeLodMaterial(opts.paint, opts.paint2 ?? 0x30302e);
@@ -62,6 +64,7 @@ export class CarView {
       }
     }
     this.usesModel = !!model;
+    this.trackedTank = model && spec.driveMode === 'tracks' ? new TrackedTankView(this) : null;
     this.smoke = 0;
     // the gunless rammer always wears a spiked ram bar: "that one will ram you" reads at a glance
     if (spec.id === 'e_muscle') { const g = new THREE.Group(); g.name = 'ram_bar'; this.root.add(g); ramBar(g, spec, false); }
@@ -157,6 +160,7 @@ export class CarView {
       node.position.set(w.x, ri.mountY - st.L[i] + ri.restComHeight, w.z);
       node.rotation.set(st.spin[i], steer, 0, 'YXZ');
     }
+    this.trackedTank?.update(st, dt);
     this._syncLodWheels();
     if (st.kind === 'enemy') this._raider(st, dt);
     // hit flash: a quick hot glint on the bodywork when rounds land
@@ -219,14 +223,17 @@ export class CarView {
     if (!this.upgradeMounts) return false;
     const next = sanitizeVisualLevels(levels), key = visualKey(next);
     if (key === this.upgradeKey) return false;
-    const plan = buildUpgradePlan(this.upgradeMounts, next);
+    let plan = buildUpgradePlan(this.upgradeMounts, next);
+    if (this.trackedTank) plan = appendTankTensionerPlan(plan, this.upgradeMounts);
     const kit = plan.parts.length ? new UpgradeKit(this.root, plan, name => this._upgradeAnchor(name)) : null;
     this.upgradeKit?.dispose(); this.upgradeKit = kit;
+    this.trackedTank?.setUpgradeLevel(next.tires);
     this.upgradeLevels = next; this.upgradeKey = key;
     return true;
   }
   dispose() {
     if (this.disposed) return; this.disposed = true;
+    this.trackedTank?.dispose();
     this.upgradeKit?.dispose(); this.stageTrim?.dispose(); this.kit?.dispose(); this.glint?.material.dispose();
     this.ownedResources.dispose(this.root); this.root.removeFromParent();
   }

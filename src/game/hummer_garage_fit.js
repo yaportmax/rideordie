@@ -6,9 +6,11 @@
 import * as THREE from 'three';
 
 export const HUMMER_GARAGE_ID = 'player_hummer_t1';
+export const TANK_GARAGE_ID = 'player_tank_t1';
 const crewCache = new WeakMap();
 const _point = new THREE.Vector3(), _corner = new THREE.Vector3();
 const _frameInv = new THREE.Matrix4(), _matrix = new THREE.Matrix4(), _skinWorld = new THREE.Matrix4();
+const _instance = new THREE.Matrix4(), _instanceWorld = new THREE.Matrix4();
 
 function corners(box, fn) {
   for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
@@ -67,8 +69,8 @@ function cacheCrew(root) {
 }
 
 export class HummerGarageEnvelope {
-  constructor(view, crews, frame) {
-    if (view.spec.id !== HUMMER_GARAGE_ID || !view.usesModel) throw new Error('Hummer garage fitting requires its loaded model');
+  constructor(view, crews, frame, { tank = false } = {}) {
+    if (view.spec.id !== (tank ? TANK_GARAGE_ID : HUMMER_GARAGE_ID) || !view.usesModel) throw new Error('Garage fitting requires its loaded chassis model');
     const roots = new Set(crews.map(crew => crew.root));
     const owner = new Set([view.root]);
     // A physical deck minigun is owned by its crew but parented to car.root.
@@ -85,7 +87,16 @@ export class HummerGarageEnvelope {
     view.root.traverseVisible(mesh => {
       if (!mesh.isMesh || isCrew(mesh, roots)) return;
       _matrix.multiplyMatrices(_frameInv, mesh.matrixWorld);
-      includeBox(this.staticBox, geometryBox(mesh), _matrix); this.meshCount++;
+      if (tank && mesh.isInstancedMesh) {
+        // Tracks are 64 separately transformed shoes, not one unit cube at the
+        // car origin. Scan only when garage content changes, never per frame.
+        const box = geometryBox(mesh);
+        for (let i = 0; i < mesh.count; i++) {
+          mesh.getMatrixAt(i, _instance); _instanceWorld.multiplyMatrices(_matrix, _instance);
+          includeBox(this.staticBox, box, _instanceWorld);
+        }
+      } else includeBox(this.staticBox, geometryBox(mesh), _matrix);
+      this.meshCount++;
     });
     if (!this.meshCount || this.staticBox.isEmpty()) throw new Error('Missing Hummer garage model/kit bounds');
     this.update();
@@ -122,6 +133,10 @@ export class HummerGarageEnvelope {
     return this;
   }
   worldCenter(out) { return out.copy(this.center).applyMatrix4(this.frame.matrixWorld); }
+}
+
+export class TankGarageEnvelope extends HummerGarageEnvelope {
+  constructor(view, crews, frame) { super(view, crews, frame, { tank: true }); }
 }
 
 /** Exact angular sphere fit: d >= R/sin(half-angle). R/tan fits only

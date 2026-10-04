@@ -45,10 +45,13 @@ test('save recovery presentation supports guarded Hummer v2 singleton bytes and 
   assert.equal(hummer.v, 2, 'actual new-family progress carries its older-client guard');
   const current = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify(hummer) });
   const legacy = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...DEFAULT_PROFILE(), campaignId: 'legacy-v1-recovery' }) });
-  const future = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...hummer, v: 3 }) });
+  const tank = normalizeProfile({ ...hummer, trucks: [...hummer.trucks, 'player_tank_t1'], truck: 'player_tank_t1', vehicleUpgrades: { ...hummer.vehicleUpgrades, tank: { armor: 3 } } });
+  const currentTank = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify(tank) });
+  const future = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...hummer, v: 4 }) });
   const model = f.app._saveModel();
   assert.equal(model.recoveries.find(value => value.id === current.id).restorable, true);
   assert.equal(model.recoveries.find(value => value.id === legacy.id).restorable, true);
+  assert.equal(model.recoveries.find(value => value.id === currentTank.id).restorable, true);
   assert.equal(model.recoveries.find(value => value.id === future.id).restorable, false);
 });
 

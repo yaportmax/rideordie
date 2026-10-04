@@ -115,18 +115,20 @@ const hello = overrides => ({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: G
   drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL,
   name: 'Guest', wallet: { playerId: 'friend-current', cash: 100, totalCash: 100 }, ...overrides });
 
-test('current whole Session rejects old route4 and incompatible elite capability while retaining separate family and wire capabilities', async () => {
+test('current whole Session rejects old routes/families and incompatible elite capability while retaining separate wire capabilities', async () => {
   assert.equal(DRIVING_ROUTE_VERSION, 5);
-  assert.equal(PLAYER_VEHICLE_PROTOCOL, 2, 'vehicle family capability remains separate from route identity');
+  assert.equal(PLAYER_VEHICLE_PROTOCOL, 3, 'vehicle family capability remains separate from route identity');
   assert.equal(ELITE_VEHICLE_PROTOCOL, 1, 'standalone elite models require their own explicit capability');
   const missingElite = hello(); delete missingElite.eliteVehicles;
-  const incompatible = [hello({ drivingRoutes: 4 }), hello({ familyVehicles: 1 }), hello({ protocol: NET_PROTOCOL - 1 }),
+  const incompatible = [hello({ drivingRoutes: 4 }), hello({ familyVehicles: 1 }), hello({ familyVehicles: 2 }),
+    hello({ familyVehicles: 4 }), hello({ protocol: NET_PROTOCOL - 1 }),
     hello({ eliteVehicles: 0 }), hello({ eliteVehicles: ELITE_VEHICLE_PROTOCOL + 1 }), missingElite];
   for (const message of incompatible) {
     const tp = new TransportFixture(), session = new Session(tp), errors = [];
     const profile = withStorage(store(), () => loadProfile()), before = structuredClone(profile);
     await session.host(profile); session.on({ error: error => errors.push(error) }); tp.onOpen();
     assert.equal(tp.sent[0].drivingRoutes, 5, 'real current hello imports the candidate route capability');
+    assert.equal(tp.sent[0].familyVehicles, 3, 'actual hello advertises the tank family capability');
     assert.equal(tp.sent[0].eliteVehicles, ELITE_VEHICLE_PROTOCOL, 'actual hello advertises the standalone elite model contract');
     session._onMsg(message);
     assert.equal(session.connected, false); assert.equal(session.canStart(), false);

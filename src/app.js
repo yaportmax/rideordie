@@ -6,6 +6,7 @@ import { Session } from './net/session.js';
 import { normalizeRoomCode } from './net/invite.js';
 import { loadProfile, saveProfile, getSaveStore, getSaveStorage, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, buyWeaponOptic, equipWeaponOptic, equipWeapon, selectTruck, creditRun, bestForJourney } from './meta/profile.js';
 import { CloudSaves } from './meta/cloud_saves.js';
+import { assertSupportedProfile } from '../server/saves/profile_support.js';
 import { equippedWeaponOptics, sanitizeOpticId } from './data/weapon_optics.js';
 import { campaignJourney, normalizeJourney, selectCampaignLevel, creditCampaignLevel } from './data/campaign.js';
 
@@ -195,7 +196,7 @@ export class App {
       recoveries = this.saves.recoveries().map(({ id, at, name, reason, profile, raw, volatile }) => {
         let restorable = !!profile;
         if (!profile && raw && reason === 'legacy-migration') {
-          try { const value = JSON.parse(raw); restorable = (value?.v === 1 || value?.v === 2) && typeof value.campaignId === 'string'; } catch { /* Damaged bytes are retained for repair. */ }
+          try { const value = JSON.parse(raw); assertSupportedProfile(value); restorable = [1, 2, 3].includes(value?.v) && typeof value.campaignId === 'string'; } catch { restorable = false; /* Unsupported/damaged bytes are retained for repair. */ }
         }
         return { id, at, name, reason, profile, restorable, volatile };
       });

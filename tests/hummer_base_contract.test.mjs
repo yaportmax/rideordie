@@ -48,12 +48,12 @@ const legacyCatalogue = [
 
 test('one new base preserves the existing catalogue and explicit caps', () => {
   assert.equal(id, 'player_hummer_t1');
-  assert.deepEqual(economy.TRUCKS.map(t => [t.id, t.cost]), [...legacyCatalogue, [id, 100000]]);
-  assert.deepEqual(Object.keys(families.VEHICLE_FAMILIES), ['sedan', 'rustbucket', 'buggy', 'hummer']);
+  assert.deepEqual(economy.TRUCKS.map(t => [t.id, t.cost]), [...legacyCatalogue, [id, 100000], ['player_tank_t1', 250000]]);
+  assert.deepEqual(Object.keys(families.VEHICLE_FAMILIES), ['sedan', 'rustbucket', 'buggy', 'hummer', 'tank']);
   assert.deepEqual(families.VEHICLE_FAMILIES.hummer.stageIDs, [id]);
   assert.deepEqual(base.HUMMER_BASE_CAPS, EXPECTED_CAPS);
   assert.deepEqual(families.VEHICLE_FAMILIES.hummer.caps, EXPECTED_CAPS);
-  assert.equal(families.PLAYER_VEHICLE_PROTOCOL, 2);
+  assert.equal(families.PLAYER_VEHICLE_PROTOCOL, 3);
   assert.equal(economy.DEFAULT_PROFILE().truck, 'player_sedan_t1');
 });
 
@@ -209,8 +209,8 @@ test('same-version JSON save retains owned selection and family levels, with val
   assert.equal(restored.vehicleUpgrades.hummer.engine, 2); assert.equal(restored.vehicleUpgrades.hummer.mines, 1);
   assert.equal(restored.vehicleUpgrades.rustbucket.armor, 3);
   rejectUnchanged(restored, () => profile.buyTruck(restored, id), 'owned');
-  assert.deepEqual(SPEC_IDS, Object.keys(VEHICLES)); assert.equal(SPEC_IDS.at(-1), id);
-  assert.deepEqual(SPEC_IDS, [...BASELINE_SPEC_IDS, id], 'all 23 previous wire identities must keep their exact indices');
+  assert.deepEqual(SPEC_IDS, Object.keys(VEHICLES)); assert.equal(SPEC_IDS.at(-2), id);
+  assert.deepEqual(SPEC_IDS, [...BASELINE_SPEC_IDS, id, 'player_tank_t1'], 'all 24 previous wire identities must keep their exact indices');
   assert.ok(SPEC_IDS.length <= 256, 'Every uint8 spec index must remain representable');
   // Root must also compare the entire pre-integration SPEC_IDS sequence and run normal Session wallet/save flows.
 });

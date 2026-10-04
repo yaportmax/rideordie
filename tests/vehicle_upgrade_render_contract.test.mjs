@@ -7,6 +7,7 @@ import { VEHICLES, vehicleModelURL, vehicleModelURLs } from '../src/data/vehicle
 import { PLAYER_VEHICLE_IDS, DRIVER_UPGRADE_IDS, familyOf, upgradeCap } from '../src/data/vehicle_families.js';
 import { CarView } from '../src/view/car_view.js';
 import { buildUpgradePlan } from '../src/view/car_upgrade_plan.js';
+import { appendTankTensionerPlan } from '../src/view/tank_upgrade_mounts.js';
 import { vehicleUpgradeMounts } from '../src/view/car_upgrade_mounts.js';
 import { DebrisSystem } from '../src/view/debris.js';
 import { WorldView } from '../src/game/world_view.js';
@@ -34,10 +35,12 @@ const maxLevels = id => Object.fromEntries(DRIVER_UPGRADE_IDS.map(upgrade => [up
 const meshCount = root => { let count = 0; root.traverse(node => { if (node.isMesh) count++; }); return count; };
 const modifiers = root => { const nodes = []; root.traverse(node => { if (node.userData.ownedVehicleUpgradeGeometry) nodes.push(node); }); return nodes; };
 
-test('every purchased driver track mounts on all ten actual player stages without changing template mechanics', () => {
+test('every purchased driver track mounts on all eleven actual player stages without changing template mechanics', () => {
   for (const id of PLAYER_VEHICLE_IDS) {
     const template = Assets.template(vehicleModelURL(id)), before = meshCount(template), view = new CarView(VEHICLES[id], { lod: false });
-    const levels = maxLevels(id), plan = buildUpgradePlan(vehicleUpgradeMounts(VEHICLES[id]), levels);
+    const levels = maxLevels(id), mounts = vehicleUpgradeMounts(VEHICLES[id]);
+    const initialPlan = buildUpgradePlan(mounts, levels);
+    const plan = id === 'player_tank_t1' ? appendTankTensionerPlan(initialPlan, mounts) : initialPlan;
     assert.deepEqual(plan.ids.sort(), [...DRIVER_UPGRADE_IDS].sort(), id);
     assert.equal(view.setUpgradeLevels(levels), true);
     assert.equal(view.upgradeKit.meshCount, plan.estimatedDraws, 'one generated draw per actual detachable anchor');
@@ -134,15 +137,45 @@ test('repeated actual-model previews release only instance-owned materials and r
   for (let repeat = 0; repeat < 2; repeat++) for (const id of PLAYER_VEHICLE_IDS) {
     const view = new CarView(VEHICLES[id], { upgradeLevels: maxLevels(id) });
     const instance = [...view.ownedResources.users.keys()];
-    assert.ok(instance.length > 0); assert.ok(instance.includes(view.lodMat), 'each distinct LOD tint material is owned');
+    assert.ok(instance.length > 0);
+    const tracked = view.spec.driveMode === 'tracks' ? view.trackedTank : null;
+    let cached, cachedRelease = 0;
+    const onCached = () => cachedRelease++;
+    const trackGeometryReleases = new Map();
+    if (view.spec.driveMode === 'tracks') {
+      // The animated tracked chassis deliberately has no baked wheeled LOD.
+      // Its belt buffers are instance-owned; their PBR materials are borrowed.
+      assert.equal(view.lod, null); assert.equal(view.lodMat, undefined);
+      assert.ok(tracked); assert.equal(tracked.records.length, 2);
+      assert.equal(tracked.ownedGeometry.length, 2);
+      assert.equal(new Set(tracked.ownedGeometry).size, 2);
+      for (const geometry of tracked.ownedGeometry) {
+        assert.ok(!shared.has(geometry), 'generated belt geometry cannot be a cached GLB buffer');
+        trackGeometryReleases.set(geometry, 0);
+        geometry.addEventListener('dispose', () => trackGeometryReleases.set(geometry, trackGeometryReleases.get(geometry) + 1));
+      }
+      for (const record of tracked.records) for (const mesh of [record.shoes, record.bands]) {
+        assert.equal(mesh.isInstancedMesh, true); assert.equal(mesh.count, 64);
+        assert.equal(mesh.parent, record.group); assert.equal(record.group.parent, view.root);
+        assert.ok(trackGeometryReleases.has(mesh.geometry), 'both sides use the owned belt buffers');
+        assert.ok(shared.has(mesh.material), 'belt PBR materials remain borrowed from the actual template');
+        assert.ok(!instance.includes(mesh.material), 'borrowed belt materials must never enter the instance release owner');
+      }
+    } else {
+      assert.ok(view.lod, 'every actual wheeled model retains its baked LOD');
+      assert.ok(instance.includes(view.lodMat), 'each distinct LOD tint material is owned');
+      cached = view.lod.children[0].geometry; cached.addEventListener('dispose', onCached);
+    }
     for (const resource of instance) {
       assert.ok(!shared.has(resource)); created++; resource.addEventListener('dispose', () => released++);
     }
-    const cached = view.lod.children[0].geometry; let cachedRelease = 0;
-    const onCached = () => cachedRelease++; cached.addEventListener('dispose', onCached);
     view.dispose(); view.dispose();
     assert.equal(view.ownedResources.users.size, 0); assert.equal(cachedRelease, 0);
-    cached.removeEventListener('dispose', onCached);
+    cached?.removeEventListener('dispose', onCached);
+    if (tracked) {
+      assert.equal(tracked.disposed, true); assert.equal(tracked.records.length, 0); assert.equal(tracked.ownedGeometry.length, 0);
+      for (const count of trackGeometryReleases.values()) assert.equal(count, 1, 'each generated belt buffer retires exactly once');
+    }
   }
   assert.equal(released, created, 'every generated preview material is released exactly once');
   assert.equal(sharedReleases, 0);

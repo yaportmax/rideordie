@@ -5,10 +5,11 @@ import { WEAPONS } from '../src/data/weapons.js';
 import { normalizeProfile, loadProfile, saveProfile, buyUpgrade, buyTruck, selectTruck, buyWeapon, buyWeaponTrack, equipWeapon, creditRun } from '../src/meta/profile.js';
 
 test('old or damaged saves recover a playable owned truck, weapon and finite stats', () => {
-  for (const value of [null, [], {}, { cash: NaN, upgrades: [], weapons: null, trucks: ['missing'], truck: 'missing', loadout: ['missing'], best: null }]) {
+  for (const value of [null, [], {}, { cash: NaN, upgrades: [], weapons: null, loadout: ['missing'], best: null }]) {
     const p = normalizeProfile(value);
     assert.equal(p.truck, 'player_sedan_t1'); assert.deepEqual(p.loadout, ['pistol']); assert.ok(p.weapons.pistol); assert.ok(Number.isFinite(p.cash));
   }
+  assert.throws(() => normalizeProfile({ trucks: ['missing'], truck: 'missing' }), error => error?.code === 'unsupported-profile', 'unknown vehicle progress must not be silently projected away');
   const p = normalizeProfile({ cash: 8000, truck: 'truck_t2', trucks: ['truck_t2'], upgrades: { engine: 100, armor: -2 }, weapons: { rifle: { dmg: 99, rel: -2 } }, loadout: ['rifle', 'rifle'], best: { time: Infinity } });
   assert.equal(p.cash, 8000); assert.equal(p.truck, 'truck_t2'); assert.equal(p.vehicleUpgrades.rustbucket.engine, 5);
   assert.equal(p.vehicleUpgrades.rustbucket.armor, 0); assert.equal(p.vehicleUpgrades.sedan.engine, 0);
