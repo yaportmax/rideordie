@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { MAX_BODY_BYTES, MAX_SLOTS, MAX_TOMBSTONES, MAX_BACKUPS, UUID, sanitizeName, sanitizeProfile, canonicalJson, sha256, contentHash } from './schema.js';
+import { assertSupportedProfile, SUPPORTED_PROFILE_VERSION } from './profile_support.js';
 
 const SERVICE = 'ride-or-die-saves';
 const CODE = /^ROD1-[a-zA-Z0-9_-]{43}$/;
@@ -8,6 +9,22 @@ const RATE_WINDOW_MS = 60_000;
 const VAULT_RATE = 60;
 class ApiError extends Error {
   constructor(status, error, extra = {}) { super(error); this.status = status; this.error = error; this.extra = extra; }
+}
+// Header absence is the last published Hummer client's capability, not permission
+// to project a future slot into that client's smaller catalogue.
+function profileCapability(request) {
+  const value = request.headers.get('X-ROD-Profile-Version');
+  if (value === null) return 2;
+  if (!['1', '2', String(SUPPORTED_PROFILE_VERSION)].includes(value)) throw new ApiError(409, 'unsupported_profile');
+  return Number(value);
+}
+function compatibleProfile(profile, capability) {
+  if (!profile) return;
+  try { assertSupportedProfile(profile, capability); }
+  catch (error) {
+    if (error?.code === 'unsupported-profile') throw new ApiError(409, 'unsupported_profile', { ...(Number.isSafeInteger(error.requiredVersion) ? { requiredVersion: error.requiredVersion } : {}) });
+    throw error;
+  }
 }
 function allowedOrigin(origin) {
   if (origin === 'https://ride.maxyaport.com') return true;
@@ -94,7 +111,7 @@ async function payload(request, target) {
   const precondition = request.headers.get('If-Match');
   if (precondition && ![String(data.baseVersion), `"${data.baseVersion}"`].includes(precondition)) throw new ApiError(400, 'invalid_precondition');
   try {
-    if (request.method === 'PUT') { data.name = sanitizeName(body.name); data.profile = sanitizeProfile(body.profile); }
+    if (request.method === 'PUT') { compatibleProfile(body.profile, profileCapability(request)); data.name = sanitizeName(body.name); data.profile = sanitizeProfile(body.profile); }
     if (target.type === 'restore') {
       if (body.backupId !== 'current' && (typeof body.backupId !== 'string' || !UUID.test(body.backupId))) throw new ApiError(400, 'invalid_backup_id');
       data.backupId = body.backupId === 'current' ? 'current' : body.backupId.toLowerCase();
@@ -118,10 +135,11 @@ export default {
         const method = request.headers.get('Access-Control-Request-Method');
         const headers = (request.headers.get('Access-Control-Request-Headers') || '').split(',').map(h => h.trim().toLowerCase()).filter(Boolean);
         if (method && !['GET', 'POST', 'PUT', 'DELETE'].includes(method)) throw new ApiError(403, 'preflight_not_allowed');
-        if (headers.some(h => !['authorization', 'content-type', 'if-match'].includes(h))) throw new ApiError(403, 'preflight_not_allowed');
-        return response(null, 204, origin, { 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, If-Match', 'Access-Control-Max-Age': '600' });
+        if (headers.some(h => !['authorization', 'content-type', 'if-match', 'x-rod-profile-version'].includes(h))) throw new ApiError(403, 'preflight_not_allowed');
+        return response(null, 204, origin, { 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, If-Match, X-ROD-Profile-Version', 'Access-Control-Max-Age': '600' });
       }
       const target = route(request);
+      const capability = profileCapability(request);
       if (!env.SAVE_IP_LIMIT || !env.SAVE_VAULT_LIMIT || !env.SAVE_VAULTS) throw new ApiError(503, 'unavailable');
       // This coarse IP budget mitigates random-vault creation/invalid-auth abuse.
       // It supplements the private identity limit; shared networks have 120/min.
@@ -135,7 +153,7 @@ export default {
       const data = await payload(request, target);
       const id = env.SAVE_VAULTS.idFromName(identity), stub = env.SAVE_VAULTS.get(id);
       // Authorization never crosses the Worker/DO boundary or enters storage.
-      const internal = new Request(`${INTERNAL}${url.pathname}`, { method: request.method, headers: { 'Origin': origin, ...(data ? { 'Content-Type': 'application/json' } : {}) }, ...(data ? { body: JSON.stringify(data) } : {}) });
+      const internal = new Request(`${INTERNAL}${url.pathname}`, { method: request.method, headers: { 'Origin': origin, 'X-ROD-Profile-Version': String(capability), ...(data ? { 'Content-Type': 'application/json' } : {}) }, ...(data ? { body: JSON.stringify(data) } : {}) });
       const result = await stub.fetch(internal);
       const headers = new Headers(result.headers);
       headers.set('Cache-Control', 'no-store'); headers.set('Vary', 'Origin');
@@ -208,7 +226,7 @@ export class SaveVault extends DurableObject {
     const origin = request.headers.get('Origin');
     try {
       if (new URL(request.url).origin !== INTERNAL || !allowedOrigin(origin)) throw new ApiError(403, 'internal_only');
-      const target = route(request), body = await payload(request, target);
+      const target = route(request), capability = profileCapability(request), body = await payload(request, target);
       // A unknown-vault read does not create a usable vault.
       if (target.type === 'vault' && request.method === 'POST') {
         this.rate();
@@ -237,6 +255,7 @@ export class SaveVault extends DurableObject {
       // CAS inside the final transaction so this snapshot cannot overwrite a race.
       const prepared = this.storage.transactionSync(() => {
         const live = this.head(target.id);
+        compatibleProfile(live?.profile, capability);
         if (this.check(live, body.baseVersion, receipt)) return { replay: this.publicHead(live) };
         if (request.method === 'PUT') return { candidate: { name: body.name, profile: body.profile, deleted: false } };
         if (!live) throw new ApiError(404, 'slot_not_found');
@@ -244,6 +263,7 @@ export class SaveVault extends DurableObject {
           const row = body.backupId === 'current' ? live : this.sql.exec('SELECT data FROM backups WHERE slot_id = ? AND id = ?', target.id, body.backupId).toArray()[0];
           if (!row) throw new ApiError(404, 'backup_not_found');
           const source = body.backupId === 'current' ? row : JSON.parse(row.data);
+          compatibleProfile(source.profile, capability);
           return { candidate: { name: source.name, profile: source.profile, deleted: false } };
         }
         return { candidate: { name: live.name, profile: live.profile, deleted: true } };
@@ -253,6 +273,10 @@ export class SaveVault extends DurableObject {
       candidate.hash = await contentHash(candidate.name, candidate.profile, candidate.deleted);
       const slot = this.storage.transactionSync(() => {
         const live = this.head(target.id);
+        // The head may have changed while contentHash yielded. Refusal must be
+        // inside the same transaction as CAS, before backups/receipts/versions.
+        compatibleProfile(live?.profile, capability);
+        compatibleProfile(candidate.profile, capability);
         if (this.check(live, body.baseVersion, receipt)) return this.publicHead(live);
         return this.commit(target.id, live, candidate, receipt);
       });
