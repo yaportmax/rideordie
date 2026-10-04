@@ -5,7 +5,8 @@ import { hash2 } from '../core/util.js';
 import { TEN_LEVELS, normalizeJourney, MARATHON_LEVEL_LENGTH, MARATHON_LEVEL_STARTS } from '../data/campaign.js';
 import { CAMPAIGN_THEME_IDS } from '../data/campaign_themes.js';
 
-export const DRIVING_ROUTE_VERSION = 4;
+// Signed approach geometry and inert incidental clutter require matching peers.
+export const DRIVING_ROUTE_VERSION = 5;
 export const BRANCH_BIOMES = Object.freeze([...BIOME_ORDER, ...CAMPAIGN_THEME_IDS]);
 /** Later service cuts are narrower, with longer gentle approaches on the dam. */
 export const BRANCH_DRIVING = Object.freeze({

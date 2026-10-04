@@ -69,7 +69,7 @@ function putCar(sim, car, branch, s, speed) {
 }
 
 test('campaign shortcut planning is deterministic, preserves both initial descriptors and exact main-road samples, and retains strict qualification in all six stages', () => {
-  assert.equal(DRIVING_ROUTE_VERSION, 4);
+  assert.equal(DRIVING_ROUTE_VERSION, 5);
   const covered = new Set();
   for (const seed of SEEDS) {
     const road = new Road(seed), branches = road.ensureDrivingBranches(), old = new Road(seed), before = planDrivingBranches(old, ['desert', 'canyon']);

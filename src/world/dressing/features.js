@@ -512,7 +512,7 @@ export function buildFeatures(ctx, chunk, deadline = Infinity) {
     switch (f.type) {
       case 'ramp': r = buildRamp(ctx, chunk, f); break;
       case 'boost': r = buildBoost(ctx, chunk, f); break;
-      case 'roadblock': r = buildRoadblock(ctx, chunk, f); break;
+      case 'roadblock': if (!f.disabledClutter) r = buildRoadblock(ctx, chunk, f); break;
       case 'stage_warning': r = buildStageWarning(ctx, chunk, f); break;
       case 'stage_challenge': r = buildStageChallenge(ctx, chunk, f); break;
       case 'bridge': r = buildBridge(ctx, chunk, f); break;

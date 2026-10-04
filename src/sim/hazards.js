@@ -47,6 +47,7 @@ export class Hazards {
     // roadblock ahead: announce it ~260 m out (HUD countdown with the side of the gap; signs/flares are drawn by the view)
     if (sim.tick % 15 === 0 && sim.state === 'run') {
       for (const f of sim.road.featuresIn(P.s + 20, P.s + WARN_AT, 'roadblock')) {
+        if (f.disabledClutter) continue;
         if (this.warned.has(f.s0) || f.s0 < P.s) continue;
         this.warned.add(f.s0);
         sim.emit({ t: 'hazardWarn', kind: 'roadblock', s0: f.s0, gapD: rbGapD(f), dist: f.s0 - P.s });
@@ -173,6 +174,7 @@ export class Hazards {
   }
 
   _build(sim, f) {
+    if (f.disabledClutter) return null;
     const road = sim.road, bodies = [];
     if (f.type === 'boost') { return { bodies, d: f.lane * BOOST_LANE_SPACING, halfWidth: BOOST_HALF_WIDTH }; }
     if (f.type === 'ramp') {

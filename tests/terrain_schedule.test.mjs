@@ -17,7 +17,7 @@ function mock() {
 }
 const expected = s => {
   const rows = [];
-  for (let c = Math.max(0, Math.floor((s - 420) / CHUNK_LEN)); c <= Math.floor((s + 2100) / CHUNK_LEN); c++) {
+  for (let c = Math.floor((s - 420) / CHUNK_LEN); c <= Math.floor((s + 2100) / CHUNK_LEN); c++) {
     const centre = (c + .5) * CHUNK_LEN, dist = Math.abs(centre - s), effective = centre < s ? dist * 1.6 : dist;
     rows.push({ c, lod: effective < 320 ? 0 : effective < 850 ? 1 : 2, dist });
   }
@@ -40,15 +40,36 @@ test('stationary terrain skips sorting, reuses records and retries when a worker
 
 test('cached terrain requests match exhaustive scheduling at exact front, rear, window and priority boundaries', () => {
   const { t } = mock();
-  const probes = new Set([0, 500]);
-  for (let c = 0; c < 50; c++) {
+  const probes = new Set([-100000, -6000, -420, -96, -1, 0, 500]);
+  for (let c = -50; c < 50; c++) {
     const centre = (c + .5) * CHUNK_LEN;
     for (const p of [centre - 320, centre - 850, centre + 320 / 1.6, centre + 850 / 1.6, c * CHUNK_LEN + 420, c * CHUNK_LEN - 2100, c * CHUNK_LEN / 2]) {
-      if (p >= 0) for (const delta of [-1e-6, 0, 1e-6]) if (p + delta >= 0) probes.add(p + delta);
+      for (const delta of [-1e-6, 0, 1e-6]) probes.add(p + delta);
     }
   }
   const values = [...probes].sort((a, b) => a - b);
   for (const s of [...values, ...values.reverse()]) { t.update(s); assert.deepEqual(actual(t), expected(s), 's=' + s); }
+});
+
+test('signed scheduling windows stay bounded at exact negative window and LOD crossings', () => {
+  const { t, worker } = mock();
+  for (const c of [-1042, -63, -2, -1, 0]) {
+    const centre = (c + .5) * CHUNK_LEN;
+    for (const boundary of [c * CHUNK_LEN + 420, c * CHUNK_LEN - 2100,
+      centre - 320, centre - 850, centre + 320 / 1.6, centre + 850 / 1.6]) {
+      for (const delta of [-1e-6, 0, 1e-6]) {
+        const s = boundary + delta;
+        worker.busy = 0; t.pending.clear(); t._scheduleDirty = true;
+        t.update(s);
+        assert.deepEqual(actual(t), expected(s), `signed exact boundary ${s}`);
+        const lo = Math.floor((s - 420) / CHUNK_LEN), hi = Math.floor((s + 2100) / CHUNK_LEN);
+        assert.equal(t._want.length, hi - lo + 1);
+        assert.ok(t._want.length <= 29, 'reverse distance cannot grow the streaming window');
+        assert.deepEqual(t._want.map(row => row.c).sort((a, b) => a - b),
+          Array.from({ length: hi - lo + 1 }, (_, index) => lo + index));
+      }
+    }
+  }
 });
 
 test('collision boundaries and floor, cover and night still update every frame inside a cached scheduling interval', () => {

@@ -246,13 +246,14 @@ let _limRoad = null;
  * the minimum over all samples is the Voronoi boundary with other sections of the road, and on the inside of a bend it equals the
  * curvature radius (the neighbouring rows of the arc), i.e. where rows of constant s would start to fold over.
  */
-function rowLimit(road, s, side) {
+function rowLimit(road, s, side, legacyStartProbe = false) {
   if (_limRoad !== road) { _limRoad = road; _lim[0].clear(); _lim[1].clear(); }
   const limits = _lim[side > 0 ? 1 : 0];
-  let L = limits.get(s);
+  const cacheKey = legacyStartProbe ? `origin-normal:${s}` : s;
+  let L = limits.get(cacheKey);
   if (L) return L;
   road.extendTo(s + LIM_WIN + 100);
-  const sm = road.sample(s, _smL), i0 = Math.round(s / DS);
+  const sm = road.sample(legacyStartProbe ? Math.max(0, s) : s, _smL), i0 = Math.round(s / DS);
   const ox = sm.x, oz = sm.z, nx = sm.nx * side, nz = sm.nz * side;
   const excl = Math.ceil(24 / DS), lo = Math.max(0, i0 - LIM_WIN / DS), hi = Math.min(road.n - 1, i0 + LIM_WIN / DS);
   let best = 1e9, bj = -1;
@@ -265,7 +266,7 @@ function rowLimit(road, s, side) {
   }
   L = best < EDGE + 920 ? { dmax: Math.max(EDGE + 12, best), jB: bj } : { dmax: 1e9, jB: -1 };
   if (_lim[0].size + _lim[1].size >= 40000) { _lim[0].clear(); _lim[1].clear(); }
-  limits.set(s, L);
+  limits.set(cacheKey, L);
   return L;
 }
 const _smL = {}, _nB = {}, _smB = {};
@@ -278,12 +279,12 @@ function rawHeight(road, seed, s, d) {
 }
 
 /** World position of terrain at (s, d). Writes into out {x,y,z}. d beyond +-EDGE. */
-export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
-  const sm = road.sample(s, _sm);
+export function terrainPoint(road, seed, s, d, out, bridges, tunnels, legacyStartProbe = false) {
+  const sm = road.sample(legacyStartProbe ? Math.max(0, s) : s, _sm);
   const side = d >= 0 ? 1 : -1;
   const ad0 = Math.abs(d);
   // lateral limit: own curvature radius (inside of a bend) and the Voronoi boundary with other sections of the road
-  const L = ad0 > EDGE + 20 ? rowLimit(road, s, side) : null;
+  const L = ad0 > EDGE + 20 ? rowLimit(road, s, side, legacyStartProbe) : null;
   const kin = sm.k * side;                                        // > 0: this side is the inside of the bend
   const dFold = kin > 1e-5 ? FOLD_MAX / kin : 1e9;
   const dLim = Math.min(dFold, L ? L.dmax : 1e9);
@@ -305,7 +306,11 @@ export function terrainPoint(road, seed, s, d, out, bridges, tunnels) {
   if (L && L.jB >= 0 && L.dmax <= dFold) {
     const w = smoothstep(EDGE + (L.dmax - EDGE) * 0.45, L.dmax, ad);
     if (w > 0) {
-      const nb = road.nearest(out.x, out.z, L.jB * DS, 160, _nB);
+      // Positive terrain keeps its original Voronoi reference domain even
+      // when a far lateral row extends behind the new approach. This also
+      // preserves chunk zero's legacy normal probes without changing vehicle
+      // projection, which must continue to find signed negative asphalt.
+      const nb = road.nearest(out.x, out.z, L.jB * DS, 160, _nB, s >= 0 || legacyStartProbe);
       if (Math.abs(nb.d) > EDGE + 1) { const yB = rawHeight(road, seed, nb.s, nb.d); out.y += w * 0.5 * (yB - out.y); off = out.y - yPlane; }
     }
   }
@@ -411,11 +416,12 @@ export function splatAt(w, seed, s, a, side, slope, wx, wy, wz, seaY, bio) {
  */
 export function genTerrainChunk(road, seed, chunk, lod) {
   const s0 = chunk * CHUNK_LEN, s1 = s0 + CHUNK_LEN;
+  const approach = s0 < 0;
   const branchNear = road.ensureDrivingBranches().some(b => b.s1 + 16 >= s0 && b.s0 - 16 <= s1);
   const waterCutNear = patrolCutNear(road, s0, s1);
   // Corridor terrain remains fine on its first distant reply as well. Coarse
   // long rows must never fill the carved lane or rise through its road strip.
-  const stride = branchNear || waterCutNear ? 1 : LOD_STRIDE[lod];
+  const stride = branchNear || waterCutNear || approach ? 1 : LOD_STRIDE[lod];
   road.extendTo(s1 + 200);
   const rowsN = CHUNK_LEN / (DS * stride) + 1;
   const anchorSm = road.sample(s0);
@@ -439,7 +445,7 @@ export function genTerrainChunk(road, seed, chunk, lod) {
   let vi = 0;
   const colPos = []; // lod0 only: collision positions (same grid without skirts), separate index list
   const colIdx = [];
-  const collide = lod === 0 || branchNear || waterCutNear;
+  const collide = lod === 0 || branchNear || waterCutNear || approach;
   const seaY = (() => { // sea level for coast/lake: fixed world height under the road of that biome
     const bio = road.biomeAt((s0 + s1) / 2);
     return bio.a === 'coast' || bio.b === 'coast' ? seaLevel(road, 'coast') : bio.a === 'dam' || bio.b === 'dam' ? seaLevel(road, 'dam') : -1e9;
@@ -455,7 +461,13 @@ export function genTerrainChunk(road, seed, chunk, lod) {
         terrainPoint(road, seed, s, d, P, bridges, tunnels);
         // analytic normal by central differences in (s,d)
         const dc = Math.max(0.6, (COLS[Math.min(nCol - 1, c + 1)] - COLS[Math.max(0, c - 1)]) * 0.5);
-        terrainPoint(road, seed, s + dsN, d, Pa, bridges, tunnels); terrainPoint(road, seed, s - dsN, d, Pb, bridges, tunnels);
+        terrainPoint(road, seed, s + dsN, d, Pa, bridges, tunnels);
+        // Positive chunk-zero normals previously probed the origin road frame
+        // with negative noise coordinates. Preserve those exact shipped
+        // normals/slope splats while adding genuine geometry behind it. The
+        // neighbouring approach's final row uses the same seam convention.
+        const legacyStartProbe = s - dsN < 0 && (s0 >= 0 || s === 0);
+        terrainPoint(road, seed, s - dsN, d, Pb, bridges, tunnels, legacyStartProbe);
         terrainPoint(road, seed, s, d + side * dc, Pc, bridges, tunnels); terrainPoint(road, seed, s, d - side * (c === 0 ? 0 : dc), Pd, bridges, tunnels);
         const tsx = Pa.x - Pb.x, tsy = Pa.y - Pb.y, tsz = Pa.z - Pb.z; // along s
         const tdx = (Pc.x - Pd.x) * side, tdy = (Pc.y - Pd.y) * side, tdz = (Pc.z - Pd.z) * side; // toward outside (away from road)

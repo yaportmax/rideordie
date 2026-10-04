@@ -15,6 +15,9 @@ export class RoadQuery {
 
   nearest(x, z, hint = 0, window = 90, out = {}) {
     const road = this.road;
+    // Analytic pre-start segments have signed indices; do not feed them to
+    // the positive typed arrays or unsigned binary-search midpoint below.
+    if (hint - window < 0) return road.nearest(x, z, hint, window, out);
     road.extendTo(hint + window + BLOCK);
     for (let i = this.checked; i < road.n - 1; i++) if (!(road.z[i + 1] > road.z[i])) this.monotonic = false;
     this.checked = road.n - 1;

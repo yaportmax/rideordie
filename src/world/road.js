@@ -90,7 +90,11 @@ export class Road {
   ensureDrivingBranches() {
     if (this.drivingBranches === null) {
       this.drivingBranches = []; // guard planning's ordinary road sampling
-      this.drivingBranches = planDrivingBranches(this);
+      // The old incidental blocks still reserve exactly the same branch
+      // candidates. Runtime feature queries do not expose these inert records.
+      this._planningFeatures = true;
+      try { this.drivingBranches = planDrivingBranches(this); }
+      finally { this._planningFeatures = false; }
     }
     return this.drivingBranches;
   }
@@ -166,7 +170,11 @@ export class Road {
       if (r.chance(rampP) && !reserved) { const s = at(); add({ type: 'ramp', s0: s, s1: s + 14, lane: r.pick([-1, 0, 1]), big: r.chance(0.4) }); }
       if (r.chance(0.04) && !reserved) { const s = at(); add({ type: 'boost', s0: s, s1: s + 6, lane: r.pick([-1.5, -0.5, 0.5, 1.5]) }); }
       const blockP = { desert: 0.012, canyon: 0.02, coast: 0.02, mountain: 0.025, city: 0.05, dam: 0.0 }[id] ?? 0;
-      if (r.chance(blockP) && !reserved) { const s = at(); add({ type: 'roadblock', s0: s, s1: s + 12, gap: r.pick([-2, -1, 0, 1, 2]), seed: (r() * 1e9) | 0 }); }
+      // Keep the original random draws and inert reservation so existing
+      // qualified branches/other features stay identical. Incidental wreck
+      // roadblocks no longer build visuals, contacts or warnings; deliberate
+      // stage shoot-gates/rockfalls have a separate, unchanged catalogue.
+      if (r.chance(blockP) && !reserved) { const s = at(); add({ type: 'roadblock', s0: s, s1: s + 12, gap: r.pick([-2, -1, 0, 1, 2]), seed: (r() * 1e9) | 0, disabledClutter: true }); }
     }
     if (canMajor) {
       const bridgeP = { desert: 0.006, canyon: 0.02, coast: 0.02, mountain: 0.015, city: 0.008, dam: 0.0 }[id] ?? 0;
@@ -190,18 +198,29 @@ export class Road {
   featuresIn(a, b, type) {
     this.extendTo(b + BLOCK);
     const out = [];
-    for (const f of this.features) if (f.s1 >= a && f.s0 <= b && (!type || f.type === type)) out.push(f);
+    for (const f of this.features) if ((!f.disabledClutter || this._planningFeatures) && f.s1 >= a && f.s0 <= b && (!type || f.type === type)) out.push(f);
     return out;
   }
   featureAt(s, type) {
-    for (const f of this.features) if (s >= f.s0 && s <= f.s1 && (!type || f.type === type)) return f;
+    for (const f of this.features) if ((!f.disabledClutter || this._planningFeatures) && s >= f.s0 && s <= f.s1 && (!type || f.type === type)) return f;
     return null;
   }
 
   // ---------------------------------------------------------------------------------------- sampling
   /** Fills out {x,y,z,th,fx,fz,nx,nz,k,bank} for path distance s. */
   sample(s, out = {}) {
-    if (s < 0) s = 0;
+    if (s < 0) {
+      // A real approach behind the initial truck, without an absolute road
+      // edge. It uses no negative array index or random-generation block;
+      // the existing bounded streamer follows any reverse travel along it.
+      // Keep the old first-query generation scope for deterministic peers.
+      this.extendTo(DS * 2);
+      out.s = s; out.th = this.th[0]; out.k = 0; out.bank = this.bank[0];
+      out.fx = Math.sin(out.th); out.fz = Math.cos(out.th);
+      out.nx = Math.cos(out.th); out.nz = -Math.sin(out.th);
+      out.x = this.x[0] + out.fx * s; out.z = this.z[0] + out.fz * s; out.y = this.y[0];
+      return out;
+    }
     this.extendTo(s + DS * 2);
     const f = s / DS, i = Math.min(this.n - 2, Math.floor(f)), t = f - i;
     out.s = s;
@@ -225,10 +244,22 @@ export class Road {
   }
 
   /** Closest path parameter to world (x,z), searching near hint s. Returns {s, d (left +), dist}. */
-  nearest(x, z, hint = 0, window = 90, out = {}) {
-    this.extendTo(hint + window + BLOCK);
+  nearest(x, z, hint = 0, window = 90, out = {}, positiveOnly = false) {
+    this.extendTo(Math.max(DS * 2, hint + window + BLOCK));
     let i0 = Math.max(0, Math.floor((hint - window) / DS)), i1 = Math.min(this.n - 2, Math.ceil((hint + window) / DS));
     let best = 1e18, bs = hint, bd = 0;
+    // The reference scan's inclusive segment range ends one DS beyond i1.
+    // Project the analytic negative segment before the positive array scan,
+    // retaining its strict-less-than tie order at the shared origin.
+    const negLo = Math.floor((hint - window) / DS) * DS;
+    const negHi = Math.min(0, (Math.ceil((hint + window) / DS) + 1) * DS);
+    if (!positiveOnly && negLo < 0 && negHi >= negLo) {
+      const th = this.th[0], fx = Math.sin(th), fz = Math.cos(th);
+      const ds = clamp((x - this.x[0]) * fx + (z - this.z[0]) * fz, negLo, negHi);
+      const px = this.x[0] + fx * ds, pz = this.z[0] + fz * ds;
+      best = (x - px) ** 2 + (z - pz) ** 2; bs = ds;
+      bd = (x - px) * Math.cos(th) - (z - pz) * Math.sin(th);
+    }
     for (let i = i0; i <= i1; i++) {
       const ax = this.x[i], az = this.z[i], bx = this.x[i + 1], bz = this.z[i + 1];
       const dx = bx - ax, dz = bz - az;

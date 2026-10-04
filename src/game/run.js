@@ -26,7 +26,7 @@ import { AudioBridge } from '../view/audio_bridge.js';
 import { GhostBoss, bossAimPoint } from '../sim/boss.js';
 import { AIDriver } from './ai_driver.js';
 import { AIGunner } from './ai_gunner.js';
-import { Dressing } from '../world/dressing.js';
+import { Dressing, START_TUNNEL_BEHIND, START_TUNNEL_AHEAD } from '../world/dressing.js';
 import { StructureColliders } from '../sim/structure_colliders.js';
 import { StageEncounters } from '../sim/stage_encounters.js';
 import { StageEncountersView } from '../view/stage_encounters.js';
@@ -41,6 +41,12 @@ import { validNukeCue } from '../view/fx/nuke.js';
 import { keyLabel } from '../ui/glyphs.js';
 
 const V3 = THREE.Vector3;
+export const START_TUNNEL_TIMEOUT_MS = 20000;
+function tunnelStartupError(status) {
+  const error = new Error('The first tunnel could not be prepared. Please try again.');
+  error.code = 'tunnel-startup'; error.detail = status;
+  return error;
+}
 
 export class Run {
   get road() { return this.sim?.road || this._road || (this._road = new Road(this.seed, this.journey)); }
@@ -53,6 +59,7 @@ export class Run {
    */
   constructor(g, cfg) {
     this.g = g; this.journey = normalizeJourney(cfg.journey); this.cfg = { ...cfg, journey: this.journey }; this.role = cfg.role; this.seed = cfg.seed; this.net = cfg.net || null;
+    this._startGeneration = g._runGeneration;
     this.id = cfg.runId || globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     this.partnerReady = !this.net;
     // single player with an AI partner: cfg.ai = 'gunner' (you drive) | 'driver' (you shoot); the sim then runs locally
@@ -124,7 +131,80 @@ export class Run {
       this.abridge = new AudioBridge(g.audio, { playerId: 1, localRole: this.role }); this.abridge.preload({ weapons: effects.weapons, truck: spec.id });
     }
     if (g.fx) { g.fx.clear(); g.fx.setGround((x, z) => { const p = this.states.get(1); return this._groundY(x, (p ? p.pos.y : 0) + 30, z) ?? (p ? p.pos.y - 0.6 : 0); }); }
+    // Keep the existing cancellable GETTING READY initializer open only for a
+    // tunnel in the first driving corridor. Failure rejects before any life,
+    // payout or progression is recorded by the application.
+    await this._prepareStartTunnels(cfg.startS ?? 40);
+    if (this.disposed) return this;
     return this;
+  }
+
+  _startTunnelReadiness(s) {
+    if (this.dressing) return this.dressing.tunnelReadiness(s, id => this.structures?.bodies.has(id));
+    const tunnels = this.road.featuresIn(s - START_TUNNEL_BEHIND, s + START_TUNNEL_AHEAD, 'tunnel');
+    return tunnels.length ? { state: 'failed', reason: 'dressing-unavailable' } : { state: 'ready', ids: [] };
+  }
+
+  _startupCancelled() {
+    return this.disposed || (this._startGeneration !== undefined && this.g._runGeneration !== this._startGeneration);
+  }
+
+  async _prepareStartTunnels(s) {
+    let status = this._startTunnelReadiness(s);
+    if (status.state === 'failed') throw tunnelStartupError(status);
+    if (status.state === 'ready') return;
+    const position = this.road.pointAt(s, 0, {}), began = performance.now();
+    let previous = began;
+    while (!this._startupCancelled()) {
+      const now = performance.now();
+      if (now - began >= START_TUNNEL_TIMEOUT_MS) throw tunnelStartupError({ ...status, reason: 'tunnel-timeout' });
+      this.streamer.update(s);
+      this.dressing?.update(Math.min(0.1, Math.max(0.001, (now - previous) / 1000)), position, s);
+      previous = now;
+      status = this._startTunnelReadiness(s);
+      if (status.state === 'ready') return;
+      if (status.state === 'failed') throw tunnelStartupError(status);
+      // Yield to terrain-worker replies and asynchronous mesh warming.
+      await new Promise(resolve => setTimeout(resolve, 16));
+    }
+  }
+
+  _abortStartTunnel(status) {
+    if (this.startupError || this.started || this.disposed) return;
+    this.startupError = tunnelStartupError(status);
+    this.groundOk = false;
+    // No over flag and no summary: the existing completion callback returns
+    // an unstarted life to the garage before creditRun/creditResult is reached.
+    this.finished = true;
+    this.g.hud.message('THE ROAD COULD NOT LOAD. PLEASE TRY AGAIN.', 5000, '#ffc21a');
+    this.g.fade(0, 0.2);
+    this.net?.sendJSON({ t: 'abort' });
+  }
+
+  _updateCountdown(dt, P) {
+    if (this.startupError || this.disposed) return;
+    const g = this.g;
+    this.streamer.update(P.s);
+    const critical = this._startTunnelReadiness(P.s);
+    if (critical.state !== 'ready') {
+      this.startTunnelWaitT = (this.startTunnelWaitT || 0) + dt;
+      if (critical.state === 'failed' || this.startTunnelWaitT * 1000 >= START_TUNNEL_TIMEOUT_MS) {
+        this._abortStartTunnel(critical.state === 'failed' ? critical : { ...critical, reason: 'tunnel-timeout' });
+        return;
+      }
+    } else this.startTunnelWaitT = 0;
+    if (!this.groundOk && (this.groundSeen || this.streamer.groundReady(P.s))) {
+      this.groundSeen = true; this.startWaitT = (this.startWaitT || 0) + dt;
+      const dr = this.dressing, ready = !dr || (dr.idle && !dr.pool.warming);
+      // The six-second scatter bypass never bypasses the physical tunnel.
+      if (critical.state === 'ready' && (ready || this.startWaitT > 6)) { this.groundOk = true; g.fade(0, 0.8); }
+    }
+    if (this.groundOk && !this.partnerReady) g.hud.message('WAITING FOR PARTNER', 500, '#ffc21a');
+    if (this.groundOk && this.partnerReady && critical.state === 'ready') {
+      this.countdown -= dt;
+      if (this.countdown <= 0) { this.sim.releaseCar(P); this.sim.start(); this.started = true; g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); if (this.net) this.net.sendJSON({ t: 'go' }); }
+      else g.hud.message(String(Math.ceil(this.countdown - 0.2)) || 'GO', 500, '#fff');
+    }
   }
 
   async _loadDressing(startS) {
@@ -272,22 +352,8 @@ export class Run {
     const P = this.sim ? this.player : null;
     if (this.sim) {
       this._beginVictoryPresentation();
-      // countdown -> start once the ground under the truck exists
-      if (this.sim.state === 'countdown') {
-        this.streamer.update(P.s);
-        // start once the ground exists AND the first dressing chunks are built and warm (no compile stutter during the fly-by)
-        if (!this.groundOk && (this.groundSeen || (this.streamer.groundReady(P.s)))) {
-          this.groundSeen = true; this.startWaitT = (this.startWaitT || 0) + dt;
-          const dr = this.dressing, ready = !dr || (dr.idle && !dr.pool.warming);
-          if (ready || this.startWaitT > 6) { this.groundOk = true; g.fade(0, 0.8); }
-        }
-        if (this.groundOk && !this.partnerReady) g.hud.message('WAITING FOR PARTNER', 500, '#ffc21a');
-        if (this.groundOk && this.partnerReady) {
-          this.countdown -= dt;
-          if (this.countdown <= 0) { this.sim.releaseCar(P); this.sim.start(); this.started = true; g.hud.message('GO!', 900, '#ffc21a'); this.abridge?.runStart(); if (this.net) this.net.sendJSON({ t: 'go' }); }
-          else g.hud.message(String(Math.ceil(this.countdown - 0.2)) || 'GO', 500, '#fff');
-        }
-      }
+      // countdown -> start once the ground and any immediate tunnel exist
+      if (this.sim.state === 'countdown') this._updateCountdown(dt, P);
       if (window.__autodrive && this.driverLocal) {
         const v = P.veh, B = this.sim.boss, road = this.sim.road;
         const lat = B ? (Math.sin(this.time * 0.15) > 0 ? 4.5 : -4.5) : (window.__autodrive.lat || 0);

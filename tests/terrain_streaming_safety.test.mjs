@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { TerrainStreamer } from '../src/world/terrain.js';
 import { Road } from '../src/world/road.js';
 import { genTerrainChunk, genRoadChunk, seaLevel } from '../src/world/terrain_gen.js';
-import { initPhysics, createWorld, addStaticBox, RAPIER, RAY_WORLD } from '../src/sim/physics.js';
+import { initPhysics, createWorld, addStaticBox, removeBody, RAPIER, RAY_WORLD } from '../src/sim/physics.js';
 import { Vehicle } from '../src/sim/vehicle.js';
 import { VEHICLES } from '../src/data/vehicles.js';
 import { Sim, DT } from '../src/sim/sim.js';
@@ -45,13 +45,30 @@ test('fine terrain collision survives coarse visual LOD, drop, and reversal; act
   } finally { vehicle?.destroy(); st.dispose(); world.free(); }
 });
 
-test('first coarse worker reply creates asphalt collision independently, and start readiness has no negative tile', async () => {
+test('first coarse reply creates asphalt independently; startup waits for both actual negative tile colliders', async () => {
   await initPhysics();
   const world = createWorld(DT), road = new Road(1), st = streamerFixture(world, road, 30);
   try {
     reply(st, 0, 1); assert.ok(st.chunks.get(0).colR); assert.equal(st.chunks.get(0).colT, null);
     assert.ok(roadRay(world, road, 30));
-    reply(st, 0, 0); reply(st, 1, 0); assert.equal(st.groundReady(30), true);
+    reply(st, 0, 0); reply(st, 1, 0);
+    assert.equal(st.groundReady(30), false, 'positive tiles cannot authorize an unseen approach behind the truck');
+    reply(st, -1, 2);
+    const approach = st.chunks.get(-1);
+    assert.ok(approach.colR); assert.ok(approach.colT, 'negative coarse visuals already carry real fine terrain');
+    assert.equal(st.groundReady(30), true);
+    assert.ok(roadRay(world, road, -30)); assert.ok(roadRay(world, road, -30, 20));
+    removeBody(world, approach.colR.rb); approach.colR = null;
+    assert.equal(st.groundReady(30), false, 'terrain alone cannot stand in for asphalt support');
+    assert.equal(roadRay(world, road, -30), null);
+    st._collision(-1, approach, 30); assert.ok(approach.colR);
+    assert.equal(st.groundReady(30), true);
+    removeBody(world, approach.colT.rb); approach.colT = null;
+    assert.equal(st.groundReady(30), false, 'asphalt alone cannot authorize the adjacent visible terrain');
+    assert.ok(roadRay(world, road, -30)); assert.equal(roadRay(world, road, -30, 20), null);
+    st._collision(-1, approach, 30); assert.ok(approach.colT);
+    assert.equal(st.groundReady(30), true);
+    st._dispose(-1, approach); assert.equal(st.groundReady(30), false);
     st.dispose(); assert.equal(world.bodies.len(), 0);
   } finally { st.dispose(); world.free(); }
 });

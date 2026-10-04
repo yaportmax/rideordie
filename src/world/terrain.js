@@ -70,7 +70,7 @@ export class TerrainStreamer {
       const bound = (b) => { if (b <= s) lo = Math.max(lo, b); if (b >= s) hi = Math.min(hi, b); };
       bound(c0 * CHUNK_LEN + BEHIND); bound((c0 + 1) * CHUNK_LEN + BEHIND);
       bound(c1 * CHUNK_LEN - AHEAD); bound((c1 + 1) * CHUNK_LEN - AHEAD);
-      for (let c = Math.max(0, c0); c <= c1; c++) {
+      for (let c = c0; c <= c1; c++) {
         const centre = c * CHUNK_LEN + half, dist = Math.abs(centre - s);
         const lod = this.lodFor(centre < s ? dist * 1.6 : dist);
         bound(centre - LOD_DIST[0]); bound(centre - LOD_DIST[1]);
@@ -103,7 +103,7 @@ export class TerrainStreamer {
     this.cover.update(this.chunks, s);   // near-road ground cover: one draw per kind for the chunks around the player
     if (this.road) {
       const r = this.road, a = r.sample(s, _fs);
-      const y = Math.min(a.y, r.sample(Math.max(0, s - FLOOR_R), _fs2).y, r.sample(s + FLOOR_R, _fs2).y) - 100;
+      const y = Math.min(a.y, r.sample(s - FLOOR_R, _fs2).y, r.sample(s + FLOOR_R, _fs2).y) - 100;
       this.floor.position.set(a.x, y, a.z); this.floor.updateMatrix(); this.floor.visible = true;
     }
   }
@@ -237,7 +237,7 @@ export class TerrainStreamer {
     const ray = new RAPIER.Ray({ x, y, z }, { x: 0, y: -1, z: 0 });
     let height = null;
     const c = Math.floor(s / CHUNK_LEN);
-    for (let i = Math.max(0, c - 1); i <= c + 1; i++) {
+    for (let i = c - 1; i <= c + 1; i++) {
       const rec = this.chunks.get(i), col = route ? rec?.colB?.get(route)?.col : rec?.colR?.col;
       const hit = col?.castRayAndGetNormal(ray, 8, true);
       if (hit && hit.normal.y > 0.5) height = Math.max(height ?? -Infinity, y - hit.timeOfImpact);
@@ -249,7 +249,7 @@ export class TerrainStreamer {
   recoveryBoundsAt(s) {
     let minY = Infinity, waterY = null;
     const c = Math.floor(s / CHUNK_LEN);
-    for (let i = Math.max(0, c - 1); i <= c + 1; i++) {
+    for (let i = c - 1; i <= c + 1; i++) {
       const rec = this.chunks.get(i);
       if (rec?.minGroundY != null) minY = Math.min(minY, rec.minGroundY);
       if (rec?.waterY != null) waterY = Math.max(waterY ?? -Infinity, rec.waterY);
@@ -259,7 +259,7 @@ export class TerrainStreamer {
 
   /** True once the chunks around s have their colliders (used to hold the car until the ground exists). */
   groundReady(s, route = null) {
-    for (let c = Math.max(0, Math.floor((s - 40) / CHUNK_LEN)); c <= Math.floor((s + 80) / CHUNK_LEN); c++) {
+    for (let c = Math.floor((s - 40) / CHUNK_LEN); c <= Math.floor((s + 80) / CHUNK_LEN); c++) {
       const r = this.chunks.get(c); if (!r || !r.mesh || (this.world && (!r.colT || !r.colR))) return false;
       if (route && this.world) {
         const b = this.road.drivingBranch(route);

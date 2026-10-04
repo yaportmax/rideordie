@@ -698,7 +698,7 @@ export class App {
         g.paused = false;
         if (this.mode === 'coop') this.session?.sendJSON({ t: 'abort' });
         // abandoning a run still pays what was earned so far (solo)
-        const r = g.run; if (r && r.sim && this.mode === 'solo') { const sm = r.buildSummary(); creditRun(this.profile, sm); saveProfile(this.profile); }
+        const r = g.run; if (r && r.sim && r.started && this.mode === 'solo') { const sm = r.buildSummary(); creditRun(this.profile, sm); saveProfile(this.profile); }
         this.garage();
       },
     });

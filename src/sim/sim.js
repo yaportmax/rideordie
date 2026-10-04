@@ -336,7 +336,9 @@ export class Sim {
     if (!this.ground?.roadHeightAt) return false;
     const v = car.veh, q = v.quat.clone(), local = new V3();
     for (const ds of [0, -18, 18, -36, 36, -60, 60]) for (const d of [0, -2.7, 2.7]) {
-      const s = Math.max(8, targetS + ds), sm = this.road.sample(s);
+      // Signed approach travel has real streamed asphalt too. Origin-clamped
+      // rays would query missing tiles after a long reverse excursion.
+      const s = targetS < 0 ? targetS + ds : Math.max(8, targetS + ds), sm = this.road.sample(s);
       if (this.road.featuresIn(s - car.spec.length / 2 - 8, s + car.spec.length / 2 + 8).some(f => f.type === 'roadblock' || f.type === 'ramp' || f.type === 'stage_challenge')) continue;
       const x = sm.x + sm.nx * d, z = sm.z + sm.nz * d;
       const gy = this.ground.roadHeightAt(s, x, z, this.road.surfaceY(sm, d) + 2);

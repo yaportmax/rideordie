@@ -55,17 +55,31 @@ const QUALITY = [
   { far: 1.2, shadow: 170, budget: 3.5 },
 ];
 
+// Long features still belong to the chunk containing their end. Their entry
+// can be several chunks away, so work priority must use the whole span.
+const spanDistance = (s, f) => Math.max(f.s0 - s, 0, s - f.s1);
+const tunnelId = f => `tunnel:${Math.round(f.s0 * 10)}`;
+const featureTag = f => `feat:${f.type}:${Math.round(f.s0 * 10)}`;
+export const START_TUNNEL_BEHIND = 40, START_TUNNEL_AHEAD = 160;
+function tunnelAssets(road, f) {
+  const b = roadBiomeAt(road, (f.s0 + f.s1) / 2), id = b.w > 0.5 ? b.b : b.a;
+  return !f.rock ? ['tunnel_portal_concrete', 'tunnel_exit_concrete', 'tunnel_mid_10m']
+    : id === 'canyon' || id === 'desert' ? ['tunnel_portal_rock', 'tunnel_exit', 'tunnel_mid_10m']
+      : ['tunnel_portal_rock_grey', 'tunnel_exit_grey', 'tunnel_mid_10m'];
+}
+const validCollision = mesh => !!(mesh?.pos?.length >= 9 && mesh?.idx?.length >= 3);
+
 class ChunkDress {
   constructor(dress, c) {
     this.dress = dress; this.c = c; this.s0 = c * CHUNK_LEN;
-    this.lists = new Map(); this.extras = []; this.hooks = [];
+    this.lists = new Map(); this.extras = []; this.hooks = []; this.tunnels = new Map();
     this.step = 0; this.done = new Set(); this.ground = null; this.seaY = -1e9; this.dirty = false; this.rec = null;
   }
   list(name) { let l = this.lists.get(name); if (!l) { l = new InstList(); this.lists.set(name, l); } return l; }
   addExtra(obj) {
     this.extras.push(obj); this.dress.extraGroup.add(obj);
     const w = this.dress.pool.warmer;
-    if (w && obj.visible) { obj.visible = false; const meshes = []; obj.traverse((o) => { if (o.isMesh) meshes.push(o); }); w(meshes.length ? meshes : [obj]).then(() => { obj.userData.ready = true; obj.visible = !obj.userData.far; }); }
+    if (w && obj.visible) { obj.visible = false; const meshes = []; obj.traverse((o) => { if (o.isMesh) meshes.push(o); }); w(meshes.length ? meshes : [obj]).then(() => { if (this.dress._disposed || this.dress.chunks.get(this.c) !== this) return; obj.userData.ready = true; obj.visible = !obj.userData.far; }); }
     else obj.userData.ready = true;
   }
 }
@@ -89,12 +103,62 @@ export class Dressing {
     this._clock = 0; this._needRebuild = true; this._poolOk = true; this._loaded = false;
     this.ctx = {
       road, seed: this.seed, kit: this.kit, pool: this.pool, quality: this.quality, dress: this,
-      hook: (req) => (this.hook ? this.hook(req) : undefined),
+      hook: req => this._structureHook(req),
       exclusions: (a, b) => landmarkExclusions(this.ctx, a, b),
       tunnelsNear: (a, b) => road.featuresIn(a, b, 'tunnel'),
       wreckNear: (s, d) => wreckNear(this.ctx, s, d),
     };
     this.stats = { chunksBuilt: 0, jobMs: 0, rebuilds: 0, rebuildMs: 0, rebuildMax: 0, stepMax: [0, 0, 0, 0, 0, 0, 0, 0, 0] };
+  }
+
+  _structureHook(req) {
+    const result = this.hook ? this.hook(req) : undefined;
+    if (req.type === 'tunnel') {
+      const ch = this.chunks.get(Math.floor(req.s1 / CHUNK_LEN));
+      // buildTunnel emits the hook immediately after adding its hill cap.
+      if (ch) ch.tunnels.set(req.id, { feature: req, assets: tunnelAssets(this.road, req), cap: ch.extras.at(-1), renderReady: false });
+    }
+    return result;
+  }
+
+  _tunnelRenderReady(tunnel) {
+    if (!tunnel.cap?.userData.ready) return false;
+    for (const name of tunnel.assets) {
+      const spec = this.pool.specOf(name);
+      if (!spec) return false;
+      const lods = spec.lods || [{ asset: name }];
+      for (const lod of lods) {
+        const entry = this.pool.entries.get(lod.asset);
+        if (!entry?.sets?.length || entry.sets.some(set => !set.meshes?.length || set.warm === false)) return false;
+      }
+    }
+    return true;
+  }
+
+  /** Only a tunnel in the first driving corridor can hold startup. Scatter,
+   * landmarks and the rest of the streaming window do not belong to this gate. */
+  tunnelReadiness(s, hasCollider) {
+    const tunnels = this.road.featuresIn(s - START_TUNNEL_BEHIND, s + START_TUNNEL_AHEAD, 'tunnel');
+    const ids = []; let pending = null;
+    for (const f of tunnels) {
+      const id = tunnelId(f); ids.push(id);
+      const assets = tunnelAssets(this.road, f);
+      for (const name of assets) {
+        const state = this.kit.state(name);
+        if (state === 'missing') return { state: 'failed', reason: 'missing-tunnel-asset', asset: name, id, ids };
+        if (state === 'ready' && (!this.kit.get(name)?.parts?.length || !validCollision(this.kit.get(name)?.collision))) return { state: 'failed', reason: 'invalid-tunnel-asset', asset: name, id, ids };
+        if (state === 'idle') this.kit.request(name);
+      }
+      const ch = this.chunks.get(Math.floor(f.s1 / CHUNK_LEN));
+      if (!this._loaded || !ch?.rec || !ch.done.has(featureTag(f))) { pending ||= { state: 'pending', reason: 'tunnel-build', id, ids }; continue; }
+      const tunnel = ch.tunnels.get(id);
+      // Missing assets are deliberately skipped by the general dressing
+      // builder. A completed step alone is therefore not physical readiness.
+      if (!tunnel || !ch.hooks.includes(id) || !validCollision(tunnel.feature.collision)) return { state: 'failed', reason: 'tunnel-not-built', id, ids };
+      if (typeof hasCollider !== 'function' || !hasCollider(id)) return { state: 'failed', reason: 'tunnel-collider', id, ids };
+      if (!tunnel.renderReady || !this._tunnelRenderReady(tunnel)) pending ||= { state: 'pending', reason: 'tunnel-warm', id, ids };
+    }
+    return pending || { state: 'ready', ids };
   }
 
   /** Asset names a biome can use (scatter + furniture + road features + landmarks). */
@@ -143,6 +207,7 @@ export class Dressing {
     for (const o of ch.extras) { this.extraGroup.remove(o); o.traverse((x) => { if (x.geometry && x.userData.ownGeo) x.geometry.dispose(); }); }
     this.water.dropChunk(c);
     this.chunks.delete(c);
+    this._structurePriorityCache?.owners.delete(c);
     this._needRebuild = true;
   }
 
@@ -184,14 +249,58 @@ export class Dressing {
     for (const ch of this.chunks.values()) if (ch.rec && ch.step < this._wantStep(ch)) n++;
     return n;
   }
+  // Road appends immutable feature records. Retain only unfinished, live chunk
+  // owners: idle frames do not revisit the complete history. A new owner (also
+  // after reversing) needs one historical reindex because records are not
+  // globally sorted. Appends scan only the new suffix; replacement or shrink
+  // resets the cache. No index of every historical owner is retained.
+  _structurePriorityOwners() {
+    const features = this.road.features, count = features.length;
+    let cache = this._structurePriorityCache;
+    if (!cache || cache.source !== features || count < cache.count) {
+      cache = this._structurePriorityCache = { source: features, count: 0, owners: new Map() };
+    }
+    for (const owner of cache.owners.keys()) {
+      const ch = this.chunks.get(owner);
+      if (!ch?.rec || ch.step >= 3) cache.owners.delete(owner);
+    }
+    let reindex = false;
+    for (const ch of this.chunks.values()) {
+      if (ch.rec && ch.step < 3 && !cache.owners.has(ch.c)) {
+        cache.owners.set(ch.c, []); reindex = true;
+      }
+    }
+    if (cache.owners.size) {
+      const first = reindex ? 0 : cache.count;
+      if (reindex) for (const list of cache.owners.values()) list.length = 0;
+      for (let i = first; i < count; i++) {
+        const f = features[i];
+        if (f.type !== 'tunnel' && f.type !== 'bridge') continue;
+        const list = cache.owners.get(Math.floor(f.s1 / CHUNK_LEN));
+        if (list) list.push(f);
+      }
+    }
+    cache.count = count;
+    return cache.owners;
+  }
   _jobs(budgetMs) {
     const t0 = performance.now();
+    const spans = new Map();
+    for (const [owner, features] of this._structurePriorityOwners()) {
+      for (const f of features) {
+        const d = spanDistance(this.s, f);
+        if (d <= 1000) spans.set(owner, Math.min(spans.get(owner) ?? Infinity, d));
+      }
+    }
     while (performance.now() - t0 < budgetMs) {
       let best = null, bd = 1e18;
       const now = performance.now();
       for (const ch of this.chunks.values()) {
         if (!ch.rec || ch.step >= this._wantStep(ch) || (ch._blockedUntil || 0) > now) continue;
-        const d = Math.abs(ch.s0 + CHUNK_LEN / 2 - this.s);
+        const centre = Math.abs(ch.s0 + CHUNK_LEN / 2 - this.s);
+        // Stop prioritizing the owner when its structural step is complete;
+        // its later distant scatter keeps its normal chunk-centre priority.
+        const d = ch.step < 3 ? Math.min(centre, spans.get(ch.c) ?? Infinity) : centre;
         if (d < bd) { bd = d; best = ch; }
       }
       if (!best) break;
@@ -213,7 +322,7 @@ export class Dressing {
 
   // ------------------------------------------------------------------------------------------------ per frame
   update(dt, cameraPos, s, camera) {
-    if (!this._loaded) return;
+    if (this._disposed || !this._loaded) return;
     this.cam.copy(cameraPos); this.s = s;
     WIND.uTime.value += dt; this._clock += dt;
     this.water.update(dt, this.cam, s); this.backdrop.update(dt, this.cam, s, this.road); updateBoostAnim(dt);
@@ -245,6 +354,7 @@ export class Dressing {
     if ((this._needRebuild && this._clock - L.t > 0.2) || moved > 10 || turned || this._clock - L.t > 0.5) {
       const t0 = performance.now();
       this._poolOk = this.pool.rebuild(this.chunks.values(), this.cam, useFwd ? { x: fx, z: fz } : NO_FWD, this._shadowInfo(s));
+      for (const ch of this.chunks.values()) for (const tunnel of ch.tunnels.values()) tunnel.renderReady = this._tunnelRenderReady(tunnel);
       this.stats.rebuilds++; this.stats.rebuildMs = performance.now() - t0; if (this.stats.rebuildMs > this.stats.rebuildMax) this.stats.rebuildMax = this.stats.rebuildMs;
       L.x = this.cam.x; L.y = this.cam.y; L.z = this.cam.z; L.fx = fx; L.fz = fz; L.t = this._clock;
       this._needRebuild = !this._poolOk;
@@ -265,6 +375,8 @@ export class Dressing {
   }
 
   dispose() {
+    if (this._disposed) return;
+    this._disposed = true; this._loaded = false;
     for (const [c] of [...this.chunks]) this.onChunkDrop(c);
     this.pool.dispose(); this.kit.dispose(); this.water.dispose(); this.backdrop.dispose(); this.sets.dispose();
     this.scene.remove(this.extraGroup);
