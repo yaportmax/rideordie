@@ -133,9 +133,30 @@ export class Hud {
     this.q.spd.textContent = Math.round(speedValue(this.lastSpeed || 0, this.units));
   }
   hints(lines, ms = 9000) {
-    if (!this.hintEl) { this.hintEl = document.createElement('div'); this.hintEl.style.cssText = 'position:absolute;left:50%;bottom:120px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px;line-height:1.9;opacity:0;transition:opacity .6s;background:rgba(0,0,0,.35);padding:10px 22px;border-left:3px solid #ffc21a;white-space:nowrap'; this.el.appendChild(this.hintEl); }
+    this._hintRevision = (this._hintRevision || 0) + 1;
+    if (!this.hintEl) { this.hintEl = document.createElement('div'); this.hintEl.style.cssText = 'position:absolute;left:50%;top:80px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px;line-height:1.9;opacity:0;transition:opacity .6s;background:rgba(0,0,0,.35);padding:10px 22px;border-left:3px solid #ffc21a;white-space:nowrap'; this.el.appendChild(this.hintEl); }
     this.hintEl.innerHTML = lines.map((l) => `<div>${l}</div>`).join(''); this.hintEl.style.opacity = 1;
-    clearTimeout(this._hintT); this._hintT = setTimeout(() => { this.hintEl.style.opacity = 0; }, ms);
+    const owner = this._hintOwner = {};
+    clearTimeout(this._hintT); this._hintT = setTimeout(() => {
+      if (this._hintOwner === owner) { this._hintOwner = null; this.hintEl.style.opacity = 0; }
+    }, ms);
+    return owner;
+  }
+  hintsActive(owner) {
+    return !!owner && owner === this._hintOwner && !!this.hintEl && String(this.hintEl.style.opacity) === '1';
+  }
+  /** Refresh one owned visible notice without restarting its original expiry. */
+  updateHints(lines, owner) {
+    if (!this.hintsActive(owner)) return false;
+    this.hintEl.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+    return true;
+  }
+  /** Retire only this owner's timer/notice; replacement notices keep theirs. */
+  retireHints(owner) {
+    if (!owner || owner !== this._hintOwner) return false;
+    clearTimeout(this._hintT); this._hintT = null; this._hintOwner = null;
+    if (this.hintEl) this.hintEl.style.opacity = 0;
+    return true;
   }
   message(text, ms = 1600, color = '#fff') { const m = this.q.msg; m.textContent = text; m.style.color = color; m.style.opacity = 1; this.msgT = ms / 1000; }
   setDefeat(why) {

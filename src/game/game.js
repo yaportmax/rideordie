@@ -9,6 +9,7 @@ import { Water } from '../world/water.js';
 import { NightLights } from '../world/night_lights.js';
 import { lookAt } from '../world/look.js';
 import { Hud } from '../ui/hud.js';
+import { startupHintLines } from '../ui/startup_hints.js';
 import { Run } from './run.js';
 import { GarageScene } from './garage_scene.js';
 import { VEHICLES, vehicleModelURL, vehicleModelURLs } from '../data/vehicles.js';
@@ -27,7 +28,7 @@ import { ViewModel } from '../view/viewmodel.js';
 import { disposeOwnedSkeletonsIn } from '../view/owned_skeletons.js';
 import { clamp } from '../core/util.js';
 import { appendDiagnostic } from '../core/diagnostics.js';
-import { canCaptureRun, defeatReason } from './run_status.js';
+import { canCaptureRun, defeatReason, isVictory } from './run_status.js';
 
 export class Game {
   constructor(opts = {}) {
@@ -245,11 +246,9 @@ export class Game {
     this.run = run; this.mode = 'run'; this.paused = false;
     if (this.post) { this.post.enabled = true; this.post.cut?.(); }
     this.hud.setVisible(true); this.hud.show({ driver: run.humanDriver, gunner: run.humanGunner });
-    const pad = this.input.lastDevice === 'pad';
-    const H = { driver: pad ? '<b>RT</b> GAS &nbsp; <b>LT</b> BRAKE &nbsp; <b>LS</b> STEER &nbsp; <b>A</b> DRIFT &nbsp; <b>RB</b> NITRO &nbsp; <b>LB</b> LOOK BACK &nbsp; <b>Y</b> FLIP &nbsp; <b>R3</b> VIEW' : '<b>W/S</b> GAS/BRAKE &nbsp; <b>A/D</b> STEER &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>Q/E</b> OIL/MINES &nbsp; <b>B</b> LOOK BACK &nbsp; <b>R</b> FLIP &nbsp; <b>C</b> VIEW',
-      gunner: pad ? '<b>RS</b> AIM &nbsp; <b>RT</b> FIRE &nbsp; <b>LT</b> SIGHTS &nbsp; <b>X</b> RELOAD &nbsp; <b>RB</b> GRENADE &nbsp; <b>Y</b> SWAP &nbsp; <b>BACK</b> VIEW' : '<b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>RMB</b> SIGHTS &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>1-3</b> WEAPONS &nbsp; <b>V</b> VIEW',
-      solo: pad ? '<b>LS</b> STEER &nbsp; <b>RT/LT</b> GAS/BRAKE &nbsp; <b>A</b> DRIFT &nbsp; <b>LB</b> NITRO &nbsp; <b>Y</b> FLIP &nbsp;|&nbsp; <b>RS</b> AIM &nbsp; <b>RB</b> FIRE &nbsp; <b>X</b> RELOAD &nbsp; <b>B</b> GRENADE &nbsp; <b>D-PAD DOWN</b> MEDKIT' : '<b>WASD</b> DRIVE &nbsp; <b>SPACE</b> DRIFT &nbsp; <b>SHIFT</b> NITRO &nbsp; <b>T</b> FLIP &nbsp;|&nbsp; <b>MOUSE</b> AIM &nbsp; <b>LMB</b> FIRE &nbsp; <b>R</b> RELOAD &nbsp; <b>G</b> GRENADE &nbsp; <b>X</b> MEDKIT' };
-    this.hud.hints([(run.role === 'solo' ? H.solo : run.role === 'driver' ? H.driver : H.gunner).replaceAll(' FLIP', ' RESET'), 'SHOOT THE DRIVERS &middot; SHOOT THE FUEL TANKS &middot; DON\'T CRASH']);
+    // Loading/countdown may outlast the entire notice. Arm it for the first
+    // healthy playable frame, so its original nine seconds are visible help.
+    this._startupHints = { run, owner: null, html: null, revision: this.hud._hintRevision || 0 };
     return run;
   }
   /** Full-screen black fade (0..1) over `secs`. */
@@ -257,7 +256,34 @@ export class Game {
     if (!this._fadeEl) { const f = this._fadeEl = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;z-index:5;opacity:0;transition:opacity 0.6s'; document.body.appendChild(f); }
     this._fadeEl.style.transition = `opacity ${secs}s`; this._fadeEl.style.opacity = to;
   }
-  endRun() { this._runGeneration = (this._runGeneration || 0) + 1; this.paused = false; this.onPause = this.onRunEnd = null; if (this.run) { this.run.dispose(); this.run = null; } if (window.__app) window.__app._releasing = true; this.input.releaseLock(); this.input.reset(); this.hud.setDefeat?.(null); this.hud.setVisible(false); if (this._lockEl) this._lockEl.style.display = 'none'; }
+  endRun() { this._runGeneration = (this._runGeneration || 0) + 1; this._retireStartupHints(); this.paused = false; this.onPause = this.onRunEnd = null; if (this.run) { this.run.dispose(); this.run = null; } if (window.__app) window.__app._releasing = true; this.input.releaseLock(); this.input.reset(); this.hud.setDefeat?.(null); this.hud.setVisible(false); if (this._lockEl) this._lockEl.style.display = 'none'; }
+
+  _retireStartupHints() {
+    const hint = this._startupHints;
+    this._startupHints = null;
+    if (hint?.owner) this.hud.retireHints(hint.owner);
+  }
+
+  _refreshStartupHints() {
+    const hint = this._startupHints;
+    if (!hint) return;
+    if (this.run !== hint.run || this.run.over || defeatReason(this.run) || isVictory(this.run)) { this._retireStartupHints(); return; }
+    if (!hint.owner) {
+      // Any intervening HUD hint wins, including one which already expired.
+      // Pending startup help must never replace another notice later on.
+      if ((this.hud._hintRevision || 0) !== hint.revision || this.hud.hintsActive(this.hud._hintOwner)) { this._startupHints = null; return; }
+      if (this.paused || !canCaptureRun(this.run) || this.hud.msgT > 0) return;
+      const lines = startupHintLines(this.run.role, this.input);
+      hint.owner = this.hud.hints(lines); hint.html = lines.join('\n');
+      return;
+    }
+    // GO! and critical gameplay messages own this part of the HUD. If one
+    // arrives after startup help begins, retire only that help, without rearm.
+    if (this.hud.msgT > 0) { this._retireStartupHints(); return; }
+    if (!this.hud.hintsActive(hint.owner)) { this._startupHints = null; return; }
+    const lines = startupHintLines(this.run.role, this.input), html = lines.join('\n');
+    if (html !== hint.html && this.hud.updateHints(lines, hint.owner)) hint.html = html;
+  }
 
   frame(now) {
     const frameMs = now - this.last;
@@ -265,7 +291,7 @@ export class Game {
     if (this.mode === 'run' && this.run?.started && !this.paused && !this.run.over) this.post?.adaptResolution(frameMs);
     const input = this.input;
     input.poll();
-    if (this.mode === 'run' && this.run) this._runFrame(dt, now, frameMs);
+    if (this.mode === 'run' && this.run) { this._runFrame(dt, now, frameMs); this._refreshStartupHints(); }
     else if (this.mode === 'garage') { this.garage.update(dt, input); this.garage.render(); }
     this._pumpTextures();
     this.audio?.setGameplayPaused?.(this.mode === 'run' && this.paused && !this.run?.net && !this.run?.over);

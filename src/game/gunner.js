@@ -205,9 +205,19 @@ export class GunnerController {
     // predicted opposite bearing is not the current target's angular motion.
     // Retain current-target slowdown/ADS snap without rotating toward that pole.
     if (futP.lengthSq() > 1e-12 && futP.dot(_o) > 0) {
+      // Elevated lead can remain in the 3D hemisphere while passing overhead
+      // and reversing horizontal bearing. Fade only the opposite yaw prediction
+      // to zero at its +/-PI seam; retain pitch lead and current-target ADS snap.
+      const currentXZSq = _o.x * _o.x + _o.z * _o.z;
+      const futureXZSq = futP.x * futP.x + futP.z * futP.z;
+      let yawLeadConfidence = 0;
+      if (currentXZSq > 0 && futureXZSq > 1e-12 && Number.isFinite(currentXZSq) && Number.isFinite(futureXZSq)) {
+        const yawCosine = clamp((futP.x * _o.x + futP.z * _o.z) / Math.sqrt(currentXZSq * futureXZSq), -1, 1);
+        yawLeadConfidence = clamp(1 + yawCosine, 0, 1);
+      }
       const fYaw = Math.atan2(futP.x, futP.z), fPitch = Math.asin(Math.max(-1, Math.min(1, futP.normalize().y)));
       const rate = 0.7 / 0.1;
-      cmd.dYaw += wrapAngle(fYaw - tYaw) * rate * dt * 0.7; cmd.dPitch += (fPitch - tPitch) * rate * dt * 0.7;
+      cmd.dYaw += wrapAngle(fYaw - tYaw) * rate * dt * 0.7 * yawLeadConfidence; cmd.dPitch += (fPitch - tPitch) * rate * dt * 0.7;
     }
     // 3) ADS snap: when sights come up, pull most of the way onto the target over ~0.15 s
     if (cmd.ads && !this._adsPrev) this._snapT = 0.15;
