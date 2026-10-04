@@ -10,7 +10,7 @@ export const MUZZLE = {
   rifle:    { stars: [0, 2], cones: [3, 5], star: 0.65, coneL: 1.31, coneW: 0.44, life: 0.05, hdr: 5.5, col: [1.0, 0.76, 0.38], smoke: 1, sparks: 3, glow: 1.2, shake: 0.0, casing: 1 },
   lmg:      { stars: [6, 0], cones: [7, 3], star: 0.79, coneL: 1.56, coneW: 0.6, life: 0.05, hdr: 6.0, col: [1.0, 0.72, 0.34], smoke: 2, sparks: 4, glow: 1.44, shake: 0.0, casing: 1 },
   minigun:  { stars: [2, 6], cones: [5, 3], star: .55, coneL: 1.20, coneW: .40, life: .035, hdr: 5.5, col: [1.0, .76, .36], smoke: 1, sparks: 2, glow: 1.12, shake: 0.0, casing: 1 },
-  sniper:   { stars: [1, 6], cones: [5], star: 1.22, coneL: 3.61, coneW: 0.8, life: 0.09, hdr: 7.0, col: [1.0, 0.8, 0.5], smoke: 4, sparks: 8, glow: 2.16, shake: 0.0, casing: 1 },
+  sniper:   { stars: [1, 6], cones: [5], star: 1.22, coneL: 3.61, coneW: 0.8, life: 0.09, hdr: 7.0, col: [1.0, 0.8, 0.5], smoke: 4, sparks: 0, glow: 2.16, shake: 0.0, casing: 1 },
   rpg:      { stars: [6], cones: [4], star: 1.01, coneL: 1.64, coneW: 0.96, life: 0.09, hdr: 6.0, col: [1.0, 0.7, 0.3], smoke: 2, sparks: 0, glow: 1.68, shake: 0.0, casing: -1 },
   heavy:    { stars: [6, 0], cones: [7, 3], star: 1.6, coneL: 3.0, coneW: 1.2, life: 0.06, hdr: 6.5, col: [1.0, 0.62, 0.3], smoke: 2, sparks: 4, glow: 2.8, shake: 0.0, casing: -1 },
   enemy:    { stars: [2, 0], cones: [3, 5], star: 0.61, coneL: 1.23, coneW: 0.4, life: 0.05, hdr: 5.0, col: [1.0, 0.55, 0.28], smoke: 1, sparks: 1, glow: 0.96, shake: 0.0, casing: -1 },

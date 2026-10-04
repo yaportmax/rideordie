@@ -606,9 +606,15 @@ export class Fx {
     R.muzzle(this, evt.heavy && wid === 'enemy' ? 'heavy' : wid, o[0], o[1], o[2], dx, dy, dz, vx, vy, vz, gy, fp);
     if (evt.rocket) { this._launchRocket(o, dx, dy, dz, evt.speed || (WEAPONS.rpg.rocket && WEAPONS.rpg.rocket.speed) || 85, evt.launchSpeed ?? 25); return; }
     if (player) {
+      // A sniper's ordered penetration contacts belong to one projectile.
+      // Keep every impact, but draw its flight only to the terminal endpoint.
+      let sniperTracer = -1;
+      if (wid === 'sniper' && rays) for (let i = rays.length - 1; i >= 0; i--) {
+        if (rays[i]?.end) { sniperTracer = i; break; }
+      }
       if (rays) for (let i = 0; i < rays.length; i++) {
         const ry = rays[i], e = ry && ry.end; if (!e) continue;
-        R.tracerHit(this, wid, o[0], o[1], o[2], e[0], e[1], e[2]);
+        if (wid !== 'sniper' || i === sniperTracer) R.tracerHit(this, wid, o[0], o[1], o[2], e[0], e[1], e[2]);
         if (ry.surface) this._queueImpact(ry, Math.hypot(e[0] - physicalOrigin[0], e[1] - physicalOrigin[1], e[2] - physicalOrigin[2]) / 620);   // the sim emits no 'hit' for hitscan rays
       }
       let ejectEvent = fp || evt.mounted ? evt : null;
