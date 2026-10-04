@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { ChaseCam } from '../src/view/camera_rig.js';
+import { ChaseCam, DRIVER_CAMERA_NAMES } from '../src/view/camera_rig.js';
 import { Run } from '../src/game/run.js';
 import { Input, DEFAULT_BINDINGS } from '../src/core/input.js';
 import { makeCarState } from '../src/view/car_state.js';
@@ -112,7 +112,7 @@ test('actual Run.update synchronizes the driver mode and cockpit visibility befo
     const { run, p, camera, chase, cockpit } = runFixture(), states = new Map();
     const state = makeCarState(1, 'truck_t1', 'player'); states.set(1, state);
     state.pos.copy(p.position); state.quat.copy(p.quaternion); state.vel.set(0, 0, 0);
-    const calls = [], observations = [];
+    const calls = [], observations = [], colliderOrder = []; let colliderGeneration = 0;
     Object.assign(run, {
       sim: null, simState: 'run', player: null, playerId: 1, states,
       buf: { sample: () => null }, ghosts: new Map([[1, { sync() {} }]]),
@@ -120,6 +120,8 @@ test('actual Run.update synchronizes the driver mode and cockpit visibility befo
       gunner: null, gunnerRemote: { weapon: 0 }, humanDriver: true, humanGunner: false, eye: new THREE.Vector3(),
       hazMarks: { update() {} }, banner: { update() {} }, threatHud: { setVisible() {}, update() {} },
       _updateFrustum() {}, _hudData: () => ({}), _outcome() {},
+      dressing: { update() { colliderGeneration++; colliderOrder.push('dressing'); } },
+      structures: { updateRocks() { colliderGeneration++; colliderOrder.push('rocks'); } },
       _cockpitEye(dt, current, out) { calls.push('current-eye'); return out.copy(p.eye); },
       wv: { viewMap: new Map(), updateBoss() {}, update(dt, current, events, context) {
         calls.push('pose'); observations.push({ mode: chase.mode, fp: context.localDriver.firstPerson, cockpitActive: cockpit.active });
@@ -127,23 +129,35 @@ test('actual Run.update synchronizes the driver mode and cockpit visibility befo
     });
     cockpit.onEvent = () => null;
     const camUpdate = chase.update;
-    chase.update = function(...args) { calls.push('camera'); return camUpdate.apply(this, args); };
+    chase.update = function(...args) {
+      calls.push('camera');
+      if (chase.mode >= 3) {
+        assert.equal(colliderGeneration, 2, 'the new exterior camera observes current dressing/rock mutations');
+        assert.deepEqual(colliderOrder, ['dressing', 'rocks']);
+      }
+      return camUpdate.apply(this, args);
+    };
     const update = command => {
-      calls.length = 0;
+      calls.length = 0; colliderOrder.length = 0; colliderGeneration = 0;
       run.update(1 / 60, { driver: command, gunner: {} }, 0);
-      assert.deepEqual(calls, ['pose', 'current-eye', 'camera'], 'current crew pose must precede driver eye/camera');
+      assert.deepEqual(calls, chase.mode >= 3 ? ['camera', 'pose'] : ['pose', 'current-eye', 'camera'],
+        'cockpit/current-eye order stays intact; new exterior cameras precede current culling/pose');
       const observed = observations.at(-1);
       assert.equal(observed.mode, chase.mode, 'the camera and crew must select the same mode within this frame');
       assert.equal(observed.fp, chase.mode === 0);
       assert.equal(observed.cockpitActive, chase.mode === 0 && !command.lookBack);
-      assert.ok(dir(camera).dot(p.forward) * (command.lookBack ? -1 : 1) > .98);
+      if (chase.mode <= 2) assert.ok(dir(camera).dot(p.forward) * (command.lookBack ? -1 : 1) > .98);
+      else {
+        const expectedSign = (chase.mode === 4 ? -1 : 1) * (command.lookBack ? -1 : 1);
+        assert.ok(dir(camera).dot(p.forward) * expectedSign > .8, 'the front exterior actually looks back at the truck');
+      }
     };
     for (const lookBack of [false, true]) {
       chase.mode = 0;
       update({ cameraToggle: false, lookBack });
-      update({ cameraToggle: true, lookBack }); assert.equal(chase.mode, 1);
-      update({ cameraToggle: true, lookBack }); assert.equal(chase.mode, 2);
-      update({ cameraToggle: true, lookBack }); assert.equal(chase.mode, 0);
+      for (let next = 1; next <= DRIVER_CAMERA_NAMES.length; next++) {
+        update({ cameraToggle: true, lookBack }); assert.equal(chase.mode, next % DRIVER_CAMERA_NAMES.length);
+      }
     }
   } finally { globalThis.window = previousWindow; }
 });

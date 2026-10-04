@@ -4,8 +4,12 @@
 // positioned relative to the (render-interpolated) truck; only rotations / offsets are smoothed.
 import * as THREE from 'three';
 import { clamp, damp, lerp, smoothstep, wrapAngle } from '../core/util.js';
+import { driverBodyBounds, limitDriverCamera } from './driver_camera_bounds.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
+const _cameraMatrix = new THREE.Matrix4(), _localUp = new THREE.Vector3(0, 1, 0);
+export const DRIVER_CAMERA_NAMES = ['COCKPIT', 'CHASE', 'FAR CHASE', 'BUMPER', 'FRONT EXTERIOR'];
+const FRONT_CAMERA_OFFSETS = [0, -.35, .35, -.7, .7];
 
 export class Shaker {
   constructor() { this.trauma = 0; this.t = 0; }
@@ -22,16 +26,21 @@ export class Shaker {
 export class ChaseCam {
   constructor(camera) {
     this.camera = camera; this.yaw = 0; this.init = false;
-    this.mode = 0; // 0 cockpit (first person), 1 chase, 2 far chase
+    this.mode = 0; // cockpit, chase, far chase, bonnet, front exterior
     this.cockPitch = 0; this.cockRoll = 0;
     this.shake = new Shaker(); this.fov = 68; this.roll = 0; this.lookYaw = 0; this.lookPitch = 0; this.lift = 0;
     this.back = 7.2; this.height = 2.7; this.dy = 0;
+    this.frontBounds = {}; this.frontPivot = new THREE.Vector3(); this.frontDesired = new THREE.Vector3();
+    this.frontCandidates = Array.from({ length: 5 }, () => new THREE.Vector3());
+    this.frontSafe = new THREE.Vector3(); this.frontLast = new THREE.Vector3(); this.frontLastMode = -1;
   }
-  toggle() { this.mode = (this.mode + 1) % 3; }
+  toggle() { this.mode = (this.mode + 1) % DRIVER_CAMERA_NAMES.length; }
+  get modeName() { return DRIVER_CAMERA_NAMES[this.mode]; }
   get firstPerson() { return this.mode === 0; }
   update(dt, carPos, carQuat, vel, opts = {}) {
     const cam = this.camera;
     if (this.mode === 0 && opts.cockpitEye) { this._cockpit(dt, carQuat, vel, opts); return; }
+    if (this.mode === 3 || this.mode === 4) { this._front(dt, carPos, carQuat, vel, opts); return; }
     const fwd = _v.set(0, 0, 1).applyQuaternion(carQuat);
     const heading = Math.atan2(fwd.x, fwd.z);
     const speed = Math.hypot(vel.x, vel.z);
@@ -75,6 +84,102 @@ export class ChaseCam {
     if (cam.near !== 0.15) { cam.near = 0.15; cam.updateProjectionMatrix(); }
   }
 }
+
+ChaseCam.prototype._front = function (dt, carPos, carQuat, vel, opts) {
+  const cam = this.camera, bonnet = this.mode === 3, back = !!opts.lookBack;
+  const restComHeight = opts.restComHeight ?? 0;
+  const view = opts.vehicleView;
+  if (this.frontSpec !== opts.vehicleSpec || this.frontComHeight !== restComHeight || this.frontView !== view
+    || this.frontVisualKey !== view?.upgradeKey || !Number.isFinite(this.frontBounds.minX)) {
+    driverBodyBounds(opts.vehicleSpec, restComHeight, this.frontBounds, view);
+    this.frontSpec = opts.vehicleSpec; this.frontComHeight = restComHeight;
+    this.frontView = view; this.frontVisualKey = view?.upgradeKey;
+    this.frontLastMode = -1;
+  }
+  const b = this.frontBounds;
+  const speed = Math.hypot(vel.x, vel.z), spd01 = smoothstep(5, 62, speed);
+  const targetFov = bonnet ? (back ? 78 : (opts.fovBase ?? 85) + spd01 * 12 + (opts.boosting ? 11 : 0)) : 66 + spd01 * 20 + (opts.boosting ? 12 : 0);
+  const near = bonnet ? .05 : .15;
+  const aspect = Number.isFinite(cam.aspect) && cam.aspect > 0 ? cam.aspect : 16 / 9;
+  const nearHeight = near * Math.tan(clamp(Math.max(cam.fov, this.fov, targetFov), 1, 140) * Math.PI / 360);
+  const radius = Math.max(bonnet ? .22 : .4, Math.hypot(nearHeight * aspect, nearHeight, near) + .02);
+  // A held rear cut does not erase the filtered live free-look state. Release
+  // returns to the current mouse/stick aim without rebuilding a half-turn.
+  this.lookYaw = damp(this.lookYaw, (opts.lookX || 0) * -1.6 + (opts.mouseYaw || 0), 16, dt);
+  this.lookPitch = damp(this.lookPitch, (opts.lookY || 0) * -.5 + (opts.mousePitch || 0), 16, dt);
+  const viewPitch = back ? 0 : this.lookPitch;
+  this.shake.update(dt);
+  const so = this.shake.offset(_v2, bonnet ? .08 : .3);
+  const centerX = (b.minX + b.maxX) * .5, centerY = (b.minY + b.maxY) * .5, centerZ = (b.minZ + b.maxZ) * .5;
+  this.frontPivot.set(centerX, centerY, centerZ).applyQuaternion(carQuat).add(carPos);
+  const candidates = this.frontCandidates;
+  if (bonnet) {
+    // Free look moves around the expanded body boundary, always facing away
+    // from the truck. Held look-back cuts to the rear bumper and returns at once.
+    const a = back ? Math.PI : this.lookYaw, sx = Math.sin(a), sz = Math.cos(a);
+    const edgeX = sx >= 0 ? b.maxX : -b.minX, edgeZ = sz >= 0 ? b.maxZ : -b.minZ;
+    const reach = Math.min(Math.abs(sx) > 1e-6 ? (edgeX + radius + .08) / Math.abs(sx) : Infinity,
+      Math.abs(sz) > 1e-6 ? (edgeZ + radius + .08) / Math.abs(sz) : Infinity);
+    const y = b.minY + (b.maxY - b.minY) * .68;
+    candidates[0].set(sx * reach, y, sz * reach);
+    candidates[1].copy(candidates[0]); candidates[1].y = b.maxY + radius + .08;
+    candidates[2].set(0, b.maxY + radius + .08, 0);
+    candidates[3].set(b.maxX + radius + .08, y, sz * reach);
+    candidates[4].set(b.minX - radius - .08, y, sz * reach);
+    for (const p of candidates) p.applyQuaternion(carQuat).add(carPos);
+  } else {
+    // Compose in the chassis frame instead of projecting its forward axis onto
+    // the ground. A nose-up rollover otherwise reverses that heading at zenith.
+    const a = back ? Math.PI : this.lookYaw;
+    const halfVertical = clamp(Math.min(cam.fov, this.fov, targetFov), 1, 140) * Math.PI / 360;
+    const halfHorizontal = Math.atan(Math.tan(halfVertical) * aspect);
+    const bodyRadius = Math.hypot(b.maxX - b.minX, b.maxY - b.minY, b.maxZ - b.minZ) * .5;
+    const distance = Math.max(7.2 + spd01 * 1.6, bodyRadius / Math.sin(Math.min(halfVertical, halfHorizontal)) + .6);
+    const height = Math.max(2.7 + spd01 * .35, b.maxY + radius + .1) + viewPitch * 3;
+    for (let i = 0; i < candidates.length; i++) candidates[i].set(centerX + Math.sin(a + FRONT_CAMERA_OFFSETS[i]) * distance,
+      height + so.y, centerZ + Math.cos(a + FRONT_CAMERA_OFFSETS[i]) * distance).applyQuaternion(carQuat).add(carPos);
+  }
+  this.frontDesired.copy(candidates[0]);
+  // An exterior camera aimed at the truck must keep a horizontal lever arm;
+  // a roof-pulled eye at the target's zenith makes lookAt's up direction singular.
+  const minHorizontal = bonnet ? 0 : Math.min(b.maxX - b.minX, b.maxZ - b.minZ) * .5 + radius + .08;
+  // Revalidate a relative last clear position before changing hemisphere. There
+  // is no world-space translation filter, so a 40m/s truck never outruns its eye.
+  this.frontCameraClear = limitDriverCamera(this.frontSafe, candidates[0], this.frontPivot, carPos, carQuat, b, radius, opts.raycastWorld, opts.groundY, minHorizontal);
+  if (!this.frontCameraClear && this.frontLastMode === this.mode && this.frontLastBack === back) {
+    _v3.copy(this.frontLast).applyQuaternion(carQuat).add(carPos);
+    this.frontCameraClear = limitDriverCamera(this.frontSafe, _v3, this.frontPivot, carPos, carQuat, b, radius, opts.raycastWorld, opts.groundY, minHorizontal);
+  }
+  for (let i = 1; !this.frontCameraClear && i < candidates.length; i++)
+    this.frontCameraClear = limitDriverCamera(this.frontSafe, candidates[i], this.frontPivot, carPos, carQuat, b, radius, opts.raycastWorld, opts.groundY, minHorizontal);
+  // No exterior point may exist when the truck itself is enclosed in solids.
+  // Keep that unresolved state explicit instead of accepting a body-interior eye.
+  cam.position.copy(this.frontCameraClear ? this.frontSafe : this.frontDesired);
+  if (this.frontCameraClear) {
+    this.frontLast.copy(cam.position).sub(carPos).applyQuaternion(_q.copy(carQuat).invert());
+    this.frontLastMode = this.mode; this.frontLastBack = back;
+  }
+  // Derive aim from the accepted eye, including fallback choices. A bonnet eye
+  // moved to the opposite side must face away from that side, not into the car.
+  _v3.copy(cam.position).sub(carPos).applyQuaternion(_q.copy(carQuat).invert());
+  if (bonnet) {
+    const a = Math.hypot(_v3.x, _v3.z) > .05 ? Math.atan2(_v3.x, _v3.z) : back ? Math.PI : this.lookYaw;
+    const roofFallback = _v3.y > b.maxY && _v3.x >= b.minX && _v3.x <= b.maxX && _v3.z >= b.minZ && _v3.z <= b.maxZ;
+    // A clearance fallback above the roof must look outward from that face.
+    // A downward free-look there would look through the roof despite clear eyes.
+    const pitch = roofFallback ? Math.max(0, viewPitch - .035) : viewPitch - .035;
+    cam.quaternion.copy(carQuat).multiply(_q.setFromEuler(_e.set(pitch, Math.PI + a, 0, 'YXZ')));
+  } else {
+    _v.set(centerX, centerY, centerZ);
+    _cameraMatrix.lookAt(_v3, _v, _localUp);
+    cam.quaternion.copy(carQuat).multiply(_q.setFromRotationMatrix(_cameraMatrix));
+    this.roll = damp(this.roll, clamp(-(opts.yawRate || 0) * .018 * spd01 * 4, -.09, .09), 6, dt);
+    cam.rotateZ(this.roll);
+  }
+  this.fov = damp(this.fov, targetFov, back ? 30 : 4, dt);
+  if (Math.abs(cam.fov - this.fov) > .05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
+  if (cam.near !== near) { cam.near = near; cam.updateProjectionMatrix(); }
+};
 
 ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
   // first person from the driver's seat: yaw locked to the truck, a damped share of its pitch/roll (so the suspension

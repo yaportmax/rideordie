@@ -399,21 +399,32 @@ export class Run {
     }
     // The gunner's projection must precede its viewmodel. The driver's cockpit
     // eye instead queries the current crew/head pose, so resolve it after views.
-    const cameraBeforeViews = (this.role !== 'driver' && !this.gunner?.weapon.mounted) || isDefeated(this);
-    if (cameraBeforeViews) this._camera(dt, cmds, pst);
-    else if (this.role === 'driver') {
+    let cameraBeforeViews = (this.role !== 'driver' && !this.gunner?.weapon.mounted) || isDefeated(this);
+    if (!cameraBeforeViews && this.role === 'driver') {
       // Choose the driver's mode before crew visibility/cutaways, while keeping
       // the eye query after the current head pose. A late toggle flashes the
       // external body in the cockpit (or hides it in chase) for one frame.
-      if (cmds.driver.cameraToggle) this.chase.toggle();
+      if (cmds.driver.cameraToggle) {
+        this.chase.toggle();
+        g.hud?.message?.('VIEW · ' + this.chase.modeName, 1400);
+      }
       this.cockpit?.setActive?.(this.chase.firstPerson && !cmds.driver.lookBack && !this.introOutside);
+      // These exterior views do not use the animated driver's eye. Resolve them
+      // once before culling/posing so a front cut shows current enemy visibility.
+      cameraBeforeViews = this.chase.mode >= 3;
     }
+    const newDriverExterior = this.role === 'driver' && this.chase.mode >= 3 && !isDefeated(this);
+    if (cameraBeforeViews && !newDriverExterior) this._camera(dt, cmds, pst);
     // world view
     const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5 && !this.introOutside, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
     const evs = this.sim || !this.localEvents.length ? this.events : this.events.concat(this.localEvents); // local sim events already went through sim.emit
     this.localEvents.length = 0;
     { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) appendDiagnostic(window, '__spikes', { what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
     this.structures?.updateRocks(this.sim ? this.sim.cars.values() : this.states.values());
+    // Dressing can create/remove colliders in this frame. Resolve new exterior
+    // eyes after those mutations, then give markers/culling/WorldView that eye.
+    // This still advances the rig exactly once and preserves the cockpit order.
+    if (newDriverExterior) this._camera(dt, cmds, pst);
     this.encounterView?.update(dt, this.encounters, this.playerS || 0);
     this.wv.updateBoss(this.bossState, dt);
     // roadblock telegraphing (signs, flares, breakable barricades) + cinematic banners (warlord intro, roadblock countdown)
@@ -767,9 +778,13 @@ export class Run {
     }
     const intro = this._introK(dt);
     if (this.role === 'driver') {
-      const cockpitEye = this._cockpitEye(dt, pst, _t2);
+      const cockpitEye = this.chase.mode >= 3 ? null : this._cockpitEye(dt, pst, _t2);
       const ck = this.cockpit, lookBackEye = ck && cmds.driver.lookBack && this.chase.mode === 0 ? ck.lookBackWorld(_t3) : null;
-      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, fovBase: g.driverFovBase ?? 85, lookBack: !!cmds.driver.lookBack, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne });
+      this.chase.update(dt, pst.pos, pst.quat, pst.vel, { cockpitEye, fovBase: g.driverFovBase ?? 85, lookBack: !!cmds.driver.lookBack, lookBackEye, mouseYaw: cmds.driver.mouseYaw, mousePitch: cmds.driver.mousePitch, boosting: pst.boosting, yawRate: this.sim ? this.player.veh.yawRate : 0, lookX: cmds.driver.lookX, lookY: cmds.driver.lookY, airborne: pst.airborne,
+        vehicleSpec: pst.spec, restComHeight: pst.ride?.restComHeight ?? 0, vehicleView: this.wv?.cars?.get(this.playerId)?.view,
+        raycastWorld: this._driverCameraWorldRay || (this._driverCameraWorldRay = (o, d, max) => this._worldRay(o, d, max)),
+        groundY: this._driverCameraGroundY || (this._driverCameraGroundY = (x, originY, z) => this._groundY(x, originY - 4, z)),
+      });
       if (ck) {
         ck.setUnits?.(g.units);
         ck.setActive(this.chase.mode === 0 && !lookBackEye && !this.introOutside); ck.update(dt, this.hud2, g.look?.night ?? 0);
