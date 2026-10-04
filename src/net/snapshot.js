@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { SPEC_IDS, makeCarState } from '../view/car_state.js';
 import { PART_NAMES, BOSS_PARTS } from '../data/boss.js';
 import { VEHICLES } from '../data/vehicles.js';
+import { resolveEliteVehicle, validEliteVehicleIdentity, DEEPWARDEN_ELITE, DEEPWARDEN_MODEL_ID } from '../data/elite_vehicles.js';
 import { GUNNER_ROLES } from '../sim/car.js';
 
 const QN = 32767;
@@ -21,6 +22,10 @@ export function encodeSnapshot(sim, tick, hud, buf) {
   const extendedCrew = cars.some(c => c.crew.gunner3 || c.crew.gunner4);
   // Never wrap an unknown catalogue entry into a different weapon or boss.
   for (const c of cars) {
+    const eliteTag = c.elite ? c.elite.index + 1 : 0;
+    if (!validEliteVehicleIdentity(c.spec?.id, eliteTag, c.kind)) return null;
+    if (eliteTag === DEEPWARDEN_ELITE && (c.spec.modelId !== DEEPWARDEN_MODEL_ID
+      || c.veh.wheels.length !== c.spec.wheels.length || c.crew.gunner2 || c.crew.gunner3 || c.crew.gunner4)) return null;
     if (c.gunName != null && !GUNS.includes(c.gunName)) return null;
     if (c.elite && (!Number.isInteger(c.elite.index) || c.elite.index < 0 || c.elite.index >= MAX_ELITE)) return null;
     if (!INTENTS.includes(c.ai?.intent ?? null)) return null;
@@ -182,8 +187,13 @@ function readSnapshot(dv) {
         if (c.elite > 5) return null;
       }
     }
+    if (!validEliteVehicleIdentity(c.spec, c.elite, c.kind)) return null;
     const nw = dv.getUint8(o); o += 1;
     if (nw < 1 || nw > 12) return null;
+    if (c.elite === DEEPWARDEN_ELITE) {
+      const spec = resolveEliteVehicle(VEHICLES[c.spec], c.elite);
+      if (nw !== spec.wheels.length || (c.fl & (F.gunner2Alive | F.gunner3Alive | F.gunner4Alive))) return null;
+    }
     c.L = new Float32Array(nw); c.slip = new Float32Array(nw); c.gr = new Uint8Array(nw);
     for (let w = 0; w < nw; w++) { c.L[w] = 0.1 + dv.getUint8(o) / 255 * 0.6; const sg = dv.getUint8(o + 1); c.slip[w] = (sg & 127) / 127; c.gr[w] = sg >> 7; o += 2; }
     s.cars.push(c);
@@ -212,7 +222,7 @@ function readSnapshot(dv) {
 // check also protects older/default-revision packets from traversing a void;
 // velocity and a generous acceleration allowance retain real jumps/crashes.
 function poseDiscontinuity(a, b, dt) {
-  if (a.poseRevision !== b.poseRevision || a.spec !== b.spec || a.kind !== b.kind) return true;
+  if (a.poseRevision !== b.poseRevision || a.spec !== b.spec || a.kind !== b.kind || a.elite !== b.elite) return true;
   const travel = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
   const speed = Math.max(Math.hypot(a.vx, a.vy, a.vz), Math.hypot(b.vx, b.vy, b.vz));
   return travel > 2 + speed * dt + 30 * dt * dt;
@@ -275,13 +285,16 @@ export class SnapshotBuffer {
     t = Math.max(0, Math.min(1, t));
     const seen = this._sampleSerial = (this._sampleSerial + 1) >>> 0, bm = b.carsById;
     for (const ca of (t >= 1 ? b.cars : a.cars)) {
-      const cb = bm.get(ca.id) || ca;
+      const next = bm.get(ca.id) || ca;
+      const discontinuity = ca !== next && poseDiscontinuity(ca, next, b.time - a.time);
+      // Geometry, crew/weapon flags and wheel arrays use the same selected
+      // identity as the pose. Future elite metadata cannot leak across a cut.
+      const cb = discontinuity ? ca : next, elite = cb.elite || 0;
       let st = this.states.get(ca.id);
-      if (!st || st.specId !== ca.spec) { st = makeCarState(ca.id, ca.spec, ca.kind); this.states.set(ca.id, st); }
+      if (!st || st.specId !== cb.spec || st.elite !== elite) { st = makeCarState(ca.id, cb.spec, cb.kind, elite); this.states.set(ca.id, st); }
       st._sampleSerial = seen;
       st.streamPoseGeneration = this.streamPoseGeneration;
-      const discontinuity = ca !== cb && poseDiscontinuity(ca, cb, b.time - a.time);
-      const blend = discontinuity ? 0 : t, pose = discontinuity ? ca : cb;
+      const blend = discontinuity ? 0 : t, pose = cb;
       const predict = discontinuity ? Math.min(0.1, Math.max(0, rt - a.time)) : dtE;
       st.pos.set(ca.x + (pose.x - ca.x) * blend + pose.vx * predict, ca.y + (pose.y - ca.y) * blend + pose.vy * predict, ca.z + (pose.z - ca.z) * blend + pose.vz * predict);
       st.poseRevision = pose.poseRevision;
@@ -312,7 +325,7 @@ export class SnapshotBuffer {
         crew.yaw = cb[prefix + 'yaw'] || 0; crew.pitch = cb[prefix + 'pitch'] || 0;
         crew.fire = !!cb[prefix + 'fire']; crew.crouch = !!cb[prefix + 'crouch']; crew.ads = !!cb[prefix + 'ads']; crew.reloading = !!cb[prefix + 'reload'];
       }
-      st.gunName = GUNS[cb.tagIdx - 1] || null; st.elite = cb.elite; st.intent = cb.intent;
+      st.gunName = GUNS[cb.tagIdx - 1] || null; st.elite = elite; st.intent = cb.intent;
       for (const role of GUNNER_ROLES) st.gunNames[role] = cb.gunNames?.[role] || st.gunName;
     }
     for (const id of this.states.keys()) if (this.states.get(id)._sampleSerial !== seen) this.states.delete(id);

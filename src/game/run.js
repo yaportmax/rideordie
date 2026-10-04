@@ -8,6 +8,7 @@ import { SyncGround } from '../sim/sync_ground.js';
 import { GhostCar } from '../sim/car.js';
 import { TerrainStreamer } from '../world/terrain.js';
 import { makeCarState, stateFromCar } from '../view/car_state.js';
+import { eliteVehicleKey } from '../data/elite_vehicles.js';
 import { WorldView } from './world_view.js';
 import { GunnerController } from './gunner.js';
 import { buildPlayerSpec, gunnerLoadout } from './run_setup.js';
@@ -393,7 +394,10 @@ export class Run {
       // states from sim
       for (const c of this.sim.cars.values()) {
         let st = this.states.get(c.id);
-        if (!st || st.specId !== c.spec.id) { st = makeCarState(c.id, c.spec.id, c.kind); this.states.set(c.id, st); }
+        const elite = c.elite ? c.elite.index + 1 : 0;
+        if (!st || st.specId !== c.spec.id || eliteVehicleKey(st.spec) !== eliteVehicleKey(c.spec)) {
+          st = makeCarState(c.id, c.spec.id, c.kind, elite); this.states.set(c.id, st);
+        }
         stateFromCar(c, this.alpha, st);
       }
       for (const id of this.states.keys()) if (!this.sim.cars.has(id)) this.states.delete(id);
@@ -421,7 +425,9 @@ export class Run {
       if (this.localFlash) for (const [id, t] of this.localFlash) { const st = this.states.get(id); if (st) st.hitFlash = t; const nt = t - dt; if (nt <= 0) this.localFlash.delete(id); else this.localFlash.set(id, nt); }
       for (const [id, st] of this.states) {
         if (st.kind === 'player') for (const gs of [st.gunner, st.gunner2]) if (gs) { gs.crouch = false; gs.x = 0; gs.z = 0; }
-        let gh = this.ghosts.get(id); if (!gh) { gh = new GhostCar(st); this.ghosts.set(id, gh); } gh.sync(st);
+        let gh = this.ghosts.get(id);
+        if (!gh || eliteVehicleKey(gh.spec) !== eliteVehicleKey(st.spec)) { gh = new GhostCar(st); this.ghosts.set(id, gh); }
+        gh.sync(st);
       }
       for (const id of this.ghosts.keys()) if (!this.states.has(id)) this.ghosts.delete(id);
       if (this.simState === 'over' && !this.over) { this.over = true; }
@@ -536,8 +542,9 @@ export class Run {
         if (['tower', 'drone', 'boat'].includes(e.kind)) evs.push({ t: 'boom', pos: e.pos, radius: e.kind === 'drone' ? 2 : 3.5, kind: 'mine', localOnly: true });
         else if (e.kind !== 'barrel') evs.push({ t: 'hit', pos: e.pos, normal: [0, 1, 0], surface: e.kind === 'rock' || e.kind === 'arch' ? 'rock' : e.kind === 'rifleman' ? 'flesh' : 'metal', carId: e.id, localOnly: true });
       }
-      else if (e.t === 'enemyTell' && this.time - (this.lastEnemyTell ?? -20) > 5) {
-        const message = { barrel: 'EXPLOSIVE BARRELS: SHOOT OR DODGE', grenade: 'GRENADE INCOMING: KEEP MOVING', cannon: 'CANNON LINING UP', sniper: 'SNIPER LINING UP' }[e.kind];
+      else if (e.t === 'enemyTell' && e.kind === 'drillJammed') g.hud.feed('DEEPWARDEN DRILL JAMMED', '#7fdc7f');
+      else if (e.t === 'enemyTell' && (e.kind === 'drill' || this.time - (this.lastEnemyTell ?? -20) > 5)) {
+        const message = { drill: 'DRILL LOCKED: DODGE OR SHOOT THE FRONT DRIVE', barrel: 'EXPLOSIVE BARRELS: SHOOT OR DODGE', grenade: 'GRENADE INCOMING: KEEP MOVING', cannon: 'CANNON LINING UP', sniper: 'SNIPER LINING UP' }[e.kind];
         if (message) { g.hud.message(message, 1400, '#ffbc67'); this.lastEnemyTell = this.time; }
       }
       else if (e.t === 'barrierBreak') this.hazMarks.handleEvent(e);

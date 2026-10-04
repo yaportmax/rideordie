@@ -4,6 +4,7 @@ import { createCityDoubleBusSpec } from './city_bus.js';
 import { createEnemyVariantSpecs } from './enemy_variants.js';
 import { createHummerBaseVehicleSpecs } from './hummer_base.js';
 import HUMMER_MODEL_INFO from './hummer_model_info.json' with { type: 'json' };
+import { ELITE_VEHICLE_MODEL_URLS } from './elite_vehicles.js';
 // Static vehicle tables. Positions are meters in the model frame: +Z forward, +X LEFT, ground at y=0.
 // `colliders`: boxes [center from ground at rest, half extents]. Physics is spec-driven (not model-driven) so both peers agree.
 
@@ -204,7 +205,7 @@ export function vehicleModelURL(specOrId) {
   const id = spec?.modelId ?? spec?.id ?? specOrId;
   return `/models/vehicles/${id}.glb`;
 }
-export function vehicleModelURLs() { return [...new Set(Object.values(VEHICLES).map(vehicleModelURL))]; }
+export function vehicleModelURLs() { return [...new Set([...Object.values(VEHICLES).map(vehicleModelURL), ...ELITE_VEHICLE_MODEL_URLS])]; }
 
 /** Shared ride-height maths (must match Vehicle's constructor). */
 export function rideInfo(spec) {

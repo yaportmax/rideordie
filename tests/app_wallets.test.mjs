@@ -1,3 +1,4 @@
+import { ELITE_VEHICLE_PROTOCOL } from '../src/data/elite_vehicles.js';
 import './helpers/peer-import.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +30,7 @@ function fixture() {
   });
   const session = app._newSession(); session.isHost = false; session.personalProfile = personal; session.profile = initial;
   session.wallet = { playerId: personal.campaignId, cash: 2000, totalCash: 0, lastRunId: null };
-  session._onMsg({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, name: 'Host', wallet: { playerId: initial.campaignId, cash: initial.cash, totalCash: 0, lastRunId: null } });
+  session._onMsg({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, name: 'Host', wallet: { playerId: initial.campaignId, cash: initial.cash, totalCash: 0, lastRunId: null } });
   const paid = () => {
     const p = { ...initial, revision: 1, runs: 1, cash: 7400, best: { distance: 800, furthestS: 840, time: 20, kills: 3 } };
     session._onMsg({ t: 'profile', p, wallet: { playerId: personal.campaignId, cash: 2400, totalCash: 400, lastRunId: summary.id } });

@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../src/net/snapshot.js';
 import { VEHICLES } from '../src/data/vehicles.js';
+import { resolveEliteVehicle } from '../src/data/elite_vehicles.js';
 import { legacySnapshotPacket } from './helpers/legacy_snapshot.mjs';
 
 function packet({ gun = 'minigun', elite = 8, intent = 'block', weapon = 2 } = {}) {
-  const spec = VEHICLES.truck_t1;
+  const spec = elite === 6 ? resolveEliteVehicle(VEHICLES.e_heavy, 7) : VEHICLES.truck_t1;
   const car = { id: 1, spec, kind: 'enemy', hp: 400, maxHp: 400, engineHp: 100,
     gunName: gun, elite: elite === null ? null : { index: elite }, ai: { intent },
     crew: { driver: { alive: true }, gunner: { alive: true, aimYaw: .2, aimPitch: .1, weapon } },
@@ -22,7 +23,7 @@ test('v3 preserves all nine elite identities independently of all four intents a
     assert.equal(new DataView(bytes).getUint8(0), 3);
     assert.equal(decoded.cars[0].elite, elite + 1); assert.equal(decoded.cars[0].intent, intent);
     assert.equal(decoded.cars[0].tagIdx, 8); assert.equal(decoded.cars[0].gweapon, 2);
-    assert.equal(decoded.cars[0].poseRevision, 23); assert.equal(decoded.cars[0].L.length, 4);
+    assert.equal(decoded.cars[0].poseRevision, 23); assert.equal(decoded.cars[0].L.length, elite === 6 ? 6 : 4);
   }
 });
 

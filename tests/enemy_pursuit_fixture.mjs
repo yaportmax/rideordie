@@ -139,7 +139,7 @@ function rawState(f) {
     velocity: vector(car.veh.body.linvel()), angularVelocity: vector(car.veh.body.angvel()),
     grounded: car.veh.grounded, up: car.veh.up.y, poseRevision: car.veh.poseRevision, input: { ...car.veh.input },
     loaded: f.st.groundReady(car.s, car.route) });
-  return { time: sim.time, tick: sim.tick, state: sim.state, player: body(p), enemy: body(c), gap: p.s - c.s,
+  return { time: sim.time, hitStop: sim.hitStop, tick: sim.tick, state: sim.state, player: body(p), enemy: body(c), gap: p.s - c.s,
     attack: attackState(c.ai), attackCooldown: c.ai.atkCd, targetD: c.ai._lastDT, desiredSpeed: c.ai._lastVDes,
     curveLimit: c.ai._curveLimit, boost: v.boosting, pursuitBoost: c.ai.pursuitBoost,
     legacyCurveLimit: c.ai._curveLegacyLimit, tireCurveBound: c.ai._curveTireBound,
@@ -242,8 +242,11 @@ function run(f, seconds, { throttle = .65, nitro = false, until } = {}) {
     driveTarget(f, throttle, nitro);
     const before = f.recordSteps ? rawState(f) : null, eventFrom = f.sim.events.length, intentFrom = f.driveIntents.length;
     f.sim.step(DT);
-    if (f.recordSteps) f.raw.push({ sequence: f.raw.length, requestedDt: DT, before, after: rawState(f),
-      eventFrom, eventTo: f.sim.events.length, intentFrom, intentTo: f.driveIntents.length });
+    if (f.recordSteps) {
+      const after = rawState(f);
+      f.raw.push({ sequence: f.raw.length, requestedDt: DT, effectiveDt: after.time - before.time, before, after,
+        eventFrom, eventTo: f.sim.events.length, intentFrom, intentTo: f.driveIntents.length });
+    }
     if (i % 12 === 0) rows.push(state(f));
     if (until?.(f)) { rows.push(state(f)); break; }
     if (f.player.exploded || f.car.exploded) break;

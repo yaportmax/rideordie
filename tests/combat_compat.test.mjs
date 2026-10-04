@@ -1,3 +1,4 @@
+import { ELITE_VEHICLE_PROTOCOL } from '../src/data/elite_vehicles.js';
 // Authored WORK acceptance against actual rebased consumers. Unrun by this author.
 // Controlled CPU terminal outcomes and memory transport are not native/NAT proof.
 import './helpers/peer-import.mjs';
@@ -151,7 +152,7 @@ test('combat protocol7 explicitly rejects published protocol6 in both local host
     const p = personal(isHost ? 'host-old-peer' : 'guest-old-peer', 900), tp = new MemoryTransport(p.memory), session = new Session(tp);
     if (isHost) await session.host(p.profile); else await session.join('ABCDE', p.profile);
     const errors = []; session.on({ error: error => errors.push(error) }); inStore(p.memory, () => tp.onOpen());
-    inStore(p.memory, () => tp.onMessage({ t: 'hello', protocol: 6, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL,
+    inStore(p.memory, () => tp.onMessage({ t: 'hello', protocol: 6, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL,
       drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, name: 'Published old peer', wallet: { playerId: 'old-peer', cash: 500, totalCash: 500 } }));
     assert.equal(session.connected, false); assert.equal(session.activeRunId, null); assert.equal(session.peerWallet, null);
     assert.equal(session.canStart(), false); assert.equal(session.startRun(), null); assert.equal(tp.closedConnections, 1);

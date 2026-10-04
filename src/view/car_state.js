@@ -1,12 +1,13 @@
 // CarState: the view-facing description of a car, identical whether it comes from the local sim or from network snapshots.
 import * as THREE from 'three';
 import { VEHICLES, rideInfo } from '../data/vehicles.js';
+import { resolveEliteVehicle } from '../data/elite_vehicles.js';
 import { GUNNER_ROLES } from '../sim/car.js';
 
 export const SPEC_IDS = Object.keys(VEHICLES);
 
-export function makeCarState(id, specId, kind) {
-  const spec = VEHICLES[specId];
+export function makeCarState(id, specId, kind, elite = 0) {
+  const spec = resolveEliteVehicle(VEHICLES[specId], elite);
   const ri = rideInfo(spec);
   return {
     id, specId, spec, kind, ride: ri,
@@ -24,13 +25,16 @@ export function makeCarState(id, specId, kind) {
     gunner3: { yaw: 0, pitch: 0, fire: false, crouch: false, ads: false, reloading: false, weapon: 0, x: 0, z: 0 },
     gunner4: { yaw: 0, pitch: 0, fire: false, crouch: false, ads: false, reloading: false, weapon: 0, x: 0, z: 0 },
     hitFlash: 0, age: 0, t: 0, gunName: null, gunNames: {},
-    elite: 0,        // 1..5 = miniboss index + 1 (view: warlord kit + nameplate)
+    elite,          // encoded elite index + 1; geometry resolved before arrays/ride
     intent: null,    // raider intent: 'ram' | 'block' | 'shoot' | null (sim/ai.js EnemyBrain.intent)
   };
 }
 
 /** Fill a CarState from a sim Car at interpolation alpha. */
 export function stateFromCar(car, alpha, st) {
+  // The host's mass/tuning participates in suspension rest height. Its complete
+  // spec already carries the same geometry identity as the peer resolver.
+  if (st.spec !== car.spec) { st.spec = car.spec; st.ride = rideInfo(car.spec); }
   const v = car.veh;
   v.lerpPose(alpha, st.pos, st.quat);
   st.vel.copy(v.vel);

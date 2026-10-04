@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { CarView } from '../view/car_view.js';
 import { CrewView } from '../view/crew_view.js';
 import { VEHICLES } from '../data/vehicles.js';
+import { eliteVehicleKey } from '../data/elite_vehicles.js';
 import { ENEMIES } from '../data/enemies.js';
 import * as Assets from '../core/assets.js';
 import { DebrisSystem } from '../view/debris.js';
@@ -66,24 +67,24 @@ export class WorldView {
 
   ensure(st) {
     let rec = this.cars.get(st.id);
-    if (rec && rec.specId !== st.specId) { this.remove(st.id); rec = null; }
+    if (rec && (rec.specId !== st.specId || rec.modelKey !== eliteVehicleKey(st.spec))) { this.remove(st.id, true); rec = null; }
     if (rec) return rec;
     const view = new CarView(st.spec, { paint: this.paintFor(st), paint2: 0x30302e, shadowProxy: true, upgradeLevels: st.kind === 'player' ? this.playerUpgradeLevels : undefined });
     view.root.userData.carId = st.id;
     this.group.add(view.root);
-    rec = { view, specId: st.specId, crew: {}, state: st, wreck: false, id: st.id,
+    rec = { view, specId: st.specId, modelKey: eliteVehicleKey(st.spec), crew: {}, state: st, wreck: false, id: st.id,
       crewRadius: crewFrustumRadius(st.spec, st.ride?.restComHeight, st.kind) };
     // crew figures
     const s = st.spec;
     const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunNames?.[role] || st.gunName, nativeEnemyGun: st.kind === 'enemy' && !!s.gunMuzzles?.[role], weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
     // raider faces: 4 gunner types x 2 variants (+ 2 driver variants), picked deterministically from the car id
     const v2 = (n) => (((st.id * 2654435761) >>> (n + 3)) & 1 ? '2' : '');
-    if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : 'raider_driver' + v2(0), s.seats.driver);
+    if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : s.crewModels?.driver || 'raider_driver' + v2(0), s.seats.driver);
     for (let index = 0; index < GUNNER_ROLES.length; index++) {
       const role = GUNNER_ROLES[index], seat = s.seats[role];
       if (!seat || (st.kind !== 'player' && (s.gunners ?? 0) <= index)) continue;
       const enemyKind = index === 1 && (s.gunners ?? 0) <= 2 ? 'raider_b' : ['raider_a', 'raider_b', 'raider_c', 'raider_d'][(st.id + index) % 4];
-      const kind = st.kind === 'player' ? 'hero_gunner' : enemyKind + v2(index + 1);
+      const kind = st.kind === 'player' ? 'hero_gunner' : s.crewModels?.[role] || enemyKind + v2(index + 1);
       rec.crew[role] = mk(role, kind, seat);
     }
     // Crew membership is fixed for this vehicle spec. Each entry owns a pose

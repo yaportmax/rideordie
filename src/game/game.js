@@ -272,15 +272,27 @@ export class Game {
       // Any intervening HUD hint wins, including one which already expired.
       // Pending startup help must never replace another notice later on.
       if ((this.hud._hintRevision || 0) !== hint.revision || this.hud.hintsActive(this.hud._hintOwner)) { this._startupHints = null; return; }
-      if (this.paused || !canCaptureRun(this.run) || this.hud.msgT > 0) return;
+      // A critical message also retires help which was already seen before a
+      // boss intro suspended it. Fresh, unseen help still waits for GO!.
+      if (hint.remainingMs !== undefined && this.hud.msgT > 0) { this._retireStartupHints(); return; }
+      if (this.paused || !canCaptureRun(this.run) || this.hud.msgT > 0 || this.run.banner?.bossT >= 0) return;
       const lines = startupHintLines(this.run.role, this.input);
-      hint.owner = this.hud.hints(lines); hint.html = lines.join('\n');
+      hint.owner = this.hud.hints(lines, hint.remainingMs); hint.html = lines.join('\n');
       return;
     }
     // GO! and critical gameplay messages own this part of the HUD. If one
     // arrives after startup help begins, retire only that help, without rearm.
     if (this.hud.msgT > 0) { this._retireStartupHints(); return; }
     if (!this.hud.hintsActive(hint.owner)) { this._startupHints = null; return; }
+    // The separately owned cinematic banner does not use Hud.message. Give
+    // its intro this area immediately, retaining only the unseen help budget.
+    if (this.run.banner?.bossT >= 0) {
+      const remaining = this.hud.suspendHints(hint.owner);
+      if (!(remaining > 0)) { this._startupHints = null; return; }
+      hint.owner = null; hint.html = null; hint.remainingMs = remaining;
+      hint.revision = this.hud._hintRevision || 0;
+      return;
+    }
     const lines = startupHintLines(this.run.role, this.input), html = lines.join('\n');
     if (html !== hint.html && this.hud.updateHints(lines, hint.owner)) hint.html = html;
   }

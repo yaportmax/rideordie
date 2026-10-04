@@ -285,6 +285,7 @@ export function makeGlint() {
  */
 export function buildEliteKit(view, spec, index, carId) {
   const M0 = MINIBOSSES[index - 1]; if (!M0 || !M0.look) return null;
+  if (M0.look.kit === 'deepwarden') return buildDeepwardenKit(view, spec, M0);
   const look = M0.look, build = KITS[look.kit]; if (!build) return null;
   const g = new THREE.Group(); g.name = 'elite_kit'; view.root.add(g);
   const k = build(g, spec, look);
@@ -313,6 +314,45 @@ export function buildEliteKit(view, spec, index, carId) {
       if (k.spin) k.spin.rotation.y += dt * 7;
       for (const c of k.flags) waveFlag(c, t, st.speed || 0);
       if (Math.abs(st.hp01 - hpShown) > 0.004) { hpShown = st.hp01; np.draw(hpShown); }
+      np.sprite.visible = !dead;
+    },
+  };
+}
+
+/** The mining tractor IS the boss. No inherited Priest tower/cross/flag,
+ * decorative primitive replacement, extra per-frame allocation or exact phase
+ * claim. Existing ram intent animates real model-frame Z-axis cutter pivots. */
+function buildDeepwardenKit(view, spec, definition) {
+  if (spec.modelId !== 'boss_deepwarden' || !view.model) throw new Error('Deepwarden standalone contract was not resolved');
+  const left = view.model.getObjectByName('drill_L'), right = view.model.getObjectByName('drill_R');
+  const drive = view.model.getObjectByName('weak_drill_drive');
+  if (!left || !right || !drive) throw new Error('Deepwarden authored cutter/drive nodes are missing');
+  const lights = new Set();
+  drive.traverse(mesh => {
+    if (!mesh.isMesh) return;
+    for (const material of [].concat(mesh.material)) if (material.name === 'light_amber') lights.add(material);
+  });
+  if (!lights.size) throw new Error('Deepwarden visible drill-drive lamp is missing');
+  view.setTint(definition.look.paint, definition.look.paint2);
+  // CarView._adoptModel already cloned/owns light_* materials. The kit only
+  // borrows those instances; it never disposes shared GLB geometry/materials.
+  const baseLeft = left.rotation.z, baseRight = right.rotation.z;
+  const np = nameplate(definition.name, definition.look.glow);
+  np.sprite.position.set(0, Math.max(spec.height, spec.seats.gunner[1] + 1.85) + .72, -.35);
+  view.root.add(np.sprite);
+  let hpShown = 1, clock = 0, angle = 0;
+  return {
+    group: null, nameplate: np.sprite,
+    dispose() { np.sprite.removeFromParent(); np.sprite.material.map.dispose(); np.sprite.material.dispose(); },
+    update(dt, st) {
+      clock += dt;
+      const dead = st.dead || st.exploded, charging = st.intent === 'ram' && !dead;
+      angle = (angle + dt * (dead ? 0 : charging ? 11 : 2)) % (Math.PI * 2);
+      left.rotation.z = baseLeft + angle; right.rotation.z = baseRight - angle;
+      const hit = Math.min(1, Math.max(0, st.hitFlash || 0) / .12);
+      for (const material of lights) material.emissiveIntensity = dead ? 0 : 1.4 + .35 * Math.sin(clock * 5) + hit * 1.1;
+      // Never scale the real weak-point geometry away from its damage zone.
+      if (Math.abs(st.hp01 - hpShown) > .004) { hpShown = st.hp01; np.draw(hpShown); }
       np.sprite.visible = !dead;
     },
   };

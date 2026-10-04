@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { Input } from '../src/core/input.js';
 import { Hud } from '../src/ui/hud.js';
+import { Banner } from '../src/ui/banner.js';
 import { startupHintLines } from '../src/ui/startup_hints.js';
 import { canCaptureRun, isVictory } from '../src/game/run_status.js';
 
@@ -17,14 +18,14 @@ function fixture(t) {
   const win = new EventTarget(), doc = new EventTarget(), canvas = new EventTarget();
   let pads = [], nextTimer = 0, now = 0, pendingInit = null; const timers = new Map(), scheduled = [];
   const node = () => {
-    const el = { style: {}, writes: 0, textContent: '', appendChild() {} }; let html = '';
+    const el = { style: { setProperty(name, value) { this[name] = value; } }, writes: 0, textContent: '', appendChild() {} }; let html = '';
     Object.defineProperty(el, 'innerHTML', { get: () => html, set(value) { html = value; el.writes++; } });
     return el;
   };
   doc.createElement = node; doc.pointerLockElement = null;
   install(t, {
     addEventListener: win.addEventListener.bind(win), document: doc,
-    navigator: { getGamepads: () => pads }, window: {},
+    navigator: { getGamepads: () => pads }, window: {}, performance: { now: () => now },
     setTimeout(fn, ms) { const id = ++nextTimer; const task = { id, fn, ms, at: now + ms }; timers.set(id, task); scheduled.push(task); return id; },
     clearTimeout(id) { timers.delete(id); },
   });
@@ -50,7 +51,7 @@ function fixture(t) {
     input.endFrame(); input.poll();
     pad.buttons[index].pressed = true; pad.buttons[index].value = 1; input.poll();
   };
-  return { input, hud, game, pad, key, release, mouse, pressPad, scheduled, timers,
+  return { input, hud, game, pad, key, release, mouse, pressPad, scheduled, timers, node,
     setPads(value) { pads = value; },
     advance(ms) { now += ms; for (const task of [...timers.values()]) if (task.at <= now) { timers.delete(task.id); task.fn(); } },
     deferInit() { let release; pendingInit = new Promise(resolve => { release = resolve; }); return release; },
@@ -61,6 +62,21 @@ function fixture(t) {
 }
 
 const text = (role, input) => startupHintLines(role, input).join('\n');
+
+// Actual Banner methods and Game.frame policy; only the small DOM/timer fixture
+// is fake. No synthetic Game policy, fabricated reserve area or pixel claim.
+function bossIntro(f) {
+  const q = Object.fromEntries(['boss', 'n', 't', 'w', 'tip', 'haz', 'hd', 'hg', 'htx', 'obj', 'st', 'stk', 'stn', 'stt'].map(name => [name, f.node()]));
+  const key = f.node(); q.boss.querySelector = () => key; q.boss.style.display = 'none';
+  const banner = Object.assign(Object.create(Banner.prototype), { q, bossT: -1, stripT: -1, hazards: [], time: 0 });
+  f.game.run.banner = banner; banner.miniboss({ index: 6, name: 'DEEPWARDEN' });
+  f.game._runFrame = dt => banner.update(dt, 0, null);
+  return banner;
+}
+function finishIntro(f, banner) {
+  for (let i = 0; i < 100 && banner.bossT >= 0; i++) { f.advance(50); f.game.frame(f.game.last + 50); }
+  assert.equal(banner.bossT, -1); assert.equal(banner.q.boss.style.display, 'none');
+}
 
 test('startup controller hints agree with actual driver button commands', t => {
   const f = fixture(t); f.setPads([f.pad]);
@@ -308,4 +324,64 @@ test('priority message retirement preserves a replacement hint owner, timer and 
   assert.equal(f.game._startupHints, null); assert.equal(f.hud.updateHints(['STALE STARTUP'], startup), false);
   assert.equal(f.hud.hintsActive(replacement), true); assert.equal(f.hud._hintT, timer); assert.equal(f.timers.has(timer), true); assert.equal(f.hud.hintEl.innerHTML, '<div>CURRENT OTHER HELP</div>');
   assert.equal(f.hud.q.msg.textContent, 'ENEMY GRENADE'); assert.equal(f.hud.q.msg.style.opacity, 1);
+});
+
+test('actual boss intro defers unseen startup help until its last visible frame, then grants nine seconds', async t => {
+  const f = fixture(t); await f.start('gunner', false); f.playable(); const banner = bossIntro(f);
+  f.game.frame(16); f.advance(12000); f.game.frame(32);
+  assert.equal(banner.q.boss.style.display, 'flex'); assert.equal(f.hud.hintEl, undefined); assert.equal(f.scheduled.length, 0);
+  finishIntro(f, banner);
+  assert.equal(f.scheduled.length, 1); assert.equal(f.scheduled[0].ms, 9000);
+  const owner = f.game._startupHints.owner; assert.equal(f.hud.hintsActive(owner), true);
+  f.advance(8999); assert.equal(f.hud.hintsActive(owner), true);
+  f.advance(1); assert.equal(f.hud.hintsActive(owner), false);
+});
+
+test('an active boss intro instantly yields only owned help and resumes its remaining visible-time budget', async t => {
+  const f = fixture(t); await f.start('gunner'); const old = f.game._startupHints.owner, timer = f.hud._hintT;
+  f.advance(2000); const banner = bossIntro(f); f.game.frame(f.game.last + 16);
+  assert.equal(f.game._startupHints.owner, null); assert.equal(f.game._startupHints.remainingMs, 7000);
+  assert.equal(f.hud.hintEl.style.display, 'none'); assert.equal(f.hud.hintsActive(old), false); assert.equal(f.timers.has(timer), false);
+  f.advance(10000); f.game.frame(f.game.last + 16); assert.equal(f.scheduled.length, 1);
+  finishIntro(f, banner); const resumed = f.game._startupHints.owner;
+  assert.notEqual(resumed, old); assert.equal(f.hud.hintsActive(resumed), true); assert.equal(f.hud.hintEl.style.display, '');
+  assert.equal(f.scheduled.length, 2); assert.equal(f.scheduled[1].ms, 7000, 'resume is not a fresh nine-second rearm');
+  f.scheduled[0].fn(); assert.equal(f.hud.hintsActive(resumed), true, 'stale cleared callback cannot hide resumed ownership');
+  f.advance(6999); assert.equal(f.hud.hintsActive(resumed), true);
+  f.advance(1); assert.equal(f.hud.hintsActive(resumed), false);
+});
+
+test('resumed help uses actual late Input polling and current keyboard rebinding without timer extension', async t => {
+  const f = fixture(t); await f.start('gunner'); f.advance(1500); const banner = bossIntro(f); f.game.frame(f.game.last + 16);
+  f.setPads([f.pad]); f.pad.axes[2] = .35; f.game.frame(f.game.last + 16);
+  assert.equal(f.input.lastDevice, 'pad'); assert.equal(f.hud.hintEl.style.display, 'none');
+  finishIntro(f, banner); const timer = f.hud._hintT;
+  assert.ok(f.hud.hintEl.innerHTML.includes('<b>RT</b> FIRE')); assert.equal(f.scheduled[1].ms, 7500);
+  f.input.bindings.reload = ['KeyJ']; f.input.locked = true; f.mouse(12, 1); f.game.frame(f.game.last + 16);
+  assert.ok(f.hud.hintEl.innerHTML.includes('<b>J</b> RELOAD')); assert.equal(f.hud._hintT, timer); assert.equal(f.scheduled.length, 2);
+});
+
+test('another hint while boss help is suspended cancels startup without hiding the replacement', async t => {
+  const f = fixture(t); await f.start('gunner'); const banner = bossIntro(f); f.game.frame(f.game.last + 16);
+  const other = f.hud.hints(['OTHER HELP'], 12000), timer = f.hud._hintT; f.game.frame(f.game.last + 16);
+  assert.equal(f.game._startupHints, null); assert.equal(f.hud.hintsActive(other), true); assert.equal(f.hud.hintEl.style.display, '');
+  finishIntro(f, banner); assert.equal(f.scheduled.length, 2); assert.equal(f.hud._hintT, timer); assert.equal(f.hud.hintEl.innerHTML, '<div>OTHER HELP</div>');
+  f.game.endRun(); assert.equal(f.hud.hintsActive(other), true); assert.equal(f.hud._hintT, timer);
+});
+
+test('critical Hud message retires suspended seen help and never rearms after the boss intro', async t => {
+  const f = fixture(t); await f.start('gunner'); const banner = bossIntro(f); f.game.frame(f.game.last + 16);
+  f.hud.message('BARRELS INCOMING', 1400, '#ffbc67'); f.game.frame(f.game.last + 16);
+  assert.equal(f.game._startupHints, null); assert.equal(f.hud.q.msg.textContent, 'BARRELS INCOMING');
+  f.hud.update(2, { speed: 0, rpm01: 0, nitro01: 1, nitroMax: 1, hp01: 1, showDriver: true, arrows: [] });
+  finishIntro(f, banner); assert.equal(f.scheduled.length, 1); assert.equal(f.hud.hintEl.style.display, 'none');
+});
+
+test('ending a boss-suspended life retires pending budget; a new life receives only its own fresh timer', async t => {
+  const f = fixture(t); await f.start('gunner'); const oldTimer = f.scheduled[0]; bossIntro(f); f.game.frame(f.game.last + 16);
+  assert.equal(f.game._startupHints.owner, null); f.game.endRun(); f.game.mode = 'garage'; f.game._runFrame = () => {};
+  assert.equal(f.game._startupHints, null); assert.equal(f.timers.has(oldTimer.id), false);
+  await f.start('solo'); const owner = f.game._startupHints.owner;
+  assert.equal(f.scheduled.length, 2); assert.equal(f.scheduled[1].ms, 9000); assert.equal(f.hud.hintEl.style.display, '');
+  oldTimer.fn(); assert.equal(f.hud.hintsActive(owner), true); assert.ok(f.hud.hintEl.innerHTML.includes('<b>T</b> RESET (HOLD)'));
 });

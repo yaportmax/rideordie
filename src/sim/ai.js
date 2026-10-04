@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { clamp, lerp, smoothstep, wrapAngle, rng } from '../core/util.js';
 import { HALF_ROAD } from '../data/biomes.js';
 import { drivingLaneTarget } from '../world/driving_plan.js';
+import { drillLaneFootprintFits, drillPhysicalFootprintFits } from './drill_corridor.js';
 import { GRAVITY } from './physics.js';
 import { celebrationActive } from './victory_presentation.js';
 
@@ -20,6 +21,8 @@ export function carPoint(car, local, out) {
 }
 
 const LANE_LIMIT = HALF_ROAD - 1.6;
+const DRILL_SAMPLE_OFFSETS = [0, 25, 55];
+const DRILL_NO_COMMIT = new Set(['roadblock', 'stage_challenge', 'ramp']);
 
 /** Lateral offsets belong to a route, never to another route's centreline. */
 export function enemyDrivingContext(road, car, player, out = {}) {
@@ -107,9 +110,9 @@ export class EnemyBrain {
     const car = this.car, sim = this.sim, veh = car.veh, P = sim.player;
     this.t += dt;
     this.drivingSlice = false; this.stageAvoiding = false; this.roadblockAvoiding = false;
-    if (car.exploded) return;
-    if (car.driverless || !car.crew.driver.alive) { this._deadDriver(dt); this.gunnery(dt); return; }
-    if (!P || P.exploded) { veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
+    if (car.exploded) { if (this.atk?.drill) { this.atk = null; veh.input.nitro = false; } return; }
+    if (car.driverless || !car.crew.driver.alive) { if (this.atk?.drill) this.atk = null; this._deadDriver(dt); this.gunnery(dt); return; }
+    if (!P || P.exploded) { if (this.atk?.drill) this.atk = null; veh.input.throttle = 0.4; veh.input.steer = 0; veh.input.brake = 0; veh.input.nitro = false; return; }
     if (sim.boss?.dead && !celebrationActive(sim)) { veh.input.throttle = 0; veh.input.brake = 0.6; veh.input.nitro = false; this.gunnery(dt); return; }   // scatter
     const path = enemyDrivingContext(sim.road, car, P, this._routeContext || (this._routeContext = {}));
     const pd = path.playerD, cd = path.carD, half = path.halfWidth;
@@ -228,6 +231,52 @@ export class EnemyBrain {
           break;
         }
         case 'ram': {
+          if (a.drill) {
+            const drill = this.pattern.drillCharge;
+            // Only this authored boss commits a fixed lane. The same real
+            // vehicle, curve/traction limits and collision pipeline still drive
+            // it; the target is not a teleport, lateral impulse or homing hit.
+            if (!this._drillSafe(path) || a.route !== path.route
+                || a.carRevision !== (veh.poseRevision || 0)
+                || a.playerRevision !== (P.veh.poseRevision || 0)) {
+              this._endAttack(drill.cooldown); nitro = false; brake = Math.max(brake, .2);
+              break;
+            }
+            const limit = Math.max(0, Math.min(LANE_LIMIT, half - car.spec.width / 2 - .35));
+            if (a.phase === 'line') {
+              dT = clamp(pd, -limit, limit); vDes = pv + clamp((gap - 14) * .5, -6, 8);
+              if (Math.abs(gap - 14) < 4 && Math.abs(cd - dT) < .8) {
+                a.phase = 'wind'; a.t = 0; a.lane = dT; a.engineAtWind = car.engineHp; a.warnedAt = sim.time;
+                horn = true; this._tell('drill', { delay: drill.wind });
+              } else if (a.t > 7) this._endAttack(drill.cooldown);
+            } else if (a.phase === 'wind') {
+              // Hold the authored LINE standoff while the fixed-lane warning
+              // is visible. Speed matching alone leaves inherited closing
+              // momentum unchecked; boost and committed closing begin in hit.
+              dT = a.lane; vDes = pv + clamp((gap - 14) * .8, -6, 2);
+              // Engine-zone damage is authoritative and already respects the
+              // hit/contact guard and armour. Hull hits, collisions and a
+              // claimed visual hit cannot fake this per-warning interruption.
+              if (a.contact) {
+                a.phase = 'recover'; a.t = 0;
+                dT = clamp(a.lane + a.side * 3.8, -limit, limit); vDes = Math.max(0, pv - 4);
+              } else if (a.engineAtWind - car.engineHp >= drill.jamDamage) {
+                a.phase = 'recover'; a.t = 0; a.jammed = true;
+                this._tell('drillJammed');
+                dT = clamp(a.lane + a.side * 3.8, -limit, limit); vDes = Math.max(0, pv - 4);
+              } else if (a.t >= drill.wind) { a.phase = 'hit'; a.t = 0; }
+            } else if (a.phase === 'hit') {
+              dT = a.lane; vDes = pv + clamp(8 + Math.max(0, gap) * .2, 8, drill.closing); nitro = true;
+              if (a.contact || gap < -3 || a.t >= drill.hit) {
+                a.phase = 'recover'; a.t = 0; nitro = false;
+                dT = clamp(a.lane + a.side * 3.8, -limit, limit); vDes = Math.max(0, pv - 4);
+              }
+            } else {
+              dT = clamp(a.lane + a.side * 3.8, -limit, limit); vDes = Math.max(0, pv - 4);
+              if (a.t >= drill.recover) this._endAttack(drill.cooldown);
+            }
+            break;
+          }
           // line up behind a rear corner, hoot, then charge (nitro) into it — a PIT attempt
           // Ordinary charges commit closer to the truck's centre instead of
           // settling into a glancing .9m corner touch. Authored boss/branch
@@ -299,6 +348,10 @@ export class EnemyBrain {
 
   _canAttack(gap, relLat) {
     const b = this.behavior;
+    if (this.pattern?.drillCharge) {
+      const path = enemyDrivingContext(this.sim.road, this.car, this.sim.player, this._routeContext || (this._routeContext = {}));
+      return b === 'rammer' && gap > 8 && gap < 55 && this._drillSafe(path);
+    }
     if (this.level < 0.03 && this.t < 8) return false;                       // first seconds of a run: let them show themselves
     if (b === 'flanker' || b === 'summoner') return gap > -12 && gap < 6 && Math.abs(relLat) > 2.6 && Math.abs(relLat) < 7.5;
     if (b === 'leader' || b === 'blocker' || b === 'heavy') return gap < -13 && gap > -32 && Math.abs(relLat) < 2.4 && this.sim.player.veh.vf > 12;
@@ -308,6 +361,13 @@ export class EnemyBrain {
 
   _startAttack(gap, relLat) {
     const b = this.behavior, L = this.level;
+    if (this.pattern?.drillCharge) {
+      const P = this.sim.player;
+      this.atk = { kind: 'ram', drill: true, phase: 'line', t: 0, side: this.side,
+        route: this.car.route || null, carRevision: this.car.veh.poseRevision || 0,
+        playerRevision: P.veh.poseRevision || 0 };
+      return;
+    }
     if (this.pattern?.crush && this.pattern.partner && !this.pattern.partner.exploded) {
       // twin: occasionally both brothers crush together (the brother gets the same order)
       if (this.r() < 0.45 && Math.abs(gap) < 8) {
@@ -324,6 +384,29 @@ export class EnemyBrain {
   }
 
   _endAttack(cd) { this.atk = null; this.atkCd = this._cooldown(cd); }
+
+  _drillSafe(path) {
+    const car = this.car, sim = this.sim, P = sim.player, v = car.veh;
+    if (!P || P.exploded || path.branch || path.crossRoute || car.held || car.driverless
+        || !Number.isFinite(v.vf) || !Number.isFinite(P.veh.vf) || !Number.isFinite(path.playerD)
+        || !car.crew.driver.alive || !v.driverAlive || car.engineHp <= 0 || v.stunned > 0
+        || v.grounded < 2 || v.up.y < .8 || Math.abs(v.slipAngle || 0) > .18
+        || Math.abs(path.playerD) + P.spec.width / 2 > path.halfWidth - .35
+        || !sim.ground?.hasColliderAt?.(car.s) || !sim.ground.hasColliderAt(P.s + 55)) return false;
+    // The Underground tunnel itself is valid arena geometry. Raised ramps,
+    // roadblocks and authored challenges keep their normal route priority.
+    const from = car.s - car.spec.length / 2, to = Math.max(car.s, P.s) + 55;
+    if (sim.road.featuresIn(from, to).some(f => DRILL_NO_COMMIT.has(f.type))) return false;
+    if (!drillPhysicalFootprintFits(sim.road, sim.ground, car)) return false;
+    const limit = Math.max(0, Math.min(LANE_LIMIT, path.halfWidth - car.spec.width / 2 - .35));
+    const lane = this.atk?.drill && this.atk.phase !== 'line' ? this.atk.lane : clamp(path.playerD, -limit, limit);
+    for (const ds of DRILL_SAMPLE_OFFSETS) {
+      const k = sim.road.sample(car.s + ds, _pt).k;
+      if (!Number.isFinite(k) || Math.abs(k) > 1 / 220
+        || !drillLaneFootprintFits(sim.road, sim.ground, car.spec, car.s + ds, lane)) return false;
+    }
+    return true;
+  }
 
   /** Called by the director when this car bumps the player (ends a ram / swipe). */
   onContact() { if (this.atk && (this.atk.kind === 'ram' || this.atk.kind === 'swipe')) this.atk.contact = true; }

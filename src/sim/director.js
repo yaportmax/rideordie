@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { clamp, lerp, rng } from '../core/util.js';
 import { ENEMIES, ENEMY_GUNS, ENCOUNTERS, SET_PIECES } from '../data/enemies.js';
 import { VEHICLES } from '../data/vehicles.js';
+import { resolveEliteVehicle } from '../data/elite_vehicles.js';
 import { BOSS_S, HALF_ROAD } from '../data/biomes.js';
 import { MINIBOSSES, CAMPAIGN_BOSSES } from '../data/boss.js';
 import { TEN_LEVELS, normalizeJourney } from '../data/campaign.js';
@@ -354,7 +355,8 @@ export class Director {
       sim.combat.inheritNukeDerived(car, other);
     }
     // a raider that MEANT to hit you (ram / swipe / crush) hits harder than the physics alone says: upgraded trucks still feel it
-    if (car.kind === 'player' && other.kind === 'enemy' && other.ai?.atk && other.ai.atk.kind !== 'brake' && other.ai.atk.phase !== 'line' && dv > 1.2 && sim.time - (other.ramHitT ?? -9) > 0.6) {
+    if (car.kind === 'player' && other.kind === 'enemy' && other.ai?.atk && other.ai.atk.kind !== 'brake' && other.ai.atk.phase !== 'line'
+        && (!other.ai.atk.drill || other.ai.atk.phase === 'hit') && dv > 1.2 && sim.time - (other.ramHitT ?? -9) > 0.6) {
       other.ramHitT = sim.time;
       const k = other.elite ? 0.016 : 0.004 + 0.004 * Math.min(this.level, 1);
       sim.damageCar(car, car.maxHp * Math.min(k * dv, other.elite ? 0.06 : 0.03), { cause: 'ram', src: other.id });
@@ -557,8 +559,9 @@ export class Director {
     const lane = o.at ? o.at.d : o.lane ?? r.pick(LANES);
     const pv = Math.max(8, P.veh.vf);
     // tune the enemy so it can actually keep up with the player's truck as the game goes on
-    const base = VEHICLES[def.spec];
+    const base = resolveEliteVehicle(VEHICLES[def.spec], o.elite ? o.elite.index + 1 : 0);
     if (key === 'e_double_bus' && !this._busSpawnClear(sim, base, s, lane)) return false;
+    if (base.requiresClearance && !this._busSpawnClear(sim, base, s, lane, base.spawnClearance)) return false;
     if (base.modelId?.startsWith('e_') && key !== 'e_double_bus' && sim.ground?.roadHeightAt && !this._busSpawnClear(sim, base, s, lane, base.height + .25)) return false;
     // raiders are always a little faster than the player's truck: you can't just outrun them, you have to fight
     // (a clear margin: leaders and flankers have to be able to hold a slot AHEAD of a truck that is flat out)
@@ -582,7 +585,7 @@ export class Director {
       yawOff = -Math.sign(lane) * 0.55;   // angled in toward the road (+X is left: a car on the left turns right)
     }
     const car = sim.spawnCar(def.spec, { spec, s, d: lane, speed: o.at ? o.at.speed : ahead ? pv * 0.7 : pv * 0.95 + 5, kind: 'enemy', yawOff });
-    if (key === 'e_double_bus' || base.modelId?.startsWith('e_')) {
+    if (key === 'e_double_bus' || base.requiresClearance || base.modelId?.startsWith('e_')) {
       // Check actual physical hull volume, including nearby traffic/props.
       for (const collider of car.veh.colliders) if (sim.world.intersectionWithShape(collider.translation(), collider.rotation(), collider.shape,
         undefined, groups(0xffff, G.WORLD | G.CAR | G.PROP), undefined, car.veh.body)) {
@@ -637,9 +640,14 @@ export class Director {
 
   _busSpawnClear(sim, base, s, d, clearance = 4.4) {
     if (!sim.ground?.hasColliderAt?.(s) || !sim.ground.roadHeightAt) return false;
-    for (const ds of [-base.length / 2, 0, base.length / 2]) {
+    // A standalone boring tractor is forward-asymmetric. Sample authored
+    // extents, never length/2 in a ground frame with a different origin.
+    const bbox = base.requiresClearance ? base.model?.bbox : null;
+    const along = bbox ? [bbox.min[2], 0, bbox.max[2]] : [-base.length / 2, 0, base.length / 2];
+    const across = bbox ? [bbox.min[0], 0, bbox.max[0]] : [-base.width / 2, 0, base.width / 2];
+    for (const ds of along) {
       const sm = sim.road.sample(s + ds);
-      for (const lateral of [-base.width / 2, 0, base.width / 2]) {
+      for (const lateral of across) {
         const lane = d + lateral, x = sm.x + sm.nx * lane, z = sm.z + sm.nz * lane;
         const y = sim.ground.roadHeightAt(s + ds, x, z, sim.road.surfaceY(sm, lane) + 2);
         if (y == null || !sim.ground.hasColliderAt(s + ds)) return false;

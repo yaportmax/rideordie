@@ -5,6 +5,7 @@ import { Transport } from './transport.js';
 import { planEventPackets } from './event_batches.js';
 import { GarageSeatSwap, GARAGE_SEAT_PROTOCOL } from './garage_seats.js';
 import { PLAYER_VEHICLE_PROTOCOL } from '../data/vehicle_families.js';
+import { ELITE_VEHICLE_PROTOCOL } from '../data/elite_vehicles.js';
 import { DRIVING_ROUTE_VERSION } from '../world/driving_plan.js';
 import { CAMPAIGN_PROTOCOL, normalizeJourney, normalizeCampaignProgress, campaignJourney, selectCampaignLevel, creditCampaignLevel } from '../data/campaign.js';
 import { normalizeProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from '../meta/profile.js';
@@ -68,7 +69,7 @@ export class Session {
     this.tp.onClose = () => { this.connected = false; this.activeRunId = null; this.peerWallet = null; this._peerProtocol = null; this.swap.disconnect(); if (!this._protocolError) this.h.disconnect && this.h.disconnect(); };
     this.tp.onError = (e) => this.h.error && this.h.error(e);
     this.tp.onState = (status, details) => this.h.state && this.h.state(status, details);
-    this.tp.onOpen = () => { this.connected = true; this.tp.send({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, name: this.me.name, campaign: this.profile?.campaignId, rev: this.profile?.revision, wallet: walletOf(this.personalProfile) }); if (this.isHost) this._broadcastLobby(); };
+    this.tp.onOpen = () => { this.connected = true; this.tp.send({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, name: this.me.name, campaign: this.profile?.campaignId, rev: this.profile?.revision, wallet: walletOf(this.personalProfile) }); if (this.isHost) this._broadcastLobby(); };
   }
   on(h) { Object.assign(this.h, h); return this; }
   get rtt() { return this.tp.rtt; }
@@ -275,7 +276,7 @@ export class Session {
     if (this.swap.onMessage(m)) return;
     switch (m.t) {
       case 'hello':
-        if (m.protocol !== NET_PROTOCOL || m.garageSeats !== GARAGE_SEAT_PROTOCOL || m.familyVehicles !== PLAYER_VEHICLE_PROTOCOL || m.drivingRoutes !== DRIVING_ROUTE_VERSION || m.campaignProtocol !== CAMPAIGN_PROTOCOL) {
+        if (m.protocol !== NET_PROTOCOL || m.garageSeats !== GARAGE_SEAT_PROTOCOL || m.familyVehicles !== PLAYER_VEHICLE_PROTOCOL || m.eliteVehicles !== ELITE_VEHICLE_PROTOCOL || m.drivingRoutes !== DRIVING_ROUTE_VERSION || m.campaignProtocol !== CAMPAIGN_PROTOCOL) {
           this._peerProtocol = null; this.connected = false; this.activeRunId = null;
           this.other = null; this.peerWallet = null; this.me.ready = false;
           this._protocolError = { type: 'protocol-mismatch', message: 'Your game versions differ. Both players should reload ride.maxyaport.com.' };

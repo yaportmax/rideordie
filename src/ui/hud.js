@@ -135,15 +135,16 @@ export class Hud {
   hints(lines, ms = 9000) {
     this._hintRevision = (this._hintRevision || 0) + 1;
     if (!this.hintEl) { this.hintEl = document.createElement('div'); this.hintEl.style.cssText = 'position:absolute;left:50%;top:80px;transform:translateX(-50%);text-align:center;font-size:15px;letter-spacing:2px;line-height:1.9;opacity:0;transition:opacity .6s;background:rgba(0,0,0,.35);padding:10px 22px;border-left:3px solid #ffc21a;white-space:nowrap'; this.el.appendChild(this.hintEl); }
-    this.hintEl.innerHTML = lines.map((l) => `<div>${l}</div>`).join(''); this.hintEl.style.opacity = 1;
+    this.hintEl.innerHTML = lines.map((l) => `<div>${l}</div>`).join(''); this.hintEl.style.display = ''; this.hintEl.style.opacity = 1;
     const owner = this._hintOwner = {};
+    this._hintDeadline = performance.now() + ms;
     clearTimeout(this._hintT); this._hintT = setTimeout(() => {
-      if (this._hintOwner === owner) { this._hintOwner = null; this.hintEl.style.opacity = 0; }
+      if (this._hintOwner === owner) { this._hintOwner = null; this._hintDeadline = null; this.hintEl.style.opacity = 0; }
     }, ms);
     return owner;
   }
   hintsActive(owner) {
-    return !!owner && owner === this._hintOwner && !!this.hintEl && String(this.hintEl.style.opacity) === '1';
+    return !!owner && owner === this._hintOwner && !!this.hintEl && this.hintEl.style.display !== 'none' && String(this.hintEl.style.opacity) === '1';
   }
   /** Refresh one owned visible notice without restarting its original expiry. */
   updateHints(lines, owner) {
@@ -151,10 +152,18 @@ export class Hud {
     this.hintEl.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
     return true;
   }
+  /** A cinematic intro yields this notice's area, without consuming its unseen
+   * help time or leaving the old opacity fade over the higher-priority text. */
+  suspendHints(owner) {
+    if (!this.hintsActive(owner)) return null;
+    const remaining = Math.max(0, this._hintDeadline - performance.now());
+    this.retireHints(owner); this.hintEl.style.display = 'none';
+    return remaining;
+  }
   /** Retire only this owner's timer/notice; replacement notices keep theirs. */
   retireHints(owner) {
     if (!owner || owner !== this._hintOwner) return false;
-    clearTimeout(this._hintT); this._hintT = null; this._hintOwner = null;
+    clearTimeout(this._hintT); this._hintT = null; this._hintOwner = null; this._hintDeadline = null;
     if (this.hintEl) this.hintEl.style.opacity = 0;
     return true;
   }

@@ -1,3 +1,4 @@
+import { ELITE_VEHICLE_PROTOCOL } from '../src/data/elite_vehicles.js';
 import './helpers/peer-import.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -57,7 +58,7 @@ async function start(host, guest, journey = campaignJourney(host.profile)) {
 const summary = (cfg, extra = {}) => ({ id: cfg.runId, cash: 400, distance: 3600, furthestS: 3640, time: 90, kills: 4,
   won: true, levelCleared: true, journey: structuredClone(cfg.journey), minibosses: [0], ...extra });
 const hello = campaignProtocol => ({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL,
-  familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol,
+  familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol,
   name: 'Guest', wallet: { playerId: 'guest-person', cash: 1234, totalCash: 18000 } });
 
 test('hello requires explicit campaign capability and rejects a protocol-3 minigun/elite peer before mutation', async () => {

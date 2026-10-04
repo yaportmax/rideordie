@@ -5,6 +5,7 @@ import { buildCarLod, makeLodMaterial } from './car_lod.js';
 import { buildEliteKit, ramBar, makeGlint } from './elite_kits.js';
 import { ELITE_BOSSES as MINIBOSSES } from '../data/boss.js';
 import { VEHICLES, vehicleModelURL } from '../data/vehicles.js';
+import { resolveEliteVehicle } from '../data/elite_vehicles.js';
 import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
 import { buildStageTrimPlan, buildUpgradePlan, sanitizeVisualLevels, visualKey } from './car_upgrade_plan.js';
 import { UpgradeKit } from './car_upgrade_kit.js';
@@ -30,6 +31,7 @@ export class CarView {
     this.ownedResources = new CarViewResources(opts.warmMaterials);
     const url = opts.modelUrl ?? vehicleModelURL(spec);
     const model = Assets.clone(url);
+    if (!model && spec.requiredStandaloneModel) throw new Error('Required standalone boss model is missing: ' + url);
     if (model) this._adoptModel(model, opts); else this._placeholder(opts);
     this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     // far LOD (enemies): one vertex-coloured body + one mesh per wheel
@@ -236,7 +238,7 @@ const _up = new THREE.Vector3(), _fw = new THREE.Vector3(), _qi = new THREE.Quat
 export function warmRaiderViews({ onDispose, warmMaterials } = {}) {
   const out = [];
   MINIBOSSES.forEach((M, i) => {
-    const v = new CarView(VEHICLES[M.spec], { paint: 0x888888, paint2: 0x333333, warmMaterials });
+    const v = new CarView(resolveEliteVehicle(VEHICLES[M.spec], i + 1), { paint: 0x888888, paint2: 0x333333, warmMaterials });
     v.kit = buildEliteKit(v, v.spec, i + 1, i + 1);
     v.glint = makeGlint(); v.glint.visible = true; v.glint.material.opacity = 1; v.root.add(v.glint);
     out.push(v.root);

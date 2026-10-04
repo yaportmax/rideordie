@@ -8,6 +8,7 @@ import { loadProfile, saveProfile } from '../src/meta/profile.js';
 import { NET_PROTOCOL } from '../src/net/run_packet.js';
 import { GARAGE_SEAT_PROTOCOL } from '../src/net/garage_seats.js';
 import { PLAYER_VEHICLE_PROTOCOL } from '../src/data/vehicle_families.js';
+import { ELITE_VEHICLE_PROTOCOL } from '../src/data/elite_vehicles.js';
 import { CAMPAIGN_PROTOCOL } from '../src/data/campaign.js';
 import { DRIVING_ROUTE_VERSION } from '../src/world/driving_plan.js';
 const { Session } = await import('../src/net/session.js');
@@ -110,18 +111,24 @@ class TransportFixture {
   destroy() {}
 }
 const hello = overrides => ({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL,
-  familyVehicles: PLAYER_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL,
+  familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL,
+  drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL,
   name: 'Guest', wallet: { playerId: 'friend-current', cash: 100, totalCash: 100 }, ...overrides });
 
-test('current whole Session rejects old route4 while retaining separate family and wire capabilities', async () => {
+test('current whole Session rejects old route4 and incompatible elite capability while retaining separate family and wire capabilities', async () => {
   assert.equal(DRIVING_ROUTE_VERSION, 5);
   assert.equal(PLAYER_VEHICLE_PROTOCOL, 2, 'vehicle family capability remains separate from route identity');
-  for (const mismatch of [{ drivingRoutes: 4 }, { familyVehicles: 1 }, { protocol: NET_PROTOCOL - 1 }]) {
+  assert.equal(ELITE_VEHICLE_PROTOCOL, 1, 'standalone elite models require their own explicit capability');
+  const missingElite = hello(); delete missingElite.eliteVehicles;
+  const incompatible = [hello({ drivingRoutes: 4 }), hello({ familyVehicles: 1 }), hello({ protocol: NET_PROTOCOL - 1 }),
+    hello({ eliteVehicles: 0 }), hello({ eliteVehicles: ELITE_VEHICLE_PROTOCOL + 1 }), missingElite];
+  for (const message of incompatible) {
     const tp = new TransportFixture(), session = new Session(tp), errors = [];
     const profile = withStorage(store(), () => loadProfile()), before = structuredClone(profile);
     await session.host(profile); session.on({ error: error => errors.push(error) }); tp.onOpen();
     assert.equal(tp.sent[0].drivingRoutes, 5, 'real current hello imports the candidate route capability');
-    session._onMsg(hello(mismatch));
+    assert.equal(tp.sent[0].eliteVehicles, ELITE_VEHICLE_PROTOCOL, 'actual hello advertises the standalone elite model contract');
+    session._onMsg(message);
     assert.equal(session.connected, false); assert.equal(session.canStart(), false);
     assert.equal(tp.closed, 1); assert.equal(errors.length, 1); assert.equal(errors[0].type, 'protocol-mismatch');
     assert.deepEqual(profile, before); assert.equal(session.peerWallet, null);
@@ -131,4 +138,5 @@ test('current whole Session rejects old route4 while retaining separate family a
   assert.equal(session.protocolError, null); assert.equal(session.connected, true); assert.equal(tp.closed, 0);
   assert.equal(session.peerWallet.playerId, 'friend-current');
   assert.equal(tp.sent[0].protocol, NET_PROTOCOL); assert.equal(tp.sent[0].familyVehicles, PLAYER_VEHICLE_PROTOCOL);
+  assert.equal(tp.sent[0].eliteVehicles, ELITE_VEHICLE_PROTOCOL);
 });
