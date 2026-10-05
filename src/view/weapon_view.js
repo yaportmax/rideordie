@@ -6,6 +6,9 @@ import * as Assets from '../core/assets.js';
 import { sightBoreGeometry, supportsSightBoreGeometry } from './sight_geometry.js';
 import { REFLEX_GUNS, sanitizeOpticId } from '../data/weapon_optics.js';
 import { attachReflexOptic } from './reflex_optic.js';
+import { configureFactorySights } from './factory_sights.js';
+import { attachCombatScope } from './combat_scope.js';
+import { attachWeaponModifications } from './weapon_attachments.js';
 
 const MM = 0.001, DEG = Math.PI / 180;
 const bore = (part, centerX, centerY, radius, minZ, maxZ) => ({ part, centerX, centerY, radius, minZ, maxZ });
@@ -64,6 +67,12 @@ export class WeaponView {
       const weapon = new WeaponView(id, { opticId: 'wide_reflex' }); group.add(weapon.root);
       registerCleanup?.(() => weapon.dispose(retainMaterials));
     }
+    // World optics and VM optics compile different projection programs. Warm
+    // the two supported world scope mounts as a finite pair, not all loadouts.
+    for (const id of ['rifle', 'sniper']) {
+      const weapon = new WeaponView(id, { opticId: 'combat_3x' }); group.add(weapon.root);
+      registerCleanup?.(() => weapon.dispose(retainMaterials));
+    }
     return group;
   }
 
@@ -72,7 +81,7 @@ export class WeaponView {
     this.opticId = sanitizeOpticId(id, opts.opticId);
     this._ownedResources = [];
     this.root = new THREE.Group(); this.root.name = 'weapon_' + id;
-    const m = Assets.clone(`/models/weapons/${id}.glb`);
+    const m = opts.model || Assets.clone(`/models/weapons/${id}.glb`);
     this.model = m;
     this.nodes = {}; this.rest = {}; this.sockets = {};
     if (m) {
@@ -89,9 +98,11 @@ export class WeaponView {
       box.position.z = 0.25; this.root.add(box);
       const mz = new THREE.Object3D(); mz.name = 'muzzle'; mz.position.set(0, 0.03, 0.56); this.root.add(mz); this.sockets.muzzle = mz;
     }
-    this.optic = this.opticId === 'wide_reflex' ? attachReflexOptic(this) : null;
+    this.factorySight = configureFactorySights(this);
+    if (this.factorySight) this.sockets.factory_sight = this.factorySight.aim;
+    this.optic = this.opticId === 'wide_reflex' ? attachReflexOptic(this) : this.opticId === 'combat_3x' ? attachCombatScope(this) : null;
     if (this.optic) { this.sockets.optic_sight = this.optic.aim; configureWeaponShadows(this.root); }
-    this.mech = MECH[id] || {};
+    this.modifications = attachWeaponModifications(this, opts.levels, opts.attachments); this.mech = MECH[id] || {};
     this.cycleT = 1; this.cycleLen = 0.08; this.actionT = 1; this.actionLen = 0.5; this.trig = 0; this.spin = 0; this.reload = 0; this.reloading = false;
   }
 
@@ -164,6 +175,7 @@ export class WeaponView {
 
   muzzleWorld(out) { const m = this.sockets.muzzle; if (!m) return false; m.getWorldPosition(out); return true; }
   ejectWorld(out) { const m = this.sockets.eject; if (!m) return false; m.getWorldPosition(out); return true; }
+  laserWorld(out) { const emitter = this.sockets.laser_emitter; if (!emitter) return false; emitter.getWorldPosition(out); return true; }
   /** Prepare immutable geometry variants; callers decide when their local ADS copy uses them. */
   prepareSightBores(channels = SIGHT_BORES[this.id]) {
     if (!channels?.length) return [];
@@ -197,7 +209,7 @@ export class WeaponView {
   }
   dispose(retainMaterials = null) {
     if (this.disposed) return; this.disposed = true;
-    this.root.removeFromParent(); this.optic?.dispose(retainMaterials);
+    this.root.removeFromParent(); this.optic?.dispose(retainMaterials); this.factorySight?.dispose();
     for (const resource of this._ownedResources) resource.dispose(); this._ownedResources.length = 0;
   }
 }

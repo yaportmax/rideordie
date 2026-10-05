@@ -10,6 +10,8 @@ import { TerrainStreamer } from '../world/terrain.js';
 import { makeCarState, stateFromCar } from '../view/car_state.js';
 import { eliteVehicleKey } from '../data/elite_vehicles.js';
 import { WorldView } from './world_view.js';
+import { WeaponLaser, canPresentWeaponLaser } from '../view/weapon_laser.js';
+import { usesFullscreenWeaponScope } from '../data/weapon_visual_config.js';
 import { GunnerController } from './gunner.js';
 import { buildPlayerSpec, gunnerLoadout } from './run_setup.js';
 import { ChaseCam, GunnerCam } from '../view/camera_rig.js';
@@ -120,7 +122,7 @@ export class Run {
       await this._loadDressing(cfg.startS ?? 40);
     } catch (e) { console.warn('dressing disabled', e); this.dressing = null; }
     if (this.disposed) return this;
-    this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, playerUpgradeLevels: effects.vehicleUpgradeLevels, playerWeaponOptics: effects.weaponOptics, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
+    this.wv = new WorldView({ scene: g.scene, playerPaint: cfg.paint, playerUpgradeLevels: effects.vehicleUpgradeLevels, playerWeaponOptics: effects.weaponOptics, playerWeaponLevels: effects.weaponLevels, playerWeaponAttachments: effects.weaponAttachments, fx: g.fx, audio: g.audio, groundY: (x, y, z) => this._groundY(x, y, z) });
     this.encounterView = new StageEncountersView(g.scene, this.road);
     this.wv.playerWeapon = effects.weapons[0];
     if (this.gunnerLocal) this.gunner = new GunnerController(gunnerLoadout(effects), this._gunnerCtx());
@@ -303,6 +305,7 @@ export class Run {
     }
     this.victorySummary = structuredClone(this.buildSummary(true));
     this.victoryPresentation = true;
+    this.weaponLaser?.hide();
     // A co-op driver's authority normally has no local weapon controller.
     // Its verified run profile supplies the same partner loadout/slot/aim.
     // Remote magazine count is not part of protocol5: this new cosmetic
@@ -488,7 +491,7 @@ export class Run {
     const newDriverExterior = this.role === 'driver' && this.chase.mode >= 3 && !isDefeated(this);
     if (cameraBeforeViews && !newDriverExterior) this._camera(dt, cmds, pst);
     // world view
-    const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5 && !this.introOutside, scoped: !!this.gunner.weapon.scope && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
+    const localGunner = this.gunner ? { firstPerson: this.humanGunner && this.role !== 'driver' && this.gcam.firstPerson && this.gcam.tpK < 0.5 && !this.introOutside, scoped: usesFullscreenWeaponScope(this.gunner.weapon) && this.gcam.adsK > 0.8, eye: this.eye, adsK: this.gcam.adsK, bedX: this.gunner.pos.x, bedZ: this.gunner.pos.z, crouch: this.gunner.crouch, reload: this.gunner.reloading, swap: this.gunner.swapT, recoil: this.gunner.recoilAnim, throwing: this.gunner.throwing, weapon: this.gunner.weaponId, reloadT: this.gunner.reloadT, reloadLen: this.gunner.weapon.reload, camera: g.camera, gunner: this.gunner } : null;
     const evs = this.sim || !this.localEvents.length ? this.events : this.events.concat(this.localEvents); // local sim events already went through sim.emit
     this.localEvents.length = 0;
     { const _t0 = performance.now(); this.dressing?.update(dt, g.camera.position, this.playerS || 0, g.camera); const ms = performance.now() - _t0; if (ms > 10) appendDiagnostic(window, '__spikes', { what: 'dressing', ms: +ms.toFixed(1), at: +(performance.now() / 1000).toFixed(1) }); }
@@ -508,11 +511,19 @@ export class Run {
     const localDriver = this.humanDriver && this.role !== 'solo' && this.role !== 'gunner' ? { firstPerson: this.chase.firstPerson && !this.introOutside, cockpit: this.cockpit, gear: this.player ? this.player.veh.gear : 1 } : null;   // cockpit + gear: first-person driver arms
     this.wv.update(dt, this.states, evs, { localDriver, cameraPos: g.camera.position, frustum: this._frustum, frustum2: this.cockpit?.active ? this.cockpit.frustum : null, night: g.look?.night ?? 0, playerId: this.playerId, playerWeaponId: this.gunner ? this.gunner.weaponId : this.effects.weapons[this.gunnerRemote.weapon] || this.effects.weapons[0], localGunner, proj: this.proj });
     if (!cameraBeforeViews) this._camera(dt, cmds, pst);
+    const showWeaponLaser = canPresentWeaponLaser(this, pst, runPhase(this));
     if (this.gunner && pst && (this.sim || !this.victoryPresentation)) {
       if (!this.wv.muzzlePos(pst, this.gunner.muzzle)) this.gunner.muzzle.set(0, 0, 0);
       const aimCam = this.aiGunner ? { position: this.eye, dir: _aiDir.set(Math.sin(this.gunner.yaw) * Math.cos(this.gunner.pitch), Math.sin(this.gunner.pitch), Math.cos(this.gunner.yaw) * Math.cos(this.gunner.pitch)) } : { position: g.camera.position, dir: this.camDir.set(0, 0, -1).applyQuaternion(g.camera.quaternion) };
       if (this.gunner.finishFire(aimCam, { carVel: pst.vel })) this.wv.notifyLocalShot(pst, this.gunner);
+      if (this.gunner.attachments?.[this.gunner.weaponId]?.includes('laser') || this.weaponLaser) {
+        const crew = this.wv.cars?.get(pst.id)?.crew.gunner, gun = this.gunner.fp && this.gunner.vm ? this.gunner.vm.gun : crew?.weapon;
+        this.weaponLaser ||= new WeaponLaser(g.scene);
+        const provider = this.gunner.fp && this.gunner.vm ? this.gunner.vm : gun;
+        this.weaponLaser.update(dt, this.gunner, gun, provider, showWeaponLaser);
+      }
     }
+    if (this.weaponLaser && !showWeaponLaser) this.weaponLaser.hide();
     // The local shot (and damage it caused) must reach views/FX/net exactly once
     // in the frame that supplied its muzzle, rather than next frame's moved gun.
     const late = this.sim ? this.sim.drainEvents() : this.localEvents;
@@ -885,7 +896,7 @@ export class Run {
         }
       }
       if (w.mounted) _mountedBaseEye.copy(this.eye);
-      const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, fovBase: g.fovBase, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
+      const dir = this.gcam.update(dt, this.eye, this.gunner.yaw, this.gunner.pitch, this.gunner.ads > 0.5 && !this.gunner.reloading, { scoped: !!w.scope, scopeFov: w.scopeFov, scopeZoom: w.scopeZoom, fovBase: g.fovBase, speed01: clamp(pst.speed / 60, 0, 1), boosting: pst.boosting, truckQuat: pst.quat });
       this.camDir.copy(dir);
       if (w.mounted) {
         const rig = this.wv.mountedWeapon(pst, this.gunner.weaponId);
@@ -976,7 +987,7 @@ export class Run {
       speed: pst ? pst.speed : 0, rpm01: pst ? pst.rpm01 : 0, nitro01: 0, nitroMax: this.spec.nitro?.capacity || 0, nitroRechargeLocked: !!pst?.nitroRechargeLocked,
       hp01: pst ? pst.hp01 : 1, dhp01: 1, ghp01: 1, dist: s, time: this.sim ? this.sim.time : (this.hud?.time || 0), biome: this.journey.mode === 'legacy' ? BIOMES[b.w > 0.5 ? b.b : b.a].name : chapter.name, prog01: s / progressTotal, boss,
       spreadPx: this.gunner ? (this.gunner.spreadNow() * Math.PI / 180) / (this.g.camera.fov * Math.PI / 180) * innerHeight : undefined,
-      scoped: this.gunner && this.humanGunner && this.role !== 'driver' ? !!this.gunner.weapon.scope && this.gunner.ads > 0.85 : false, // never the AI gunner's scope on the driver's screen
+      scoped: this.gunner && this.humanGunner && this.role !== 'driver' ? usesFullscreenWeaponScope(this.gunner.weapon) && this.gunner.ads > 0.85 : false, // never the AI gunner's scope on the driver's screen
       hideCross: this.gunner ? this.gcam.firstPerson && this.gcam.adsK > 0.6 : false,
       weapon: this.gunner ? this.gunner.weapon.name : undefined, mag: this.gunner ? this.gunner.magNow : 0, reloading: this.gunner ? this.gunner.reloading : false,
       showDriver: this.role !== 'gunner',
@@ -1149,7 +1160,7 @@ export class Run {
     try { this.dressing?.dispose(); } catch (e) { console.warn(e); }
     this.structures?.dispose();
     this.abridge?.reset();
-    this.wv?.dispose();
+    this.weaponLaser?.dispose(); this.weaponLaser = null; this.wv?.dispose();
     this.encounterView?.dispose(); this.encounterView = null;
     if (!this.sim) this.encounters?.dispose();
     this.streamer?.dispose();

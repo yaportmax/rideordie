@@ -4,6 +4,7 @@ import { GarageScreen } from '../src/ui/screens/garage.js';
 import { DEFAULT_PROFILE, TRUCKS } from '../src/data/upgrades.js';
 import { buyWeapon } from '../src/meta/profile.js';
 import { buyWeaponOptic } from '../src/meta/weapon_optics.js';
+import { normalizeCampaignProgress } from '../src/data/campaign.js';
 
 const screen = () => {
   const p = DEFAULT_PROFILE(); p.cash = 100000; p.trucks = ['player_sedan_t1', 'truck_t1', 'player_buggy_t1'];
@@ -47,8 +48,10 @@ test('garage sight preview cannot buy a locked gun optic and owned sight equip u
   s.tab = 'weapons'; s.selId = { weapons: 'smg' }; s.opticPrev = 'wide_reflex';
   s.ui = { snd() {}, pressFx() {} }; s.cb = { onBuy(...args) { sent.push(args); }, onView(...args) { previewed.push(args); } };
   s.doOptic({ dataset: { opticBuy: 'wide_reflex' } }); assert.deepEqual(sent, []);
+  s.p.campaignProgress = normalizeCampaignProgress({ cleared: [1], clearRuns: { 1: 'fixture-earned-smg-level' } });
   assert.equal(buyWeapon(s.p, 'smg').ok, true); s.notifyView();
-  assert.deepEqual(previewed.at(-1), ['weapons', 'smg', 'wide_reflex']);
+  assert.deepEqual(previewed.at(-1), ['weapons', 'smg', 'wide_reflex', { levels: { dmg: 0, mag: 0, rel: 0, hnd: 0 }, attachments: [] }]);
+  assert.ok(Object.isFrozen(previewed.at(-1)[3].levels)); assert.ok(Object.isFrozen(previewed.at(-1)[3].attachments));
   s.doOptic({ dataset: { opticBuy: 'wide_reflex' } });
   assert.deepEqual(sent.at(-1), ['weaponOptic', 'smg', 'wide_reflex']);
   assert.equal(buyWeaponOptic(s.p, 'smg', 'wide_reflex').ok, true);

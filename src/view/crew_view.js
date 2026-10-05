@@ -22,6 +22,7 @@ import { DriverArms } from './driver_arms.js';
 import { clamp } from '../core/util.js';
 import { WEAPONS } from '../data/weapons.js';
 import { sanitizeOpticId } from '../data/weapon_optics.js';
+import { weaponVisualKey } from '../data/weapon_visual_config.js';
 import { ENEMY_GUNS } from '../data/enemies.js';
 import { patchCrewMaterials } from './crew_material.js';
 import { skipHiddenMatrixTraversal } from './hidden_matrices.js';
@@ -244,13 +245,13 @@ export class CrewView {
     this.head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), skin); this.head.position.y = 1.55; this.body.add(this.head);
   }
 
-  setWeapon(id, opticId = this.opts?.weaponOptics?.[id] || 'standard') {
+  setWeapon(id, opticId = this.opts?.weaponOptics?.[id] || 'standard', levels = this.opts?.weaponLevels?.[id], attachments = this.opts?.weaponAttachments?.[id]) {
     opticId = sanitizeOpticId(id, opticId);
-    if (!id || (id === this.weaponId && opticId === this.opticId) || this.role === 'driver' || this.nativeEnemyGun) return;
+    if (!id || (id === this.weaponId && opticId === this.opticId && levels === this.weaponLevels && attachments === this.weaponAttachments) || this.role === 'driver' || this.nativeEnemyGun) return;
     this.weaponId = id;
-    this.opticId = opticId;
+    this.opticId = opticId; this.weaponLevels = levels; this.weaponAttachments = attachments; this.visualKey = weaponVisualKey(id, opticId, levels, attachments);
     if (this.weapon) { disposeOwnedSkeletons(this.weapon.model); this.weapon.dispose(); }
-    this.weapon = id === 'minigun' ? new MountedGun(id) : new WeaponView(id, { opticId });
+    this.weapon = id === 'minigun' ? new MountedGun(id, { opticId, levels, attachments }) : new WeaponView(id, { opticId, levels, attachments });
     ownClonedSkeletons(this.weapon.model);
     this._shadowOnlyOn = undefined;   // re-apply to the new weapon's meshes
     if (!this.gun.parent) this.body.add(this.gun);
@@ -324,7 +325,7 @@ export class CrewView {
       this.enemyRate = ENEMY_GUNS[s.enemyGun]?.rate ?? null;
       this.setWeapon(ENEMY_GUN_MODEL[s.enemyGun] || 'rifle');
     }
-    if (s.weaponId) this.setWeapon(s.weaponId, s.opticId);
+    if (s.weaponId) this.setWeapon(s.weaponId, s.opticId, s.weaponLevels, s.weaponAttachments);
     const mounted = !!this.weapon?.mounted;
     this.lastSpeed = s.speed || 0;
     // scripted cameras (intro fly-by, finale orbit, death cam) see our crew from outside: never first person there

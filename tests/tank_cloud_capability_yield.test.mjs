@@ -1,5 +1,8 @@
 // AUTHORED UNRUN. Root alone grants the CPU lease. Run this file in its own
 // process: its narrow real-WebCrypto interposition must never overlap a test.
+// The current capability4 Worker/schema/support pins and fresh negative fixture
+// are new source bindings. Retain the original tank3/cap2 race oracle below;
+// this draft does not retag historical tank evidence as attachment4 validation.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -9,17 +12,17 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { sanitizeProfile, canonicalJson } from '../server/saves/schema.js';
 import { assertSupportedProfile } from '../server/saves/profile_support.js';
 
-// Normal actual-source imports above and below. This package is overlaid into
-// the isolated tank candidate, not executed from inside its sparse WORK folder.
+// Normal actual-source imports above and below. Overlay into root's isolated
+// current candidate; do not execute from this sparse source-only WORK folder.
 const workerUrl = new URL('../server/saves/worker.js', import.meta.url).href;
 const schemaUrl = new URL('../server/saves/schema.js', import.meta.url).href;
 const supportUrl = new URL('../server/saves/profile_support.js', import.meta.url).href;
-const negativeUrl = new URL('./fixtures/tank_worker_no_final_profile_guard.js.txt', import.meta.url).href;
+const negativeUrl = new URL('./fixtures/weapon_worker_no_final_profile_guard.js.txt', import.meta.url).href;
 const hashes = new Map([
-  [workerUrl, 'E6011732242CCE114848AE4318B26CACAF7083BC045793737A98281FB0B56189'],
-  [schemaUrl, 'CC33D59CB995BDCCAF7EA14FC6321DDBD3951F3FC0D23870D11410BE9BDF32CF'],
-  [supportUrl, '6A98AFFA339ACE597868E38658FF332EEE28A8C55223C6A77E3C4138444DBDE4'],
-  [negativeUrl, '4F560E07D6DBC7AD99B6DE7C9ECD65472D53AE0EEE365140998689BFC3C6AA47'],
+  [workerUrl, '0BA1F6EED32CB5CEB6F38F2D0046EC90C0064BEB39BF394542B4C3DA9A302CAB'],
+  [schemaUrl, '7F64D8B771F23D3AB1D847EF22BCAADF00BC31ADE2124ADBF89E3DAC22D7E6AE'],
+  [supportUrl, '39BD7441849CA9034FBC2B45504B4A149BAEA71FD80CECCEEF33150C492DE7A1'],
+  [negativeUrl, 'A59A479A6B3C596DEAA44A0A2D665230A58489623718A9AC59466FFEA7AA9B58'],
 ]);
 const sources = new Map([...hashes].map(([url, expected]) => {
   const bytes = readFileSync(new URL(url));

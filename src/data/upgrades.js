@@ -3,6 +3,7 @@
 import { WEAPON_ORDER, WEAPONS } from './weapons.js';
 import { VEHICLES, PLAYER_NITRO_RECHARGE_SECONDS } from './vehicles.js';
 import { equippedWeaponOptics } from './weapon_optics.js';
+import { equippedWeaponAttachments } from './weapon_attachments.js';
 import { defaultCampaignProgress } from './campaign.js';
 import { DRIVER_UPGRADE_IDS, PLAYER_VEHICLE_CATALOGUE, VEHICLE_FAMILIES, effectiveUpgrades, familyOf, upgradeCap, upgradeLevel } from './vehicle_families.js';
 
@@ -103,7 +104,7 @@ export function effects(profile) {
     driverArmor: 0.3 * lv('glass') > 0 ? 0.3 * lv('glass') : 0,
     grenades: 2 + lv('grenades'), grenadeLv: lv('grenadeDmg'), medkits: lv('medkit'),
     reloadMul: 1 - 0.12 * lv('pouches'), handling: lv('steady'), cashMul: 1 + 0.1 * lv('scavenger'),
-    weapons: profile.loadout.slice(), weaponLevels: profile.weapons, weaponOptics: equippedWeaponOptics(profile),
+    weapons: profile.loadout.slice(), weaponLevels: profile.weapons, weaponOptics: equippedWeaponOptics(profile), weaponAttachments: equippedWeaponAttachments(profile),
   };
   return e;
 }

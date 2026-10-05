@@ -221,6 +221,10 @@ ChaseCam.prototype._cockpit = function (dt, carQuat, vel, opts) {
   if (cam.near !== 0.05) { cam.near = 0.05; cam.updateProjectionMatrix(); }
 };
 
+/** Perspective magnification relative to the unboosted, stationary hip field. */
+export function scopeFovForZoom(baseFov, zoom) {
+  return 2 * Math.atan(Math.tan(baseFov * Math.PI / 360) / zoom) * 180 / Math.PI;
+}
 export class GunnerCam {
   constructor(camera) {
     this.camera = camera; this.shake = new Shaker();
@@ -259,8 +263,13 @@ export class GunnerCam {
     }
     cam.rotateZ(this.roll + so.x * 0.03);
     const baseFov = (this.firstPerson ? (opts.fovBase ?? 80) - 4 : 62) + (opts.speed01 || 0) * 8;
-    const adsFov = opts.scoped ? (opts.scopeFov || 18) : (this.firstPerson ? 52 : 42);
-    const tf = lerp(baseFov, adsFov, this.adsK) + (opts.boosting ? 6 : 0);
+    const fixedZoom = opts.scoped && Number.isFinite(opts.scopeZoom) && opts.scopeZoom > 1;
+    const referenceFov = this.firstPerson ? (opts.fovBase ?? 80) - 4 : 62;
+    const adsFov = opts.scoped ? (fixedZoom ? scopeFovForZoom(referenceFov, opts.scopeZoom) : (opts.scopeFov || 18)) : (this.firstPerson ? 52 : 42);
+    // A selected fixed-power optic retains its advertised projection ratio at
+    // full ADS. Existing factory scope/ordinary ADS camera rules stay unchanged.
+    const boostFov = (opts.boosting ? 6 : 0) * (fixedZoom ? 1 - this.adsK : 1);
+    const tf = lerp(baseFov, adsFov, this.adsK) + boostFov;
     this.fov = damp(this.fov, tf, 12, dt);
     if (Math.abs(cam.fov - this.fov) > 0.05) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
     // looking through a scope: push the near plane past the own truck's roll cage / mounts so they never fill the scope

@@ -5,6 +5,8 @@ import { familyOf, normalizeFamilyUpgrades, stagePurchaseAllowed } from '../data
 import { WEAPONS, WEAPON_ORDER, weaponStats } from '../data/weapons.js';
 import { speedValue, speedLabel } from './units.js';
 import { vehicleUpgradePresentation } from '../data/vehicle_upgrade_presentation.js';
+import { equippedWeaponAttachments } from '../data/weapon_attachments.js';
+import { weaponPurchaseState } from '../meta/weapon_progression.js';
 
 const r0 = (v) => String(Math.round(v));
 const r1 = (v) => (Math.round(v * 10) / 10).toFixed(1);
@@ -99,7 +101,7 @@ export function suggestNext(profile, cause = '') {
   const nextTruck = candidates.find(t => t.family === family) || candidates.find(t => t.tier === 1);
   const truck = nextTruck ? { tab: nextTruck.tier > 1 ? 'upgrades' : 'truck', id: nextTruck.id, name: nextTruck.name, kind: nextTruck.tier > 1 ? 'CHASSIS UPGRADE' : 'BASE VEHICLE', cost: nextTruck.cost, why: nextTruck.family === family ? 'A STRONGER CHASSIS FOR YOUR CURRENT BUILD' : 'A DIFFERENT CHASSIS WITH ITS OWN UPGRADE PATH' } : null;
   const bestOwnedIdx = Math.max(...WEAPON_ORDER.map((id, i) => (p.weapons[id] ? i : -1)));
-  const nextGunId = WEAPON_ORDER.find((id, i) => i > bestOwnedIdx && !p.weapons[id] && id !== 'revolver');
+  const nextGunId = WEAPON_ORDER.find((id, i) => i > bestOwnedIdx && !p.weapons[id] && id !== 'revolver' && weaponPurchaseState(p, id).reason !== 'progress');
   const gun = nextGunId ? { tab: 'weapons', id: nextGunId, name: WEAPONS[nextGunId].name, kind: 'WEAPON', cost: WEAPONS[nextGunId].cost, why: 'BIGGER GUN, FASTER KILLS, MORE CASH' } : null;
   const c = String(cause).toUpperCase();
   const causeUp = /TRUCK/.test(c) ? up('armor', 'YOUR TRUCK WAS WRECKED: PLATING KEEPS IT ROLLING') : /DRIVER/.test(c) ? (up('glass', 'THEY SHOT YOUR DRIVER: ARMORED GLASS STOPS THAT') || up('armor', 'MORE HULL, MORE TIME')) : /GUNNER/.test(c) ? up('medkit', 'PATCH UP MID-RUN') : null;
@@ -110,14 +112,15 @@ export function suggestNext(profile, cause = '') {
 }
 
 /** Rows for a weapon; `previewTrack` ('dmg'|'mag'|'rel'|'hnd') shows what buying that track would change. */
-export function weaponRows(profile, id, previewTrack) {
+export function weaponRows(profile, id, previewTrack, previewAttachments = null) {
   const w = WEAPONS[id]; if (!w) return [];
   const lv = profile.weapons[id] || { dmg: 0, mag: 0, rel: 0, hnd: 0 };
-  const s0 = weaponStats(id, lv);
-  const s1 = previewTrack && (lv[previewTrack] || 0) < 3 ? weaponStats(id, { ...lv, [previewTrack]: (lv[previewTrack] || 0) + 1 }) : null;
+  const attachments = equippedWeaponAttachments(profile)[id] || [];
+  const s0 = weaponStats(id, lv, attachments);
+  const s1 = previewAttachments ? weaponStats(id, lv, previewAttachments) : previewTrack && (lv[previewTrack] || 0) < 3 ? weaponStats(id, { ...lv, [previewTrack]: (lv[previewTrack] || 0) + 1 }, attachments) : null;
   const P = w.pellets || 1;
   const val = (fn) => ({ before: fn(s0), after: s1 ? fn(s1) : null });
-  const only = (tr, o) => (previewTrack === tr ? o : { before: o.before, after: null });
+  const only = (tr, o) => (previewAttachments || previewTrack === tr ? o : { before: o.before, after: null });
   return [
     { label: 'DAMAGE', max: 320, fmt: (v) => (P > 1 ? `${Math.round(v / P)}×${P}` : r0(v)), ...only('dmg', val((s) => s.dmg * P)) },
     { label: 'FIRE RATE', max: 850, unit: 'RPM', fmt: r0, before: s0.rpm, after: null },

@@ -72,11 +72,11 @@ test('hello requires explicit campaign capability and rejects a protocol-3 minig
   const transport = new Memory(), session = new Session(transport); await session.host(normalizeProfile(DEFAULT_PROFILE()));
   transport.onOpen(); session._onMsg({ ...hello(CAMPAIGN_PROTOCOL), protocol: 3 });
   assert.equal(session.connected, false); assert.equal(session.canStart(), false); assert.equal(transport.closedConnections, 1);
-  assert.equal(NET_PROTOCOL, 8);
+  assert.equal(NET_PROTOCOL, 9);
 });
 
 test('exact old protocol 7 rejects both peer directions and host seats before old-life JSON or fast data', async () => {
-  assert.equal(NET_PROTOCOL, 8);
+  assert.equal(NET_PROTOCOL, 9);
   for (const hostRole of ['driver', 'gunner']) for (const receiverSide of ['host', 'guest']) {
     const { host, guest } = await pair({ hostRole }), cfg = await start(host, guest);
     const receiver = receiverSide === 'host' ? host : guest;

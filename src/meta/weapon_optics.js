@@ -1,5 +1,6 @@
 import { COST_SCALE } from '../data/upgrades.js';
 import { WEAPON_OPTICS, compatibleWeaponOptic, normalizeWeaponOptics } from '../data/weapon_optics.js';
+import { assertSupportedProfile, contentProfileVersion } from '../../server/saves/profile_support.js';
 
 export function weaponOpticState(profile, weaponId, opticId) {
   if (!compatibleWeaponOptic(weaponId, opticId)) return { ok: false, reason: 'invalid' };
@@ -10,6 +11,7 @@ export function weaponOpticState(profile, weaponId, opticId) {
 }
 
 export function buyWeaponOptic(profile, weaponId, opticId) {
+  assertSupportedProfile(profile);
   const state = weaponOpticState(profile, weaponId, opticId);
   if (!state.ok) return state;
   if (state.owned) return { ok: false, reason: 'owned' };
@@ -17,14 +19,17 @@ export function buyWeaponOptic(profile, weaponId, opticId) {
   const rows = normalizeWeaponOptics(profile);
   rows[weaponId].owned.push(opticId); rows[weaponId].equipped = opticId;
   profile.cash -= state.cost; profile.weaponOptics = rows;
+  profile.v = contentProfileVersion(profile);
   return { ok: true };
 }
 
 export function equipWeaponOptic(profile, weaponId, opticId) {
+  assertSupportedProfile(profile);
   const state = weaponOpticState(profile, weaponId, opticId);
   if (!state.ok) return state;
   if (!state.owned) return { ok: false, reason: 'locked' };
   const rows = normalizeWeaponOptics(profile);
   rows[weaponId].equipped = opticId; profile.weaponOptics = rows;
+  profile.v = contentProfileVersion(profile);
   return { ok: true };
 }

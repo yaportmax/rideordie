@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import { configureWeaponShadows } from './weapon_view.js';
+import { attachWeaponModifications } from './weapon_attachments.js';
 
 export const MOUNTED_MINIGUN_MODEL = '/models/weapons/mounted_minigun.glb';
 export const MINIGUN_DECK_OFFSET = Object.freeze([0, 0, .58]);
@@ -132,7 +133,7 @@ export class MountedGun {
       this.dispose(); throw new Error('mounted_minigun.glb: missing mount joint or gameplay socket');
     }
     configureWeaponShadows(this.model);
-    this.optic = factoryReflex(this); this.sockets.optic_sight = this.sockets.sight;
+    this.optic = factoryReflex(this); this.sockets.optic_sight = this.sockets.sight; this.modifications = attachWeaponModifications(this, opts.levels, opts.attachments);
     this.spinSpeed = 0; this.spinAngle = 0; this.shotHold = 0;
     this.cycleT = 1; this.cycleLen = .04; this.trig = 0; this.reload = 0; this.reloading = false;
     this.mech = {}; this.beltStep = 0;
@@ -198,6 +199,7 @@ export class MountedGun {
     return true;
   }
   sightWorld(out) { if (!this.sockets.sight) return false; this.sockets.sight.getWorldPosition(out); return true; }
+  laserWorld(out) { const emitter = this.sockets.laser_emitter; if (!emitter) return false; emitter.getWorldPosition(out); return true; }
   /** Actual vehicle-bound ADS eye point behind the moving factory reflex. */
   eyeWorld(out, relief = this.optic?.mount.relief ?? .30) {
     if (!this.sightWorld(out)) return false;

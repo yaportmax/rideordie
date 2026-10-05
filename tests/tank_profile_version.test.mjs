@@ -164,7 +164,7 @@ test('current local slot v2 envelope round-trips all v3 family gear through save
 
 test('future versions, chassis, families and track keys fail raw before any local projection or overwrite', () => {
   assert.throws(() => assertSupportedProfile({ ...DEFAULT_PROFILE(), truck: TANK }, 2), isCode('unsupported-profile'), 'lower-capability callers cannot project an explicitly selected newer chassis, even with malformed ownership');
-  const patches = [{ v: 4 }, { trucks: ['player_tank_future'] }, { truck: 'player_hovercraft_t1' },
+  const patches = [{ v: 5 }, { trucks: ['player_tank_future'] }, { truck: 'player_hovercraft_t1' },
     { vehicleUpgrades: { hovercraft: { armor: 1 } } }, { vehicleUpgrades: { tank: { futureDrive: 1 } } }];
   for (const patch of patches) {
     const p = { ...value(true), ...patch }, raw = structuredClone(p); assert.throws(() => assertSupportedProfile(p), isCode('unsupported-profile'));
@@ -206,7 +206,7 @@ function service(t) {
 test('public Worker forwards exact profile capability; unsupported headers and preflight leave vault untouched', async t => {
   const s = service(t), cors = await s.send('OPTIONS', '/v1/vault', undefined); assert.equal(cors.status, 204);
   assert.match(cors.headers.get('Access-Control-Allow-Headers'), /X-ROD-Profile-Version/);
-  for (const cap of ['0', '4', '03', '3, 2', '3.0', 'garbage']) {
+  for (const cap of ['0', '5', '03', '3, 2', '3.0', 'garbage']) {
     const r = await s.send('POST', '/v1/vault', undefined, cap); assert.equal(r.status, 409); assert.equal(r.data.error, 'unsupported_profile');
   }
   assert.equal(s.objects.size, 0);

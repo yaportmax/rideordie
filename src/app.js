@@ -8,7 +8,9 @@ import { loadProfile, saveProfile, getSaveStore, getSaveStorage, buyTruck, buyUp
 import { CloudSaves } from './meta/cloud_saves.js';
 import { assertSupportedProfile } from '../server/saves/profile_support.js';
 import { equippedWeaponOptics, sanitizeOpticId } from './data/weapon_optics.js';
-import { campaignJourney, normalizeJourney, selectCampaignLevel, creditCampaignLevel } from './data/campaign.js';
+import { equippedWeaponAttachments } from './data/weapon_attachments.js';
+import { buyWeaponAttachment, equipWeaponAttachment } from './meta/weapon_attachments.js';
+import { campaignJourney, normalizeJourney, normalizeCampaignProgress, selectCampaignLevel, creditCampaignLevel } from './data/campaign.js';
 
 import { TRUCK_COLORS, UPGRADE_BY_ID, effectiveUpgrades, upgradeLevel, upgradeLimit } from './data/upgrades.js';
 import { normalizeUnits } from './ui/units.js';
@@ -469,7 +471,7 @@ export class App {
     this.session?.swap.enterGarage();
     requestAnimationFrame(() => this._frameRect());
   }
-  _garageLoadout() { const weapon = this.profile.loadout[0] || 'pistol'; return { weapon, opticId: equippedWeaponOptics(this.profile)[weapon] || 'standard', upgradeLevels: effectiveUpgrades(this.profile) }; }
+  _garageLoadout() { const weapon = this.profile.loadout[0] || 'pistol'; return { weapon, opticId: equippedWeaponOptics(this.profile)[weapon] || 'standard', weaponLevels: this.profile.weapons[weapon], weaponAttachments: equippedWeaponAttachments(this.profile)[weapon] || [], upgradeLevels: effectiveUpgrades(this.profile) }; }
   _selectedJourney() { return this.profile.campaignProgress ? campaignJourney(this.profile) : normalizeJourney(); }
   _showCampaign() {
     if (this.screen !== 'garage') return;
@@ -499,6 +501,7 @@ export class App {
   _garageExtra() {
     const s = this.session;
     return { solo: this.mode === 'solo', ready: this.readyMine, isHost: !s || s.isHost, runNo: this.profile.runs + 1, journey: this._selectedJourney(),
+      weaponCareerLevel: normalizeCampaignProgress(this.personalProfile?.campaignProgress).unlockedLevel,
       seatSwap: s ? { role: s.me.role, actor: s.isHost ? 'host' : 'guest', state: s.swap.snapshot(), available: s.swap.canRequest(), partnerName: s.other?.name || 'Partner' } : undefined,
       readyBlocked: !!s && !s.swap.canRequest(),
       partner: s ? { name: s.other?.name || 'Partner', ready: this.readyOther, connected: s.connected, role: s.other?.role } : undefined };
@@ -511,7 +514,7 @@ export class App {
   }
   /** Preview the selected chassis with its family's own modifications. Driver
    * upgrade previews match the next purchase. */
-  _garageView(tab, sel, opticId) {
+  _garageView(tab, sel, opticId, weaponPreview) {
     const G = this.game.garage; if (!G) return;
     G.setTab(tab);
     const p = this.profile, pv = {};
@@ -521,7 +524,7 @@ export class App {
       pv.upgradeLevels = { ...effectiveUpgrades(p), [sel]: Math.min(limit, level + 1) };
     }
     if (tab === 'paint' && sel != null) pv.paint = TRUCK_COLORS[+sel];
-    if (tab === 'weapons' && sel) { pv.weapon = sel; pv.opticId = sanitizeOpticId(sel, opticId ?? equippedWeaponOptics(p)[sel]); }
+    if (tab === 'weapons' && sel) { pv.weapon = sel; pv.opticId = sanitizeOpticId(sel, opticId ?? equippedWeaponOptics(p)[sel]); pv.weaponLevels = weaponPreview?.levels || p.weapons[sel] || {}; pv.weaponAttachments = weaponPreview?.attachments || equippedWeaponAttachments(p)[sel] || []; }
     G.setPreview(pv);
   }
   _garageCb() {
@@ -538,6 +541,8 @@ export class App {
       else if (kind === 'weaponTrack' || kind === 'track') r = buyWeaponTrack(p, id, extra);
       else if (kind === 'weaponOptic') r = buyWeaponOptic(p, id, extra);
       else if (kind === 'equipWeaponOptic') r = equipWeaponOptic(p, id, extra);
+      else if (kind === 'weaponAttachment') r = extra?.enabled === true ? buyWeaponAttachment(p, id, extra.id) : { ok: false, reason: 'invalid' };
+      else if (kind === 'equipWeaponAttachment') r = equipWeaponAttachment(p, id, extra?.id, extra?.enabled);
       else if (kind === 'equip') r = equipWeapon(p, id, extra);
       else if (kind === 'color' && Number.isInteger(id) && id >= 0 && id < TRUCK_COLORS.length) { p.truckColor = id; r = { ok: true }; }
       if (r && r.ok) {
@@ -545,6 +550,8 @@ export class App {
         if (/truck|upgrade|weapon/.test(kind)) { this.sound('buy'); this.game.garage?.celebrate(/weapon/.test(kind) ? 'weapon' : kind === 'upgrade' && UPGRADE_BY_ID[id]?.role !== 'driver' ? 'gunner' : 'truck'); }
       }
       else if (r && r.reason === 'cash') { this.ui.toast('NOT ENOUGH CASH', 'bad'); this.sound('error'); }
+      else if (r && r.reason === 'progress') { this.ui.toast('CLEAR EARLIER LEVELS TO UNLOCK THIS WEAPON', 'warn'); this.sound('error'); }
+      else if (r && r.reason === 'unavailable') { this.ui.toast('WAIT FOR BOTH PLAYERS IN THE GARAGE', 'warn'); this.sound('error'); }
       this._garageRefresh();
     };
     return {
@@ -553,7 +560,7 @@ export class App {
       onSelectTruck: (id) => act('select', id),
       onPaint: (i) => act('color', i),
       onEquip: (w, slot) => act('equip', w, slot),
-      onView: (tab, sel, opticId) => { if (current()) this._garageView(tab, sel, opticId); },
+      onView: (tab, sel, opticId, weaponPreview) => { if (current()) this._garageView(tab, sel, opticId, weaponPreview); },
       onSeatSwap: (action, id) => {
         const s = this.session;
         if (!current() || this.mode !== 'coop' || !s) return;

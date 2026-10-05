@@ -3,7 +3,7 @@
 // calls ui.updateGarage(profile) after every purchase and gets cb.onView(tab, selectedId) to drive the 3D camera + live previews.
 import { h, tween, pips, statRow } from '../comp.js';
 import { esc, money, icon, weaponIcon, hints } from '../glyphs.js';
-import { TRUCKS, UPGRADES, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, TRUCK_COLORS, effectiveUpgrades, upgradeLevel, upgradeLimit } from '../../data/upgrades.js';
+import { TRUCKS, UPGRADES, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, TRUCK_COLORS, effectiveUpgrades, upgradeLevel, upgradeLimit } from '../../data/upgrades.js';
 import { VEHICLE_FAMILIES, familyOf, stagePurchaseAllowed } from '../../data/vehicle_families.js';
 import { WEAPONS, WEAPON_ORDER } from '../../data/weapons.js';
 import { upgradeStats, truckStats, weaponRows } from '../garage_stats.js';
@@ -13,6 +13,10 @@ import { WEAPON_OPTICS, compatibleWeaponOptic, normalizeWeaponOptics } from '../
 import { weaponOpticState } from '../../meta/weapon_optics.js';
 import { TEN_LEVELS, campaignJourney, normalizeJourney, normalizeCampaignProgress } from '../../data/campaign.js';
 import { vehicleUpgradePresentation } from '../../data/vehicle_upgrade_presentation.js';
+import { weaponPurchaseState } from '../../meta/weapon_progression.js';
+import { WEAPON_ATTACHMENTS, WEAPON_ATTACHMENT_ORDER, compatibleWeaponAttachment, sanitizeWeaponAttachmentIds, normalizeWeaponAttachments, equippedWeaponAttachments } from '../../data/weapon_attachments.js';
+import { weaponAttachmentState } from '../../meta/weapon_attachments.js';
+import { weaponTrackPurchaseState } from '../../meta/weapon_tuning.js';
 
 export function garageJourneyStatus(profile, extra={}) {
   const journey=extra.journey?normalizeJourney(extra.journey):campaignJourney(profile), level=TEN_LEVELS[journey.level-1];
@@ -27,12 +31,22 @@ const TABS = [
 const TAB_IDS = TABS.map((t) => t.id);
 const PAINT_NAMES = ['DUST TAN', 'BRICK RED', 'STEEL BLUE', 'OLIVE DRAB', 'ASH BLACK', 'MUSTARD', 'PLUM', 'BONE'];
 const MODE_NAME = { semi: 'SEMI-AUTO', auto: 'FULL-AUTO', pump: 'PUMP ACTION', bolt: 'BOLT ACTION', launcher: 'LAUNCHER' };
+const COVERED_TUNING_HELP = 'Installed attachment already provides this benefit; remove it to tune.';
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 const TAB_TITLE = { truck: 'CHOOSE YOUR RIDE', upgrades: 'VEHICLE UPGRADES', weapons: 'ARMORY', gunner: 'GUNNER GEAR', paint: 'PAINT SHOP' };
-const WEAPON_PAGES = ['loadout', 'tuning', 'sights'];
+const WEAPON_PAGES = ['loadout', 'tuning', 'sights', 'attachments'];
 const CHASSIS_PREFIX = 'chassis:';
 const chassisID = id => typeof id === 'string' && id.startsWith(CHASSIS_PREFIX) ? id.slice(CHASSIS_PREFIX.length) : null;
 const baseID = id => VEHICLE_FAMILIES[familyOf(id)].stageIDs[0];
+
+/** Preview a purchase without modifying the campaign or its equipped kit. */
+export function garageWeaponPreview(profile, id, { track = null, attachmentId = null } = {}) {
+  const levels = Object.fromEntries(WEAPON_TRACKS.map(row => [row.id, profile.weapons?.[id]?.[row.id] || 0]));
+  if (WEAPON_TRACKS.some(row => row.id === track) && profile.weapons?.[id] && weaponTrackPurchaseState(profile, id, track).reason !== 'covered') levels[track] = Math.min(WEAPON_TRACK_MAX, levels[track] + 1);
+  const attachments = [...(equippedWeaponAttachments(profile)[id] || [])];
+  if (compatibleWeaponAttachment(id, attachmentId) && !attachments.includes(attachmentId)) attachments.push(attachmentId);
+  return Object.freeze({ levels: Object.freeze(levels), attachments: Object.freeze(sanitizeWeaponAttachmentIds(id, attachments)) });
+}
 
 /** A family card reopens its equipped build, or its highest owned build. Saved
  * inventories and the equipped chassis are never rewritten by presentation. */
@@ -72,7 +86,7 @@ export class GarageScreen {
     this.p = profile;
     this.extra = { solo: true, ready: false, isHost: true, partner: null, runNo: null, ...extra };
     Object.assign(this, garageInitialSelection(profile, extra));
-    this.trackPrev = null; this.opticPrev = null; this.weaponPage = 'loadout';
+    this.trackPrev = null; this.opticPrev = null; this.attachmentPrev = null; this.attachmentPreviewOnly = false; this.weaponPage = 'loadout';
     this.snap = this.snapshot(profile);
     this.fresh = {};
     this.cashShown = profile.cash;
@@ -106,7 +120,7 @@ export class GarageScreen {
 
   // ---------------------------------------------------------------- data helpers
   snapshot(p) {
-    return { cash: p.cash, up: effectiveUpgrades(p), trucks: p.trucks.slice(), weapons: JSON.parse(JSON.stringify(p.weapons)), optics: normalizeWeaponOptics(p), truck: p.truck };
+    return { cash: p.cash, up: effectiveUpgrades(p), trucks: p.trucks.slice(), weapons: JSON.parse(JSON.stringify(p.weapons)), optics: normalizeWeaponOptics(p), attachments: normalizeWeaponAttachments(p), truck: p.truck };
   }
   items(tab = this.tab) { return garageItems(this.p, tab); }
   normalizeSelections() {
@@ -136,23 +150,24 @@ export class GarageScreen {
     return { owned, cur, cost: t.cost, state: cur ? 'active' : owned ? 'owned' : !stagePurchaseAllowed(this.p, t.id) ? 'locked' : this.p.cash >= t.cost ? 'ok' : 'no' };
   }
   weaponState(id) {
-    const w = WEAPONS[id], owned = !!this.p.weapons[id];
-    return { w, owned, cost: w.cost, slot: this.p.loadout.indexOf(id), state: owned ? 'owned' : this.p.cash >= w.cost ? 'ok' : 'no' };
+    const w = WEAPONS[id], purchase = weaponPurchaseState(this.p, id, this.extra?.weaponCareerLevel), owned = !!this.p.weapons[id];
+    return { ...purchase, w, owned, cost: w.cost, slot: this.p.loadout.indexOf(id), state: owned ? 'owned' : purchase.reason === 'progress' ? 'locked' : purchase.ok ? 'ok' : 'no' };
   }
   trackState(id, tr) {
-    const own = this.p.weapons[id]; const lv = own ? (own[tr] || 0) : 0;
-    if (!own) return { lv, cost: null, state: 'locked' };
-    if (lv >= WEAPON_TRACK_MAX) return { lv, cost: null, state: 'max' };
-    const cost = weaponTrackCost(id, tr, lv);
-    return { lv, cost, state: this.p.cash >= cost ? 'ok' : 'no' };
+    const purchase = weaponTrackPurchaseState(this.p, id, tr);
+    const state = purchase.ok ? 'ok' : purchase.reason === 'cash' ? 'no' : purchase.reason === 'max' ? 'max' : purchase.reason === 'covered' ? 'covered' : 'locked';
+    return { ...purchase, lv: purchase.level ?? this.p.weapons?.[id]?.[tr] ?? 0, cost: purchase.cost ?? null, state };
   }
   selectedOptic(id = this.sel()) { return this.opticPrev || normalizeWeaponOptics(this.p)[id]?.equipped || 'standard'; }
   opticChoices(id) { return Object.values(WEAPON_OPTICS).filter(optic => compatibleWeaponOptic(id, optic.id)); }
+  attachmentChoices(id) { return WEAPON_ATTACHMENT_ORDER.filter(attachment => compatibleWeaponAttachment(id, attachment)).map(attachment => WEAPON_ATTACHMENTS[attachment]); }
+  selectedAttachment(id = this.sel()) { return this.attachmentChoices(id).some(row => row.id === this.attachmentPrev) ? this.attachmentPrev : this.attachmentChoices(id)[0]?.id || null; }
+  weaponPreview(id = this.sel()) { return garageWeaponPreview(this.p, id, { track: this.previewTrack(), attachmentId: this.weaponPage === 'attachments' && this.attachmentPreviewOnly ? this.attachmentPrev : null }); }
   affordable(tab) {
     let n = 0;
     if (tab === 'truck') n = this.items(tab).filter(id => this.familyState(id).state === 'ok').length;
     else if (tab === 'upgrades' || tab === 'gunner') n = this.items(tab).filter(id => chassisID(id) ? this.truckState(TRUCKS.find(tr => tr.id === chassisID(id))).state === 'ok' : this.upState(id).state === 'ok').length;
-    else if (tab === 'weapons') n = WEAPON_ORDER.filter((id) => this.weaponState(id).state === 'ok' || (this.p.weapons[id] && (WEAPON_TRACKS.some((t) => this.trackState(id, t.id).state === 'ok') || this.opticChoices(id).some(optic => { const s = weaponOpticState(this.p, id, optic.id); return s.ok && !s.owned && this.p.cash >= s.cost; })))).length;
+    else if (tab === 'weapons') n = WEAPON_ORDER.filter((id) => this.weaponState(id).state === 'ok' || (this.p.weapons[id] && (WEAPON_TRACKS.some((t) => this.trackState(id, t.id).state === 'ok') || this.opticChoices(id).some(optic => { const s = weaponOpticState(this.p, id, optic.id); return s.ok && !s.owned && this.p.cash >= s.cost; }) || this.attachmentChoices(id).some(attachment => { const s = weaponAttachmentState(this.p, id, attachment.id); return s.ok && !s.owned && this.p.cash >= s.cost; })))).length;
     return n;
   }
 
@@ -163,7 +178,7 @@ export class GarageScreen {
     fn();
     if (!k) return;
     let n = this.el.querySelector(`[data-k="${k}"]`);
-    if (!n || !nav.isFocusable(n)) n = k === 'buy' || /^(trk:|slot:|page:|optic)/.test(k) ? this.el.querySelector('.row.sel, .sw.sel') : null;
+    if (!n || !nav.isFocusable(n)) n = k === 'buy' || /^(trk:|slot:|page:|optic|attachment)/.test(k) ? this.el.querySelector('.row.sel, .sw.sel') : null;
     if (n) nav.focus(n, { silent: true, reveal: false });
   }
   renderHeader() {
@@ -203,7 +218,7 @@ export class GarageScreen {
         const slot = s.slot >= 0 ? `<em class="slotb" title="Loadout slot ${s.slot + 1}">${s.slot + 1}</em>` : '';
         const price = s.owned ? '' : `<span class="pc ${s.state}">${money(s.cost)}</span>`;
         const lv = this.p.weapons[id] ? Object.values(this.p.weapons[id]).reduce((a, b) => a + b, 0) : 0;
-        return `<div class="f row wrow ${id === sel ? 'sel' : ''} st-${s.owned ? 'owned' : s.state} ${s.owned ? '' : 'locked'}" role="button" data-row="${id}" data-k="row:${id}"><span class="wicon">${weaponIcon(id)}${s.owned ? '' : icon('lock', 'lk')}</span><span class="rmain"><b class="rn">${esc(s.w.name)}</b><span class="rsub"><i class="lv">${MODE_NAME[s.w.mode] || ''}</i>${s.owned ? `<i class="lv up">+${lv}</i>` : ''}</span></span>${slot}${price ? `<span class="rprice">${price}</span>` : ''}</div>`;
+        return `<div class="f row wrow ${id === sel ? 'sel' : ''} st-${s.owned ? 'owned' : s.state} ${s.owned ? '' : 'locked'}" role="button" data-row="${id}" data-k="row:${id}"><span class="wicon">${weaponIcon(id)}${s.owned ? '' : icon('lock', 'lk')}</span><span class="rmain"><b class="rn">${esc(s.w.name)}</b><span class="rsub"><i class="lv">${s.state === 'locked' ? `UNLOCK AT LEVEL ${s.unlockLevel}` : MODE_NAME[s.w.mode] || ''}</i>${s.owned ? `<i class="lv up">+${lv}</i>` : ''}</span></span>${slot}${price ? `<span class="rprice">${price}</span>` : ''}</div>`;
       }).join('');
     } else {
       html = ids.map((id) => {
@@ -251,9 +266,9 @@ export class GarageScreen {
   }
   weaponStatRows(id) {
     const page = this.weaponPage || 'loadout';
-    const track = this.previewTrack(), preview = this.p.weapons[id] ? track : null;
-    const labels = page === 'loadout' ? ['DAMAGE', 'FIRE RATE', 'MAGAZINE', 'RANGE'] : { dmg: ['DAMAGE'], mag: ['MAGAZINE'], rel: ['RELOAD'], hnd: ['SPREAD', 'RECOIL'] }[track] || [];
-    return weaponRows(this.p, id, preview).filter(row => labels.includes(row.label));
+    const track = this.previewTrack(), preview = this.p.weapons[id] && this.trackState(id, track).state !== 'covered' ? track : null;
+    const labels = page === 'loadout' ? ['DAMAGE', 'FIRE RATE', 'MAGAZINE', 'RANGE'] : page === 'attachments' ? ['MAGAZINE', 'SPREAD', 'RECOIL'] : { dmg: ['DAMAGE'], mag: ['MAGAZINE'], rel: ['RELOAD'], hnd: ['SPREAD', 'RECOIL'] }[track] || [];
+    return weaponRows(this.p, id, preview, page === 'attachments' && this.attachmentPrev && this.attachmentPreviewOnly ? this.weaponPreview(id).attachments : null).filter(row => labels.includes(row.label));
   }
   renderDetail() {
     const t = this.tab, id = this.sel(), d = this.q.det, foot = this.q.foot;
@@ -274,8 +289,9 @@ export class GarageScreen {
       const slots = s.owned ? `<div class="d-sec">LOADOUT SLOT</div><div class="slots">${[0, 1, 2].map((i) => { const occ = this.p.loadout[i]; return `<div class="f slot pressable ${s.slot === i ? 'on' : ''}" role="button" data-slot="${i}" data-k="slot:${i}"><b>${i + 1}</b><span>${occ ? esc(WEAPONS[occ].name) : 'EMPTY'}</span></div>`; }).join('')}</div>` : '';
       const tracks = `<div class="d-sec">WEAPON TUNING</div><div class="tracks ${s.owned ? '' : 'locked'}">${WEAPON_TRACKS.map((tr) => {
         const ts = this.trackState(id, tr.id);
-        const price = ts.state === 'max' ? '<em class="chip max">MAX</em>' : ts.state === 'locked' ? icon('lock', 'lk') : `<span class="pc ${ts.state}">${money(ts.cost)}</span>`;
-        return `<div class="f trk st-${ts.state} ${this.previewTrack() === tr.id ? 'prev' : ''}" role="button" data-trk="${tr.id}" data-k="trk:${tr.id}" data-snd="none"><b>${tr.name}</b><span class="tp">${price}</span>${pips(ts.lv, 3, this.fresh['trk:' + id + ':' + tr.id] ?? -1)}</div>`;
+        const covered = ts.state === 'covered';
+        const price = ts.state === 'max' ? '<em class="chip max">MAX</em>' : covered ? '<em class="chip max">COVERED</em>' : ts.state === 'locked' ? icon('lock', 'lk') : `<span class="pc ${ts.state}">${money(ts.cost)}</span>`;
+        return `<div class="${covered ? '' : 'f'} trk st-${ts.state} ${covered ? 'st-locked' : ''} ${this.previewTrack() === tr.id ? 'prev' : ''}" role="button"${covered ? ' aria-disabled="true"' : ''} data-trk="${tr.id}" data-k="trk:${tr.id}" data-snd="none"><b>${tr.name}</b><span class="tp">${price}</span>${pips(ts.lv, 3, this.fresh['trk:' + id + ':' + tr.id] ?? -1)}</div>`;
       }).join('')}</div>`;
       const chosenOptic = this.selectedOptic(id);
       const optics = `<div class="d-sec">CHOOSE SIGHT</div><div class="optic-choices">${this.opticChoices(id).map(optic => {
@@ -283,14 +299,28 @@ export class GarageScreen {
         const status = !s.owned ? 'BUY WEAPON FIRST' : os.equipped ? 'EQUIPPED' : os.owned ? 'OWNED' : money(os.cost);
         return `<div class="f optic-choice ${chosenOptic === optic.id ? 'sel' : ''}" role="button" data-optic="${optic.id}" data-k="optic:${optic.id}"><b>${esc(optic.name)}</b><span>${status}</span></div>`;
       }).join('')}</div><p class="optic-help">${esc(WEAPON_OPTICS[chosenOptic]?.desc || '')} Previewing a sight does not equip it.</p>`;
-      const content = page === 'loadout' ? `<p class="d-desc">${esc(w.desc || '')}</p>${slots}<div class="d-sec">STATS</div><div class="stats compact">${this.weaponStatRows(id).map(statRow).join('')}</div>` : page === 'tuning' ? `${tracks}<div class="d-sec">${WEAPON_TRACKS.find(track => track.id === this.previewTrack()).name} PREVIEW</div><div class="stats compact">${this.weaponStatRows(id).map(statRow).join('')}</div><p class="optic-help">Select a track to preview the next level. Confirm to purchase.</p>` : optics;
+      const chosenAttachment = this.selectedAttachment(id), attachmentChoices = this.attachmentChoices(id);
+      const chosenAttachmentState = weaponAttachmentState(this.p, id, chosenAttachment);
+      const attachmentDescription = chosenAttachmentState.includedLegacy ? 'Your previously purchased magazine tier remains installed with its original capacity. This included part cannot be bought twice or removed.' : WEAPON_ATTACHMENTS[chosenAttachment]?.desc || '';
+      const attachments = attachmentChoices.length ? `<div class="d-sec">PHYSICAL PARTS</div><div class="attachment-choices">${attachmentChoices.map(attachment => {
+        const as = weaponAttachmentState(this.p, id, attachment.id);
+        const status = !s.owned ? 'BUY WEAPON FIRST' : as.includedLegacy ? `LEGACY MAGAZINE LV ${as.legacyLevel} · INCLUDED` : as.equipped ? 'INSTALLED' : as.owned ? 'OWNED' : money(as.cost);
+        return `<div class="f attachment-choice ${chosenAttachment === attachment.id ? 'sel' : ''}" role="button" data-attachment="${attachment.id}" data-k="attachment:${attachment.id}"><b>${esc(attachment.name)}</b><span>${status}</span></div>`;
+      }).join('')}</div><p class="attachment-help">${esc(attachmentDescription)} Select a part to preview it; confirm to install.</p><div class="stats compact attachment-stats">${this.weaponStatRows(id).map(statRow).join('')}</div>` : '<p class="d-desc">This weapon has no compatible rail or magazine attachments.</p>';
+      const unlock = !s.owned ? `<p class="weapon-unlock ${s.state === 'locked' ? 'locked' : ''}">${s.state === 'locked' ? `REACH LEVEL ${s.unlockLevel} TO UNLOCK` : `AVAILABLE FROM LEVEL ${s.unlockLevel}`} · ${money(s.cost)}</p>` : '';
+      const tuningHelp = WEAPON_TRACKS.some(track => this.trackState(id, track.id).state === 'covered') ? COVERED_TUNING_HELP : 'Select a track to preview the next level. Confirm to purchase.';
+      const tuningLabel = this.trackState(id, this.previewTrack()).state === 'covered' ? 'INSTALLED BENEFIT' : 'PREVIEW';
+      const content = page === 'loadout' ? `<p class="d-desc">${esc(w.desc || '')}</p>${unlock}${slots}<div class="d-sec">STATS</div><div class="stats compact">${this.weaponStatRows(id).map(statRow).join('')}</div>` : page === 'tuning' ? `${tracks}<div class="d-sec">${WEAPON_TRACKS.find(track => track.id === this.previewTrack()).name} ${tuningLabel}</div><div class="stats compact">${this.weaponStatRows(id).map(statRow).join('')}</div><p class="optic-help">${esc(tuningHelp)}</p>` : page === 'sights' ? optics : attachments;
       body = `<div class="d-head"><div class="eyebrow">${MODE_NAME[w.mode] || 'WEAPON'}${s.slot >= 0 ? ` · SLOT ${s.slot + 1}` : s.owned ? ' · OWNED' : ''}</div><h2>${esc(w.name)}</h2></div>${pages}<div class="weapon-panel" data-panel="${page}">${content}</div>`;
-      if (!s.owned) buy = this.buyBtn(s.state, w.cost, 'BUY WEAPON');
+      if (!s.owned) buy = s.state === 'locked' ? `<div class="buy max dis" role="button" aria-disabled="true"><span class="bl">UNLOCK AT LEVEL ${s.unlockLevel}</span><span class="bp">${money(s.cost)}</span></div>` : this.buyBtn(s.state, w.cost, 'BUY WEAPON');
       else if (page === 'sights') {
         const os = weaponOpticState(this.p, id, chosenOptic);
         if (os.equipped) buy = '<div class="buy max dis" role="button" aria-disabled="true"><span class="bl">SIGHT EQUIPPED</span></div>';
         else buy = `<div class="f buy ${os.owned || this.p.cash >= os.cost ? 'ok pressable' : 'no'}" role="button" data-optic-buy="${chosenOptic}" data-k="optic-buy" data-snd="none"><span class="bl">${os.owned ? 'EQUIP SIGHT' : this.p.cash >= os.cost ? 'BUY SIGHT' : 'NOT ENOUGH CASH'}</span><span class="bp">${os.owned ? 'FREE' : money(os.cost)}</span></div>`;
-      } else buy = `<div class="d-note">${page === 'loadout' ? 'CHOOSE A LOADOUT SLOT' : 'CONFIRM A TRACK TO UPGRADE'}</div>`;
+      } else if (page === 'attachments' && chosenAttachment) {
+        const as = weaponAttachmentState(this.p, id, chosenAttachment), enough = as.owned || this.p.cash >= as.cost;
+        buy = as.includedLegacy ? '<div class="buy max dis" role="button" aria-disabled="true"><span class="bl">LEGACY MAGAZINE INCLUDED</span></div>' : `<div class="f buy ${enough ? 'ok pressable' : 'no'}" role="button" data-attachment-buy="${chosenAttachment}" data-k="attachment-buy" data-snd="none"><span class="bl">${as.equipped ? 'REMOVE PART' : as.owned ? 'INSTALL PART' : enough ? 'BUY PART' : 'NOT ENOUGH CASH'}</span><span class="bp">${as.owned ? 'FREE' : money(as.cost)}</span></div>`;
+      } else buy = `<div class="d-note">${page === 'loadout' ? 'CHOOSE A LOADOUT SLOT' : page === 'attachments' ? 'NO COMPATIBLE PARTS' : 'CONFIRM A TRACK TO UPGRADE'}</div>`;
     } else if (t === 'paint') {
       const i = +id;
       body = `<div class="d-head"><div class="eyebrow">PAINT SHOP</div><h2>${PAINT_NAMES[i] || 'COLOUR'}</h2></div>
@@ -366,7 +396,8 @@ export class GarageScreen {
     if (!this.cb.onView) return;
     // Reuse the integrator's existing chassis-preview path with actual IDs.
     const vehicle = this.selectedVehicle();
-    this.cb.onView(vehicle ? 'truck' : this.tab, vehicle || this.sel(), this.tab === 'weapons' ? this.selectedOptic() : undefined);
+    if (this.tab === 'weapons') this.cb.onView(this.tab, this.sel(), this.selectedOptic(), this.weaponPreview());
+    else this.cb.onView(vehicle ? 'truck' : this.tab, vehicle || this.sel(), undefined);
   }
 
   // ---------------------------------------------------------------- updates from the integrator
@@ -389,6 +420,10 @@ export class GarageScreen {
       for (const tr of WEAPON_TRACKS) if ((after.weapons[id][tr.id] || 0) > (before.weapons[id][tr.id] || 0)) { this.fresh[`trk:${id}:${tr.id}`] = after.weapons[id][tr.id] - 1; bought = true; }
     }
     for (const [id, row] of Object.entries(after.optics)) if (row.owned.some(optic => optic !== 'standard' && !before.optics?.[id]?.owned.includes(optic))) bought = true;
+    for (const [id, row] of Object.entries(after.attachments)) {
+      if (row.owned.some(attachment => !before.attachments?.[id]?.owned.includes(attachment))) bought = true;
+      if (id === this.selId.weapons && JSON.stringify(row.equipped) !== JSON.stringify(before.attachments?.[id]?.equipped || [])) this.attachmentPreviewOnly = false;
+    }
     this.snap = after;
     if (bought) this.ui.snd('upgrade_unlock');
     if (after.cash !== before.cash) this.renderCash(false);
@@ -412,7 +447,7 @@ export class GarageScreen {
   // ---------------------------------------------------------------- interaction
   switchTab(id, opts = {}) {
     if (!TAB_IDS.includes(id) || id === this.tab) return;
-    this.tab = id; this.trackPrev = null; this.opticPrev = null; this.weaponPage = 'loadout';
+    this.tab = id; this.trackPrev = null; this.opticPrev = null; this.attachmentPrev = null; this.attachmentPreviewOnly = false; this.weaponPage = 'loadout';
     this.normalizeSelections();
     this.renderTabs(); this.renderList(); this.renderDetail(); this.renderHints();
     this.q.rows.scrollTop = 0;
@@ -431,7 +466,7 @@ export class GarageScreen {
   }
   select(id) {
     if (!this.items().includes(id) || this.sel() === id) return;
-    this.selId[this.tab] = id; this.trackPrev = null; this.opticPrev = null; this.weaponPage = 'loadout';
+    this.selId[this.tab] = id; this.trackPrev = null; this.opticPrev = null; this.attachmentPrev = null; this.attachmentPreviewOnly = false; this.weaponPage = 'loadout';
     this.q.rows.querySelectorAll('.row.sel, .sw.sel').forEach((n) => n.classList.remove('sel'));
     const n = this.q.rows.querySelector(`[data-row="${id}"]`); if (n) n.classList.add('sel');
     this.renderDetail();
@@ -439,7 +474,7 @@ export class GarageScreen {
   }
   switchWeaponPage(page) {
     if (this.tab !== 'weapons' || !WEAPON_PAGES.includes(page) || this.weaponPage === page) return;
-    this.weaponPage = page; this.trackPrev = page === 'tuning' ? WEAPON_TRACKS[0].id : null; this.opticPrev = null;
+    this.weaponPage = page; this.trackPrev = page === 'tuning' ? WEAPON_TRACKS[0].id : null; this.opticPrev = null; this.attachmentPrev = null; this.attachmentPreviewOnly = false;
     this.keepFocus(() => this.renderDetail());
     this.notifyView();
   }
@@ -451,6 +486,7 @@ export class GarageScreen {
     if (el.dataset.weaponPage) { if (!e.detail.hover) this.switchWeaponPage(el.dataset.weaponPage); return; }
     if (el.dataset.trk) { if (this.trackPrev !== el.dataset.trk) { this.trackPrev = el.dataset.trk; this.refreshStatsOnly(); } return; }
     if (el.dataset.optic) { this.selectOptic(el.dataset.optic); return; }
+    if (el.dataset.attachment) { this.selectAttachment(el.dataset.attachment); return; }
     if (this.trackPrev && this.weaponPage !== 'tuning') { this.trackPrev = null; this.refreshStatsOnly(); }
   }
   refreshStatsOnly() {
@@ -459,8 +495,9 @@ export class GarageScreen {
     const box = this.q.det.querySelector('.stats'); if (!box) return;
     box.innerHTML = this.weaponStatRows(id).map(statRow).join('');
     const track = this.previewTrack(), sec = box.previousElementSibling;
-    if (sec && sec.classList.contains('d-sec')) sec.textContent = track ? WEAPON_TRACKS.find(row => row.id === track).name + ' PREVIEW' : 'STATS';
+    if (sec && sec.classList.contains('d-sec')) sec.textContent = track ? WEAPON_TRACKS.find(row => row.id === track).name + (this.trackState(id, track).state === 'covered' ? ' INSTALLED BENEFIT' : ' PREVIEW') : 'STATS';
     this.q.det.querySelectorAll('.trk').forEach((n) => n.classList.toggle('prev', n.dataset.trk === track));
+    this.notifyView();
   }
   onClick(e) {
     const t = e.target.closest('.f'); if (!t) return;
@@ -476,6 +513,8 @@ export class GarageScreen {
     if (t.dataset.openUpgrades) { this.selId.upgrades = CHASSIS_PREFIX + this.p.truck; this.switchTab('upgrades', { focusTab: false }); const row = this.initialFocus(); if (row) ui.nav.focus(row); return; }
     if (t.dataset.optic) return this.selectOptic(t.dataset.optic);
     if (t.dataset.opticBuy) return this.doOptic(t);
+    if (t.dataset.attachment) return this.selectAttachment(t.dataset.attachment);
+    if (t.dataset.attachmentBuy) return this.doAttachment(t);
     if (t.dataset.seatAction) { ui.snd('click'); cb.onSeatSwap?.(t.dataset.seatAction, t.dataset.proposal); return; }
     if (t.dataset.tab) { if (t.dataset.tab !== this.tab) this.switchTab(t.dataset.tab, { focusTab: true }); return; }
     if (t.dataset.row != null) {
@@ -507,6 +546,18 @@ export class GarageScreen {
     if (!s.owned && this.p.cash < s.cost) return this.denied(btn, s.cost - this.p.cash);
     this.ui.snd(s.owned ? 'click' : 'buy'); this.ui.pressFx(btn);
     this.cb.onBuy?.(s.owned ? 'equipWeaponOptic' : 'weaponOptic', id, opticId);
+  }
+  selectAttachment(attachmentId) {
+    if (this.tab !== 'weapons' || this.weaponPage !== 'attachments' || !compatibleWeaponAttachment(this.sel(), attachmentId) || (this.attachmentPrev === attachmentId && this.attachmentPreviewOnly)) return;
+    this.attachmentPrev = attachmentId; this.attachmentPreviewOnly = true; this.keepFocus(() => this.renderDetail()); this.notifyView();
+  }
+  doAttachment(btn) {
+    const id = this.sel(), attachmentId = btn.dataset.attachmentBuy, s = weaponAttachmentState(this.p, id, attachmentId);
+    if (this.tab !== 'weapons' || this.weaponPage !== 'attachments' || !s.ok || s.includedLegacy) return;
+    if (!s.owned && this.p.cash < s.cost) return this.denied(btn, s.cost - this.p.cash);
+    this.ui.snd(s.owned ? 'click' : 'buy'); this.ui.pressFx(btn);
+    this.attachmentPrev = attachmentId; this.attachmentPreviewOnly = false;
+    this.cb.onBuy?.(s.owned ? 'equipWeaponAttachment' : 'weaponAttachment', id, { id: attachmentId, enabled: !s.equipped });
   }
   denied(el, need) {
     this.ui.snd('error');
@@ -542,7 +593,9 @@ export class GarageScreen {
     const s = this.trackState(id, tr);
     if (s.state === 'locked') { this.ui.snd('error'); btn.classList.remove('shake'); void btn.offsetWidth; btn.classList.add('shake'); this.ui.toast('BUY THE WEAPON FIRST', 'warn', 1800); return; }
     if (s.state === 'max') { this.ui.snd('click'); return; }
+    if (s.state === 'covered') { this.ui.snd('error'); this.ui.toast(COVERED_TUNING_HELP, 'warn', 2200); return; }
     if (s.state === 'no') return this.denied(btn, s.cost - this.p.cash);
+    if (s.state !== 'ok') return;
     this.ui.snd('buy'); this.ui.pressFx(btn); this.burst(btn);
     this.cb.onBuy && this.cb.onBuy('weaponTrack', id, tr);
   }
@@ -565,7 +618,7 @@ export class GarageScreen {
       if (dir === 'left') return i > 0 ? pages[i - 1] : selRow();
       if (dir === 'right') return i < pages.length - 1 ? pages[i + 1] : false;
       if (dir === 'up') return false;
-      if (dir === 'down') return this.q.det.querySelector('.slot.on, .slot, .trk, .optic-choice.sel, .optic-choice') || this.q.foot.querySelector('.buy:not(.dis)') || this.q.ready.querySelector('.f') || false;
+      if (dir === 'down') return this.q.det.querySelector('.slot.on, .slot, .trk.f, .optic-choice.sel, .optic-choice, .attachment-choice.sel, .attachment-choice') || this.q.foot.querySelector('.buy:not(.dis)') || this.q.ready.querySelector('.f') || false;
     }
     if (el.dataset.seatAction && dir === 'up') return selRow();
     if (el.dataset.seatAction && dir === 'down') return this.q.ready.querySelector('.f') || selRow();
@@ -581,21 +634,22 @@ export class GarageScreen {
     if (inRows && dir === 'down' && this.tab !== 'paint') { const rows = [...this.q.rows.querySelectorAll('.row')]; const i = rows.indexOf(el); return i < rows.length - 1 ? rows[i + 1] : false; }
     if (inRows && dir === 'right') {
       if (this.tab === 'paint') { const sws = [...this.q.rows.querySelectorAll('.sw')]; const i = sws.indexOf(el); if (i % 4 !== 3) return undefined; }
-      return this.q.foot.querySelector('.buy:not(.dis)') || this.q.det.querySelector('.detail-page.on, .detail-link, .slot.on, .slot, .trk') || nav.list().find((n) => n.dataset.ready);
+      return this.q.foot.querySelector('.buy:not(.dis)') || this.q.det.querySelector('.detail-page.on, .detail-link, .slot.on, .slot, .trk.f') || nav.list().find((n) => n.dataset.ready);
     }
     if (inRows && dir === 'left') { if (this.tab === 'paint') { const sws = [...this.q.rows.querySelectorAll('.sw')]; if (sws.indexOf(el) % 4 !== 0) return undefined; } return false; }
     if (inDetail && dir === 'left') {
       if (el.dataset.slot != null && +el.dataset.slot > 0) return undefined;
-      if (el.dataset.trk) { const tracks = [...this.q.det.querySelectorAll('.trk')]; if (tracks.indexOf(el) % 2 === 1) return tracks[tracks.indexOf(el) - 1]; }
+      if (el.dataset.trk) { const tracks = [...this.q.det.querySelectorAll('.trk')]; if (tracks.indexOf(el) % 2 === 1 && tracks[tracks.indexOf(el) - 1]?.classList.contains('f')) return tracks[tracks.indexOf(el) - 1]; }
       if (el.dataset.optic) { const sights = [...this.q.det.querySelectorAll('.optic-choice')]; if (sights.indexOf(el) % 2 === 1) return sights[sights.indexOf(el) - 1]; }
+      if (el.dataset.attachment) { const parts = [...this.q.det.querySelectorAll('.attachment-choice')]; if (parts.indexOf(el) % 2 === 1) return parts[parts.indexOf(el) - 1]; }
       return selRow();
     }
     if (inDetail && dir === 'up' && this.tab === 'weapons' && !el.closest('.d-foot')) {
-      const controls = [...this.q.det.querySelectorAll('.slot, .trk, .optic-choice')];
-      const firstRow = el.dataset.trk || el.dataset.optic ? controls.indexOf(el) < 2 : controls.indexOf(el) < 3;
+      const controls = [...this.q.det.querySelectorAll('.slot, .trk, .optic-choice, .attachment-choice')];
+      const firstRow = el.dataset.trk || el.dataset.optic || el.dataset.attachment ? controls.indexOf(el) < 2 : controls.indexOf(el) < 3;
       if (firstRow) return this.q.det.querySelector('.detail-page.on');
     }
-    if (el.dataset.ready && dir === 'up') return this.q.foot.querySelector('.buy:not(.dis)') || this.q.det.querySelector('.trk:last-child, .slot, .optic-choice.sel, .detail-page.on, .detail-link') || selRow();
+    if (el.dataset.ready && dir === 'up') return this.q.foot.querySelector('.buy:not(.dis)') || this.q.det.querySelector('.trk.f:last-child, .slot, .optic-choice.sel, .attachment-choice.sel, .detail-page.on, .detail-link') || selRow();
     if (el.dataset.ready && dir === 'left') return selRow();
     if (inDetail && dir === 'down' && el.closest('.d-foot')) return this.q.ready.querySelector('.ready');
     return undefined;

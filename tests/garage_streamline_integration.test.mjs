@@ -7,6 +7,7 @@ import { registerHooks } from 'node:module';
 import { GarageScreen, garageInitialSelection } from '../src/ui/screens/garage.js';
 import { TRUCKS, UPGRADE_BY_ID, effectiveUpgrades, upgradeLevel } from '../src/data/upgrades.js';
 import { getSaveStore, profileSaveStatus } from '../src/meta/profile.js';
+import { normalizeCampaignProgress } from '../src/data/campaign.js';
 
 const css = registerHooks({ load(url, context, nextLoad) {
   if (/\.css(?:\?.*)?$/.test(url)) return { format: 'module', source: 'export default "";', shortCircuit: true };
@@ -24,10 +25,11 @@ function fixture(t) {
   t.after(() => { if (storageBefore) Object.defineProperty(globalThis, 'localStorage', storageBefore); else delete globalThis.localStorage; });
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: storage() });
   const store = getSaveStore(), p = store.load(); p.cash = 200000;
+  p.campaignProgress = normalizeCampaignProgress({ cleared: [1, 2, 3], clearRuns: { 1: 'fixture-clear1', 2: 'fixture-clear2', 3: 'fixture-clear3' } });
   assert.equal(store.save(p).ok, true, 'fixture cash is a durable baseline before invoking actual App transactions');
   const events = [], previews = [], refreshed = [];
   const app = Object.assign(Object.create(App.prototype), {
-    profile: p, mode: 'solo', screen: 'garage', session: null, readyMine: false, readyOther: false,
+    profile: p, personalProfile: p, mode: 'solo', screen: 'garage', session: null, readyMine: false, readyOther: false,
     ui: { toast: (...args) => events.push(['toast', ...args]), updateGarage: (...args) => refreshed.push(args) },
     sound: id => events.push(['sound', id]),
     game: { garage: { setTruck: (...args) => events.push(['setTruck', ...args]),

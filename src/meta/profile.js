@@ -1,8 +1,11 @@
 // Save/load and host-owned campaign purchases.
-import { DEFAULT_PROFILE, TRUCKS, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, weaponTrackCost, ownedWeapons, TRUCK_COLORS, upgradeLevel, upgradeLimit } from '../data/upgrades.js';
+import { DEFAULT_PROFILE, TRUCKS, UPGRADE_BY_ID, WEAPON_TRACKS, WEAPON_TRACK_MAX, ownedWeapons, TRUCK_COLORS, upgradeLevel, upgradeLimit } from '../data/upgrades.js';
 import { WEAPONS } from '../data/weapons.js';
 import { familyOf, normalizeFamilyUpgrades, stagePurchaseAllowed } from '../data/vehicle_families.js';
 import { normalizeWeaponOptics } from '../data/weapon_optics.js';
+import { normalizeWeaponAttachments } from '../data/weapon_attachments.js';
+import { weaponPurchaseState } from './weapon_progression.js';
+import { weaponTrackPurchaseState } from './weapon_tuning.js';
 import { defaultCampaignProgress, normalizeCampaignProgress, normalizeJourney } from '../data/campaign.js';
 import { SaveStore } from './save_store.js';
 import { assertSupportedProfile, contentProfileVersion } from '../../server/saves/profile_support.js';
@@ -10,6 +13,9 @@ export { campaignJourney, selectCampaignLevel, creditCampaignLevel } from '../da
 
 export { upgradeLevel, upgradeLimit };
 export { buyWeaponOptic, equipWeaponOptic } from './weapon_optics.js';
+export { buyWeaponAttachment, equipWeaponAttachment } from './weapon_attachments.js';
+export { weaponPurchaseState } from './weapon_progression.js';
+export { weaponTrackPurchaseState } from './weapon_tuning.js';
 
 const KEY = 'rideordie.profile.v1';
 const stores = new WeakMap();
@@ -45,20 +51,22 @@ export function normalizeProfile(value) {
   const familyUpgrades = normalizeFamilyUpgrades({ ...p, upgrades });
   // Content marker, independent of selected chassis. Empty unowned rows do
   // not opt old campaigns into a newer profile, while paid gear always does.
-  const profileVersion = contentProfileVersion({ trucks, ...familyUpgrades });
   const weapons = { pistol: { dmg: 0, mag: 0, rel: 0, hnd: 0 } };
   for (const [id, levels] of Object.entries(record(p.weapons))) {
     if (!validWeapon(id)) continue;
     weapons[id] = Object.fromEntries(WEAPON_TRACKS.map(({ id: track }) => [track, natural(record(levels)[track], WEAPON_TRACK_MAX)]));
   }
   const loadout = [...new Set((Array.isArray(p.loadout) ? p.loadout : d.loadout).filter((id) => Object.hasOwn(weapons, id)))].slice(0, 3);
+  const weaponOptics = normalizeWeaponOptics({ weapons, weaponOptics: p.weaponOptics });
+  const weaponAttachments = normalizeWeaponAttachments({ weapons, weaponAttachments: p.weaponAttachments });
+  const profileVersion = contentProfileVersion({ trucks, ...familyUpgrades, weaponOptics, weaponAttachments });
   const best = record(p.best);
-  return {
+  const normalized = {
     ...d, ...p, v: profileVersion,
     campaignId: typeof p.campaignId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) ? p.campaignId : d.campaignId,
     revision: natural(p.revision), cash: natural(p.cash), totalCash: natural(p.totalCash), runs: natural(p.runs), wins: natural(p.wins),
     best: { distance: positive(best.distance), furthestS: Math.max(positive(best.furthestS), positive(best.distance)), time: positive(best.time), kills: natural(best.kills) },
-    trucks, truck: trucks.includes(p.truck) ? p.truck : d.truck, ...familyUpgrades, weapons, weaponOptics: normalizeWeaponOptics({ weapons, weaponOptics: p.weaponOptics }), loadout: loadout.length ? loadout : ['pistol'],
+    trucks, truck: trucks.includes(p.truck) ? p.truck : d.truck, ...familyUpgrades, weapons, weaponOptics, weaponAttachments, loadout: loadout.length ? loadout : ['pistol'],
     truckColor: natural(p.truckColor, TRUCK_COLORS.length - 1),
     minibosses: Object.fromEntries(Object.entries(record(p.minibosses)).filter(([id, done]) => /^[0-4]$/.test(id) && done === true)),
     bossKilled: p.bossKilled === true,
@@ -67,6 +75,9 @@ export function normalizeProfile(value) {
     lastRunId: typeof p.lastRunId === 'string' ? p.lastRunId : null,
     coopLastRunId: typeof p.coopLastRunId === 'string' && p.coopLastRunId.length > 0 && p.coopLastRunId.length <= 128 ? p.coopLastRunId : null,
   };
+  if (Object.keys(weaponAttachments).length) normalized.weaponAttachments = weaponAttachments;
+  else delete normalized.weaponAttachments;
+  return normalized;
 }
 
 /** Keep personal slots separate from foreign co-op campaign mirrors. */
@@ -136,22 +147,26 @@ export function buyUpgrade(p, id) {
   } else p.upgrades[id] = next;
   p.cash -= c; p.v = contentProfileVersion(p); return { ok: true };
 }
-export function buyWeapon(p, id) {
+export function buyWeapon(p, id, careerLevel) {
+  assertSupportedProfile(p);
   if (!validWeapon(id)) return { ok: false, reason: 'invalid' };
   const w = WEAPONS[id];
   if (Object.hasOwn(p.weapons, id)) return { ok: false, reason: 'owned' };
-  if (p.cash < w.cost) return { ok: false, reason: 'cash' };
+  const state = weaponPurchaseState(p, id, careerLevel);
+  if (!state.ok) return { ok: false, reason: state.reason };
   p.cash -= w.cost; p.weapons[id] = { dmg: 0, mag: 0, rel: 0, hnd: 0 };
   p.weaponOptics = normalizeWeaponOptics(p);
+  const attachmentRows = normalizeWeaponAttachments(p);
+  if (Object.keys(attachmentRows).length) p.weaponAttachments = attachmentRows;
+  else delete p.weaponAttachments;
   if (p.loadout.length < 3) p.loadout.push(id);
   return { ok: true };
 }
 export function buyWeaponTrack(p, id, track) {
-  if (!validWeapon(id) || !WEAPON_TRACKS.some((t) => t.id === track)) return { ok: false, reason: 'invalid' };
-  const o = p.weapons[id]; if (!o) return { ok: false, reason: 'locked' };
-  const l = o[track] || 0; if (l >= WEAPON_TRACK_MAX) return { ok: false, reason: 'max' };
-  const c = weaponTrackCost(id, track, l); if (p.cash < c) return { ok: false, reason: 'cash' };
-  p.cash -= c; o[track] = l + 1; return { ok: true };
+  assertSupportedProfile(p);
+  const state = weaponTrackPurchaseState(p, id, track);
+  if (!state.ok) return { ok: false, reason: state.reason };
+  p.cash -= state.cost; p.weapons[id][track] = state.nextLevel; return { ok: true };
 }
 /** Replace the selected slot. If already equipped elsewhere, swap the two slots. */
 export function equipWeapon(p, id, slot) {

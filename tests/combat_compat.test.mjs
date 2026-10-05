@@ -146,8 +146,8 @@ test('actual Session/App/Run nuke routing uses frozen driver ownership and rejec
   }
 });
 
-test('shared-hull combat protocol8 explicitly rejects prior protocol7 in both local host modes without changing life framing', async () => {
-  assert.equal(NET_PROTOCOL, 8); assert.equal(RUN_JSON_TYPES.has('nuke'), true);
+test('current attachment protocol9 still rejects prior protocol7 in both local host modes without changing life framing', async () => {
+  assert.equal(NET_PROTOCOL, 9); assert.equal(RUN_JSON_TYPES.has('nuke'), true);
   for (const isHost of [true, false]) {
     const p = personal(isHost ? 'host-old-peer' : 'guest-old-peer', 900), tp = new MemoryTransport(p.memory), session = new Session(tp);
     if (isHost) await session.host(p.profile); else await session.join('ABCDE', p.profile);

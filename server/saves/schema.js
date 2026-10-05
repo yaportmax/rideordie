@@ -1,6 +1,8 @@
 // Portable, finite wire schema shared by the Worker and browser sync client.
 // Unknown keys are discarded. Invalid values in supported fields fail the write.
 import { PROFILE_FAMILY_CAPS, PROFILE_VEHICLE_IDS, assertSupportedProfile, contentProfileVersion } from './profile_support.js';
+import { weaponAttachmentIdsFor } from './weapon_attachment_support.js';
+import { weaponOpticIdsFor } from './weapon_optic_support.js';
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const MAX_BODY_BYTES = 64 * 1024;
 export const MAX_SLOTS = 12;
@@ -51,7 +53,6 @@ const families = PROFILE_FAMILY_CAPS;
 const crew = { vest: 3, grenades: 3, grenadeDmg: 2, medkit: 3, pouches: 3, steady: 3, scavenger: 3 };
 const trucks = PROFILE_VEHICLE_IDS;
 const weapons = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg', 'minigun'];
-const reflex = ['pistol', 'smg', 'shotgun', 'rifle', 'lmg'];
 const tracks = ['dmg', 'mag', 'rel', 'hnd'];
 function best(value) {
   const b = object(value), distance = number(b.distance, 0, MAX, false);
@@ -77,7 +78,7 @@ function progress(value) {
 export function sanitizeProfile(value) {
   assertSupportedProfile(value);
   const p = object(value);
-  if (![1, 2, 3].includes(p.v) || typeof p.campaignId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) || recoveryCode.test(p.campaignId)) invalid();
+  if (![1, 2, 3, 4].includes(p.v) || typeof p.campaignId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(p.campaignId) || recoveryCode.test(p.campaignId)) invalid();
   const vehicleUpgradeSchema = choice(p.vehicleUpgradeSchema, [1, 2], 1);
   const ownedTrucks = array(p.trucks, trucks.length, id => trucks.includes(id), ['player_sedan_t1']);
   if (!ownedTrucks.includes('player_sedan_t1')) ownedTrucks.unshift('player_sedan_t1');
@@ -100,28 +101,38 @@ export function sanitizeProfile(value) {
     vehicleUpgrades[family] = row;
   }
   for (const [id, cap] of Object.entries(crew)) upgrades[id] = number(oldUpgrades[id], 0, cap);
-  const ownedWeapons = {}, sourceWeapons = object(p.weapons), sourceOptics = object(p.weaponOptics), weaponOptics = {};
+  const ownedWeapons = {}, sourceWeapons = object(p.weapons), sourceOptics = object(p.weaponOptics), weaponOptics = {}, sourceAttachments = object(p.weaponAttachments), weaponAttachments = {};
   for (const id of weapons) {
     if (id !== 'pistol' && !own(sourceWeapons, id)) continue;
     const levels = object(sourceWeapons[id]);
     ownedWeapons[id] = Object.fromEntries(tracks.map(track => [track, number(levels[track], 0, 3)]));
-    const row = object(sourceOptics[id]), optics = reflex.includes(id) ? ['standard', 'wide_reflex'] : ['standard'];
+    const row = object(sourceOptics[id]), optics = weaponOpticIdsFor(id);
     const owned = array(row.owned, optics.length, optic => optics.includes(optic));
     if (!owned.includes('standard')) owned.unshift('standard');
     const equipped = choice(row.equipped, optics, 'standard');
     weaponOptics[id] = { owned, equipped: owned.includes(equipped) ? equipped : 'standard' };
+    const attachments = object(sourceAttachments[id]), compatible = weaponAttachmentIdsFor(id);
+    const rawOwned = array(attachments.owned, compatible.length, attachment => compatible.includes(attachment));
+    const rawEquipped = array(attachments.equipped, compatible.length, attachment => compatible.includes(attachment));
+    // Browser normalization uses this same catalogue order. A cloud round trip
+    // must not appear dirty merely because an incoming array was permuted.
+    const attachmentOwned = compatible.filter(attachment => rawOwned.includes(attachment));
+    const attachmentEquipped = compatible.filter(attachment => rawEquipped.includes(attachment));
+    if (attachmentEquipped.some(attachment => !attachmentOwned.includes(attachment))) invalid();
+    if (attachmentOwned.length || attachmentEquipped.length) weaponAttachments[id] = { owned: attachmentOwned, equipped: attachmentEquipped };
   }
   const loadout = array(p.loadout, 3, id => weapons.includes(id), ['pistol']).filter(id => own(ownedWeapons, id));
   const minibosses = {}, sourceBosses = object(p.minibosses), campaignRecords = {}, sourceRecords = object(p.campaignRecords);
   for (let i = 0; i <= 4; i++) if (boolean(sourceBosses[i])) minibosses[i] = true;
   for (let i = 1; i <= 10; i++) if (own(sourceRecords, i)) campaignRecords[i] = best(sourceRecords[i]);
   return {
-    // Preserve all v1 legacy bytes, but make new-family data fail closed in
-    // older clients before their schema projects away an unknown family.
-    v: contentProfileVersion({ trucks: ownedTrucks, vehicleUpgrades }),
+    // Preserve legacy wire bytes, but make paid equipment/new-family data fail
+    // closed in older clients before their schema projects away purchases.
+    v: contentProfileVersion({ trucks: ownedTrucks, vehicleUpgrades, weaponAttachments, weaponOptics }),
     campaignId: p.campaignId, revision: number(p.revision), cash: number(p.cash), totalCash: number(p.totalCash),
     runs: number(p.runs), wins: number(p.wins), best: best(p.best), trucks: ownedTrucks, truck: ownedTrucks.includes(selectedTruck) ? selectedTruck : 'player_sedan_t1',
     vehicleUpgradeSchema: 2, vehicleUpgrades, upgrades, weapons: ownedWeapons, weaponOptics, loadout: loadout.length ? loadout : ['pistol'],
+    ...(Object.keys(weaponAttachments).length ? { weaponAttachments } : {}),
     truckColor: number(p.truckColor, 0, 7), seen: {}, settings: {}, bossKilled: boolean(p.bossKilled), minibosses,
     campaignProgress: progress(p.campaignProgress), campaignRecords, marathonBest: best(p.marathonBest),
     lastRunId: runId(p.lastRunId), coopLastRunId: runId(p.coopLastRunId),

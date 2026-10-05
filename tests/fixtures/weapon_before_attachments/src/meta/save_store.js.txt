@@ -1,0 +1,494 @@
+// Named personal saves. Slot ownership is separate from a co-op campaign ID.
+import { assertSupportedProfile } from '../../server/saves/profile_support.js';
+export const SAVE_STORE_KEY = 'rideordie.saves.v2';
+export const SAVE_BACKUP_KEY = `${SAVE_STORE_KEY}.backup`;
+export const SAVE_RECOVERY_KEY = `${SAVE_STORE_KEY}.recovery`;
+const LEGACY_KEY = 'rideordie.profile.v1';
+const MAX_SLOTS = 12, MAX_DELETED = 12, MAX_HISTORY = 10, MAX_IMPORT_BYTES = 64 * 1024;
+const MAX_STORE_BYTES = (MAX_SLOTS + MAX_DELETED) * (MAX_HISTORY + 1) * MAX_IMPORT_BYTES + MAX_IMPORT_BYTES;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CAMPAIGN_ID = /^[a-zA-Z0-9_-]{1,64}$/;
+const PROFILE_FIELDS = [
+  'v', 'campaignId', 'revision', 'cash', 'totalCash', 'best', 'runs', 'wins',
+  'trucks', 'truck', 'vehicleUpgradeSchema', 'vehicleUpgrades', 'upgrades',
+  'weapons', 'loadout', 'weaponOptics', 'truckColor', 'bossKilled', 'minibosses',
+  'campaignProgress', 'campaignRecords', 'marathonBest', 'lastRunId', 'coopLastRunId',
+];
+const PROFILE_OBJECTS = ['best', 'vehicleUpgrades', 'upgrades', 'weapons', 'weaponOptics', 'minibosses', 'campaignProgress', 'campaignRecords', 'marathonBest'];
+const PROFILE_NUMBERS = ['revision', 'cash', 'totalCash', 'runs', 'wins', 'truckColor'];
+const SYNC_FIELDS = new Set(['dirty', 'version', 'baseVersion', 'hash', 'baseHash', 'ackGeneration', 'lastSyncedAt', 'vaultId', 'error']);
+const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const natural = value => Number.isSafeInteger(value) && value >= 0;
+const clone = value => JSON.parse(JSON.stringify(value));
+const bytes = value => new TextEncoder().encode(value).length;
+const missing = value => value === null || value === undefined || value === '';
+
+export class SaveStoreError extends Error {
+  constructor(code, message, details = {}) {
+    super(message); this.name = 'SaveStoreError'; this.code = code; Object.assign(this, details);
+  }
+}
+
+function fail(code, message, details) { throw new SaveStoreError(code, message, details); }
+function randomId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const data = new Uint8Array(16);
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(data);
+  else for (let i = 0; i < data.length; i++) data[i] = Math.floor(Math.random() * 256);
+  data[6] = (data[6] & 15) | 64; data[8] = (data[8] & 63) | 128;
+  const hex = [...data].map(value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+function jsonTree(value, depth = 0, budget = { count: 0 }) {
+  if (++budget.count > 10000 || depth > 16) fail('invalid-profile', 'Save data is too complex.');
+  if (value === null || typeof value === 'boolean') return;
+  if (typeof value === 'string') { if (value.length > 8192) fail('invalid-profile', 'A save field is too long.'); return; }
+  if (typeof value === 'number' && Number.isFinite(value)) return;
+  if (Array.isArray(value)) { for (const entry of value) jsonTree(entry, depth + 1, budget); return; }
+  if (object(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) {
+    for (const [key, entry] of Object.entries(value)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(key)) fail('invalid-profile', 'Unsafe save field.');
+      jsonTree(entry, depth + 1, budget);
+    }
+    return;
+  }
+  fail('invalid-profile', 'Save fields must contain finite JSON values.');
+}
+function nameOf(value) {
+  if (typeof value !== 'string') fail('invalid-name', 'Enter a save name.');
+  const name = value.trim();
+  if (!name || name.length > 64 || /[\u0000-\u001f\u007f]/.test(name)) fail('invalid-name', 'Save names must contain 1 to 64 printable characters.');
+  return name;
+}
+function errorInfo(error) {
+  return { code: error.code || 'storage-failed', message: error.message || 'Local save storage failed.', ...(error.committed ? { committed: true } : {}), ...(error.uncertain ? { uncertain: true } : {}) };
+}
+function validImportShape(value) {
+  const levels = map => object(map) && Object.values(map).every(natural);
+  for (const key of ['upgrades']) if (value[key] !== undefined && !levels(value[key])) fail('invalid-profile', 'Invalid upgrade levels in save.');
+  for (const key of ['vehicleUpgrades', 'weapons']) if (value[key] !== undefined && (!object(value[key]) || !Object.values(value[key]).every(levels))) fail('invalid-profile', 'Invalid equipment levels in save.');
+  const best = record => object(record) && Object.entries(record).every(([key, entry]) => ['distance', 'furthestS', 'time', 'kills'].includes(key)
+    && Number.isFinite(entry) && entry >= 0 && entry <= Number.MAX_SAFE_INTEGER && (key !== 'kills' || natural(entry)));
+  for (const key of ['best', 'marathonBest']) if (value[key] !== undefined && !best(value[key])) fail('invalid-profile', 'Invalid run records in save.');
+  if (value.campaignRecords !== undefined && (!object(value.campaignRecords) || !Object.values(value.campaignRecords).every(best))) fail('invalid-profile', 'Invalid chapter records in save.');
+  if (value.minibosses !== undefined && Object.values(value.minibosses).some(entry => entry !== true)) fail('invalid-profile', 'Invalid boss records in save.');
+  if (value.weaponOptics !== undefined) for (const optic of Object.values(value.weaponOptics)) {
+    if (!object(optic) || !Array.isArray(optic.owned) || optic.owned.some(entry => typeof entry !== 'string') || typeof optic.equipped !== 'string') fail('invalid-profile', 'Invalid weapon optics in save.');
+  }
+  if (value.campaignProgress !== undefined) {
+    const progress = value.campaignProgress;
+    for (const key of ['unlockedLevel', 'selectedLevel']) if (progress[key] !== undefined && (!Number.isInteger(progress[key]) || progress[key] < 1 || progress[key] > 10)) fail('invalid-profile', 'Invalid campaign level in save.');
+    if (progress.cleared !== undefined && (!Array.isArray(progress.cleared) || progress.cleared.some(level => !Number.isInteger(level) || level < 1 || level > 10))) fail('invalid-profile', 'Invalid cleared campaign levels in save.');
+    if (progress.clearRuns !== undefined && (!object(progress.clearRuns) || Object.values(progress.clearRuns).some(entry => typeof entry !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(entry)))) fail('invalid-profile', 'Invalid campaign clear receipts in save.');
+    if (progress.marathonUnlocked !== undefined && typeof progress.marathonUnlocked !== 'boolean') fail('invalid-profile', 'Invalid marathon state in save.');
+    if (progress.selectedMode !== undefined && !['campaign', 'marathon'].includes(progress.selectedMode)) fail('invalid-profile', 'Invalid campaign mode in save.');
+  }
+  for (const key of ['lastRunId', 'coopLastRunId']) if (value[key] !== undefined && value[key] !== null && (typeof value[key] !== 'string' || value[key].length > 128)) fail('invalid-profile', 'Invalid run receipt in save.');
+}
+
+export class SaveStore {
+  constructor({ storage, normalize, fresh, now = Date.now, id = randomId } = {}) {
+    if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') throw new TypeError('SaveStore requires storage.getItem/setItem.');
+    if (typeof normalize !== 'function' || typeof fresh !== 'function') throw new TypeError('SaveStore requires normalize/fresh callbacks.');
+    this.storage = storage; this.normalize = normalize; this.fresh = fresh; this.now = now; this.id = id;
+    this._pins = new WeakMap(); this._listeners = new Set(); this._state = null; this._raw = null;
+    this._error = null; this._warning = null; this._recoveries = []; this._volatileRecoveries = []; this._lastConflict = null; this._durable = false;
+    try { this._initialize(); } catch (error) {
+      if (!this._state) this._state = this._initialState(this._profile(this.fresh()));
+      this._report(error);
+    }
+  }
+
+  _time() { const at = this.now(); if (!natural(at)) fail('invalid-clock', 'The save clock returned an invalid timestamp.'); return at; }
+  _id() { const id = this.id(); if (typeof id !== 'string' || !UUID.test(id)) fail('invalid-id', 'The save ID generator must return a UUID.'); return id; }
+  _profile(value, strict = false) {
+    if (!object(value)) fail('invalid-profile', 'A save must contain a profile object.');
+    try { assertSupportedProfile(value); } catch (error) { fail('unsupported-profile', 'This save contains vehicle progress from an unsupported build.', { requiredVersion: error.requiredVersion }); }
+    if (value.vehicleUpgradeSchema !== undefined && value.vehicleUpgradeSchema !== 1 && value.vehicleUpgradeSchema !== 2) fail('unsupported-profile', 'This vehicle upgrade version is not supported.');
+    if (object(value.campaignProgress) && value.campaignProgress.version !== undefined && value.campaignProgress.version !== 1) fail('unsupported-profile', 'This campaign version is not supported.');
+    if (strict) {
+      if (![1, 2, 3].includes(value.v) || typeof value.campaignId !== 'string' || !CAMPAIGN_ID.test(value.campaignId) || !natural(value.cash)
+        || typeof value.truck !== 'string' || !Array.isArray(value.trucks) || !value.trucks.length
+        || !object(value.weapons) || !Array.isArray(value.loadout) || !value.loadout.length) fail('invalid-profile', 'The imported profile is incomplete or malformed.');
+      for (const key of PROFILE_NUMBERS) if (value[key] !== undefined && !natural(value[key])) fail('invalid-profile', `Invalid ${key} in save.`);
+      for (const key of PROFILE_OBJECTS) if (value[key] !== undefined && !object(value[key])) fail('invalid-profile', `Invalid ${key} in save.`);
+      for (const key of ['trucks', 'loadout']) if (value[key].some(entry => typeof entry !== 'string' || entry.length > 64)) fail('invalid-profile', `Invalid ${key} in save.`);
+      if (value.bossKilled !== undefined && typeof value.bossKilled !== 'boolean') fail('invalid-profile', 'Invalid boss record in save.');
+      validImportShape(value);
+    }
+    // normalizeProfile intentionally keeps unknown fields. Give it only gameplay
+    // fields, then whitelist its result again so secrets/settings cannot persist.
+    const input = {};
+    for (const key of PROFILE_FIELDS) if (value[key] !== undefined) input[key] = value[key];
+    if (strict) jsonTree(input);
+    let normalized;
+    try { normalized = this.normalize(clone(input)); } catch (error) { fail('invalid-profile', `The profile could not be normalized: ${error.message}`); }
+    if (!object(normalized)) fail('invalid-profile', 'Profile normalization returned invalid data.');
+    const profile = {};
+    for (const key of PROFILE_FIELDS) if (normalized[key] !== undefined) profile[key] = normalized[key];
+    jsonTree(profile);
+    if (![1, 2, 3].includes(profile.v) || typeof profile.campaignId !== 'string' || !CAMPAIGN_ID.test(profile.campaignId)) fail('invalid-profile', 'Profile normalization must return a supported campaign identity.');
+    if (!natural(profile.cash) || typeof profile.truck !== 'string' || !Array.isArray(profile.trucks) || !profile.trucks.length
+      || !object(profile.weapons) || !Array.isArray(profile.loadout) || !profile.loadout.length) fail('invalid-profile', 'Profile normalization returned an incomplete profile.');
+    for (const key of PROFILE_NUMBERS) if (profile[key] !== undefined && !natural(profile[key])) fail('invalid-profile', 'Profile normalization returned invalid counters.');
+    for (const key of PROFILE_OBJECTS) if (profile[key] !== undefined && !object(profile[key])) fail('invalid-profile', 'Profile normalization returned invalid objects.');
+    for (const key of ['trucks', 'loadout']) if (profile[key].some(entry => typeof entry !== 'string' || entry.length > 64)) fail('invalid-profile', 'Profile normalization returned invalid equipment IDs.');
+    if (profile.bossKilled !== undefined && typeof profile.bossKilled !== 'boolean') fail('invalid-profile', 'Profile normalization returned an invalid boss record.');
+    validImportShape(profile);
+    if (bytes(JSON.stringify(profile)) > MAX_IMPORT_BYTES - 512) fail('save-too-large', 'The save exceeds the 64 KiB limit.');
+    return clone(profile);
+  }
+
+  _read(key) {
+    try { return this.storage.getItem(key); } catch (error) { fail('storage-read', `Could not read local saves: ${error.message}`); }
+  }
+  _write(key, raw) {
+    let attempted = false;
+    try {
+      this.storage.setItem(key, raw); attempted = true;
+      if (this.storage.getItem(key) !== raw) fail('storage-verification', 'The browser did not retain the local save.');
+    } catch (error) {
+      const reported = error instanceof SaveStoreError ? error : new SaveStoreError(attempted ? 'storage-verification' : 'storage-write', `Could not ${attempted ? 'verify' : 'write'} local saves: ${error.message}`);
+      reported.mayHaveWritten = attempted; throw reported;
+    }
+  }
+  _sync(value) {
+    const sync = {};
+    if (value === undefined) return sync;
+    if (!object(value)) fail('invalid-sync', 'Invalid save sync metadata.');
+    for (const [key, entry] of Object.entries(value)) {
+      if (!SYNC_FIELDS.has(key)) continue;
+      if (entry === null) { sync[key] = null; continue; }
+      if (key === 'dirty') { if (typeof entry !== 'boolean') fail('invalid-sync', 'Invalid dirty state.'); }
+      else if (['version', 'baseVersion', 'ackGeneration', 'lastSyncedAt'].includes(key)) { if (!natural(entry)) fail('invalid-sync', 'Invalid sync counter.'); }
+      else if (typeof entry !== 'string' || entry.length > 256) fail('invalid-sync', 'Invalid sync text.');
+      sync[key] = entry;
+    }
+    return sync;
+  }
+  _parse(raw) {
+    if (typeof raw !== 'string' || bytes(raw) > MAX_STORE_BYTES) fail('corrupt-store', 'Local save storage is malformed or too large.');
+    let state;
+    try { state = JSON.parse(raw); } catch { fail('corrupt-store', 'Local save storage contains damaged JSON.'); }
+    if (!object(state) || state.kind !== 'rideordie-saves') fail('corrupt-store', 'Local save storage has an invalid envelope.');
+    if (state.version !== 2) fail('unsupported-store', 'This local save version is not supported.');
+    if (!natural(state.sequence) || !Array.isArray(state.slots) || !state.slots.length || state.slots.length > MAX_SLOTS + MAX_DELETED) fail('corrupt-store', 'Invalid local save catalogue.');
+    const ids = new Set();
+    state.slots = state.slots.map(value => {
+      if (!object(value) || !UUID.test(value.id || '') || ids.has(value.id) || !UUID.test(value.headId || '')
+        || !natural(value.createdAt) || !natural(value.updatedAt) || !natural(value.generation) || value.generation < 1
+        || typeof value.deleted !== 'boolean' || !Array.isArray(value.history) || value.history.length > MAX_HISTORY) fail('corrupt-store', 'Invalid local save record.');
+      ids.add(value.id);
+      const historyIds = new Set();
+      const history = value.history.map(backup => {
+        if (!object(backup) || !UUID.test(backup.id || '') || historyIds.has(backup.id) || !natural(backup.at)) fail('corrupt-store', 'Invalid local save backup.');
+        historyIds.add(backup.id);
+        return { id: backup.id, at: backup.at, profile: this._profile(backup.profile, true), ...(backup.name !== undefined ? { name: nameOf(backup.name) } : {}) };
+      });
+      return { id: value.id, name: nameOf(value.name), profile: this._profile(value.profile, true), createdAt: value.createdAt, updatedAt: value.updatedAt,
+        generation: value.generation, headId: value.headId, sync: this._sync(value.sync), deleted: value.deleted, history };
+    });
+    if (state.slots.filter(slot => !slot.deleted).length > MAX_SLOTS || state.slots.filter(slot => slot.deleted).length > MAX_DELETED) fail('corrupt-store', 'The local save catalogue exceeds its record limits.');
+    if (!state.slots.some(slot => slot.id === state.activeId && !slot.deleted)) fail('corrupt-store', 'The active local save is missing.');
+    return { kind: 'rideordie-saves', version: 2, sequence: state.sequence, activeId: state.activeId, initialAdoption: state.initialAdoption === true, slots: state.slots };
+  }
+  _initialState(profile) {
+    const slot = this._newSlot('Main save', profile);
+    return { kind: 'rideordie-saves', version: 2, sequence: 0, activeId: slot.id, initialAdoption: true, slots: [slot] };
+  }
+  _newSlot(name, profile, id = this._id()) {
+    const at = this._time();
+    return { id, name: nameOf(name), profile, createdAt: at, updatedAt: at, generation: 1, headId: this._id(), sync: { dirty: true }, deleted: false, history: [] };
+  }
+  _retain(details) {
+    const raw = this._read(SAVE_RECOVERY_KEY);
+    let entries = [];
+    if (!missing(raw)) {
+      try { const saved = JSON.parse(raw); if (saved.version === 1 && Array.isArray(saved.entries)) entries = saved.entries; else fail('corrupt-recovery', 'The recovery catalogue is damaged.'); }
+      catch (error) { if (error instanceof SaveStoreError) throw error; fail('corrupt-recovery', 'The recovery catalogue contains damaged JSON.'); }
+    }
+    const entry = { id: this._id(), at: this._time(), ...details };
+    this._write(SAVE_RECOVERY_KEY, JSON.stringify({ version: 1, entries: [entry, ...entries].slice(0, MAX_HISTORY) }));
+    this._recoveries = [entry, ...entries].slice(0, MAX_HISTORY);
+    return entry;
+  }
+  _initialize() {
+    const raw = this._read(SAVE_STORE_KEY);
+    if (!missing(raw)) { this._readLatest(); return; }
+    const backup = this._read(SAVE_BACKUP_KEY);
+    if (!missing(backup)) {
+      this._state = this._parse(backup); this._write(SAVE_STORE_KEY, backup);
+      this._raw = backup; this._durable = true; this._notify({ type: 'recovered' }); return;
+    }
+    const legacy = this._read(LEGACY_KEY);
+    let profile = this._profile(this.fresh());
+    let migrationWarning;
+    if (!missing(legacy)) {
+      // Keep the exact original before compatibility writes touch the singleton.
+      this._retain({ reason: 'legacy-migration', raw: legacy });
+      try { profile = this._profile(JSON.parse(legacy)); }
+      catch (error) {
+        if (error.code === 'unsupported-profile') throw error;
+        migrationWarning = new SaveStoreError('legacy-corrupt', 'The old save was damaged. Its original data is retained for recovery.');
+      }
+    }
+    this._state = this._state || this._initialState(profile);
+    if (!missing(legacy)) this._state.initialAdoption = false;
+    this._commit(clone(this._state), null, { type: 'migrated', slotId: this._state.activeId });
+    this._mirror(this._slot(this._state.activeId));
+    if (migrationWarning) this._report(migrationWarning);
+  }
+  _readLatest() {
+    const raw = this._read(SAVE_STORE_KEY);
+    if (missing(raw)) {
+      if (this._durable) fail('storage-conflict', 'Local saves were removed by another tab. Reload or recover your save before continuing.');
+      this._initialize(); return this._state;
+    }
+    let state;
+    try { state = this._parse(raw); }
+    catch (error) {
+      if (error.code === 'unsupported-store' || error.code === 'unsupported-profile') throw error;
+      const backup = this._read(SAVE_BACKUP_KEY);
+      if (missing(backup)) throw error;
+      state = this._parse(backup);
+      this._retain({ reason: 'damaged-store', raw });
+      // The verified last-known-good envelope stays untouched during recovery.
+      this._write(SAVE_STORE_KEY, backup); this._raw = backup; this._state = state; this._durable = true;
+      this._notify({ type: 'recovered' }); return state;
+    }
+    this._state = state; this._raw = raw; this._durable = true; return state;
+  }
+  _slot(id, state = this._state) { const slot = state.slots.find(entry => entry.id === id); if (!slot) fail('missing-slot', 'This save no longer exists.'); return slot; }
+  _public(slot) { const { headId: _headId, history: _history, ...value } = slot; return clone(value); }
+  _notify(event) { for (const listener of this._listeners) { try { listener(clone(event)); } catch { /* A UI callback cannot undo a verified save. */ } } }
+  _report(error, slotId) { this._error = errorInfo(error); this._notify({ type: 'error', ...(slotId ? { slotId } : {}), error: this._error }); return error; }
+  _operation(fn) { try { return fn(); } catch (error) { throw this._report(error); } }
+  _commit(next, expectedRaw, event) {
+    if (this._read(SAVE_STORE_KEY) !== expectedRaw && !(missing(this._read(SAVE_STORE_KEY)) && missing(expectedRaw))) fail('storage-conflict', 'Another tab changed local saves. Retry from the current save.');
+    // Deletion remains recoverable, while old tombstones do not consume the
+    // lifetime live-save allowance. Never prune an available save.
+    const deleted = next.slots.filter(slot => slot.deleted).sort((a, b) => a.updatedAt - b.updatedAt || a.id.localeCompare(b.id));
+    const prune = new Set(deleted.slice(0, Math.max(0, deleted.length - MAX_DELETED)).map(slot => slot.id));
+    next.slots = next.slots.filter(slot => !prune.has(slot.id));
+    next.sequence++;
+    const raw = JSON.stringify(next);
+    if (bytes(raw) > MAX_STORE_BYTES) fail('save-too-large', 'The local save catalogue is too large.');
+    // A failed backup/verification aborts before replacing the only good head.
+    if (!missing(expectedRaw)) this._write(SAVE_BACKUP_KEY, expectedRaw);
+    if (this._read(SAVE_STORE_KEY) !== expectedRaw && !(missing(this._read(SAVE_STORE_KEY)) && missing(expectedRaw))) fail('storage-conflict', 'Another tab changed local saves during the write.');
+    let verificationError;
+    try { this._write(SAVE_STORE_KEY, raw); }
+    catch (error) {
+      // setItem may have succeeded just before a transient read failure. A
+      // second exact read can prove the commit; otherwise report uncertainty.
+      let persisted;
+      try { persisted = this._read(SAVE_STORE_KEY); } catch { /* The next load/save will reconcile using its head ID. */ }
+      if (persisted !== raw) { if (error.mayHaveWritten && persisted === undefined) error.uncertain = true; throw error; }
+      verificationError = error;
+    }
+    this._state = next; this._raw = raw; this._durable = true; this._error = null;
+    this._notify(event);
+    if (verificationError) { this._warning = errorInfo(verificationError); this._notify({ type: 'recovered', error: this._warning }); }
+  }
+  _mirror(slot) {
+    try {
+      const raw = JSON.stringify(slot.profile), legacy = this._read(LEGACY_KEY);
+      if (!missing(legacy)) {
+        try { JSON.parse(legacy); } catch { this._retain({ reason: 'damaged-legacy', raw: legacy }); }
+      }
+      this._write(LEGACY_KEY, raw);
+      this._write(`${LEGACY_KEY}.${slot.profile.campaignId}`, raw);
+    } catch (error) { error.committed = true; throw error; }
+  }
+  _backup(slot, profile = slot.profile, name = slot.name) {
+    const backup = { id: this._id(), at: this._time(), profile: clone(profile), name };
+    slot.history = [backup, ...slot.history].slice(0, MAX_HISTORY); return backup;
+  }
+  _rememberAttempt(slot, profile, reason) {
+    const attempted = this._profile(profile), details = { reason, slotId: slot.id, profile: attempted, name: slot.name };
+    const signature = JSON.stringify(attempted);
+    const existing = [...this._volatileRecoveries, ...this._recoveries].find(entry => entry.reason === reason
+      && entry.slotId === slot.id && entry.profile && JSON.stringify(entry.profile) === signature);
+    if (existing && !existing.volatile) return clone(existing);
+    try {
+      const retained = this._retain({ ...details, ...(existing ? { id: existing.id, at: existing.at } : {}), volatile: false });
+      this._volatileRecoveries = this._volatileRecoveries.filter(entry => entry.id !== retained.id);
+      return retained;
+    } catch (error) {
+      if (existing?.volatile) return clone(existing);
+      const retained = { id: this._id(), at: this._time(), ...details, volatile: true, recoveryError: errorInfo(error) };
+      this._volatileRecoveries = [retained, ...this._volatileRecoveries].slice(0, MAX_HISTORY);
+      return retained;
+    }
+  }
+  _conflict(slot, profile, reason = 'stale-profile') {
+    const retained = this._rememberAttempt(slot, profile, reason);
+    const conflict = { slotId: slot.id, recoveryId: retained.id, recoveryPersisted: !retained.volatile, local: retained.profile, current: this._public(slot), ...(retained.recoveryError ? { recoveryError: retained.recoveryError } : {}) };
+    this._lastConflict = conflict; return conflict;
+  }
+  _changed(slot, { profile = false } = {}) {
+    slot.generation++; slot.updatedAt = this._time(); slot.sync = { ...slot.sync, dirty: true };
+    if (profile) slot.headId = this._id();
+  }
+  _pin(slot) { const profile = this._profile(slot.profile); this._pins.set(profile, { slotId: slot.id, headId: slot.headId }); return profile; }
+  _edit(id, type, edit, { mirror = false } = {}) {
+    return this._operation(() => {
+      this._readLatest(); const next = clone(this._state), slot = this._slot(id, next);
+      edit(slot, next); this._commit(next, this._raw, { type, slotId: id });
+      if (mirror) this._mirror(slot); return this._public(slot);
+    });
+  }
+
+  status() { return { durable: this._durable, ...(this._error ? { error: clone(this._error) } : {}), ...(this._warning ? { warning: clone(this._warning) } : {}), ...(this._lastConflict ? { conflict: clone(this._lastConflict) } : {}), recoveryCount: this._recoveries.length + this._volatileRecoveries.length, volatileRecoveryCount: this._volatileRecoveries.length }; }
+  onChange(fn) { if (typeof fn !== 'function') throw new TypeError('A save listener must be a function.'); this._listeners.add(fn); return () => this._listeners.delete(fn); }
+  list({ includeDeleted = false } = {}) { return this._operation(() => { this._readLatest(); return this._state.slots.filter(slot => includeDeleted || !slot.deleted).map(slot => this._public(slot)); }); }
+  activeId() { try { this._readLatest(); } catch (error) { this._report(error); } return this._state.activeId; }
+  load(id) {
+    try { this._readLatest(); } catch (error) { this._report(error); }
+    const slot = this._slot(id ?? this._state.activeId);
+    if (slot.deleted) throw this._report(new SaveStoreError('deleted-slot', 'Restore this deleted save before playing it.'));
+    return this._pin(slot);
+  }
+  save(profile) {
+    let pin = object(profile) ? this._pins.get(profile) : null;
+    try {
+      this._readLatest();
+      if (!pin && object(profile)) {
+        if (this._state.initialAdoption && this._state.slots.length === 1) {
+          const initial = this._slot(this._state.activeId); pin = { slotId: initial.id, headId: initial.headId, initial: true };
+        }
+      }
+      if (!pin) fail('unpinned-profile', 'Load a personal save before saving progress.');
+      const current = this._slot(pin.slotId);
+      if (pin.pendingHeadId === current.headId) { pin.headId = current.headId; delete pin.pendingHeadId; delete pin.initial; }
+      if (pin.initial && (!this._state.initialAdoption || this._state.slots.length !== 1)) fail('unpinned-profile', 'The initial save was already initialized. Load its personal profile before saving.');
+      if (current.deleted || current.headId !== pin.headId) {
+        const conflict = this._conflict(current, profile);
+        fail('stale-profile', 'Another tab or a restored save changed this progress. Your attempted save is retained for recovery.', { conflict });
+      }
+      const next = clone(this._state), slot = this._slot(current.id, next);
+      const normalized = this._profile(profile);
+      if (!pin.initial && normalized.campaignId !== current.profile.campaignId) fail('identity-conflict', 'A personal save cannot change campaign ownership.');
+      if (!pin.initial) this._backup(slot);
+      slot.profile = normalized; this._changed(slot, { profile: true }); next.initialAdoption = false;
+      pin.pendingHeadId = slot.headId; this._pins.set(profile, pin);
+      this._commit(next, this._raw, { type: 'save', slotId: slot.id });
+      this._pins.set(profile, { slotId: slot.id, headId: slot.headId });
+      this._mirror(slot); return { ok: true, slot: this._public(slot) };
+    } catch (error) {
+      let recovery;
+      if (error.committed && pin?.pendingHeadId === this._slot(pin.slotId).headId) this._pins.set(profile, { slotId: pin.slotId, headId: pin.pendingHeadId });
+      if (error.code === 'storage-conflict' && pin) {
+        try { this._readLatest(); error.conflict = this._conflict(this._slot(pin.slotId), profile, 'storage-conflict'); }
+        catch { /* The unchanged caller still retains this branch if storage is unavailable. */ }
+      }
+      if (!error.committed && !error.conflict && pin && ['storage-read', 'storage-write', 'storage-verification', 'storage-conflict', 'corrupt-store', 'corrupt-recovery', 'unsupported-store'].includes(error.code)) {
+        // Title refreshes may discard the caller object. Preserve its sanitized
+        // branch independently, even when quota or blocked reads prevent writes.
+        try {
+          const retained = this._rememberAttempt(this._slot(pin.slotId), profile, 'failed-save');
+          recovery = { id: retained.id, volatile: retained.volatile === true };
+        } catch { /* Malformed attempts cannot become playable recovery profiles. */ }
+      }
+      this._report(error, pin?.slotId);
+      return { ok: false, error: errorInfo(error), ...(error.committed && pin ? { slot: this._public(this._slot(pin.slotId)) } : {}), ...(error.conflict ? { conflict: clone(error.conflict) } : {}), ...(recovery ? { recovery } : {}) };
+    }
+  }
+  create(name, profile) {
+    return this._operation(() => {
+      this._readLatest(); if (this._state.slots.filter(slot => !slot.deleted).length >= MAX_SLOTS) fail('slot-limit', 'The save catalogue has reached its 12 available-save limit.');
+      const slot = this._newSlot(name, this._profile(profile ?? this.fresh()));
+      if (this._state.slots.some(entry => entry.id === slot.id)) fail('duplicate-id', 'The generated save ID already exists.');
+      const next = clone(this._state); next.slots.push(slot); next.initialAdoption = false;
+      this._commit(next, this._raw, { type: 'create', slotId: slot.id }); return this._public(slot);
+    });
+  }
+  activate(id) {
+    return this._operation(() => {
+      this._readLatest(); const next = clone(this._state), slot = this._slot(id, next);
+      if (slot.deleted) fail('deleted-slot', 'Restore this deleted save before playing it.');
+      next.activeId = id; this._commit(next, this._raw, { type: 'activate', slotId: id }); this._mirror(slot); return this._pin(slot);
+    });
+  }
+  rename(id, name) { return this._edit(id, 'rename', slot => { slot.name = nameOf(name); this._changed(slot); }); }
+  duplicate(id, name) {
+    return this._operation(() => {
+      this._readLatest(); const source = this._slot(id), profile = this._profile(source.profile);
+      profile.campaignId = this._id(); return this.create(name ?? `${source.name.slice(0, 59)} copy`, profile);
+    });
+  }
+  remove(id) { return this._edit(id, 'delete', (slot, state) => { if (id === state.activeId) fail('active-delete', 'Switch to another save before deleting this save.'); if (slot.deleted) fail('deleted-slot', 'This save is already deleted.'); this._backup(slot); slot.deleted = true; this._changed(slot, { profile: true }); }); }
+  restoreDeleted(id) { return this._edit(id, 'restore-deleted', (slot, state) => { if (!slot.deleted) fail('not-deleted', 'This save is already available.'); if (state.slots.filter(entry => !entry.deleted).length >= MAX_SLOTS) fail('slot-limit', 'Delete an available save before restoring this save.'); slot.deleted = false; this._changed(slot, { profile: true }); }); }
+  history(id) { return this._operation(() => { this._readLatest(); return clone(this._slot(id).history); }); }
+  restore(id, backupId) { return this._edit(id, 'restore', (slot, state) => { const backup = slot.history.find(entry => entry.id === backupId); if (!backup) fail('missing-backup', 'This backup no longer exists.'); if (slot.deleted && state.slots.filter(entry => !entry.deleted).length >= MAX_SLOTS) fail('slot-limit', 'Delete an available save before restoring this save.'); const profile = clone(backup.profile); this._backup(slot); slot.profile = profile; slot.deleted = false; this._changed(slot, { profile: true }); }, { mirror: true }); }
+  retainBackup(id, { profile, name } = {}) {
+    let retained;
+    this._edit(id, 'backup', slot => { retained = this._backup(slot, this._profile(profile, true), name === undefined ? slot.name : nameOf(name)); });
+    return clone(retained);
+  }
+  exportSlot(id) { return this._operation(() => { this._readLatest(); const slot = this._slot(id); return { kind: 'rideordie-save', version: 2, name: slot.name, profile: clone(slot.profile), exportedAt: this._time() }; }); }
+  importSlot(envelope, name) {
+    return this._operation(() => {
+      if (typeof envelope === 'string') {
+        if (bytes(envelope) > MAX_IMPORT_BYTES) fail('save-too-large', 'The import exceeds the 64 KiB limit.');
+        try { envelope = JSON.parse(envelope); } catch { fail('invalid-import', 'The import contains damaged JSON.'); }
+      }
+      if (!object(envelope) || envelope.kind !== 'rideordie-save') fail('invalid-import', 'Choose a Ride or Die save export.');
+      if (envelope.version !== 2) fail('unsupported-import', 'This export version is not supported.');
+      jsonTree(envelope);
+      if (bytes(JSON.stringify(envelope)) > MAX_IMPORT_BYTES) fail('save-too-large', 'The import exceeds the 64 KiB limit.');
+      const profile = this._profile(envelope.profile, true);
+      return this.create(name ?? nameOf(envelope.name), profile);
+    });
+  }
+  setSync(id, patch) { return this._edit(id, 'sync', slot => { slot.sync = { ...slot.sync, ...this._sync(patch) }; }); }
+  applyRemote(remote, { expectedGeneration } = {}) {
+    return this._operation(() => {
+      if (!object(remote) || !UUID.test(remote.id || '') || !natural(remote.version) || remote.version < 1
+        || typeof remote.hash !== 'string' || !/^[0-9a-f]{64}$/i.test(remote.hash)
+        || !natural(remote.updatedAt) || typeof remote.deleted !== 'boolean') fail('invalid-remote', 'The cloud save response is malformed.');
+      const name = nameOf(remote.name), profile = this._profile(remote.profile, true);
+      this._readLatest(); const next = clone(this._state); let slot = next.slots.find(entry => entry.id === remote.id);
+      if (slot) {
+        if (expectedGeneration !== undefined && slot.generation !== expectedGeneration) fail('generation-conflict', 'Local progress changed while the cloud save was loading.');
+        if (remote.deleted && slot.id === next.activeId) fail('active-delete', 'The cloud deleted the active save. Choose another save before accepting that deletion.');
+        if (slot.deleted && !remote.deleted && next.slots.filter(entry => !entry.deleted).length >= MAX_SLOTS) fail('slot-limit', 'The save catalogue has reached its 12 available-save limit.');
+        this._backup(slot); slot.name = name; slot.profile = profile; slot.deleted = remote.deleted; this._changed(slot, { profile: true });
+      } else {
+        if (expectedGeneration !== undefined && expectedGeneration !== 0) fail('generation-conflict', 'The expected local save is missing.');
+        if (!remote.deleted && next.slots.filter(entry => !entry.deleted).length >= MAX_SLOTS) fail('slot-limit', 'The save catalogue has reached its 12 available-save limit.');
+        slot = this._newSlot(name, profile, remote.id); slot.deleted = remote.deleted; next.slots.push(slot);
+      }
+      slot.updatedAt = remote.updatedAt;
+      next.initialAdoption = false;
+      slot.sync = { dirty: false, version: remote.version, baseVersion: remote.version, hash: remote.hash, baseHash: remote.hash, ackGeneration: slot.generation, lastSyncedAt: this._time() };
+      this._commit(next, this._raw, { type: 'remote', slotId: slot.id });
+      if (slot.id === next.activeId) this._mirror(slot);
+      return this._public(slot);
+    });
+  }
+  recoveries() {
+    try {
+      const raw = this._read(SAVE_RECOVERY_KEY);
+      if (missing(raw)) return clone(this._volatileRecoveries);
+      let saved; try { saved = JSON.parse(raw); } catch { fail('corrupt-recovery', 'The recovery catalogue contains damaged JSON.'); }
+      if (saved.version !== 1 || !Array.isArray(saved.entries)) fail('corrupt-recovery', 'The recovery catalogue is damaged.');
+      this._recoveries = saved.entries.slice(0, MAX_HISTORY);
+      return clone([...this._volatileRecoveries, ...this._recoveries].map(entry => ({ ...entry, volatile: entry.volatile === true })));
+    } catch (error) {
+      this._report(error);
+      if (this._volatileRecoveries.length) return clone([...this._volatileRecoveries, ...this._recoveries].map(entry => ({ ...entry, volatile: entry.volatile === true })));
+      throw error;
+    }
+  }
+  restoreRecovery(recoveryId, name = 'Recovered save') {
+    return this._operation(() => {
+      const entry = this.recoveries().find(value => value.id === recoveryId);
+      if (!entry) fail('missing-recovery', 'This recovery record no longer exists.');
+      let profile = entry.profile;
+      if (!profile && typeof entry.raw === 'string') { try { profile = JSON.parse(entry.raw); } catch { fail('invalid-recovery', 'This original data is damaged. Export the recovery record for manual repair.'); } }
+      if (object(profile) && (profile.kind === 'rideordie-saves' || Array.isArray(profile.slots))) fail('invalid-recovery', 'This recovery record is a damaged save catalogue. Export it for manual repair of its individual profiles.');
+      profile = this._profile(profile); profile.campaignId = this._id(); return this.create(name, profile);
+    });
+  }
+}

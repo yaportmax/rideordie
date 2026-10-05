@@ -6,7 +6,7 @@ import { DEFAULT_PROFILE } from '../src/data/upgrades.js';
 import { NET_PROTOCOL } from '../src/net/run_packet.js';
 import { GarageSeatSwap } from '../src/net/garage_seats.js';
 import { buyWeapon, buyWeaponOptic } from '../src/meta/profile.js';
-import { normalizeJourney, creditCampaignLevel } from '../src/data/campaign.js';
+import { normalizeJourney, normalizeCampaignProgress, creditCampaignLevel } from '../src/data/campaign.js';
 
 const css = registerHooks({ load(url, context, nextLoad) {
   if (/\.css(?:\?.*)?$/.test(url)) return { format: 'module', source: 'export default "";', shortCircuit: true };
@@ -170,7 +170,9 @@ test('garage chassis and next-upgrade previews use each family inventory without
 
 test('owned sight reaches the garage loadout while a selected bench preview does not alter its equipment', (t) => {
   const f = fixture(t, 'solo'), previews = [];
-  f.profile.cash = 100000; buyWeapon(f.profile, 'smg'); buyWeaponOptic(f.profile, 'smg', 'wide_reflex');
+  f.profile.cash = 100000;
+  f.profile.campaignProgress = normalizeCampaignProgress({ cleared: [1], clearRuns: { 1: 'fixture-earned-desert-clear' } });
+  assert.equal(buyWeapon(f.profile, 'smg').ok, true); assert.equal(buyWeaponOptic(f.profile, 'smg', 'wide_reflex').ok, true);
   f.profile.loadout = ['smg', 'pistol'];
   assert.equal(f.app._garageLoadout().opticId, 'wide_reflex');
   f.game.garage.setPreview = value => previews.push(value);

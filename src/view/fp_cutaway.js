@@ -38,7 +38,11 @@ const _m = new THREE.Matrix4(), _p = new THREE.Vector3();
 function inside(b, box) { return b[0] >= box[0] && b[1] >= box[1] && b[2] >= box[2] && b[3] <= box[3] && b[4] <= box[4] && b[5] <= box[5]; }
 function hits(b, e, mat, tris) { return Array.isArray(e) ? inside(b, e) : inside(b, e.b) && (!e.mat || e.mat === mat) && tris >= (e.minTris || 0); }
 
-const splitCache = new Map();   // source geometry -> split (clones share geometry, so later runs are free)
+const splitCache = new WeakMap(); // Shared asset geometry reuses cuts; disposed instance kits are not retained.
+/** Owned attachment meshes must retain their authored/moving geometry. */
+export function canCutViewmodelMesh(mesh) {
+  return !!mesh?.isMesh && !mesh.isSkinnedMesh && !Array.isArray(mesh.material) && !mesh.userData?.weaponMod;
+}
 /** Split a mesh's triangles into islands kept / cut by boxes given in the mesh's own (geometry) space. {full, keep, cut, n} | null */
 export function splitIslands(mesh, boxes) { return splitMesh(mesh, new THREE.Matrix4(), boxes); }
 /** Split one mesh's index into kept / cut triangles. Returns null when nothing is cut. */

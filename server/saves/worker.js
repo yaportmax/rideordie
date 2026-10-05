@@ -15,7 +15,7 @@ class ApiError extends Error {
 function profileCapability(request) {
   const value = request.headers.get('X-ROD-Profile-Version');
   if (value === null) return 2;
-  if (!['1', '2', String(SUPPORTED_PROFILE_VERSION)].includes(value)) throw new ApiError(409, 'unsupported_profile');
+  if (!['1', '2', '3', String(SUPPORTED_PROFILE_VERSION)].includes(value)) throw new ApiError(409, 'unsupported_profile');
   return Number(value);
 }
 function compatibleProfile(profile, capability) {

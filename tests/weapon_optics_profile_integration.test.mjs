@@ -3,8 +3,14 @@ import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE, effects } from '../src/data/upgrades.js';
 import { normalizeProfile, buyWeapon, buyWeaponOptic, equipWeaponOptic } from '../src/meta/profile.js';
 import { buildPlayerSpec, gunnerLoadout } from '../src/game/run_setup.js';
+import { creditCampaignLevel } from '../src/data/campaign.js';
 
-const owned = () => { const p = DEFAULT_PROFILE(); p.cash = 100000; buyWeapon(p, 'smg'); buyWeapon(p, 'rifle'); return p; };
+const owned = () => {
+  const p = DEFAULT_PROFILE(); p.cash = 100000;
+  for (let chapter = 1; chapter < 4; chapter++) assert.equal(creditCampaignLevel(p,
+    { runId: `optic-purchase-clear-${chapter}`, level: chapter, mode: 'campaign', won: true }), true);
+  assert.equal(buyWeapon(p, 'smg').ok, true); assert.equal(buyWeapon(p, 'rifle').ok, true); return p;
+};
 
 test('normalized save restores optics only for valid owned guns and defaults new weapons to factory sights', () => {
   const p = owned(); buyWeaponOptic(p, 'smg', 'wide_reflex');

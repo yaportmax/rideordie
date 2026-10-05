@@ -1,12 +1,17 @@
-// Attachment identity and physical mounting data. Optics change the sight picture,
-// never weapon damage, handling, ammunition or world-camera magnification.
+// Physical sight identity and mounting data. The optional combat optic also
+// selects its authored magnified ADS field of view; damage and ammunition stay
+// independent of the optic choice.
 import { WEAPONS } from './weapons.js';
+import { compatibleWeaponOptic as compatiblePortableOptic } from '../../server/saves/weapon_optic_support.js';
 
 export const REFLEX_GUNS = Object.freeze(['pistol', 'smg', 'shotgun', 'rifle', 'lmg']);
 export const WEAPON_OPTICS = Object.freeze({
-  standard: Object.freeze({ id: 'standard', name: 'STANDARD SIGHT', desc: 'The weapon’s original sight.', baseCosts: Object.freeze({}) }),
+  standard: Object.freeze({ id: 'standard', name: 'FACTORY SIGHT', desc: 'Iron sights on conventional guns; original built-in scope on specialist weapons.', baseCosts: Object.freeze({}) }),
   wide_reflex: Object.freeze({ id: 'wide_reflex', name: 'OPEN REFLEX', desc: 'A clear, wider window with an illuminated aiming dot.',
     baseCosts: Object.freeze({ pistol: 750, smg: 900, shotgun: 1200, rifle: 1500, lmg: 1800 }) }),
+  combat_3x: Object.freeze({ id: 'combat_3x', name: '3X COMBAT SCOPE', desc: 'A physical magnified optic with a clear illuminated reticle and wider view than the Longbow’s factory scope.',
+    scope: true, scopeFov: 24, adsZoom: 3,
+    baseCosts: Object.freeze({ rifle: 5000, sniper: 6500 }) }),
 });
 
 export const REFLEX_WINDOW = Object.freeze({ width: .034, height: .030, centerY: .027, lensZ: .015 });
@@ -19,8 +24,7 @@ export const REFLEX_MOUNTS = Object.freeze({
 });
 
 export function compatibleWeaponOptic(weaponId, opticId) {
-  return Object.hasOwn(WEAPONS, weaponId) && Object.hasOwn(WEAPON_OPTICS, opticId)
-    && (opticId === 'standard' || Object.hasOwn(WEAPON_OPTICS[opticId].baseCosts, weaponId));
+  return Object.hasOwn(WEAPONS, weaponId) && Object.hasOwn(WEAPON_OPTICS, opticId) && compatiblePortableOptic(weaponId, opticId);
 }
 export function sanitizeOpticId(weaponId, opticId) { return compatibleWeaponOptic(weaponId, opticId) ? opticId : 'standard'; }
 

@@ -15,7 +15,9 @@ import { sanitizeVisualLevels, visualKey } from '../view/car_upgrade_plan.js';
 import { CrewView } from '../view/crew_view.js';
 import { WeaponView } from '../view/weapon_view.js';
 import { MountedGun } from '../view/mounted_gun.js';
-import { REFLEX_GUNS, sanitizeOpticId, weaponOpticKey } from '../data/weapon_optics.js';
+import { WEAPON_OPTICS, compatibleWeaponOptic, sanitizeOpticId } from '../data/weapon_optics.js';
+import { WEAPON_ATTACHMENT_ORDER, sanitizeWeaponAttachmentIds } from '../data/weapon_attachments.js';
+import { weaponVisualKey } from '../view/weapon_attachments.js';
 import { MenuPost, warmScene } from './menu_post.js';
 import { TitleScene } from './title_scene.js';
 import { buildGarageSet, BENCH, SUN_DIR, DOOR, BACK_Z } from './garage_env.js';
@@ -83,7 +85,7 @@ export class GarageScene {
     s.add(this.sparks.mesh);
     // ---------------------------------------------------------------- truck / crew / bench weapon
     this.view = null; this.truckId = null; this.paint = null; this.crew = []; this.crewQ = new THREE.Quaternion();
-    this.base = { truck: 'player_sedan_t1', paint: 0x8f6a3d, weapon: 'pistol', opticId: 'standard', upgradeLevels: sanitizeVisualLevels() };
+    this.base = { truck: 'player_sedan_t1', paint: 0x8f6a3d, weapon: 'pistol', opticId: 'standard', weaponLevels: {}, weaponAttachments: [], upgradeLevels: sanitizeVisualLevels() };
     this.preview = {};
     this.benchWeapon = null; this.benchId = null; this.benchDrop = 0;
     this.drop = 0;
@@ -180,7 +182,13 @@ export class GarageScene {
     }
     g.userData.warmWeaponViews = [];
     for (const w of WEAPON_IDS) { const v = w === 'minigun' ? new MountedGun(w) : new WeaponView(w); g.add(v.root); g.userData.warmWeaponViews.push(v); }
-    for (const w of REFLEX_GUNS) { const v = new WeaponView(w, { opticId: 'wide_reflex' }); g.add(v.root); g.userData.warmWeaponViews.push(v); }
+    for (const w of WEAPON_IDS) {
+      const levels = { dmg: 3, mag: 3, rel: 3, hnd: 3 }, attachments = sanitizeWeaponAttachmentIds(w, WEAPON_ATTACHMENT_ORDER);
+      for (const opticId of Object.keys(WEAPON_OPTICS).filter(id => compatibleWeaponOptic(w, id))) {
+        const v = w === 'minigun' ? new MountedGun(w, { opticId, levels, attachments }) : new WeaponView(w, { opticId, levels, attachments });
+        g.add(v.root); g.userData.warmWeaponViews.push(v);
+      }
+    }
     g.userData.warmCrewViews = [new CrewView('hero_gunner', { role: 'gunner', weapon: 'rifle' }), new CrewView('hero_driver', { role: 'driver' })];
     for (const crew of g.userData.warmCrewViews) g.add(crew.root);
     this.scene.add(g);
@@ -236,7 +244,7 @@ export class GarageScene {
   /** Show the player's chassis and owned {weapon, opticId, upgradeLevels}. */
   setTruck(id, paint, loadout) {
     const weapon = loadout?.weapon || 'pistol';
-    this.base = { truck: id, paint, weapon, opticId: sanitizeOpticId(weapon, loadout?.opticId), upgradeLevels: sanitizeVisualLevels(loadout?.upgradeLevels) };
+    this.base = { truck: id, paint, weapon, opticId: sanitizeOpticId(weapon, loadout?.opticId), weaponLevels: { ...(loadout?.weaponLevels || {}) }, weaponAttachments: sanitizeWeaponAttachmentIds(weapon, loadout?.weaponAttachments), upgradeLevels: sanitizeVisualLevels(loadout?.upgradeLevels) };
     this._apply();
   }
   /** Shop previews: {truck?, paint?, weapon?, opticId?, upgradeLevels?}. */
@@ -266,8 +274,9 @@ export class GarageScene {
     const truck = this.preview.truck || this.base.truck;
     const weapon = this.preview.weapon || this.base.weapon;
     const want = { truck, paint: this.preview.paint ?? this.base.paint, weapon, opticId: sanitizeOpticId(weapon, this.preview.opticId ?? (weapon === this.base.weapon ? this.base.opticId : 'standard')),
+      weaponLevels: this.preview.weaponLevels ?? (weapon === this.base.weapon ? this.base.weaponLevels : {}), weaponAttachments: sanitizeWeaponAttachmentIds(weapon, this.preview.weaponAttachments ?? (weapon === this.base.weapon ? this.base.weaponAttachments : [])),
       upgradeLevels: sanitizeVisualLevels(this.preview.upgradeLevels ?? (truck === this.base.truck ? this.base.upgradeLevels : {})) };
-    const truckKey = `${want.truck}`, crewKey = `${want.truck}:${weaponOpticKey(this.base.weapon, this.base.opticId)}`;
+    const truckKey = `${want.truck}`, crewKey = `${want.truck}:${weaponVisualKey(this.base.weapon, this.base.opticId, this.base.weaponLevels, this.base.weaponAttachments)}`;
     let fitChanged = false;
     if (truckKey !== this.truckKey) { this._buildTruck(want.truck); this.truckKey = truckKey; this.crewKey = null; this.drop = 1; fitChanged = true; }
     const appearanceKey = visualKey(want.upgradeLevels);
@@ -276,9 +285,9 @@ export class GarageScene {
       this.view?.root.traverse(o => o.layers.enable(REFL));
       fitChanged = true;
     }
-    if (crewKey !== this.crewKey) { this._buildCrew(this.base.weapon, this.base.opticId); this.crewKey = crewKey; fitChanged = true; }
+    if (crewKey !== this.crewKey) { this._buildCrew(this.base.weapon, this.base.opticId, this.base.weaponLevels, this.base.weaponAttachments); this.crewKey = crewKey; fitChanged = true; }
     if (want.paint !== this.paint) { this.paint = want.paint; this.view?.setTint(want.paint, 0x30302e); }
-    if (weaponOpticKey(want.weapon, want.opticId) !== this.benchId) { this._buildBench(want.weapon, want.opticId); }
+    if (weaponVisualKey(want.weapon, want.opticId, want.weaponLevels, want.weaponAttachments) !== this.benchId) { this._buildBench(want.weapon, want.opticId, want.weaponLevels, want.weaponAttachments); }
     if (fitChanged) this.hummerEnvelope = this.spec?.id === HUMMER_GARAGE_ID ? new HummerGarageEnvelope(this.view, this.crew, this.turntable) : this.spec?.id === TANK_GARAGE_ID ? new TankGarageEnvelope(this.view, this.crew, this.turntable) : null;
     if (this.title && this.stage === 'title') this.title.setHero(this.base.truck, this.base.paint, this.base.weapon, this.base);
   }
@@ -300,27 +309,27 @@ export class GarageScene {
     this.paint = null; // re-tint below
     this.appearanceKey = null;
   }
-  _buildCrew(weapon, opticId = 'standard') {
+  _buildCrew(weapon, opticId = 'standard', levels = {}, attachments = []) {
     for (const c of this.crew) c.dispose(); this.crew = []; this.gunnerCrew = null;
     const spec = this.spec; if (!spec || !this.view) return;
-    if (spec.seats.gunner) { const g = new CrewView('hero_gunner', { role: 'gunner', weapon: weapon || 'pistol', opticId }); this.view.root.add(g.root); g.attach(this.view, spec.seats.gunner); this.crew.push(g); this.gunnerCrew = g; }
+    if (spec.seats.gunner) { const id = weapon || 'pistol'; const g = new CrewView('hero_gunner', { role: 'gunner', weapon: id, opticId, weaponOptics: { [id]: opticId }, weaponLevels: { [id]: levels }, weaponAttachments: { [id]: attachments } }); this.view.root.add(g.root); g.attach(this.view, spec.seats.gunner); this.crew.push(g); this.gunnerCrew = g; }
     if (spec.seats.driver) { const d = new CrewView('hero_driver', { role: 'driver' }); this.view.root.add(d.root); d.attach(this.view, spec.seats.driver); this.crew.push(d); }
     for (const c of this.crew) {
       c.root.traverse((o) => o.layers.enable(REFL));
       c.weapon?.root.traverse((o) => o.layers.enable(REFL));
     }
   }
-  _buildBench(id, opticId = 'standard') {
+  _buildBench(id, opticId = 'standard', levels = {}, attachments = []) {
     if (this.benchWeapon) {
       const old = this.benchWeapon; old.root.removeFromParent(); old.view.root.removeFromParent(); old.view.dispose?.();
       old.root.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
       this.benchWeapon = null;
     }
-    this.benchId = weaponOpticKey(id, opticId);
+    this.benchId = weaponVisualKey(id, opticId, levels, attachments);
     // Handheld previews use the hanging bench lamp's original table target.
     this.benchLight?.target.position.copy(BENCH);
     if (!id) return;
-    const w = id === 'minigun' ? new MountedGun(id) : new WeaponView(id, { opticId });
+    const w = id === 'minigun' ? new MountedGun(id, { opticId, levels, attachments }) : new WeaponView(id, { opticId, levels, attachments });
     // Centre the model, with its muzzle toward -z. A mounted gun keeps its
     // full-height upright pedestal rather than occupying the table lamp.
     const holder = new THREE.Group(); holder.add(w.root);

@@ -1,4 +1,5 @@
 // Weapon tables. Damage units: enemy sedan ~90 car HP / 40 crew HP. rpm = shots/min. Angles in degrees.
+import { compatibleWeaponAttachment } from '../../server/saves/weapon_attachment_support.js';
 export const WEAPONS = {
   pistol: {
     id: 'pistol', name: 'RANGER 9', slot: 0, cost: 0, mode: 'semi', rpm: 330, dmg: 11, pellets: 1, mag: 12, reload: 1.35,
@@ -50,26 +51,49 @@ export const WEAPONS = {
     desc: 'Deck-mounted rotary gun. Traverse on the pedestal, aim through the open reflex, and feed it a fresh ammo drum.',
   },
 };
-// purchase prices follow the shop's COST_SCALE (1.25, see upgrades.js); baseCost drives upgrade-track prices
-for (const w of Object.values(WEAPONS)) { w.baseCost = w.cost; w.cost = Math.round(w.cost * 1.25); }
+// Prices are final dollars, calibrated to campaign payouts. Campaign-clear
+// gates are independent of cash, so farming chapter one cannot buy endgame guns.
+// Retain historical baseCost for paid upgrade tiers rather than multiplying
+// their prices again when the base gun becomes more expensive.
+export const WEAPON_PROGRESSION = Object.freeze({
+  pistol: Object.freeze({ unlockLevel: 1, cost: 0 }),
+  revolver: Object.freeze({ unlockLevel: 2, cost: 4500 }),
+  smg: Object.freeze({ unlockLevel: 2, cost: 6500 }),
+  shotgun: Object.freeze({ unlockLevel: 3, cost: 8500 }),
+  rifle: Object.freeze({ unlockLevel: 4, cost: 18000 }),
+  sniper: Object.freeze({ unlockLevel: 5, cost: 32000 }),
+  lmg: Object.freeze({ unlockLevel: 6, cost: 44000 }),
+  rpg: Object.freeze({ unlockLevel: 7, cost: 70000 }),
+  minigun: Object.freeze({ unlockLevel: 9, cost: 105000 }),
+});
+for (const w of Object.values(WEAPONS)) {
+  w.baseCost = w.cost;
+  Object.assign(w, WEAPON_PROGRESSION[w.id]);
+}
 
 export const WEAPON_ORDER = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'lmg', 'sniper', 'rpg', 'minigun'];
 
 export const GRENADE = { name: 'FRAG', fuse: 2.1, blast: 9.5, dmg: 190, speed: 24, cooldown: 7, count: 2, upgrades: 4 };
 
 /** Stat multipliers from a weapon's upgrade levels {dmg,mag,rel,hnd} (each 0..5). */
-export function weaponStats(id, lv = {}) {
+export function weaponStats(id, lv = {}, attachments = []) {
   const w = WEAPONS[id];
   const d = lv.dmg || 0, m = lv.mag || 0, r = lv.rel || 0, h = lv.hnd || 0;
+  const installed = attachment => Array.isArray(attachments) && attachments.includes(attachment) && compatibleWeaponAttachment(id, attachment);
+  const extended = installed('extended_mag'), laser = installed('laser');
+  const foregrip = installed('foregrip'), stock = installed('stock');
+  const magMul = Math.max(1 + 0.18 * m, extended ? 1.45 : 1);
+  const attachmentRecoil = (foregrip ? .92 : 1) * (stock ? .82 : 1);
   return {
     ...w,
     dmg: w.dmg * (1 + 0.14 * d),
-    mag: Math.round(w.mag * (1 + 0.18 * m)),
+    mag: Math.round(w.mag * magMul),
+    spread: laser ? { ...w.spread, hip: w.spread.hip * .8 } : w.spread,
     reload: w.reload * (1 - 0.09 * r),
     boltTime: w.boltTime ? w.boltTime * (1 - 0.06 * r) : undefined,
     pumpTime: w.pumpTime ? w.pumpTime * (1 - 0.06 * r) : undefined,
-    spreadMul: 1 - 0.08 * h,
-    recoilMul: 1 - 0.09 * h,
+    spreadMul: Math.min(1 - 0.08 * h, foregrip ? .90 : 1),
+    recoilMul: Math.min(1 - 0.09 * h, attachmentRecoil),
     rate: w.rpm / 60,
   };
 }

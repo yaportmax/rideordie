@@ -22,8 +22,12 @@ function fixture(t, id, ads = 0) {
 function solidHits(gun, origin, direction) {
   gun.root.updateMatrixWorld(true);
   const probes = [], material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
-  gun.model.traverse(mesh => {
+  gun.root.traverse(mesh => {
     if (!mesh.isMesh || mesh.material.isShaderMaterial || gun.lenses?.includes(mesh) || /glass|lens/.test(mesh.material.name || '')) return;
+    // Include added root-owned factory irons, and honor each physical node's
+    // visibility. A cached gun root can be hidden by the VM while its geometry
+    // is deliberately queried here, so stop at that container, not its camera.
+    for (let parent = mesh; parent && parent !== gun.root; parent = parent.parent) if (!parent.visible) return;
     const proxy = new THREE.Mesh(mesh.geometry, material); proxy.matrixWorld.copy(mesh.matrixWorld); probes.push(proxy);
   });
   try { return new THREE.Raycaster(new THREE.Vector3(...origin), new THREE.Vector3(...direction).normalize(), 0, 1).intersectObjects(probes, false); }
@@ -32,7 +36,7 @@ function solidHits(gun, origin, direction) {
 function choose(gun, ads) { for (const cut of gun.adsCut) cut.mesh.geometry = ads ? cut.keep : cut.full; }
 function unpose(gun) { gun.root.position.set(0, 0, 0); gun.root.quaternion.identity(); }
 
-for (const [id, y, z, x] of [['rifle', .1585, -.09, 0], ['lmg', .146, -.03, 0], ['sniper', .124, -.20, 0], ['rpg', .106, -.20, .064]]) {
+for (const [id, y, z, x] of [['lmg', .146, -.03, 0], ['sniper', .124, -.20, 0], ['rpg', .106, -.20, .064]]) {
   test(`${id}: actual solid optic caps open a bounded viewing aperture`, t => {
     const { vm } = fixture(t, id), gun = vm.gun; unpose(gun);
     assert.ok(solidHits(gun, [x + .0008, y + .0008, z], [0, 0, 1]).length, 'the original authored cap reproduces the blocker');
@@ -44,6 +48,24 @@ for (const [id, y, z, x] of [['rifle', .1585, -.09, 0], ['lmg', .146, -.03, 0], 
     assert.ok(solidHits(gun, [x + .0008, y + .0008, z], [0, 0, 1]).length, 'hip geometry returns to the full original');
   });
 }
+
+test('rifle factory U-notch and blade retain a real open sight line while the baked red dot stays hidden', t => {
+  const { vm } = fixture(t, 'rifle'), gun = vm.gun; unpose(gun);
+  assert.equal(gun.nodes.optic.visible, false); assert.ok(gun.factorySight); assert.equal(gun.optic, null);
+  assert.equal(gun.sockets.factory_sight, gun.factorySight.aim);
+  assert.deepEqual(gun.tune.adsSight, [0, .1592, -.170]); assert.equal(gun.tune.reticle, null);
+  for (const ads of [false, true]) {
+    choose(gun, ads);
+    for (const dx of [-.0008, 0, .0008]) for (const dy of [.0004, .0008]) {
+      assert.equal(solidHits(gun, [dx, .1592 + dy, -.170], [0, 0, 1]).length, 0, 'real aperture above the aligned blade stays open');
+    }
+    const postHits = solidHits(gun, [0, .1586, -.170], [0, 0, 1]);
+    assert.ok(postHits.some(hit => hit.point.z > .403 && hit.point.z < .407), 'actual front blade remains solid and visible');
+    const earHits = solidHits(gun, [.010, .160, -.170], [0, 0, 1]);
+    assert.ok(earHits.some(hit => hit.point.z > -.107 && hit.point.z < -.093), 'actual rear protective ear remains solid');
+    assert.equal(gun.nodes.optic.visible, false, 'hip/ADS does not restore a free red dot over the new irons');
+  }
+});
 
 test('SMG opens only the hood caps, retains its front post, and clears the aligned sight ray', t => {
   const { vm } = fixture(t, 'smg'), gun = vm.gun; unpose(gun);
@@ -113,22 +135,24 @@ test('rear ghost-ring windows retain solid outer housings and original hip geome
   }
 });
 
-test('optional sight preparation preserves unsupported meshes while still opening the actual rifle optic', t => {
-  const { vm } = fixture(t, 'rifle'), gun = vm.gun; unpose(gun);
+test('optional sight preparation preserves unsupported meshes while still opening the actual LMG optic', t => {
+  const { vm } = fixture(t, 'lmg'), gun = vm.gun; unpose(gun);
   const grouped = new THREE.BoxGeometry(.02, .02, .04), unindexed = new THREE.PlaneGeometry(.02, .02).toNonIndexed();
   const material = new THREE.MeshBasicMaterial(), added = [grouped, unindexed].map(geometry => new THREE.Mesh(geometry, material));
-  for (const mesh of added) { mesh.position.set(0, .1585, -.04); gun.root.add(mesh); }
+  for (const mesh of added) { mesh.position.set(0, .146, -.04); gun.root.add(mesh); gun.nodes.feed_cover.attach(mesh); }
   t.after(() => { for (const mesh of added) mesh.removeFromParent(); grouped.dispose(); unindexed.dispose(); material.dispose(); });
   const cuts = gun.prepareSightBores();
   assert.ok(cuts.some(cut => {
-    for (let node = cut.mesh; node; node = node.parent) if (node.name === 'optic') return true;
+    for (let node = cut.mesh; node; node = node.parent) if (node.name === 'feed_cover') return true;
     return false;
-  }), 'the real indexed authored optic still receives its exact bore after preserving its replacement boundary');
+  }), 'the real indexed authored ghost ring still receives its exact bore');
   for (const mesh of added) assert.ok(!cuts.some(cut => cut.mesh === mesh), 'unsupported groups or nonindexed data retain their original geometry');
   assert.equal(added[0].geometry, grouped); assert.equal(added[1].geometry, unindexed);
   for (const cut of cuts) cut.mesh.geometry = cut.keep;
+  // Those deliberately opaque unsupported neighbors remain intact. Remove the
+  // injected obstacles before checking the supported authored aperture itself.
   for (const mesh of added) mesh.removeFromParent();
-  assert.equal(solidHits(gun, [.0008, .1593, -.09], [0, 0, 1]).length, 0, 'supported optical opening is not weakened by optional unsupported neighbors');
+  assert.equal(solidHits(gun, [.0008, .1468, -.03], [0, 0, 1]).length, 0, 'supported authored optical opening remains open');
 });
 
 test('all eight retain full hip/reload/external models and cache only ADS variants', t => {
@@ -155,27 +179,36 @@ test('all eight retain full hip/reload/external models and cache only ADS varian
 });
 
 test('all optical glass stays transparent and cannot write an opaque depth cap', t => {
-  const { vm } = fixture(t, 'rifle', 1);
-  for (const id of ['rifle', 'sniper', 'rpg']) {
-    const gun = vm._gunFor(id); assert.ok(gun.lenses.length, `${id}: actual glass is recognized`);
-    for (const lens of gun.lenses) {
+  const { vm, state, gunner } = fixture(t, 'rifle', 1);
+  const visibleLenses = gun => gun.lenses.filter(lens => {
+    for (let parent = lens; parent && parent !== gun.root; parent = parent.parent) if (!parent.visible) return false;
+    return true;
+  });
+  assert.ok(vm.gun.factorySight); assert.equal(visibleLenses(vm.gun).length, 0, 'free rifle irons contain no visible optic glass');
+  for (const [id, opticId] of [['rifle', 'wide_reflex'], ['rifle', 'combat_3x'], ['sniper', 'standard'], ['rpg', 'standard']]) {
+    const gun = vm._gunFor(id, opticId), lenses = visibleLenses(gun); assert.ok(lenses.length, `${id}/${opticId}: actual visible glass is recognized`);
+    for (const lens of lenses) {
       assert.equal(lens.material.transparent, true); assert.equal(lens.material.depthWrite, false);
       assert.ok(lens.material.opacity <= .14 && lens.material.opacity > 0);
     }
   }
-  assert.ok(vm.gun.lenses.every(lens => Math.abs(lens.material.opacity - .035) < 1e-9), 'settled rifle ADS glass remains nearly clear');
+  gunner.optics = { rifle: 'combat_3x' }; gunner.weapon = { ...WEAPONS.rifle, opticId: 'combat_3x', scope: true };
+  vm.update(0, state, true);
+  assert.ok(visibleLenses(vm.gun).length, 'settled paid rifle still has its actual physical lenses');
+  assert.ok(visibleLenses(vm.gun).every(lens => Math.abs(lens.material.opacity - .035) < 1e-9), 'settled paid rifle ADS glass remains nearly clear');
 });
 
 test('authored rear and front sights align through the actual ADS transform', t => {
   const { vm } = fixture(t, 'smg', 1);
   const lines = {
+    rifle: [[0, .1592, -.100], [0, .1592, .405]],
     smg: [[0, .107, -.06], [0, .1115, .293]],
     shotgun: [[0, .09, .008], [0, .0785, .6565]],
     lmg: [[0, .146, -.0105], [0, .140, .602]],
     revolver: [[0, .0996, .0364], [0, .0984, .2435]],
   };
   for (const [id, points] of Object.entries(lines)) {
-    const T = vm.T = id === 'smg' ? vm.T : (() => {
+    const T = vm.T = (() => {
       const gunner = { weaponId: id, weapon: WEAPONS[id], slots: [id], shots: 0, pos: new THREE.Vector3(), magNow: WEAPONS[id].mag };
       vm.update(0, { local: { camera: vm.cam, gunner, adsK: 1 }, vel: new THREE.Vector3() }, true); return vm.T;
     })();

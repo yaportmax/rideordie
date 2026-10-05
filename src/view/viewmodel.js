@@ -17,10 +17,11 @@ import * as THREE from 'three';
 import * as Assets from '../core/assets.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { WeaponView } from './weapon_view.js';
-import { splitIslands } from './fp_cutaway.js';
+import { splitIslands, canCutViewmodelMesh } from './fp_cutaway.js';
 import { ownClonedSkeletons, disposeOwnedSkeletons, disposeOwnedSkeletonsIn } from './owned_skeletons.js';
-import { REFLEX_GUNS, sanitizeOpticId, weaponOpticKey } from '../data/weapon_optics.js';
+import { REFLEX_GUNS, sanitizeOpticId } from '../data/weapon_optics.js';
 import { configureReflexProjection } from './reflex_optic.js';
+import { weaponVisualKey } from '../data/weapon_visual_config.js';
 import { prepareLocalSkinning } from './local_skinning.js';
 
 export const FP_ARMS_URL = '/models/characters/fp_arms.glb';
@@ -557,15 +558,15 @@ export class ViewModel {
   }
 
   /** Viewmodel copy of a weapon (patched materials, own mechanics). */
-  _gunFor(id, opticId = 'standard') {
+  _gunFor(id, opticId = 'standard', levels = {}, attachments = [], key = weaponVisualKey(id, opticId, levels, attachments)) {
     // A deck-mounted gun has moving world sockets and must never be copied into
     // the projected hand-held rig, including loadout prewarming on camera attach.
     if (id === 'minigun') return null;
     opticId = sanitizeOpticId(id, opticId);
-    const key = weaponOpticKey(id, opticId);
+
     let g = this.guns.get(key);
     if (g) return g;
-    const w = new WeaponView(id, { opticId });
+    const w = new WeaponView(id, { opticId, levels, attachments });
     ownClonedSkeletons(w.model);
     w.lenses = [];
     w.root.traverse((o) => {
@@ -585,7 +586,9 @@ export class ViewModel {
     w.loc = {};
     for (const [n, s] of Object.entries(w.sockets)) { s.updateWorldMatrix(true, false); const mm = new THREE.Matrix4().multiplyMatrices(_m, s.matrixWorld); w.loc[n] = { p: new THREE.Vector3().setFromMatrixPosition(mm), q: new THREE.Quaternion().setFromRotationMatrix(mm) }; }
     w.tune = w.optic ? { ...TUNE[id], adsSight: w.loc.optic_sight.p.toArray(), adsRot: [0, 0, 0],
-      relief: w.optic.mount.relief, fov: [TUNE[id].fov[0], 52], reticle: null } : TUNE[id];
+      relief: w.optic.mount.relief, fov: [TUNE[id].fov[0], w.optic.mount.adsFov ?? 52], reticle: null } : w.factorySight ?
+      { ...TUNE[id], ...w.factorySight.tune, adsSight: w.loc.factory_sight.p.toArray(),
+        fov: [TUNE[id].fov[0], w.factorySight.tune.adsFov], reticle: null } : TUNE[id];
     // Parts hidden while aiming: the shoulder stock passes through the eye at
     // iron-sight eye relief. Include static body children and express weapon-root
     // cut boxes in each mesh's geometry space; moving mechanics keep their parts.
@@ -594,7 +597,7 @@ export class ViewModel {
     if (cut) {
       const toMesh = new THREE.Matrix4(), bounds = new THREE.Box3();
       w.root.traverse((o) => {
-        if (!o.isMesh || o.isSkinnedMesh || Array.isArray(o.material)) return;
+        if (!canCutViewmodelMesh(o)) return;
         for (let p = o; p && p !== w.model; p = p.parent) {
           if (/^(slide|bolt|pump|mag|trigger|hammer|cylinder|crane|charging_handle|feed_cover|belt|rocket|bolt_handle)$/.test(p.name)) return;
         }
@@ -610,7 +613,7 @@ export class ViewModel {
     // immutable and cached; hip fire, reload and external models keep the full asset.
     for (const entry of w.adsCut) entry.mesh.geometry = entry.keep;
     try {
-      for (const entry of w.prepareSightBores(w.optic ? [] : undefined)) {
+      for (const entry of w.prepareSightBores(w.optic || w.factorySight ? [] : undefined)) {
         const existing = w.adsCut.find(c => c.mesh === entry.mesh);
         if (existing) existing.keep = entry.keep;
         else w.adsCut.push(entry);
@@ -636,6 +639,14 @@ export class ViewModel {
       const reflex = vm._gunFor(id, 'wide_reflex'); reflex.root.visible = true;
       if (reflex.optic) reflex.optic.reticle.visible = true;
     }
+    for (const id of ['rifle', 'sniper']) {
+      const scoped = vm._gunFor(id, 'combat_3x'); scoped.root.visible = true;
+      if (scoped.optic) scoped.optic.reticle.visible = true;
+    }
+    // Two boot exemplars cover the bare PBR laser/polymer/rubber/metal material
+    // programs. Do not prewarm the Cartesian set of every paid loadout.
+    const modified = vm._gunFor('smg', 'standard', { dmg: 3, mag: 3, rel: 3, hnd: 3 }, ['extended_mag', 'laser', 'foregrip', 'stock']);
+    modified.root.visible = true;
     for (const f of [vm.flashStar, vm.flashCone, vm.reticle]) { f.visible = true; vm.root.add(f); }
     vm.shell.visible = true; vm.root.add(vm.shell);
     // the thrown grenade / fired rocket meshes (WorldView: plain MeshStandardMaterial, default shadow flags) share this program
@@ -664,7 +675,7 @@ export class ViewModel {
     const L = s.local, cam = L.camera, G = L.gunner;
     if (!cam || !G) return;
     if (G.weaponId === 'minigun') { this.setVisible(false); return; }
-    if (this.root.parent !== cam) { cam.add(this.root); for (const id of G.slots) this._gunFor(id, G.optics?.[id]); }   // build only the equipped loadout up front (no hitch on swap)
+    if (this.root.parent !== cam) { cam.add(this.root); for (const id of G.slots) this._gunFor(id, G.optics?.[id], G.levels?.[id], G.attachments?.[id], G.visualKeys?.[id]); }   // build only the equipped loadout up front (no hitch on swap)
     this.setVisible(show); this.scopedNow = !!L.scoped;
     dt = Math.min(dt, 0.05);
     this.t += dt;
@@ -675,11 +686,11 @@ export class ViewModel {
     const sw = G.swapT > 0 ? G.swapT / 0.42 : 0;                     // 1 -> 0
     const showId = sw > 0.5 && this.prevId ? this.prevId : id;
     const opticId = sanitizeOpticId(showId, G.optics?.[showId] || (showId === id ? W.opticId : 'standard'));
-    const showKey = weaponOpticKey(showId, opticId);
+    const showKey = G.visualKeys?.[showId] || weaponVisualKey(showId, opticId, G.levels?.[showId], G.attachments?.[showId]);
     const lower = sw > 0.5 ? (1 - sw) * 2 : sw * 2;                  // 0..1..0
     if (showKey !== this.shownKey) {
       if (this.gun) this.gun.root.visible = false;
-      this.gun = this._gunFor(showId, opticId); this.shownId = showId; this.shownKey = showKey; this.T = this.gun.tune || TUNE.rifle;
+      this.gun = this._gunFor(showId, opticId, G.levels?.[showId], G.attachments?.[showId], showKey); this.shownId = showId; this.shownKey = showKey; this.T = this.gun.tune || TUNE.rifle;
       for (const f of [this.flashStar, this.flashCone, this.flashStar2]) this.gun.sockets.muzzle ? this.gun.sockets.muzzle.add(f) : null;
       if (this.T.reticle && this.gun.sockets.sight) this.gun.sockets.sight.add(this.reticle); else this.reticle.removeFromParent();
       this.reticle.position.set(0, 0, this.T.reticle || 0.1);
@@ -1194,5 +1205,10 @@ export class ViewModel {
     return true;
   }
   muzzleWorld(out) { return this._apparent(this.muzzleCam, out); }
+  laserWorld(out) {
+    const emitter = this.gun?.sockets.laser_emitter;
+    if (!emitter || !this.cam) return false;
+    emitter.getWorldPosition(_v); this.cam.worldToLocal(_v); return this._apparent(_v, out);
+  }
   ejectWorld(out, dirOut) { if (dirOut && this.cam) dirOut.copy(this.ejectDirCam).applyQuaternion(this.cam.getWorldQuaternion(_q)); return this._apparent(this.ejectCam, out); }
 }

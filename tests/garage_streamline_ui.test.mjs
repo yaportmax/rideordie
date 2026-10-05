@@ -5,6 +5,7 @@ import { DEFAULT_PROFILE, TRUCKS, UPGRADE_BY_ID, upgradeLevel } from '../src/dat
 import { buyTruck, selectTruck, buyUpgrade, buyWeaponTrack } from '../src/meta/profile.js';
 import { normalizeFamilyUpgrades } from '../src/data/vehicle_families.js';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.js';
+import { normalizeCampaignProgress } from '../src/data/campaign.js';
 import { readFile } from 'node:fs/promises';
 
 // Logical UI methods and generated markup only. These tests never start a
@@ -102,6 +103,7 @@ test('family and chassis selection/preview use actual saved IDs, including rever
 
 test('weapon panels separate loadout, tuning and sight controls while preserving the weapon purchase action', () => {
   const s = screen(); s.tab = 'weapons'; s.selId.weapons = 'rifle';
+  s.p.campaignProgress = normalizeCampaignProgress({ cleared: [1, 2, 3], clearRuns: { 1: 'fixture-clear1', 2: 'fixture-clear2', 3: 'fixture-clear3' } });
   s.p.weapons.rifle = { dmg: 0, mag: 0, rel: 0, hnd: 0 }; s.p.loadout = ['rifle'];
   let markup = renderDetail(s);
   assert.equal((markup.content.match(/data-slot="/g) || []).length, 3);
@@ -113,10 +115,10 @@ test('weapon panels separate loadout, tuning and sight controls while preserving
   assert.deepEqual(s.weaponStatRows('rifle').map(row => row.label), ['SPREAD', 'RECOIL']);
   assert.ok(s.weaponStatRows('rifle').every(row => row.after != null));
   s.weaponPage = 'sights'; markup = renderDetail(s);
-  assert.equal((markup.content.match(/data-optic="/g) || []).length, 2);
+  assert.equal((markup.content.match(/data-optic="/g) || []).length, 3);
   assert.ok(!markup.content.includes('data-slot="')); assert.ok(!markup.content.includes('data-trk="'));
   delete s.p.weapons.rifle; s.p.loadout = ['pistol'];
-  for (const page of ['loadout', 'tuning', 'sights']) { s.weaponPage = page; assert.ok(renderDetail(s).footer.includes('data-buy="1"')); }
+  for (const page of ['loadout', 'tuning', 'sights', 'attachments']) { s.weaponPage = page; assert.ok(renderDetail(s).footer.includes('data-buy="1"')); }
 });
 
 test('page changes are previews, retain equip shortcuts, and keep paid sight purchase distinct from free equip', () => {
@@ -125,13 +127,14 @@ test('page changes are previews, retain equip shortcuts, and keep paid sight pur
   s.keepFocus = fn => fn(); s.renderDetail = () => {};
   s.switchWeaponPage('sights'); s.selectOptic('wide_reflex');
   assert.equal(s.events.some(event => event[0] === 'buy'), false);
-  assert.deepEqual(s.events.at(-1), ['view', 'weapons', 'rifle', 'wide_reflex']);
+  assert.deepEqual(s.events.at(-1), ['view', 'weapons', 'rifle', 'wide_reflex', { levels: { dmg: 0, mag: 0, rel: 0, hnd: 0 }, attachments: [] }]);
+  assert.ok(Object.isFrozen(s.events.at(-1)[4].levels)); assert.ok(Object.isFrozen(s.events.at(-1)[4].attachments));
   s.doOptic({ dataset: { opticBuy: 'wide_reflex' } });
   assert.deepEqual(s.events.at(-1), ['buy', 'weaponOptic', 'rifle', 'wide_reflex']);
   s.p.weaponOptics.rifle = { owned: ['standard', 'wide_reflex'], equipped: 'wide_reflex' };
   s.doOptic({ dataset: { opticBuy: 'standard' } });
   assert.deepEqual(s.events.at(-1), ['buy', 'equipWeaponOptic', 'rifle', 'standard']);
-  for (const page of ['loadout', 'tuning', 'sights']) {
+  for (const page of ['loadout', 'tuning', 'sights', 'attachments']) {
     s.switchWeaponPage(page); s.onKey({ code: 'Digit3' }, false);
     assert.deepEqual(s.events.at(-1), ['equip', 'rifle', 2]);
   }
@@ -140,7 +143,7 @@ test('page changes are previews, retain equip shortcuts, and keep paid sight pur
 test('controller page navigation reaches panel actions and returns to the selected row', () => {
   const s = screen(); s.tab = 'weapons';
   const node = dataset => ({ dataset, closest: () => null });
-  const pages = ['loadout', 'tuning', 'sights'].map(page => node({ weaponPage: page }));
+  const pages = ['loadout', 'tuning', 'sights', 'attachments'].map(page => node({ weaponPage: page }));
   const row = node({ row: 'pistol' }), slot = node({ slot: '0' });
   s.q = {
     rows: { querySelector: () => row }, foot: { contains: () => false, querySelector: () => null },
@@ -149,7 +152,8 @@ test('controller page navigation reaches panel actions and returns to the select
   };
   assert.equal(s.navOverride(pages[0], 'right'), pages[1]);
   assert.equal(s.navOverride(pages[1], 'left'), pages[0]);
-  assert.equal(s.navOverride(pages[2], 'right'), false);
+  assert.equal(s.navOverride(pages[2], 'right'), pages[3]);
+  assert.equal(s.navOverride(pages[3], 'right'), false);
   assert.equal(s.navOverride(pages[0], 'left'), row);
   assert.equal(s.navOverride(pages[0], 'down'), slot);
   assert.equal(s.navOverride(slot, 'up'), pages[0]);

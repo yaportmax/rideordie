@@ -7,6 +7,8 @@ import { mergeRigid } from '../src/core/merge.js';
 import { MountedGun, MINIGUN_DECK_OFFSET, MINIGUN_SOCKETS } from '../src/view/mounted_gun.js';
 import { WEAPONS, WEAPON_ORDER, weaponStats } from '../src/data/weapons.js';
 import { DEFAULT_PROFILE, effects, weaponTrackCost } from '../src/data/upgrades.js';
+import { normalizeProfile, buyWeapon } from '../src/meta/profile.js';
+import { creditCampaignLevel } from '../src/data/campaign.js';
 
 const bytes = readFileSync(new URL('../public/models/weapons/mounted_minigun.glb', import.meta.url));
 const jsonLength = bytes.readUInt32LE(12);
@@ -22,17 +24,25 @@ async function fixture(t) {
 }
 function close(a, b, message = '') { assert.ok(a.distanceTo(b) < 1e-7, `${message}: ${a.toArray()} versus ${b.toArray()}`); }
 
-test('minigun follows RPG, costs 18000, upgrades through ordinary weapon tracks and grants no durability', () => {
+test('minigun follows RPG, costs 105000 after chapter eight, upgrades through ordinary tracks and grants no durability', () => {
   const w = WEAPONS.minigun;
   assert.equal(WEAPON_ORDER.at(-2), 'rpg'); assert.equal(WEAPON_ORDER.at(-1), 'minigun');
-  assert.equal(w.cost, 18000); assert.ok(w.cost > WEAPONS.rpg.cost);
+  assert.equal(w.cost, 105000); assert.equal(w.unlockLevel, 9); assert.ok(w.cost > WEAPONS.rpg.cost);
   assert.equal(w.mode, 'auto'); assert.equal(w.mounted, true); assert.equal(w.model, 'mounted_minigun');
   assert.equal(w.sound, 'lmg'); assert.ok(w.soundPitch < 1);
   const upgraded = weaponStats('minigun', { dmg: 3, mag: 3, rel: 3, hnd: 3 });
   assert.ok(upgraded.dmg > w.dmg); assert.ok(upgraded.mag > w.mag); assert.ok(upgraded.reload < w.reload);
   assert.ok(upgraded.spreadMul < 1); assert.ok(upgraded.recoilMul < 1);
   assert.ok(weaponTrackCost('minigun', 'dmg', 2) > weaponTrackCost('minigun', 'dmg', 0));
+  const career = normalizeProfile(DEFAULT_PROFILE()); career.cash = 1000000;
+  const unearned = structuredClone(career);
+  assert.deepEqual(buyWeapon(career, 'minigun'), { ok: false, reason: 'progress' }); assert.deepEqual(career, unearned);
+  for (let level = 1; level < 9; level++) assert.equal(creditCampaignLevel(career,
+    { runId: `mounted-gun-earned-${level}`, level, mode: 'campaign', won: true }), true);
+  const cash = career.cash; assert.equal(buyWeapon(career, 'minigun').ok, true); assert.equal(career.cash, cash - 105000);
   const starter = DEFAULT_PROFILE(), bought = structuredClone(starter);
+  // Existing owned miniguns retain their purchased tuning independently of the
+  // fresh-career purchase gate; their mounted art/health effects stay unchanged.
   bought.weapons.minigun = { dmg: 3, mag: 3, rel: 3, hnd: 3 }; bought.loadout = ['minigun'];
   const a = effects(starter), b = effects(bought);
   for (const key of ['hpMul', 'bulletResist', 'gunnerHp', 'gunnerArmor', 'armorTier', 'driverHp', 'driverArmor']) {

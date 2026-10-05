@@ -11,15 +11,30 @@ import { DRIVING_ROUTE_VERSION } from '../world/driving_plan.js';
 import { CAMPAIGN_PROTOCOL, normalizeJourney, normalizeCampaignProgress, campaignJourney, selectCampaignLevel, creditCampaignLevel } from '../data/campaign.js';
 import { normalizeProfile, saveProfile, buyTruck, buyUpgrade, buyWeapon, buyWeaponTrack, equipWeapon, selectTruck, creditRun } from '../meta/profile.js';
 import { buyWeaponOptic, equipWeaponOptic } from '../meta/weapon_optics.js';
+import { buyWeaponAttachment, equipWeaponAttachment } from '../meta/weapon_attachments.js';
 import { TRUCK_COLORS } from '../data/upgrades.js';
 import { NET_PROTOCOL, RUN_JSON_TYPES, validRunId, createRunHeader, encodeRunPacket, decodeRunPacket } from './run_packet.js';
 
 const ROLES = new Set(['driver', 'gunner']);
+const ATTACHMENT_BUYS = new Set(['weaponAttachment', 'equipWeaponAttachment']);
+function attachmentCommand(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).length !== 2 || !Object.hasOwn(value, 'id') || !Object.hasOwn(value, 'enabled')
+    || typeof value.id !== 'string' || typeof value.enabled !== 'boolean') return null;
+  return { id: value.id, enabled: value.enabled };
+}
 const natural = (v) => Number.isFinite(v) ? Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.trunc(v))) : 0;
 const runId = (v) => validRunId(v) ? v : null;
-const walletOf = (p) => ({ playerId: p.campaignId, cash: natural(p.cash), totalCash: natural(p.totalCash), lastRunId: runId(p.coopLastRunId) });
+const careerLevel = v => Number.isInteger(v) && v >= 1 && v <= 10 ? v : 1;
+const walletOf = (p) => ({ playerId: p.campaignId, cash: natural(p.cash), totalCash: natural(p.totalCash), lastRunId: runId(p.coopLastRunId), weaponCareerLevel: normalizeCampaignProgress(p.campaignProgress).unlockedLevel });
+function readCareerCredit(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== 4
+    || !Object.hasOwn(value, 'runId') || !Object.hasOwn(value, 'level') || !Object.hasOwn(value, 'mode') || !Object.hasOwn(value, 'won')
+    || !runId(value.runId) || !Number.isInteger(value.level) || value.level < 1 || value.level > 10 || value.mode !== 'campaign' || value.won !== true) return null;
+  return { runId: value.runId, level: value.level, mode: 'campaign', won: true };
+}
 const readWallet = (v) => v && typeof v.playerId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(v.playerId)
-  ? { playerId: v.playerId, cash: natural(v.cash), totalCash: natural(v.totalCash), lastRunId: runId(v.lastRunId) } : null;
+  ? { playerId: v.playerId, cash: natural(v.cash), totalCash: natural(v.totalCash), lastRunId: runId(v.lastRunId), weaponCareerLevel: careerLevel(v.weaponCareerLevel), careerCredit: readCareerCredit(v.careerCredit) } : null;
 const JOURNEY_MODES = new Set(['campaign', 'marathon', 'legacy']);
 const sameJourney = (a, b) => !!(a && b && a.version === b.version && a.mode === b.mode && a.level === b.level);
 // Network commands are strict. Save/debug normalization must not silently turn
@@ -147,11 +162,20 @@ export class Session {
 
   // ---- shop (host authoritative)
   buy(kind, id, extra) {
-    if (this.isHost) return this._applyBuy({ kind, id, extra });
-    this.tp.send({ t: 'buy', kind, id, extra });
+    const context = ATTACHMENT_BUYS.has(kind) ? { phase: 'garage', epoch: this.swap.state.epoch, revision: this.swap.state.revision } : {};
+    if (this.isHost) return this._applyBuy({ kind, id, extra, ...context });
+    this.tp.send({ t: 'buy', kind, id, extra, ...context });
     return { ok: true, pending: true };
   }
   _applyBuy(m, peer = false) {
+    // New physical loadout changes cannot race an old garage, seat swap or
+    // running life. The payer is always the sender's existing wallet.
+    let attachment;
+    if (ATTACHMENT_BUYS.has(m.kind)) {
+      if (!this.swap.canRequest() || !this.swap._matches(m)) return { ok: false, reason: 'unavailable' };
+      attachment = attachmentCommand(m.extra);
+      if (!attachment || (m.kind === 'weaponAttachment' && !attachment.enabled)) return { ok: false, reason: 'invalid' };
+    }
     const wallet = peer ? this.peerWallet : walletOf(this.personalProfile);
     if (!wallet) return { ok: false, reason: 'wallet' };
     // Existing catalogue validation applies to a transaction funded only by
@@ -161,11 +185,13 @@ export class Session {
     if (m.kind === 'truck') r = buyTruck(p, m.id);
     else if (m.kind === 'select') r = selectTruck(p, m.id);
     else if (m.kind === 'upgrade') r = buyUpgrade(p, m.id);
-    else if (m.kind === 'weapon') r = buyWeapon(p, m.id);
+    else if (m.kind === 'weapon') r = buyWeapon(p, m.id, wallet.weaponCareerLevel);
     else if (m.kind === 'track' || m.kind === 'weaponTrack') r = buyWeaponTrack(p, m.id, m.extra);
     else if (m.kind === 'equip') r = equipWeapon(p, m.id, m.extra);
     else if (m.kind === 'weaponOptic') r = buyWeaponOptic(p, m.id, m.extra);
     else if (m.kind === 'equipWeaponOptic') r = equipWeaponOptic(p, m.id, m.extra);
+    else if (m.kind === 'weaponAttachment') r = buyWeaponAttachment(p, m.id, attachment.id);
+    else if (m.kind === 'equipWeaponAttachment') r = equipWeaponAttachment(p, m.id, attachment.id, attachment.enabled);
     else if (m.kind === 'color' && Number.isInteger(m.id) && m.id >= 0 && m.id < TRUCK_COLORS.length) { p.truckColor = m.id; r = { ok: true }; }
     if (r.ok) {
       const hostCash = this.profile.cash;
@@ -187,6 +213,14 @@ export class Session {
     const w = this.peerWallet;
     if (w && w.lastRunId !== run.id) {
       const cash = natural(run.cash); w.cash = natural(w.cash + cash); w.totalCash = natural(w.totalCash + cash); w.lastRunId = run.id; changed = true;
+      // Credit the person's next contiguous chapter, not the host's whole map.
+      // The complete summary has already passed _validSummary for this life.
+      w.careerCredit = null;
+      if (run.levelCleared === true && run.won === true && this.activeRunJourney.mode === 'campaign'
+        && this.activeRunJourney.level <= w.weaponCareerLevel) {
+        w.careerCredit = { runId: run.id, level: this.activeRunJourney.level, mode: 'campaign', won: true };
+        if (this.activeRunJourney.level === w.weaponCareerLevel) w.weaponCareerLevel = Math.min(10, w.weaponCareerLevel + 1);
+      }
     }
     if (run.levelCleared === true && creditCampaignLevel(this.profile, {
       runId: run.id, level: this.activeRunJourney.level, mode: this.activeRunJourney.mode, won: run.won === true,
@@ -229,7 +263,10 @@ export class Session {
     this._receivedCampaign = profile.campaignId; this._receivedRevision = profile.revision;
     this.wallet = wallet;
     const personal = this.personalProfile;
-    if (personal.cash !== wallet.cash || personal.totalCash !== wallet.totalCash || (personal.coopLastRunId || null) !== wallet.lastRunId) {
+    const receipt = wallet.careerCredit, context = this.activeRunJourney;
+    const creditedCareer = !!(receipt && context && receipt.runId === this.activeRunId && receipt.runId === wallet.lastRunId
+      && context.mode === 'campaign' && receipt.level === context.level && creditCampaignLevel(personal, receipt));
+    if (creditedCareer || personal.cash !== wallet.cash || personal.totalCash !== wallet.totalCash || (personal.coopLastRunId || null) !== wallet.lastRunId) {
       personal.cash = wallet.cash; personal.totalCash = wallet.totalCash; personal.coopLastRunId = wallet.lastRunId;
       saveProfile(personal);
     }

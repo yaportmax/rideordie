@@ -12,6 +12,8 @@ import { BOSS_ID } from '../data/boss.js';
 import { WEAPONS } from '../data/weapons.js';
 import { sanitizeVisualLevels } from '../view/car_upgrade_plan.js';
 import { sanitizeOpticId } from '../data/weapon_optics.js';
+import { weaponVisualLevels } from '../data/weapon_visual_config.js';
+import { sanitizeWeaponAttachmentIds } from '../data/weapon_attachments.js';
 import { GUNNER_ROLES } from '../sim/car.js';
 
 const ENEMY_PAINTS = [0x6d4a30, 0x7a3b2a, 0x4a5a3a, 0x59595a, 0x8a7a4a, 0x3d4a5f, 0x6a2f2f, 0x91856a];
@@ -44,6 +46,8 @@ export class WorldView {
     this.scene = opts.scene; this.playerPaint = opts.playerPaint ?? 0x8f6a3d;
     this.playerUpgradeLevels = Object.freeze(sanitizeVisualLevels(opts.playerUpgradeLevels));
     this.playerWeaponOptics = Object.freeze(Object.fromEntries(Object.entries(opts.playerWeaponOptics || {}).map(([id, optic]) => [id, sanitizeOpticId(id, optic)])));
+    this.playerWeaponLevels = Object.freeze(Object.fromEntries(Object.entries(opts.playerWeaponLevels || {}).map(([id, levels]) => [id, weaponVisualLevels(levels)])));
+    this.playerWeaponAttachments = Object.freeze(Object.fromEntries(Object.entries(opts.playerWeaponAttachments || {}).map(([id, ids]) => [id, Object.freeze(sanitizeWeaponAttachmentIds(id, ids))])));
     this.fx = opts.fx || null; this.audio = opts.audio || null;
     this.cars = new Map(); // id -> {view, crew:{gunner?,driver?}, state}
     this.viewMap = new Map(); // id -> CarView (for Fx)
@@ -76,7 +80,7 @@ export class WorldView {
       crewRadius: crewFrustumRadius(st.spec, st.ride?.restComHeight, st.kind) };
     // crew figures
     const s = st.spec;
-    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunNames?.[role] || st.gunName, nativeEnemyGun: st.kind === 'enemy' && !!s.gunMuzzles?.[role], weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
+    const mk = (role, kind, seat) => { const c = new CrewView(kind, { role, enemyGun: st.gunNames?.[role] || st.gunName, nativeEnemyGun: st.kind === 'enemy' && !!s.gunMuzzles?.[role], weapon: role === 'driver' ? null : (st.kind === 'player' ? this.playerWeapon : 'enemy'), weaponOptics: st.kind === 'player' ? this.playerWeaponOptics : undefined, weaponLevels: st.kind === 'player' ? this.playerWeaponLevels : undefined, weaponAttachments: st.kind === 'player' ? this.playerWeaponAttachments : undefined, seed: st.id }); view.root.add(c.root); c.attach(view, seat); c.groundY = this.groundY; return c; };
     // raider faces: 4 gunner types x 2 variants (+ 2 driver variants), picked deterministically from the car id
     const v2 = (n) => (((st.id * 2654435761) >>> (n + 3)) & 1 ? '2' : '');
     if (s.seats.driver) rec.crew.driver = mk('driver', st.kind === 'player' ? 'hero_driver' : s.crewModels?.driver || 'raider_driver' + v2(0), s.seats.driver);
@@ -139,6 +143,8 @@ export class WorldView {
         pose.weaponId = st.kind === 'player' ? (ctx.playerWeaponId || this.playerWeapon) : null;
         pose.enemyGun = st.kind === 'enemy' && role !== 'driver' ? st.gunNames?.[role] || st.gunName : null;
         pose.opticId = st.kind === 'player' ? sanitizeOpticId(pose.weaponId, this.playerWeaponOptics?.[pose.weaponId]) : 'standard';
+        pose.weaponLevels = st.kind === 'player' ? this.playerWeaponLevels?.[pose.weaponId] : undefined;
+        pose.weaponAttachments = st.kind === 'player' ? this.playerWeaponAttachments?.[pose.weaponId] : undefined;
         pose.steer = st.steer; pose.speed = st.speed; pose.quat = st.quat; pose.vel = st.vel;
         pose.local = st.kind === 'player' && role === 'gunner' && ctx.localGunner ? ctx.localGunner : st.kind === 'player' && role === 'driver' && ctx.localDriver ? ctx.localDriver : null;
         if (st.kind === 'player' && role === 'gunner' && ctx.localGunner) {

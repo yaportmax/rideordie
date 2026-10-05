@@ -53,7 +53,7 @@ test('both host seats preserve requester-only tank/upgrade funding, guest person
     assert.equal(savedHost.v, 3); assert.equal(savedHost.truck, TANK); assert.equal(savedHost.vehicleUpgrades.tank.armor, 1); assert.equal(savedHost.vehicleUpgrades.tank.engine, 1);
     assert.equal(savedGuest.truck, personal.truck); assert.deepEqual(savedGuest.vehicleUpgrades, personal.vehicleUpgrades);
     const before = structuredClone({ profile: guest.profile, personal: guest.personalProfile, wallet: guest.wallet }), disk = [...gs.data];
-    const future = { ...structuredClone(host.profile), v: 4 };
+    const future = { ...structuredClone(host.profile), v: 5 };
     assert.equal(guest._receiveProfile(future, { playerId: guest.personalProfile.campaignId, cash: 999999, totalCash: 999999 }), false);
     assert.deepEqual({ profile: guest.profile, personal: guest.personalProfile, wallet: guest.wallet }, before); assert.deepEqual([...gs.data], disk);
     host.leave(); guest.leave();

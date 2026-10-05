@@ -21,5 +21,5 @@ export function buildPlayerSpec(profile) {
 }
 
 export function gunnerLoadout(e) {
-  return { weapons: e.weapons, levels: e.weaponLevels, optics: e.weaponOptics, grenades: e.grenades, grenadeLv: e.grenadeLv, reloadMul: e.reloadMul, handling: e.handling };
+  return { weapons: e.weapons, levels: e.weaponLevels, optics: e.weaponOptics, attachments: e.weaponAttachments || {}, grenades: e.grenades, grenadeLv: e.grenadeLv, reloadMul: e.reloadMul, handling: e.handling };
 }

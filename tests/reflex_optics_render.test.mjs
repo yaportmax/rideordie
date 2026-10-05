@@ -47,12 +47,17 @@ test('pistol firing/racking and LMG reload move their actual optics with authore
   }
 });
 
-test('AR replacement hides the whole authored optic and does not hide receiver or alter sibling standard sight', () => {
+test('AR factory irons and paid reflex each hide their own baked optic without hiding receiver or changing a sibling', () => {
   const standard = new WeaponView('rifle'), reflex = new WeaponView('rifle', { opticId: 'wide_reflex' });
   const old = reflex.nodes.optic; let triangles = 0; old.traverse(mesh => { if (mesh.isMesh) triangles += (mesh.geometry.index?.count || mesh.geometry.attributes.position.count) / 3; });
-  assert.equal(triangles, 2640); assert.equal(old.visible, false); assert.equal(standard.nodes.optic.visible, true);
+  assert.equal(triangles, 2640); assert.equal(old.visible, false); assert.equal(standard.nodes.optic.visible, false);
+  assert.ok(standard.factorySight); assert.equal(standard.optic, null); assert.equal(reflex.factorySight, null);
+  assert.ok(standard.factorySight.root.parent); assert.equal(standard.factorySight.replaced, standard.nodes.optic);
+  assert.notEqual(old, standard.nodes.optic, 'each model owns its visibility state');
   const receiver = []; reflex.model.traverse(mesh => { if (mesh.isMesh && mesh !== reflex.optic.reticle && !mesh.name.startsWith('optic')) receiver.push(mesh); });
-  assert.ok(receiver.some(mesh => mesh.visible)); reflex.dispose(); assert.equal(old.visible, true); standard.dispose();
+  assert.ok(receiver.some(mesh => mesh.visible)); reflex.dispose(); assert.equal(old.visible, true);
+  assert.equal(standard.nodes.optic.visible, false, 'disposing paid optic leaves live factory irons intact');
+  standard.dispose(); assert.equal(standard.nodes.optic.visible, true, 'factory disposal restores only its own authored optic');
 });
 
 function vmFixture(t) {
@@ -114,13 +119,21 @@ for (const id of REFLEX_GUNS) for (const ads of [0, 1]) {
   });
 }
 
-test('prewarm transfers five owned optic shader references and leaves runtime materials independently disposable', t => {
+test('prewarm transfers five reflex and two combat-scope shader owners and leaves runtime materials independently disposable', t => {
   const { vm } = vmFixture(t); const cleanup = [], retained = new Set();
   const group = WeaponView.warmReflexObjects(fn => cleanup.push(fn), retained);
-  assert.equal(group.children.length, 5); let disposals = 0;
-  for (const root of group.children) root.getObjectByName('optic_open_reflex').children.find(mesh => mesh.userData.opticReticle).material.addEventListener('dispose', () => disposals++);
+  assert.equal(group.children.length, 7); let disposals = 0;
+  assert.equal(group.children.filter(root => root.getObjectByName('optic_open_reflex')).length, 5);
+  assert.equal(group.children.filter(root => root.getObjectByName('optic_combat_3x')).length, 2);
+  for (const root of group.children) {
+    const reticles = []; root.traverse(mesh => { if (mesh.userData.opticReticle) reticles.push(mesh); });
+    assert.equal(reticles.length, 1, 'each world optic has one exact shader owner');
+    assert.equal(reticles[0].material.uniforms.vmProj, undefined, 'world prewarm must retain its unpatched projection program');
+    reticles[0].material.addEventListener('dispose', () => disposals++);
+  }
   for (const finish of cleanup) finish();
-  assert.equal(group.children.length, 0); assert.equal(retained.size, 5); assert.equal(disposals, 0);
+  assert.equal(group.children.length, 0); assert.equal(retained.size, 7); assert.equal(disposals, 0);
   const runtime = vm._gunFor('smg', 'wide_reflex'); assert.equal(retained.has(runtime.optic.reticle.material), false);
-  for (const material of retained) material.dispose(); assert.equal(disposals, 5);
+  const scopedRuntime = vm._gunFor('rifle', 'combat_3x'); assert.equal(retained.has(scopedRuntime.optic.reticle.material), false);
+  for (const material of retained) material.dispose(); assert.equal(disposals, 7);
 });

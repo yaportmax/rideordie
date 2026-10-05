@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE, UPGRADES, TRUCKS, WEAPON_TRACK_MAX } from '../src/data/upgrades.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { normalizeProfile, loadProfile, saveProfile, buyUpgrade, buyTruck, selectTruck, buyWeapon, buyWeaponTrack, equipWeapon, creditRun } from '../src/meta/profile.js';
+import { creditCampaignLevel } from '../src/data/campaign.js';
+
+function earnWeaponChapter(profile, level) {
+  for (let chapter = 1; chapter < level; chapter++) assert.equal(creditCampaignLevel(profile,
+    { runId: `profile-purchase-clear-${chapter}`, level: chapter, mode: 'campaign', won: true }), true);
+}
 
 test('old or damaged saves recover a playable owned truck, weapon and finite stats', () => {
   for (const value of [null, [], {}, { cash: NaN, upgrades: [], weapons: null, loadout: ['missing'], best: null }]) {
@@ -75,7 +81,8 @@ test('invalid upgrade and weapon-track requests leave the wallet and loadout unt
 
 test('equipping into a full loadout replaces only the chosen slot; owned slots can swap', () => {
   const p = DEFAULT_PROFILE(); p.cash = 100000;
-  for (const id of ['revolver', 'smg', 'rifle']) buyWeapon(p, id);
+  earnWeaponChapter(p, 4);
+  for (const id of ['revolver', 'smg', 'rifle']) assert.equal(buyWeapon(p, id).ok, true);
   assert.deepEqual(p.loadout, ['pistol', 'revolver', 'smg']);
   equipWeapon(p, 'rifle', 1); assert.deepEqual(p.loadout, ['pistol', 'rifle', 'smg']);
   equipWeapon(p, 'smg', 0); assert.deepEqual(p.loadout, ['smg', 'rifle', 'pistol']);
@@ -118,6 +125,7 @@ test('legacy and malformed result coordinates cannot poison or erase the absolut
 
 test('unaffordable purchases do not spend cash or grant ownership', () => {
   const p = DEFAULT_PROFILE();
+  earnWeaponChapter(p, 4);
   assert.equal(buyWeapon(p, 'rifle').reason, 'cash'); assert.equal(buyTruck(p, 'truck_t4').reason, 'cash');
   assert.equal(buyUpgrade(p, 'engine').reason, 'cash'); assert.equal(p.cash, 0); assert.equal(p.weapons.rifle, undefined);
   assert.ok(WEAPONS.rifle.cost > 0);

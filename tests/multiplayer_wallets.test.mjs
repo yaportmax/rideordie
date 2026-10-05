@@ -9,7 +9,7 @@ import { NET_PROTOCOL } from '../src/net/run_packet.js';
 import { GARAGE_SEAT_PROTOCOL } from '../src/net/garage_seats.js';
 import { PLAYER_VEHICLE_PROTOCOL } from '../src/data/vehicle_families.js';
 import { DRIVING_ROUTE_VERSION } from '../src/world/driving_plan.js';
-import { CAMPAIGN_PROTOCOL } from '../src/data/campaign.js';
+import { CAMPAIGN_PROTOCOL, normalizeCampaignProgress } from '../src/data/campaign.js';
 import { weaponOpticState } from '../src/meta/weapon_optics.js';
 const { Session } = await import('../src/net/session.js');
 
@@ -34,12 +34,16 @@ class Memory {
   destroy() { this.other = null; }
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
-async function pair({ hostCash = 7000, guestCash = 5000, hostRole = 'driver', profiles = null, stores = null } = {}) {
+async function pair({ hostCash = 7000, guestCash = 5000, hostRole = 'driver', hostLevel = 1, guestLevel = 1, profiles = null, stores = null } = {}) {
   const [hostStore, guestStore] = stores || [storage(), storage()];
   const hp = profiles?.[0] || DEFAULT_PROFILE(), gp = profiles?.[1] || DEFAULT_PROFILE();
   if (!profiles) {
     hp.campaignId = 'host-person'; hp.cash = hostCash; hp.totalCash = 12000;
     gp.campaignId = 'guest-person'; gp.cash = guestCash; gp.totalCash = 18000;
+    // Explicit earned CPU fixtures, independent from wallet amounts. Existing
+    // ownership/reconnect checks do not manufacture progress from cash.
+    hp.campaignProgress = normalizeCampaignProgress({ cleared: Array.from({ length: hostLevel - 1 }, (_, i) => i + 1) });
+    gp.campaignProgress = normalizeCampaignProgress({ cleared: Array.from({ length: guestLevel - 1 }, (_, i) => i + 1) });
     gp.weapons.rifle = { dmg: 2, mag: 1, rel: 0, hnd: 0 }; gp.loadout = ['rifle']; gp.upgrades.vest = 2; gp.best.distance = 12345; gp.runs = 9;
     inStore(hostStore, () => saveProfile(hp)); inStore(guestStore, () => saveProfile(gp));
   }
@@ -116,9 +120,10 @@ test('a premium Hummer cannot spend a rich partner wallet on a forged or unaffor
 
 test('both seat assignments debit only the purchasing person while keeping shared equipment and truck upgrades', async () => {
   for (const hostRole of ['driver', 'gunner']) {
-    const { host, guest, hostBuy, guestBuy, hostStore, guestStore } = await pair({ hostRole });
+    const guestCash = WEAPONS.smg.cost + 5000;
+    const { host, guest, hostBuy, guestBuy, hostStore, guestStore } = await pair({ hostRole, guestCash, guestLevel: 2 });
     guestBuy('weapon', 'smg'); await flush();
-    assert.equal(host.profile.cash, 7000); assert.equal(guest.profile.cash, 5000 - WEAPONS.smg.cost);
+    assert.equal(host.profile.cash, 7000); assert.equal(guest.profile.cash, guestCash - WEAPONS.smg.cost);
     assert.ok(host.profile.weapons.smg); assert.ok(guest.profile.weapons.smg);
     const guestBalance = guest.profile.cash;
     hostBuy('upgrade', 'engine'); await flush();
@@ -169,7 +174,7 @@ test('an unaffordable or locked sight cannot spend the partner wallet or mutate 
 });
 
 test('a rich partner cannot fund an unaffordable or forged guest request and repeated hello cannot refill cash', async () => {
-  const { host, guest, guestBuy } = await pair({ hostCash: 100000, guestCash: 0 });
+  const { host, guest, guestBuy } = await pair({ hostCash: 100000, guestCash: 0, guestLevel: 2 });
   let denied = 0; guest.on({ buyDenied: () => denied++ });
   guest.tp.send({ t: 'buy', kind: 'weapon', id: 'smg', payer: 'host', cash: 999999, wallet: { cash: 999999, playerId: 'host-person' } });
   await flush();
@@ -227,10 +232,11 @@ test('only the current authoritative run rewards both independent wallets once a
 });
 
 test('leaving and reconnecting resumes each saved wallet without adopting the host campaign inventory', async () => {
-  const first = await pair(); first.guestBuy('weapon', 'smg'); await flush();
+  const guestCash = WEAPONS.smg.cost + 5000;
+  const first = await pair({ guestCash, guestLevel: 2 }); first.guestBuy('weapon', 'smg'); await flush();
   first.host.leave(); first.guest.leave();
   const hp = inStore(first.hostStore, () => loadProfile()), gp = inStore(first.guestStore, () => loadProfile());
-  assert.equal(hp.cash, 7000); assert.equal(gp.cash, 5000 - WEAPONS.smg.cost); assert.deepEqual(gp.loadout, ['rifle']);
+  assert.equal(hp.cash, 7000); assert.equal(gp.cash, guestCash - WEAPONS.smg.cost); assert.deepEqual(gp.loadout, ['rifle']);
   const next = await pair({ profiles: [hp, gp], stores: [first.hostStore, first.guestStore], hostRole: 'gunner' });
   assert.equal(next.host.profile.cash, 7000); assert.equal(next.guest.profile.cash, gp.cash); assert.ok(next.guest.profile.weapons.smg);
   const balance = next.guest.profile.cash; next.hostBuy('weaponTrack', 'smg', 'dmg'); await flush();
@@ -247,9 +253,11 @@ test('invalid wallet handshakes cannot start a split run or debit the host', asy
 });
 
 test('stale profile and duplicate start deliveries cannot roll back cash or restart a run', async () => {
-  const { host, guest, guestBuy, guestStore } = await pair();
+  const { host, guest, guestBuy, guestStore } = await pair({ guestCash: WEAPONS.smg.cost + 5000, guestLevel: 2 });
   const old = structuredClone(host.tp.sent.findLast(message => message.t === 'profile'));
   guestBuy('weapon', 'smg'); await flush();
+  assert.ok(host.profile.weapons.smg, 'the stale-delivery oracle requires a real completed purchase');
+  assert.ok(guest.profile.revision > old.p.revision, 'a refused purchase must not masquerade as revision protection');
   const balance = guest.profile.cash, revision = guest.profile.revision;
   inStore(guestStore, () => guest._onMsg(old));
   assert.equal(guest.profile.cash, balance); assert.equal(guest.personalProfile.cash, balance); assert.equal(guest.profile.revision, revision);
@@ -261,8 +269,9 @@ test('stale profile and duplicate start deliveries cannot roll back cash or rest
 });
 
 test('a new physical connection binds its own wallet rather than the prior guest wallet', async () => {
-  const { host, guest, guestBuy } = await pair(); guestBuy('weapon', 'smg'); await flush();
-  const previous = host.peerWallet; assert.equal(previous.cash, 5000 - WEAPONS.smg.cost);
+  const guestCash = WEAPONS.smg.cost + 5000;
+  const { host, guest, guestBuy } = await pair({ guestCash, guestLevel: 2 }); guestBuy('weapon', 'smg'); await flush();
+  const previous = host.peerWallet; assert.equal(previous.cash, guestCash - WEAPONS.smg.cost);
   host.tp.onClose(); assert.equal(host.peerWallet, null); assert.equal(host.activeRunId, null);
   host.tp.onOpen();
   host._onMsg({ t: 'hello', protocol: NET_PROTOCOL, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL, drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, name: 'A different person', wallet: { playerId: 'third-person', cash: 1234, totalCash: 4000 } });

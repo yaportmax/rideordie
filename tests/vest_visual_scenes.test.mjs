@@ -195,7 +195,12 @@ test('run loadout does not read retired tier input and preserves equipped weapon
   const input = { weapons: ['rifle', 'smg'], weaponLevels: { rifle: { dmg: 2 } }, weaponOptics: { rifle: 'wide_reflex', smg: 'standard' }, grenades: 4, grenadeLv: 2, reloadMul: .8, handling: .9 };
   Object.defineProperty(input, 'armorTier', { enumerable: true, get() { throw new Error('retired presentation input must not be read'); } });
   const loadout = gunnerLoadout(input);
-  assert.deepEqual(loadout, { weapons: input.weapons, levels: input.weaponLevels, optics: input.weaponOptics, grenades: 4, grenadeLv: 2, reloadMul: .8, handling: .9 });
+  assert.deepEqual(loadout, { weapons: input.weapons, levels: input.weaponLevels, optics: input.weaponOptics, attachments: {}, grenades: 4, grenadeLv: 2, reloadMul: .8, handling: .9 });
+  assert.deepEqual(loadout.attachments, {}, 'older effects without attachment metadata receive an empty run map');
+  const attachments = Object.freeze({ rifle: Object.freeze(['laser', 'foregrip']), smg: Object.freeze(['extended_mag']) });
+  input.weaponAttachments = attachments;
+  const selected = gunnerLoadout(input);
+  same(selected.attachments, attachments, 'run metadata retains the selected immutable attachment map');
   assert.equal(Object.hasOwn(loadout, 'armorTier'), false);
   for (const family of Object.keys(VEHICLE_FAMILIES)) {
     const profile = DEFAULT_PROFILE(); profile.truck = VEHICLE_FAMILIES[family].stageIDs[0];

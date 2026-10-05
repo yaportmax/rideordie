@@ -393,6 +393,6 @@ test('actual Run preserves ordinary kill cash once, pays nuke base once and rese
     const expected=Math.round((KILL_CASH[target.spec.id]||60)*(1+sim.director.level*ECONOMY.killLevel));
     assert.equal(run.cash-before,expected); assert.equal(run.multi,0); assert.equal(run.streakT,0); assert.equal(sim.combat.combo,0);
     sim.explodeCar(target,'nuke',1); run._simEventsToRun(sim.drainEvents()); assert.equal(run.cash-before,expected);
-    assert.ok(seen.feeds.at(-1).includes('NUKE')); assert.equal(NET_PROTOCOL,8); assert.equal(RUN_JSON_TYPES.has('nuke'),true);
+    assert.ok(seen.feeds.at(-1).includes('NUKE')); assert.equal(NET_PROTOCOL,9); assert.equal(RUN_JSON_TYPES.has('nuke'),true);
   });
 });

@@ -47,7 +47,7 @@ test('save recovery presentation supports guarded Hummer v2 singleton bytes and 
   const legacy = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...DEFAULT_PROFILE(), campaignId: 'legacy-v1-recovery' }) });
   const tank = normalizeProfile({ ...hummer, trucks: [...hummer.trucks, 'player_tank_t1'], truck: 'player_tank_t1', vehicleUpgrades: { ...hummer.vehicleUpgrades, tank: { armor: 3 } } });
   const currentTank = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify(tank) });
-  const future = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...hummer, v: 4 }) });
+  const future = f.saves._retain({ reason: 'legacy-migration', raw: JSON.stringify({ ...hummer, v: 5 }) });
   const model = f.app._saveModel();
   assert.equal(model.recoveries.find(value => value.id === current.id).restorable, true);
   assert.equal(model.recoveries.find(value => value.id === legacy.id).restorable, true);

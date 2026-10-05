@@ -352,7 +352,7 @@ test('future/invalid schema, nonfinite numbers, unsupported gear, oversized arra
     assert.equal(r.status, 400, JSON.stringify(patch));
     assert.equal(r.data.error, 'invalid_profile');
   }
-  for (const patch of [{ v: 4 }, { trucks: ['arbitrary'] }]) {
+  for (const patch of [{ v: 5 }, { trucks: ['arbitrary'] }]) {
     const r = await h.send('PUT', `/v1/slots/${id}`, secret, { name: 'Unsupported', profile: { ...profile(), ...patch }, baseVersion: first.version });
     assert.equal(r.status, 409); assert.equal(r.data.error, 'unsupported_profile');
   }
