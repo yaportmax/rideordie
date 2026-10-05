@@ -132,7 +132,7 @@ export class WorldView {
       }
       for (const { role, crew, pose } of rec.crewEntries) {
         const gs = role === 'driver' ? null : st[role];
-        const alive = role === 'driver' ? st.driverAlive : st[role + 'Alive'];
+        const alive = st.kind === 'player' ? !st.dead && !st.exploded : role === 'driver' ? st.driverAlive : st[role + 'Alive'];
         crew.lastVel = st.vel;
         pose.alive = alive; pose.aimYaw = gs ? gs.yaw : 0; pose.aimPitch = gs ? gs.pitch : 0; pose.fire = gs ? gs.fire : false;
         pose.crouch = st.kind === 'player' ? false : gs ? gs.crouch : false; pose.ads = gs ? gs.ads : false; pose.reloading = gs ? gs.reloading : false;
@@ -163,9 +163,11 @@ export class WorldView {
 
   handleEvent(e, states) {
     const rec = e.id !== undefined ? this.cars.get(e.id) : null;
-    if (e.t === 'crewDead' && rec && rec.crew[e.role]) rec.crew[e.role].die(e);
+    const state = rec?.state || states?.get(e.id);
+    const livingPlayer = state?.kind === 'player' && !state.dead && !state.exploded;
+    if (e.t === 'crewDead' && !livingPlayer && rec && rec.crew[e.role]) rec.crew[e.role].die(e);
     // an enemy crew that just killed one of ours taunts / celebrates
-    if (e.t === 'crewDead' && e.id === 1 && e.src > 1) this.cars.get(e.src)?.crew.gunner?.cheer();
+    if (e.t === 'crewDead' && !livingPlayer && e.id === 1 && e.src > 1) this.cars.get(e.src)?.crew.gunner?.cheer();
     if (e.t === 'grenadeThrow') { const r = this.cars.get(e.src === 'player' || e.src == null ? 1 : e.src); r?.crew[e.role || 'gunner']?.throwGrenade(); }
     if (e.t === 'crewHit' && rec && rec.crew[e.role]) rec.crew[e.role].flinch(e);
     if (e.t === 'shot') {

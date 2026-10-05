@@ -1,8 +1,9 @@
 // Read-only presentation/input policy shared by the authority and snapshot viewer.
 // `over` is deliberately later than defeat, and may arrive before a victory summary.
 import { celebrationActive } from '../sim/victory_presentation.js';
-const CAUSES = { 'TRUCK DESTROYED': 'car', 'DRIVER KILLED': 'driver', 'GUNNER KILLED': 'gunner' };
-const knownReason = why => why === 'car' || why === 'driver' || why === 'gunner';
+const CAUSES = { 'TRUCK DESTROYED': 'car' };
+const knownReason = why => why === 'car';
+const knownInference = why => why === 'car' || why === 'wrecked';
 
 export function runPhase(run) {
   return run?.sim?.state ?? run?.simState ?? (run?.over ? 'over' : 'countdown');
@@ -20,16 +21,14 @@ export function isVictory(run) {
   if (summary?.won === true) return true;
   if (knownReason(run._defeatWhy)) return false;
   if (run._victorySeen) return true;
-  return runPhase(run) === 'run' && !run._inferredDefeatWhy && !!run.bossState?.exploded;
+  return runPhase(run) === 'run' && !knownInference(run._inferredDefeatWhy) && !!run.bossState?.exploded;
 }
 
-/** A late snapshot cannot reveal which crew death preceded the wreck explosion. */
+/** Terminal phase/flags authorize loss; independently damaged crew never do. */
 export function inferredDefeatReason(run) {
   const phase = runPhase(run), p = run?.states?.get(run.playerId ?? 1);
   if (phase !== 'dying' && phase !== 'over') return null;
-  if (p?.exploded) return 'wrecked';
-  if (p?.driverAlive === false) return 'driver';
-  if (p?.gunnerAlive === false) return 'gunner';
+  if (p?.exploded || p?.dead) return 'wrecked';
   return phase === 'dying' ? 'wrecked' : null;
 }
 
@@ -41,8 +40,9 @@ export function defeatReason(run) {
   const summaryWhy = CAUSES[run.remoteSummary?.cause ?? run.summary?.cause];
   if (summaryWhy) return summaryWhy;
   if (knownReason(run._defeatWhy)) return run._defeatWhy;
-  if ((run.remoteSummary ?? run.summary)?.won === false) return run._inferredDefeatWhy ?? 'wrecked';
-  return run._inferredDefeatWhy ?? inferredDefeatReason(run);
+  const inferred = knownInference(run._inferredDefeatWhy) ? run._inferredDefeatWhy : null;
+  if ((run.remoteSummary ?? run.summary)?.won === false) return inferred ?? 'wrecked';
+  return inferred ?? inferredDefeatReason(run);
 }
 
 export function isDefeated(run) { return defeatReason(run) !== null; }
@@ -62,7 +62,9 @@ export function validVictoryPresentationEvent(run, event) {
 export function localSeatAlive(run) {
   const p = run?.states?.get(run.playerId ?? 1);
   if (!p) return false;
-  return run.role === 'driver' ? !!p.driverAlive : !!p.gunnerAlive;
+  // hp01 is quantized on the wire: a small positive hull can decode to zero.
+  // Only authoritative terminal flags disable a player's living seat.
+  return !p.dead && !p.exploded;
 }
 
 export function canCaptureRun(run) {
@@ -84,5 +86,5 @@ export function rememberDefeat(run, events = []) {
   // Casual dying snapshots retain the proof, since they cannot reveal event order.
   const summary = run.remoteSummary ?? run.summary;
   if (run.victoryPresentation && (knownReason(run._defeatWhy) || summary?.won === false || CAUSES[summary?.cause])) run.victoryPresentation = false;
-  if (!run._inferredDefeatWhy && !isVictory(run)) run._inferredDefeatWhy = inferredDefeatReason(run);
+  if (!knownInference(run._inferredDefeatWhy) && !isVictory(run)) run._inferredDefeatWhy = inferredDefeatReason(run);
 }

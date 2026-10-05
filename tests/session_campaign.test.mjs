@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE } from '../src/data/upgrades.js';
 import { normalizeProfile, loadProfile } from '../src/meta/profile.js';
 import { CAMPAIGN_PROTOCOL, campaignJourney, normalizeCampaignProgress } from '../src/data/campaign.js';
-import { NET_PROTOCOL } from '../src/net/run_packet.js';
+import { NET_PROTOCOL, encodeRunPacket } from '../src/net/run_packet.js';
 import { GARAGE_SEAT_PROTOCOL } from '../src/net/garage_seats.js';
 import { PLAYER_VEHICLE_PROTOCOL } from '../src/data/vehicle_families.js';
 import { DRIVING_ROUTE_VERSION } from '../src/world/driving_plan.js';
@@ -72,7 +72,30 @@ test('hello requires explicit campaign capability and rejects a protocol-3 minig
   const transport = new Memory(), session = new Session(transport); await session.host(normalizeProfile(DEFAULT_PROFILE()));
   transport.onOpen(); session._onMsg({ ...hello(CAMPAIGN_PROTOCOL), protocol: 3 });
   assert.equal(session.connected, false); assert.equal(session.canStart(), false); assert.equal(transport.closedConnections, 1);
-  assert.equal(NET_PROTOCOL, 7);
+  assert.equal(NET_PROTOCOL, 8);
+});
+
+test('exact old protocol 7 rejects both peer directions and host seats before old-life JSON or fast data', async () => {
+  assert.equal(NET_PROTOCOL, 8);
+  for (const hostRole of ['driver', 'gunner']) for (const receiverSide of ['host', 'guest']) {
+    const { host, guest } = await pair({ hostRole }), cfg = await start(host, guest);
+    const receiver = receiverSide === 'host' ? host : guest;
+    const previousHeader = receiver._fastHeader, before = structuredClone(receiver.personalProfile);
+    const errors = [], reliable = [], fast = [];
+    receiver.on({ error: e => errors.push(e), run: m => reliable.push(m), fast: b => fast.push(b) });
+    receiver._onMsg({ ...hello(CAMPAIGN_PROTOCOL), protocol: 7 });
+    assert.equal(receiver.connected, false); assert.equal(receiver._peerProtocol, null);
+    assert.equal(receiver.activeRunId, null); assert.equal(receiver.activeRunRoles, null);
+    assert.equal(receiver._fastHeader, null); assert.equal(receiver.peerWallet, null);
+    assert.equal(receiver.other, null); assert.equal(receiver.me.ready, false);
+    assert.equal(receiver.canStart(), false); assert.equal(receiver.tp.closedConnections, 1);
+    assert.equal(errors.length, 1); assert.equal(errors[0].type, 'protocol-mismatch');
+    receiver._onMsg({ t: 'events', runId: cfg.runId, e: [{ t: 'playerDown', why: 'gunner' }] });
+    receiver._onMsg({ t: 'summary', runId: cfg.runId, s: summary(cfg, { won: false, cause: 'GUNNER KILLED' }) });
+    receiver.tp.onFast(encodeRunPacket(previousHeader, new Uint8Array([3, 0, 0, 0]).buffer));
+    assert.deepEqual(reliable, []); assert.deepEqual(fast, []);
+    assert.deepEqual(receiver.personalProfile, before, `${hostRole}/${receiverSide} keeps personal cash and progress`);
+  }
 });
 
 test('host chapter selection invalidates old consent/readiness without moving personal cash, gear or garage presence', async () => {
@@ -193,7 +216,7 @@ test('first validated terminal summary survives altered same-life duplicates and
     viewer.on({ run: message => received.push(message) });
     authority.sendJSON({ t: 'summary', s: summary(cfg, { journey: { version: 1, mode: 'campaign', level: 2 } }) }); await flush();
     assert.equal(viewer._receivedSummaryId, null); assert.deepEqual(received, []);
-    const original = summary(cfg, { won: false, levelCleared: false, cause: 'DRIVER KILLED' });
+    const original = summary(cfg, { won: false, levelCleared: false, cause: 'TRUCK DESTROYED' });
     authority.sendJSON({ t: 'summary', s: original }); await flush();
     authority.sendJSON({ t: 'summary', s: summary(cfg, { cash: 999999, cause: 'VICTORY' }) });
     authority.sendJSON({ t: 'summary', s: original }); await flush();

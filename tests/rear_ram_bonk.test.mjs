@@ -15,7 +15,7 @@ async function fixture(check, spec = 'e_sedan') {
     sim.world.step(sim.eventQueue);
     for (const car of sim.cars.values()) {
       car.veh.afterStep(); car.hp = car.maxHp = 1e5;
-      for (const crew of Object.values(car.crew)) crew.hp = crew.max = 1e5;
+      if (car.kind === 'enemy') for (const crew of Object.values(car.crew)) crew.hp = crew.max = 1e5;
     }
     sim.start(); sim.drainEvents();
     await check(sim, player, enemy);
@@ -186,7 +186,7 @@ test('held, tilted, terminal and dead-player contacts cannot plan a bonk; stress
     assert.equal(plan.forward, 85); assert.ok(plan.lift <= 4.2);
     enemy.held = true; assert.equal(planRearRamBonk(sim, enemy, player, 10, dir), null); enemy.held = false;
     enemy.veh.up.y = 0.3; assert.equal(planRearRamBonk(sim, enemy, player, 10, dir), null); enemy.veh.up.y = 1;
-    player.crew.driver.alive = false; assert.equal(planRearRamBonk(sim, enemy, player, 10, dir), null); player.crew.driver.alive = true;
+    const playerHp = player.hp; player.hp = 0; assert.equal(planRearRamBonk(sim, enemy, player, 10, dir), null); player.hp = playerHp;
     sim.state = 'dying'; assert.equal(planRearRamBonk(sim, enemy, player, 10, dir), null); sim.state = 'run';
     place(enemy, { z: 6 });
     plan = planRearRamBonk(sim, enemy, player, 1000, dir);

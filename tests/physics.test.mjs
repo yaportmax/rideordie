@@ -34,13 +34,10 @@ test('real physics holds countdown, drives on streamed terrain, heals, and frees
     assert.ok(car.veh.speed > 2);
     for (const n of Object.values(car.veh.body.translation())) assert.ok(Number.isFinite(n));
     assert.equal(car.exploded, false);
-    car.crew.driver.hp = car.crew.driver.max * 0.2;
-    car.crew.gunner.hp = car.crew.gunner.max * 0.4;
     car.hp = car.maxHp * 0.8;
     assert.equal(sim.useMedkit(), true);
-    assert.ok(car.crew.driver.hp > car.crew.driver.max * 0.79);
-    assert.equal(car.crew.gunner.hp, car.crew.gunner.max);
-    assert.ok(car.hp <= car.maxHp);
+    assert.ok(Math.abs(car.hp - car.maxHp * .92) < 1e-7, 'medkit heals the hull once by its existing12% amount');
+    for (const crew of Object.values(car.crew)) { assert.equal(crew.hp, car.hp); assert.equal(crew.max, car.maxHp); assert.equal(crew.alive, true); }
 
     sim.explodeCar(car, 'test', -1);
     assert.equal(sim.useMedkit(), false);

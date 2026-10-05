@@ -486,6 +486,12 @@ export class Sim {
   damageCar(car, dmg, info = {}) {
     if (car === this.player && celebrationActive(this)) return 0;
     if (car.dead && car.exploded) return;
+    // Player receipts/statistics count health actually removed from the one
+    // hull pool. A destroyed player cannot take a separate crew-life hit.
+    if (car.kind === 'player') {
+      if (!Number.isFinite(dmg) || !(dmg > 0) || !(car.hp > 0) || car.dead || car.exploded) return 0;
+      dmg = Math.min(car.hp, dmg);
+    }
     if (info.cause === 'blast' && car.spec.weakpoint) dmg *= car.spec.weakpointBlastResist ?? 0;
     if (!(dmg > 0)) return;
     car.hp -= dmg; car.hitFlash = 0.12;
@@ -499,6 +505,15 @@ export class Sim {
     const c = car.crew[role];
     if (!c || !c.alive) return 0;
     dmg *= (1 - (c.armor || 0));
+    if (car.kind === 'player') {
+      if (!Number.isFinite(dmg) || !(dmg > 0)) return 0;
+      const before = car.hp;
+      this.damageCar(car, dmg, info);
+      const dealt = Math.max(0, before - car.hp);
+      if (dealt > 0) this.emit({ t: 'crewHit', id: car.id, role, hp: car.hp, dmg: dealt,
+        sharedHull: true, head: !!info.head, point: info.point ? [info.point.x, info.point.y, info.point.z] : null });
+      return dealt;
+    }
     c.hp -= dmg;
     this.emit({ t: 'crewHit', id: car.id, role, hp: c.hp, dmg, head: !!info.head, point: info.point ? [info.point.x, info.point.y, info.point.z] : null });
     if (c.hp <= 0) {
@@ -574,7 +589,7 @@ export class Sim {
     car.exploded = true; car.dead = true; car.hp = 0;
     if (nukeDerived) { car.fuseT = -1; car.burning = 0; car.sealBurn = 0; car.chainFrom = null; car.lastHitBy = -1; car.lastHitT = -Infinity; }
     car.veh.driverAlive = false; car.driverless = true; car.veh.input.throttle = 0; car.veh.input.brake = 0;
-    for (const r of Object.keys(car.crew)) { const c = car.crew[r]; if (c.alive) { c.alive = false; c.hp = 0; if (!nukeDerived) this.emit({ t: 'crewDead', id: car.id, role: r, cause: 'explosion', src }); } }
+    for (const r of Object.keys(car.crew)) { const c = car.crew[r]; if (car.kind === 'player' || c.alive) { c.alive = false; c.hp = 0; if (!nukeDerived) this.emit({ t: 'crewDead', id: car.id, role: r, cause: 'explosion', src }); } }
     const p = car.veh.pos, big = car.spec.explosive ? 2.4 : 1;
     const explosion = { t: 'explode', id: car.id, pos: [p.x, p.y, p.z], size: (car.spec.mass > 4000 ? 1.8 : 1) * big, cause, src, spec: car.spec.id, vel: [car.veh.vel.x, car.veh.vel.y, car.veh.vel.z] };
     if (!nukeDerived) this.emit(explosion);
@@ -636,7 +651,10 @@ export class Sim {
         if (sourceCar) this.combat?.inheritNukeDerived(car, sourceCar);
         const pm = car.spec.weakpoint ? (car.spec.weakpointBlastResist ?? 0) : car.kind === 'player' ? (this.playerBlastMul ?? 0.6) * (sourceCar ? (this.playerCarBlastMul ?? 1) : 1) : 1; // (car cook-offs next to you: director)
         this.damageCar(car, damage * f * pm, { cause: credit !== src ? 'crash' : 'blast', src: credit });
-        if (!car.spec.weakpoint) for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src: credit });
+        // One area hit already damaged the player's hull above. Enemy crews
+        // still receive their independent splash injuries; redirecting those
+        // additional injuries into a player's hull would count the blast again.
+        if (car.kind !== 'player' && !car.spec.weakpoint) for (const r of Object.keys(car.crew)) if (car.crew[r].alive) this.damageCrew(car, r, damage * f * 0.5 * pm, { cause: 'blast', src: credit });
       }
     }
   }
@@ -721,9 +739,9 @@ export class Sim {
     if (this.state === 'countdown') return;
     const finiteClear = this.journey?.mode === 'campaign' && this.journey.level < 10 && this.director.campaignComplete;
     const finaleClear = this.boss?.exploded && (this.journey?.mode !== 'marathon' || this.director.marathonComplete);
-    const livingPlayer = !P.exploded && P.crew.driver.alive && P.crew.gunner?.alive;
+    const livingPlayer = P.hp > 0 && !P.dead && !P.exploded;
     if (this.state === 'run' && (finiteClear || finaleClear) && verifiedBossClear(this) && (this.victoryPresentation || livingPlayer)) {
-      if (!this.victoryPresentation && verifiedBossClear(this) && !P.exploded && P.crew.driver.alive && P.crew.gunner?.alive) {
+      if (!this.victoryPresentation && verifiedBossClear(this) && livingPlayer) {
         this.victoryPresentation = true; this.victoryTime = this.time; this.victoryStats = structuredClone(this.stats);
         this.result = { why: 'victory' };
         this.emit({ t: 'victoryPresentation', mode: this.journey.mode, level: this.journey.level });
@@ -733,10 +751,10 @@ export class Sim {
       return;
     }
     if (this.state === 'run') {
-      const why = P.exploded ? 'car' : !P.crew.driver.alive ? 'driver' : (P.crew.gunner && !P.crew.gunner.alive) ? 'gunner' : null;
+      const why = livingPlayer ? null : 'car';
       if (why) { this.state = 'dying'; this.stateT = 0; this.result = { why }; this.emit({ t: 'playerDown', why }); }
     } else if (this.state === 'dying') {
-      if (!P.exploded && (this.stateT > 1.4)) this.explodeCar(P, 'crew', -1);
+      if (!P.exploded && (this.stateT > 1.4)) this.explodeCar(P, this.result?.why === 'car' ? 'damage' : 'crew', -1);
       if (this.stateT > 3.2) { this.state = 'over'; this.stateT = 0; this.emit({ t: 'runOver', why: this.result.why }); }
     }
   }
@@ -754,7 +772,7 @@ export class Sim {
 Sim.prototype.useMedkit = function () {
   const P = this.player; if (!P || P.exploded || this.state !== 'run' || celebrationActive(this)) return false;
   let used = false;
-  for (const role of ['driver', 'gunner']) { const c = P.crew[role]; if (c && c.alive && c.hp < c.max) { c.hp = Math.min(c.max, c.hp + c.max * 0.6); used = true; } }
+  // Crew compatibility fields mirror the hull, so heal the shared pool once.
   if (P.hp < P.maxHp) { P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.12); used = true; }
   if (used) this.emit({ t: 'medkit', id: P.id });
   return used;

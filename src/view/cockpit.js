@@ -301,8 +301,8 @@ export class Cockpit {
   _drawFace(d, force) {
     this.gaugeState = d;
     const x = this.faceCtx, W = 512, H = 192;
-    const nitro = Math.round((d.nitro01 || 0) * 20), warnE = d.hp01 < 0.3, warnD = d.dhp01 < 0.35, warnG = d.ghp01 < 0.35, blink = (performance.now() / 400 | 0) % 2;
-    const key = `${normalizeUnits(this.units)}|${nitro}|${warnE && blink}|${warnD && blink}|${warnG && blink}`;
+    const nitro = Math.round((d.nitro01 || 0) * 20), warnHull = d.hp01 < 0.3, blink = (performance.now() / 400 | 0) % 2;
+    const key = `${normalizeUnits(this.units)}|${nitro}|${warnHull && blink}`;
     if (!force && key === this.faceKey) return false;
     this.faceKey = key;
     x.fillStyle = '#07090b'; x.fillRect(0, 0, W, H);
@@ -326,7 +326,7 @@ export class Cockpit {
     for (let i = 0; i < 20; i++) { x.fillStyle = i < nitro ? (i > 14 ? '#6fe3ff' : '#1fa8ff') : '#15202a'; x.fillRect(241, 158 - i * 6.6, 30, 4.6); }
     x.fillStyle = '#6f8fa6'; x.font = '600 11px Bahnschrift, Segoe UI, sans-serif'; x.fillText('N2O', 256, 16);
     const lamp = (lx, ly, on, col, txt) => { x.fillStyle = on ? col : '#1b1f23'; x.beginPath(); x.arc(lx, ly, 9, 0, Math.PI * 2); x.fill(); x.fillStyle = on ? '#fff' : '#3a4148'; x.font = 'bold 9px sans-serif'; x.fillText(txt, lx, ly + 1); };
-    lamp(208, 176, warnE && blink, '#ff3322', 'ENG'); lamp(304, 176, warnD && blink, '#ffb020', 'DRV'); lamp(330, 176, warnG && blink, '#ffb020', 'GUN');
+    lamp(208, 176, warnHull && blink, '#ff3322', 'CAR');
     this.faceTex.needsUpdate = true;
     return true;
   }

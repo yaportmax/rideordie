@@ -182,7 +182,7 @@ function policyRun({ verified = false, won = true, coop = false, loss = false } 
     journey: { mode: 'campaign', level: 10 }, road: null, hud2: {}, allEvents: [], playerS: 0,
     wv: { cars: new Map() }, g: { camera: new THREE.PerspectiveCamera(), scene: new THREE.Scene(), hud: {} } };
   run.sim = { state: 'over', won, victoryPresentation: verified,
-    journey: run.journey, result: { why: loss ? 'gunner' : 'victory' }, boss: { exploded: true } };
+    journey: run.journey, result: { why: loss ? 'car' : 'victory' }, boss: { exploded: true } };
   let updates = 0; run.update = () => { updates++; };
   return { run, updates: () => updates };
 }
@@ -264,14 +264,14 @@ test('actual level10 boss death, App results and Game loop keep both real AI sea
   });
 });
 
-test('actual crew defeat still publishes loss once and keeps the background sim advancing without a victory takeover', async t => {
+test('actual hull defeat still publishes loss once and keeps the background sim advancing without a victory takeover', async t => {
   const raf = rafFixture(t); memoryStorageFixture(t);
   await fixture({ role: 'solo' }, ({ run, sim, player, profile }) => {
     const originalWindowApp = window.__app;
     t.after(() => { if (originalWindowApp === undefined) delete window.__app; else window.__app = originalWindowApp; });
     const { game } = actualGame(run), { app, results } = actualApp(run, game, profile);
-    sim.damageCrew(player, 'gunner', player.crew.gunner.max + 1, { src: 2, cause: 'bullet' });
-    assert.ok(player.hp > 0); assert.equal(player.crew.gunner.alive, false);
+    sim.damageCar(player, player.hp + 1, { src: 2, cause: 'bullet' });
+    assert.equal(player.hp, 0); assert.equal(player.dead, true); assert.equal(player.exploded, true);
     app._watchEnd(run);
     let resultsStart = null;
     for (let frame = 0; frame < 600; frame++) {
@@ -280,7 +280,7 @@ test('actual crew defeat still publishes loss once and keeps the background sim 
       assert.equal(game.paused, false); assert.equal(run.victoryPresentation, false); assert.equal(sim.victoryPresentation, false);
       if (resultsStart && frame - resultsStart.frame >= 180) break;
     }
-    assert.ok(resultsStart); assert.equal(run.summary.won, false); assert.equal(run.summary.cause, 'GUNNER KILLED');
+    assert.ok(resultsStart); assert.equal(run.summary.won, false); assert.equal(run.summary.cause, 'TRUCK DESTROYED');
     assert.equal(sim.won, false); assert.equal(run.aiDriver, undefined); assert.equal(run.aiGunner, undefined);
     assert.ok(sim.tick > resultsStart.tick + 200, 'ordinary lost-run background keeps its existing physics dispatch');
     assert.equal(results.length, 1); assert.equal(profile.cash, resultsStart.cash); assert.equal(profile.runs, resultsStart.runs);
@@ -331,7 +331,7 @@ test('actual Esc/Start frame dispatch cannot pause a verified clear before runOv
   ]) {
     const f = policyRun({ ...scene, won: false });
     f.run.over = false; f.run.finaleT = 0; f.run.sim.state = 'run';
-    f.run.sim.result = { why: scene.loss ? 'gunner' : scene.verified ? 'victory' : null };
+    f.run.sim.result = { why: scene.loss ? 'car' : scene.verified ? 'victory' : null };
     if (scene.claimed) f.run._victorySeen = true;
     const { game } = actualGame(f.run), observed = { menus: 0, releases: 0, resets: 0, dispatches: 0 };
     game.input.hit = key => key === 'pause';

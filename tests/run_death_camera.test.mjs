@@ -48,8 +48,8 @@ function fixture({ role = 'gunner', specId = 'truck_t1', speed = 0, yaw = 0, pit
   return { run, p, camera, shown, active, head };
 }
 
-function defeat(f, why = f.run.role === 'driver' ? 'driver' : 'gunner') {
-  f.run.simState = 'dying'; f.p[`${why}Alive`] = false; f.run._defeatWhy = why;
+function defeat(f) {
+  f.run.simState = 'dying'; f.p.hp01 = 0; f.p.dead = true; f.p.exploded = true; f.run._defeatWhy = 'car';
 }
 function sample(f) {
   const { camera, p } = f; camera.updateMatrixWorld(true);
@@ -126,7 +126,7 @@ test('inside-cab defeat starts with a bounded external cut while preserving capt
       assert.ok(!new THREE.Box3(center.clone().sub(half), center.clone().add(half)).containsPoint(local), `${role}/${specId}: camera outside physical cabin/body bounds`);
     }
     assert.deepEqual(f.camera.quaternion.toArray(), initialQuat); assert.equal(f.camera.fov, initialFov);
-    assert.equal(f.run.defeatReason, role); assert.equal(f.p[`${role}Alive`], false);
+    assert.equal(f.run.defeatReason, 'car'); assert.equal(f.p.hp01, 0); assert.equal(f.p.dead, true); assert.equal(f.p.exploded, true);
   }
 });
 
@@ -149,11 +149,11 @@ test('shorter aim convergence preserves the original FOV endpoints and position/
 
 test('death presentation never writes CarState, simulation result or incoming controls', t => {
   withWindow(t); const f = fixture({ speed: 55, pitch: 1.15 }); defeat(f);
-  const result = Object.freeze({ why: 'gunner' }); f.run.sim = Object.freeze({ state: 'dying', result, won: false });
+  const result = Object.freeze({ why: 'car' }); f.run.sim = Object.freeze({ state: 'dying', result, won: false });
   const before = JSON.stringify(f.p), cmds = Object.freeze({ driver: Object.freeze({ throttle: 1, steer: -.8, nitro: true }), gunner: Object.freeze({ fire: true, ads: true, reload: true }) });
   for (let i = 0; i < 100; i++) f.run._camera(dt, cmds, f.p);
   assert.equal(JSON.stringify(f.p), before); assert.equal(f.run.sim.result, result);
-  assert.equal(f.run.defeatReason, 'gunner'); assert.equal(f.run.sim.state, 'dying');
+  assert.equal(f.run.defeatReason, 'car'); assert.equal(f.run.sim.state, 'dying');
 });
 
 test('origin-zero, flipped hull and a rendered recovery jump remain finite and reframe the current truck', t => {
@@ -294,6 +294,18 @@ test('terminal driver camera resolves external crew visibility and current culli
 test('healthy gunner keeps camera projection before world/viewmodel work', t => {
   withWindow(t); const f = updateFixture('gunner'); f.step();
   assert.deepEqual(f.calls, ['camera', 'views']); assert.equal(f.run.deathFrom, undefined);
+});
+
+test('obsolete crew flags and quantized zero hull do not start a live player death camera', t => {
+  withWindow(t);
+  for (const role of ['driver', 'gunner']) for (const hp01 of [.25, 0]) {
+    const f = fixture({ role });
+    f.p.hp01 = hp01; f.p.driverAlive = false; f.p.gunnerAlive = false;
+    f.p.dead = false; f.p.exploded = false;
+    f.run._camera(dt, commands(), f.p);
+    assert.equal(f.run.defeatReason, null); assert.equal(f.run.deathFrom, undefined);
+    assert.equal(f.run.cinematic, false, `${role}/${hp01}: living hull keeps its ordinary camera`);
+  }
 });
 
 test('late boss death cannot replace defeat; victory remains its own finale and HUD restoration stays owned', t => {

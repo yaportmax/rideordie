@@ -320,7 +320,7 @@ export class Leviathan {
       if (on) {
         const k = 1 - out / BOSS.flame.range;
         this.sim.damageCar(P, BOSS.flame.dps * k * dt * 0.6, { cause: 'fire', src: this.id });
-        for (const role of ['driver', 'gunner']) if (P.crew[role]?.alive && Math.random() < dt * 2) this.sim.damageCrew(P, role, BOSS.flame.dps * k * 0.2, { cause: 'fire', src: this.id });
+
       }
     }
   }

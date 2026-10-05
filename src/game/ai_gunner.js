@@ -128,7 +128,7 @@ export class AIGunner {
   update(dt, gunner, eye) {
     const run = this.run, sim = run.sim, P = run.player, c = this.cmd;
     c.fire = c.firePressed = c.reload = c.grenade = c.medkit = false; c.slot = -1; c.swap = 0; c.dYaw = 0; c.dPitch = 0; c.ads = false;
-    if ((sim.state !== 'run' && !celebrationActive(sim)) || !P.crew.gunner || !P.crew.gunner.alive) return c;
+    if ((sim.state !== 'run' && !celebrationActive(sim)) || !P.crew.gunner || P.dead || P.exploded) return c;
     this.retargetT -= dt; this.swapCd -= dt; this.nadeCd -= dt; this.rpgCd -= dt;
     // A destroyed/replaced encounter or a now-hidden armored weak point must
     // stop receiving fire immediately, even between reaction-time scans.
@@ -214,8 +214,8 @@ export class AIGunner {
       let bunch = 0; for (const car of sim.cars.values()) if (car.kind === 'enemy' && !car.exploded && car.veh.pos.distanceTo(t.car.veh.pos) < 9) bunch++;
       if (bunch >= 2) { c.grenade = true; this.nadeCd = 9; }
     }
-    // ---------------- medkit when the crew is hurting
-    const cr = P.crew; if ((cr.gunner.hp < cr.gunner.max * 0.28) || (cr.driver.alive && cr.driver.hp < cr.driver.max * 0.28)) c.medkit = true;
+    // ---------------- medkit when the shared hull is hurting
+    if (P.hp < P.maxHp * 0.28) c.medkit = true;
     return c;
   }
 }

@@ -240,16 +240,17 @@ test('a real registered ram boss clear retains clearing-batch cash and crashKill
   });
 });
 
-test('known defeat and a simultaneous fatal crew hit cannot become a later celebration', async () => {
+test('known defeat and a simultaneous fatal hull hit cannot become a later celebration', async () => {
   for (const phase of ['run', 'dying', 'over']) {
     await fixture({ bossApproach: true }, ({ run, sim, player }) => {
-      sim.damageCrew(player, 'gunner', 1e9, { src: 2, cause: 'bullet' });
-      if (phase !== 'run') { sim.state = phase; sim.result = { why: 'gunner' }; }
+      sim.damageCar(player, player.hp + 1, { src: 2, cause: 'bullet' });
+      assert.equal(player.hp, 0); assert.equal(player.dead, true); assert.equal(player.exploded, true);
+      if (phase !== 'run') { sim.state = phase; sim.result = { why: 'car' }; }
       sim.director._journeyBosses(sim, player, .3);
       for (const boss of sim.director.activeElite.cars) sim.explodeCar(boss, 'bullet', 1);
       sim.director._journeyBosses(sim, player, .3); sim._runState(DT);
       assert.equal(run._beginVictoryPresentation(), false); assert.equal(sim.victoryPresentation, false);
-      assert.equal(sim.result.why, 'gunner'); assert.equal(sim.won, false);
+      assert.equal(sim.result.why, 'car'); assert.equal(sim.won, false);
     });
   }
 });
@@ -359,7 +360,7 @@ test('gunner viewer accepts only same-journey authoritative presentation, follow
 });
 
 test('viewer reliable loss/negative final summary rejects a late presentation proof', () => {
-  for (const loss of [{ _defeatWhy: 'gunner' }, { remoteSummary: { won: false, cause: 'GUNNER KILLED' } }, { summary: { cause: 'DRIVER KILLED' } }]) {
+  for (const loss of [{ _defeatWhy: 'car' }, { remoteSummary: { won: false, cause: 'TRUCK DESTROYED' } }, { summary: { cause: 'TRUCK DESTROYED' } }]) {
     const run = { journey: { mode: 'campaign', level: 1 }, simState: 'dying', states: new Map(), ...loss };
     rememberDefeat(run, [{ t: 'victoryPresentation', mode: 'campaign', level: 1 }]);
     assert.equal(run.victoryPresentation, undefined); assert.equal(victoryPresenting(run), false);
@@ -368,10 +369,10 @@ test('viewer reliable loss/negative final summary rejects a late presentation pr
 
 test('viewer reliable loss after a valid proof clears stored celebration and restores actual defeat camera and nonfiring control dispatch', () => {
   for (const message of [
-    { t: 'events', e: [{ t: 'playerDown', why: 'gunner' }] },
+    { t: 'events', e: [{ t: 'playerDown', why: 'car' }] },
     { t: 'events', e: [{ t: 'runOver', why: 'car' }] },
-    { t: 'summary', s: { won: false, cause: 'GUNNER KILLED' } },
-    { t: 'summary', s: { won: true, cause: 'DRIVER KILLED' } },
+    { t: 'summary', s: { won: false, cause: 'TRUCK DESTROYED' } },
+    { t: 'summary', s: { won: true, cause: 'TRUCK DESTROYED' } },
   ]) {
     const sent = [], profile = DEFAULT_PROFILE();
     profile.weapons.smg = { dmg: 0, mag: 0, rel: 0, hnd: 0 }; profile.loadout = ['smg', 'pistol'];
@@ -393,7 +394,7 @@ test('viewer reliable loss after a valid proof clears stored celebration and res
       assert.equal(victoryPresenting(run), true); assert.equal(run.victoryPresentation, true);
       // Casual terminal snapshots cannot reveal reliable-event ordering and
       // must not erase the earlier proof by themselves.
-      run.simState = 'dying'; state.gunnerAlive = false;
+      run.simState = 'dying'; state.hp01 = 0; state.dead = true; state.exploded = true;
       rememberDefeat(run); assert.equal(victoryPresenting(run), true); assert.equal(run.victoryPresentation, true);
       state.gunner = { ...state.gunner, yaw: .9, pitch: -.2, ads: true, weapon: 1, reloading: true };
       run.gunner.yaw = -.5; run.gunner.pitch = 0;

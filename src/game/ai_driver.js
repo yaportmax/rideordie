@@ -126,8 +126,7 @@ export class AIDriver {
       const behind = P.s - car.s;
       if (behind > 4 && behind < 22 && Math.abs(car.d - P.d) < 3) { if (this.oilCd <= 0) { c.special1 = true; this.oilCd = 7; } else if (this.mineCd <= 0) { c.special2 = true; this.mineCd = 5; } }
     }
-    const crew = P.crew;
-    if ((crew.driver.alive && crew.driver.hp < crew.driver.max * 0.3) || (crew.gunner && crew.gunner.alive && crew.gunner.hp < crew.gunner.max * 0.3)) c.medkit = true;
+    if (!P.dead && !P.exploded && P.hp < P.maxHp * 0.3) c.medkit = true;
     // ---------------- stuck / flipped: flipped => free flip-back; wedged upright => back out and re-aim
     if (this.reverseT > 0) {
       this.reverseT -= dt;

@@ -7,6 +7,7 @@ import { makeCarState, stateFromCar } from '../src/view/car_state.js';
 import { encodeSnapshot, decodeSnapshot, SnapshotBuffer } from '../src/net/snapshot.js';
 import { createRunHeader, encodeRunPacket, decodeRunPacket, NET_PROTOCOL } from '../src/net/run_packet.js';
 import { WorldView } from '../src/game/world_view.js';
+import { canCaptureRun, defeatReason } from '../src/game/run_status.js';
 
 const GUN_NAMES = { gunner: 'rifle', gunner2: 'smg', gunner3: 'shotgun', gunner4: 'mg' };
 const close = (a, b, epsilon = .00021) => assert.ok(Math.abs(a - b) < epsilon, `${a} agrees with ${b}`);
@@ -43,6 +44,27 @@ function materialize(bytes) {
   return { decoded, buffer };
 }
 
+test('actual tiny positive hull snapshot rounds to zero without disabling a living player seat', () => {
+  const car = carFixture('truck_t1', 1);
+  car.hp = car.maxHp / 1024;
+  car.crew.driver.alive = car.crew.gunner.alive = false;
+  const encode = state => encodeSnapshot({ cars: new Map([[car.id, car]]), time: .25, state,
+    projectiles: { rockets: [], grenades: [] }, boss: null }, 30,
+  { hp01: car.hp / car.maxHp, dhp01: 1, ghp01: 1, nitro01: .25, dist: 40, medkits: 2 });
+  const { decoded, buffer } = materialize(encode('run'));
+  const st = buffer.states.get(1);
+  assert.ok(car.hp > 0); assert.equal(decoded.hp01, 0); assert.equal(st.hp01, 0);
+  assert.equal(st.dead, false); assert.equal(st.exploded, false);
+  const run = { playerId: 1, role: 'gunner', humanDriver: false, humanGunner: true,
+    started: true, over: false, simState: decoded.state, states: buffer.states };
+  assert.equal(defeatReason(run), null); assert.equal(canCaptureRun(run), true);
+  car.hp = 0; car.dead = car.exploded = true;
+  const terminal = materialize(encode('dying'));
+  run.states = terminal.buffer.states; run.simState = terminal.decoded.state;
+  assert.equal(run.states.get(1).dead, true); assert.equal(run.states.get(1).exploded, true);
+  assert.equal(defeatReason(run), 'wrecked'); assert.equal(canCaptureRun(run), false);
+});
+
 test('the production warwagon has four independent crew and identical local/remote hit zones', () => {
   const car = carFixture(), st = stateFromCar(car, 1, makeCarState(car.id, car.spec.id, car.kind));
   const ghost = new GhostCar(st); ghost.sync(st);
@@ -71,7 +93,7 @@ test('optional v4 carries all four distinct aim, fire, alive and weapon states w
   const ordinaryBytes = packet([ordinary]); assert.equal(new Uint8Array(ordinaryBytes)[0], 3);
   const bytes = packet([car, ordinary]); assert.equal(new Uint8Array(bytes)[0], 4);
   const { decoded, buffer } = materialize(bytes), st = buffer.states.get(car.id);
-  assert.equal(decoded.cars.length, 2); assert.equal(NET_PROTOCOL, 7);
+  assert.equal(decoded.cars.length, 2); assert.equal(NET_PROTOCOL, 8);
   assert.equal(st.poseRevision, 37); assert.equal(st.nitroRechargeLocked, true);
   assert.equal(st.nWheels, car.spec.wheels.length);
   for (const role of GUNNER_ROLES) {

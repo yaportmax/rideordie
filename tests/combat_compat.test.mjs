@@ -146,13 +146,13 @@ test('actual Session/App/Run nuke routing uses frozen driver ownership and rejec
   }
 });
 
-test('combat protocol7 explicitly rejects published protocol6 in both local host modes without changing life framing', async () => {
-  assert.equal(NET_PROTOCOL, 7); assert.equal(RUN_JSON_TYPES.has('nuke'), true);
+test('shared-hull combat protocol8 explicitly rejects prior protocol7 in both local host modes without changing life framing', async () => {
+  assert.equal(NET_PROTOCOL, 8); assert.equal(RUN_JSON_TYPES.has('nuke'), true);
   for (const isHost of [true, false]) {
     const p = personal(isHost ? 'host-old-peer' : 'guest-old-peer', 900), tp = new MemoryTransport(p.memory), session = new Session(tp);
     if (isHost) await session.host(p.profile); else await session.join('ABCDE', p.profile);
     const errors = []; session.on({ error: error => errors.push(error) }); inStore(p.memory, () => tp.onOpen());
-    inStore(p.memory, () => tp.onMessage({ t: 'hello', protocol: 6, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL,
+    inStore(p.memory, () => tp.onMessage({ t: 'hello', protocol: 7, garageSeats: GARAGE_SEAT_PROTOCOL, familyVehicles: PLAYER_VEHICLE_PROTOCOL, eliteVehicles: ELITE_VEHICLE_PROTOCOL,
       drivingRoutes: DRIVING_ROUTE_VERSION, campaignProtocol: CAMPAIGN_PROTOCOL, name: 'Published old peer', wallet: { playerId: 'old-peer', cash: 500, totalCash: 500 } }));
     assert.equal(session.connected, false); assert.equal(session.activeRunId, null); assert.equal(session.peerWallet, null);
     assert.equal(session.canStart(), false); assert.equal(session.startRun(), null); assert.equal(tp.closedConnections, 1);
@@ -182,8 +182,8 @@ test('actual ordinary/nuke terminal cash settles both named personal wallets onc
         assert.equal(viewer.run._requestNuke(), true); await flush();
         const cleared = sim.drainEvents(); assert.ok(cleared.some(event => event.t === 'kill' && event.id === target.id && event.nukeDerived));
         authority.run._simEventsToRun(cleared); assert.ok(authority.run.cash > ordinaryCash);
-        sim.damageCrew(player, 'gunner', player.crew.gunner.hp + 1, { cause: 'bullet', src: 2 }); sim._runState(DT);
-        assert.equal(sim.result.why, 'gunner');
+        sim.damageCar(player, player.hp + 1, { cause: 'bullet', src: 2 }); sim._runState(DT);
+        assert.equal(sim.result.why, 'car');
         const summary = authority.run.buildSummary(false); assert.equal(summary.bestStreak, 20);
         assert.equal(summary.breakdown.find(line => line.label === 'RAIDERS WRECKED').amount, authority.run.cash);
         f.authority.sendJSON({ t: 'summary', s: summary }); await flush(); assert.deepEqual(viewer.run.remoteSummary, summary);

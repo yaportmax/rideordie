@@ -30,7 +30,7 @@ test('actual supported branch-to-main recovery clears route metadata before the 
     assert.equal(car.route, branch.id, 'initial cache comes from the actual occupied fork');
     assert.equal(car.routeHalfWidth, branch.width / 2);
     const hp = car.hp - 40; car.hp = hp;
-    const crew = [car.crew.driver.hp, car.crew.gunner.hp], revision = v.poseRevision || 0;
+    const revision = v.poseRevision || 0;
     sim.stats.cash = 234; sim.stats.distance = s + 77;
     // A controlled void placement exercises the production recovery boundary,
     // actual collider search, relocation, damage policy and cached metadata.
@@ -40,7 +40,7 @@ test('actual supported branch-to-main recovery clears route metadata before the 
     assert.ok(Math.abs(car.s - s) <= 60 && Math.abs(car.d) <= 2.7);
     assert.equal(v.poseRevision, (revision + 1) & 0xffff);
     assert.equal(car.hp, hp - car.maxHp * .04);
-    assert.deepEqual([car.crew.driver.hp, car.crew.gunner.hp], crew);
+    for (const crew of Object.values(car.crew)) { assert.equal(crew.hp, car.hp); assert.equal(crew.max, car.maxHp); assert.equal(crew.alive, true); }
     assert.equal(sim.stats.cash, 234); assert.equal(sim.stats.distance, s + 77);
     assert.equal(sim.events.filter(e => e.t === 'groundRecovered').length, 1);
     const gy = st.roadHeightAt(car.s, v.pos.x, v.pos.z, v.pos.y + 2);

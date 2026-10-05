@@ -33,7 +33,11 @@ test('world-view pose caches stay independent and refresh weapon, crew and local
   world.update(1 / 60, states, [], { cameraPos: ctx.cameraPos, playerWeaponId: 'shotgun' });
   const current = updates.filter((u) => u.id === 1 && u.role === 'gunner').at(-1);
   assert.equal(current.pose, oldPose); assert.equal(current.values.weaponId, 'shotgun'); assert.equal(current.values.local, null);
-  assert.equal(current.values.alive, false); assert.equal(current.values.fire, false); assert.equal(current.values.bedX, 0);
+  assert.equal(current.values.alive, true, 'obsolete player crew flags cannot kill a living hull'); assert.equal(current.values.fire, false); assert.equal(current.values.bedX, 0);
+  states.get(1).dead = true;
+  world.update(1 / 60, states, [], { cameraPos: ctx.cameraPos, playerWeaponId: 'shotgun' });
+  const terminal = updates.filter((u) => u.id === 1 && u.role === 'gunner').at(-1);
+  assert.equal(terminal.pose, oldPose); assert.equal(terminal.values.alive, false, 'authoritative hull terminal flag still updates the cached pose');
   assert.equal(records.get(2).crewEntries.length, 3);
 });
 

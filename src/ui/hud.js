@@ -172,7 +172,7 @@ export class Hud {
     if (this.defeatWhy === why) return;
     this.defeatWhy = why;
     const e = this.q.defeat;
-    const cause = why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED';
+    const cause = why === 'car' ? 'TRUCK DESTROYED' : 'WRECKED';
     e.textContent = why ? `RUN ENDED · ${cause}` : ''; e.style.display = why ? 'block' : 'none';
     if (why) { this.q.boss.style.display = 'none'; this.q.combatReady.style.display = 'none'; this.q.combatCombo.style.opacity = 0; this.combatT = 0; this.combatNukeCue = false; }
   }
@@ -206,7 +206,7 @@ export class Hud {
     if (d.weapon !== undefined) { q.wname.textContent = d.weapon; q.mag.textContent = d.reloading ? 'RELOAD' : d.mag; q.mag.style.fontSize = d.reloading ? '34px' : ''; }
     if (d.boss && !this.defeatWhy) { q.boss.style.display = 'block'; q.bossbar.style.transform = `scaleX(${clamp(d.boss.hp01, 0, 1)})`; q.bossbar.style.transformOrigin = 'left'; q.bossname.textContent = d.boss.name; } else q.boss.style.display = 'none';
     if (this.vigT > 0) { this.vigT = Math.max(0, this.vigT - dt * 1.4); }
-    const hpLow = Math.min(d.hp01, this.gunnerOn ? d.ghp01 ?? 1 : 1);   // the gunner's own health counts too
+    const hpLow = d.hp01;
     const lowHp = hpLow < 0.3 ? (0.22 + 0.2 * (1 - hpLow / 0.3)) * (0.75 + 0.25 * Math.pow(Math.abs(Math.sin(performance.now() / 420)), 6)) : 0;
     q.vig.style.opacity = Math.max(this.vigT, lowHp);
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT < 0.4) q.msg.style.opacity = Math.max(0, this.msgT / 0.4); }

@@ -73,6 +73,21 @@ export class Car {
     this.resist = 1;
     this.crashCooldown = 0;
     this.visual = {}; // per-car view scratch
+    if (kind === 'player') {
+      // The player's only health pool is the hull. Legacy HUD/snapshot and
+      // crew-repair consumers can still read hp/max/alive, but cannot create
+      // a second life or heal the shared hull again through a crew assignment.
+      // Enemy crews retain their independent writable health/death state.
+      const hullAlive = () => this.hp > 0 && !this.dead && !this.exploded;
+      const ignoreLegacyCrewHealthWrite = () => {};
+      for (const crew of Object.values(this.crew)) Object.defineProperties(crew, {
+        hp: { enumerable: true, get: () => Math.max(0, this.hp), set: ignoreLegacyCrewHealthWrite },
+        max: { enumerable: true, get: () => this.maxHp, set: ignoreLegacyCrewHealthWrite },
+        alive: { enumerable: true, get: hullAlive, set: ignoreLegacyCrewHealthWrite },
+      });
+      Object.defineProperty(this.veh, 'driverAlive', { enumerable: true, get: hullAlive, set: ignoreLegacyCrewHealthWrite });
+      Object.defineProperty(this, 'driverless', { enumerable: true, get: () => !hullAlive(), set: ignoreLegacyCrewHealthWrite });
+    }
   }
 
   get pos() { return this.veh.pos; }

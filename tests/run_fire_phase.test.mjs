@@ -297,12 +297,12 @@ test('deferred pistol and shotgun fire retain trigger-edge, cooldown and pump be
   }
 });
 
-test('a reliable partner defeat received before the next snapshot stops actual guest shots, reloads and kit requests', () => {
+test('a reliable hull defeat received before the next snapshot stops actual guest shots, reloads and kit requests', () => {
   const f = runFixture({ peer: 'guest' }); let toggles = 0;
   f.run.gcam.toggle = () => { toggles++; };
   f.step({ fire: true, firePressed: true }); assert.equal(f.run.gunner.shots, 1);
   const sentBefore = f.packets.length, magazine = f.run.gunner.magNow, grenades = f.run.gunner.grenades;
-  f.run.onNet({ t: 'events', e: [{ t: 'playerDown', why: 'driver' }] });
+  f.run.onNet({ t: 'events', e: [{ t: 'playerDown', why: 'car' }] });
   assert.equal(f.run.simState, 'run'); assert.equal(f.run.states.get(1).gunnerAlive, true);
   f.run.gunner.fireT = 0;
   f.step({ fire: true, firePressed: true });
@@ -313,5 +313,5 @@ test('a reliable partner defeat received before the next snapshot stops actual g
     assert.notEqual(packet.t, 'medkit'); assert.notEqual(packet.t, 'grenade'); assert.notEqual(packet.t, 'shotfx');
     if (packet.t === 'g') assert.equal(packet.f, 0);
   }
-  assert.equal(f.run.defeatReason, 'driver');
+  assert.equal(f.run.defeatReason, 'car');
 });

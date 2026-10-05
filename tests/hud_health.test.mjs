@@ -143,14 +143,17 @@ test('missing-player fallback works without crew HP and keeps finite truck and v
   });
 });
 
-test('hiding crew bars preserves the gunner low-health vignette without changing the truck bar', () => {
+test('only low truck health drives the persistent health vignette for either role', () => {
   withHud(hud => {
-    const data = Object.freeze(state({ hp01: .75, dhp01: 1, ghp01: .05 }));
+    const data = Object.freeze(state({ hp01: .75, dhp01: 0, ghp01: 0 }));
     hud.show({ driver: true, gunner: false }); hud.update(1 / 60, data);
     assert.equal(hud.q.vig.style.opacity, 0);
     hud.show({ driver: false, gunner: true }); hud.update(1 / 60, data);
-    assert.ok(Number(hud.q.vig.style.opacity) > 0);
+    assert.equal(hud.q.vig.style.opacity, 0);
     assert.equal(hud.q.hp.style.transform, 'scaleX(0.75)');
+    hud.update(1 / 60, state({ hp01: .05, dhp01: 1, ghp01: 1 }));
+    assert.ok(Number(hud.q.vig.style.opacity) > 0);
+    assert.equal(hud.q.hp.style.transform, 'scaleX(0.05)');
     assertOnlyCar(hud);
   });
 });
@@ -161,7 +164,7 @@ test('persistent defeat status survives transient messages and resets for the ne
     assert.equal(status, hud.q.defeat); assert.equal(status.attributes.role, 'status');
     const activeBoss = { name: 'THE LEVIATHAN', hp01: .5 };
     hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block');
-    for (const [why, text] of [['car', 'TRUCK DESTROYED'], ['driver', 'DRIVER KILLED'], ['gunner', 'GUNNER KILLED'], ['wrecked', 'WRECKED']]) {
+    for (const [why, text] of [['car', 'TRUCK DESTROYED'], ['wrecked', 'WRECKED']]) {
       hud.setDefeat(why); assert.equal(status.textContent, `RUN ENDED · ${text}`); assert.equal(status.style.display, 'block');
       assert.equal(hud.q.boss.style.display, 'none', 'terminal transition hides the overlapping boss immediately');
       hud.message('OTHER COMBAT EVENT', 20); hud.update(1, state({ hp01: .6, boss: activeBoss }), false);
@@ -171,7 +174,7 @@ test('persistent defeat status survives transient messages and resets for the ne
     hud.setDefeat(null); assert.equal(status.style.display, 'none'); assert.equal(status.textContent, '');
     hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block');
     assert.equal(hud.q.bossbar.style.transform, 'scaleX(0.5)', 'live boss presentation restores through normal updates');
-    hud.setDefeat('gunner'); hud.show({ driver: false, gunner: true });
+    hud.setDefeat('car'); hud.show({ driver: false, gunner: true });
     assert.equal(status.style.display, 'none'); assert.equal(status.textContent, ''); assertOnlyCar(hud);
     hud.update(1 / 60, state({ boss: activeBoss })); assert.equal(hud.q.boss.style.display, 'block', 'fresh run restores normal boss HUD');
   });

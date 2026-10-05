@@ -460,8 +460,8 @@ export class Run {
     // Advance controls first; firing waits for this frame's camera and posed gun.
     if (this.gunner && pst && (this.sim || !this.victoryPresentation)) {
       const carYaw = Math.atan2(_f.set(0, 0, 1).applyQuaternion(pst.quat).x, _f.z);
-      this.gunner.crewAlive = pst.gunnerAlive;
-      if (!pst.gunnerAlive || ((this.sim ? this.sim.state : this.simState) !== 'run' && !victoryPresenting(this)) || isDefeated(this)) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
+      this.gunner.crewAlive = !pst.dead && !pst.exploded;
+      if (!this.gunner.crewAlive || ((this.sim ? this.sim.state : this.simState) !== 'run' && !victoryPresenting(this)) || isDefeated(this)) { cmds.gunner.fire = false; cmds.gunner.firePressed = false; cmds.gunner.reload = false; cmds.gunner.grenade = false; }
       if (this.humanGunner && !this.victoryPresentation && g.input.lastDevice === 'pad' && (g.aimAssist ?? true)) {
         this.gunner.assist(cmds.gunner, dt, { position: g.camera.position, dir: this.camDir }, this._assistTargets(), pst.vel);
       }
@@ -554,7 +554,7 @@ export class Run {
       else if (e.t === 'bossPhase' || e.t === 'bossBeat') { this.banner.bossBeat(e); if (e.phase === 3 && !(this.lastPulse > this.time - 2)) { this.pulseT = 1.1; this.lastPulse = this.time; } }   // reactor exposed: a beat of slow-mo
       else if (e.t === 'bossPart' && e.label) g.hud.feed(`${e.label} DESTROYED`, '#ffc21a');
       else if (e.t === 'repair' && e.supply) {
-        g.hud.feed('SUPPLY CACHE: TRUCK REPAIRED, CREW HEALED, KIT RESTOCKED', '#7fdc7f');
+        g.hud.feed('SUPPLY CACHE: TRUCK REPAIRED, KIT RESTOCKED', '#7fdc7f');
         this.medkits = Math.max(this.medkits || 0, this.effects.medkits || 0);                 // (the gunner's own peer restocks too)
         if (this.gunner) this.gunner.grenades = Math.max(this.gunner.grenades, this.effects.grenades || 0);
       }
@@ -981,8 +981,8 @@ export class Run {
       weapon: this.gunner ? this.gunner.weapon.name : undefined, mag: this.gunner ? this.gunner.magNow : 0, reloading: this.gunner ? this.gunner.reloading : false,
       showDriver: this.role !== 'gunner',
     };
-    if (P) { d.nitro01 = P.veh.nitro / Math.max(0.001, P.veh.nitroMax); d.dhp01 = P.crew.driver.hp / P.crew.driver.max; d.ghp01 = P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1; }
-    else if (this.hud && this.hud.dhp01 !== undefined) { d.dhp01 = this.hud.dhp01; d.ghp01 = this.hud.ghp01; d.nitro01 = this.hud.nitro01; d.hp01 = this.hud.hp01; }
+    if (P) { d.nitro01 = P.veh.nitro / Math.max(0.001, P.veh.nitroMax); }
+    else if (this.hud && this.hud.hp01 !== undefined) { d.nitro01 = this.hud.nitro01; d.hp01 = this.hud.hp01; }
     d.arrows = this.threatHud ? [] : this._threatArrows(pst); // the ThreatHUD chevrons replace the old edge arrows
     if (this.gunner && this.humanGunner && this.role !== 'driver') { d.gunner = this.gunner; d.events = this.allEvents; d.cam = this.g.camera; d.playerId = this.playerId; }   // GunnerHud
     return d;
@@ -1039,7 +1039,7 @@ export class Run {
     const why = sim.result?.why;
     return {
       id: this.id, won, journey, levelCleared, cash: total, breakdown: lines, distance: dist, startS: this.cfg.startS ?? 40, furthestS: st.distance, time: elapsed, kills: st.kills, crashKills: st.crashKills || 0,
-      bestStreak: sim.combat?.best ?? this.bestMulti ?? 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : why === 'driver' ? 'DRIVER KILLED' : why === 'gunner' ? 'GUNNER KILLED' : 'WRECKED',
+      bestStreak: sim.combat?.best ?? this.bestMulti ?? 0, shots: this.shots, hits: st.hits, cause: won ? 'VICTORY' : why === 'car' ? 'TRUCK DESTROYED' : 'WRECKED',
       biome: journey.mode === 'legacy' ? BIOMES[(sim.road || this.road)?.biomeAt?.(st.distance)?.a || biomeAt(st.distance).a].name : TEN_LEVELS[((sim.road || this.road)?.journeyLevelAt?.(st.distance) ?? journey.level) - 1].name, minibosses: this.minibossesKilled || [],
     };
   }
@@ -1050,7 +1050,7 @@ export class Run {
     if (this.snapAcc >= 1 / 30) {
       this.snapAcc = consumeCadence(this.snapAcc);
       const P = this.player;
-      const bossHud = this._bossHud(); const hud = { bossId: bossHud.id, bossHp01: bossHud.hp01, hp01: P.hp / P.maxHp, dhp01: P.crew.driver.hp / P.crew.driver.max, ghp01: P.crew.gunner ? P.crew.gunner.hp / P.crew.gunner.max : 1, nitro01: P.veh.nitro / Math.max(0.001, P.veh.nitroMax), cash: this.cash, kills: this.sim.stats.kills, streak: this.sim.stats.streak, level: this.sim.director.level, dist: P.s, medkits: this.medkits };
+      const bossHud = this._bossHud(); const hud = { bossId: bossHud.id, bossHp01: bossHud.hp01, hp01: P.hp / P.maxHp, dhp01: 1, ghp01: 1, nitro01: P.veh.nitro / Math.max(0.001, P.veh.nitroMax), cash: this.cash, kills: this.sim.stats.kills, streak: this.sim.stats.streak, level: this.sim.director.level, dist: P.s, medkits: this.medkits };
       this.net.sendFast(encodeSnapshot(this.sim, this.sim.tick, hud));
     }
     const out = this.events.filter((e) => !e.remote && !e.localOnly);

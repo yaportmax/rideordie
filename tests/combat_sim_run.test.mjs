@@ -139,8 +139,8 @@ test('actual configured Sim rejects countdown/dead/terminal hit packets before a
   await withSim((sim, player) => {
     const target = sim.spawnCar('e_sedan', { s: 80 }), hit = report(target), hp = target.hp;
     for (const state of ['countdown','dying','over']) { sim.state = state; assert.equal(sim.applyHit(hit), false); assert.equal(target.hp, hp); assert.equal(sim.hitGuard.shots.size, 0); }
-    sim.state = 'run'; player.crew.gunner.alive = false; assert.equal(sim.applyHit(hit), false); assert.equal(sim.hitGuard.shots.size, 0);
-    player.crew.gunner.alive = true; assert.equal(sim.applyHit(hit), true); assert.ok(target.hp < hp);
+    sim.state = 'run'; const playerHp = player.hp; player.hp = 0; assert.equal(sim.applyHit(hit), false); assert.equal(sim.hitGuard.shots.size, 0);
+    player.hp = playerHp; assert.equal(sim.applyHit(hit), true); assert.ok(target.hp < hp);
   });
 });
 
@@ -393,6 +393,6 @@ test('actual Run preserves ordinary kill cash once, pays nuke base once and rese
     const expected=Math.round((KILL_CASH[target.spec.id]||60)*(1+sim.director.level*ECONOMY.killLevel));
     assert.equal(run.cash-before,expected); assert.equal(run.multi,0); assert.equal(run.streakT,0); assert.equal(sim.combat.combo,0);
     sim.explodeCar(target,'nuke',1); run._simEventsToRun(sim.drainEvents()); assert.equal(run.cash-before,expected);
-    assert.ok(seen.feeds.at(-1).includes('NUKE')); assert.equal(NET_PROTOCOL,7); assert.equal(RUN_JSON_TYPES.has('nuke'),true);
+    assert.ok(seen.feeds.at(-1).includes('NUKE')); assert.equal(NET_PROTOCOL,8); assert.equal(RUN_JSON_TYPES.has('nuke'),true);
   });
 });

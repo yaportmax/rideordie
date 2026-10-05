@@ -289,14 +289,14 @@ test('the actual director never fills a full cap and consumes only the final nor
   });
 });
 
-test('dead driver, tilted truck and nonclosing contacts cannot plan a takedown', async () => {
+test('destroyed player hull, tilted truck and nonclosing contacts cannot plan a takedown', async () => {
   await withSim((sim, player, target) => {
     place(player, { vz: 30 }); place(target, { z: 5, vz: 40 }); target.hp = 1;
     assert.equal(planRamTakedown(sim, target, player, 1, 3), null);
     target.veh.preImpactVz = 0;
-    player.crew.driver.alive = false;
+    const playerHp = player.hp; player.hp = 0;
     assert.equal(planRamTakedown(sim, target, player, 1, 3), null);
-    player.crew.driver.alive = true; player.veh.up.y = 0.3;
+    player.hp = playerHp; player.veh.up.y = 0.3;
     assert.equal(planRamTakedown(sim, target, player, 1, 3), null);
     player.veh.up.y = 1; sim.state = 'death';
     assert.equal(planRamTakedown(sim, target, player, 1, 3), null);

@@ -10,6 +10,10 @@ import { addStaticBox } from '../src/sim/physics.js';
 import { Road } from '../src/world/road.js';
 import { Run } from '../src/game/run.js';
 
+function assertSharedHullCrew(car) {
+  for (const crew of Object.values(car.crew)) { assert.equal(crew.hp, car.hp); assert.equal(crew.max, car.maxHp); assert.equal(crew.alive, true); }
+}
+
 // Declared current-source pocket selected by the retained candidate probe.
 // The original public stuck-run seed is unknown. These coordinates are derived
 // from this road's real terrain and are not an exact live reproduction claim.
@@ -77,14 +81,14 @@ test('explicit neutral reset returns the real grounded mountain beach to asphalt
     for (const own of car.veh.colliders) sim.world.contactPairsWith(own, other => sim.world.contactPair(own, other, m => { actualHullContacts += m.numContacts(); }));
     assert.ok(actualHullContacts > 0, 'the selected real terrain pocket must physically contact the hull');
     const v = car.veh, originalS = car.s;
-    car.hp -= 15; car.crew.gunner.hp -= 7; car.engineHp = 61; car.fuelHp = 22;
+    car.hp -= 15; sim.damageCrew(car, 'gunner', 7, { cause: 'shot' }); car.engineHp = 61; car.fuelHp = 22;
     car.tireHp[0] = -1; v.wheels[0].flat = true; v.engineDamage = .39;
     v.nitro = .4; v.nitroRechargeLocked = true; v.nitroNeedsRelease = true; v.poseRevision = 65535;
-    const hp = car.hp, crew = Object.values(car.crew).map(c => c.hp), tires = [...car.tireHp];
+    const hp = car.hp, tires = [...car.tireHp];
     sim.stats.cash = 789; sim.stats.distance = originalS + 80;
     assert.equal(v.input.throttle, 0); assert.equal(v.input.brake, 0);
     assert.equal(sim.requestDitchRecovery(car), true, 'explicit reset needs no accelerator or automatic interval');
-    assert.equal(car.hp, hp - car.maxHp * .04); assert.deepEqual(Object.values(car.crew).map(c => c.hp), crew);
+    assert.equal(car.hp, hp - car.maxHp * .04); assertSharedHullCrew(car);
     assert.deepEqual(car.tireHp, tires); assert.equal(v.wheels[0].flat, true);
     assert.equal(car.engineHp, 61); assert.equal(car.fuelHp, 22); assert.equal(v.engineDamage, .39);
     assert.equal(v.nitro, .4); assert.equal(v.nitroRechargeLocked, true); assert.equal(v.nitroNeedsRelease, true);
@@ -105,7 +109,7 @@ test('actual Run reset hold uses the real Sim recovery after one continuous seco
   try {
     assertRealDitch(sim, st, car);
     const run = Object.create(Run.prototype); Object.assign(run, { player: car, sim, effects: {} });
-    const originalS = car.s, revision = car.veh.poseRevision, crew = Object.values(car.crew).map(c => c.hp);
+    const originalS = car.s, revision = car.veh.poseRevision;
     sim.stats.cash = 123; sim.stats.distance = originalS + 80;
     const frame = reset => { run._driverActions(DT, { reset }); sim.step(DT); };
     for (let i = 0; i < 119; i++) frame(true);
@@ -120,7 +124,7 @@ test('actual Run reset hold uses the real Sim recovery after one continuous seco
     }
     assert.equal(recovered(sim).length, 1); assert.equal(recovered(sim)[0].reason, 'ditch'); assert.equal(recovered(sim)[0].manual, true);
     assert.equal(sim.events.filter(e => e.t === 'unflip').length, 0, 'upright beached contact must use recovery, not the rolled-car path');
-    assert.equal(car.hp, hp - car.maxHp * .04); assert.deepEqual(Object.values(car.crew).map(c => c.hp), crew);
+    assert.equal(car.hp, hp - car.maxHp * .04); assertSharedHullCrew(car);
     assert.equal(sim.stats.cash, 123); assert.equal(sim.stats.distance, originalS + 80);
     assert.equal(car.veh.poseRevision, (revision + 1) & 0xffff);
     const gy = st.roadHeightAt(car.s, car.veh.pos.x, car.veh.pos.z, car.veh.pos.y + 2);
@@ -136,7 +140,7 @@ test('declared current-source Stage 4 beach above the void bound recovers only a
   try {
     assertRealDitch(sim, st, car);
     const v = car.veh, start = v.pos.clone(), originalS = car.s, hp = car.hp, priorFall = sim.stats.damageBy?.fall || 0;
-    const crew = Object.values(car.crew).map(c => c.hp), revision = v.poseRevision;
+    const revision = v.poseRevision;
     sim.stats.cash = 456; sim.stats.distance = originalS + 80;
     v.input.throttle = 1;
     // Production fixed steps establish the failed drive interval. Stop at the
@@ -155,7 +159,7 @@ test('declared current-source Stage 4 beach above the void bound recovers only a
     assert.equal(v.poseRevision, (revision + 1) & 0xffff);
     assert.deepEqual(v.prevPos.toArray(), v.pos.toArray()); assert.deepEqual(v.prevQuat.toArray(), v.quat.toArray());
     assert.ok(car.hp <= hp - car.maxHp * .04, 'recovery must not repair any actual prior contact damage');
-    assert.equal(sim.stats.damageBy.fall - priorFall, car.maxHp * .04); assert.deepEqual(Object.values(car.crew).map(c => c.hp), crew);
+    assert.equal(sim.stats.damageBy.fall - priorFall, car.maxHp * .04); assertSharedHullCrew(car);
     assert.equal(sim.stats.cash, 456); assert.equal(sim.stats.distance, originalS + 80);
     assert.equal(car._ditchRecovery, null);
     for (let i = 0; i < 240; i++) sim.step(DT);
